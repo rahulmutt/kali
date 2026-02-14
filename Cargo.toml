@@ -13,4 +13,5 @@ license = "MIT"
 anyhow = "1.0.101"
 clap = { version = "4.5.58", features = ["derive"] }
 clio = { version = "0.3.5", features = ["clap-parse"] }
+syn = { version = "2.0.115", features = ["full", "extra-traits"] }
 
