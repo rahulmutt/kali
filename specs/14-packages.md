@@ -63,8 +63,8 @@ Canonical early-phase code-resolution ladder:
    - browser-targeted profile (`kali check --api browser` and `kali build --bundle --api browser`): apply `browser` replacement map semantics first where applicable; then for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
    - Deno-oriented standalone profile (`--api deno`, Phase 1 default): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
    - later Node profile may add `node`-specific behavior before the generic fallback ladder when explicitly documented
-6. Resolve relative/file entries with extension probing (`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`).
-7. Classify the resolved file as ESM or CJS using Node-compatible signals (`.mjs` / `.cjs`, nearest `package.json#type`, and syntax where necessary).
+6. Resolve relative/file entries with extension probing (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`).
+7. Classify the resolved file as ESM or CJS using Node-compatible signals (`.mts` / `.mjs`, `.cts` / `.cjs`, nearest `package.json#type`, and syntax where necessary).
 
 Canonical `exports` condition order:
 
@@ -234,7 +234,7 @@ To keep the module system aligned with the single-artifact architecture and the 
 For registry packages, Kali should prefer the strongest sound information available without inventing fresh `any` merely to suppress analysis:
 1. Check the package's own `types` / `typings` field in `package.json`
 2. Apply `typesVersions` if present and relevant to the active resolution mode
-3. Check for bundled `.d.ts` files alongside `.js` files
+3. Check for bundled declaration files (`.d.ts`, `.d.mts`, `.d.cts`) alongside package source/entry files
 4. Check for `@types/<package>` in dependencies as a fallback when the package does not ship authoritative declarations
 5. If package source is available as JS/TS, run the normal Kali checker/inference pipeline on that package and synthesize module-boundary types from the result
 6. If Kali still cannot justify a precise exported type, fall back to `unknown` at the package boundary with a warning

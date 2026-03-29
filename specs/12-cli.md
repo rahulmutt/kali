@@ -64,7 +64,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
 - documenting a command-specific flag here does **not** imply it needs a separate feature-maturity row unless it changes a phase promise or machine-readable contract
-- build output-mode flags should not silently combine into ambiguous artifact contracts; in early phases `--bundle` and `--capi` are mutually exclusive, and unsupported combinations must fail explicitly rather than guessing which artifact set the user meant
+- build output-mode flags should not silently combine into ambiguous artifact contracts; in early phases `--bundle`, `--lib`, and `--capi` are mutually exclusive selectors, and unsupported combinations must fail explicitly rather than guessing which artifact set the user meant
 
 Config-array normalization rule:
 - `compilerOptions.runtimeProfiles` and `compat.features` are set-like lists, not ordered pipelines
@@ -169,7 +169,7 @@ Compatibility rule:
 ### `kali fmt [files...]`
 Format source files (implemented in `kali_fmt`).
 ```bash
-kali fmt                                   # Format all .ts/.js/.tsx/.jsx in project
+kali fmt                                   # Format all supported JS/TS source files in project (.ts/.tsx/.mts/.cts/.js/.jsx/.mjs/.cjs)
 kali fmt --check                           # Check formatting (CI mode, exit code 1 if unformatted)
 kali fmt main.ts                           # Format specific file
 ```

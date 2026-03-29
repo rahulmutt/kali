@@ -109,6 +109,10 @@ Direct binary emission without intermediate text format:
 
 Use the canonical artifact kinds from [specs/18-schemas.md](18-schemas.md) in CLI JSON output and embedding metadata.
 
+Early-phase output-mode rule:
+- `--bundle`, `--lib`, and `--capi` are mutually exclusive build output selectors
+- unsupported combinations must fail explicitly instead of guessing whether the user wanted an executable bundle, a library artifact, or a public embedding artifact set
+
 | Command | Output |
 |---------|--------|
 | `kali build foo.ts` | `foo.wasm` — Kali-hosted WASM module (`kind: wasm-module`) |
