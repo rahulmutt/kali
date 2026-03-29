@@ -74,7 +74,7 @@ Effective-context validation rule:
 | `--max-errors N` | diagnostic-producing commands | Cap reported errors (default: 50) |
 | `--color auto\|always\|never` | text-output commands | Color output control |
 | `--api deno\|node\|browser` | `check`, `effects`, `build`, `run`, `test` | Select host API surface; unsupported surfaces for the current command/profile must error explicitly (for example, early browser builds require `--bundle`) |
-| `--compat <feature[,feature...]>` | `check`, `effects`, `build`, `run`, `test` | Enable documented compatibility features such as `eval` only when that feature is implemented for the selected phase/profile |
+| `--compat <feature[,feature...]>` | `check`, `effects`, `build`, `run`, `test` | Enable documented compatibility features such as `eval` only when that feature is implemented for the selected phase/profile; in schema v1, `eval` also covers the `Function()` constructor path |
 | `--fast` | `build`, `run`, `test` | Fastest compile time, minimal optimization (default build mode) |
 | `--release` | `build`, `run`, `test` | Standard optimization profile |
 | `--release-advanced` | `build`, `run`, `test` | Aggressive optimization profile |
@@ -198,6 +198,7 @@ Canonical interpretation rules:
 - browser mode is valid early for `check` and for `build` only when the selected artifact mode is the browser bundle path. In practice that means the **effective API surface** may be `browser` for `check`, and for `build` only together with `--bundle`; standalone `run` still rejects browser mode, and `build` with an effective API surface of `browser` but without `--bundle` is treated as invalid command usage (`E5008`) until a later runtime profile/output contract explicitly supports that mode.
 - `--api node` is phase-gated consistently across `check`, `effects`, `build`, `run`, and `test`; early phases reject it with `E5006` rather than exposing a partial Node surface.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
+- in schema v1, `--compat eval` is the only stable compatibility-feature spelling and it gates both direct `eval` and `Function()`; the CLI should not invent a separate `--compat function-constructor` alias.
 - `--wasm-threads` selects a different runtime profile rather than a small optimization toggle. Until that threaded profile exists, the flag is rejected. After it exists, if the selected target/engine/profile cannot honor it, the command must still reject it explicitly instead of silently dropping thread support.
 - `--max-threads N` is meaningful only together with the threaded runtime profile. A non-zero thread cap without effective thread support must be rejected explicitly rather than ignored.
 

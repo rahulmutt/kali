@@ -21,6 +21,11 @@ Preferred execution modes:
 ### Optional Alternative Backend (Later Phase)
 An engine abstraction may be added later to support backends such as `wasmer` when there is a demonstrated embedding or platform need. This must not complicate the initial runtime design, and any added backend must preserve the same externally visible sandbox/resource/diagnostic contracts rather than introducing backend-specific semantics into user-facing behavior.
 
+Engine-choice simplification rule:
+- subsystem implementations may compare `wasmtime` and `wasmer` internally, but the public early-phase spec contract is standardized on `wasmtime`
+- no chapter should phrase engine choice as though Phase 1 leaves both backends equally normative
+- adding another backend later is an implementation-extension decision, not a license to fork the CLI, sandbox, or embedding contracts by engine
+
 ## Host-Guest Interface
 
 ### Host Adapter Modes
@@ -129,6 +134,10 @@ For async operations, Kali implements a single-threaded event loop:
 Implementation strategy:
 1. **Phases 1-3**: parse them, report the `Eval` effect, and reject them by default.
 2. **Phase 4**: support runtime compilation through a host callback (`eval_compile`) with conservative deoptimization of the surrounding scope, enabled via `--compat eval`.
+
+Compatibility-switch rule:
+- schema v1 keeps one stable compatibility-feature name, `eval`, for both direct `eval` and the `Function()` constructor path
+- runtime docs and diagnostics should therefore describe `Function()` as covered by `--compat eval` rather than implying a second independent switch
 
 Requirements for the Phase 4 path:
 - Treat all directly reachable locals as boxed/shared values

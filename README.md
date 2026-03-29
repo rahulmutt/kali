@@ -6,7 +6,8 @@ Early-phase headline assumptions:
 - browser support is **analysis/build first** (`check --api browser`, `build --bundle --api browser`)
 - broader Node compatibility is a **later ecosystem phase**, not an implied MVP promise
 - latest ECMA-262 grammar tracking does **not** imply blanket same-phase runtime support for every accepted feature
-- dynamic compatibility paths such as `eval` are part of the long-term contract, but remain explicitly phase-gated
+- dynamic compatibility paths such as `eval` and `Function()` are part of the long-term contract, but remain explicitly phase-gated behind the single schema-v1 compatibility switch `eval`
+- runtime/embedding behavior is standardized on **wasmtime first**; alternative WASM engines are a later extension, not an equal Phase-1 contract
 - build artifact modes follow one canonical matrix: default executable, browser bundle, a Phase-1 **base library** artifact, and later stable public C embedding / Component Model packages layered on that library contract
 
 ## Specification

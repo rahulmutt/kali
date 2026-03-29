@@ -189,6 +189,9 @@ An explicitly opted-in language/runtime compatibility escape hatch.
 Schema-v1 stable name:
 - `eval`
 
+Interpretation rule:
+- in schema v1, `eval` is the single stable compatibility-feature name for both direct `eval` and the `Function()` constructor path; Kali must not split those into separate flag/config names without an explicit later schema revision
+
 CLI spelling: `--compat eval`
 
 Config spelling: `compat.features`
@@ -506,6 +509,16 @@ Interpretation rules:
 - library-oriented modes omit any synthetic executable entry invocation, but still preserve ordinary ECMAScript module-instantiation semantics for top-level initialization when the host instantiates the module
 - WIT is an output detail of public library/embedding/component modes, not a separate selector
 - companion artifacts do not weaken the single linked-payload rule for the compiled program graph itself
+
+## Canonical WASM Engine Posture
+
+To resolve the bootstrap prompt's open choice between `wasmtime` and `wasmer` without letting subsystem docs drift:
+- **early-phase standardization is on `wasmtime`**
+- this keeps runtime behavior, sandboxing, and embedding contracts anchored to one pure-Rust engine first
+- a later engine abstraction may add `wasmer` or other backends only if they preserve the same user-visible sandbox/resource/diagnostic contracts
+- Kali remains **AOT-only** regardless of backend; an engine's internal translation or caching strategy is not permission for language-level JIT design
+
+This is the canonical top-level resolution of the engine choice so architecture/runtime docs do not each restate it differently.
 
 ## Canonical Host/API Summary
 

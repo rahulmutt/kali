@@ -60,8 +60,8 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | Broad npm compatibility for packages that expect more Node built-ins | Phase 3 target | Depends on broader `--api node` support beyond the Phase 1 package baseline |
 | Literal-string `import()` | Phase 3 target | Can be lowered to the already-linked graph without runtime WASM module linking |
 | Non-literal `import(expr)` | Later compatibility | Requires a dynamic host-mediated path and conservative effect handling |
-| `eval` | Phase 4 compatibility | Parsed and effect-tracked earlier, but full runtime support is deferred; compatibility path is `--compat eval` when implemented |
-| `Function()` constructor | Phase 4 compatibility | Same status as `eval` and uses the same compatibility switch |
+| `eval` | Phase 4 compatibility | Parsed and effect-tracked earlier, but full runtime support is deferred; compatibility path is the schema-v1 `--compat eval` switch when implemented |
+| `Function()` constructor | Phase 4 compatibility | Same status as `eval`; schema v1 intentionally reuses the same `--compat eval` switch instead of introducing a second compatibility-feature name |
 | Invocation arguments (`Deno.args`; later Node `process.argv`) | Phase 1 MVP | Treated as caller-supplied execution context rather than a separately policy-gated host capability in schema v1 |
 | Read-only environment access (`Deno.env.get`, `Deno.env.toObject`, policy-filtered host env view) | Phase 1 MVP | Needed for practical standalone compatibility while still fitting the sandbox model |
 | Read-only `Deno.permissions` facade (`query`-style granted/denied view only) | Phase 1 MVP | Exposes Kali sandbox state for compatibility without interactive permission escalation |
