@@ -192,6 +192,18 @@ CLI spelling: `--compat eval`
 
 Config spelling: `compat.features`
 
+### Analysis context
+The semantic analysis tuple shared by analysis-oriented workflows:
+- `apiSurface`
+- `runtimeProfiles`
+- `compat.features`
+
+Interpretation rules:
+- this is the compact cross-spec name for the semantic knobs that can change checking/effect results without changing artifact optimization mode
+- `buildMode` is intentionally **not** part of the analysis context in early phases
+- `package-effects` inherits this context from defaults/config instead of growing a second package-specific `--api` / `--compat` flag family
+- early `package-audit` is intentionally **context-free** and does not inherit this analysis context
+
 ### Direct-entry command
 A command that requires explicit entrypoint arguments and must not guess a project default entry.
 
@@ -297,6 +309,10 @@ Interpretation rules:
 - `install` remains profile-agnostic in early phases even when the project config contains host-analysis/runtime settings for other commands
 
 This table is the cross-spec simplification rule for statements like “inherits analysis context”, “ignores sandbox”, or “does not take `--api`”: other chapters should reference this participation model instead of drifting into near-duplicate command-by-command wording.
+
+Flag-family clarification:
+- in early phases, the CLI `--sandbox` flag belongs only to the canonical sandbox-aware commands (`run`, `test`, `check`, `build`)
+- commands that merely ignore top-level `kali.json#sandbox` do **not** thereby accept a CLI `--sandbox` flag; passing `--sandbox` to sandbox-agnostic or effect-reporting commands is invalid command usage (`E5008`) unless a later spec explicitly adds such a mode
 
 ## Canonical Source-File Sets
 
@@ -407,10 +423,10 @@ These commands report effect information, but do not become alternate policy-val
 - `package-effects`
 
 Interpretation rules:
-- they do **not** accept `--sandbox` in early phases
+- they do **not** accept `--sandbox` in early phases; passing it is invalid command usage (`E5008`)
 - top-level `kali.json#sandbox` is ignored for them rather than being treated as an error
 - `effects` reports over one explicit source entrypoint; `package-effects` reports over one explicit registry package
-- `package-effects` still inherits the effective analysis context (`apiSurface`, `runtimeProfiles`, `compat.features`)
+- `package-effects` still inherits the effective analysis context
 
 ### Sandbox-agnostic commands
 These commands do not participate in sandbox-policy attachment in early phases:

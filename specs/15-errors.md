@@ -197,12 +197,18 @@ Use `E5008` for cases such as:
 - `kali package-effects lodash react`
 - `kali package-effects --api browser lodash`
 - `kali package-effects --compat eval lodash`
+- `kali package-effects --sandbox kali.policy.json lodash`
 - `kali package-audit --api browser lodash`
 - `kali package-audit --compat eval lodash`
+- `kali package-audit --sandbox kali.policy.json lodash`
 - `kali package-audit` with no package argument
 - `kali package-audit lodash react`
 - `kali package-audit https://example.com/mod.ts`
 - `kali build --bundle --api node main.ts`
+- `kali install --sandbox kali.policy.json`
+- `kali fmt --sandbox kali.policy.json`
+- `kali lint --sandbox kali.policy.json`
+- `kali init --sandbox kali.policy.json`
 - conflicting artifact-mode selectors such as `--bundle --lib`, `--bundle --capi`, or `--lib --component`
 - other command-local flag/arity combinations that the CLI contract rejects independently of feature maturity
 

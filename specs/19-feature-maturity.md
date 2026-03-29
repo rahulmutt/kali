@@ -121,13 +121,17 @@ Interpretation rule:
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
 | `kali init` | Phase 1 MVP | Create the minimal canonical `kali.json` scaffold; for the default app template this should normally be just `{ "schemaVersion": 1 }` unless the chosen template needs more |
+| `kali init --sandbox kali.policy.json` | Rejected by default | `init` is sandbox-agnostic in early phases; scaffolding does not accept the runtime/build policy-attachment flag, so this is invalid usage (`E5008`) |
 | `kali init --lib` | Phase 1 MVP | Select a library-oriented project template only; it does not implicitly change the later `kali build` artifact mode |
 | `kali fmt` | Phase 1 MVP | Stable formatting command over the canonical project file set relevant to formatting, including declaration-only files |
+| `kali fmt --sandbox kali.policy.json` | Rejected by default | `fmt` is sandbox-agnostic in early phases; top-level config sandbox is ignored for it, and the CLI `--sandbox` flag is invalid usage (`E5008`) |
 | `kali lint` | Phase 1 MVP | Stable lint command with conservative autofix support over the canonical lintable project file set, including declaration-only files |
+| `kali lint --sandbox kali.policy.json` | Rejected by default | `lint` is sandbox-agnostic in early phases; top-level config sandbox is ignored for it, and the CLI `--sandbox` flag is invalid usage (`E5008`) |
 | `kali install` | Phase 1 MVP | Resolve/materialize dependency state and write `kali.lock` for the project's declared dependency source kinds; install is profile-agnostic in early phases and does not require separate per-`--api` installs |
 | `kali install foo bar` | Rejected by default | Early phases accept at most one explicit package argument for `install`; batch package adds require a later explicit mode, so this is invalid command usage (`E5008`) |
 | `kali install --dev` | Rejected by default | `--dev` modifies an explicit registry package target in early phases; using it without one is invalid command usage (`E5008`) |
 | `kali install --api ...` | Rejected by default | `install` is profile-agnostic in early phases, so `--api` is invalid command usage (`E5008`) rather than a second install mode |
+| `kali install --sandbox kali.policy.json` | Rejected by default | `install` is sandbox-agnostic in early phases; top-level config sandbox is ignored for it, but the CLI `--sandbox` flag is not accepted here and should fail with `E5008` |
 | `kali install https://...` | Phase 1 MVP | Explicitly pin/materialize a raw URL dependency into the shared lock/materialization model |
 | `kali install --dev https://...` | Rejected by default | `--dev` applies only to explicit registry-package targets in early phases; pairing it with a raw URL is invalid command usage (`E5008`) rather than a second raw-URL manifest mode |
 | `kali install --allow-scripts` | Opt-in only | Valid when the effective install graph includes at least one registry package; it permits lifecycle hooks for that registry portion of the graph during this invocation only |
@@ -189,6 +193,7 @@ Interpretation rule:
 | `kali package-effects lodash` under inherited `apiSurface=browser` | Phase 2 target | Reuses the same browser-targeted analysis/package-selection context as `kali check --api browser` once package-effect analysis exists, without introducing package-analysis-specific `--api` flags |
 | `kali package-effects --api ... lodash` | Rejected by default | Early package analysis inherits context from config/defaults instead of taking its own `--api` / `--compat` flag family, so this is invalid command usage (`E5008`) unless a later spec adds those flags |
 | `kali package-effects --compat eval lodash` | Rejected by default | Early package analysis inherits context from config/defaults instead of taking its own `--api` / `--compat` flag family, so this is invalid command usage (`E5008`) unless a later spec adds those flags |
+| `kali package-effects --sandbox kali.policy.json lodash` | Rejected by default | `package-effects` is a reporting command, not a second policy-validation entrypoint; top-level config sandbox is ignored for it, and the CLI `--sandbox` flag is invalid usage (`E5008`) |
 | `kali package-effects https://...` | Rejected by default | `package-effects` analyzes registry packages only; raw URLs belong to the project/import-graph workflow instead |
 | `kali package-audit` with no explicit package | Rejected by default | `package-audit` is a single-package registry-analysis command in early phases; omitting the package is invalid command usage (`E5008`) rather than an implicit whole-project audit mode |
 | `kali package-audit lodash` | Later compatibility | Tooling feature, not a Phase 1-2 compiler/runtime milestone; early `package-audit` is context-free, so inherited `apiSurface` / `buildMode` / `runtimeProfiles` / `compat.features` / top-level `sandbox` do not change its semantics |
@@ -196,6 +201,7 @@ Interpretation rule:
 | `kali package-audit https://...` | Rejected by default | `package-audit` is registry-package-oriented rather than a second raw-URL analysis path |
 | `kali package-audit --api ... lodash` | Rejected by default | Early `package-audit` intentionally stays a single-package registry tool and does not grow package-analysis-specific `--api` / `--compat` flags; using them is invalid command usage (`E5008`) unless a later spec adds them |
 | `kali package-audit --compat eval lodash` | Rejected by default | Early `package-audit` does not take package-analysis-specific `--api` / `--compat` flags; it stays a context-free registry tool, so this is invalid command usage (`E5008`) unless a later spec adds those flags |
+| `kali package-audit --sandbox kali.policy.json lodash` | Rejected by default | Early `package-audit` is a context-free registry tool; top-level config sandbox is ignored for it, and the CLI `--sandbox` flag is invalid usage (`E5008`) |
 | `kali install --allow-scripts <pkg>` | Opt-in only | Explicit one-shot escape hatch for packages that need lifecycle scripts; still reject native addons, binary/bootstrap-heavy packages, and `node-gyp`, and do not treat this as implied Node-runtime or project-sandbox support |
 | `--compat eval` | Phase 4 compatibility | Before runtime support exists, reject with `E5006` rather than parsing and silently ignoring the flag |
 | `--wasm-threads` | Later compatibility (opt-in only) | Reject with `E5006` until the threaded runtime profile exists; after that, still reject explicitly when unavailable on the selected target/engine |

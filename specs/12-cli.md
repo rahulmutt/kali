@@ -88,11 +88,16 @@ Effective-context validation rule:
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
 
 Package-analysis flag/context simplification:
-- follow the canonical command-context axis participation table in [SPEC.md](../SPEC.md)
+- follow the canonical command-context axis participation table and `analysis context` term in [SPEC.md](../SPEC.md)
 - `kali package-effects`, when implemented, intentionally does **not** grow its own parallel `--api` / `--compat` flag set in early phases; instead it records the inherited analysis context in `report.analysisContext`
 - that inherited package-effects context is limited to the semantic analysis axes (`apiSurface`, `runtimeProfiles`, `compat.features`); `buildMode` and `sandbox` remain non-semantic for the command in early phases
 - `kali package-audit` likewise stays a single-package registry tool in early phases and does **not** add package-analysis-specific `--api` / `--compat` flags before there is a documented need
 - unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and `sandbox` do not change its semantics
+
+Sandbox-flag clarification:
+- the CLI `--sandbox <policy>` flag is reserved for the canonical sandbox-aware commands: `run`, `test`, `check`, and `build`
+- commands that merely ignore top-level `kali.json#sandbox` still do **not** accept a CLI `--sandbox` flag in early phases
+- therefore `kali effects --sandbox ...`, `kali package-effects --sandbox ...`, `kali package-audit --sandbox ...`, `kali install --sandbox ...`, `kali fmt --sandbox ...`, `kali lint --sandbox ...`, and `kali init --sandbox ...` are all invalid command usage (`E5008`) unless a later spec explicitly adds such a mode
 
 Build-mode continuity rule:
 - these three build-mode names are stable from Phase 1 onward
@@ -426,12 +431,13 @@ By default, `kali package-effects` emits its native JSON payload directly, follo
 
 Analysis scope rule:
 - `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
-- in early phases, that context is inherited from the effective `kali.json` / default analysis settings rather than from package-specific `--api` / `--compat` flags
-- because the command intentionally reuses inherited context instead of growing a second near-duplicate flag family, `kali package-effects` does **not** take `--api` or `--compat` in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds those flags
+- in early phases, that analysis context is inherited from the effective `kali.json` / default analysis settings rather than from package-specific `--api` / `--compat` flags
+- because the command intentionally reuses inherited context instead of growing a second near-duplicate flag family, `kali package-effects` does **not** take `--api`, `--compat`, or `--sandbox` in early phases; passing any of them is invalid command usage (`E5008`) unless a later spec explicitly adds that mode
 - the inherited context is still subject to the normal maturity rules for that command; for example, if config selects `apiSurface = node`, `runtimeProfiles = ["wasm-threads"]`, or `compat.features = ["eval"]` before those analysis modes are supported, `kali package-effects` should fail with `E5006` rather than silently analyzing under some other context
 - inherited `apiSurface = browser` is the intended browser-targeted package-analysis path once `kali package-effects` exists in Phase 2; that keeps package analysis aligned with the same browser ambient/package-selection context used by `kali check --api browser`
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
 - the nested `report.entryPoints` field names those package-analysis roots using the shared effect-report schema
+- `--pretty` changes formatting only; if combined with `--output json`, it formats the outer command envelope while leaving the nested package-effect payload schema-identical
 
 ### `kali package-audit <package>`
 Security audit for one registry package.
@@ -450,7 +456,7 @@ kali package-audit lodash                  # Audit specific npm package
 kali package-audit jsr:@std/path           # Audit specific JSR package
 ```
 Additional flag-surface rule:
-- like `package-effects`, `package-audit` does **not** take package-analysis-specific `--api` or `--compat` flags in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds them
+- like `package-effects`, `package-audit` does **not** take package-analysis-specific `--api`, `--compat`, or `--sandbox` flags in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds them
 - unlike `package-effects`, early `package-audit` also does **not** inherit analysis context from `compilerOptions.apiSurface`, `compilerOptions.buildMode`, `compilerOptions.runtimeProfiles`, or `compat.features`; it remains a context-free registry tool
 - top-level `kali.json#sandbox` is likewise ignored by `package-audit`, matching the broader sandbox-agnostic command rule from [SPEC.md](../SPEC.md)
 
