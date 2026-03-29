@@ -38,7 +38,7 @@ To reduce drift across the spec set, these terms are canonical:
 
 - **API surface**: the host API family selected by CLI/config, e.g. `deno`, `node`, `browser`
 - **Build mode**: optimization level, one of `fast`, `release`, `release-advanced`
-- **Runtime profile**: semantic runtime capability profile, e.g. later `wasm-threads`
+- **Runtime profile**: semantic runtime capability profile orthogonal to API surface, e.g. the default single-threaded baseline or later `wasm-threads`
 - **Feature maturity**: phase/status classification defined in `specs/19-feature-maturity.md`
 - **Schema contract**: machine-readable JSON formats defined in `specs/18-schemas.md`
 - **Linked artifact model**: compile the resolved static graph into one linked WASM artifact rather than relying on runtime WASM module linking
@@ -132,6 +132,7 @@ These rules should be followed whenever the specs evolve:
 - Do not restate a conflicting phase decision outside `specs/19-feature-maturity.md`
 - Do not redefine JSON shapes outside `specs/18-schemas.md`
 - Prefer one canonical term over near-synonyms (`apiSurface`, `buildMode`, `runtimeProfiles` in config)
+- Keep **API surface** and **runtime profile** orthogonal: `deno` / `node` / `browser` are API-surface choices, while threading or other execution-capability knobs belong to runtime profiles
 - If a feature is parse-supported but not semantically implemented yet, say so explicitly
 - Prefer explicit rejection over undocumented emulation for unsupported behavior
 - Keep Phase 1 promises narrow, dependable, and testable

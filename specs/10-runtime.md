@@ -36,7 +36,10 @@ mod host {
     // Deno-oriented standalone filesystem/process surface
     fn fs_read(path_ptr: i32, path_len: i32) -> i32;
     fn fs_write(path_ptr: i32, path_len: i32, data_ptr: i32, data_len: i32) -> i32;
+    fn fs_stat(path_ptr: i32, path_len: i32, out_ptr: i32) -> i32;
+    fn fs_read_dir(path_ptr: i32, path_len: i32, out_ptr: i32) -> i32;
     fn env_get(key_ptr: i32, key_len: i32, val_ptr: i32) -> i32;
+    fn env_list(out_ptr: i32) -> i32;
     fn process_args(buf_ptr: i32) -> i32;
     fn process_pid() -> i32;
 
@@ -52,12 +55,13 @@ mod host {
 
 Interpretation rules:
 - `console`, timers, `fetch`, time, and randomness belong to the Phase 1 Web baseline and may exist across supported API surfaces.
-- `fs_read`, `fs_write`, `env_get`, `process_args`, and `process_pid` belong to the Deno/Node-oriented host surface, not to the shared Web baseline; browser-targeted builds must not assume they exist.
+- `fs_read`, `fs_write`, `fs_stat`, `fs_read_dir`, `env_get`, `env_list`, `process_args`, and `process_pid` belong to the Deno/Node-oriented host surface, not to the shared Web baseline; browser-targeted builds must not assume they exist.
 - Every registered host import is policy-aware; enabling an API surface does not bypass sandbox checks.
 - Unsupported imports for the current command/profile are not stubbed silently; code that requires them should fail with the canonical feature-maturity diagnostic.
 
 Later compatibility/embedding imports extend this set when the corresponding API surface is enabled:
 - `process_spawn(...)` for subprocess support
+- `env_set(...)` for mutable environment access once `effects.process.envWrite` is part of the enabled host surface
 - `process_exit(code)` for explicit termination control / embedding once the process-control contract is specified; this does **not** imply that `Deno.exit` is part of the Phase 1 API surface
 - `eval_compile(...)` only for the Phase 4 `--compat eval` path
 

@@ -82,7 +82,9 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali run --api deno main.ts` | Phase 1 MVP | Supported standalone runtime path |
 | `kali run --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands |
 | `kali run --api browser main.ts` | Rejected by default | Reject with `E5006`; browser is a check/build profile first |
+| `kali check --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node typing/global subset exists |
 | `kali check --api browser main.ts` | Phase 1 MVP | Supported browser-targeted analysis/profile |
+| `kali build --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for builds too |
 | `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`.wasm` + JS glue) |
 | `kali build --api browser main.ts` | Rejected by default | In early phases browser mode is a bundle/check profile, not a standalone non-bundled artifact mode |
 | `kali build --lib lib.ts` | Phase 1 MVP | Produce one linked library-style WASM artifact without automatic program start |
@@ -104,7 +106,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - One linked-artifact compile/run pipeline works end-to-end for TS and JS inputs.
 - `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
 - Browser-targeted `check --api browser` and `build --bundle --api browser` work without implying DOM runtime support.
-- `kali test` has the same early-phase host/profile rules as `kali run`: Deno-supported, Node phase-gated, browser rejected by default.
+- `kali check` / `build` / `run` / `test` all use the same early-phase API-surface maturity rules: Deno-supported, Node phase-gated, browser supported only for the documented browser-targeted check/bundle paths.
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
 - Package support works for the documented pure JS/TS, statically linkable subset.
@@ -157,11 +159,11 @@ This appendix separates the broad compatibility story into smaller tables so lan
 
 | Concern | Early canonical status | Notes |
 |---|---|---|
-| Deno-oriented standalone runtime | Phase 1 MVP | Default runtime profile |
+| Deno-oriented standalone API surface (`--api deno`) | Phase 1 MVP | Default API surface for standalone execution; typically paired with the baseline single-threaded runtime profile |
 | Browser-targeted `check` and `build --bundle` | Phase 1 MVP | Real browser host via emitted glue, not standalone browser emulation |
 | Standalone `run --api browser` | Rejected by default | No embedded browser engine |
-| Node API surface | Phase 3 target | Package-driven subset first |
-| Threaded runtime / `--wasm-threads` | Later compatibility (opt-in only) | Separate runtime profile |
+| Node API surface across `check` / `build` / `run` / `test` | Phase 3 target | Package-driven subset first; early phases reject `--api node` consistently rather than exposing a partial surface |
+| Threaded runtime profile / `--wasm-threads` | Later compatibility (opt-in only) | Runtime-profile switch, independent from API-surface selection |
 
 ### Packages and Ecosystem
 

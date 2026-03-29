@@ -43,9 +43,14 @@ Canonical `exports` condition order:
 | browser-targeted profile (`check --api browser`, `build --bundle --api browser`) | `browser`, then edge kind, then `default` |
 | later Node profile | `node`, then edge kind, then `default` |
 
+Phase-1 simplification:
+- only the canonical conditions above plus `default` are part of the early stable resolution contract
+- if a package's `exports` tree requires additional environment conditions to choose a branch faithfully, Kali should reject that edge with the canonical availability path instead of guessing bundler-specific precedence
+
 Important separation rules:
 - runtime/code resolution must not treat `types` as a normal execution condition
 - the Deno-oriented standalone surface should honor a package's explicit `deno` condition when present instead of behaving like an unspecified generic bundler
+- `--api node` package resolution is part of the same Phase 3 Node-compatibility gate as the rest of the Node API surface; early phases should not resolve packages as though Node mode were already implemented for `check` or `build`
 - the browser-targeted profile should honor a package's explicit `browser` mapping/condition consistently in both `check` and `build --bundle`, so analysis and emitted artifacts do not resolve different files by accident
 - `package.json#module` is treated only as a legacy bundler-compatibility fallback when `exports` is absent; it must not override an explicit `exports` map, and it should not outrank `main` on a legacy CJS `require` edge
 - when a package explicitly marks a path as unavailable for the active profile (for example `browser: false`), Kali must respect that instead of probing alternate files heuristically

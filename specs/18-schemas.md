@@ -271,7 +271,7 @@ Produced by `kali effects`.
 
 ### Required fields
 - `schemaVersion: number`
-- `entryPoints: string[]`
+- `entryPoints: string[]` — logical program entry names analyzed for this report (for example `main`, discovered test entrypoints, or exported embedding entry names)
 - `effects: EffectOccurrence[]`
 - `dynamicEffects: boolean`
 - `dynamicReasons: string[]` — canonical reason codes explaining why the report is conservative/incomplete; empty when `dynamicEffects` is `false`
@@ -300,6 +300,10 @@ Uses the `SourceLocation` shape plus optional effect-specific context.
 
 Optional fields:
 - `function: string` — nearest enclosing function or method name when available
+
+Simplification rule:
+- schema v1 uses point locations for effect occurrences by default so effect reports stay compact for AI/tooling use
+- if a future consumer needs full ranges, it should reuse `SourceSpan` rather than inventing a second effect-specific span schema
 
 ### Semantics
 - `dynamicEffects: true` means the report is conservative but incomplete
@@ -430,7 +434,8 @@ Canonical filename: `kali.policy.json`
 - Unknown fields are rejected at every documented nesting level to keep policy evaluation deterministic and auditable
 - Policy booleans mean fully allowed or fully denied for that capability
 - Pattern-bearing fields (`read`, `fetch`) are allowlists
-- Numeric limit fields constrain otherwise-allowed capabilities; for example `timer.schedule: true` with `maxActiveTimers: 32` allows timers but caps concurrency
+- Numeric limit fields inside `effects.*` constrain an otherwise-allowed capability locally; for example `timer.schedule: true` with `maxActiveTimers: 32` allows timers but caps timer concurrency
+- `resources.*` is reserved for cross-cutting runtime budgets rather than capability-specific allowlists/caps
 - `resources.maxOpenFiles` caps concurrently opened host file handles, including internal opens performed for higher-level file helpers
 - `resources.maxSpawnedProcesses` caps concurrently active spawned processes
 - `resources.maxThreads` is reserved for the later threaded runtime profile; before that profile exists, validation should reject values greater than `0` instead of silently accepting them
@@ -443,12 +448,16 @@ Canonical filename: `kali.policy.json`
 
 For build-like commands. This is the canonical meaning of the reusable `Artifact` type above.
 
-Common `kind` values:
+Canonical schema-v1 `kind` values:
 - `wasm-module`
 - `js-glue`
 - `c-header`
 - `cabi-metadata`
 - `source-map`
+
+Simplification rule:
+- build-like commands should use these canonical artifact kinds instead of inventing near-synonyms such as `wasm`, `header`, or `metadata-json`
+- adding a new stable artifact `kind` value is a schema-contract change and should get the same review discipline as other enum-like machine strings in this file
 
 ## Simplification Rule
 

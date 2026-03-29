@@ -33,7 +33,7 @@ Naming rule:
 | `--max-memory <size>` | execution commands | Override the invocation memory cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-cpu <duration>` | execution commands | Override the invocation CPU cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-threads N` | execution commands | Override the invocation thread cap for the threaded runtime profile; may only tighten the effective limit and is rejected unless threading is supported and enabled |
-| `--wasm-threads` | compile/run/test commands | Opt into the later threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; before that profile exists, or on unsupported targets, the command must fail with `E5006` |
+| `--wasm-threads` | `build`, `run`, `test` | Opt into the later threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; before that profile exists, or on unsupported targets, the command must fail with `E5006` |
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
 
@@ -71,6 +71,7 @@ When a command or flag is rejected due to phase/profile maturity, the CLI should
 Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
 - `--api browser` is valid early for `check` and `build --bundle`; it is rejected for standalone `run`, and `build --api browser` without `--bundle` is also rejected, until a later runtime profile/output contract explicitly supports those modes.
+- `--api node` is phase-gated consistently across `check`, `build`, `run`, and `test`; early phases reject it with `E5006` rather than exposing a partial Node surface.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
 - `--wasm-threads` selects a different runtime profile rather than a small optimization toggle. Until that threaded profile exists, the flag is rejected. After it exists, if the selected target/engine/profile cannot honor it, the command must still reject it explicitly instead of silently dropping thread support.
 - `--max-threads N` is meaningful only together with the threaded runtime profile. A non-zero thread cap without effective thread support must be rejected explicitly rather than ignored.
@@ -90,6 +91,7 @@ kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # WASM + JS glue for browsers
 kali build --api browser main.ts           # Rejected in early phases; browser build path requires --bundle
+kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
 kali build --lib lib.ts                    # Library module (exports, no start)
 kali build --capi lib.ts                   # Phase 2 target: foo.wasm + generated foo.exports.h/metadata for host-side embedding via kali_capi (see specs/13-embedding.md)
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
@@ -102,6 +104,7 @@ Type-check without compiling.
 ```bash
 kali check main.ts                         # Type check
 kali check --api browser main.ts           # Browser-targeted analysis/profile (no standalone DOM runtime implied)
+kali check --api node main.ts              # Phase 3 target: Node API surface is phase-gated for checking too
 kali check --sandbox kali.policy.json main.ts # Phase 1: type check + policy file/config validation; Phase 2+: effect-policy validation
 kali check --fix main.ts                   # Apply only safe, compiler-provided suggested fixes
 ```
@@ -150,7 +153,7 @@ kali test --api node                       # Phase 3 target
 kali test --api browser                    # Rejected in early phases; browser is a check/build profile first
 ```
 
-Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run` unless a later test-runtime profile is explicitly specified in [specs/19-feature-maturity.md](19-feature-maturity.md).
+Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run`, and `kali check` / `kali build` follow the same API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
 
 ### `kali init`
 Initialize a new project.
@@ -253,8 +256,9 @@ Minimal canonical shape:
 Configuration simplification rules:
 - `compilerOptions.apiSurface` is the config equivalent of the CLI `--api` flag
 - `compilerOptions.buildMode` replaces separate optimization booleans
-- `compilerOptions.runtimeProfiles` is an array of explicit semantic runtime-profile switches; for example, a future threaded config would use `"runtimeProfiles": ["wasm-threads"]`
+- `compilerOptions.runtimeProfiles` is an array of explicit semantic runtime-profile switches; an empty array means the default single-threaded baseline, while a future threaded config would use `"runtimeProfiles": ["wasm-threads"]`
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
+- `compilerOptions.apiSurface` and `compilerOptions.runtimeProfiles` describe different axes and must not be conflated: `deno`/`node`/`browser` select host APIs, while runtime profiles select execution capabilities such as threads
 - `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans
 - generated config from `kali init` should prefer these canonical names and should not duplicate them as parallel top-level keys
 - precedence is `CLI > kali.json > defaults`, except sandbox-policy restrictions still bound the effective runtime behavior

@@ -1,65 +1,61 @@
 # RALPH
 
-- Iteration: 10 of 10
+- Iteration: 3 of 10
 - Prompt file: /workspace/prompts/iterate-spec.md
-- Updated: 2026-03-29T15:08:45.962Z
+- Updated: 2026-03-29T16:53:12.602Z
 
 ## Last emitted message
 
 ```text
-Made a spec cleanup pass and fixed a few inconsistencies.
+Done.
 
 Updated:
-- `specs/05-ir.md`
-- `specs/06-memory.md`
-- `specs/07-specialization.md`
-- `specs/14-packages.md`
-- `specs/16-testing.md`
-- `RALPH.md`
+- `SPEC.md`
+- `specs/09-sandboxing.md`
+- `specs/12-cli.md`
+- `specs/13-embedding.md`
+- `specs/18-schemas.md`
+- `specs/19-feature-maturity.md`
 
-What I improved
+What I fixed/simplified:
+- **Resolved API-surface vs runtime-profile drift**
+  - Clarified that `deno/node/browser` are **API surfaces**
+  - Clarified that `runtimeProfiles` are a separate axis, e.g. default single-threaded vs later `wasm-threads`
+  - Fixed the maturity table where Deno was previously described like a runtime profile
 
-1. Ownership vs layout terminology
-- In `specs/05-ir.md`, I made it explicit that:
-  - layout (`static`/`dynamic`) and
-  - ownership (`stack`/`owned heap`/`shared heap`/`borrowed`)
-  are separate axes.
-- This removes ambiguity where “heap allocated” could be misread as “dynamic object layout”.
+- **Made config/CLI terminology more consistent**
+  - `runtimeProfiles: []` now explicitly means the default single-threaded baseline
+  - Added a rule that `apiSurface` and `runtimeProfiles` must not be conflated
 
-2. Canonical ownership naming
-- Standardized spec language around `shared heap` instead of `Rc`.
-- Renamed MIR ownership wording to:
-  - `Stack`
-  - `OwnedHeap`
-  - `SharedHeap`
-  - `Borrowed`
-- Updated related wording in memory/optimization/testing docs.
+- **Simplified embedding API shape**
+  - Reworked the embedding example to use set-like methods:
+    - `.runtime_profiles([])`
+    - `.compat_features([])`
+  - This keeps embedding aligned with `kali.json` and avoids awkward boolean pair APIs
 
-3. Cycle handling simplified
-- In `specs/06-memory.md`, I simplified cycle handling:
-  - prefer acyclic ownership when provable
-  - use shared-heap fallback for cyclic graphs
-  - allow targeted deterministic cycle reclamation
-  - allow region teardown for short-lived sandbox runs
-- Also clarified this does not imply early support for JS weak-ref APIs like `WeakMap` or `FinalizationRegistry`.
+- **Tightened sandbox policy structure**
+  - Added a clear split:
+    - `effects.*` = capability allow/deny + capability-local allowlists/caps
+    - `resources.*` = cross-cutting runtime budgets
+  - This reduces schema drift and avoids duplicate limit concepts in multiple places
 
-4. `--fast` behavior clarified
-- In `specs/07-specialization.md`, I tightened the wording so `--fast` means:
-  - skip most user-authored generic specialization
-  - but still keep monomorphic/static optimizations where already justified
-- This avoids the misleading reading that `--fast` makes everything boxed/dynamic.
+- **Improved spec consistency around command gating**
+  - Reinforced that `--api node` is phase-gated consistently across `check/build/run/test`
+  - Kept browser support clearly framed as early **check/build profile**, not standalone runtime
 
-5. Browser package resolution consistency
-- In `specs/14-packages.md`, I aligned browser-targeted resolution rules for both:
-  - `kali check --api browser`
-  - `kali build --bundle --api browser`
-- This reduces the risk of `check` and `build` resolving different package branches.
+A few good next cleanup opportunities I’d recommend:
+1. **Trim experimental algebraic-effects surface further**
+   - Keep parse support documented, but move most illustrative syntax/details behind a shorter “future appendix” so the early effect model stays focused on sandbox capabilities.
 
-Notable inconsistency fixed
-- `specs/06-memory.md` previously mixed internal cycle-management ideas with weak-reference semantics.
-- I separated those cleanly so ordinary object cycles are handled internally, while weak-ref APIs remain later-phase features.
+2. **Add one canonical “default execution tuple”**
+   - Something like:
+     - `apiSurface=deno`
+     - `buildMode=fast`
+     - `runtimeProfiles=[]`
+   - Could live in `SPEC.md` and be referenced everywhere.
 
-If you want, I can also do one last pass over:
-- `04` / `09` / `18` for effect-system naming consistency, or
-- `10` / `11` / `12` / `19` for runtime/API/profile cross-checking.
+3. **Unify artifact examples**
+   - A few specs still describe outputs informally; they should all point to the canonical artifact kinds in `18-schemas.md`.
+
+If you want, I can do a second pass over the remaining specs and make them even more aggressively minimal/implementation-oriented.
 ```

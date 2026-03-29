@@ -16,7 +16,10 @@ use kali_embed::{Runtime, Config, SandboxPolicy, Value};
 
 // Create a runtime
 let config = Config::builder()
-    .api(ApiSurface::Deno)
+    .api_surface(ApiSurface::Deno)
+    .build_mode(BuildMode::Fast)
+    .runtime_profiles([])
+    .compat_features([])
     .max_memory_mb(256)
     .max_cpu_time_ms(10_000)
     .sandbox(SandboxPolicy::from_file("kali.policy.json")?)
@@ -42,6 +45,12 @@ let result = instance.call("add", &[Value::Number(1.0), Value::Number(2.0)])?;
 let effects = runtime.analyze_effects_file("program.ts")?;
 println!("{}", serde_json::to_string(&effects)?);
 ```
+
+Canonical embedding-alignment rule:
+- the public embedding config should expose the same semantic knobs as CLI/config where they matter to compilation and execution: **API surface**, **build mode**, **runtime profiles**, and **compat features**
+- prefer set-like builder methods such as `runtime_profiles([...])` and `compat_features([...])` over boolean enable/disable pairs so the embedding vocabulary stays aligned with `kali.json`
+- embedding APIs may use idiomatic Rust enums/builders instead of the JSON field names, but they should not invent a second incompatible vocabulary for the same concepts
+- if a CLI/config/runtime feature is phase-gated (for example `RuntimeProfile::WasmThreads` or `CompatFeature::Eval`), the embedding API should surface the same canonical `E5006`-style availability failure rather than silently ignoring the request
 
 ### Custom Host Functions
 ```rust
@@ -90,6 +99,9 @@ typedef struct KaliError KaliError;
 // Configuration
 KaliConfig* kali_config_new(void);
 void kali_config_set_api(KaliConfig* config, int api_surface);
+void kali_config_set_build_mode(KaliConfig* config, int build_mode);
+void kali_config_set_runtime_profile(KaliConfig* config, int profile, bool enabled);
+void kali_config_set_compat_feature(KaliConfig* config, int feature, bool enabled);
 void kali_config_set_max_memory(KaliConfig* config, uint64_t bytes);
 void kali_config_set_max_cpu_time(KaliConfig* config, uint64_t ms);
 void kali_config_set_sandbox(KaliConfig* config, const char* policy_path);
@@ -147,6 +159,7 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 - All `kali_*_new` / `kali_*_free` pairs — caller manages lifetime
 - Strings returned by Kali must be freed with `kali_free_string`
 - Thread safety: one `KaliRuntime` per thread in the initial implementation
+- C config/runtime setters for build mode, runtime profiles, and compat features follow the same phase-gating rules as the CLI/config surface; unsupported requests fail with the canonical availability error instead of degrading silently
 - Exposing a C ABI does **not** imply linking any C/C++ implementation into Kali itself; the runtime and compiler remain Rust-only internally
 
 ### Error Handling Convention

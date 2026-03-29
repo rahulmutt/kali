@@ -44,14 +44,9 @@ The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md)
 Other commands that embed effect data should place the full report under the CLI envelope's `payload` field instead of redefining the structure.
 
 ### `dynamicEffects` Flag
-Set to `true` when the report has one or more canonical `dynamicReasons`, currently:
-- `eval`
-- `function-constructor`
-- `dynamic-import`
-- `proxy-traps`
-- `computed-host-access`
+Set to `true` when the report has one or more canonical `dynamicReasons` from [specs/18-schemas.md](18-schemas.md). That schema file is the single source of truth for the stable machine-readable reason codes.
 
-These correspond to cases such as:
+In schema v1, these reasons cover cases such as:
 - `eval` or `Function()`
 - Dynamic `import()` with non-literal specifier
 - `Proxy` with handler traps that could perform any effect
@@ -69,6 +64,11 @@ Default format: `kali.policy.json`
 The canonical policy schema is defined in [specs/18-schemas.md](18-schemas.md). JSON is the canonical interchange format for CLI tooling and AI agents. An equivalent TOML format may be supported later, but it would be a convenience syntax layered on top of the JSON data model rather than a separate policy contract.
 
 For process environment access, the policy model distinguishes `effects.process.envRead` from `effects.process.envWrite` so read-only inspection and mutation can be granted independently.
+
+Policy-structure simplification rule:
+- `effects.*` controls whether a capability exists and, where needed, capability-local allowlists/caps (for example URL patterns or timer counts)
+- `resources.*` is reserved for cross-cutting runtime budgets that apply regardless of which specific API triggered them (for example total memory, CPU time, open files, spawned processes, threads)
+- specs should not duplicate the same numeric limit in both places under different names
 
 ### Policy Validation (Compile-Time)
 Compile-time policy handling is intentionally split to keep Phase 1 smaller and less ambiguous:
