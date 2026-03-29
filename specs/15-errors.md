@@ -129,7 +129,7 @@ Use `E5006` for cases such as:
 - `run --api browser` in early phases where browser support exists only as an analysis/build context
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - `--max-spawned-processes N` with a non-zero value before subprocess support exists for the selected command/profile/API surface
-- an attached sandbox policy trying to enable a real capability/profile that exists in the spec set but is unavailable in the current phase/profile/api surface (for example `effects.eval: true` before the eval path exists, or non-deny `resources.*` budgets in early browser-targeted `check` / `build --bundle`)
+- an attached sandbox policy trying to enable a real capability/profile that exists in the spec set but is unavailable in the current phase/profile/api surface or effective compatibility context (for example `effects.eval: true` before the eval path exists, `effects.eval: true` without effective `--compat eval`, or non-deny `resources.*` budgets in early browser-targeted `check` / `build --bundle`)
 - any parse-supported construct that is intentionally not semantically enabled in the current phase/profile
 
 Boundary clarification:

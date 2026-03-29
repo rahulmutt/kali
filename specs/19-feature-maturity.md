@@ -214,7 +214,7 @@ Interpretation rule:
 | `kali package-audit --wasm-threads lodash` | Rejected by default | Early `package-audit` is context-free and does not take package-analysis-specific runtime-profile flags, so this is invalid command usage (`E5008`) unless a later spec adds that mode |
 | `kali package-audit --sandbox kali.policy.json lodash` | Rejected by default | Early `package-audit` is a context-free registry tool; top-level config sandbox is ignored for it, and the CLI `--sandbox` flag is invalid usage (`E5008`) |
 | `kali install --allow-scripts <npm-pkg>` | Opt-in only | Explicit one-shot escape hatch for npm packages that need lifecycle scripts; still reject native addons, binary/bootstrap-heavy packages, and `node-gyp`, and do not treat this as implied Node-runtime or project-sandbox support |
-| `--compat eval` | Phase 4 compatibility | Before runtime support exists, reject with `E5006` rather than parsing and silently ignoring the flag |
+| `--compat eval` | Phase 4 compatibility | Before runtime support exists, reject with `E5006` rather than parsing and silently ignoring the flag; once implemented, sandbox policy permission for `effects.eval` still does not implicitly enable this compatibility switch |
 | `--wasm-threads` | Later compatibility (opt-in only) | Reject with `E5006` until the threaded runtime profile exists; after that, still reject explicitly when unavailable on the selected target/engine |
 
 ## Phase Exit Criteria

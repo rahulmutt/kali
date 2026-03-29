@@ -198,8 +198,9 @@ An explicitly opted-in language/runtime compatibility escape hatch.
 Schema-v1 stable name:
 - `eval`
 
-Interpretation rule:
+Interpretation rules:
 - in schema v1, `eval` is the single stable compatibility-feature name for both direct `eval` and the `Function()` constructor path; Kali must not split those into separate flag/config names without an explicit later schema revision
+- sandbox policy permission and compatibility-feature enablement are separate axes: allowing `effects.eval` in policy is only an authorization ceiling, not an implicit request to turn on `--compat eval` / `compat.features = ["eval"]`
 
 CLI spelling: `--compat eval`
 

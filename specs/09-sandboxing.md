@@ -65,6 +65,9 @@ In schema v1, these reasons use the canonical machine-readable codes from [specs
 - `proxy-traps`
 - `computed-host-access`
 
+Interpretation rule:
+- distinct `eval` and `function-constructor` report reasons help tooling explain *which* dynamic path was seen, but they still map to the single schema-v1 compatibility feature name `eval`
+
 When `true`, the static analysis is incomplete — the sandbox must enforce at runtime.
 
 ## Sandbox Policies
@@ -99,6 +102,11 @@ Cross-spec consistency rule:
 
 For process environment access, the policy model distinguishes `effects.process.envRead` from `effects.process.envWrite` so read-only inspection and mutation can be granted independently.
 
+Compatibility-switch boundary:
+- sandbox policy answers **"may this capability be used if the command/profile exposes it?"**
+- CLI/config compatibility switches answer **"is this optional compatibility path enabled at all for this invocation?"**
+- therefore a permissive policy entry such as `effects.eval: true` is only an authorization ceiling; it must not implicitly enable the separate `--compat eval` / `compat.features = ["eval"]` switch
+
 Policy-structure simplification rule:
 - `effects.*` controls whether a capability exists and, where needed, capability-local allowlists/caps (for example URL patterns, timer counts, or network connection counts)
 - `resources.*` is reserved for cross-cutting runtime budgets that apply regardless of which specific API triggered them (for example total memory, CPU time, open files, spawned processes, threads)
@@ -123,7 +131,7 @@ Availability rule for policy validation:
 - therefore validation should reject any unavailable capability being enabled through a non-deny value, not just `true`; non-empty arrays/allowlists are equally invalid when the capability itself is unavailable, and unavailable numeric-budget fields such as `resources.maxSpawnedProcesses` / `resources.maxThreads` must also reject positive values
 - capability-local numeric limit fields are **constraints only**, not implicit enable switches; for example `effects.network.maxConnections` does not by itself allow network use, and `effects.timer.maxActiveTimers` does not by itself permit timers when `effects.timer.schedule` is `false`
 - in schema v1, `effects.timer.maxTimeoutMs`, `effects.timer.maxActiveTimers`, and `effects.network.maxConnections` must be positive integers when present; `0` is invalid for those fields rather than a second disable/deny form
-- examples include `effects.fileSystem.read: true` or `effects.fileSystem.read: ["/tmp/**"]` under an effective API surface of `browser`, `effects.eval: true` before Phase 4, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
+- examples include `effects.fileSystem.read: true` or `effects.fileSystem.read: ["/tmp/**"]` under an effective API surface of `browser`, `effects.eval: true` before Phase 4, `effects.eval: true` when the effective command context did not enable `--compat eval`, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
 - under an effective API surface of `browser`, this rejection applies to capabilities outside the browser-targeted Phase 1 surface, and it also applies to cross-cutting `resources.*` runtime budgets with any non-deny value because those budgets are a Kali-hosted execution contract rather than a post-deployment browser-bundle guarantee
 - the shared Web-baseline capability keys (`effects.network.fetch`, `effects.timer.*`, `effects.random`, `effects.console`) remain valid browser-targeted policy targets within the **Kali-mediated capability subset**, but that does **not** upgrade browser bundles into a full cross-cutting runtime-budget-enforcement environment
 - browser ambient DOM APIs are still outside that schema-v1 subset even when browser typings are visible during analysis/build; policy validation must not imply there is a per-DOM-call sandbox key just because `Window`/`Document` types are available
