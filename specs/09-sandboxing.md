@@ -92,11 +92,12 @@ Phase-1 capability snapshot for supported surfaces:
 | `effects.timer.*` | Available in the Web baseline | Covers timers, not CPU-limit enforcement itself |
 | `effects.random` | Available in the Web baseline | Maps to the documented random-byte capability family |
 | `effects.console` | Available in the Web baseline | Console writes are policy-controlled |
-| `effects.network.connect` / `listen` | Not yet available | Policy may deny them now; enabling them is rejected until the APIs exist |
-| `effects.process.spawn` | Not yet available | Same rule as above |
-| `effects.process.envWrite` | Not yet available | Same rule as above |
-| `effects.eval` | Not yet available | Reserved for the Phase 4 compatibility path |
-| `resources.maxThreads` | Not yet available | Reserved for the later threaded runtime profile |
+| `effects.network.connect` / `listen` | Phase 3 target | Policy may deny them now; enabling them is rejected until the APIs exist |
+| `effects.process.spawn` | Phase 3 target | Same rule as above |
+| `effects.process.envWrite` | Phase 3 target | Same rule as above |
+| `effects.eval` | Phase 4 compatibility | Reserved for the `--compat eval` path |
+| `resources.maxSpawnedProcesses` | Phase 3 target | Becomes meaningful only once subprocess support exists |
+| `resources.maxThreads` | Later compatibility (opt-in only) | Reserved for the later threaded runtime profile |
 
 In Phase 2+ when a policy is provided at build or check time:
 1. Inferred effects are checked against allowed effects

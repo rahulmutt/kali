@@ -45,6 +45,21 @@ The canonical rule is:
 
 This lets the spec stay ambitious without making Phase 1 commitments unrealistic.
 
+## Compatibility Tracks
+
+To avoid conflating very different kinds of “support”, Kali uses four compatibility tracks across the spec set:
+
+1. **Language compatibility** — ECMAScript / TypeScript syntax and semantics
+2. **Host compatibility** — Deno, browser, and Node API surfaces
+3. **Tooling compatibility** — CLI behavior, machine-readable schemas, package/install workflows, embedding APIs
+4. **Proof compatibility** — the formally modeled subset covered by Lean proofs
+
+Interpretation rules:
+- “targets the latest ECMA-262 edition” is a **language-compatibility direction**, not a claim that every host/runtime or tooling feature ships in Phase 1
+- “supports browser code” may mean **browser-targeted analysis/build** before it means standalone browser-like execution
+- “formally verified” means proofs over the documented **core modeled subset** first, not an immediate proof of the whole JavaScript ecosystem surface
+- every lower-level spec should say which track it is talking about when ambiguity is likely
+
 ## Canonical Vocabulary
 
 To reduce drift across the spec set, these terms are canonical:
@@ -89,12 +104,14 @@ Add:
 - broader Node compatibility
 - broader browser packaging/interoperability
 - broader npm compatibility beyond the early linked-artifact subset
+- broader process/network host capabilities such as mutable environment access, subprocesses, and server-side listening where the sandbox contract is already specified
 
 ### Phase 4 — Advanced compatibility
 Add:
 - hard dynamic compatibility features such as `eval` / `Function()`
 - more difficult runtime/API compatibility surfaces
 - broader proof coverage for critical subsystems
+- continued convergence toward the long-term ECMAScript / TypeScript compatibility targets once the earlier host/runtime/tooling contracts are dependable
 
 The detailed maturity matrix lives in `specs/19-feature-maturity.md`.
 

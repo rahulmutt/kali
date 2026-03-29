@@ -42,6 +42,11 @@ This table exists to keep the status labels operational: a label implies whether
 | Non-literal `import(expr)` | Later compatibility | Requires a dynamic host-mediated path and conservative effect handling |
 | `eval` | Phase 4 compatibility | Parsed and effect-tracked earlier, but full runtime support is deferred; compatibility path is `--compat eval` when implemented |
 | `Function()` constructor | Phase 4 compatibility | Same status as `eval` and uses the same compatibility switch |
+| Read-only environment access (`Deno.env.get`, `Deno.env.toObject`, policy-filtered host env view) | Phase 1 MVP | Needed for practical standalone compatibility while still fitting the sandbox model |
+| Mutable environment access (`Deno.env.set`, `process.env = ...`-style host mutation) | Phase 3 target | Widens the host contract and must remain policy-controlled |
+| Subprocess spawning (`Deno.Command`, host `process_spawn`) | Phase 3 target | Requires explicit sandbox/process-budget integration |
+| Socket/listener networking (`Network.Connect`, `Network.Listen`, `Deno.serve`) | Phase 3 target | Requires explicit network policy and concurrency controls |
+| Process-control APIs (`Deno.exit`, cwd/chdir-style process environment mutation) | Phase 3 target | Changes embedding/runtime control flow and should follow the documented policy model |
 | Built-in effect inference / `kali effects` | Phase 2 target | Required for sandbox-first analysis and policy checking |
 | Explicit effect annotations / `pure` | Phase 2 target | Initially scoped to the built-in sandbox capability model |
 | User-defined/custom effect kinds in stable reports or policy checking | Later compatibility | Keep Phase 1-2 machine contracts limited to built-in sandbox-relevant effects |
@@ -176,6 +181,9 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Concern | Early canonical status | Notes |
 |---|---|---|
 | Deno-oriented standalone API surface (`--api deno`) | Phase 1 MVP | Default API surface for standalone execution; typically paired with the baseline single-threaded runtime profile |
+| Read-only environment access in the Deno standalone surface | Phase 1 MVP | Exposes only the sandbox-permitted environment view |
+| Mutable environment access / process-environment mutation | Phase 3 target | Policy-controlled host mutation, not part of the Phase 1 baseline |
+| Subprocess spawning and socket/listener networking | Phase 3 target | Shares the same sandbox/process/network maturity path as the corresponding capability rows above |
 | Browser-targeted `check` and `build --bundle` | Phase 1 MVP | Real browser host via emitted glue, with browser ambient typings available during analysis/build but no standalone browser emulation |
 | Standalone `run --api browser` | Rejected by default | No embedded browser engine |
 | Node API surface across `check` / `build` / `run` / `test` | Phase 3 target | Package-driven subset first; early phases reject `--api node` consistently rather than exposing a partial surface |

@@ -72,7 +72,11 @@ Deno is the primary standalone-runtime API surface because it fits Kali's explic
 - Environment access: `Deno.env.get`, `Deno.env.toObject` *(both expose only the sandbox-permitted environment view rather than the raw host environment)*
 - `Deno.permissions` as a read-only compatibility facade over Kali sandbox policy state; it reports granted/denied capabilities but does not perform interactive permission prompts, `request()`, or `revoke()`-style privilege escalation flows in Phase 1
 
-Process termination (`Deno.exit`) and working-directory mutation/introspection (`Deno.cwd`, `Deno.chdir`) are deferred until a later phase. They widen the embedding/sandbox contract but are not needed for the initial package-oriented MVP.
+For host-capability maturity, the canonical source of truth is [specs/19-feature-maturity.md](19-feature-maturity.md). In particular:
+- read-only environment access is part of the Phase 1 standalone contract
+- mutable environment access, subprocess spawning, socket/listener networking, and process-control APIs follow the Phase 3 maturity path
+
+Process termination (`Deno.exit`) and working-directory mutation/introspection (`Deno.cwd`, `Deno.chdir`) are therefore intentionally outside the Phase 1 MVP. They widen the embedding/sandbox contract but are not needed for the initial package-oriented baseline.
 
 Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should expose the sync and async forms together unless there is a strong implementation reason not to. This avoids needless package-compatibility drift between `readFile` and `readFileSync`-style code paths.
 
@@ -82,7 +86,7 @@ Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should 
 - `Deno.env.set`
 - `Deno.exit`
 - `Deno.Command` (process spawning)
-- `Deno.serve` (HTTP server)
+- `Deno.serve` (HTTP server / listen path)
 - broader filesystem, networking, and subprocess coverage
 
 This keeps the Phase 1 host surface small and auditable while still establishing Deno as the default API model.

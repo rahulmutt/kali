@@ -64,9 +64,10 @@ Interpretation rules:
 - If source code merely references a global that is absent from the selected ambient surface in an otherwise-supported mode, that should normally already have been reported as an ordinary name/type error before runtime setup.
 
 Later compatibility/embedding imports extend this set when the corresponding API surface is enabled:
-- `process_spawn(...)` for subprocess support
-- `env_set(...)` for mutable environment access once `effects.process.envWrite` is part of the enabled host surface
-- `process_exit(code)` for explicit termination control / embedding once the process-control contract is specified; this does **not** imply that `Deno.exit` is part of the Phase 1 API surface
+- `process_spawn(...)` for the Phase 3 subprocess-support path
+- `env_set(...)` for the Phase 3 mutable-environment path once `effects.process.envWrite` is part of the enabled host surface
+- `process_exit(code)` for the Phase 3+ explicit process-control / embedding path once that contract is specified; this does **not** imply that `Deno.exit` is part of the Phase 1 API surface
+- socket/listener networking imports for the Phase 3 `Network.Connect` / `Network.Listen` / `Deno.serve` path
 - `eval_compile(...)` only for the Phase 4 `--compat eval` path
 
 ### Data Passing

@@ -102,6 +102,7 @@ kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL depend
 Argument semantics are intentionally simple:
 - registry package arguments mutate `kali.json` (`dependencies` or `devDependencies`) and then refresh lock/materialized state
 - raw URL arguments update the shared lock/cache state only; they do not invent a second manifest section and should not rewrite source/import-map declarations implicitly
+- a raw-URL install is therefore best understood as **pin/materialize this exact URL in the shared dependency state**, not as a request to add a new named dependency kind
 - plain `kali install` reconciles the current manifest + import graph with `kali.lock`, `node_modules/`, and `.kali/cache/urls/`
 
 Installation is **fetch-and-link by default**, not "execute package scripts" by default. To preserve sandbox-first behavior:
