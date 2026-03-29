@@ -392,6 +392,16 @@ The effective project root is:
 Relative paths in `kali.json` resolve relative to the directory containing that config.
 Ordinary CLI path arguments resolve relative to the current working directory.
 
+### Configless project mode
+When no `kali.json` is discovered, Kali runs in a **configless project mode** rooted at the current working directory.
+
+Interpretation rules:
+- built-in defaults still provide the effective command context
+- ordinary project discovery still starts from that current working directory
+- explicit registry-package adds (`kali install <pkg>` / `kali install --dev <pkg>`) are the only early-phase workflow that auto-creates a minimal manifest in this mode
+- plain `kali install` in configless mode is a no-op success when the current root contributes no manifest/import/source dependency inputs; running `install` by itself is not treated as an implicit scaffolding request
+- commands must not invent a second hidden config file or dependency-state sidecar just because they ran in configless mode
+
 ### Discovery walk
 When a command uses project discovery, it should:
 1. start at the effective project root

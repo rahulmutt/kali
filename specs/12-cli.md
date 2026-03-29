@@ -57,7 +57,7 @@ Naming rule:
 
 Canonical config-discovery rule:
 - unless a later spec adds an explicit `--config` override, commands discover the effective project config by searching the current working directory and then its ancestors for the nearest `kali.json`
-- if none exists, the command runs configless with the current working directory as the effective project root
+- if none exists, the command runs in the canonical **configless project mode** from [SPEC.md](../SPEC.md), with the current working directory as the effective project root
 - explicit CLI file arguments do **not** relocate that chosen config/root; they resolve relative to the current working directory, while config-owned relative paths continue to resolve relative to the directory containing the discovered `kali.json`
 - recursive project discovery for no-argument `check` / `fmt` / `lint` / `test` and for no-package-argument `install` graph scanning must stop at nested child directories that contain their own `kali.json` unless the user explicitly names files inside them
 
@@ -399,13 +399,13 @@ Argument-kind rules:
 - in schema v1, that explicit registry-package install argument is a **package identity only**, not an inline version/range selector
 - adding a registry package through this identity-only CLI form uses the shared stable-release rule from [specs/14-packages.md](14-packages.md): resolve the latest non-yanked stable published version, write `kali.lock` with that concrete version, and record the manifest dependency using the canonical default range `^<resolvedVersion>`
 - a **registry package argument** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
-- if no `kali.json` exists at the effective project root, an explicit registry-package add (`kali install <pkg>` or `kali install --dev <pkg>`) first creates the minimal canonical manifest `{ "schemaVersion": 1 }`, then records the dependency there; this keeps package adds on one manifest path instead of inventing a configless side channel
+- in the canonical configless project mode, an explicit registry-package add (`kali install <pkg>` or `kali install --dev <pkg>`) first creates the minimal canonical manifest `{ "schemaVersion": 1 }` at the effective project root, then records the dependency there; this keeps package adds on one manifest path instead of inventing a configless side channel
 - `kali install` does **not** take `--api` in early phases; install is profile-agnostic, so passing `--api ...` is invalid command usage (`E5008`) rather than a request for a second install graph
 - `--dev` is valid only with a **registry package argument**; using `--dev` without an explicit package or pairing it with a raw URL (`kali install --dev https://...`) is rejected explicitly rather than inventing a second URL-specific manifest bucket
 - a **raw URL argument** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
 - an ad hoc raw-URL install is therefore a **staging/pin workflow**; if the project does not reference that URL from source or `kali.json#imports`, a later plain `kali install` may prune it again
 - plain `kali install` consumes the current manifest/import graph and reconciles lock + materialized state for the dependency source kinds actually used by the project
-- if no `kali.json` exists and the current project root also contributes no source/import-map dependency inputs, plain `kali install` is a no-op success and must not create a placeholder `kali.json` just because the command ran
+- in the canonical configless project mode, plain `kali install` is a no-op success when the effective project root contributes no manifest/import/source dependency inputs, and it must not create a placeholder `kali.json` just because the command ran
 - because `kali install` normally has no explicit entrypoint, source-level raw URL imports are discovered from the canonical project-discovery result (filtered by `include` / `exclude` when present, otherwise by the default project-discovery rules from [SPEC.md](../SPEC.md))
 - this discovery step may be a cheap lexical/module-specifier scan rather than a full build, and it may scan declaration-only files too because they can participate in the project's type/import graph
 - because raw URL entries are owned by the current source/import-map graph instead of a manifest dependency table, plain `kali install` may prune raw URL lock/cache entries that are no longer referenced
@@ -434,6 +434,7 @@ Argument-kind rule:
 
 Project-state rule:
 - `kali package-effects <package>` may fetch package metadata/tarballs into an ephemeral analysis cache, but it must **not** mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
+- that analysis cache is intentionally outside the project's managed dependency state: it may be discarded between invocations and is not a lockfile-backed installation target
 - turning an analyzed package into a project dependency remains the job of `kali install`
 
 Status: depends on the Phase 2 effect-report pipeline; if package-level analysis is not yet implemented, the CLI should report that clearly instead of returning partial ad hoc output.
@@ -468,6 +469,7 @@ Argument-kind rule:
 
 Project-state rule:
 - like `package-effects`, audit may use temporary fetched metadata but must not silently install or materialize dependencies into the project's managed state
+- any temporary audit/package-analysis cache is outside the project's managed dependency state and may be discarded between invocations
 - because schema-v1 package audit is registry-oriented rather than project-lock-oriented, it likewise resolves using the shared stable-release rule from [specs/14-packages.md](14-packages.md) instead of consulting the current project's manifest or lockfile by default
 
 Status: later tooling feature. It should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
