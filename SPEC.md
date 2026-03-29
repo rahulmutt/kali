@@ -24,7 +24,7 @@ This is the compact top-level breakdown of the bootstrap brief into canonical sp
 | No tracing GC; compile-time ownership/allocation | [06 — Memory Management](./specs/06-memory.md) |
 | Aggressive specialization | [07 — Specialization](./specs/07-specialization.md) |
 | Sandboxing and effect-aware execution | [09 — Sandboxing](./specs/09-sandboxing.md), [10 — Runtime](./specs/10-runtime.md) |
-| JSON effect reporting and policy schemas | [18 — Schemas](./specs/18-schemas.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
+| JSON effect reporting and policy schemas | [09 — Sandboxing](./specs/09-sandboxing.md), [18 — Schemas](./specs/18-schemas.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
 | Deno / browser / later Node API surfaces | [11 — Standard APIs](./specs/11-standard-apis.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
 | npm / JSR / raw URL package workflows | [14 — Package Management](./specs/14-packages.md) |
 | AI-friendly CLI and diagnostics | [12 — CLI](./specs/12-cli.md), [15 — Errors](./specs/15-errors.md), [18 — Schemas](./specs/18-schemas.md) |
@@ -121,14 +121,18 @@ Early-phase hybrid analysis command:
 - `check`
 
 ### Project-oriented command
-A command whose no-argument behavior is defined in terms of canonical project discovery.
+A command whose primary no-argument behavior is defined in terms of canonical project discovery rather than a required explicit entrypoint.
 
 Early-phase project-oriented commands:
-- `check`
 - `fmt`
 - `lint`
 - `test`
 - `install`
+
+Note:
+- `check` is still the canonical **hybrid analysis command**
+- when invoked without explicit files, `check` also uses canonical project discovery
+- this keeps `check` in one main command category while preserving the shared discovery behavior
 
 ## Canonical Default Tuple
 

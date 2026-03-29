@@ -537,9 +537,9 @@ Interpretation rules:
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
 - when set-like arrays such as `compilerOptions.runtimeProfiles` or `compat.features` are normalized by tooling, normalization should preserve semantics without inventing duplicates; preserving first-seen order for display/diff stability is preferred even though the arrays are semantically unordered
 - the effective project config is the nearest `kali.json` found by searching the current working directory and then its ancestors; if none exists, commands run configless from the current working directory
-- `include` / `exclude` define globs over the canonical project-discovery result for project-oriented commands and editor/tooling integrations; they do not reinterpret an explicit CLI file argument as a different entry point
+- `include` / `exclude` define globs over the canonical project-discovery result for project-oriented commands, hybrid no-argument discovery commands such as `check`, and editor/tooling integrations; they do not reinterpret an explicit CLI file argument as a different entry point
 - relative `include` / `exclude` globs are resolved relative to the directory containing the owning `kali.json`
-- when omitted, project-oriented discovery falls back to the default project-root walk and default excluded managed/generated directories defined in [SPEC.md](../SPEC.md)
+- when omitted, project-oriented discovery and hybrid no-argument discovery fall back to the default project-root walk and default excluded managed/generated directories defined in [SPEC.md](../SPEC.md)
 - recursive project discovery also stops at nested child directories that contain their own `kali.json` unless the user explicitly targets files inside them
 - `include` / `exclude` filter only the project's own discoverable files; they do not suppress transitive imports that are reached from an accepted entrypoint, and they do not act as a second package-resolution filter
 - for `kali install`, this same project-discovery result is also the install-time scan set used to discover source-level raw URL imports when no explicit entrypoint is provided
