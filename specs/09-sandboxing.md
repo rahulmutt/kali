@@ -82,6 +82,22 @@ Availability rule for policy validation:
 - therefore validation should reject enabling unavailable capabilities such as `effects.eval: true` before Phase 4, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, or `resources.maxThreads > 0` before the threaded runtime profile exists
 - this avoids a misleading policy that appears more permissive than the runtime/compiler can really honor
 
+Phase-1 capability snapshot for supported surfaces:
+
+| Policy capability | Early availability | Notes |
+|---|---|---|
+| `effects.fileSystem.read` / `write` | Available with `--api deno` | Enforced for the documented Deno file APIs |
+| `effects.process.envRead` | Available with `--api deno` | Read-only environment view only |
+| `effects.network.fetch` | Available in the Web baseline | Shared across supported surfaces |
+| `effects.timer.*` | Available in the Web baseline | Covers timers, not CPU-limit enforcement itself |
+| `effects.random` | Available in the Web baseline | Maps to the documented random-byte capability family |
+| `effects.console` | Available in the Web baseline | Console writes are policy-controlled |
+| `effects.network.connect` / `listen` | Not yet available | Policy may deny them now; enabling them is rejected until the APIs exist |
+| `effects.process.spawn` | Not yet available | Same rule as above |
+| `effects.process.envWrite` | Not yet available | Same rule as above |
+| `effects.eval` | Not yet available | Reserved for the Phase 4 compatibility path |
+| `resources.maxThreads` | Not yet available | Reserved for the later threaded runtime profile |
+
 In Phase 2+ when a policy is provided at build or check time:
 1. Inferred effects are checked against allowed effects
 2. Violations are **compile errors** (not warnings)
@@ -216,6 +232,9 @@ kali check --sandbox kali.policy.json program.ts
 
 # Run with sandbox enforcement
 kali run --sandbox kali.policy.json program.ts
+
+# Test with sandbox enforcement
+kali test --sandbox kali.policy.json
 
 # Run with resource limits only (no effect policy)
 kali run --max-memory 256mb --max-cpu 10s program.ts

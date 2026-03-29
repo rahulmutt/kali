@@ -287,8 +287,13 @@ Configuration simplification rules:
 - `compilerOptions.runtimeProfiles` is an array of explicit semantic runtime-profile switches; an empty array means the default single-threaded baseline, while a future threaded config would use `"runtimeProfiles": ["wasm-threads"]`
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
 - `compilerOptions.apiSurface` and `compilerOptions.runtimeProfiles` describe different axes and must not be conflated: `deno`/`node`/`browser` select host APIs, while runtime profiles select execution capabilities such as threads
+- `compilerOptions.strict` is the config-level strictness bundle; it should mirror the documented strict-checking behavior rather than introducing many parallel booleans in early phases
+- `compilerOptions.maxSpecializations` caps specialization fan-out for generic/layout-driven optimization; CLI `--max-specializations` overrides it for a single invocation
+- top-level `sandbox` is an optional default policy-file path equivalent to supplying `--sandbox <path>` for commands that honor sandboxing; an explicit CLI `--sandbox` overrides it
 - `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans
+- `include` / `exclude` constrain project file discovery for project-oriented commands; direct file arguments still name the primary entry explicitly
 - generated config from `kali init` should prefer these canonical names and should not duplicate them as parallel top-level keys
+- `kali init` should not emit `sandbox`, `compat`, `dependencies`, or other optional sections unless the chosen template or user request actually needs them
 - precedence is `CLI > kali.json > defaults`, except sandbox-policy restrictions still bound the effective runtime behavior
 
 ## Exit Codes

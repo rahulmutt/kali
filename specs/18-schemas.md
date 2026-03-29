@@ -383,7 +383,12 @@ Canonical filename: `kali.json`
 - `compilerOptions.buildMode` is one of `fast`, `release`, or `release-advanced`
 - `compilerOptions.runtimeProfiles` is an array of semantic runtime-profile names; in schema v1 it is usually empty because later profiles such as `wasm-threads` are still phase-gated
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
+- `compilerOptions.strict` is the canonical strict-checking bundle switch in config; early phases should avoid multiplying near-duplicate strictness booleans unless a later schema revision documents them explicitly
+- `compilerOptions.maxSpecializations` is the project-default specialization cap; CLI `--max-specializations` may override it per invocation
+- top-level `sandbox` is an optional default sandbox-policy path; it is the config equivalent of supplying `--sandbox <path>` for commands that honor sandboxing, and an explicit CLI flag overrides it
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
+- `include` / `exclude` define project file discovery globs for project-oriented commands and editor/tooling integrations; they do not reinterpret an explicit CLI file argument as a different entry point
+- `imports` is the canonical alias/import-map section for URL and path-like rewrites; it is not a second registry-dependency manifest
 - `dependencies` and `devDependencies` are top-level package manifests for **registry packages** owned by `kali install`; they are not nested under `compilerOptions`
 - raw URL dependencies are declared in source/import maps and tracked via `kali.lock`; schema v1 intentionally does **not** add a second manifest section for them
 - Config should not mirror every CLI boolean directly when a more semantic field already exists
