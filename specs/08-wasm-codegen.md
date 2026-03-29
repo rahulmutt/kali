@@ -119,7 +119,7 @@ Artifact-mode selection follows the canonical matrix in [SPEC.md](../SPEC.md). T
 Early-phase artifact-mode rule:
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive build artifact-mode selectors unless a later spec explicitly defines one as implying another
 - omitting all four selects the default executable artifact mode (`kali build foo.ts` → one executable-style `wasm-module` artifact)
-- in Phase 1, `--bundle` is reserved for browser-targeted output and therefore requires the **effective** `apiSurface` to be `browser` (from CLI or config)
+- in Phase 1, `--bundle` is reserved for browser-targeted output and therefore requires the **effective API surface** to be `browser`
 - in early phases, `--lib`, `--capi`, and `--component` are non-browser artifact modes; pairing them with `--api browser` is rejected until a separate browser-library/browser-embedding contract is specified
 - `--lib` is the base exported-library mode; `--capi` and `--component` are later packaging layers over that same exported-library contract
 - because `--capi` and `--component` already choose exported-library semantics, users should not combine them with `--lib` in early phases; these are separate artifact-mode selectors, not additive modifiers
@@ -130,9 +130,9 @@ Early-phase artifact-mode rule:
 |---------|--------|
 | `kali build foo.ts` | `foo.wasm` — Kali-hosted WASM module (`kind: wasm-module`, `role: primary-executable`) |
 | `kali build --bundle --api browser foo.ts` | `foo.wasm` + `foo.js` — WASM + JS glue for browsers, where the JS file acts as the browser host adapter for the guest ABI (`foo.wasm`: `kind: wasm-module`, `role: primary-executable`; `foo.js`: `kind: js-glue`, `role: browser-glue`) |
-| `kali build --bundle foo.ts` | Rejected under the default config; `--bundle` is reserved for browser-targeted output and requires the effective `apiSurface` to be `browser` |
+| `kali build --bundle foo.ts` | Rejected under the default config; `--bundle` is reserved for browser-targeted output and requires the effective API surface to be `browser` |
 | `kali build --lib foo.ts` | Phase 1: `foo.wasm` — library module (exports, no automatic start; `kind: wasm-module`, `role: primary-library`). Phase 2+: the same base library artifact also emits `foo.wit` (`kind: wit`, `role: interface-wit`) by default once the public interface contract is stabilized. |
-| `kali build --lib --api browser foo.ts` | Rejected in early phases; browser mode is an analysis/build context tied to `check` and `build --bundle`, not a library-artifact profile |
+| `kali build --lib --api browser foo.ts` | Rejected in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library-artifact mode |
 | `kali build --capi foo.ts` | Phase 2 target: `foo.wasm` + `foo.wit` + generated embedding header/metadata for use with the host-side `kali_capi` library (`foo.wasm`: `kind: wasm-module`, `role: primary-library`; WIT: `kind: wit`, `role: interface-wit`; header: `kind: c-header`, `role: embedding-header`; metadata: `kind: cabi-metadata`, `role: embedding-metadata`) |
 | `kali build --component foo.ts` | Phase 2 target: `foo.wasm` + `foo.wit` + `foo.component.wasm` for a Component Model packaging path (`foo.wasm`: `kind: wasm-module`, `role: primary-library`; `foo.wit`: `kind: wit`, `role: interface-wit`; `foo.component.wasm`: `kind: wasm-component`, `role: primary-component`) |
 

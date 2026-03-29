@@ -96,7 +96,7 @@ Interpretation rule:
 - documenting a command-specific flag here does **not** imply it needs a separate feature-maturity row unless it changes a phase promise or machine-readable contract
 - build artifact-mode flags follow the canonical matrix in [SPEC.md](../SPEC.md): in early phases `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive selectors unless a later spec explicitly says one implies another
 - conflicting artifact-mode combinations such as `--bundle --lib`, `--bundle --capi`, `--bundle --component`, `--lib --capi`, or `--lib --component` should use the canonical invalid-usage diagnostic `E5008`, not a feature-maturity rejection; the user asked for incompatible artifact modes rather than for a later-phase feature
-- in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires the **effective** `apiSurface` to be `browser` (from CLI or config), and `kali build --bundle` under an effective `apiSurface` of `deno` or `node` must fail explicitly instead of inventing a second bundle contract
+- in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires the **effective API surface** to be `browser`, and `kali build --bundle` under an effective API surface of `deno` or `node` must fail explicitly instead of inventing a second bundle contract
 - in early phases, `--lib`, `--capi`, and `--component` are non-browser artifact modes; `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` must fail explicitly rather than pretending browser bundle rules also apply to library/embedding builds
 - `--lib` is the base exported-library mode; `--capi` and `--component` are later packaging layers over that same exported-library contract rather than unrelated semantics
 - because `--capi` and `--component` already choose exported-library semantics, users should not combine them with `--lib` in early phases; those flags are separate artifact-mode selectors, not additive modifiers
@@ -133,7 +133,7 @@ kali run --max-memory 256mb main.ts        # Resource limit
 kali run --max-cpu 10s main.ts             # CPU time limit
 kali run --api node main.ts                # Use Node.js API surface (Phase 3 target)
 kali run --api deno main.ts                # Use Deno API surface (default)
-kali run --api browser main.ts             # Rejected in early standalone phases; browser is a build/check profile first
+kali run --api browser main.ts             # Rejected in early standalone phases; browser is a browser-targeted context first
 kali run --wasm-threads main.ts            # Enable WASM threads (SharedArrayBuffer, Atomics; opt-in only)
 ```
 
@@ -145,7 +145,7 @@ When a command or flag is rejected due to phase/profile maturity, the CLI should
 
 Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
-- browser mode is valid early for `check` and for `build` only when the selected artifact mode is the browser bundle path. In practice that means the **effective** `apiSurface` may be `browser` (from CLI or config) for `check`, and for `build` only together with `--bundle`; standalone `run` still rejects browser mode, and `build` with an effective `apiSurface` of `browser` but without `--bundle` is also rejected until a later runtime profile/output contract explicitly supports that mode.
+- browser mode is valid early for `check` and for `build` only when the selected artifact mode is the browser bundle path. In practice that means the **effective API surface** may be `browser` for `check`, and for `build` only together with `--bundle`; standalone `run` still rejects browser mode, and `build` with an effective API surface of `browser` but without `--bundle` is also rejected until a later runtime profile/output contract explicitly supports that mode.
 - `--api node` is phase-gated consistently across `check`, `effects`, `build`, `run`, and `test`; early phases reject it with `E5006` rather than exposing a partial Node surface.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
 - `--wasm-threads` selects a different runtime profile rather than a small optimization toggle. Until that threaded profile exists, the flag is rejected. After it exists, if the selected target/engine/profile cannot honor it, the command must still reject it explicitly instead of silently dropping thread support.
@@ -182,11 +182,11 @@ kali build main.ts                         # → main.wasm (--fast mode, default
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue)
-kali build --bundle main.ts               # Rejected under the default config; --bundle is reserved for browser-targeted output and therefore requires the effective apiSurface to be browser
+kali build --bundle main.ts               # Rejected under the default config; --bundle is reserved for browser-targeted output and therefore requires the effective API surface to be browser
 kali build --api browser main.ts           # Rejected in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
 kali build --lib lib.ts                    # Library module (exports, no start; Phase 1 artifact: kind=wasm-module, role=primary-library; Phase 2+ adds kind=wit, role=interface-wit by default)
-kali build --lib --api browser lib.ts      # Rejected in early phases; browser mode is an analysis/build context tied to `check` and `build --bundle`, not a library artifact profile
+kali build --lib --api browser lib.ts      # Rejected in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library artifact mode
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + metadata (artifacts: wasm-module + wit + c-header + cabi-metadata; roles: primary-library + interface-wit + embedding-header + embedding-metadata; see specs/13-embedding.md)
 kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit + lib.component.wasm (artifacts: lib.wasm kind=wasm-module role=primary-library; lib.wit kind=wit role=interface-wit; lib.component.wasm kind=wasm-component role=primary-component)
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
@@ -202,7 +202,7 @@ kali check                                 # Type-check the canonical project-di
 kali check main.ts                         # Type check executable/analyzable source
 kali check src/a.ts src/b.ts               # Type check an explicit file set
 kali check types.d.ts                      # Validate a declaration-only file directly
-kali check --api browser main.ts           # Browser-targeted analysis/profile (no standalone DOM runtime implied)
+kali check --api browser main.ts           # Browser-targeted analysis context (no standalone DOM runtime implied)
 kali check --api node main.ts              # Phase 3 target: Node API surface is phase-gated for checking too
 kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation; Phase 2+: effect-policy validation over the discovered project graph
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set

@@ -140,7 +140,7 @@ Canonical gating rule:
 **Strategy**: Implement Node APIs as wrappers around Deno-style host functions where possible. Use `deno_std/node` as a compatibility reference, not as a hard dependency.
 
 ### Browser API (`--api browser`)
-Browser mode is primarily a **build/check profile** in early phases, not a promise that the standalone runtime behaves like a browser. See the canonical host/profile summary in [SPEC.md](../SPEC.md) and the phase-gating matrix in [19 — Feature Maturity](19-feature-maturity.md) when deciding whether a given command/profile combination is supported.
+Browser mode is primarily a **browser-targeted context** in early phases, not a promise that the standalone runtime behaves like a browser. See the canonical host/profile summary in [SPEC.md](../SPEC.md) and the phase-gating matrix in [19 — Feature Maturity](19-feature-maturity.md) when deciding whether a given command/profile combination is supported.
 
 Two layers matter here and should not be conflated:
 - **browser ambient typing surface** — the globals/types visible to `check` and browser-targeted builds (for example `Window`, `Document`, `HTMLElement`, `fetch`, `URL`)
@@ -160,8 +160,8 @@ This resolves a common ambiguity: browser-targeted analysis may know about `docu
 
 **Canonical early-phase rule**:
 - `kali check --api browser ...` is allowed for browser-targeted analysis
-- `kali build --bundle ...` is allowed for browser-targeted artifacts when the **effective** `apiSurface` is `browser` (from CLI or config)
-- `kali build` with an effective `apiSurface` of `browser` but without `--bundle` is rejected by default in early phases to keep browser mode tied to a real browser-host deployment path
+- `kali build --bundle ...` is allowed for browser-targeted artifacts when the **effective API surface** is `browser`
+- `kali build` with an effective API surface of `browser` but without `--bundle` is rejected by default in early phases to keep browser mode tied to a real browser-host deployment path
 - `kali run --api browser ...` is rejected by default until a later runtime profile explicitly supports it
 - `kali test --api browser ...` is also rejected by default in early phases for the same reason; browser support is not yet a standalone execution/test-runtime contract
 

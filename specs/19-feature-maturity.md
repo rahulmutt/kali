@@ -131,7 +131,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali check --sandbox kali.policy.json` | Phase 1 MVP | Reuse the same project-discovery behavior as plain `kali check`; Phase 1 validates policy schema/config for the discovered project graph, and Phase 2+ also checks inferred effects against the policy |
 | `kali check --sandbox kali.policy.json main.ts` | Phase 1 MVP | Same validation path, but scoped to the explicit file set rather than the discovered project graph |
 | `kali check --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node typing/global subset exists |
-| `kali check --api browser main.ts` | Phase 1 MVP | Supported browser-targeted analysis/profile |
+| `kali check --api browser main.ts` | Phase 1 MVP | Supported browser-targeted analysis context |
 | `kali check --sandbox kali.policy.json a.ts b.ts` | Phase 1 MVP | `check` keeps its set-oriented explicit-file behavior under `--sandbox`; this validates the supplied file set rather than inventing a single-entry mode |
 | `kali build` with no explicit entrypoint | Rejected by default | `build` is a direct-entry command in early phases; omitting the entrypoint should fail with `E5008` rather than guessing `main.ts` or scanning the project |
 | `kali build a.ts b.ts` | Rejected by default | Early phases accept exactly one primary build entrypoint; multi-entry artifact modes require a later explicit spec, so this should fail with `E5008` |
@@ -139,7 +139,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali build --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config for the build; Phase 2+ also performs effect-vs-policy validation |
 | `kali build --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for builds too |
 | `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`kind: wasm-module` + `kind: js-glue`) |
-| `kali build --bundle main.ts` | Rejected by default | Under the default tuple this fails because `--bundle` is reserved for browser-targeted output and therefore requires the effective `apiSurface` to be `browser`; with browser selected via CLI/config, the browser-bundle path is the supported Phase 1 mode |
+| `kali build --bundle main.ts` | Rejected by default | Under the default tuple this fails because `--bundle` is reserved for browser-targeted output and therefore requires the effective API surface to be `browser`; with browser selected via CLI/config, the browser-bundle path is the supported Phase 1 mode |
 | `kali build --api browser main.ts` | Rejected by default | In early phases browser mode is an analysis/build context tied to `check` and `build --bundle`, not a standalone non-bundled artifact mode |
 | `kali build --lib lib.ts` | Phase 1 MVP | Produce one linked library-style WASM artifact without automatic program start; Phase 1 emits the base `wasm-module` (`role: primary-library`), and Phase 2+ public-library builds add the default `wit` sidecar (`role: interface-wit`) |
 | `kali build --lib --api browser lib.ts` | Rejected by default | Early browser support is an analysis/build context tied to `check` and `build --bundle`, not a browser-library artifact mode |
