@@ -580,10 +580,12 @@ Configuration simplification rules:
 
 Interpretation rule:
 - compile/check/build diagnostics over otherwise valid command inputs, including `E5004` dependency-state failures, `E5006` feature gating, and Phase 2+ compile-time sandbox/effect violations, exit with **1**
+- this same `1` path also covers a **well-formed but context-incompatible** attached policy whose enabled capability/profile is unavailable for the effective command context (for example `effects.eval: true` before `--compat eval` exists, or non-deny `resources.*` budgets on early browser-targeted `check` / `build --bundle`)
 - `fmt --check` and lint-style contract failures that report ordinary command diagnostics also exit with **1**
 - runtime sandbox enforcement failures exit with **3**
 - runtime resource exhaustion/fuel/memory-limit failures exit with **4**
 - invalid CLI arguments, invalid config, invalid policy schema/ranges, and command-input/entrypoint-usage mistakes exit with **5**
+- malformed/invalid policy files stay on the `5` path; only semantically valid policy files that hit documented feature/profile gating move onto the ordinary diagnostic `1` path
 
 Command-input/entrypoint-usage mistakes include:
 - missing required direct-entry arguments for `run`, `build`, or `effects`
@@ -596,10 +598,10 @@ This keeps exit codes simple: command-time failures are separated from runtime e
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Compilation/check-style diagnostic failure (`E5004` dependency state, syntax, type, name resolution, build-time sandbox/effect violation, unsupported feature reported during compile/check, `fmt --check`, lint contract failures) |
+| 1 | Compilation/check-style diagnostic failure (`E5004` dependency state, syntax, type, name resolution, build-time sandbox/effect violation, unsupported feature reported during compile/check, semantically valid but context-incompatible policy enablement such as `E5006`, `fmt --check`, lint contract failures) |
 | 2 | Runtime error (uncaught exception) |
 | 3 | Runtime sandbox violation |
 | 4 | Runtime resource limit exceeded |
-| 5 | Configuration / CLI usage / invalid policy file / invalid command input or entrypoint |
+| 5 | Configuration / CLI usage / malformed or schema-invalid policy file / invalid command input or entrypoint |
 | 126 | Permission denied |
 | 127 | File not found |

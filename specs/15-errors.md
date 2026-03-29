@@ -126,11 +126,13 @@ Use `E5006` for cases such as:
 - dynamic `require()` in early phases
 - `run --api browser` in early phases where browser support exists only as an analysis/build context
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
+- an attached sandbox policy trying to enable a real capability/profile that exists in the spec set but is unavailable in the current phase/profile/api surface (for example `effects.eval: true` before the eval path exists, or non-deny `resources.*` budgets in early browser-targeted `check` / `build --bundle`)
 - any parse-supported construct that is intentionally not semantically enabled in the current phase/profile
 
 Boundary clarification:
 - use `E5006` when the requested feature/profile is real but unavailable in the current phase/profile
 - use `E5008` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it, or `kali build --api browser` without `--bundle` while browser builds are bundle-only)
+- a well-formed policy file that is semantically incompatible with the selected command/profile/api surface still falls on the `E5006` side of this boundary; malformed policy JSON, unknown fields, or invalid numeric/path/pattern shapes remain ordinary invalid-policy/config failures instead
 - the same rule applies when the triggering value came from discovered config rather than a literal CLI flag; diagnostics should explain the effective value instead of pretending no selection was made
 - in JSON mode, prefer filling structured diagnostic `context` metadata (`origin`, `configPath`/`flag`, and `effectiveValue` when useful) in addition to any human-oriented prose notes
 

@@ -103,7 +103,7 @@ Canonical early-phase code-resolution ladder:
    - use the canonical condition order table below
    - unsupported or unmatched conditional branches are skipped; Kali should not guess a fallback branch that the package did not publish
 6. If `exports` does not resolve the entry, fall back to legacy entry fields using the same API-surface intent **and still respecting edge kind**:
-   - browser API-surface analysis/build context (Phase 1: `kali check --api browser` and `kali build --bundle --api browser`): apply `browser` replacement map semantics first where applicable; then for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
+   - browser-targeted analysis/build context (Phase 1: `kali check --api browser` and `kali build --bundle --api browser`; later supported browser-targeted analysis commands such as `kali effects --api browser` and browser-context `kali package-effects` must reuse this same rule rather than inventing a second browser package-resolution ladder): apply `browser` replacement map semantics first where applicable; then for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
    - Deno-oriented standalone profile (`--api deno`, Phase 1 default): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
    - later Node profile may add `node`-specific behavior before the generic fallback ladder when explicitly documented
 7. Resolve relative/file entries with extension probing (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`).
@@ -119,7 +119,7 @@ Canonical `exports` condition order:
 | API surface / profile | Condition order |
 |---|---|
 | Deno-oriented standalone (`--api deno`, Phase 1 default) | `deno`, then edge kind (`import` or `require`), then `default` |
-| browser API-surface analysis/build context *(Phase 1: `check --api browser`, `build --bundle --api browser`)* | `browser`, then edge kind, then `default` |
+| browser-targeted analysis/build context *(Phase 1: `check --api browser`, `build --bundle --api browser`; later supported browser-targeted analysis commands reuse the same order)* | `browser`, then edge kind, then `default` |
 | later Node profile | `node`, then edge kind, then `default` |
 
 Phase-1 simplification:
@@ -130,7 +130,7 @@ Important separation rules:
 - runtime/code resolution must not treat `types` as a normal execution condition
 - the Deno-oriented standalone surface should honor a package's explicit `deno` condition when present instead of behaving like an unspecified generic bundler
 - `--api node` package resolution is part of the same Phase 3 Node-compatibility gate as the rest of the Node API surface; early phases should not resolve packages as though Node mode were already implemented for `check` or `build`
-- the browser API-surface analysis/build context should honor a package's explicit `browser` mapping/condition consistently across every supported browser-targeted command so analysis and emitted artifacts do not resolve different files by accident
+- the browser-targeted analysis/build context should honor a package's explicit `browser` mapping/condition consistently across every supported browser-targeted command so analysis and emitted artifacts do not resolve different files by accident
 - `package.json#module` is treated only as a legacy bundler-compatibility fallback when `exports` is absent; it must not override an explicit `exports` map, and it should not outrank `main` on a legacy CJS `require` edge
 - when a package explicitly marks a path as unavailable for the active profile (for example `browser: false`), Kali must respect that instead of probing alternate files heuristically
 - declaration/type lookup follows the separate ladder in [Type Resolution](#type-resolution)
