@@ -62,7 +62,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 
 | Flag | Scope | Description |
 |------|-------|-------------|
-| `--bundle` | `build` | In Phase 1, selects the browser-targeted artifact path and therefore requires `--api browser`; later phases may extend it to other multi-artifact packaging modes |
+| `--bundle` | `build` | In Phase 1, selects the browser-targeted artifact path and therefore requires `--api browser`; it is not a generic "multi-artifact output" switch, and any future extension must be specified explicitly |
 | `--lib` | `build`, `init` | Build or scaffold a library-oriented project/artifact without automatic program start |
 | `--capi` | `build` | Emit the Phase-2 public C-embedding artifact set (`wasm-module` + `wit` + `c-header` + `cabi-metadata`) |
 | `--component` | `build` | Emit a WebAssembly Component Model wrapper for a library/export-oriented build once that packaging path exists; phase-gated until the component flow is implemented |

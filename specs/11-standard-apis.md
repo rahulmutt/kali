@@ -54,11 +54,16 @@ Interpretation rule:
 - `structuredClone`
 - `performance.now()`
 - `EventTarget`, `Event`, `CustomEvent`
+- `crypto.getRandomValues` as the narrow randomness-only Web Crypto subset needed for the canonical `Random.GetBytes` effect/policy path
+
+Interpretation rule:
+- Phase 1 exposes only the minimal randomness subset (`crypto.getRandomValues`) rather than the full Web Crypto API surface
+- this keeps the API/effect/policy model aligned with the schema-v1 `effects.random` capability and the `Random.GetBytes` effect name without overpromising broader cryptography support
 
 **Later compatibility expansion**
 - `Blob`, `File`, `FormData`
 - `ReadableStream`, `WritableStream`, `TransformStream`
-- `crypto` (broader Web Crypto surface beyond the MVP subset)
+- broader `crypto` / Web Crypto surface beyond the MVP randomness subset (for example `crypto.subtle`)
 - `atob`, `btoa`
 - `WebSocket`
 
@@ -158,7 +163,7 @@ This resolves a common ambiguity: browser-targeted analysis may know about `docu
 
 This section turns the broad API story into a small implementation checklist so runtime, CLI, and testing do not drift:
 
-- **Web baseline must work end-to-end**: `console`, timers, `queueMicrotask`, `fetch`, `URL`, `TextEncoder`/`TextDecoder`, `AbortController`, `structuredClone`, `performance.now()`, and event primitives are available in `run` and covered by integration tests.
+- **Web baseline must work end-to-end**: `console`, timers, `queueMicrotask`, `fetch`, `URL`, `TextEncoder`/`TextDecoder`, `AbortController`, `structuredClone`, `performance.now()`, the MVP randomness subset (`crypto.getRandomValues`), and event primitives are available in `run` and covered by integration tests.
 - **Deno baseline must work end-to-end**: file read/write, metadata/read-dir, invocation arguments, and read-only env access all execute through the host ABI and obey the documented sandbox/execution contract.
 - **Every Phase 1 host call is policy-aware**: the runtime may not expose an unchecked host backdoor just because the API itself is part of the MVP.
 - **Node mode is not partially implied**: `--api node` remains phase-gated across `check` / `effects` / `build` / `run` / `test` until its documented subset is implemented; package compatibility must not depend on undocumented fallback behavior.

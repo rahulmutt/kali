@@ -46,6 +46,7 @@ This table exists to keep the status labels operational: a label implies whether
 | Invocation arguments (`Deno.args`; later Node `process.argv`) | Phase 1 MVP | Treated as caller-supplied execution context rather than a separately policy-gated host capability in schema v1 |
 | Read-only environment access (`Deno.env.get`, `Deno.env.toObject`, policy-filtered host env view) | Phase 1 MVP | Needed for practical standalone compatibility while still fitting the sandbox model |
 | Read-only `Deno.permissions` facade (`query`-style granted/denied view only) | Phase 1 MVP | Exposes Kali sandbox state for compatibility without interactive permission escalation |
+| Web Crypto randomness subset (`crypto.getRandomValues`, mapping to the canonical `Random.GetBytes` effect / `effects.random` policy key) | Phase 1 MVP | Keeps the Phase 1 Web baseline aligned with the effect and sandbox schemas without overpromising the full Web Crypto surface |
 | Mutable environment access (`Deno.env.set`, `process.env = ...`-style host mutation) | Phase 3 target | Widens the host contract and must remain policy-controlled |
 | Subprocess spawning (`Deno.Command`, host `process_spawn`) | Phase 3 target | Requires explicit sandbox/process-budget integration |
 | Socket/listener networking (`Network.Connect`, `Network.Listen`, `Deno.serve`) | Phase 3 target | Requires explicit network policy and concurrency controls |
@@ -96,8 +97,8 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 |---|---|---|
 | `kali init` | Phase 1 MVP | Create the minimal canonical `kali.json` scaffold; for the default app template this should normally be just `{ "schemaVersion": 1 }` unless the chosen template needs more |
 | `kali init --lib` | Phase 1 MVP | Select a library-oriented project template only; it does not implicitly change the later `kali build` artifact mode |
-| `kali fmt` | Phase 1 MVP | Stable formatting command for JS/TS sources |
-| `kali lint` | Phase 1 MVP | Stable lint command with conservative autofix support |
+| `kali fmt` | Phase 1 MVP | Stable formatting command over the canonical project file set relevant to formatting, including declaration-only files |
+| `kali lint` | Phase 1 MVP | Stable lint command with conservative autofix support over the canonical lintable project file set, including declaration-only files |
 | `kali install` | Phase 1 MVP | Resolve/materialize dependency state and write `kali.lock` for the project's declared dependency source kinds; install is profile-agnostic in early phases and does not require separate per-`--api` installs |
 | `kali install https://...` | Phase 1 MVP | Explicitly pin/materialize a raw URL dependency into the shared lock/materialization model |
 | `kali run` with no explicit entrypoint | Rejected by default | `run` is a direct-entry command in early phases; omitting the entrypoint is a CLI-usage/config error, not permission to guess `main.ts` or scan the project |
@@ -220,6 +221,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Deno-oriented standalone API surface (`--api deno`) | Phase 1 MVP | Default API surface for standalone execution; typically paired with the baseline single-threaded runtime profile |
 | Invocation arguments in the standalone surface (`Deno.args`) | Phase 1 MVP | Part of the execution context rather than a separately policy-gated capability in schema v1 |
 | Read-only environment access in the Deno standalone surface | Phase 1 MVP | Exposes only the sandbox-permitted environment view |
+| Web-baseline randomness subset (`crypto.getRandomValues`) | Phase 1 MVP | Covers the schema-v1 `effects.random` / `Random.GetBytes` capability without implying full Web Crypto support |
 | Mutable environment access / process-environment mutation | Phase 3 target | Policy-controlled host mutation, not part of the Phase 1 baseline |
 | Subprocess spawning and socket/listener networking | Phase 3 target | Shares the same sandbox/process/network maturity path as the corresponding capability rows above |
 | Browser-targeted `check` and `build --bundle` | Phase 1 MVP | Real browser host via emitted glue, with browser ambient typings available during analysis/build but no standalone browser emulation |
