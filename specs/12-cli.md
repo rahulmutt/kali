@@ -48,7 +48,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 
 | Flag | Scope | Description |
 |------|-------|-------------|
-| `--bundle` | `build` | Required for the early browser-targeted build path (`build --bundle --api browser`) and may later select other multi-artifact packaging modes |
+| `--bundle` | `build` | In Phase 1, selects the browser-targeted artifact path and therefore requires `--api browser`; later phases may extend it to other multi-artifact packaging modes |
 | `--lib` | `build`, `init` | Build or scaffold a library-oriented project/artifact without automatic program start |
 | `--capi` | `build` | Emit the Phase-2 public C-embedding artifact set (`wasm-module` + `c-header` + `cabi-metadata`) |
 | `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
@@ -65,6 +65,8 @@ Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
 - documenting a command-specific flag here does **not** imply it needs a separate feature-maturity row unless it changes a phase promise or machine-readable contract
 - build output-mode flags should not silently combine into ambiguous artifact contracts; in early phases `--bundle`, `--lib`, and `--capi` are mutually exclusive selectors, and unsupported combinations must fail explicitly rather than guessing which artifact set the user meant
+- in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires `--api browser`, and `kali build --bundle` under `--api deno` or `--api node` must fail explicitly instead of inventing a second bundle contract
+- in early phases, `--lib` and `--capi` are non-browser artifact modes; `kali build --lib --api browser ...` and `kali build --capi --api browser ...` must fail explicitly rather than pretending browser bundle rules also apply to library/embedding builds
 
 Config-array normalization rule:
 - `compilerOptions.runtimeProfiles` and `compat.features` are set-like lists, not ordered pipelines
@@ -129,9 +131,11 @@ kali build main.ts                         # → main.wasm (--fast mode, default
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # main.wasm + main.js (artifact kinds: wasm-module + js-glue)
+kali build --bundle main.ts               # Rejected in early phases; --bundle is reserved for browser-targeted output and requires --api browser
 kali build --api browser main.ts           # Rejected in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
 kali build --lib lib.ts                    # Library module (exports, no start)
+kali build --lib --api browser lib.ts      # Rejected in early phases; browser mode is a bundle/check profile, not a library artifact profile
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.exports.h + metadata (artifact kinds: wasm-module + c-header + cabi-metadata; see specs/13-embedding.md)
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
@@ -223,8 +227,9 @@ kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL depend
 
 Argument-kind rules:
 - a **registry package argument** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
-- a **raw URL argument** pins/materializes that URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
+- a **raw URL argument** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
 - plain `kali install` consumes the current manifest/import graph and reconciles lock + materialized state for the dependency source kinds actually used by the project
+- because raw URL entries are owned by the current source/import-map graph instead of a manifest dependency table, plain `kali install` may prune raw URL lock/cache entries that are no longer referenced
 
 Determinism rules:
 - `kali install` is the command that resolves versions, pins URL imports, and writes `kali.lock`.

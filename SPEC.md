@@ -160,7 +160,10 @@ Interpretation rules:
 - raw URL imports are **not** duplicated under `dependencies` / `devDependencies`
 - `kali.lock` records both source kinds even though they materialize into different on-disk locations
 - `kali install <registry-package>` mutates manifest + lock/materialized state for registry dependencies
-- `kali install https://...` pins/materializes that URL dependency in the shared lock/materialization model but does **not** invent a second manifest section or silently rewrite source imports
+- `kali install https://...` pins/materializes that exact URL in the shared lock/materialization model but does **not** invent a second manifest section or silently rewrite source imports
+- because raw URL pins are owned by the current source/import-map graph rather than a separate manifest table, a later plain `kali install` may prune lock/cache entries for raw URLs no longer referenced by the project
+
+This keeps raw URL support simple: source/import maps declare it, the lock/cache materialize it, and `kali install` reconciles the two.
 
 This is the canonical simplification for dependency management across the CLI, package, and schema specs.
 

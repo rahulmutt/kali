@@ -39,6 +39,7 @@ Declaration-model rule:
 - registry dependencies belong in the project manifest
 - raw URL dependencies belong in source/import maps, not in a second manifest dependency table
 - `kali install https://...` is therefore a pin/materialize workflow for the shared lock/cache model, not a request to invent a new top-level manifest section
+- because raw URL state is owned by the current source/import-map graph instead of a manifest dependency table, plain `kali install` may prune raw URL lock/cache entries that are no longer referenced
 
 Lockfile rule:
 - `kali.lock` is the canonical reproducibility record for **both** source kinds
@@ -103,7 +104,7 @@ Argument semantics are intentionally simple:
 - registry package arguments mutate `kali.json` (`dependencies` or `devDependencies`) and then refresh lock/materialized state
 - raw URL arguments update the shared lock/cache state only; they do not invent a second manifest section and should not rewrite source/import-map declarations implicitly
 - a raw-URL install is therefore best understood as **pin/materialize this exact URL in the shared dependency state**, not as a request to add a new named dependency kind
-- plain `kali install` reconciles the current manifest + import graph with `kali.lock`, `node_modules/`, and `.kali/cache/urls/`
+- plain `kali install` reconciles the current manifest + import graph with `kali.lock`, `node_modules/`, and `.kali/cache/urls/`, and may prune raw URL entries that are no longer reachable from that graph
 
 Installation is **fetch-and-link by default**, not "execute package scripts" by default. To preserve sandbox-first behavior:
 - npm lifecycle scripts (`preinstall`, `install`, `postinstall`) are not executed unless the user explicitly opts in with `kali install --allow-scripts`
@@ -175,7 +176,7 @@ To keep package behavior predictable across `install`, `check`, `build`, `run`, 
 - When `kali.lock` and the required materialized dependency state disagree, `kali install` is responsible for reconciling them. Other commands should fail clearly rather than guessing which source of truth to trust.
 - `--allow-scripts` affects install-time behavior only; it does not change later `check`/`build`/`run` semantics for an already-installed package graph.
 
-This is an intentional simplification: one command mutates dependency state, all other commands consume it deterministically.
+This is an intentional simplification: one command mutates dependency state, all other commands consume it deterministically. For raw URL imports, the source/import-map graph is the declaration source of truth and the lock/cache are the materialized state derived from it.
 
 ## Import Styles
 

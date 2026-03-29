@@ -111,13 +111,17 @@ Use the canonical artifact kinds from [specs/18-schemas.md](18-schemas.md) in CL
 
 Early-phase output-mode rule:
 - `--bundle`, `--lib`, and `--capi` are mutually exclusive build output selectors
+- in Phase 1, `--bundle` is reserved for browser-targeted output and therefore requires `--api browser`
+- in early phases, `--lib` and `--capi` are non-browser artifact modes; pairing them with `--api browser` is rejected until a separate browser-library/browser-embedding contract is specified
 - unsupported combinations must fail explicitly instead of guessing whether the user wanted an executable bundle, a library artifact, or a public embedding artifact set
 
 | Command | Output |
 |---------|--------|
 | `kali build foo.ts` | `foo.wasm` — Kali-hosted WASM module (`kind: wasm-module`) |
 | `kali build --bundle --api browser foo.ts` | `foo.wasm` + `foo.js` — WASM + JS glue for browsers (`kind: wasm-module`, `kind: js-glue`) |
+| `kali build --bundle foo.ts` | Rejected in early phases; `--bundle` is reserved for browser-targeted output and requires `--api browser` |
 | `kali build --lib foo.ts` | `foo.wasm` — library module (exports, no automatic start; `kind: wasm-module`) |
+| `kali build --lib --api browser foo.ts` | Rejected in early phases; browser mode is a bundle/check profile, not a library-artifact profile |
 | `kali build --capi foo.ts` | Phase 2 target: `foo.wasm` + generated embedding header/metadata for use with the host-side `kali_capi` library (`kind: wasm-module`, `kind: c-header`, `kind: cabi-metadata`) |
 
 ## Source Maps
