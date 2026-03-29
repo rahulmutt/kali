@@ -323,6 +323,10 @@ Determinism rules:
 ### `kali package-effects <package>`
 Analyze effects of an npm/JSR package before installing.
 
+Argument-kind rule:
+- `<package>` uses the same canonical registry-package identifier grammar as `kali install`: bare names for npm and `jsr:`-prefixed names for JSR
+- raw URLs and local file paths are rejected for `package-effects`; this command analyzes registry packages, while raw URL dependencies remain part of the project/import-graph workflow handled by `kali install` + `kali effects`
+
 Project-state rule:
 - `kali package-effects <package>` may fetch package metadata/tarballs into an ephemeral analysis cache, but it must **not** mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
 - turning an analyzed package into a project dependency remains the job of `kali install`
@@ -338,6 +342,11 @@ By default, `kali package-effects` emits its native JSON payload directly, follo
 
 ### `kali package-audit [package]`
 Security audit for dependencies.
+
+Argument-kind rule:
+- when a package argument is supplied, it uses the canonical registry-package identifier grammar (npm bare name or `jsr:`-prefixed JSR name)
+- raw URLs and local file paths are rejected for `package-audit`; package-audit is registry-package-oriented rather than a second raw-URL analysis path
+- with no explicit package argument, `kali package-audit` audits the currently installed registry-package dependency set rather than inventing a separate audit meaning for raw URL cache entries
 
 Project-state rule:
 - like `package-effects`, audit may use temporary fetched metadata but must not silently install or materialize dependencies into the project's managed state

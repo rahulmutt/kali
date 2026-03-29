@@ -334,6 +334,11 @@ kali package-effects lodash                 # Show effects used by package
 kali package-audit lodash                   # Security audit
 ```
 
+Argument-kind simplification:
+- `kali package-effects <pkg>` and `kali package-audit <pkg>` accept only canonical **registry-package identifiers** (`lodash`, `@scope/name`, `jsr:@std/path`)
+- raw URLs and local file paths are rejected for these commands instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
+- raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
+
 Isolation rule:
 - package-analysis commands may fetch package metadata/tarballs into a temporary analysis cache
 - they must **not** mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`

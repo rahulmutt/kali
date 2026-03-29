@@ -147,7 +147,9 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali effects --api browser main.ts` | Phase 2 target | Browser-targeted effect analysis follows the same browser-analysis intent as `kali check --api browser` once the Phase 2 command exists |
 | `kali effects --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset exists for effect analysis too |
 | `kali package-effects lodash` | Phase 2 target | Depends on effect-report pipeline; reject/mark experimental before then |
+| `kali package-effects https://...` | Rejected by default | `package-effects` analyzes registry packages only; raw URLs belong to the project/import-graph workflow instead |
 | `kali package-audit [pkg]` | Later compatibility | Tooling feature, not a Phase 1-2 compiler/runtime milestone |
+| `kali package-audit https://...` | Rejected by default | `package-audit` is registry-package-oriented rather than a second raw-URL analysis path |
 | `kali install --allow-scripts <pkg>` | Opt-in only | Explicit one-shot escape hatch for packages that need lifecycle scripts; still reject native addons / `node-gyp` |
 | `--compat eval` | Phase 4 compatibility | Before runtime support exists, reject with `E5006` rather than parsing and silently ignoring the flag |
 | `--wasm-threads` | Later compatibility (opt-in only) | Reject with `E5006` until the threaded runtime profile exists; after that, still reject explicitly when unavailable on the selected target/engine |

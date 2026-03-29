@@ -259,6 +259,7 @@ Interpretation rules:
 - `--dev` applies only to **registry package** install arguments; pairing `--dev` with a raw URL is rejected explicitly instead of inventing a `devUrls`-style manifest concept
 - because raw URL pins are owned by the current source/import-map graph rather than a separate manifest table, a later plain `kali install` may prune lock/cache entries for raw URLs no longer referenced by the project
 - `kali install` is profile-agnostic in early phases: it locks/materializes dependency contents once for the current manifest/import graph, while `check` / `effects` / `build` / `run` / `test` choose `deno`/browser-targeted package branches from the installed package metadata at command time
+- `package-effects` and `package-audit` are **registry-package analysis commands**: when they take an explicit package argument, it must use the canonical registry-package identifier grammar, not a raw URL or local file path
 
 This keeps raw URL support simple: source/import maps declare durable URL dependencies, the lock/cache materialize them, and `kali install` reconciles the two. An ad hoc `kali install https://...` is just a convenient way to pre-pin/materialize a URL that the project is expected to reference explicitly.
 
