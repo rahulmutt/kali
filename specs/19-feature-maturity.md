@@ -128,6 +128,8 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali build --capi lib.ts` | Phase 2 target | Public embedding artifact generation should stay gated until the embedding contract is stable; when enabled it emits `kind: wasm-module` + `kind: wit` + `kind: c-header` + `kind: cabi-metadata` |
 | `kali build --component lib.ts` | Phase 2 target | Component-oriented library packaging path; when enabled it emits `kind: wasm-module` + `kind: wit` + `kind: wasm-component` |
 | `kali build --bundle --lib main.ts` | Rejected by default | Conflicting artifact-mode selectors; this is a CLI usage/config error, not a feature-maturity gate |
+| `kali build --bundle --capi lib.ts` | Rejected by default | Conflicting artifact-mode selectors; `--bundle` and `--capi` select incompatible output contracts |
+| `kali build --bundle --component lib.ts` | Rejected by default | Conflicting artifact-mode selectors; `--bundle` and `--component` select incompatible output contracts |
 | `kali build --lib --capi lib.ts` | Rejected by default | Conflicting artifact-mode selectors; `--capi` already selects a library/export packaging mode |
 | `kali build --lib --component lib.ts` | Rejected by default | Conflicting artifact-mode selectors; `--component` already selects a library/export packaging mode |
 | `kali build --capi --api browser lib.ts` | Rejected by default | Early browser support is a bundle/check profile, not a browser-embedding artifact mode |

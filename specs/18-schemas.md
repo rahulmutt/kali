@@ -269,13 +269,13 @@ Produced by `kali effects`.
 ```json
 {
   "schemaVersion": 1,
-  "entryPoints": ["main"],
+  "entryPoints": ["src/main.ts"],
   "effects": [
     {
       "kind": "FileSystem.Read",
       "locations": [
         {
-          "file": "program.ts",
+          "file": "src/main.ts",
           "line": 2,
           "column": 18,
           "function": "processFile"
@@ -306,7 +306,7 @@ Early-phase interpretation rule:
   "kind": "FileSystem.Read",
   "locations": [
     {
-      "file": "program.ts",
+      "file": "src/main.ts",
       "line": 2,
       "column": 18,
       "function": "processFile"

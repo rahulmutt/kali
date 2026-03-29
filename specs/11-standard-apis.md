@@ -77,6 +77,10 @@ Deno is the primary standalone-runtime API surface because it fits Kali's explic
 - Environment access: `Deno.env.get`, `Deno.env.toObject` *(both expose only the sandbox-permitted environment view rather than the raw host environment)*
 - `Deno.permissions` as a read-only compatibility facade over Kali sandbox policy state; it reports granted/denied capabilities but does not perform interactive permission prompts, `request()`, or `revoke()`-style privilege escalation flows in Phase 1 (the canonical maturity decision for this facade lives in [specs/19-feature-maturity.md](19-feature-maturity.md))
 
+Implementation simplification:
+- this read-only `Deno.permissions` facade should normally be derived from Kali's already-resolved runtime/policy state rather than from a separate permission-prompt host API
+- that keeps the Deno compatibility story aligned with the sandbox-first model: permission status is observed, not negotiated interactively at runtime
+
 For host-capability maturity, the canonical source of truth is [specs/19-feature-maturity.md](19-feature-maturity.md). In particular:
 - read-only environment access is part of the Phase 1 standalone contract
 - mutable environment access, subprocess spawning, and socket/listener networking follow the Phase 3 maturity path
