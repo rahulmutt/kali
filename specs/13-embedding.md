@@ -31,7 +31,7 @@ let mut runtime = Runtime::new(config)?;
 let result = runtime.run_string("inline.ts", "const x: number = 1 + 2; x")?;
 assert_eq!(result.as_number(), Some(3.0));
 
-// Compile a module graph into one linked artifact
+// Compile a module graph into one linked WASM payload artifact
 let module = runtime.compile_file("main.ts")?;
 let result = runtime.run_module(&module)?;
 

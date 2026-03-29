@@ -166,7 +166,7 @@ This deliberately avoids depending on the WebAssembly module-linking proposal in
 ### Module Instantiation Order
 1. Parse and compile all statically imported modules in the graph
 2. Resolve imports/exports in the compiler linker
-3. Emit one linked WASM artifact for the graph
+3. Emit one linked WASM payload for the graph
 4. Execute module top-level code in ECMAScript dependency order
 5. Run entry point
 

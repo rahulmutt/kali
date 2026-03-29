@@ -2,7 +2,7 @@
 
 ## Registry Compatibility
 
-Package loading is compile-time first: Kali resolves, analyzes, and links dependency graphs during build/check/run. For normal builds, application code and its static dependencies are emitted as one linked artifact rather than a fleet of runtime-linked WASM modules.
+Package loading is compile-time first: Kali resolves, analyzes, and links dependency graphs during build/check/run. For normal builds, application code and its static dependencies are emitted as one linked WASM payload rather than a fleet of runtime-linked WASM modules. Output modes may still add companion artifacts such as JS glue, but they do not change the single linked-payload rule.
 
 ### Supported Packages
 Kali supports registry packages (npm/JSR) that:

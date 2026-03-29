@@ -67,7 +67,7 @@ This table exists to keep the status labels operational: a label implies whether
 
 ## Interpretation Rules
 
-1. **Single-artifact rule**: Phase 1-3 builds target one linked WASM artifact for the resolved static graph.
+1. **Single-payload rule**: Phase 1-3 builds target one linked WASM payload for the resolved static graph. Output modes may still add companion artifacts such as JS glue or C headers, but they must not reintroduce runtime WASM module linking.
 2. **Parse vs support**: accepted syntax does not imply full runtime support; unsupported dynamic features should be diagnosed explicitly.
 3. **Effect boundaries**: features marked as dynamic compatibility paths should be reflected in static effect analysis.
 4. **No silent fallback**: if a feature cannot be implemented faithfully under the current phase constraints, Kali should reject or gate it rather than emulate it loosely.
@@ -95,7 +95,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali check --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config; Phase 2+ also checks inferred effects against the policy |
 | `kali check --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node typing/global subset exists |
 | `kali check --api browser main.ts` | Phase 1 MVP | Supported browser-targeted analysis/profile |
-| `kali build main.ts` | Phase 1 MVP | Produce one linked WASM artifact with the canonical default tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]`) |
+| `kali build main.ts` | Phase 1 MVP | Produce one linked WASM payload with the canonical default tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]`) |
 | `kali build --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config for the build; Phase 2+ also performs effect-vs-policy validation |
 | `kali build --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for builds too |
 | `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`kind: wasm-module` + `kind: js-glue`) |
@@ -119,7 +119,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 These checklists keep the phase labels operational rather than purely descriptive.
 
 ### Phase 1 exit criteria
-- One linked-artifact compile/run pipeline works end-to-end for TS and JS inputs.
+- One linked-WASM-payload compile/run pipeline works end-to-end for TS and JS inputs, with companion artifacts only where an output mode explicitly requires them.
 - `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
 - Browser-targeted `check --api browser` and `build --bundle --api browser` work against the real browser ambient surface without implying DOM runtime support in Kali itself.
 - `kali check` / `build` / `run` / `test` all use the same early-phase API-surface maturity rules: Deno-supported, Node phase-gated, browser supported only for the documented browser-targeted check/bundle paths.

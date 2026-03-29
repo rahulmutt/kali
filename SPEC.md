@@ -28,7 +28,7 @@ These constraints are project-wide and should not be weakened in lower-level spe
 - **AOT-only**: no language-level JIT compilation
 - **Pure Rust**: no embedded C/C++ libraries
 - **Sandbox-first**: runtime enforcement is a first-class requirement, not an afterthought
-- **Single linked artifact early**: Phase 1-3 builds target one linked WASM artifact for the resolved static graph
+- **Single linked WASM payload early**: Phase 1-3 builds target one linked WASM payload for the resolved static graph, even when a build also emits companion artifacts such as JS glue or C headers
 - **No silent semantic fallback**: unsupported or phase-gated features must fail explicitly rather than degrade invisibly
 - **AI-friendly machine contracts**: JSON output, diagnostics, and effect reports are stable, concise, and versioned
 
@@ -54,7 +54,7 @@ To reduce drift across the spec set, these terms are canonical:
 - **Runtime profile**: semantic runtime capability profile orthogonal to API surface, e.g. the default single-threaded baseline or later `wasm-threads`
 - **Feature maturity**: phase/status classification defined in `specs/19-feature-maturity.md`
 - **Schema contract**: machine-readable JSON formats defined in `specs/18-schemas.md`
-- **Linked artifact model**: compile the resolved static graph into one linked WASM artifact rather than relying on runtime WASM module linking
+- **Linked artifact model**: compile the resolved static graph into one linked WASM payload rather than relying on runtime WASM module linking; companion artifacts such as JS glue or C headers do not change that single-payload rule
 - **Dependency source kind**: one of the early canonical dependency declaration/materialization channels: registry package or raw URL import
 
 If another spec needs to describe maturity, schemas, or command/profile gating, it should reference the canonical doc instead of redefining it.
@@ -147,6 +147,22 @@ Interpretation rules:
 
 This is the canonical simplification for dependency management across the CLI, package, and schema specs.
 
+## Canonical Sandbox Policy Boundary
+
+To keep the bootstrap goals and the detailed sandbox specs aligned, Kali draws one explicit line between **declarative project policies** and **programmable embedding-time policy hooks**:
+
+- **Phase 1-2 project policies**: `kali.policy.json` is declarative data only
+- **Later compatibility**: programmable policy conditions may exist only as explicitly opt-in, host-registered pure predicates in embedding scenarios
+- project code must not be executed implicitly just to decide whether a sandboxed capability is allowed
+- policy evaluation must stay auditable, deterministic, and safe to perform before untrusted program execution begins
+
+Cross-spec rule:
+- sandbox policy files must not become a second scripting language
+- if richer conditional logic is needed, the extension point belongs to the embedding API, not to arbitrary project-local policy code by default
+- specs should describe this as an extension of the sandbox contract, not as permission to weaken the declarative-policy default
+
+This is the canonical simplification for reasoning about the original “policy function” idea without undermining auditability or startup-time safety.
+
 ## Canonical Dynamic Loading and Code-Generation Boundary
 
 To keep the module, runtime, and sandbox specs aligned, Kali draws one explicit line between **static linking**, **dynamic loading**, and **dynamic code generation**:
@@ -157,7 +173,7 @@ To keep the module, runtime, and sandbox specs aligned, Kali draws one explicit 
 - **Phase 4 compatibility**: dynamic code generation via `eval` / `Function()` behind the documented compatibility path
 
 Cross-spec rule:
-- Phase 1-3 keep the **single linked artifact** model; none of the later dynamic features may quietly reintroduce ad hoc runtime module linking
+- Phase 1-3 keep the **single linked WASM payload** model; none of the later dynamic features may quietly reintroduce ad hoc runtime module linking
 - parser support for a construct does **not** imply runtime support for it
 - static analysis should distinguish **dynamic loading** (`import(expr)`) from **dynamic code generation** (`eval`, `Function()`), because they have different maturity paths and sandbox consequences
 - when these constructs are unsupported for the selected phase/profile, the compiler/runtime must reject them with the canonical feature-maturity diagnostic instead of inventing fallback behavior
@@ -250,7 +266,7 @@ When extending the spec set:
 
 The spec intentionally makes a few simplifying choices to keep implementation tractable:
 - one primary execution engine (`wasmtime`) first
-- one linked WASM artifact per build in early phases
+- one linked WASM payload per build in early phases, with optional companion artifacts such as JS glue or C headers when the selected output mode requires them
 - one canonical machine-readable JSON contract per output type, with command-specific payloads wrapped in one shared CLI envelope when JSON transport is requested
 - one primary standalone runtime surface early (`deno`), with browser as a check/build profile first
 - one initial effect model centered on sandbox-relevant built-in capabilities
