@@ -324,13 +324,13 @@ To keep CLI behavior predictable and avoid ad hoc "maybe this command scans the 
 
 To remove another recurring ambiguity, early phases also use one small arity rule:
 - `kali run <file>`, `kali build <file>`, and `kali effects <file>` each take **exactly one** primary source entrypoint in Phase 1-2.
-- Passing zero entrypoints is a CLI-usage/config error.
-- Passing more than one explicit entrypoint to those commands is also a CLI-usage/config error unless a later spec explicitly adds a multi-entry build/report mode.
+- Passing zero entrypoints should use the canonical invalid-usage diagnostic `E5008`.
+- Passing more than one explicit entrypoint to those commands should also use `E5008` unless a later spec explicitly adds a multi-entry build/report mode.
 - `kali check [files...]`, `kali fmt [files...]`, `kali lint [files...]`, and `kali test [files...]` may still accept multiple explicit file arguments because their contracts are set-oriented rather than single-artifact/single-program oriented.
 - These arity mistakes are distinct from the canonical invalid-entrypoint diagnostic (`E5007`): arity is a command-usage problem, while `E5007` is for an explicitly supplied path of the wrong input kind (for example a declaration-only file passed to `run`).
 
 Cross-spec rule:
-- if a command is defined as direct-entry, omitting the entrypoint is a CLI-usage/config error rather than permission to walk the project opportunistically
+- if a command is defined as direct-entry, omitting the entrypoint should use `E5008` rather than permission to walk the project opportunistically
 - if a command is project-oriented, its no-argument behavior must narrow from the canonical project-discovery result instead of inventing command-local directory walks
 - explicit file arguments still bypass discovery for the named paths, subject to the canonical input-kind rules for that command
 - lower-level specs should not imply an undocumented multi-entry executable/build/effects mode just because some schemas use arrays for future extensibility

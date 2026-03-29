@@ -84,6 +84,7 @@ Terminology note:
 - `E5005`: Ambiguous module resolution or registry-path conflict
 - `E5006`: Feature unavailable in current phase, API surface, command/profile, or target configuration
 - `E5007`: Invalid command input or entrypoint kind for the selected command
+- `E5008`: Invalid CLI usage or flag/arity combination for the selected command
 
 Use `E5004` for dependency-state problems such as:
 - project dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports from the install-time project discovery set) have not been installed/materialized yet
@@ -137,7 +138,7 @@ Use `E5007` when the user passes a file/input kind that the selected command fun
 
 Boundary rule:
 - `E5007` is for **input-kind mismatch** (for example a declaration-only file passed where an executable/analyzable entrypoint is required)
-- missing required entrypoints, too many explicit direct-entry arguments, conflicting build artifact-mode selectors (for example `--bundle --lib`), or other command-usage/arity mistakes are still ordinary CLI/config usage errors rather than `E5007`
+- missing required entrypoints, too many explicit direct-entry arguments, conflicting build artifact-mode selectors (for example `--bundle --lib`), or other command-usage/arity mistakes should use the canonical CLI-usage diagnostic `E5008` instead of overloading `E5007`
 - in the CLI exit-code model, those command-usage cases and `E5007` both typically exit with code `5`, even though `E5007` remains the structured diagnostic for the input-kind mismatch case
 
 Example:
@@ -157,8 +158,36 @@ Use `E5007` for cases such as:
 - any other direct command input where the selected command requires an executable/analyzable entrypoint but the supplied file is declaration-only
 
 Clarification:
-- `E5007` is about **input-kind mismatch**, not phase gating
+- `E5007` is about **input-kind mismatch**, not phase gating or general CLI misuse
 - module-resolution issues inside an otherwise valid program still use the ordinary `E5001`-`E5005` family
+
+### Canonical Invalid-Usage Diagnostic
+
+Use `E5008` when the command line itself is malformed for the selected command, even though the requested feature may otherwise exist.
+
+Boundary rule:
+- `E5008` is for **CLI/config usage shape errors**, not language/runtime maturity gating
+- use `E5006` when the user asked for a documented feature/profile that exists in the spec set but is unavailable in the current phase/profile
+- use `E5007` when the problem is the supplied input kind rather than the overall command shape
+
+Example:
+```
+error[E5008]: invalid command usage: conflicting build artifact modes '--bundle' and '--lib'
+  --> <cli>:1:1
+  |
+  = help: choose exactly one artifact mode: default executable, --bundle, --lib, --capi, or --component
+```
+
+Use `E5008` for cases such as:
+- `kali run` with no explicit entrypoint
+- `kali build a.ts b.ts` in early phases where `build` is a single-entry direct command
+- `kali effects --sandbox kali.policy.json main.ts`
+- conflicting artifact-mode selectors such as `--bundle --lib`, `--bundle --capi`, or `--lib --component`
+- other command-local flag/arity combinations that the CLI contract rejects independently of feature maturity
+
+Clarification:
+- `E5008` is for **invalid command shape**, not unsupported language/runtime semantics
+- commands should still emit the normal versioned diagnostic/envelope structure in JSON mode rather than printing ad hoc usage text only
 
 ### Runtime Errors (E6xxx)
 - `E6001`: Uncaught exception

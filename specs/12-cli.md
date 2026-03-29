@@ -26,8 +26,8 @@ Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 
 Canonical early-phase entrypoint-arity rule:
 - `run`, `build`, and `effects` each take **exactly one** explicit primary entrypoint in early phases
-- zero entrypoints for those commands is a CLI-usage/config error
-- more than one explicit entrypoint for those commands is also a CLI-usage/config error unless a later spec introduces a documented multi-entry mode
+- zero entrypoints for those commands is the canonical invalid-usage diagnostic `E5008`
+- more than one explicit entrypoint for those commands is also `E5008` unless a later spec introduces a documented multi-entry mode
 - `check`, `fmt`, `lint`, and `test` may still accept multiple explicit file arguments because their contracts are set-oriented rather than single-program oriented
 
 Canonical input-kind rule:
@@ -95,7 +95,7 @@ Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
 - documenting a command-specific flag here does **not** imply it needs a separate feature-maturity row unless it changes a phase promise or machine-readable contract
 - build artifact-mode flags follow the canonical matrix in [SPEC.md](../SPEC.md): in early phases `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive selectors unless a later spec explicitly says one implies another
-- conflicting artifact-mode combinations such as `--bundle --lib`, `--bundle --capi`, `--bundle --component`, `--lib --capi`, or `--lib --component` are **CLI usage/config errors**, not feature-maturity rejections; the user asked for incompatible artifact modes rather than for a later-phase feature
+- conflicting artifact-mode combinations such as `--bundle --lib`, `--bundle --capi`, `--bundle --component`, `--lib --capi`, or `--lib --component` should use the canonical invalid-usage diagnostic `E5008`, not a feature-maturity rejection; the user asked for incompatible artifact modes rather than for a later-phase feature
 - in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires `--api browser`, and `kali build --bundle` under `--api deno` or `--api node` must fail explicitly instead of inventing a second bundle contract
 - in early phases, `--lib`, `--capi`, and `--component` are non-browser artifact modes; `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` must fail explicitly rather than pretending browser bundle rules also apply to library/embedding builds
 - `--lib` is the base exported-library mode; `--capi` and `--component` are later packaging layers over that same exported-library contract rather than unrelated semantics
@@ -235,7 +235,7 @@ Sandbox-interaction rule:
 - `kali effects` reports inferred effects only; it does **not** accept `--sandbox`
 - effect-vs-policy validation belongs to `kali check --sandbox ...` and `kali build --sandbox ...`
 - rejecting `kali effects --sandbox ...` keeps one canonical policy-validation workflow instead of two overlapping ones
-- that rejection is a **CLI usage/config error**, not a feature-maturity error: the command intentionally has no sandbox-comparison mode
+- that rejection is `E5008`, not a feature-maturity error: the command intentionally has no sandbox-comparison mode
 
 Input-kind and host-selection rules:
 - `kali effects` is a direct-entry command in early phases: it requires exactly one explicit executable/analyzable source-file entrypoint and does not fall back to project-wide discovery
