@@ -234,6 +234,7 @@ Note:
 - when `package-effects` and `package-audit` are available, they stay single-package registry-analysis commands rather than growing an implicit whole-project mode
 - in early phases, registry-analysis commands also avoid a second per-command `--api` / `--compat` flag family: `package-effects` reuses the inherited analysis context, while `package-audit` stays **context-free** (registry/package metadata focused) rather than becoming a second host-mode selector
 - config-selected `apiSurface`, `runtimeProfiles`, and `compat.features` therefore influence `package-effects`, but they do not change the semantics of early `package-audit`
+- unsupported inherited analysis-context values for `package-effects` fail with the same canonical availability path (`E5006`) used by direct analysis commands; Kali must not silently drop an inherited `node`, `wasm-threads`, or later compatibility feature just because `package-effects` has no parallel flag family of its own
 - for clarity, early `package-audit` still uses ordinary project/config discovery for generic CLI behavior (for example project root, `--output`, `--quiet`), but it intentionally ignores host-analysis/runtime knobs such as `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
 - this keeps each command in one primary category and avoids overlapping near-duplicate workflows
 
@@ -457,6 +458,7 @@ These selectors are mutually exclusive unless a later spec explicitly says other
 Interpretation rules:
 - `--bundle` is **browser-only** in early phases and requires the effective `apiSurface` to be `browser`
 - `--lib`, `--capi`, and `--component` are **library-oriented artifact modes** in early phases: they are non-browser, export-oriented modes derived from the module's explicit exports
+- the exported host-facing surface for every library-oriented mode comes only from the module's explicit exports; these modes must not expose arbitrary internal declarations through reflection or artifact-specific special cases
 - library-oriented modes still obey the ordinary build-command API-surface gates: for example `kali build --lib --api node lib.ts` is a **Phase 3** Node build and therefore uses the same `E5006` gate as other early `--api node` builds, while `kali build --lib --api browser lib.ts` is an `E5008` contradiction because browser mode is only defined for `--bundle`
 - library-oriented modes omit any synthetic executable entry invocation, but still preserve ordinary ECMAScript module-instantiation semantics for top-level initialization when the host instantiates the module
 - WIT is an output detail of public library/embedding/component modes, not a separate selector
