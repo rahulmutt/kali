@@ -163,7 +163,7 @@ URL imports are cached in `.kali/cache/urls/`. Integrity is verified against the
 Early-phase simplification:
 - a URL import used by source code participates in the same lockfile discipline as registry packages
 - URL-only projects may therefore have an empty or absent `node_modules/` tree without being considered uninstalled
-- non-install commands may fetch only when the URL dependency is already pinned/authorized by the existing project state and a recoverable local cache miss occurs; they must not silently change the pinned dependency set or rewrite the lockfile
+- non-install commands do **not** repair or repopulate missing URL materialization on the fly; a missing `.kali/cache/urls/` entry is treated as missing dependency state and should fail with `E5004`
 - refreshing or first-time pinning of URL dependencies belongs to `kali install` or another explicit dependency-management workflow, not to ordinary compilation
 
 ### Import Maps
