@@ -203,10 +203,10 @@ Baseline CommonJS support is part of the Phase 1 package story, but it is intent
 
 ## Dynamic Imports
 
-To keep the module system aligned with the single-artifact architecture:
+To keep the module system aligned with the single-artifact architecture and the canonical dynamic-loading boundary in [SPEC.md](../SPEC.md):
 - static `import` is the primary and fully supported path
-- literal-string `import("pkg")` is a later optimization/compatibility feature that may be rewritten against the already-linked graph
-- non-literal `import(expr)` is treated as a dynamic effect boundary and rejected by default in early phases; any later compatibility path must be documented in [specs/19-feature-maturity.md](19-feature-maturity.md)
+- literal-string `import("pkg")` is a **Phase 3 target** feature that may be rewritten against the already-linked graph rather than introducing runtime WASM module linking
+- non-literal `import(expr)` is a **later compatibility** path, treated as a dynamic effect boundary and rejected by default in early phases unless the documented maturity path says otherwise
 
 ## Type Resolution
 

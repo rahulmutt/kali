@@ -3,19 +3,19 @@
 ## Overview
 
 Sandboxing is a first-class concern in Kali. The system combines:
-1. **Static effect analysis** — produce a conservative summary of possible effects before running, marking dynamic/incomplete cases explicitly
+1. **Static effect analysis** — maintain a conservative capability-summary model, with a stable user-facing JSON report starting in Phase 2
 2. **Sandbox policies** — declarative rules for what's allowed
 3. **Runtime resource limits** — CPU, memory, processes, network
 
 ## Static Effect Analysis
 
-The static effect system is intentionally scoped around **sandbox-relevant capabilities** first. The initial goal is a conservative JSON summary of possible effects, not a full research-grade effect calculus.
+The static effect system is intentionally scoped around **sandbox-relevant capabilities** first. The goal is a conservative summary of possible effects, not a full research-grade effect calculus.
 
 Phase simplification:
-- **Phase 1**: runtime sandbox enforcement, policy-schema validation, and resource limits work without requiring full static effect reports.
-- **Phase 2+**: `kali effects`, compile-time effect-vs-policy validation, and explicit `pure` / effect annotations become part of the supported workflow.
+- **Phase 1**: internal effect bookkeeping may exist to support diagnostics/runtime integration, but the user-facing contract is runtime sandbox enforcement, policy-schema validation, and resource limits rather than a stable effect-report command
+- **Phase 2+**: `kali effects`, compile-time effect-vs-policy validation, and explicit `pure` / effect annotations become part of the supported workflow
 
-This keeps the sandbox-first story implementable: enforcement exists from the beginning, while richer static analysis lands once the type/effect infrastructure is ready.
+This keeps the sandbox-first story implementable: enforcement exists from the beginning, while the stable effect-report contract lands once the type/effect infrastructure is ready.
 
 ### Effect Inference
 The type checker infers effects for every function (see [specs/04-type-system.md](04-type-system.md)):

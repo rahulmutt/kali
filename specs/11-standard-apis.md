@@ -27,6 +27,10 @@ To keep runtime imports, globals, and package expectations aligned:
 
 This prevents a common source of drift: host-runtime implementation convenience must not silently widen the language-visible API contract.
 
+Canonical terminology simplification:
+- **browser-targeted profile** means exactly the early supported browser paths: `kali check --api browser` and `kali build --bundle --api browser`
+- it does **not** mean a standalone embedded browser runtime, DOM emulation layer, or permission to expose non-browser globals during analysis/build
+
 ## API Layers
 
 ### Web Platform APIs (Baseline)
