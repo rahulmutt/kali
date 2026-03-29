@@ -269,6 +269,11 @@ Produced by `kali effects`.
 ```json
 {
   "schemaVersion": 1,
+  "analysisContext": {
+    "apiSurface": "deno",
+    "runtimeProfiles": [],
+    "compatFeatures": []
+  },
   "entryPoints": ["src/main.ts"],
   "effects": [
     {
@@ -290,6 +295,7 @@ Produced by `kali effects`.
 
 ### Required fields
 - `schemaVersion: number`
+- `analysisContext: EffectAnalysisContext`
 - `entryPoints: string[]` — logical analysis roots for this report (for example a normalized CLI entry path such as `src/main.ts`, a discovered test entry label, or an exported embedding entry name)
 - `effects: EffectOccurrence[]`
 - `dynamicEffects: boolean`
@@ -298,8 +304,29 @@ Produced by `kali effects`.
 Early-phase interpretation rule:
 - for the Phase 2 CLI command `kali effects <file>`, `entryPoints` normally contains exactly one element because the command takes one explicit primary entrypoint in early phases
 - for direct CLI entrypoints, the canonical label should be the normalized user-facing entry path (preferably project-root-relative when that root is known) rather than an implementation-specific symbol ID or opaque internal module handle
-- the report covers the full statically reachable program/dependency graph rooted at those entry points under the selected API surface/profile; it is not a file-local AST scan of only the named source file
+- `analysisContext` records the semantic knobs that materially affect the report: selected `apiSurface`, enabled `runtimeProfiles`, and enabled `compatFeatures`
+- the report covers the full statically reachable program/dependency graph rooted at those entry points under that recorded analysis context; it is not a file-local AST scan of only the named source file
 - the field stays an array so the same schema can later cover package-wide, test-runner, or embedding-oriented reports without inventing a second effect-report shape
+
+### `EffectAnalysisContext`
+```json
+{
+  "apiSurface": "deno",
+  "runtimeProfiles": [],
+  "compatFeatures": []
+}
+```
+
+Required fields:
+- `apiSurface: "deno" | "node" | "browser"`
+- `runtimeProfiles: string[]`
+- `compatFeatures: string[]`
+
+Interpretation rules:
+- schema v1 uses the same canonical vocabulary as config/CLI: `apiSurface`, `runtimeProfiles`, and `compatFeatures`
+- `runtimeProfiles` and `compatFeatures` are semantic sets encoded as arrays; they should be deduplicated, and preserving first-seen order for display stability is preferred
+- `apiSurface = "node"` or later compatibility/runtime-profile values may appear only when those modes are actually implemented for the command/profile; the schema records the chosen context, it does not relax feature-maturity rules
+- including `analysisContext` keeps effect payloads self-describing for caches, tooling, embedding, and AI-agent loops; the same entrypoint may have materially different effect results under different API surfaces or compatibility features
 
 ### `EffectOccurrence`
 ```json
@@ -356,6 +383,11 @@ Produced by `kali package-effects`.
   },
   "report": {
     "schemaVersion": 1,
+    "analysisContext": {
+      "apiSurface": "deno",
+      "runtimeProfiles": [],
+      "compatFeatures": []
+    },
     "entryPoints": ["lodash"],
     "effects": [],
     "dynamicEffects": false,
@@ -386,7 +418,8 @@ Required fields:
 Interpretation rules:
 - `PackageCoordinate` is for **registry packages only**; schema v1 package-effect payloads do not use this shape for raw URLs or local paths
 - the nested `report` is the same canonical effect-report payload shape documented above; tools should not expect a package-specific effect vocabulary
-- inside that nested report, `entryPoints` names the package-analysis roots (for example the canonical package root specifier) and the summarized effects still cover the full statically reachable graph selected for that package analysis, not only the top-level `package.json` metadata file
+- inside that nested report, `analysisContext` records which API surface / runtime-profile / compatibility-feature selection the package was analyzed under
+- `entryPoints` names the package-analysis roots (for example the canonical package root specifier) and the summarized effects still cover the full statically reachable graph selected for that package analysis, not only the top-level `package.json` metadata file
 - `schemaVersion` at the outer package-effect layer versions the package-analysis payload; the nested `report.schemaVersion` continues to version the shared effect-report schema independently
 - by default, `kali package-effects` may emit this payload directly; with `--output json`, it is wrapped in the standard CLI command envelope with this object under `payload`
 

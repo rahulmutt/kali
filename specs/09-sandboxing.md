@@ -36,14 +36,16 @@ kali effects program.ts
 
 The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md). The report contains:
 - `schemaVersion`
+- `analysisContext`
 - `entryPoints`
 - `effects`
 - `dynamicEffects`
 - `dynamicReasons`
 
 Scope rule:
+- `analysisContext` records the semantic knobs that materially affect the report (`apiSurface`, `runtimeProfiles`, `compatFeatures`)
 - `entryPoints` names the analysis roots
-- the summarized `effects` cover the full statically reachable program/dependency graph rooted at those entry points under the selected API surface/profile
+- the summarized `effects` cover the full statically reachable program/dependency graph rooted at those entry points under that recorded analysis context
 - the report is therefore a conservative whole-program summary for that rooted graph, not a file-local listing of only the syntax inside the directly named source file
 
 Other commands that embed effect data should place the full report under the CLI envelope's `payload` field instead of redefining the structure.
