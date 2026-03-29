@@ -78,8 +78,8 @@ Compile-time policy handling is intentionally split to keep Phase 1 smaller and 
 
 Availability rule for policy validation:
 - a policy may always **deny** a capability, even if that capability's corresponding API/feature is later-phase
-- a policy must **not claim to allow** a capability that the selected command/profile/phase cannot actually provide
-- therefore validation should reject enabling unavailable capabilities such as `effects.eval: true` before Phase 4, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
+- a policy must **not claim to allow** a capability that the selected command/profile/API surface/phase cannot actually provide
+- therefore validation should reject enabling unavailable capabilities such as `effects.fileSystem.read: true` under `--api browser`, `effects.eval: true` before Phase 4, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
 - this avoids a misleading policy that appears more permissive than the runtime/compiler can really honor
 
 Phase-1 capability snapshot for supported surfaces:

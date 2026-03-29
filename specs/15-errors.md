@@ -83,6 +83,7 @@ Terminology note:
 - `E5004`: Dependency state not installed or not materialized for the current lockfile
 - `E5005`: Ambiguous module resolution
 - `E5006`: Feature unavailable in current phase, API surface, command/profile, or target configuration
+- `E5007`: Invalid input or entrypoint kind for the selected command
 
 Use `E5004` for dependency-state problems such as:
 - project dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports) have not been installed/materialized yet
@@ -118,6 +119,29 @@ Use `E5006` for cases such as:
 Clarification:
 - use `E5006` for **documented feature/profile gating**
 - use ordinary type/name diagnostics instead when user code simply references a global that is not present in the selected ambient surface (for example `document` under `--api deno` should normally be a regular unresolved-name/type error, not a feature-maturity error)
+
+### Canonical Invalid-Entrypoint Diagnostic
+
+Use `E5007` when the user passes a file/input kind that the selected command fundamentally cannot treat as an entrypoint, even though the file itself may still be meaningful elsewhere in the toolchain.
+
+Example:
+```
+error[E5007]: invalid entrypoint for command 'run': declaration-only file
+  --> types.d.ts:1:1
+  |
+  = note: declaration files participate in type checking and ambient typing, but they do not contain executable program entrypoints
+  = help: use 'kali check types.d.ts' to validate declarations, or pass an executable source file to 'kali run'
+```
+
+Use `E5007` for cases such as:
+- `kali run types.d.ts`
+- `kali build defs.d.mts`
+- `kali test foo.test.d.ts`
+- any other direct command input where the selected command requires an executable/analyzable entrypoint but the supplied file is declaration-only
+
+Clarification:
+- `E5007` is about **input-kind mismatch**, not phase gating
+- module-resolution issues inside an otherwise valid program still use the ordinary `E5001`-`E5005` family
 
 ### Runtime Errors (E6xxx)
 - `E6001`: Uncaught exception

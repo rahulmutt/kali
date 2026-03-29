@@ -17,6 +17,11 @@ Command-family terminology used in this chapter:
 - **build-like commands**: `build`, plus the compile step embedded inside `run` and `test`
 - **diagnostic-producing commands**: `check`, `build`, `run`, `test`, `fmt --check`, and `lint`
 
+Canonical input-kind rule:
+- `run`, `build`, and discovered `test` entrypoints accept only the shared executable/analyzable source-file set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
+- declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`) may participate in `check`, `fmt`, `lint`, ambient type loading, and package type resolution, but they are never valid runtime-bearing entrypoints
+- passing a declaration-only file where an executable entrypoint is required should fail explicitly with the canonical invalid-entrypoint diagnostic described in [specs/15-errors.md](15-errors.md) rather than being treated as an empty program or silently ignored
+
 Naming rule:
 - CLI keeps short flag names such as `--api`
 - `kali.json` keeps the canonical leaf keys under `compilerOptions`: `apiSurface`, `buildMode`, and `runtimeProfiles`
@@ -181,9 +186,13 @@ kali fmt main.ts                           # Format specific file
 ### `kali lint [files...]`
 Lint source files (implemented in `kali_lint`).
 ```bash
-kali lint                                  # Lint all files
+kali lint                                  # Lint all supported JS/TS source + declaration files in project
 kali lint --fix                            # Auto-fix where possible
 ```
+
+Canonical discovery rule:
+- project-oriented lint discovery uses the same supported source-file set as `kali fmt`: executable/analyzable files plus declaration-only files (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.d.ts`, `.d.mts`, `.d.cts`)
+- when explicit file arguments are supplied, those paths are linted directly if they belong to that same supported set
 
 ### `kali test [files...]`
 Run test files.
@@ -200,6 +209,7 @@ kali test --api browser                    # Rejected in early phases; browser i
 Canonical discovery rule:
 - default test discovery matches `*.test.*` / `*_test.*` only across the shared executable/analyzable source set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
 - declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`) are never test entrypoints even if they match the naming pattern
+- if explicit file arguments are supplied to `kali test`, each file must still belong to the executable/analyzable set; passing a declaration-only file is an invalid-entrypoint error, not a silent skip
 
 Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run`, and `kali check` / `kali build` follow the same API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
 
