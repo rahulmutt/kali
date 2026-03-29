@@ -160,12 +160,14 @@ Install-graph discovery rule:
 Installation is **fetch-and-link by default**, not "execute package scripts" by default. To preserve sandbox-first behavior:
 - npm lifecycle scripts (`preinstall`, `install`, `postinstall`) are not executed unless the user explicitly opts in with `kali install --allow-scripts`
 - `--allow-scripts` applies only to that install invocation; it is not an ambient project default
+- pairing `--allow-scripts` with an explicit raw URL install argument is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
 - packages requiring native build steps are rejected as unsupported even when lifecycle scripts are enabled
 - package metadata and tarballs can still be analyzed before linking
 
 Canonical lifecycle-script boundary:
 - lifecycle scripts are an **install-time registry-package hook path**, not part of the ordinary Kali source-program execution model
 - enabling `--allow-scripts` does **not** imply `--api node`, broader Node package/runtime compatibility, or coverage by the normal `kali effects` / `kali.policy.json` contract
+- raw URL installs stay outside this escape hatch entirely because they have no registry lifecycle-script surface
 - top-level project sandbox config is ignored by `kali install`, so lifecycle-script execution is intentionally outside the schema-v1 project-policy model rather than being half-governed by it
 - package compatibility claims for normal `check` / `build` / `run` / `test` should therefore not be inflated by the existence of this opt-in installer escape hatch
 
@@ -369,6 +371,7 @@ Canonical output simplification:
 - in early phases, that package-analysis context is inherited from the effective `kali.json` / built-in defaults rather than from a second package-analysis-only `--api` or `--compat` flag family
 - because of that design, `kali package-effects` does **not** take `--api` or `--compat` in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds those flags
 - that inherited context is still validated against the normal maturity rules for package analysis; for example, a config-selected `apiSurface = node` should still produce `E5006` until Node package analysis is supported, rather than silently falling back to `deno`
+- inherited `apiSurface = browser` is the intended browser-targeted package-analysis mode once `kali package-effects` exists in Phase 2; it reuses the same browser package-selection context as `kali check --api browser` without adding a second package-analysis-only flag family
 - the nested shared effect report still summarizes the full statically reachable package graph selected for analysis under that recorded context; it is not just a manifest-level metadata report
 - `--output json` wraps that payload in the standard CLI command envelope; it does not create a third package-effects-only outer format
 

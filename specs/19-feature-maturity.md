@@ -119,6 +119,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali install` | Phase 1 MVP | Resolve/materialize dependency state and write `kali.lock` for the project's declared dependency source kinds; install is profile-agnostic in early phases and does not require separate per-`--api` installs |
 | `kali install --api deno` | Rejected by default | `install` is profile-agnostic in early phases, so `--api` is invalid command usage (`E5008`) rather than a second install mode |
 | `kali install https://...` | Phase 1 MVP | Explicitly pin/materialize a raw URL dependency into the shared lock/materialization model |
+| `kali install --allow-scripts https://...` | Rejected by default | Raw URLs do not have registry lifecycle hooks, so pairing `--allow-scripts` with a raw URL is invalid command usage (`E5008`) rather than a second install mode |
 | `kali run` with no explicit entrypoint | Rejected by default | `run` is a direct-entry command in early phases; omitting the entrypoint should fail with `E5008` rather than guessing `main.ts` or scanning the project |
 | `kali run a.ts b.ts` | Rejected by default | Early phases accept exactly one primary runtime entrypoint; multi-entry execution requires a later explicit mode, so this should fail with `E5008` |
 | `kali run main.ts` | Phase 1 MVP | Compile and execute with the canonical default tuple: `apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]` |
@@ -133,6 +134,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali check --sandbox kali.policy.json main.ts` | Phase 1 MVP | Same validation path, but scoped to the explicit file set rather than the discovered project graph |
 | `kali check --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node typing/global subset exists |
 | `kali check --api browser main.ts` | Phase 1 MVP | Supported browser-targeted analysis context |
+| `kali check --api browser --sandbox kali.policy.json main.ts` | Phase 1 MVP | Browser-targeted static policy validation path only; non-deny `resources.*` policy values are rejected because early browser-targeted commands do not promise Kali-hosted runtime-budget enforcement after deployment |
 | `kali check --sandbox kali.policy.json a.ts b.ts` | Phase 1 MVP | `check` keeps its set-oriented explicit-file behavior under `--sandbox`; this validates the supplied file set rather than inventing a single-entry mode |
 | `kali build` with no explicit entrypoint | Rejected by default | `build` is a direct-entry command in early phases; omitting the entrypoint should fail with `E5008` rather than guessing `main.ts` or scanning the project |
 | `kali build a.ts b.ts` | Rejected by default | Early phases accept exactly one primary build entrypoint; multi-entry artifact modes require a later explicit spec, so this should fail with `E5008` |
@@ -140,6 +142,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali build --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config for the build; Phase 2+ also performs effect-vs-policy validation |
 | `kali build --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for builds too |
 | `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`kind: wasm-module` + `kind: js-glue`) |
+| `kali build --bundle --api browser --sandbox kali.policy.json main.ts` | Phase 1 MVP | Browser-targeted static policy validation path only; non-deny `resources.*` policy values are rejected because early browser bundles do not promise Kali-hosted runtime-budget enforcement after deployment |
 | `kali build --bundle main.ts` | Rejected by default | Under the default tuple this fails because `--bundle` is reserved for browser-targeted output and therefore requires the effective API surface to be `browser`; with browser selected via CLI/config, the browser-bundle path is the supported Phase 1 mode |
 | `kali build --api browser main.ts` | Rejected by default | In early phases browser mode is an analysis/build context tied to `check` and `build --bundle`, not a standalone non-bundled artifact mode |
 | `kali build --lib lib.ts` | Phase 1 MVP | Produce one linked library-style WASM artifact without automatic program start; Phase 1 emits the base `wasm-module` (`role: primary-library`), and Phase 2+ public-library builds add the default `wit` sidecar (`role: interface-wit`) |
@@ -162,6 +165,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali effects --api browser main.ts` | Phase 2 target | Reuses the same browser API-surface analysis context as `kali check --api browser` once the Phase 2 command exists, without implying standalone browser execution |
 | `kali effects --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset exists for effect analysis too |
 | `kali package-effects lodash` | Phase 2 target | Depends on effect-report pipeline; reject/mark experimental before then. When it does exist, it still uses the effective inherited analysis context and must reject unsupported contexts such as early `apiSurface=node` with `E5006` rather than silently falling back. |
+| `kali package-effects lodash` under inherited `apiSurface=browser` | Phase 2 target | Reuses the same browser-targeted analysis/package-selection context as `kali check --api browser` once package-effect analysis exists, without introducing package-analysis-specific `--api` flags |
 | `kali package-effects --api browser lodash` | Rejected by default | Early package analysis inherits context from config/defaults instead of taking its own `--api` / `--compat` flag family, so this is invalid command usage (`E5008`) unless a later spec adds those flags |
 | `kali package-effects https://...` | Rejected by default | `package-effects` analyzes registry packages only; raw URLs belong to the project/import-graph workflow instead |
 | `kali package-audit [pkg]` | Later compatibility | Tooling feature, not a Phase 1-2 compiler/runtime milestone |

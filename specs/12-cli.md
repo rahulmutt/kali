@@ -89,7 +89,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--filter <pattern>` | `test` | Run only matching tests |
 | `--coverage` | `test` | Emit test coverage data once the coverage report contract is stabilized; before then this flag is phase-gated or explicitly experimental |
 | `--dev` | `install` | Add the named registry dependency to `devDependencies` instead of `dependencies` |
-| `--allow-scripts` | `install` | Opt into npm lifecycle scripts for that install invocation only; still rejects native addons / `node-gyp` |
+| `--allow-scripts` | `install` | Opt into npm lifecycle scripts for that install invocation only; meaningful only for registry-package install work, and still rejects native addons / `node-gyp` |
 
 Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
@@ -313,6 +313,7 @@ Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-
 Boundary rule:
 - `--allow-scripts` is an **install-time tooling escape hatch**, not a runtime/API-surface feature
 - enabling it does **not** imply `--api node`, does not cause lifecycle scripts to participate in `kali effects`, and does not make project `--sandbox` / `kali.json#sandbox` govern install-time hook execution
+- pairing `--allow-scripts` with an explicit raw URL argument is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks; plain `kali install --allow-scripts` remains valid for projects whose declared dependency graph includes registry packages
 - package-compatibility claims for normal `check` / `build` / `run` / `test` remain separate from this narrower opt-in install behavior
 ```bash
 kali install lodash                        # Add/install registry dependency from npm
@@ -371,6 +372,7 @@ Analysis scope rule:
 - in early phases, that context is inherited from the effective `kali.json` / default analysis settings rather than from package-specific `--api` / `--compat` flags
 - because the command intentionally reuses inherited context instead of growing a second near-duplicate flag family, `kali package-effects` does **not** take `--api` or `--compat` in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds those flags
 - the inherited context is still subject to the normal maturity rules for that command; for example, if config selects `apiSurface = node` before Node package analysis is supported, `kali package-effects` should fail with `E5006` rather than silently analyzing under some other surface
+- inherited `apiSurface = browser` is the intended browser-targeted package-analysis path once `kali package-effects` exists in Phase 2; that keeps package analysis aligned with the same browser ambient/package-selection context used by `kali check --api browser`
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
 - the nested `report.entryPoints` field names those package-analysis roots using the shared effect-report schema
 
@@ -470,7 +472,7 @@ Omission/default rule for minimal configs:
 
 Configuration simplification rules:
 - `compilerOptions.apiSurface` is the config equivalent of the CLI `--api` flag
-- `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `effects` / `build` / `run` / `test`, but it does **not** cause `kali install` to maintain separate lock/materialization state per API surface in early phases
+- `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `effects` / `build` / `run` / `test`, and for inherited-context package analysis via `package-effects`, but it does **not** cause `kali install` to maintain separate lock/materialization state per API surface in early phases
 - `compilerOptions.buildMode` replaces separate optimization booleans
 - `compilerOptions.runtimeProfiles` is an array of explicit semantic runtime-profile switches; an empty array means the default single-threaded baseline, while a future threaded config would use `"runtimeProfiles": ["wasm-threads"]`
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
