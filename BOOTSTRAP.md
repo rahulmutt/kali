@@ -1,4 +1,27 @@
 Write a top-level SPEC.md that references specs/*.md to breakdown into logical units the implementation of the following:
 
-- Kali is an implementation of TypeScript that uses the extra type information to generate straight WebAssembly code from it. 
+- Kali is an implementation of TypeScript that uses the extra type information to generate straight and fast WebAssembly code from it. It should also support compiling JavaScript with type-inference for efficiently compilation.
+- Kali is designed with sandboxing as a first class concern, because it is intended as a target for AI agents to generate code from. It should be able to constrain as far as number of processes spawned, CPU usage, Memory usage, etc. Sanboxing / validation of core APIs / syscalls can be tightly controlled - users can declare functions that determine conditions under which a core API is valid or not.
+- Kali can be a superset of TypeScript - extend the type system and the type inference algorithm to do more advanced (but fast) type checking. Constraint solving is on the table.
 - Take inspiration and best practices from projects like:
+ - [Boa](https://github.com/boa-dev/boa)
+ - [V8](https://github.com/v8/v8)
+ - JavaScriptCore
+ - SpiderMonkey
+ - [Deno](https://github.com/denoland/deno)
+ - [tsc](https://github.com/microsoft/Typescript)
+ - [Porffor](https://github.com/CanadaHonk/porffor)
+- No JIT compilation! This project is not designed for Just-In Time compilation at all and it should avoid doing any compilation at runtime as best as possible.
+- No Garbage Collection, must decide at compile-time whether to allocate to the heap, to the stack, similar to Rust. Should also decide whether to use shared references (like Rc<T>) in Rust all at compile-time.
+- Aggressively specialize generic functions - specialize both memory layouts of inputs / outputs - based on call-site usage.
+- Design intermediate representations to support a blazing fast runtime. The IR should be explicit about memory layouts and when the memory layout of a JS object is unknown / dynamic, resort to inefficient representation, and when it is known / consistent, optimize the memory layout as much as possible. When a dynamic feature is used, it should automatically turn off optimizations unless there's a way to reason about it. Perhaps also have the type system mark objects that are dynamic of this nature.
+- For running webassembly, feel free to use wasmtime or wasmer according to what suits the use case better.
+- Have a comprehensive test suite for inspired by the upstream [tsc](https://github.com/microsoft/Typescript) implementation. Extend the type inference / system from tsc to add Hindley-Milner like type inference at the same time keeping it efficient. Analyze function bodies to get the "behavior" of each variable as effectively as possible while combining flow type-inference like tsc.
+- Lexing, Parsing, Typechecking, webassembly code generation should all be blazing fast. there should be flags / modes to run advanced optimizations if users want to run much faster.
+- Must be embeddable - should expose a C API to make it easy to embed from any other language.
+- Must be implemented in Rust using the standard best practices.
+- Should support Deno API, Node.js API, and browser API.
+- Should support the latest [ECMA-262 standard](https://262.ecma-international.org/16.0/index.html)
+- Should support non node-gyp packages from `npm` for easy access to millions of existing JavaScript packages.
+- Like Deno, should make it easy to use Kali as a Rust library and expose a nice API.
+- Support for all features (including `eval`).
