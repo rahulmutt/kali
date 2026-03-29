@@ -42,6 +42,17 @@ This table turns the original bootstrap requirements into a compact cross-refere
 | Lean-backed verification | [17 — Formal Verification](specs/17-verification.md) |
 | Phase-gated compatibility decisions | [19 — Feature Maturity](specs/19-feature-maturity.md) |
 
+## Bootstrap Clarifications and Intentional Reinterpretations
+
+The original bootstrap brief is intentionally ambitious. To keep the spec set implementable without watering down the long-term goal, these clarifications are now explicit:
+- **Effect reporting is mandatory for the product direction, but the stable CLI contract is Phase 2**. Phase 1 may use internal effect analysis to power sandbox/runtime behavior before `kali effects` becomes a stable public schema/command.
+- **Deno, browser, and Node are all targets, but not all at the same maturity tier**. Phase 1 is Deno-first for standalone execution, browser-targeted for `check` and `build --bundle`, and broader Node compatibility is Phase 3 work.
+- **Full dynamic compatibility remains a long-term target, not a Phase 1 promise**. Constructs such as `eval`, `Function()`, and non-literal dynamic loading are parse/analyze-aware early, but runtime support follows the maturity matrix instead of being implied by syntax acceptance.
+- **"Support the latest ECMA-262" means language-direction coverage first, not immediate host/runtime parity for every hard semantic corner**. Unsupported semantics must fail explicitly instead of degrading silently.
+- **Formal verification is required, but over the core modeled subset first**. Lean proofs focus on the security/correctness-critical core before expanding toward broader compatibility surfaces.
+
+These clarifications are meant to reduce ambiguity, not to lower ambition.
+
 ## Hard Constraints
 
 These constraints are project-wide and should not be weakened in lower-level specs:
@@ -298,15 +309,24 @@ This is the canonical simplification for file-extension handling and project dis
 ## Canonical Command Input Modes
 
 To keep CLI behavior predictable and avoid ad hoc "maybe this command scans the project, maybe it needs an entrypoint" rules, Kali uses one shared command-input split:
-- **Direct-entry commands**: `run`, `build`, and `effects` require at least one explicit executable/analyzable entrypoint argument in early phases; they do not guess `main.ts`, consult `package.json` scripts, or invent an implicit project default entry.
+- **Direct-entry commands**: `run`, `build`, and `effects` require an explicit executable/analyzable entrypoint argument in early phases; they do not guess `main.ts`, consult `package.json` scripts, or invent an implicit project default entry.
 - **Project-oriented commands**: `fmt`, `lint`, and `test` operate on the canonical project-discovery result when no explicit file arguments are supplied.
 - **Hybrid analysis command**: `check` may operate on explicit files or, when invoked without file arguments, on the canonical project-discovery result.
 - **Non-source-entrypoint commands**: `init`, `install`, `package-effects`, and `package-audit` do not consume source entrypoint arguments the way compiler/test commands do.
+
+### Canonical Early-Phase Entrypoint-Arity Rule
+
+To remove another recurring ambiguity, early phases also use one small arity rule:
+- `kali run <file>`, `kali build <file>`, and `kali effects <file>` each take **exactly one** primary source entrypoint in Phase 1-2.
+- Passing zero entrypoints is a CLI-usage/config error.
+- Passing more than one explicit entrypoint to those commands is also a CLI-usage/config error unless a later spec explicitly adds a multi-entry build/report mode.
+- `kali check [files...]`, `kali fmt [files...]`, `kali lint [files...]`, and `kali test [files...]` may still accept multiple explicit file arguments because their contracts are set-oriented rather than single-artifact/single-program oriented.
 
 Cross-spec rule:
 - if a command is defined as direct-entry, omitting the entrypoint is a CLI-usage/config error rather than permission to walk the project opportunistically
 - if a command is project-oriented, its no-argument behavior must narrow from the canonical project-discovery result instead of inventing command-local directory walks
 - explicit file arguments still bypass discovery for the named paths, subject to the canonical input-kind rules for that command
+- lower-level specs should not imply an undocumented multi-entry executable/build/effects mode just because some schemas use arrays for future extensibility
 
 This is the canonical simplification for CLI examples, help text, and command-schema behavior.
 

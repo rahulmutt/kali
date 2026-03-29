@@ -295,6 +295,10 @@ Produced by `kali effects`.
 - `dynamicEffects: boolean`
 - `dynamicReasons: string[]` — canonical reason codes explaining why the report is conservative/incomplete; empty when `dynamicEffects` is `false`
 
+Early-phase interpretation rule:
+- for the Phase 2 CLI command `kali effects <file>`, `entryPoints` normally contains exactly one element because the command takes one explicit primary entrypoint in early phases
+- the field stays an array so the same schema can later cover package-wide, test-runner, or embedding-oriented reports without inventing a second effect-report shape
+
 ### `EffectOccurrence`
 ```json
 {

@@ -24,6 +24,12 @@ Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - `fmt`, `lint`, and `test` are **project-oriented commands** when invoked without explicit file arguments
 - `init`, `install`, `package-effects`, and `package-audit` are not source-entrypoint commands
 
+Canonical early-phase entrypoint-arity rule:
+- `run`, `build`, and `effects` each take **exactly one** explicit primary entrypoint in early phases
+- zero entrypoints for those commands is a CLI-usage/config error
+- more than one explicit entrypoint for those commands is also a CLI-usage/config error unless a later spec introduces a documented multi-entry mode
+- `check`, `fmt`, `lint`, and `test` may still accept multiple explicit file arguments because their contracts are set-oriented rather than single-program oriented
+
 Canonical input-kind rule:
 - `run`, `build`, `effects`, and discovered `test` entrypoints accept only the shared executable/analyzable source-file set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
 - `check`, `fmt`, and `lint` accept that same executable/analyzable set **plus** declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`)
@@ -120,7 +126,7 @@ kali run --api browser main.ts             # Rejected in early standalone phases
 kali run --wasm-threads main.ts            # Enable WASM threads (SharedArrayBuffer, Atomics; opt-in only)
 ```
 
-`kali run` is a direct-entry command in early phases: it requires an explicit executable/analyzable source entrypoint and does not guess a project default such as `main.ts`.
+`kali run` is a direct-entry command in early phases: it requires exactly one explicit executable/analyzable source entrypoint and does not guess a project default such as `main.ts`.
 
 Initial implementations use wasmtime; alternative runtime backends are a later-phase feature. Feature flags and subcommands that depend on later phases should be hidden or clearly diagnosed when unavailable rather than exposed as silently nonfunctional options.
 
@@ -146,7 +152,7 @@ Sandbox flag behavior is intentionally phase-gated:
 AOT compile to a WASM module or linked artifact set.
 
 Canonical artifact-mode rule:
-- `kali build` is a direct-entry command in early phases: it requires an explicit executable/analyzable source entrypoint and does not guess a project default such as `main.ts`
+- `kali build` is a direct-entry command in early phases: it requires exactly one explicit executable/analyzable source entrypoint and does not guess a project default such as `main.ts`
 - artifact selection follows the canonical matrix in [SPEC.md](../SPEC.md)
 - omitting `--bundle`, `--lib`, `--capi`, and `--component` selects the default executable artifact mode
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive artifact-mode selectors unless a later spec explicitly defines one as an implication of another
@@ -210,7 +216,7 @@ Sandbox-interaction rule:
 - rejecting `kali effects --sandbox ...` keeps one canonical policy-validation workflow instead of two overlapping ones
 
 Input-kind and host-selection rules:
-- `kali effects` is a direct-entry command in early phases: it requires explicit executable/analyzable source-file entrypoints and does not fall back to project-wide discovery
+- `kali effects` is a direct-entry command in early phases: it requires exactly one explicit executable/analyzable source-file entrypoint and does not fall back to project-wide discovery
 - `kali effects` accepts only executable/analyzable source files; declaration-only files are type inputs, not effect-report entrypoints
 - unless overridden by CLI/config, `kali effects` uses the same default API-surface selection as `kali check` (`apiSurface = deno`)
 - `--api browser` follows the same browser-targeted analysis intent as `kali check --api browser`
