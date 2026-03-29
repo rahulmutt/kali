@@ -119,7 +119,8 @@ Availability rule for policy validation:
 - therefore validation should reject any **non-deny** value for an unavailable capability, not just `true`; non-empty arrays/allowlists are equally invalid when the capability itself is unavailable
 - capability-local numeric limit fields are **constraints only**, not implicit enable switches; for example `effects.network.maxConnections` does not by itself allow network use, and `effects.timer.maxActiveTimers` does not by itself permit timers when `effects.timer.schedule` is `false`
 - examples include `effects.fileSystem.read: true` or `effects.fileSystem.read: ["/tmp/**"]` under `--api browser`, `effects.eval: true` before Phase 4, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
-- under `--api browser`, this rejection applies only to capabilities outside the browser-targeted Phase 1 surface; the shared Web-baseline capabilities (`effects.network.fetch`, `effects.timer.*`, `effects.random`, `effects.console`) remain valid policy targets for browser-targeted `check` / `build --bundle`
+- under `--api browser`, this rejection applies to capabilities outside the browser-targeted Phase 1 surface, and it also applies to cross-cutting `resources.*` runtime budgets with any non-deny value because those budgets are a Kali-hosted execution contract rather than a post-deployment browser-bundle guarantee
+- the shared Web-baseline capability keys (`effects.network.fetch`, `effects.timer.*`, `effects.random`, `effects.console`) remain valid browser-targeted policy targets at the capability-model level, but that does **not** upgrade browser bundles into a full cross-cutting runtime-budget-enforcement environment
 - browser ambient DOM APIs are still outside the schema-v1 capability model even when browser typings are visible during analysis/build; policy validation must not imply there is a per-DOM-call sandbox key just because `Window`/`Document` types are available
 - this avoids a misleading policy that appears more permissive than the runtime/compiler can really honor
 
@@ -177,6 +178,7 @@ Interpretation rule:
 - a successful browser-targeted build under `--sandbox` means the source graph is compatible with the supplied policy under Kali's static model
 - it does **not** mean Kali can mediate every later browser-host capability once the bundle is deployed outside a Kali-controlled runtime
 - browser ambient APIs that are outside the schema-v1 capability model (for example most DOM object operations) are therefore analysis/build concerns, not individually policy-governed runtime calls in early phases
+- cross-cutting `resources.*` budgets are also outside the early browser-deployment guarantee; browser-targeted `check` / `build --bundle` may validate policy shape, but they must not imply post-deployment enforcement of CPU, memory, file-handle, process, or thread budgets in the real browser host
 - specs and diagnostics should therefore avoid wording that suggests browser deployment has the same runtime-enforcement guarantee as `kali run` / `kali test`
 
 ## Runtime Resource Limits
@@ -184,6 +186,11 @@ Interpretation rule:
 For **Kali-hosted execution** (`kali run`, `kali test`, and embedding), runtime resource limits are enforced by the execution host (wasmtime in early phases).
 
 Browser-targeted emitted artifacts do **not** automatically inherit Kali-hosted runtime resource enforcement after deployment into a real browser. Any browser-side budgeting beyond Kali's build-time checks would require a separate later host contract.
+
+Cross-contract simplification:
+- the schema-v1 `resources.*` block is a **Kali-hosted execution budget contract**
+- therefore browser-targeted `check` / `build --bundle` may validate that the policy file is well-formed, but non-deny `resources.*` values must be rejected for that profile instead of implying post-deployment browser enforcement that Kali does not currently promise
+- capability-local policy keys under `effects.*` remain the place where browser-targeted static compatibility can still be described for the documented Kali-mediated built-ins
 
 Effective-limit rule:
 - when a sandbox policy is attached, its values are the maximum capability/resource envelope for the run

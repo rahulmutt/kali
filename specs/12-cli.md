@@ -156,6 +156,7 @@ Sandbox flag behavior is intentionally phase-gated:
 - `kali check/build --sandbox ...` validate the policy file/config in Phase 1.
 - Full inferred-effect-vs-policy validation is a Phase 2 feature.
 - Policy validation must also reject policies that try to enable capabilities unavailable in the selected command/profile/phase (for example `effects.eval: true` before the eval compatibility path exists, or `resources.maxThreads > 0` before the threaded runtime profile exists).
+- For browser-targeted `check --api browser --sandbox ...` and `build --bundle --api browser --sandbox ...`, non-deny `resources.*` policy budgets are rejected explicitly: those cross-cutting CPU/memory/file/process/thread budgets belong to Kali-hosted execution, not to the early browser deployment contract.
 - Policy files remain declarative; any later host-registered sandbox policy predicates are an embedding-oriented extension, not a second inline policy language.
 - If neither CLI nor config attaches a policy, the command runs with **no project policy file**; direct resource flags such as `--max-memory` still apply, but there is no hidden synthesized policy document behind the scenes.
 
@@ -175,6 +176,7 @@ Canonical artifact-mode rule:
 Sandbox clarification:
 - `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config, and in Phase 2+ it also performs effect-vs-policy validation.
 - For `kali build --bundle --api browser --sandbox ...`, this remains a **build-time** compatibility check only. It must not be described as automatic runtime sandbox enforcement once the emitted browser bundle is deployed into a real browser host.
+- In that browser-targeted profile, cross-cutting `resources.*` budgets are not part of the supported contract and should be rejected when non-deny values are provided in the attached policy file.
 ```bash
 kali build main.ts                         # → main.wasm (--fast mode, default; artifact: kind=wasm-module, role=primary-executable)
 kali build --release main.ts               # Optimized build
