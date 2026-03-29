@@ -10,8 +10,10 @@
   "mounts": [
     "source=devpod-v2-home-cache,target=/home/dev/.cache,type=volume",
     "source=devpod-v2-home-local,target=/home/dev/.local,type=volume",
+    "source=devpod-v2-bun,target=/home/dev/.bun,type=volume",
+    "source=devpod-v2-npm,target=/home/dev/.npm,type=volume",
     "source=devpod-v2-cargo,target=/home/dev/.cargo,type=volume",
-    "source=devpod-v2-rustup,target=/home/dev/.rustup,type=volume"
+    "source=devpod-v2-rustup,target=/home/dev/.rustup,type=volume",
   ],
   "postCreateCommand": "post-create.sh",
   "customizations": {
