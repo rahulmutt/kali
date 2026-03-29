@@ -50,6 +50,21 @@ Canonical rule:
 - unsupported semantics must fail explicitly rather than pretending they already work
 - feature maturity is defined by [specs/19-feature-maturity.md](./specs/19-feature-maturity.md), not by syntax acceptance alone
 
+## Compatibility Staging Model
+
+To keep the bootstrap goals, feature-maturity matrix, and subsystem docs aligned, Kali treats compatibility as three separate questions:
+1. **Parse** — does Kali accept the syntax?
+2. **Analyze** — can Kali type-check / infer / summarize effects for it?
+3. **Execute** — can Kali lower and run it faithfully for the selected command/profile?
+
+Interpretation rules:
+- a later-phase feature may be parsed before it is executable
+- analysis support may exist before lowering/runtime support
+- command help and diagnostics should describe which stage is unavailable instead of collapsing everything into a vague “supported/unsupported” label
+- the authoritative per-feature staging still lives in [specs/19-feature-maturity.md](./specs/19-feature-maturity.md)
+
+This model is especially important for dynamic compatibility features such as `eval`, `Function()`, dynamic loading, `Proxy`, weak-reference APIs, and browser-targeted ambient globals: Kali may parse or analyze them earlier than it can faithfully execute them.
+
 ## Early-Phase Product Posture
 
 These assumptions are intentionally explicit so the rest of the spec set does not drift:
@@ -285,6 +300,13 @@ Interpretation rules:
 - companion artifacts do not weaken the single linked-payload rule for the compiled program graph itself
 
 ## Canonical Host/API Summary
+
+API-surface clarification:
+- `deno`, `node`, and `browser` are always the canonical **API surface** names
+- selecting an API surface does **not** by itself promise that every command/artifact/runtime combination exists for that surface
+- in early phases, `browser` is primarily a browser-targeted analysis/build surface, while `node` is broadly phase-gated
+- command/profile availability is determined by the combination of command shape, artifact mode, API surface, and runtime profile rather than by any one axis alone
+
 
 ### Shared Web baseline
 The early shared baseline available across supported surfaces is intentionally small and capability-oriented. It includes the documented Web-platform baseline from [specs/11-standard-apis.md](./specs/11-standard-apis.md), such as:

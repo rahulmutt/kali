@@ -175,7 +175,7 @@ When a command or flag is rejected due to phase/profile maturity, the CLI should
 
 Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
-- browser mode is valid early for `check` and for `build` only when the selected artifact mode is the browser bundle path. In practice that means the **effective API surface** may be `browser` for `check`, and for `build` only together with `--bundle`; standalone `run` still rejects browser mode, and `build` with an effective API surface of `browser` but without `--bundle` is also rejected until a later runtime profile/output contract explicitly supports that mode.
+- browser mode is valid early for `check` and for `build` only when the selected artifact mode is the browser bundle path. In practice that means the **effective API surface** may be `browser` for `check`, and for `build` only together with `--bundle`; standalone `run` still rejects browser mode, and `build` with an effective API surface of `browser` but without `--bundle` is treated as invalid command usage (`E5008`) until a later runtime profile/output contract explicitly supports that mode.
 - `--api node` is phase-gated consistently across `check`, `effects`, `build`, `run`, and `test`; early phases reject it with `E5006` rather than exposing a partial Node surface.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
 - `--wasm-threads` selects a different runtime profile rather than a small optimization toggle. Until that threaded profile exists, the flag is rejected. After it exists, if the selected target/engine/profile cannot honor it, the command must still reject it explicitly instead of silently dropping thread support.
@@ -213,9 +213,9 @@ kali build main.ts                         # → main.wasm (--fast mode, default
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue)
-kali build --bundle main.ts               # Invalid usage (E5008) under the default config; --bundle requires the effective API surface to be browser
+kali build --bundle main.ts                # Invalid usage (E5008) under the default config; --bundle requires the effective API surface to be browser
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
-kali build --api browser main.ts           # Rejected in early phases (E5006); browser build path requires --bundle
+kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
 kali build --lib lib.ts                    # Export-oriented library module (no synthetic executable entry invocation; top-level init still runs on instantiation; Phase 1 artifact: kind=wasm-module, role=primary-library; Phase 2+ adds kind=wit, role=interface-wit by default)
 kali build --lib --api browser lib.ts      # Rejected in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library artifact mode

@@ -124,13 +124,12 @@ Use `E5006` for cases such as:
 - `eval` / `Function()` without `--compat eval`
 - dynamic `require()` in early phases
 - `run --api browser` in early phases where browser support exists only as an analysis/build context
-- `build --api browser` without `--bundle` in early phases where browser support exists only as an analysis/build context tied to `build --bundle`
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - any parse-supported construct that is intentionally not semantically enabled in the current phase/profile
 
 Boundary clarification:
 - use `E5006` when the requested feature/profile is real but unavailable in the current phase/profile
-- use `E5008` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it)
+- use `E5008` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it, or `kali build --api browser` without `--bundle` while browser builds are bundle-only)
 
 Clarification:
 - use `E5006` for **documented feature/profile gating**
