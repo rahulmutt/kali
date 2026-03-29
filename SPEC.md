@@ -118,6 +118,7 @@ To reduce drift across the spec set, these terms are canonical:
 - **Runtime profile**: semantic runtime capability profile orthogonal to API surface, e.g. the default single-threaded baseline or later `wasm-threads`
 - **Artifact mode**: the build output selector chosen by `kali build`, e.g. the default executable WASM artifact path, `--bundle`, `--lib`, or `--capi`
 - **Feature maturity**: phase/status classification defined in `specs/19-feature-maturity.md`
+- **Compatibility feature**: an explicit later-phase escape hatch named in `compat.features` / `--compat`, for example `eval`
 - **Schema contract**: machine-readable JSON formats defined in `specs/18-schemas.md`
 - **Linked artifact model**: compile the resolved static graph into one linked WASM payload rather than relying on runtime WASM module linking; companion artifacts such as JS glue or C headers do not change that single-payload rule
 - **Dependency source kind**: one of the early canonical dependency declaration/materialization channels: registry package or raw URL import

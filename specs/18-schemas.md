@@ -450,6 +450,11 @@ Defaults:
 - omitted `compat` means `{"features": []}`
 - omitted `compat.features` means `[]`
 
+Canonical compatibility feature names (schema v1):
+- `"eval"` is the only stable compatibility feature name in schema v1
+- enabling `"eval"` is the documented compatibility switch for both direct `eval` support and the `Function()` constructor path
+- unknown compatibility feature names are rejected rather than ignored so tools do not silently diverge
+
 Interpretation rules:
 - `kali init` should prefer omission of default-valued optional fields over emitting empty placeholder sections
 - a default app scaffold may therefore emit only `{"schemaVersion": 1}` unless the chosen template needs additional config

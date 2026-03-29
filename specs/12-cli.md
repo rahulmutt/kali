@@ -19,8 +19,9 @@ Command-family terminology used in this chapter:
 
 Canonical input-kind rule:
 - `run`, `build`, and discovered `test` entrypoints accept only the shared executable/analyzable source-file set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
-- declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`) may participate in `check`, `fmt`, `lint`, ambient type loading, and package type resolution, but they are never valid runtime-bearing entrypoints
-- passing a declaration-only file where an executable entrypoint is required should fail explicitly with the canonical invalid-entrypoint diagnostic described in [specs/15-errors.md](15-errors.md) rather than being treated as an empty program or silently ignored
+- `check`, `fmt`, and `lint` accept that same executable/analyzable set **plus** declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`)
+- declaration-only files may therefore be checked/formatted/linted directly and may also participate in ambient type loading and package type resolution
+- declaration-only files are never valid runtime-bearing entrypoints; passing one where an executable entrypoint is required should fail explicitly with the canonical invalid-entrypoint diagnostic described in [specs/15-errors.md](15-errors.md) rather than being treated as an empty program or silently ignored
 
 Naming rule:
 - CLI keeps short flag names such as `--api`
@@ -164,12 +165,15 @@ kali build --max-specializations 32 main.ts # Override specialization cap
 ### `kali check <file>`
 Type-check without compiling.
 ```bash
-kali check main.ts                         # Type check
+kali check main.ts                         # Type check executable/analyzable source
+kali check types.d.ts                      # Validate a declaration-only file directly
 kali check --api browser main.ts           # Browser-targeted analysis/profile (no standalone DOM runtime implied)
 kali check --api node main.ts              # Phase 3 target: Node API surface is phase-gated for checking too
 kali check --sandbox kali.policy.json main.ts # Phase 1: type check + policy file/config validation; Phase 2+: effect-policy validation
 kali check --fix main.ts                   # Apply only safe, compiler-provided suggested fixes
 ```
+`kali check` is the direct-entry command that may accept declaration-only inputs; `run`, `build`, and `test` may not.
+
 `--fix` is intentionally conservative: it is limited to unambiguous structured edits attached to diagnostics, not arbitrary refactors or speculative type rewrites.
 
 ### `kali effects <file>`
@@ -392,6 +396,7 @@ Configuration simplification rules:
 - `compilerOptions.maxSpecializations` is an upper bound rather than a promise that `buildMode = fast` will consume that full budget; `fast` may still skip most user-authored generic specialization by design
 - top-level `sandbox` is an optional default policy-file path equivalent to supplying `--sandbox <path>` for commands that honor sandboxing; an explicit CLI `--sandbox` overrides it
 - `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans
+- in schema v1, the only canonical compatibility feature name is `"eval"`; it gates both direct `eval` support and the `Function()` constructor compatibility path
 - `include` / `exclude` constrain project file discovery for project-oriented commands; direct file arguments still name the primary entry explicitly
 - `include` / `exclude` filter only the project's own discoverable files; they do not suppress transitive imports/dependencies reached from an accepted entrypoint and they are not a second package-resolution mechanism
 - generated config from `kali init` should prefer these canonical names and should not duplicate them as parallel top-level keys
