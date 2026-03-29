@@ -1,8 +1,8 @@
 # 13 — Embedding & C API
 
 Public embedding is intentionally phased:
-- **Phase 1**: reusable internal crates exist so the CLI is built library-first, but the public embedding surface may still change freely.
-- **Phase 2 target**: the Rust embedding API, C ABI, WIT interface emission, and `kali build --capi` / `kali build --component` artifact flows become the first stable public embedding contract.
+- **Phase 1**: reusable internal crates exist so the CLI is built library-first, and `kali build --lib` already produces the base export-oriented library artifact, but the public embedding surface may still change freely.
+- **Phase 2 target**: the Rust embedding API, the stable public `kali build --lib` + WIT contract, the C ABI, and `kali build --capi` / `kali build --component` artifact flows become the first stable public embedding contract.
 
 ## Rust Library API (`kali_embed`)
 
