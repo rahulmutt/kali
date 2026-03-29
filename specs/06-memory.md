@@ -82,16 +82,22 @@ The header layout above is illustrative. The important contract is the ownership
 ### Cycle Handling
 JavaScript allows ordinary strong-reference cycles (e.g., `a.b = b; b.a = a`), so Kali needs an explicit strategy even without a tracing GC.
 
+Canonical no-GC boundary:
+- Kali does **not** introduce a general tracing/background collector as a hidden fallback for ordinary execution
+- any cycle cleanup must remain **deterministic, bounded, and semantically invisible** bookkeeping over already-shared regions
+- if Kali cannot justify such cleanup for a case/profile yet, the implementation may conservatively retain the cycle until region/sandbox teardown rather than silently weakening the no-tracing design
+
 Early simplification:
 1. **Prefer acyclic ownership when provable**: keep stack or unique-ownership layouts when escape analysis can prove they are sufficient
 2. **Shared-heap fallback for cyclic graphs**: when objects must be shared, lower them to shared-heap ownership without changing their logical object layout unless other dynamic features force that too
-3. **Targeted cycle reclamation**: shared regions may use deterministic trial-deletion/local cycle collection when ordinary ref counting cannot reclaim a cycle
+3. **Bounded deterministic cycle cleanup**: shared regions may use trial-deletion/local reclamation techniques when ordinary ref counting cannot reclaim a cycle, but only as internal non-tracing housekeeping
 4. **Sandbox/region teardown**: short-lived runtime instances may reclaim whole regions when the sandbox/program exits
 5. **Debug leak reporting**: in debug mode, report unreclaimed shared cycles at shutdown with source locations where possible
 
 Important separation rule:
 - this is an **internal memory-management strategy** for ordinary object graphs
 - it does **not** imply that JavaScript weak-reference APIs (`WeakMap`, `WeakSet`, `FinalizationRegistry`) are available early; those remain later-compatibility features as defined in [specs/19-feature-maturity.md](19-feature-maturity.md)
+- it also does **not** imply movable GC, stop-the-world tracing, or user-visible finalization semantics in early phases
 
 ## Stack Allocation in Linear Memory
 
@@ -129,7 +135,7 @@ JavaScript's semantics assume GC. Key cases:
 | JS Pattern | Kali Strategy |
 |---|---|
 | Closures capturing variables | Shared heap cell with deterministic reference counting for escaping mutable captures |
-| Circular references | Shared-heap fallback plus bounded deterministic cycle-reclamation strategies |
+| Circular references | Shared-heap fallback plus bounded deterministic non-tracing cycle cleanup, with region teardown as the conservative fallback |
 | `arguments` object | Stack-allocated array when non-escaping; heap otherwise |
 | Prototype chains | Static when class hierarchy is known; shared heap object for dynamic cases |
 | WeakMap/WeakSet | Later-phase compatibility feature; unsupported in early phases until weak-reference semantics are specified without violating observable behavior |

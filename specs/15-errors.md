@@ -128,6 +128,10 @@ Use `E5006` for cases such as:
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - any parse-supported construct that is intentionally not semantically enabled in the current phase/profile
 
+Boundary clarification:
+- use `E5006` when the requested feature/profile is real but unavailable in the current phase/profile
+- use `E5008` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it)
+
 Clarification:
 - use `E5006` for **documented feature/profile gating**
 - use ordinary type/name diagnostics instead when user code simply references a global that is not present in the selected ambient surface (for example `document` under `--api deno` should normally be a regular unresolved-name/type error, not a feature-maturity error)
@@ -185,6 +189,7 @@ Use `E5008` for cases such as:
 - `kali install --api browser`
 - `kali install --allow-scripts https://example.com/mod.ts`
 - `kali package-effects --api browser lodash`
+- `kali build --bundle --api node main.ts`
 - conflicting artifact-mode selectors such as `--bundle --lib`, `--bundle --capi`, or `--lib --component`
 - other command-local flag/arity combinations that the CLI contract rejects independently of feature maturity
 

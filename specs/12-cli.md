@@ -96,7 +96,7 @@ Interpretation rule:
 - documenting a command-specific flag here does **not** imply it needs a separate feature-maturity row unless it changes a phase promise or machine-readable contract
 - build artifact-mode flags follow the canonical matrix in [SPEC.md](../SPEC.md): in early phases `--bundle`, `--lib`, `--capi`, and `--component` are one small closed set of mutually exclusive selectors unless a later spec explicitly says one implies another
 - the omitted selector means the default executable artifact mode; supplying more than one explicit selector from that set (for example `--bundle --lib`, `--bundle --capi`, `--bundle --component`, `--lib --capi`, `--lib --component`, or `--capi --component`) should use the canonical invalid-usage diagnostic `E5008`, not a feature-maturity rejection
-- in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires the **effective API surface** to be `browser`, and `kali build --bundle` under an effective API surface of `deno` or `node` must fail explicitly instead of inventing a second bundle contract
+- in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires the **effective API surface** to be `browser`, and `kali build --bundle` under an effective API surface of `deno` or `node` is invalid command usage (`E5008`) rather than a feature-maturity rejection, because the browser bundle mode itself exists but the selected flag/config combination is contradictory
 - in early phases, `--lib`, `--capi`, and `--component` are non-browser artifact modes; `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` must fail explicitly rather than pretending browser bundle rules also apply to library/embedding builds
 - `--lib` is the base exported-library mode; `--capi` and `--component` are later packaging layers over that same exported-library contract rather than unrelated semantics
 - because `--capi` and `--component` already choose exported-library semantics, users should not combine them with `--lib` in early phases; those flags are separate artifact-mode selectors, not additive modifiers
@@ -182,8 +182,9 @@ kali build main.ts                         # → main.wasm (--fast mode, default
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue)
-kali build --bundle main.ts               # Rejected under the default config; --bundle is reserved for browser-targeted output and therefore requires the effective API surface to be browser
-kali build --api browser main.ts           # Rejected in early phases; browser build path requires --bundle
+kali build --bundle main.ts               # Invalid usage (E5008) under the default config; --bundle requires the effective API surface to be browser
+kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
+kali build --api browser main.ts           # Rejected in early phases (E5006); browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
 kali build --lib lib.ts                    # Library module (exports, no start; Phase 1 artifact: kind=wasm-module, role=primary-library; Phase 2+ adds kind=wit, role=interface-wit by default)
 kali build --lib --api browser lib.ts      # Rejected in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library artifact mode

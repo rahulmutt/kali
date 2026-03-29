@@ -59,6 +59,8 @@ These constraints are project-wide and should not be weakened in lower-level spe
 - **AOT-only**: no language-level JIT compilation
 - **Pure Rust**: no embedded C/C++ libraries
 - **Sandbox-first**: runtime enforcement is a first-class requirement, not an afterthought
+- **No tracing/background GC**: Kali does not rely on a general tracing collector; ownership, stack/heap placement, and sharing strategy must be chosen statically where possible, with deterministic techniques such as reference counting allowed when needed
+- **No GC-exposed semantics in early phases**: any bounded internal cycle reclamation remains invisible implementation housekeeping, not a user-visible weak/finalization contract and not permission to weaken the no-tracing design
 - **Single linked WASM payload early**: Phase 1-3 builds target one linked WASM payload for the resolved static graph, even when a build also emits companion artifacts such as JS glue, WIT files, component wrappers, or C headers
 - **No silent semantic fallback**: unsupported or phase-gated features must fail explicitly rather than degrade invisibly
 - **AI-friendly machine contracts**: JSON output, diagnostics, and effect reports are stable, concise, and versioned
