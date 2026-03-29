@@ -238,6 +238,8 @@ Interpretation rules:
 - `[[package]]` entries are for registry dependencies only and include the originating registry kind (`npm` or `jsr`)
 - `[[url]]` entries are for exact raw URL imports after import-map expansion/pinning
 - future lockfile revisions may add optional metadata fields, but they should preserve this top-level split instead of collapsing both source kinds into one ambiguous record shape
+- to keep lockfile diffs deterministic, producers should emit `[[package]]` entries sorted by canonical registry identifier, then version; emit `[[url]]` entries sorted by canonical pinned specifier; and sort per-entry dependency lists lexically by canonical dependency identifier
+- the canonical registry identifier used for lockfile ordering and diagnostics is the same one used elsewhere in the spec set: npm packages keep their bare name, while JSR packages keep the explicit `jsr:` prefix
 
 ## Install-Time vs Command-Time Resolution Boundary
 
@@ -268,6 +270,10 @@ To keep package behavior predictable across `install`, `check`, `effects`, `buil
 - lifecycle scripts executed during install are outside the normal source-program effect-report/sandbox-policy contract and therefore are not evidence that the installed package graph itself requires those same effects at runtime.
 
 This is an intentional simplification: one command mutates dependency state, all other commands consume it deterministically. For raw URL imports, the source/import-map graph is the declaration source of truth and the lock/cache are the materialized state derived from it.
+
+Diff-friendliness rule:
+- lockfile writers should preserve canonical ordering when rewriting existing `kali.lock`
+- equivalent dependency graphs should therefore converge on byte-stable lockfile ordering rather than reflecting fetch order or hash-map iteration order
 
 ## Import Styles
 

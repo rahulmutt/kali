@@ -367,6 +367,7 @@ When Kali exposes machine-readable output:
 - top-level machine-readable JSON documents carry `schemaVersion`
 - `kali effects` and `kali package-effects` may emit their native payloads directly by default
 - `--output json` wraps command results in the standard command envelope from [specs/18-schemas.md](./specs/18-schemas.md)
+- machine-emitted arrays should use deterministic canonical ordering wherever the producer owns the order, so AI/tooling diffs do not depend on traversal or hash-map iteration order
 
 ## Cross-Spec Simplicity Rules
 

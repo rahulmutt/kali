@@ -56,6 +56,7 @@ Used by commands that opt into `--output json`.
 - `kali effects` and `kali package-effects` may emit their native JSON payloads by default, but with `--output json` they must be wrapped in this envelope
 - for execution-style commands in JSON mode, guest/program stdout and stderr belong in the envelope's `stdout` / `stderr` fields rather than being interleaved as raw text around the JSON payload
 - Commands should avoid inventing top-level ad hoc fields when `payload` is sufficient
+- To keep JSON outputs diff-friendly and deterministic, producers should emit array fields in stable order when the producer naturally owns that order: diagnostics by file/line/column/code, artifacts by `role`, then `kind`, then path, and timings by canonical phase order
 
 ## Common Source Location Types
 
@@ -325,7 +326,7 @@ Required fields:
 
 Interpretation rules:
 - schema v1 uses the same canonical vocabulary as config/CLI: `apiSurface`, `runtimeProfiles`, and `compatFeatures`
-- `runtimeProfiles` and `compatFeatures` are semantic sets encoded as arrays; they should be deduplicated, and preserving first-seen order for display stability is preferred
+- `runtimeProfiles` and `compatFeatures` are semantic sets encoded as arrays; they must be deduplicated, and in machine-emitted payloads they should be sorted in stable lexical order
 - `apiSurface = "node"` or later compatibility/runtime-profile values may appear only when those modes are actually implemented for the command/profile; the schema records the chosen context, it does not relax feature-maturity rules
 - including `analysisContext` keeps effect payloads self-describing for caches, tooling, embedding, and AI-agent loops; the same entrypoint may have materially different effect results under different API surfaces or compatibility features
 
@@ -537,7 +538,8 @@ Interpretation rules:
 - omitting top-level `sandbox` means no default project policy file is attached; schema v1 does **not** model that omission as an implicit serialized allow-all policy
 - non-sandbox-aware commands (`init`, `fmt`, `lint`, `install`, `effects`, `package-effects`, `package-audit`) ignore top-level `sandbox` rather than treating it as an error or as an implicit request to perform policy validation
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
-- when set-like arrays such as `compilerOptions.runtimeProfiles` or `compat.features` are normalized by tooling, normalization should preserve semantics without inventing duplicates; preserving first-seen order for display/diff stability is preferred even though the arrays are semantically unordered
+- when set-like arrays such as `compilerOptions.runtimeProfiles` or `compat.features` are normalized in on-disk config, normalization should preserve semantics without inventing duplicates; preserving first-seen order for minimal user-file churn is preferred even though the arrays are semantically unordered
+- machine-emitted payloads that report those sets back out again (for example `analysisContext` in effect/package-effect JSON) should instead use stable lexical order so caches and diffs do not depend on original input ordering
 - the effective project config is the nearest `kali.json` found by searching the current working directory and then its ancestors; if none exists, commands run configless from the current working directory
 - `include` / `exclude` define globs over the canonical project-discovery result for project-oriented commands, the dependency-graph install scan, hybrid no-argument discovery commands such as `check`, and editor/tooling integrations; they do not reinterpret an explicit CLI file argument as a different entry point
 - relative `include` / `exclude` globs are resolved relative to the directory containing the owning `kali.json`
