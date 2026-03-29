@@ -54,7 +54,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
 | `--max-specializations N` | `build`, `run`, `test` | Override the specialization fan-out cap for a single invocation |
 | `--fix` | `check`, `lint` | Apply only structured, tool-generated safe fixes for the selected command |
-| `--pretty` | `effects` | Pretty-print the effect-report JSON without changing its schema |
+| `--pretty` | `effects`, `package-effects` | Pretty-print the native JSON payload for effect-analysis commands without changing its schema |
 | `--check` | `fmt` | Report formatting drift without rewriting files |
 | `--filter <pattern>` | `test` | Run only matching tests |
 | `--coverage` | `test` | Emit test coverage data once the coverage report contract is stabilized; before then this flag is phase-gated or explicitly experimental |
@@ -243,8 +243,11 @@ Analyze effects of an npm/JSR package before installing.
 
 Status: depends on the Phase 2 effect-report pipeline; if package-level analysis is not yet implemented, the CLI should report that clearly instead of returning partial ad hoc output.
 ```bash
-kali package-effects lodash                # Show effects used by package (JSON)
+kali package-effects lodash                # Compact package-effect report JSON to stdout
+kali package-effects --pretty lodash       # Pretty-printed package-effect report JSON
+kali package-effects --output json lodash  # Command envelope + package-effect payload
 ```
+By default, `kali package-effects` emits its native JSON payload directly, following the same simplification as `kali effects`. With `--output json`, that payload is wrapped in the standard command envelope. See [specs/18-schemas.md](18-schemas.md) for the canonical package-effect payload schema.
 
 ### `kali package-audit [package]`
 Security audit for dependencies.
@@ -297,9 +300,9 @@ Rules:
 - command-specific structured data goes in `payload`
 - common optional top-level fields include `artifacts`, `stdout`, `timings`, and `exitCode`
 
-Exception: `kali effects` already emits JSON as its native output, so `--output json` wraps that payload in the envelope instead of changing the effect-report schema itself.
+Exception: `kali effects` and `kali package-effects` already emit JSON as their native outputs, so `--output json` wraps those payloads in the envelope instead of changing their underlying schemas.
 
-This is intentional simplification: Kali has one canonical effect-report payload schema, and the command envelope is an outer transport wrapper rather than a second competing effect schema.
+This is an intentional simplification: Kali keeps one canonical effect-report payload family, and the command envelope is an outer transport wrapper rather than a second competing effect schema for every effect-analysis command.
 
 ## Configuration (`kali.json`)
 

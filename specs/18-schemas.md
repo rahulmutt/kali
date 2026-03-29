@@ -52,7 +52,7 @@ Used by commands that opt into `--output json`.
 ### Notes
 - `payload` holds command-specific structured data
 - `command` is intentionally an open-ended string so new CLI subcommands do not force a schema-version bump; stable built-in command names should mirror the CLI subcommand path in kebab-case (for example `check`, `build`, `package-effects`)
-- `kali effects` may emit the raw effect report by default, but with `--output json` it must be wrapped in this envelope
+- `kali effects` and `kali package-effects` may emit their native JSON payloads by default, but with `--output json` they must be wrapped in this envelope
 - Commands should avoid inventing top-level ad hoc fields when `payload` is sufficient
 
 ## Common Source Location Types
@@ -317,6 +317,52 @@ Simplification rule:
 - Phase 1-2 effect reports are limited to built-in sandbox-relevant effect kinds; later experimental user-defined effects, if exposed, should use a reserved `Custom.<name>` namespace rather than overloading built-in policy keys
 - Effect locations use `SourceLocation` fields and the same 1-based `line` / `column` convention as diagnostics so tools do not need separate coordinate systems for errors vs effect reports
 - If a consumer needs a full range instead of a point location, it should use the same `SourceSpan` shape rather than inventing a command-specific span format
+
+## Package Effect Report Schema
+
+Produced by `kali package-effects`.
+
+```json
+{
+  "schemaVersion": 1,
+  "package": {
+    "name": "lodash",
+    "version": "4.17.21",
+    "registry": "npm"
+  },
+  "report": {
+    "schemaVersion": 1,
+    "entryPoints": ["lodash"],
+    "effects": [],
+    "dynamicEffects": false,
+    "dynamicReasons": []
+  }
+}
+```
+
+### Required fields
+- `schemaVersion: number`
+- `package: PackageCoordinate`
+- `report: object` — the exact effect-report payload shape defined in the previous section
+
+### `PackageCoordinate`
+```json
+{
+  "name": "lodash",
+  "version": "4.17.21",
+  "registry": "npm"
+}
+```
+
+Required fields:
+- `name: string`
+- `version: string`
+- `registry: "npm" | "jsr"`
+
+Interpretation rules:
+- the nested `report` is the same canonical effect-report payload shape documented above; tools should not expect a package-specific effect vocabulary
+- `schemaVersion` at the outer package-effect layer versions the package-analysis payload; the nested `report.schemaVersion` continues to version the shared effect-report schema independently
+- by default, `kali package-effects` may emit this payload directly; with `--output json`, it is wrapped in the standard CLI command envelope with this object under `payload`
 
 ## Canonical Built-in Effect Names
 

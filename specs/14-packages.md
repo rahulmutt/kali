@@ -271,6 +271,11 @@ kali package-audit lodash                   # Security audit
 
 `kali package-effects` depends on the Phase 2 effect-report pipeline. Until that lands, the command should be clearly unavailable or marked experimental rather than returning a partial bespoke format.
 
+Canonical output simplification:
+- `kali package-effects <pkg>` should reuse the same effect vocabulary and `dynamicReasons` contract as `kali effects`
+- the native payload adds only package-specific metadata (see [specs/18-schemas.md](18-schemas.md)) instead of inventing a second unrelated effect schema
+- `--output json` wraps that payload in the standard CLI command envelope; it does not create a third package-effects-only outer format
+
 `kali package-audit` is a later tooling feature rather than a core compiler/runtime milestone. If unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee.
 
 This integrates with the effect system — know what a dependency does before you use it.
