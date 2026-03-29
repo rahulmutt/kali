@@ -59,7 +59,9 @@ Interpretation rules:
 - `env_get` / `env_list` expose only the sandbox-permitted environment view; they must not leak the raw host environment and then rely on guest-side filtering.
 - The Phase 1 runtime does not provide interactive permission-prompt imports; permission state is an already-resolved sandbox contract, not a request-at-runtime workflow.
 - Every registered host import is policy-aware; enabling an API surface does not bypass sandbox checks.
-- Unsupported imports for the current command/profile are not stubbed silently; code that requires them should fail with the canonical feature-maturity diagnostic.
+- Unsupported imports for the current command/profile are not stubbed silently.
+- If lowering/runtime setup requires a capability that is phase-gated or profile-gated, fail with the canonical feature-maturity diagnostic.
+- If source code merely references a global that is absent from the selected ambient surface in an otherwise-supported mode, that should normally already have been reported as an ordinary name/type error before runtime setup.
 
 Later compatibility/embedding imports extend this set when the corresponding API surface is enabled:
 - `process_spawn(...)` for subprocess support

@@ -23,7 +23,9 @@ To keep runtime imports, globals, and package expectations aligned:
 - the **Web Platform baseline** is the shared baseline across supported surfaces
 - `--api deno`, `--api node`, and `--api browser` control which **additional** globals/modules beyond that baseline are available
 - browser-targeted profiles must not expose process/env/file globals just because the underlying host runtime happens to have them
-- unsupported globals/modules are absent and should trigger the canonical `E5006`/availability path instead of resolving to dummy shims by default
+- unsupported globals/modules are absent; Kali must not invent dummy shims by default
+- use the canonical `E5006` availability path for **documented command/profile or feature gating** (for example `--api node` before Phase 3, or `run --api browser` in early phases)
+- use ordinary unresolved-name/type diagnostics when code references a global that simply is not part of the selected ambient surface in an otherwise-supported mode (for example `document` under `--api deno`)
 
 This prevents a common source of drift: host-runtime implementation convenience must not silently widen the language-visible API contract.
 

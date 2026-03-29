@@ -195,6 +195,7 @@ These rules should be followed whenever the specs evolve:
 - Do not redefine JSON shapes outside `specs/18-schemas.md`
 - Prefer one canonical term over near-synonyms (`apiSurface`, `buildMode`, `runtimeProfiles` in config)
 - Keep **API surface** and **runtime profile** orthogonal: `deno` / `node` / `browser` are API-surface choices, while threading or other execution-capability knobs belong to runtime profiles
+- Reserve the canonical feature-maturity diagnostic for real phase/profile/feature gating; missing globals inside an otherwise-supported ambient surface should remain ordinary name/type errors
 - If a feature is parse-supported but not semantically implemented yet, say so explicitly
 - Prefer explicit rejection over undocumented emulation for unsupported behavior
 - Keep Phase 1 promises narrow, dependable, and testable

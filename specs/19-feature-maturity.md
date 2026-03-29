@@ -73,6 +73,7 @@ This table exists to keep the status labels operational: a label implies whether
 4. **No silent fallback**: if a feature cannot be implemented faithfully under the current phase constraints, Kali should reject or gate it rather than emulate it loosely.
 5. **Policy alignment**: sandbox policy validation may always deny a capability, but it must reject policies that try to enable capabilities unavailable in the selected command/profile/phase.
 6. **Canonical gating diagnostic**: use the shared feature-maturity diagnostic contract (`E5006`) so CLI, checker, runtime, and package tooling report phase/profile gating consistently.
+7. **Do not overuse `E5006`**: selecting an unavailable command/profile/feature uses `E5006`, but ordinary references to names/globals that are simply absent from the selected supported ambient surface should use the normal name/type diagnostics instead.
 
 ## Canonical Command/Profile Matrix
 
