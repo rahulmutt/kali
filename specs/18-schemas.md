@@ -561,6 +561,7 @@ Interpretation rules:
 - because schema v1 registry dependencies materialize into one early-phase `node_modules/` tree, install must reject a manifest that would require two distinct registry identities to occupy the same on-disk package path
 - raw URL dependencies are declared in source/import maps and tracked via `kali.lock`; schema v1 intentionally does **not** add a second manifest section for them
 - an ad hoc `kali install https://...` therefore stages/pins materialization for that exact URL, but durable project ownership still comes from source imports or `imports`
+- schema v1 intentionally has **no** per-project registry override/auth fields in `kali.json`; early npm-registry override, if supported, comes from the documented environment/host configuration path rather than from an undocumented project config key
 - Config should not mirror every CLI boolean directly when a more semantic field already exists
 - Precedence is `CLI > kali.json > defaults`, except sandbox policy restrictions still constrain effective runtime behavior
 - Unknown config fields are rejected at every documented nesting level unless a future schema revision adds an explicit extension mechanism

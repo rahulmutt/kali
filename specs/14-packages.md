@@ -360,10 +360,14 @@ Interpretation rules:
 
 ## Registry
 
-- Default registry: `https://registry.npmjs.org`
-- Configurable in `kali.json` or `KALI_REGISTRY` env var
-- Support for private registries with auth tokens
-- Support for JSR (Deno's registry) as an alternative registry source, following the same lock/materialization model as npm packages unless a later phase documents a stronger divergence
+To keep schema v1 small and avoid undocumented config surface area, early-phase registry configuration is intentionally narrow:
+
+- Default npm registry: `https://registry.npmjs.org`
+- Early override path for the npm registry: `KALI_REGISTRY` environment variable
+- The `jsr:` package namespace keeps using the JSR service; `KALI_REGISTRY` does **not** rewrite `jsr:` package identity into a second configurable registry family
+- Per-project registry override fields in `kali.json` are **not** part of schema v1; specs must not imply a config key that the schema does not define
+- Private-registry auth/config workflows are a later tooling extension unless/until a schema/CLI revision documents the exact contract
+- JSR remains an alternative registry source selected by explicit `jsr:` package identifiers, following the same lock/materialization model as npm packages unless a later phase documents a stronger divergence
 
 ## Package Analysis
 
