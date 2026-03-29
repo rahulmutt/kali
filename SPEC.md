@@ -23,7 +23,7 @@ This is the compact top-level breakdown of the bootstrap brief into canonical sp
 | Stronger-than-TS checking and inference | [04 — Type System](./specs/04-type-system.md) |
 | No tracing GC; compile-time ownership/allocation | [06 — Memory Management](./specs/06-memory.md) |
 | Aggressive specialization | [07 — Specialization](./specs/07-specialization.md) |
-| Sandboxing and effect-aware execution | [09 — Sandboxing](./specs/09-sandboxing.md), [10 — Runtime](./specs/10-runtime.md) |
+| Sandboxing and effect-aware execution | [09 — Sandboxing](./specs/09-sandboxing.md), [10 — Runtime](./specs/10-runtime.md) *(declarative policy first; later trusted host predicates for embedding)* |
 | JSON effect reporting and policy schemas | [09 — Sandboxing](./specs/09-sandboxing.md), [18 — Schemas](./specs/18-schemas.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
 | Deno / browser / later Node API surfaces | [11 — Standard APIs](./specs/11-standard-apis.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
 | npm / JSR / raw URL package workflows | [14 — Package Management](./specs/14-packages.md) |
@@ -359,6 +359,23 @@ Kali must distinguish between:
 In early phases:
 - browser-targeted commands may validate policy shape and capability compatibility
 - they must **not** imply Kali-controlled post-deployment enforcement of CPU, memory, file, process, or thread budgets inside a real browser host
+
+## Canonical Sandbox Attachment Matrix
+
+This is the compact cross-spec meaning of attaching a sandbox policy.
+
+| Invocation shape | Meaning of `--sandbox` / `kali.json#sandbox` |
+|---|---|
+| `kali run ...` / `kali test ...` | Validate the policy, then enforce it at runtime inside the Kali-hosted execution environment |
+| `kali check ...` / `kali build ...` | Phase 1: validate policy schema/config only. Phase 2+: also validate inferred effects against the policy |
+| `kali check --api browser ...` / `kali build --bundle --api browser ...` | Static compatibility only; must not be described as Kali-controlled post-deployment browser enforcement, and non-deny `resources.*` budgets are rejected |
+| `kali effects ...` / `kali package-effects ...` | Reporting only; they do not take `--sandbox` in early phases |
+| embedding with a Kali-controlled host | Same enforcement model as `run`/`test`, plus later embedding-only host-predicate extensions when that feature exists |
+
+Trusted-policy-extension rule:
+- the bootstrap goal of programmable sandbox conditions is satisfied only through the later **host-registered predicate** path
+- project policy files remain declarative data in schema v1
+- Kali must not execute project code just to decide whether a capability is allowed
 
 ## Machine-Readable Contract Rule
 

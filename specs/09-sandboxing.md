@@ -246,7 +246,7 @@ The canonical maturity decision for this feature lives in [specs/19-feature-matu
 
 Phase 1-2 policies are limited to path globs, URL patterns, booleans, and numeric resource limits. This keeps policy evaluation simple, auditable, portable, and easy to validate before any untrusted code runs.
 
-Longer-term, Kali may support **host-registered sandbox policy predicates** for embedding scenarios where declarative allowlists are not expressive enough. This is the spec's compatibility path for the original idea of user-defined sandbox conditions, but it deliberately avoids turning `kali.policy.json` itself into executable code.
+Longer-term, Kali may support **host-registered sandbox policy predicates** for embedding scenarios where declarative allowlists are not expressive enough. This is the canonical interpretation of the bootstrap's programmable-policy idea: trusted hosts may register pure predicates, but `kali.policy.json` itself stays declarative data rather than becoming executable project code.
 
 If policy predicates are added, they must:
 - Be explicitly opt-in
