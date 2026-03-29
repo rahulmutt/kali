@@ -230,7 +230,7 @@ To keep `build`, embedding, schemas, and feature-maturity docs aligned, Kali tre
 
 Cross-spec rules:
 - these modes are mutually exclusive unless a later spec explicitly defines an implication
-- `--bundle` is the browser-targeted executable packaging mode only; in early phases it requires `--api browser` and does not mean “generic multi-file output”
+- `--bundle` is the browser-targeted executable packaging mode only; in early phases it requires the **effective** `apiSurface` to be `browser` (from CLI or config) and does not mean “generic multi-file output”
 - `--lib` is the base non-browser library/export mode; `--capi` and `--component` are Phase 2 packaging layers over that same exported-library contract, not unrelated parallel semantics
 - because `--capi` and `--component` already select exported-library semantics, users should not combine them with `--lib` in early phases; these are separate artifact-mode selectors, not additive modifiers
 - `kali init --lib` changes the scaffold template only; it does not silently change the later default artifact mode of `kali build`

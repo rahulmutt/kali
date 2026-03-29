@@ -77,7 +77,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 
 | Flag | Scope | Description |
 |------|-------|-------------|
-| `--bundle` | `build` | In Phase 1, selects the browser-targeted artifact path and therefore requires `--api browser`; it is not a generic "multi-artifact output" switch, and any future extension must be specified explicitly |
+| `--bundle` | `build` | In Phase 1, selects the browser-targeted artifact path and therefore requires the **effective** `apiSurface` to be `browser` (from CLI or config); it is not a generic "multi-artifact output" switch, and any future extension must be specified explicitly |
 | `--lib` | `build`, `init` | For `build`: select the base library/export artifact mode (no automatic program start). For `init`: scaffold a library-oriented project template only |
 | `--capi` | `build` | Emit the Phase-2 public C-embedding artifact set (`wasm-module` + `wit` + `c-header` + `cabi-metadata`) |
 | `--component` | `build` | Emit a WebAssembly Component Model wrapper for a library/export-oriented build once that packaging path exists; phase-gated until the component flow is implemented |
@@ -96,7 +96,7 @@ Interpretation rule:
 - documenting a command-specific flag here does **not** imply it needs a separate feature-maturity row unless it changes a phase promise or machine-readable contract
 - build artifact-mode flags follow the canonical matrix in [SPEC.md](../SPEC.md): in early phases `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive selectors unless a later spec explicitly says one implies another
 - conflicting artifact-mode combinations such as `--bundle --lib`, `--bundle --capi`, `--bundle --component`, `--lib --capi`, or `--lib --component` should use the canonical invalid-usage diagnostic `E5008`, not a feature-maturity rejection; the user asked for incompatible artifact modes rather than for a later-phase feature
-- in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires `--api browser`, and `kali build --bundle` under `--api deno` or `--api node` must fail explicitly instead of inventing a second bundle contract
+- in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires the **effective** `apiSurface` to be `browser` (from CLI or config), and `kali build --bundle` under an effective `apiSurface` of `deno` or `node` must fail explicitly instead of inventing a second bundle contract
 - in early phases, `--lib`, `--capi`, and `--component` are non-browser artifact modes; `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` must fail explicitly rather than pretending browser bundle rules also apply to library/embedding builds
 - `--lib` is the base exported-library mode; `--capi` and `--component` are later packaging layers over that same exported-library contract rather than unrelated semantics
 - because `--capi` and `--component` already choose exported-library semantics, users should not combine them with `--lib` in early phases; those flags are separate artifact-mode selectors, not additive modifiers
@@ -145,7 +145,7 @@ When a command or flag is rejected due to phase/profile maturity, the CLI should
 
 Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
-- `--api browser` is valid early for `check` and `build --bundle`; it is rejected for standalone `run`, and `build --api browser` without `--bundle` is also rejected, until a later runtime profile/output contract explicitly supports those modes.
+- browser mode is valid early for `check` and for `build` only when the selected artifact mode is the browser bundle path. In practice that means the **effective** `apiSurface` may be `browser` (from CLI or config) for `check`, and for `build` only together with `--bundle`; standalone `run` still rejects browser mode, and `build` with an effective `apiSurface` of `browser` but without `--bundle` is also rejected until a later runtime profile/output contract explicitly supports that mode.
 - `--api node` is phase-gated consistently across `check`, `effects`, `build`, `run`, and `test`; early phases reject it with `E5006` rather than exposing a partial Node surface.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
 - `--wasm-threads` selects a different runtime profile rather than a small optimization toggle. Until that threaded profile exists, the flag is rejected. After it exists, if the selected target/engine/profile cannot honor it, the command must still reject it explicitly instead of silently dropping thread support.
@@ -182,7 +182,7 @@ kali build main.ts                         # → main.wasm (--fast mode, default
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue)
-kali build --bundle main.ts               # Rejected in early phases; --bundle is reserved for browser-targeted output and requires --api browser
+kali build --bundle main.ts               # Rejected under the default config; --bundle is reserved for browser-targeted output and therefore requires the effective apiSurface to be browser
 kali build --api browser main.ts           # Rejected in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
 kali build --lib lib.ts                    # Library module (exports, no start; Phase 1 artifact: kind=wasm-module, role=primary-library; Phase 2+ adds kind=wit, role=interface-wit by default)
@@ -362,6 +362,7 @@ By default, `kali package-effects` emits its native JSON payload directly, follo
 Analysis scope rule:
 - `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
 - in early phases, that context is inherited from the effective `kali.json` / default analysis settings rather than from package-specific `--api` / `--compat` flags
+- the inherited context is still subject to the normal maturity rules for that command; for example, if config selects `apiSurface = node` before Node package analysis is supported, `kali package-effects` should fail with `E5006` rather than silently analyzing under some other surface
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
 - the nested `report.entryPoints` field names those package-analysis roots using the shared effect-report schema
 

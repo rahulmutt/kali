@@ -139,7 +139,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali build --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config for the build; Phase 2+ also performs effect-vs-policy validation |
 | `kali build --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for builds too |
 | `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`kind: wasm-module` + `kind: js-glue`) |
-| `kali build --bundle main.ts` | Rejected by default | In early phases `--bundle` is reserved for browser-targeted output and therefore requires `--api browser` |
+| `kali build --bundle main.ts` | Rejected by default | Under the default tuple this fails because `--bundle` is reserved for browser-targeted output and therefore requires the effective `apiSurface` to be `browser`; with browser selected via CLI/config, the browser-bundle path is the supported Phase 1 mode |
 | `kali build --api browser main.ts` | Rejected by default | In early phases browser mode is a bundle/check profile, not a standalone non-bundled artifact mode |
 | `kali build --lib lib.ts` | Phase 1 MVP | Produce one linked library-style WASM artifact without automatic program start; Phase 1 emits the base `wasm-module` (`role: primary-library`), and Phase 2+ public-library builds add the default `wit` sidecar (`role: interface-wit`) |
 | `kali build --lib --api browser lib.ts` | Rejected by default | Early browser support is a bundle/check profile, not a browser-library artifact mode |
@@ -164,7 +164,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali effects --sandbox kali.policy.json main.ts` | Rejected by default | Keep `effects` as a pure reporting command; policy validation belongs to `check/build --sandbox` so the CLI has one canonical policy-validation path. This rejection should use `E5008`, not the `E5006` maturity gate. |
 | `kali effects --api browser main.ts` | Phase 2 target | Browser-targeted effect analysis follows the same browser-analysis intent as `kali check --api browser` once the Phase 2 command exists |
 | `kali effects --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset exists for effect analysis too |
-| `kali package-effects lodash` | Phase 2 target | Depends on effect-report pipeline; reject/mark experimental before then |
+| `kali package-effects lodash` | Phase 2 target | Depends on effect-report pipeline; reject/mark experimental before then. When it does exist, it still uses the effective inherited analysis context and must reject unsupported contexts such as early `apiSurface=node` with `E5006` rather than silently falling back. |
 | `kali package-effects https://...` | Rejected by default | `package-effects` analyzes registry packages only; raw URLs belong to the project/import-graph workflow instead |
 | `kali package-audit [pkg]` | Later compatibility | Tooling feature, not a Phase 1-2 compiler/runtime milestone |
 | `kali package-audit https://...` | Rejected by default | `package-audit` is registry-package-oriented rather than a second raw-URL analysis path |

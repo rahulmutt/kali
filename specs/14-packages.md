@@ -350,6 +350,7 @@ Canonical output simplification:
 - the native payload adds only package-specific metadata (see [specs/18-schemas.md](18-schemas.md)) instead of inventing a second unrelated effect schema
 - the nested shared effect report includes `analysisContext` so the chosen `apiSurface`, `runtimeProfiles`, and `compatFeatures` travel with the report instead of living only in ambient CLI/config state
 - in early phases, that package-analysis context is inherited from the effective `kali.json` / built-in defaults rather than from a second package-analysis-only `--api` or `--compat` flag family
+- that inherited context is still validated against the normal maturity rules for package analysis; for example, a config-selected `apiSurface = node` should still produce `E5006` until Node package analysis is supported, rather than silently falling back to `deno`
 - the nested shared effect report still summarizes the full statically reachable package graph selected for analysis under that recorded context; it is not just a manifest-level metadata report
 - `--output json` wraps that payload in the standard CLI command envelope; it does not create a third package-effects-only outer format
 

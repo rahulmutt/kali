@@ -158,8 +158,8 @@ This resolves a common ambiguity: browser-targeted analysis may know about `docu
 
 **Canonical early-phase rule**:
 - `kali check --api browser ...` is allowed for browser-targeted analysis
-- `kali build --bundle --api browser ...` is allowed for browser-targeted artifacts
-- `kali build --api browser ...` without `--bundle` is rejected by default in early phases to keep browser mode tied to a real browser-host deployment path
+- `kali build --bundle ...` is allowed for browser-targeted artifacts when the **effective** `apiSurface` is `browser` (from CLI or config)
+- `kali build` with an effective `apiSurface` of `browser` but without `--bundle` is rejected by default in early phases to keep browser mode tied to a real browser-host deployment path
 - `kali run --api browser ...` is rejected by default until a later runtime profile explicitly supports it
 - `kali test --api browser ...` is also rejected by default in early phases for the same reason; browser support is not yet a standalone execution/test-runtime contract
 
