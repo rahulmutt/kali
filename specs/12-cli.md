@@ -94,7 +94,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | Flag | Scope | Description |
 |------|-------|-------------|
 | `--bundle` | `build` | In Phase 1, selects the browser-targeted artifact path and therefore requires the **effective** `apiSurface` to be `browser` (from CLI or config); it is not a generic "multi-artifact output" switch, and any future extension must be specified explicitly |
-| `--lib` | `build`, `init` | For `build`: select the base library/export artifact mode (no automatic program start). For `init`: scaffold a library-oriented project template only |
+| `--lib` | `build`, `init` | For `build`: select the base library/export artifact mode (no synthetic executable entry invocation; ordinary top-level module initialization still occurs when instantiated). For `init`: scaffold a library-oriented project template only |
 | `--capi` | `build` | Emit the Phase-2 public C-embedding artifact set (`wasm-module` + `wit` + `c-header` + `cabi-metadata`) |
 | `--component` | `build` | Emit a WebAssembly Component Model wrapper for a library/export-oriented build once that packaging path exists; phase-gated until the component flow is implemented |
 | `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
@@ -197,6 +197,7 @@ Canonical artifact-mode rule:
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive artifact-mode selectors unless a later spec explicitly defines one as an implication of another
 - `kali init --lib` chooses a project template only; it does not change the later default artifact mode of `kali build`
 - WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag
+- library-oriented modes derive their host-facing surface from the module's explicit exports; they do not implicitly expose arbitrary internal declarations just because the source file was compiled in `--lib`/`--capi`/`--component` mode
 
 `--capi` and other public embedding-oriented outputs follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): the compiler is library-first internally in Phase 1, but stable public embedding artifacts are a Phase 2 target.
 
@@ -213,7 +214,7 @@ kali build --bundle main.ts               # Invalid usage (E5008) under the defa
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
 kali build --api browser main.ts           # Rejected in early phases (E5006); browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
-kali build --lib lib.ts                    # Library module (exports, no start; Phase 1 artifact: kind=wasm-module, role=primary-library; Phase 2+ adds kind=wit, role=interface-wit by default)
+kali build --lib lib.ts                    # Export-oriented library module (no synthetic executable entry invocation; top-level init still runs on instantiation; Phase 1 artifact: kind=wasm-module, role=primary-library; Phase 2+ adds kind=wit, role=interface-wit by default)
 kali build --lib --api browser lib.ts      # Rejected in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library artifact mode
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + metadata (artifacts: wasm-module + wit + c-header + cabi-metadata; roles: primary-library + interface-wit + embedding-header + embedding-metadata; see specs/13-embedding.md)
 kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit + lib.component.wasm (artifacts: lib.wasm kind=wasm-module role=primary-library; lib.wit kind=wit role=interface-wit; lib.component.wasm kind=wasm-component role=primary-component)

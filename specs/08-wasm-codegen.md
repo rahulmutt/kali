@@ -86,7 +86,7 @@ WASM Module:
 
 `Start` is artifact-mode dependent:
 - the default executable artifact path may emit a start/init path for module setup before invoking the entrypoint
-- `kali build --lib` omits automatic program start so the host controls instantiation and exported entry calls
+- `kali build --lib` omits any **synthetic executable entry invocation** so the host controls instantiation and exported entry calls; this does **not** suspend ordinary ECMAScript module-instantiation semantics, so top-level module initialization still runs when the host instantiates the library artifact
 - browser bundles may route initialization through generated JS glue instead of relying solely on the raw WASM start section
 
 ## Runtime Support Functions
@@ -121,7 +121,7 @@ Early-phase artifact-mode rule:
 - omitting all four selects the default executable artifact mode (`kali build foo.ts` → one executable-style `wasm-module` artifact)
 - in Phase 1, `--bundle` is reserved for browser-targeted output and therefore requires the **effective API surface** to be `browser`; using `--bundle` under an effective API surface of `deno` or `node` is invalid command usage (`E5008`), not a separate feature-maturity rejection
 - in early phases, `--lib`, `--capi`, and `--component` are non-browser artifact modes; pairing them with `--api browser` is rejected until a separate browser-library/browser-embedding contract is specified
-- `--lib` is the base exported-library mode; `--capi` and `--component` are later packaging layers over that same exported-library contract
+- `--lib` is the base exported-library mode; the public host-facing surface is derived from the module's explicit exports rather than from hidden reflection over arbitrary internal symbols, and `--capi` / `--component` are later packaging layers over that same exported-library contract
 - `--component` adds a wrapper around the same linked core library payload; it does not authorize a second independently linked guest-program graph and therefore does not weaken the single-linked-core-payload rule
 - because `--capi` and `--component` already choose exported-library semantics, users should not combine them with `--lib` in early phases; these are separate artifact-mode selectors, not additive modifiers
 - WIT sidecars are not a separate artifact mode: Phase 1 plain `--lib` emits the core library `wasm-module`, and relevant library/embedding outputs emit WIT by default once the public interface surface stabilizes in Phase 2+
@@ -133,7 +133,7 @@ Early-phase artifact-mode rule:
 | `kali build --bundle --api browser foo.ts` | `foo.wasm` + `foo.js` — WASM + JS glue for browsers, where the JS file acts as the browser host adapter for the guest ABI (`foo.wasm`: `kind: wasm-module`, `role: primary-executable`; `foo.js`: `kind: js-glue`, `role: browser-glue`) |
 | `kali build --bundle foo.ts` | Invalid command usage (`E5008`) under the default config; `--bundle` is reserved for browser-targeted output and requires the effective API surface to be `browser` |
 | `kali build --bundle --api node foo.ts` | Invalid command usage (`E5008`); browser bundle mode exists, but pairing it with a non-browser API surface is a contradictory command shape |
-| `kali build --lib foo.ts` | Phase 1: `foo.wasm` — library module (exports, no automatic start; `kind: wasm-module`, `role: primary-library`). Phase 2+: the same base library artifact also emits `foo.wit` (`kind: wit`, `role: interface-wit`) by default once the public interface contract is stabilized. |
+| `kali build --lib foo.ts` | Phase 1: `foo.wasm` — export-oriented library module (no synthetic executable entry invocation; ordinary top-level module initialization still occurs when instantiated; `kind: wasm-module`, `role: primary-library`). Phase 2+: the same base library artifact also emits `foo.wit` (`kind: wit`, `role: interface-wit`) by default once the public interface contract is stabilized. |
 | `kali build --lib --api browser foo.ts` | Rejected in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library-artifact mode |
 | `kali build --capi foo.ts` | Phase 2 target: `foo.wasm` + `foo.wit` + generated embedding header/metadata for use with the host-side `kali_capi` library (`foo.wasm`: `kind: wasm-module`, `role: primary-library`; WIT: `kind: wit`, `role: interface-wit`; header: `kind: c-header`, `role: embedding-header`; metadata: `kind: cabi-metadata`, `role: embedding-metadata`) |
 | `kali build --capi --api browser foo.ts` | Rejected in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a browser-embedding artifact mode |

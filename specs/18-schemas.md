@@ -249,7 +249,7 @@ Optional fields:
 
 Canonical schema-v1 `role` values:
 - `primary-executable` — the main executable-style artifact from `kali build foo.ts`
-- `primary-library` — the main library-style artifact from `kali build --lib foo.ts`
+- `primary-library` — the main export-oriented library artifact from `kali build --lib foo.ts` (no synthetic executable entry invocation; hosts instantiate it and call its explicit exports)
 - `primary-component` — the main Component Model wrapper artifact from `kali build --component foo.ts`
 - `browser-glue` — browser-targeted JS glue emitted alongside a browser bundle
 - `interface-wit` — canonical WIT interface description emitted for public library/embedding/component outputs

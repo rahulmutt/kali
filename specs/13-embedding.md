@@ -185,12 +185,14 @@ kali build --component lib.ts              # Produces lib.wasm + lib.wit + lib.c
 Artifact-role clarification:
 - `kali build --capi` uses the core `wasm-module` as the exported-library artifact (`role: primary-library`) plus `wit` (`role: interface-wit`), generated header (`role: embedding-header`), and metadata (`role: embedding-metadata`)
 - `kali build --component` keeps the same linked core library payload (`role: primary-library`) and WIT sidecar (`role: interface-wit`), then adds the outer Component Model wrapper as `kind: wasm-component`, `role: primary-component`
+- the exported host-facing surface for all three library-oriented modes is derived from the module's explicit exports; WIT, generated C headers, and component packaging are projections of that same explicit export surface rather than separate reflection-based APIs
 - that outer component wrapper is packaging over the already-linked core payload, not a second independently linked guest-program graph; this keeps embedding/component outputs aligned with the single-linked-core-payload rule from [SPEC.md](../SPEC.md)
 
 Important distinction:
 - `kali_capi` ships the stable host ABI header: `kali.h`
 - `kali build --capi foo.ts` emits a **program-specific** exports header such as `foo.exports.h` plus metadata
 - Phase 1 plain `kali build --lib foo.ts` emits the base library `wasm-module` only; once the public interface contract stabilizes in Phase 2+, library/component-oriented outputs emit a WIT sidecar by default so C bindings and Component Model wrappers derive from the same canonical exported interface description
+- library builds omit any synthetic executable entry invocation, but ordinary top-level module initialization still occurs when the host instantiates the artifact; exported functions are the host-callable surface layered on top of that normal module-instantiation behavior
 - In CLI JSON/artifact manifests, these outputs use the canonical artifact kinds `wasm-module`, `wit`, `wasm-component`, `c-header`, and `cabi-metadata`
 
 This avoids overloading the name `kali.h` for two different purposes and keeps C ABI generation aligned with the Component Model path.

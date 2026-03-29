@@ -268,13 +268,14 @@ These selectors are mutually exclusive unless a later spec explicitly says other
 |---|---|---|---|
 | `kali build main.ts` | default executable | one linked `wasm-module` with role `primary-executable` | Phase 1 MVP |
 | `kali build --bundle --api browser main.ts` | browser bundle | one linked `wasm-module` with role `primary-executable` plus browser JS glue with role `browser-glue` | Phase 1 MVP |
-| `kali build --lib lib.ts` | library | one linked `wasm-module` with role `primary-library`; later public-library outputs also emit WIT | Phase 1 MVP |
+| `kali build --lib lib.ts` | library | one linked export-oriented `wasm-module` with role `primary-library`; no synthetic executable entry is invoked, and later public-library outputs also emit WIT | Phase 1 MVP |
 | `kali build --capi lib.ts` | C embedding package | library core + WIT + generated C header + C-ABI metadata | Phase 2 target |
 | `kali build --component lib.ts` | Component package | library core + WIT + wrapped `wasm-component` | Phase 2 target |
 
 Interpretation rules:
 - `--bundle` is **browser-only** in early phases and requires the effective `apiSurface` to be `browser`
 - `--lib`, `--capi`, and `--component` are non-browser artifact modes in early phases
+- library-oriented modes are **export-oriented**: they package the module's explicit exports for host use, omit any synthetic executable entry invocation, and still preserve ordinary ECMAScript module-instantiation semantics for top-level initialization when the host instantiates the module
 - WIT is an output detail of public library/embedding/component modes, not a separate selector
 - companion artifacts do not weaken the single linked-payload rule for the compiled program graph itself
 
