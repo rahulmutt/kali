@@ -78,6 +78,11 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
+| `kali init` | Phase 1 MVP | Create a minimal `kali.json` project scaffold with canonical defaults |
+| `kali fmt` | Phase 1 MVP | Stable formatting command for JS/TS sources |
+| `kali lint` | Phase 1 MVP | Stable lint command with conservative autofix support |
+| `kali install` | Phase 1 MVP | Resolve/materialize dependency state and write `kali.lock` for the project's declared dependency source kinds |
+| `kali install https://...` | Phase 1 MVP | Explicitly pin/materialize a raw URL dependency into the shared lock/materialization model |
 | `kali run main.ts` | Phase 1 MVP | Compile and execute with the canonical default tuple: `apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]` |
 | `kali run --api deno main.ts` | Phase 1 MVP | Supported standalone runtime path |
 | `kali run --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands |
@@ -172,6 +177,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 |---|---|---|
 | Pure JS/TS npm packages within the linked-artifact model | Phase 1 MVP | No native addons |
 | Pure JS/TS JSR packages within the linked-artifact model | Phase 1 MVP | Registry-style install/lock/materialization path just like npm in early phases |
+| Raw URL imports in the shared lock/materialization model | Phase 1 MVP | Pin in `kali.lock`, materialize under `.kali/cache/urls/`, and keep ordinary commands deterministic |
 | Deno-condition package resolution in the default standalone surface | Phase 1 MVP | Honor `exports` condition `deno` when `--api deno` is selected |
 | Browser-condition package resolution in browser bundle mode | Phase 1 MVP | `browser` field / `exports` browser condition |
 | npm lifecycle scripts | Opt-in only | `kali install --allow-scripts` |

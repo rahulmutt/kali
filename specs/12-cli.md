@@ -171,7 +171,7 @@ kali init --lib                            # Library project template
 ```
 
 ### `kali install [package]`
-Install npm/JSR packages.
+Install or materialize project dependencies.
 
 Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that require native addons remain unsupported even when scripts are enabled.
 ```bash
@@ -183,7 +183,7 @@ kali install https://deno.land/std/path/mod.ts  # URL import (cached)
 ```
 
 Determinism rules:
-- `kali install` is the command that resolves versions and writes `kali.lock`.
+- `kali install` is the command that resolves versions, pins URL imports, and writes `kali.lock`.
 - `kali check`, `build`, `run`, and `test` consume existing dependency state; they must not silently modify `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/` as a side effect.
 - If dependency state is missing or stale for the dependency source kinds the project actually uses, those non-install commands fail with the canonical `E5004` path and point the user to `kali install`.
 - `--allow-scripts` is install-scoped only; it does not loosen later execution/build sandbox rules.
