@@ -303,18 +303,15 @@ The canonical full config schema and example live in [specs/18-schemas.md](18-sc
 Minimal canonical shape:
 ```json
 {
-  "schemaVersion": 1,
-  "compilerOptions": {
-    "apiSurface": "deno",
-    "buildMode": "fast",
-    "runtimeProfiles": []
-  }
+  "schemaVersion": 1
 }
 ```
 
 Omission/default rule for minimal configs:
 - `kali init` should emit only the smallest canonical shape needed for the chosen template.
+- For the default app template, that usually means just `{"schemaVersion": 1}`.
 - Omitted fields inherit documented schema/CLI defaults rather than creating placeholder sections.
+- In schema v1, omitted `compilerOptions` means all compiler-option defaults apply.
 - In schema v1, omitted `compilerOptions.strict` means the default strict-checking bundle is enabled.
 - Omitted `compat` means `compat.features = []`.
 

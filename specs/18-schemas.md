@@ -385,7 +385,15 @@ Canonical filename: `kali.json`
 ### Schema-v1 defaulting and omission rules
 To keep `kali.json` minimal and avoid placeholder churn, schema v1 uses a small canonical default set when fields are omitted.
 
+Smallest valid schema-v1 config:
+```json
+{
+  "schemaVersion": 1
+}
+```
+
 Defaults:
+- omitted `compilerOptions` means `{}`
 - omitted `compilerOptions.strict` means `true`
 - omitted `compilerOptions.apiSurface` means `deno`
 - omitted `compilerOptions.buildMode` means `fast`
@@ -395,6 +403,7 @@ Defaults:
 
 Interpretation rules:
 - `kali init` should prefer omission of default-valued optional fields over emitting empty placeholder sections
+- a default app scaffold may therefore emit only `{"schemaVersion": 1}` unless the chosen template needs additional config
 - tools may materialize these defaults internally, but should preserve a minimal on-disk config unless the user explicitly asks for a fuller form
 - when a tool normalizes `kali.json`, it must not change semantics by adding or removing fields whose values equal these defaults
 - `compilerOptions.apiSurface` is the canonical config name for the host API family; CLI uses `--api`
