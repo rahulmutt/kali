@@ -197,7 +197,7 @@ Interpretation rules:
 - `runtimeProfiles = []` means the default single-threaded baseline runtime
 - `compat.features = []` means no later-phase compatibility escape hatches are enabled
 - `kali run main.ts`, `kali test`, and `kali build main.ts` should be read as using this tuple unless flags/config override it
-- `kali check main.ts` uses the same default host/API selection (`apiSurface = deno`) even though build mode and runtime-profile switches are only meaningful for build/run-style commands
+- `kali check main.ts` and `kali effects main.ts` use the same default host/API selection (`apiSurface = deno`) even though build mode and runtime-profile switches are only meaningful for build/run-style commands
 
 This tuple is the canonical simplification for examples across the CLI, embedding, runtime, and maturity specs.
 
@@ -220,7 +220,7 @@ Interpretation rules:
 - ad hoc raw-URL installs are therefore a **staging/pin workflow**, not a second durable declaration channel; long-lived raw URL dependencies still belong in source imports or `kali.json#imports`
 - `--dev` applies only to **registry package** install arguments; pairing `--dev` with a raw URL is rejected explicitly instead of inventing a `devUrls`-style manifest concept
 - because raw URL pins are owned by the current source/import-map graph rather than a separate manifest table, a later plain `kali install` may prune lock/cache entries for raw URLs no longer referenced by the project
-- `kali install` is profile-agnostic in early phases: it locks/materializes dependency contents once for the current manifest/import graph, while `check` / `build` / `run` / `test` choose `deno`/browser-targeted package branches from the installed package metadata at command time
+- `kali install` is profile-agnostic in early phases: it locks/materializes dependency contents once for the current manifest/import graph, while `check` / `effects` / `build` / `run` / `test` choose `deno`/browser-targeted package branches from the installed package metadata at command time
 
 This keeps raw URL support simple: source/import maps declare durable URL dependencies, the lock/cache materialize them, and `kali install` reconciles the two. An ad hoc `kali install https://...` is just a convenient way to pre-pin/materialize a URL that the project is expected to reference explicitly.
 
@@ -241,8 +241,8 @@ To keep the frontend, package resolver, CLI, and test runner aligned, Kali uses 
 
 Interpretation rules:
 - executable/analyzable source files may participate in parsing, checking, lowering, building, running, and test discovery according to the selected command/profile
-- declaration-only files participate in type checking, ambient library loading, and package type resolution, but they are never valid `run` / `build` / `test` entrypoints by themselves
-- project-oriented file discovery should use the executable/analyzable set for runtime-bearing source traversal and add declaration-only files only where the command specifically needs type information or formatting support
+- declaration-only files participate in type checking, ambient library loading, and package type resolution, but they are never valid `run` / `effects` / `build` / `test` entrypoints by themselves
+- project-oriented file discovery should use the executable/analyzable set for runtime-bearing source traversal and add declaration-only files only where the command specifically needs type information, formatting, or linting support
 - test discovery should match the executable/analyzable source set only; declaration files are excluded even if they happen to match a naming convention like `*.test.d.ts`
 
 This is the canonical simplification for file-extension handling across architecture, CLI, package resolution, and testing.

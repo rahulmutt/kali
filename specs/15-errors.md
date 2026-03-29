@@ -90,7 +90,7 @@ Use `E5004` for dependency-state problems such as:
 - `kali.lock`, `node_modules/`, or `.kali/cache/urls/` is missing/stale for the dependency kinds the project uses
 - the current declared dependency graph, lockfile entries, and required materialized artifacts no longer agree
 - a direct-entry command reaches additional raw URL imports outside the last installed project discovery set
-- the resolver needs explicit dependency installation/synchronization instead of silently re-resolving during `check`, `build`, `run`, or `test`
+- the resolver needs explicit dependency installation/synchronization instead of silently re-resolving during `check`, `effects`, `build`, `run`, or `test`
 
 Clarification:
 - for `E5004`, "stale" is a **lock/materialization mismatch**, not a vague timestamp heuristic
@@ -142,6 +142,7 @@ error[E5007]: invalid entrypoint for command 'run': declaration-only file
 Use `E5007` for cases such as:
 - `kali run types.d.ts`
 - `kali build defs.d.mts`
+- `kali effects defs.d.cts`
 - `kali test foo.test.d.ts`
 - any other direct command input where the selected command requires an executable/analyzable entrypoint but the supplied file is declaration-only
 

@@ -195,7 +195,7 @@ Interpretation rules:
 Because package resolution can vary by API surface/profile (`deno`, browser-targeted bundle mode, and later `node`), Kali needs one explicit boundary so `install`, lockfiles, and ordinary commands do not drift:
 
 - `kali install` is **profile-agnostic** in Phase 1-3. It locks package versions, fetches/materializes package contents, and records reproducibility data, but it does **not** pre-resolve one permanent `exports`/`browser`/`deno` branch for every future command.
-- `check`, `build`, `run`, and `test` perform the final **command-time package edge selection** from the already-installed package metadata using the active API surface/profile.
+- `check`, `effects`, `build`, `run`, and `test` perform the final **command-time package edge selection** from the already-installed package metadata using the active API surface/profile.
 - therefore one `kali.lock` and one materialized package tree can serve both the default Deno-oriented standalone path and the browser-targeted `check` / `build --bundle` path without requiring separate per-profile installs.
 - this is possible because early-phase profile differences choose between files that are already present inside the installed package contents; they do not require separate version solves for each supported profile.
 - if a later feature truly requires profile-specific solving or materially different dependency graphs, that complexity must be introduced explicitly in a future lockfile/versioning revision rather than being implied accidentally by Phase 1 package wording.
@@ -207,9 +207,9 @@ Practical consequence:
 
 ## Deterministic Install & Resolution Contract
 
-To keep package behavior predictable across `install`, `check`, `build`, `run`, and `test`, Kali uses one simple rule set:
+To keep package behavior predictable across `install`, `check`, `effects`, `build`, `run`, and `test`, Kali uses one simple rule set:
 - `kali install` is the command that resolves dependency versions and writes `kali.lock`.
-- `kali check`, `build`, `run`, and `test` consume the existing lockfile/materialized dependency state; they must not silently re-resolve packages or mutate dependency state as a side effect.
+- `kali check`, `effects`, `build`, `run`, and `test` consume the existing lockfile/materialized dependency state; they must not silently re-resolve packages or mutate dependency state as a side effect.
 - If the project's declared dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports from the install-time project discovery set) require materialized state that is missing or stale, non-install commands fail with `E5004` and tell the user to run `kali install`.
 - Here, "stale" means the current declared dependency graph, the corresponding `kali.lock` entries, and the required materialized artifacts no longer agree. Non-install commands should not try to infer staleness from arbitrary mtimes or repair it opportunistically.
 - `node_modules/` is the materialized tree for registry packages (npm/JSR), while `.kali/cache/urls/` is the materialized cache for raw URL imports; `kali.lock` is the canonical reproducibility record for both.

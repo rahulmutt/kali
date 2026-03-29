@@ -104,7 +104,7 @@ This keeps the Phase 1 host surface small and auditable while still establishing
 Node compatibility is a **Phase 3 ecosystem target**, not a Phase 1 promise. The goal is package compatibility first, not full Node parity.
 
 Canonical gating rule:
-- `kali check --api node`, `kali build --api node`, `kali run --api node`, and `kali test --api node` are all phase-gated until the documented Node subset exists
+- `kali check --api node`, `kali effects --api node`, `kali build --api node`, `kali run --api node`, and `kali test --api node` are all phase-gated until the documented Node subset exists
 - early phases must reject these modes with the canonical `E5006` diagnostic instead of exposing a partial ambient `process`/built-ins surface
 
 **Phase 3 target subset**
@@ -161,7 +161,7 @@ This section turns the broad API story into a small implementation checklist so 
 - **Web baseline must work end-to-end**: `console`, timers, `queueMicrotask`, `fetch`, `URL`, `TextEncoder`/`TextDecoder`, `AbortController`, `structuredClone`, `performance.now()`, and event primitives are available in `run` and covered by integration tests.
 - **Deno baseline must work end-to-end**: file read/write, metadata/read-dir, invocation arguments, and read-only env access all execute through the host ABI and obey the documented sandbox/execution contract.
 - **Every Phase 1 host call is policy-aware**: the runtime may not expose an unchecked host backdoor just because the API itself is part of the MVP.
-- **Node mode is not partially implied**: `--api node` remains phase-gated across `check` / `build` / `run` / `test` until its documented subset is implemented; package compatibility must not depend on undocumented fallback behavior.
+- **Node mode is not partially implied**: `--api node` remains phase-gated across `check` / `effects` / `build` / `run` / `test` until its documented subset is implemented; package compatibility must not depend on undocumented fallback behavior.
 - **Browser mode stays profile-oriented**: browser-targeted analysis/build can expose browser ambient typings, but standalone runtime does not pretend to provide DOM APIs; browser-specific behavior comes from bundle/glue output and the real browser host.
 
 This intentionally keeps the Phase 1 promise small: one dependable Web baseline plus one dependable Deno baseline.

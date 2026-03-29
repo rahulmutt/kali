@@ -18,7 +18,7 @@ Command-family terminology used in this chapter:
 - **diagnostic-producing commands**: `check`, `build`, `run`, `test`, `fmt --check`, and `lint`
 
 Canonical input-kind rule:
-- `run`, `build`, and discovered `test` entrypoints accept only the shared executable/analyzable source-file set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
+- `run`, `build`, `effects`, and discovered `test` entrypoints accept only the shared executable/analyzable source-file set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
 - `check`, `fmt`, and `lint` accept that same executable/analyzable set **plus** declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`)
 - declaration-only files may therefore be checked/formatted/linted directly and may also participate in ambient type loading and package type resolution
 - declaration-only files are never valid runtime-bearing entrypoints; passing one where an executable entrypoint is required should fail explicitly with the canonical invalid-entrypoint diagnostic described in [specs/15-errors.md](15-errors.md) rather than being treated as an empty program or silently ignored
@@ -35,8 +35,8 @@ Naming rule:
 | `--quiet` | all commands | Suppress non-error status/progress output; for data-producing commands such as `effects` and `package-effects`, it must not suppress the primary payload itself |
 | `--max-errors N` | diagnostic-producing commands | Cap reported errors (default: 50) |
 | `--color auto\|always\|never` | text-output commands | Color output control |
-| `--api deno\|node\|browser` | `check`, `build`, `run`, `test` | Select host API surface; unsupported surfaces for the current command/profile must error explicitly (for example, early browser builds require `--bundle`) |
-| `--compat <feature[,feature...]>` | `check`, `build`, `run`, `test` | Enable documented compatibility features such as `eval` only when that feature is implemented for the selected phase/profile |
+| `--api deno\|node\|browser` | `check`, `effects`, `build`, `run`, `test` | Select host API surface; unsupported surfaces for the current command/profile must error explicitly (for example, early browser builds require `--bundle`) |
+| `--compat <feature[,feature...]>` | `check`, `effects`, `build`, `run`, `test` | Enable documented compatibility features such as `eval` only when that feature is implemented for the selected phase/profile |
 | `--fast` | `build`, `run`, `test` | Fastest compile time, minimal optimization (default build mode) |
 | `--release` | `build`, `run`, `test` | Standard optimization profile |
 | `--release-advanced` | `build`, `run`, `test` | Aggressive optimization profile |
@@ -96,7 +96,7 @@ Canonical default tuple:
 - `runtimeProfiles = []`
 - `compat.features = []`
 
-This is the default interpretation of examples such as `kali run main.ts`, `kali test`, and `kali build main.ts` unless the example explicitly overrides a field. `kali check main.ts` uses the same default API surface selection.
+This is the default interpretation of examples such as `kali run main.ts`, `kali test`, and `kali build main.ts` unless the example explicitly overrides a field. `kali check main.ts` and `kali effects main.ts` use the same default API surface selection.
 
 ## Commands
 
@@ -120,7 +120,7 @@ When a command or flag is rejected due to phase/profile maturity, the CLI should
 Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
 - `--api browser` is valid early for `check` and `build --bundle`; it is rejected for standalone `run`, and `build --api browser` without `--bundle` is also rejected, until a later runtime profile/output contract explicitly supports those modes.
-- `--api node` is phase-gated consistently across `check`, `build`, `run`, and `test`; early phases reject it with `E5006` rather than exposing a partial Node surface.
+- `--api node` is phase-gated consistently across `check`, `effects`, `build`, `run`, and `test`; early phases reject it with `E5006` rather than exposing a partial Node surface.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
 - `--wasm-threads` selects a different runtime profile rather than a small optimization toggle. Until that threaded profile exists, the flag is rejected. After it exists, if the selected target/engine/profile cannot honor it, the command must still reject it explicitly instead of silently dropping thread support.
 - `--max-threads N` is meaningful only together with the threaded runtime profile. A non-zero thread cap without effective thread support must be rejected explicitly rather than ignored.
@@ -181,11 +181,20 @@ Output static effect analysis as JSON.
 
 Status: Phase 2 target. In Phase 1, the command may be unavailable or explicitly marked experimental while the internal effect infrastructure stabilizes.
 ```bash
-kali effects main.ts                       # Compact effect report JSON to stdout
+kali effects main.ts                       # Compact effect report JSON to stdout (default API surface: deno)
+kali effects --api browser main.ts         # Browser-targeted effect analysis once the Phase 2 command exists
+kali effects --api node main.ts            # Phase 3 target: Node API surface remains gated here too
 kali effects --pretty main.ts              # Pretty-printed effect report JSON
 kali effects --output json main.ts         # Command envelope + effect payload
 ```
 By default, `kali effects` prints the effect report payload directly because JSON is the primary output of the command. With `--output json`, it is wrapped in the standard command envelope described below. See [specs/18-schemas.md](18-schemas.md) for the canonical payload schema.
+
+Input-kind and host-selection rules:
+- `kali effects` accepts only executable/analyzable source files; declaration-only files are type inputs, not effect-report entrypoints
+- unless overridden by CLI/config, `kali effects` uses the same default API-surface selection as `kali check` (`apiSurface = deno`)
+- `--api browser` follows the same browser-targeted analysis intent as `kali check --api browser`
+- `--api node` remains phase-gated until the documented Node surface exists
+- `--compat ...` affects effect analysis too: enabled compatibility paths such as `eval` change the reported effect set/dynamic reasons only when that compatibility feature is actually implemented for the selected phase/profile
 
 Compatibility rule:
 - plain `kali effects ...` emits the raw effect-report payload
@@ -229,7 +238,7 @@ Canonical discovery rule:
 - declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`) are never test entrypoints even if they match the naming pattern
 - if explicit file arguments are supplied to `kali test`, each file must still belong to the executable/analyzable set; passing a declaration-only file is an invalid-entrypoint error, not a silent skip
 
-Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run`, and `kali check` / `kali build` follow the same API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
+Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run`, and analysis/build commands (`kali check`, `kali effects`, `kali build`) follow the same API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
 
 ### `kali init`
 Initialize a new project scaffold.
@@ -270,11 +279,11 @@ Argument-kind rules:
 - because `kali install` normally has no explicit entrypoint, source-level raw URL imports are discovered from the project's install-time file set: `include` / `exclude` when present, otherwise the default project discovery rules for the canonical source-file kinds
 - this discovery step may be a cheap lexical/module-specifier scan rather than a full build
 - because raw URL entries are owned by the current source/import-map graph instead of a manifest dependency table, plain `kali install` may prune raw URL lock/cache entries that are no longer referenced
-- `kali install` is intentionally **profile-agnostic** in early phases: it locks versions and materializes package contents once for the current manifest/import graph, but it does not pre-bake a separate install for each `--api` surface; later `check` / `build` / `run` / `test` choose `deno`/browser-targeted package branches from the already-installed metadata at command time
+- `kali install` is intentionally **profile-agnostic** in early phases: it locks versions and materializes package contents once for the current manifest/import graph, but it does not pre-bake a separate install for each `--api` surface; later `check` / `effects` / `build` / `run` / `test` choose `deno`/browser-targeted package branches from the already-installed metadata at command time
 
 Determinism rules:
 - `kali install` is the command that resolves versions, pins URL imports, and writes `kali.lock`.
-- `kali check`, `build`, `run`, and `test` consume existing dependency state; they must not silently modify `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/` as a side effect. Missing URL-cache materialization is treated the same as missing `node_modules/`: fail with `E5004` and point the user to `kali install`.
+- `kali check`, `effects`, `build`, `run`, and `test` consume existing dependency state; they must not silently modify `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/` as a side effect. Missing URL-cache materialization is treated the same as missing `node_modules/`: fail with `E5004` and point the user to `kali install`.
 - For `E5004`, "stale" means the current manifest/import graph, lockfile entries, and required materialized artifacts no longer match for the dependency kinds the project actually uses. It does **not** require ad hoc timestamp-based guessing by non-install commands.
 - If dependency state is missing or stale for the dependency source kinds the project actually uses, those non-install commands fail with the canonical `E5004` path and point the user to `kali install`.
 - If a direct-entry command names a file outside the last installed project discovery set and that file reaches additional raw URL imports, the command still fails with `E5004`; non-install commands must not auto-install or mutate the dependency graph opportunistically.
@@ -386,7 +395,7 @@ Omission/default rule for minimal configs:
 
 Configuration simplification rules:
 - `compilerOptions.apiSurface` is the config equivalent of the CLI `--api` flag
-- `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `build` / `run` / `test`, but it does **not** cause `kali install` to maintain separate lock/materialization state per API surface in early phases
+- `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `effects` / `build` / `run` / `test`, but it does **not** cause `kali install` to maintain separate lock/materialization state per API surface in early phases
 - `compilerOptions.buildMode` replaces separate optimization booleans
 - `compilerOptions.runtimeProfiles` is an array of explicit semantic runtime-profile switches; an empty array means the default single-threaded baseline, while a future threaded config would use `"runtimeProfiles": ["wasm-threads"]`
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
