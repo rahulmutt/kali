@@ -130,6 +130,7 @@ Use `E5006` for cases such as:
 Boundary clarification:
 - use `E5006` when the requested feature/profile is real but unavailable in the current phase/profile
 - use `E5008` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it, or `kali build --api browser` without `--bundle` while browser builds are bundle-only)
+- the same rule applies when the triggering value came from discovered config rather than a literal CLI flag; diagnostics should explain the effective value instead of pretending no selection was made
 
 Clarification:
 - use `E5006` for **documented feature/profile gating**
@@ -172,6 +173,7 @@ Boundary rule:
 - `E5008` is for **CLI/config usage shape errors**, not language/runtime maturity gating
 - use `E5006` when the user asked for a documented feature/profile that exists in the spec set but is unavailable in the current phase/profile
 - use `E5007` when the problem is the supplied input kind rather than the overall command shape
+- config-derived contradictions count too: if discovered config makes the effective command shape impossible (for example `apiSurface = browser` for plain early-phase `kali build main.ts` without `--bundle`), the diagnostic is still `E5008`
 
 Example:
 ```
@@ -202,6 +204,7 @@ Use `E5008` for cases such as:
 Clarification:
 - `E5008` is for **invalid command shape**, not unsupported language/runtime semantics
 - commands should still emit the normal versioned diagnostic/envelope structure in JSON mode rather than printing ad hoc usage text only
+- where config caused the invalid shape, the help text should name the relevant config path (for example `compilerOptions.apiSurface`) so the user can fix either the config or the command line
 
 ### Runtime Errors (E6xxx)
 - `E6001`: Uncaught exception

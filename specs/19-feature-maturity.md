@@ -112,6 +112,11 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 
 This table exists to stop drift between CLI examples, runtime behavior, package tooling, and error reporting.
 
+Interpretation rule:
+- matrix rows are evaluated against the fully merged **effective command context** (built-in defaults, then discovered config, then CLI flags)
+- examples written with explicit flags also apply when the same value was inherited from `kali.json`
+- Kali must not silently fall back from an inherited unsupported/contradictory context to a different API surface/profile just because the user omitted the matching CLI flag
+
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
 | `kali init` | Phase 1 MVP | Create the minimal canonical `kali.json` scaffold; for the default app template this should normally be just `{ "schemaVersion": 1 }` unless the chosen template needs more |

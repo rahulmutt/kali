@@ -61,6 +61,11 @@ Canonical config-discovery rule:
 - explicit CLI file arguments do **not** relocate that chosen config/root; they resolve relative to the current working directory, while config-owned relative paths continue to resolve relative to the directory containing the discovered `kali.json`
 - recursive project discovery for no-argument `check` / `fmt` / `lint` / `test` and for no-package-argument `install` graph scanning must stop at nested child directories that contain their own `kali.json` unless the user explicitly names files inside them
 
+Effective-context validation rule:
+- command validation always runs against the fully merged **effective command context** (built-in defaults, then discovered config, then CLI flags)
+- therefore config-selected values trigger the same maturity/usage checks as explicit flags; the CLI must not silently "fix up" an inherited context by falling back to some other API surface/profile
+- examples: config-selected `apiSurface = node` still causes plain `kali run main.ts` or `kali test` to hit the Node phase gate (`E5006`), and config-selected `apiSurface = browser` still makes plain `kali build main.ts` invalid early-phase usage (`E5008`) until `--bundle` is selected
+
 | Flag | Scope | Description |
 |------|-------|-------------|
 | `--verbose` | all commands | Detailed output: timing per phase, optimization decisions |
@@ -132,6 +137,10 @@ Configuration precedence is intentionally simple:
 3. Sandbox policy caps, when a policy is attached, remain upper bounds for runtime capabilities and resource limits
 
 That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy. If no policy is attached, those direct invocation flags simply become the effective cap for the current command instead of being compared against an implicit allow-all policy.
+
+Interpretation rule:
+- the resulting merged values are the command's one **effective context** for validation, lowering, and reporting
+- unsupported inherited config values do not get ignored just because the user omitted the matching CLI flag
 
 Canonical path-resolution rule:
 - ordinary CLI path arguments (entry files, explicit file lists, and `--sandbox <path>`) are resolved relative to the current working directory

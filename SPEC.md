@@ -210,6 +210,24 @@ This tuple is the default interpretation for examples such as:
 - `kali test`
 - later `kali effects main.ts`
 
+## Effective Command Context Rule
+
+Every command first computes one **effective command context** by applying:
+1. built-in defaults
+2. the discovered `kali.json`
+3. explicit CLI flags
+
+Interpretation rules:
+- availability checks and contradiction checks always evaluate this **effective** context, not just the literal CLI spelling
+- Kali must not silently rewrite the effective context just to make a command succeed
+- if the effective context requests a real but unavailable feature/profile, fail with `E5006`
+- if the effective context creates a contradictory command shape, fail with `E5008`
+
+Canonical examples:
+- if `kali.json` sets `compilerOptions.apiSurface = "node"`, then plain `kali run main.ts` still hits the same Node phase gate as `kali run --api node main.ts`
+- if `kali.json` sets `compilerOptions.apiSurface = "browser"`, then plain `kali build main.ts` is still invalid early-phase command usage until `--bundle` is selected, just like `kali build --api browser main.ts`
+- commands must not silently fall back from config-selected `browser`/`node` to `deno`
+
 ## Canonical Source-File Sets
 
 ### Executable/analyzable source set
