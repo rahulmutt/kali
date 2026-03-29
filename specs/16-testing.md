@@ -20,6 +20,8 @@ End-to-end tests in `tests/`:
 
 ### Conformance Test Suites
 
+The conformance strategy is intentionally split by concern area so language support, typing, packages, and sandbox behavior can advance at different rates without muddying pass/fail claims.
+
 #### ECMAScript (test262)
 Run against the [test262](https://github.com/tc39/test262) conformance suite:
 - Track pass/fail/skip counts
@@ -30,11 +32,12 @@ Run against the [test262](https://github.com/tc39/test262) conformance suite:
   - Phase 2-3: expanding automated coverage with feature-based gating
   - Later compatibility goal: >95% pass rate for supported non-annex-B tests
 
-#### TypeScript (tsc tests)
+#### TypeScript (`tsc`-style baselines)
 Inspired by TypeScript's test suite:
 - **Type check tests**: `.ts` file + expected diagnostics
 - **Inference tests**: Check inferred types match expectations
 - **Emit tests**: Check compiled output for specific patterns
+- **Baseline stability**: diagnostics and machine-readable outputs should use stable golden files where possible so spec and implementation drift are easy to spot
 
 Format:
 ```typescript
@@ -45,12 +48,20 @@ let x: number = "hello";
 //              ~~~~~~~ E1001: Type 'string' is not assignable to type 'number'
 ```
 
+#### Package Compatibility Suites
+Because Kali aims to support real npm/JS ecosystems, package compatibility needs its own evidence track rather than anecdotal one-off testing:
+- maintain a curated corpus of representative packages (validators, parsers, utility libraries, browser-targeted libs, selected Node-host-heavy packages once Phase 3 begins)
+- record whether each package is expected to `check`, `build`, `test`, or `run` under each supported profile
+- treat package suites as phase-scoped contracts: Phase 1 corpus targets pure JS/TS packages that fit the linked-artifact model; later corpora can add harder Node/browser packages
+- failures should distinguish resolution/type-check/runtime/sandbox causes so roadmap gaps are visible
+
 #### Kali-Specific Tests
 - **Effect inference tests**: Source → expected effects JSON *(Phase 2 target; Phase 1 may instead test internal analysis units without a stable CLI surface)*
 - **Sandbox tests**: Source + policy → expected pass/fail, including explicit checks for Phase 1 runtime enforcement vs Phase 2 compile-time effect-policy rejection
 - **Memory tests**: Source → expected allocation strategy (stack/heap/Rc)
 - **Specialization tests**: Generic source → expected number of specializations
 - **Optimization tests**: Source → check specific optimization was applied
+- **AI-facing diagnostics tests**: ensure concise human output and stable JSON diagnostics remain aligned
 
 ### Snapshot Tests
 For IR representations:

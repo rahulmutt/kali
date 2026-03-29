@@ -15,6 +15,16 @@ A key simplification rule applies throughout this section: Phase 1 should target
 
 For dynamic or semantically expensive APIs (for example `Proxy`, weak references, and threaded primitives), the canonical phase/status lives in [specs/19-feature-maturity.md](19-feature-maturity.md). This section should describe API layering, not restate a conflicting maturity decision.
 
+## API-Surface Loading Rule
+
+To keep runtime imports, globals, and package expectations aligned:
+- the **Web Platform baseline** is the shared baseline across supported surfaces
+- `--api deno`, `--api node`, and `--api browser` control which **additional** globals/modules beyond that baseline are available
+- browser-targeted profiles must not expose process/env/file globals just because the underlying host runtime happens to have them
+- unsupported globals/modules are absent and should trigger the canonical `E5006`/availability path instead of resolving to dummy shims by default
+
+This prevents a common source of drift: host-runtime implementation convenience must not silently widen the language-visible API contract.
+
 ## API Layers
 
 ### Web Platform APIs (Baseline)
@@ -89,7 +99,7 @@ Node compatibility is a **Phase 3 ecosystem target**, not a Phase 1 promise. The
 **Strategy**: Implement Node APIs as wrappers around Deno-style host functions where possible. Use `deno_std/node` as a compatibility reference, not as a hard dependency.
 
 ### Browser API (`--api browser`)
-Browser mode is primarily a **build/check profile** in early phases, not a promise that the standalone runtime behaves like a browser.
+Browser mode is primarily a **build/check profile** in early phases, not a promise that the standalone runtime behaves like a browser. See the canonical host/profile summary in [SPEC.md](../SPEC.md) and the phase-gating matrix in [19 — Feature Maturity](19-feature-maturity.md) when deciding whether a given command/profile combination is supported.
 
 - DOM APIs are **not** natively supported by the standalone Kali runtime (it does not embed a browser engine)
 - Only Web Platform APIs are available (no Deno or Node.js APIs)
@@ -102,6 +112,7 @@ Browser mode is primarily a **build/check profile** in early phases, not a promi
 - `kali build --bundle --api browser ...` is allowed for browser-targeted artifacts
 - `kali build --api browser ...` without `--bundle` is rejected by default in early phases to keep browser mode tied to a real browser-host deployment path
 - `kali run --api browser ...` is rejected by default until a later runtime profile explicitly supports it
+- `kali test --api browser ...` is also rejected by default in early phases for the same reason; browser support is not yet a standalone execution/test-runtime contract
 
 **Note**: The Phase 1 baseline Web Platform APIs are always available regardless of `--api` mode. The `--api` flag controls which *additional* platform-specific APIs are loaded, and unsupported command/surface combinations in early phases should produce the canonical feature-maturity diagnostic described in [specs/15-errors.md](15-errors.md) rather than silently falling back.
 

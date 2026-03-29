@@ -3,8 +3,9 @@
 ## Lexer
 
 ### Requirements
-- Full ECMA-262 (16th edition) lexical grammar support
+- Full lexical grammar support for the latest published ECMA-262 edition
 - TypeScript syntax extensions (type annotations, generics, enums, etc.)
+- Stage-3+/draft JavaScript proposals are out of scope unless the feature-maturity matrix or an explicit experimental flag says otherwise
 - Kali-specific syntax extensions, kept intentionally small in early phases (effect annotations first; advanced effect syntax behind an experimental flag)
 - Zero-copy where possible — tokens reference source via spans
 - Streaming/lazy tokenization — parser pulls tokens on demand
@@ -38,7 +39,7 @@ struct Token {
 ## Parser
 
 ### Requirements
-- Full ECMA-262 grammar including:
+- Full grammar coverage for the latest published ECMA-262 edition, including:
   - All statement and expression types
   - Destructuring (nested, with defaults)
   - Generators and async generators

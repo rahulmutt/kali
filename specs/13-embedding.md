@@ -170,10 +170,28 @@ The host-side C ABI itself is provided by the `kali_capi` crate:
 cargo build --release -p kali_capi         # Build the C API shared/static library
 ```
 
+## ABI Versioning and Compatibility
+
+To keep embedding stable and machine-checkable, the C ABI needs one explicit compatibility rule instead of relying on prose:
+
+- `kali_capi` publishes a monotonically increasing **host ABI version** integer
+- the stable host header exposes it via constants/macros such as:
+  - `KALI_CAPI_ABI_VERSION`
+  - `KALI_CAPI_ABI_MIN_COMPAT_VERSION` *(optional if compatible windowing is needed)*
+- the runtime exports a query such as `uint32_t kali_runtime_abi_version(void);`
+- `kali build --capi foo.ts` embeds the expected host ABI version in emitted metadata so loaders can reject incompatible host/program combinations before instantiation
+- incompatible ABI versions are a hard load-time error; they must not silently proceed on a best-effort basis
+
+Compatibility policy:
+- additive C-ABI changes that preserve layout/call compatibility may keep the same major host ABI version
+- signature changes, ownership-convention changes, struct layout changes, or semantic changes that break existing embedders require a new host ABI version
+- the generated program-specific header (`foo.exports.h`) may evolve independently from the stable host header `kali.h`, but its emitted metadata must still declare which host ABI version it expects
+
 Typical embedding flow:
 1. Build or ship `kali_capi` as the native C ABI layer (including the stable `kali.h` host header).
 2. Compile Kali/TypeScript code to `foo.wasm` with `kali build --capi foo.ts` to obtain `foo.wasm` plus `foo.exports.h`/metadata.
-3. Load that artifact through the `kali_*` API from C or another FFI consumer.
+3. Verify ABI compatibility between the emitted metadata and the available `kali_capi` host library.
+4. Load that artifact through the `kali_*` API from C or another FFI consumer.
 
 The shared library exports only `kali_*` symbols. All Rust internals are hidden.
 

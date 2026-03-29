@@ -3,7 +3,7 @@
 ## Overview
 
 Sandboxing is a first-class concern in Kali. The system combines:
-1. **Static effect analysis** — know all possible effects before running
+1. **Static effect analysis** — produce a conservative summary of possible effects before running, marking dynamic/incomplete cases explicitly
 2. **Sandbox policies** — declarative rules for what's allowed
 3. **Runtime resource limits** — CPU, memory, processes, network
 
@@ -97,7 +97,13 @@ For dynamic effects that can't be checked at compile time:
 
 ## Runtime Resource Limits
 
-Enforced by the WASM host (wasmtime in initial phases):
+Enforced by the WASM host (wasmtime in initial phases).
+
+Effective-limit rule:
+- sandbox policy values are the maximum capability/resource envelope for the run
+- per-invocation CLI overrides such as `--max-memory` and `--max-cpu` may further tighten that envelope
+- CLI/config must not silently widen a stricter sandbox policy at runtime
+
 
 ### CPU Limits
 - **Fuel-based**: wasmtime's fuel mechanism — each WASM instruction consumes fuel
@@ -109,9 +115,14 @@ Enforced by the WASM host (wasmtime in initial phases):
 - Host tracks total allocation via custom allocator callbacks
 - OOM → `ResourceLimitError`
 
+### File Handle Limits
+- Concurrent host file handles are capped by `resources.maxOpenFiles`
+- The limit applies to explicit file APIs and to internal file opens performed on behalf of higher-level read/write helpers
+- Exceeding the cap fails the operation with `ResourceLimitError`
+
 ### Process Limits
 - Process spawning goes through host functions → policy-checked
-- Count of active child processes tracked and limited
+- Count of active child processes is capped by `resources.maxSpawnedProcesses`
 
 ### Timer Limits
 - Timer creation can be disabled entirely via `effects.timer.schedule: false`
@@ -124,6 +135,12 @@ Enforced by the WASM host (wasmtime in initial phases):
 - Outbound socket-style connections can be disabled or gated separately (`effects.network.connect`)
 - Port/address listeners can be disabled or gated separately (`effects.network.listen`)
 - Concurrent network usage is capped by `effects.network.maxConnections`
+
+### Thread Limits (Later Threaded Profile)
+- `resources.maxThreads` matters only for the later `--wasm-threads` runtime profile
+- Before that profile exists, policy validation should reject `maxThreads > 0` rather than silently accepting a non-functional limit
+- Once threading exists, the runtime must enforce the cap across worker/thread creation
+- A per-invocation thread-limit override may only reduce the effective cap; it must never increase a stricter policy limit
 
 ## Sandbox Validator Functions (Later Phase)
 

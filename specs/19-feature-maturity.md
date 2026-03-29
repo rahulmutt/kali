@@ -47,6 +47,7 @@ If another spec needs to mention one of these features, it should link here for 
 | npm packages that require unsupported Node core modules | Phase 3 target | Depends on broader `--api node` compatibility work |
 | Stable public Rust embedding API | Phase 2 target | Phase 1 stays library-first internally, but the public embedding contract is stabilized later |
 | Stable public C ABI / `kali build --capi` flow | Phase 2 target | Depends on the same public embedding stabilization work |
+| Host ABI versioning for `kali_capi` | Phase 2 target | Stable embedding requires explicit load-time compatibility checks |
 | DOM APIs in standalone runtime | Rejected by default | Kali does not embed a browser engine |
 
 ## Interpretation Rules
@@ -72,6 +73,9 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali build --api browser main.ts` | Rejected by default | In early phases browser mode is a bundle/check profile, not a standalone non-bundled artifact mode |
 | `kali build --lib lib.ts` | Phase 1 MVP | Produce one linked library-style WASM artifact without automatic program start |
 | `kali build --capi lib.ts` | Phase 2 target | Public embedding artifact generation should stay gated until the embedding contract is stable |
+| `kali test` / `kali test --api deno` | Phase 1 MVP | Compile and run tests with the default standalone Deno-oriented host surface |
+| `kali test --api node` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for test runs too |
+| `kali test --api browser` | Rejected by default | Early browser support is a check/build profile, not a standalone test-runtime profile |
 | `kali effects main.ts` | Phase 2 target | Before then: unavailable or explicitly experimental, never a partial bespoke report |
 | `kali package-effects lodash` | Phase 2 target | Depends on effect-report pipeline; reject/mark experimental before then |
 | `kali install --allow-scripts <pkg>` | Opt-in only | Explicit one-shot escape hatch for packages that need lifecycle scripts; still reject native addons / `node-gyp` |
@@ -86,6 +90,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - One linked-artifact compile/run pipeline works end-to-end for TS and JS inputs.
 - `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
 - Browser-targeted `check --api browser` and `build --bundle --api browser` work without implying DOM runtime support.
+- `kali test` has the same early-phase host/profile rules as `kali run`: Deno-supported, Node phase-gated, browser rejected by default.
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
 - Package support works for the documented pure JS/TS, statically linkable subset.
@@ -107,6 +112,52 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - Dynamic-compatibility paths such as `eval` are implemented behind explicit compatibility switches.
 - Advanced compatibility features preserve the sandbox/effect model instead of bypassing it.
 - Proof coverage expands for the most security- and correctness-critical subsystems.
+
+## Compatibility Appendix by Concern Area
+
+This appendix separates the broad compatibility story into smaller tables so language support, type-system support, host/runtime support, and package support do not get conflated.
+
+### Language Semantics
+
+| Concern | Early canonical status | Notes |
+|---|---|---|
+| Core ECMAScript syntax and static ESM graph | Phase 1 MVP | Parser stays broad; unsupported semantics are gated separately |
+| Plain JavaScript compilation with inference | Phase 1 MVP | `.js` is a first-class input, not a degraded compatibility mode |
+| CommonJS lowering with statically resolvable `require("...")` | Phase 1 MVP | Compile-time transform inside the linked-artifact model |
+| Literal-string `import()` | Phase 3 target | Lower to the already-linked graph rather than runtime WASM module linking |
+| Non-literal dynamic loading | Later compatibility | Host-mediated path with dynamic effect boundary |
+| `eval` / `Function()` | Phase 4 compatibility | Explicit `--compat eval` path only |
+| Weak refs / finalization / proxy-heavy semantics | Later compatibility | Deferred until faithful semantics fit the no-GC, AOT-first design |
+
+### Type System and Analysis
+
+| Concern | Early canonical status | Notes |
+|---|---|---|
+| TypeScript-compatible checking and flow narrowing | Phase 1 MVP | Compatibility first |
+| Stronger JS inference and conservative fallback to `unknown` / dynamic representations | Phase 1 MVP | Needed for plain JS compilation |
+| Stable built-in capability-effect reporting | Phase 2 target | `kali effects` and policy checking |
+| Explicit `pure` / effect annotations | Phase 2 target | Built-in sandbox capability model first |
+| Stable user-defined/custom effects in machine contracts | Later compatibility | Keep early schemas/policies simple |
+
+### Host and Runtime Profiles
+
+| Concern | Early canonical status | Notes |
+|---|---|---|
+| Deno-oriented standalone runtime | Phase 1 MVP | Default runtime profile |
+| Browser-targeted `check` and `build --bundle` | Phase 1 MVP | Real browser host via emitted glue, not standalone browser emulation |
+| Standalone `run --api browser` | Rejected by default | No embedded browser engine |
+| Node API surface | Phase 3 target | Package-driven subset first |
+| Threaded runtime / `--wasm-threads` | Later compatibility (opt-in only) | Separate runtime profile |
+
+### Packages and Ecosystem
+
+| Concern | Early canonical status | Notes |
+|---|---|---|
+| Pure JS/TS npm packages within the linked-artifact model | Phase 1 MVP | No native addons |
+| Browser-condition package resolution in browser bundle mode | Phase 1 MVP | `browser` field / `exports` browser condition |
+| npm lifecycle scripts | Opt-in only | `kali install --allow-scripts` |
+| Native addons / `node-gyp` | Rejected by default | Violates pure-Rust/no-native-addon constraints |
+| Broader Node-host-heavy npm compatibility | Phase 3 target | Depends on meaningful Node API support |
 
 ## Features Most Likely to Appear in Diagnostics
 

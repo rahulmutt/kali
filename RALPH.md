@@ -2,83 +2,59 @@
 
 - Iteration: 10 of 10
 - Prompt file: /workspace/prompts/iterate-spec.md
-- Updated: 2026-03-29T14:12:56.943Z
+- Updated: 2026-03-29T14:38:29.880Z
 
 ## Last emitted message
 
 ```text
-I reviewed `BOOTSTRAP.md` against the current spec set and applied another cleanup pass.
+Updated the specs to tighten a few inconsistencies and simplify duplication.
 
-Updated files:
-- `SPEC.md`
-- `specs/04-type-system.md`
-- `specs/18-schemas.md`
-- `specs/19-feature-maturity.md`
+Changed files:
+- `/workspace/SPEC.md`
+- `/workspace/specs/11-standard-apis.md`
+- `/workspace/specs/12-cli.md`
+- `/workspace/specs/19-feature-maturity.md`
 
-What I changed
+What I fixed
 
-- `SPEC.md`
-  - Added a canonical **Phase 1 non-goals** section.
-  - Tightened wording around:
-    - no full Node parity in Phase 1
-    - no browser/DOM runtime in Phase 1
-    - no dynamic-code compatibility release in Phase 1
-    - no stable public embedding ABI in Phase 1
-    - no full static effect proof system in Phase 1
-  - This reduces drift across other specs.
+1. Test command/API-surface ambiguity
+- Added explicit `kali test` host-profile rules to:
+  - `SPEC.md`
+  - `specs/12-cli.md`
+  - `specs/11-standard-apis.md`
+  - `specs/19-feature-maturity.md`
+- Canonicalized:
+  - `kali test` / `--api deno` = Phase 1 MVP
+  - `kali test --api node` = Phase 3 target
+  - `kali test --api browser` = rejected by default early
 
-- `specs/04-type-system.md`
-  - Added a canonical **JavaScript fallback contract**.
-  - Clarified the ordered fallback ladder:
-    - precise static type + stable layout
-    - small unions
-    - `unknown` at boundaries
-    - dynamic/tagged values
-    - dynamic object layout
-    - reject unsupported semantics rather than guessing
-  - Also made explicit that Kali should not invent fresh `any` just to avoid analysis.
+This removes drift between `run`, `build`, `check`, and `test`.
 
-- `specs/18-schemas.md`
-  - Added a canonical **built-in effect naming table**.
-  - Centralized mappings like:
-    - `FileSystem.Read`
-    - `Network.Fetch`
-    - `Process.EnvRead`
-    - `Timer.Schedule`
-    - `Random.GetBytes`
-    - `Console.Write`
-    - `Eval`
-  - Simplified sandbox-policy wording so it points to this table instead of redefining names inline.
+2. CLI config inconsistency
+- `specs/12-cli.md` had an older config example using `compilerOptions.api`.
+- Replaced it with the canonical naming:
+  - `compilerOptions.apiSurface`
+  - `compilerOptions.buildMode`
+  - `compilerOptions.runtimeProfiles`
 
-- `specs/19-feature-maturity.md`
-  - Added **phase exit criteria** for Phases 1–4.
-  - This makes the maturity doc actionable instead of only descriptive.
+3. Spec simplification
+- Removed the large duplicated full `kali.json` example from `specs/12-cli.md`.
+- Replaced it with a minimal canonical shape and a link to `specs/18-schemas.md`, which should remain the schema source of truth.
 
-Main improvements from this pass
+4. Minor wording cleanup
+- Clarified browser build wording in CLI:
+  - “browser build path requires `--bundle`”
+- Added explicit note that `kali test` follows the same early-phase API gating as `kali run`.
 
-1. Better simplification
-   - Phase 1 is now more clearly bounded.
-   - Fewer places need to repeat caveats.
+Why these changes help
 
-2. Better consistency
-   - Effect naming is now centralized.
-   - JS fallback behavior is now explicit instead of implied.
+- Reduces duplication between CLI docs and schema docs
+- Makes command/profile behavior more machine-checkable
+- Avoids undocumented “maybe supported” interpretations for browser/node test flows
+- Keeps `SPEC.md` and the maturity matrix aligned
 
-3. Better execution guidance
-   - Phase labels now have exit checklists.
-   - Easier to use the spec set as a delivery roadmap.
-
-Remaining suggestion
-
-One additional improvement I’d still consider:
-- add a short “canonical terminology” glossary somewhere near `SPEC.md` or `specs/01-architecture.md`
-  - e.g. define:
-    - “dynamic/tagged value”
-    - “dynamic object layout”
-    - “linked artifact”
-    - “profile”
-    - “compatibility path”
-  - That would reduce subtle wording drift later.
-
-If you want, I can do one more pass focused purely on cross-file terminology cleanup and deduplicating repeated phase language.
+If you want, I can do a second pass focused on:
+- simplifying repeated phase-language across all `specs/*.md`
+- tightening package-resolution wording
+- auditing memory/effect/runtime chapters for any remaining subtle contradictions
 ```

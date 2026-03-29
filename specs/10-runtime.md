@@ -24,18 +24,18 @@ An engine abstraction may be added later to support backends such as `wasmer` wh
 ### Host Functions
 The WASM module imports host functions for operations that can't be done in pure WASM.
 
-Phase 1 baseline imports stay intentionally small and policy-aware:
+Important loading rule: the runtime registers only the host imports required by the selected **API surface** and **runtime profile**. The list below is the union of early-phase import categories, not a promise that every program always gets every import.
 
 ```rust
-// Phase 1 baseline categories of host imports
+// Union of early-phase host-import categories; actual registration is profile-dependent.
 mod host {
-    // I/O
+    // Web baseline / I/O
     fn fs_read(path_ptr: i32, path_len: i32) -> i32;
     fn fs_write(path_ptr: i32, path_len: i32, data_ptr: i32, data_len: i32) -> i32;
     fn net_fetch(url_ptr: i32, url_len: i32, opts_ptr: i32) -> i32;
     fn console_log(msg_ptr: i32, msg_len: i32);
 
-    // Environment / process metadata
+    // Deno/Node-style environment or process metadata
     fn env_get(key_ptr: i32, key_len: i32, val_ptr: i32) -> i32;
     fn process_args(buf_ptr: i32) -> i32;
     fn process_pid() -> i32;
@@ -50,9 +50,15 @@ mod host {
 }
 ```
 
+Interpretation rules:
+- `console`, timers, `fetch`, time, and randomness belong to the Phase 1 Web baseline and may exist across supported API surfaces.
+- `env_get`, `process_args`, and `process_pid` are registered only for profiles that expose the corresponding Deno/Node process APIs; browser-targeted builds must not assume they exist.
+- Every registered host import is policy-aware; enabling an API surface does not bypass sandbox checks.
+- Unsupported imports for the current command/profile are not stubbed silently; code that requires them should fail with the canonical feature-maturity diagnostic.
+
 Later compatibility/embedding imports extend this set when the corresponding API surface is enabled:
 - `process_spawn(...)` for subprocess support
-- `process_exit(code)` for explicit termination control / embedding
+- `process_exit(code)` for explicit termination control / embedding once the process-control contract is specified; this does **not** imply that `Deno.exit` is part of the Phase 1 API surface
 - `eval_compile(...)` only for the Phase 4 `--compat eval` path
 
 ### Data Passing

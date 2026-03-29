@@ -330,6 +330,49 @@ Rules:
 - Coarse policy keys may match a namespace prefix. In schema v1, `effects.random` matches any `Random.*` built-in effect, and `effects.console` matches any `Console.*` built-in effect.
 - New built-in effect names must be added here before they appear in diagnostics, effect reports, or policy examples elsewhere in the spec set.
 
+## Project Configuration Schema
+
+Canonical filename: `kali.json`
+
+```json
+{
+  "$schema": "https://kali.sh/schemas/config-v1.json",
+  "compilerOptions": {
+    "strict": true,
+    "apiSurface": "deno",
+    "buildMode": "fast",
+    "runtimeProfiles": [],
+    "maxSpecializations": 16
+  },
+  "compat": {
+    "features": []
+  },
+  "sandbox": "./kali.policy.json",
+  "include": ["src/**/*.ts"],
+  "exclude": ["**/*.test.ts"],
+  "imports": {
+    "std/": "https://deno.land/std@0.220.0/",
+    "~/": "./src/"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0"
+  }
+}
+```
+
+### Rules
+- `compilerOptions.apiSurface` is the canonical config name for the host API family; CLI uses `--api`
+- `compilerOptions.buildMode` is one of `fast`, `release`, or `release-advanced`
+- `compilerOptions.runtimeProfiles` is an array of semantic runtime-profile names; in schema v1 it is usually empty because later profiles such as `wasm-threads` are still phase-gated
+- `dependencies` and `devDependencies` are top-level package manifests owned by `kali install`; they are not nested under `compilerOptions`
+- Config should not mirror every CLI boolean directly when a more semantic field already exists
+- `compilerOptions.api` may be accepted as a deprecated alias for migration, but tools should emit `apiSurface`
+- Precedence is `CLI > kali.json > defaults`, except sandbox policy restrictions still bound effective runtime behavior
+- Unknown top-level config fields should be diagnosed unless reserved for a documented extension mechanism
+
 ## Sandbox Policy Schema
 
 Canonical filename: `kali.policy.json`
@@ -376,6 +419,10 @@ Canonical filename: `kali.policy.json`
 - Policy booleans mean fully allowed or fully denied for that capability
 - Pattern-bearing fields (`read`, `fetch`) are allowlists
 - Numeric limit fields constrain otherwise-allowed capabilities; for example `timer.schedule: true` with `maxActiveTimers: 32` allows timers but caps concurrency
+- `resources.maxOpenFiles` caps concurrently opened host file handles, including internal opens performed for higher-level file helpers
+- `resources.maxSpawnedProcesses` caps concurrently active spawned processes
+- `resources.maxThreads` is reserved for the later threaded runtime profile; before that profile exists, validation should reject values greater than `0` instead of silently accepting them
+- Per-invocation CLI resource overrides may only tighten these policy limits; they must not widen them
 - Policy keys use the canonical built-in effect naming table above rather than redefining a separate namespace here
 - In schema v1, `random` and `console` are intentionally coarse-grained booleans. Any built-in effect report entry whose kind starts with `Random.` matches `random`, and any kind starting with `Console.` matches `console`.
 - Later experimental user-defined effects are outside the policy schema unless/until a future spec revision adds an explicit extension point

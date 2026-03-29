@@ -14,7 +14,7 @@ It is implemented in Rust, avoids embedded C/C++ dependencies, emits WebAssembly
 The goals in [BOOTSTRAP.md](BOOTSTRAP.md) are the **long-term product definition**. This spec set turns that vision into a phased plan so the project can ship in coherent increments without weakening the eventual target.
 
 Kali should eventually provide:
-- broad ECMAScript + TypeScript compatibility
+- broad ECMAScript + TypeScript compatibility, tracking the latest published ECMA-262 edition as the language baseline while still phase-gating hard runtime features explicitly
 - first-class `.js` support with type inference strong enough to compile plain JavaScript efficiently
 - AOT compilation to WebAssembly only
 - no tracing garbage collector
@@ -36,7 +36,51 @@ To keep the project implementable, the spec set makes these simplifying choices:
 - **Declarative policy first**: sandbox policy files stay data-only in the core phases; programmable validators are an embedding-oriented later extension.
 - **Capability effects first**: the initial effect system is a conservative sandbox-capability summary, not a full algebraic-effect language.
 - **Parse broad, enable narrowly**: the parser can accept syntax before the runtime/checker fully supports it; unsupported semantics must be gated explicitly.
+- **Latest-standard baseline, phased semantics**: language/frontend work should target the latest published ECMA-262 edition rather than a frozen edition number, while runtime-heavy or semantically expensive features still follow the maturity matrix.
 - **Compatibility is phased**: "support everything" is the long-term goal, not the MVP promise.
+
+## Canonical Terminology
+
+These terms are used across the spec set and should keep the same meaning everywhere:
+
+- **Linked artifact**: one compiled WASM artifact that contains the fully resolved static module graph for a program or library build. Early phases standardize on this model.
+- **API surface**: the host API family selected by `--api` such as `deno`, `node`, or `browser`.
+- **Build mode**: the optimization level selected by `--fast`, `--release`, or `--release-advanced`.
+- **Runtime profile**: execution-model switches that materially change runtime semantics or host requirements, such as the later `--wasm-threads` profile.
+- **Profile**: shorthand for the effective combination of API surface, build mode, target assumptions, and any enabled runtime-profile switches.
+- **Config naming**: in `kali.json`, the canonical config shape keeps these leaf keys under `compilerOptions`: `apiSurface`, `buildMode`, and `runtimeProfiles`; CLI flags remain `--api`, `--fast` / `--release` / `--release-advanced`, and later profile switches such as `--wasm-threads`.
+- **Compatibility path**: an explicit, documented opt-in route for expensive or semantically difficult features such as `eval`; it is never an implicit fallback.
+- **Dynamic/tagged value**: a runtime value carried in a generic tagged representation because the compiler could not keep it in a precise unboxed/static form.
+- **Dynamic object layout**: an object representation that cannot rely on a fixed compile-time field-offset layout because keys, mutation patterns, or prototype behavior are too dynamic.
+
+## Canonical Host/Profile Combinations
+
+To reduce drift between the CLI, runtime, package, and host-API chapters, early phases should treat these combinations as the canonical baseline:
+
+| API surface | Command/form | Early-phase status | Notes |
+|---|---|---|---|
+| `deno` | `run`, `build`, `check`, `test` | Phase 1 MVP | Default standalone host surface |
+| `browser` | `check` | Phase 1 MVP | Analysis/build profile only; no standalone DOM/runtime promise |
+| `browser` | `build --bundle` | Phase 1 MVP | Emits WASM + JS glue for a real browser host |
+| `browser` | `run`, `test`, or plain `build` | Rejected by default | Must fail with the canonical feature-maturity diagnostic |
+| `node` | `run`, `build`, `check`, `test` | Phase 3 target | Broader ecosystem profile once the documented Node subset exists |
+| any API surface + `--wasm-threads` | compile/run/test | Later compatibility (opt-in only) | Selects a different runtime profile; never silently ignored |
+
+This table is only a summary. The canonical command/profile matrix remains [specs/19-feature-maturity.md](specs/19-feature-maturity.md).
+
+## Canonical Representation-Downgrade Rules
+
+To keep the type checker, ownership analysis, IR, and codegen aligned, Kali should treat these representational downgrades as the canonical ladder when precision is lost:
+
+| From | To | Typical triggers | Canonical consequence |
+|---|---|---|---|
+| fixed object layout | dynamic object layout | computed property writes, unstable key sets, prototype-sensitive mutation, reflective operations | object stays valid but loses fixed-offset layout assumptions |
+| unboxed/static value | tagged/dynamic value | imprecise unions, dynamic operator behavior, unresolved JS boundary flows | later IR/codegen must preserve runtime tags and checks |
+| stack/local allocation | unique heap allocation | value escapes its creating scope but still has one owner | ownership stays deterministic; free on owner drop |
+| unique heap allocation | shared/ref-counted heap allocation | closure capture with mutation, aliasing across containers, multiple live owners | insert deterministic reference-counting operations |
+| precise static semantics | feature gate rejection | unsupported runtime feature such as early-phase `eval`, dynamic loading, or unsupported host/profile mode | emit the canonical maturity diagnostic instead of widening to `any` or silently degrading |
+
+These are semantic coordination rules, not just optimizer heuristics. Detailed per-subsystem behavior lives in [specs/04-type-system.md](specs/04-type-system.md), [specs/05-ir.md](specs/05-ir.md), and [specs/06-memory.md](specs/06-memory.md).
 
 ## Delivery Phases
 
@@ -156,6 +200,7 @@ This top-level spec also resolves a few ambiguities across the existing chapters
 - **No ad hoc compatibility flags**: if a dynamic feature needs a future opt-in path, define it once in the maturity matrix before referencing it elsewhere.
 - **Phase 1 host surface narrowed**: Deno `exit` / `cwd` / `chdir` are deferred so the initial sandbox/effect contract stays small and auditable.
 - **C embedding artifacts disambiguated**: `kali_capi` owns the stable host header `kali.h`; `kali build --capi` emits program-specific headers such as `foo.exports.h`.
+- **Config/profile naming normalized**: the spec set now uses `compilerOptions.apiSurface`, `compilerOptions.buildMode`, and `compilerOptions.runtimeProfiles` as the canonical `kali.json` terminology instead of mixing CLI flag names directly into config examples or inventing duplicate top-level keys.
 
 ## How To Use This Spec Set
 

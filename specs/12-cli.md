@@ -10,7 +10,12 @@
 
 ## Shared Flags
 
-These flags are shared across the CLI, but some apply only to specific command families.
+These flags are shared across the CLI, but some apply only to specific command families. For the canonical meaning of **API surface**, **build mode**, and **runtime profile**, see [SPEC.md](../SPEC.md). For command/profile gating, see [19 — Feature Maturity](19-feature-maturity.md).
+
+Naming rule:
+- CLI keeps short flag names such as `--api`
+- `kali.json` keeps the canonical leaf keys under `compilerOptions`: `apiSurface`, `buildMode`, and `runtimeProfiles`
+- the legacy config key `compilerOptions.api` may be accepted as a deprecated alias during migration, but new docs and generated config should use `compilerOptions.apiSurface`
 
 | Flag | Scope | Description |
 |------|-------|-------------|
@@ -25,12 +30,19 @@ These flags are shared across the CLI, but some apply only to specific command f
 | `--release` | `build`, `run`, `test` | Standard optimization profile |
 | `--release-advanced` | `build`, `run`, `test` | Aggressive optimization profile |
 | `--sandbox <policy>` | `run`, `test`, `check`, `build` | Attach and validate `kali.policy.json`; in Phase 1 this enforces at runtime for `run`/`test` and validates policy/config for `check`/`build` |
-| `--max-memory <size>` | execution commands | Override/append memory limits for the current invocation |
-| `--max-cpu <duration>` | execution commands | Override/append CPU limits for the current invocation |
-| `--max-threads N` | execution commands | Override/append thread limits for the current invocation |
+| `--max-memory <size>` | execution commands | Override the invocation memory cap; may only tighten the effective limit relative to config/policy, never widen it |
+| `--max-cpu <duration>` | execution commands | Override the invocation CPU cap; may only tighten the effective limit relative to config/policy, never widen it |
+| `--max-threads N` | execution commands | Override the invocation thread cap for the threaded runtime profile; may only tighten the effective limit and is rejected unless threading is supported and enabled |
 | `--wasm-threads` | compile/run/test commands | Opt into the later threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; before that profile exists, or on unsupported targets, the command must fail with `E5006` |
 
-`--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step.
+`--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
+
+Configuration precedence is intentionally simple:
+1. CLI flags override `kali.json`
+2. `kali.json` overrides built-in defaults
+3. Sandbox policy caps remain upper bounds for runtime capabilities and resource limits
+
+That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy.
 
 ## Commands
 
@@ -56,6 +68,7 @@ Canonical interpretation rules:
 - `--api browser` is valid early for `check` and `build --bundle`; it is rejected for standalone `run`, and `build --api browser` without `--bundle` is also rejected, until a later runtime profile/output contract explicitly supports those modes.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
 - `--wasm-threads` selects a different runtime profile rather than a small optimization toggle. Until that threaded profile exists, the flag is rejected. After it exists, if the selected target/engine/profile cannot honor it, the command must still reject it explicitly instead of silently dropping thread support.
+- `--max-threads N` is meaningful only together with the threaded runtime profile. A non-zero thread cap without effective thread support must be rejected explicitly rather than ignored.
 
 Sandbox flag behavior is intentionally phase-gated:
 - `kali run --sandbox ...` is a Phase 1 feature for runtime policy enforcement.
@@ -71,7 +84,7 @@ kali build main.ts                         # → main.wasm (--fast mode, default
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # WASM + JS glue for browsers
-kali build --api browser main.ts           # Rejected in early phases; browser build mode requires --bundle
+kali build --api browser main.ts           # Rejected in early phases; browser build path requires --bundle
 kali build --lib lib.ts                    # Library module (exports, no start)
 kali build --capi lib.ts                   # Phase 2 target: foo.wasm + generated foo.exports.h/metadata for host-side embedding via kali_capi (see specs/13-embedding.md)
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
@@ -122,7 +135,12 @@ kali test                                  # Run all *_test.ts / *.test.ts
 kali test --filter "math"                  # Filter by name
 kali test --sandbox kali.policy.json       # Run tests in sandbox
 kali test --coverage                       # With coverage report
+kali test --api deno                       # Supported early standalone test profile
+kali test --api node                       # Phase 3 target
+kali test --api browser                    # Rejected in early phases; browser is a check/build profile first
 ```
+
+Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run` unless a later test-runtime profile is explicitly specified in [specs/19-feature-maturity.md](19-feature-maturity.md).
 
 ### `kali init`
 Initialize a new project.
@@ -206,32 +224,25 @@ Exception: `kali effects` already emits JSON as its native output, so `--output 
 
 ## Configuration (`kali.json`)
 
+The canonical full config schema and example live in [specs/18-schemas.md](18-schemas.md). This chapter only repeats the naming rules so CLI and schema docs do not drift.
+
+Minimal canonical shape:
 ```json
 {
-    "compilerOptions": {
-        "strict": true,
-        "api": "deno",
-        "buildMode": "fast",
-        "maxSpecializations": 16
-    },
-    "compat": {
-        "features": []
-    },
-    "sandbox": "./kali.policy.json",
-    "include": ["src/**/*.ts"],
-    "exclude": ["**/*.test.ts"],
-    "imports": {
-        "std/": "https://deno.land/std@0.220.0/",
-        "~/": "./src/"
-    },
-    "dependencies": {
-        "lodash": "^4.17.21"
-    },
-    "devDependencies": {
-        "vitest": "^1.0.0"
-    }
+  "compilerOptions": {
+    "apiSurface": "deno",
+    "buildMode": "fast",
+    "runtimeProfiles": []
+  }
 }
 ```
+
+Configuration simplification rules:
+- `compilerOptions.apiSurface` is the config equivalent of the CLI `--api` flag
+- `compilerOptions.buildMode` replaces separate optimization booleans
+- `compilerOptions.runtimeProfiles` is an array of explicit semantic runtime-profile switches; for example, a future threaded config would use `"runtimeProfiles": ["wasm-threads"]`
+- generated config from `kali init` should prefer these canonical names and should not duplicate them as parallel top-level keys
+- precedence is `CLI > kali.json > defaults`, except sandbox-policy restrictions still bound the effective runtime behavior
 
 ## Exit Codes
 

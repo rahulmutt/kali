@@ -8,7 +8,7 @@ The canonical compilation target for Phases 1-3 is a **single `wasm32` module us
   - WASM MVP
   - 32-bit linear memory (`wasm32`)
   - Kali host imports for I/O, timers, process, networking, and runtime services
-- **Optional WASM extensions** used when available and enabled by the selected build profile:
+- **Optional WASM extensions** used when available and enabled by the selected target/profile:
   - Multi-value returns
   - Bulk memory operations
   - Reference types (for carefully bounded host interop)
@@ -17,7 +17,7 @@ The canonical compilation target for Phases 1-3 is a **single `wasm32` module us
   - Threads (later compatibility only, for the separate `--wasm-threads` runtime profile used by `SharedArrayBuffer` / `Atomics`)
   - SIMD (for typed array optimizations)
 
-The emitted `.wasm` artifact is portable at the WASM layer, but its full execution contract depends on the Kali host ABI and the feature set required by the chosen build mode. In practice, Phase 1-3 execution is standardized on wasmtime.
+The emitted `.wasm` artifact is portable at the WASM layer, but its full execution contract depends on the Kali host ABI and the feature set required by the chosen profile (API surface + build mode + runtime-profile switches). In practice, Phase 1-3 execution is standardized on wasmtime.
 
 ## Code Generation from LIR
 

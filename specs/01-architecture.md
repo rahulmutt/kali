@@ -3,7 +3,7 @@
 ## Compilation Pipeline
 
 ```
-Source (.ts/.tsx/.js/.jsx/.mjs)
+Source (.ts/.tsx/.js/.jsx/.mjs/.cjs)
   → Lexer              (02-lexer-parser.md)
   → Parser             (02-lexer-parser.md)
   → AST                (03-ast.md)
@@ -39,7 +39,7 @@ kali/
 │   ├── kali_runtime/      — Runtime support library (Rust, compiled to WASM)
 │   ├── kali_api_deno/     — Deno API compatibility (host functions)
 │   ├── kali_api_node/     — Node.js API compatibility (host functions)
-│   ├── kali_api_web/      — Browser/Web API compatibility (host functions)
+│   ├── kali_api_web/      — Web-platform baseline APIs and browser-bundle glue support (not a standalone DOM engine)
 │   ├── kali_fmt/          — Code formatter
 │   ├── kali_lint/         — Linter
 │   ├── kali_cli/          — CLI binary (ties everything together)
@@ -83,7 +83,13 @@ Every AST/IR node carries a compact internal `Span` (byte offset range + file ID
 When Kali emits JSON diagnostics/effect reports, this internal span is translated into the schema-level `SourceSpan` / `SourceLocation` shapes defined in [specs/18-schemas.md](18-schemas.md). This keeps the implementation fast without forcing byte offsets into the external tooling contract.
 
 ### Arenas
-AST and IR nodes are arena-allocated for cache-friendly traversal and bulk deallocation. Each compilation unit gets its own arena.
+AST and IR nodes are arena-allocated for cache-friendly traversal and bulk deallocation.
+
+To keep the frontend and later pipeline stages aligned:
+- parsed AST storage is **per file/module**
+- typed side tables and later IR arenas may be **per compilation unit or resolved module graph**, depending on the pass
+
+This avoids forcing one lifetime strategy onto every stage while keeping allocation ownership explicit.
 
 ### Parallel Pipeline
 - Lexing + parsing: per-file parallelism
@@ -102,9 +108,11 @@ To keep the model simple and consistent:
 - literal-string `import()` may be lowered later to an async view over the already-linked graph
 - non-literal dynamic loading remains later-phase compatibility work and a dynamic effect boundary
 
-### Compilation Modes
+### Build Modes
 
-| Mode | Description |
+This section uses the canonical term **build mode** to match [SPEC.md](../SPEC.md) and [12 — CLI](12-cli.md).
+
+| Build mode | Description |
 |------|-------------|
 | `--fast` | Minimal optimization, fastest compile time (default) |
 | `--release` | Standard optimizations: inlining, dead code elimination, layout optimization |

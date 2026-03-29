@@ -6,6 +6,8 @@ Kali has **no tracing garbage collector**. Allocation class and ownership strate
 
 For compatibility-heavy APIs and dynamic features mentioned in this document, the canonical maturity/status matrix lives in [specs/19-feature-maturity.md](19-feature-maturity.md). This section focuses on memory strategy, not on redefining feature phase decisions.
 
+For cross-spec consistency, the canonical representation-downgrade ladder also lives in [SPEC.md](../SPEC.md). This chapter provides the memory-specific consequences of those downgrades.
+
 ## Allocation Strategy Decision
 
 For every value, the compiler determines:
