@@ -30,6 +30,13 @@ Canonical early-phase entrypoint-arity rule:
 - more than one explicit entrypoint for those commands is also `E5008` unless a later spec introduces a documented multi-entry mode
 - `check`, `fmt`, `lint`, and `test` may still accept multiple explicit file arguments because their contracts are set-oriented rather than single-program oriented
 
+Canonical package-argument arity rule:
+- `kali install [package]` accepts **zero or one** explicit package argument in early phases
+- `kali package-effects <package>` accepts **exactly one** explicit package argument
+- `kali package-audit [package]` accepts **zero or one** explicit package argument
+- passing more than the allowed number of explicit package arguments is `E5008` rather than permission to invent an undocumented batch mode
+- flags that conceptually modify an explicit package target (for example `kali install --dev`) require that target in early phases; using them without one is also `E5008`
+
 Canonical input-kind rule:
 - `run`, `build`, `effects`, and discovered `test` entrypoints accept only the shared executable/analyzable source-file set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
 - `check`, `fmt`, and `lint` accept that same executable/analyzable set **plus** declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`)
@@ -343,10 +350,11 @@ kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL depend
 ```
 
 Argument-kind rules:
+- `kali install [package]` accepts at most one explicit package argument in early phases; multiple package arguments are invalid command usage (`E5008`)
 - a **registry package argument** uses the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names (for example `jsr:@std/path`)
 - a **registry package argument** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
 - `kali install` does **not** take `--api` in early phases; install is profile-agnostic, so passing `--api ...` is invalid command usage (`E5008`) rather than a request for a second install graph
-- `--dev` is valid only with a **registry package argument**; pairing `--dev` with a raw URL is rejected explicitly rather than inventing a second URL-specific manifest bucket
+- `--dev` is valid only with a **registry package argument**; using `--dev` without an explicit package or pairing it with a raw URL is rejected explicitly rather than inventing a second URL-specific manifest bucket
 - a **raw URL argument** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
 - an ad hoc raw-URL install is therefore a **staging/pin workflow**; if the project does not reference that URL from source or `kali.json#imports`, a later plain `kali install` may prune it again
 - plain `kali install` consumes the current manifest/import graph and reconciles lock + materialized state for the dependency source kinds actually used by the project
@@ -369,6 +377,7 @@ Determinism rules:
 Analyze effects of an npm/JSR package before installing.
 
 Argument-kind rule:
+- `kali package-effects <package>` takes exactly one explicit package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - `<package>` uses the same canonical registry-package identifier grammar as `kali install`: normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names
 - raw URLs and local file paths are rejected for `package-effects`; this command analyzes registry packages, while raw URL dependencies remain part of the project/import-graph workflow handled by `kali install` + `kali effects`
 
@@ -398,6 +407,7 @@ Analysis scope rule:
 Security audit for dependencies.
 
 Argument-kind rule:
+- `kali package-audit [package]` accepts zero or one explicit package argument in early phases; more than one package is invalid command usage (`E5008`)
 - when a package argument is supplied, it uses the canonical registry-package identifier grammar (normal npm package name or `jsr:`-prefixed JSR name)
 - raw URLs and local file paths are rejected for `package-audit`; package-audit is registry-package-oriented rather than a second raw-URL analysis path
 - with no explicit package argument, `kali package-audit` audits the currently installed registry-package dependency set rather than inventing a separate audit meaning for raw URL cache entries

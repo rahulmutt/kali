@@ -117,6 +117,8 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali fmt` | Phase 1 MVP | Stable formatting command over the canonical project file set relevant to formatting, including declaration-only files |
 | `kali lint` | Phase 1 MVP | Stable lint command with conservative autofix support over the canonical lintable project file set, including declaration-only files |
 | `kali install` | Phase 1 MVP | Resolve/materialize dependency state and write `kali.lock` for the project's declared dependency source kinds; install is profile-agnostic in early phases and does not require separate per-`--api` installs |
+| `kali install foo bar` | Rejected by default | Early phases accept at most one explicit package argument for `install`; batch package adds require a later explicit mode, so this is invalid command usage (`E5008`) |
+| `kali install --dev` | Rejected by default | `--dev` modifies an explicit registry package target in early phases; using it without one is invalid command usage (`E5008`) |
 | `kali install --api deno` | Rejected by default | `install` is profile-agnostic in early phases, so `--api` is invalid command usage (`E5008`) rather than a second install mode |
 | `kali install https://...` | Phase 1 MVP | Explicitly pin/materialize a raw URL dependency into the shared lock/materialization model |
 | `kali install --allow-scripts https://...` | Rejected by default | Raw URLs do not have registry lifecycle hooks, so pairing `--allow-scripts` with a raw URL is invalid command usage (`E5008`) rather than a second install mode |
@@ -165,11 +167,14 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali effects --sandbox kali.policy.json main.ts` | Rejected by default | Keep `effects` as a pure reporting command; policy validation belongs to `check/build --sandbox` so the CLI has one canonical policy-validation path. This rejection should use `E5008`, not the `E5006` maturity gate. |
 | `kali effects --api browser main.ts` | Phase 2 target | Reuses the same browser API-surface analysis context as `kali check --api browser` once the Phase 2 command exists, without implying standalone browser execution |
 | `kali effects --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset exists for effect analysis too |
+| `kali package-effects` with no explicit package | Rejected by default | `package-effects` takes exactly one explicit registry-package argument in early phases; omitting it is invalid command usage (`E5008`) |
 | `kali package-effects lodash` | Phase 2 target | Depends on effect-report pipeline; reject/mark experimental before then. When it does exist, it still uses the effective inherited analysis context and must reject unsupported contexts such as early `apiSurface=node` with `E5006` rather than silently falling back. |
+| `kali package-effects lodash react` | Rejected by default | Early phases do not define a multi-package effect-analysis batch mode, so passing more than one package is invalid command usage (`E5008`) |
 | `kali package-effects lodash` under inherited `apiSurface=browser` | Phase 2 target | Reuses the same browser-targeted analysis/package-selection context as `kali check --api browser` once package-effect analysis exists, without introducing package-analysis-specific `--api` flags |
 | `kali package-effects --api browser lodash` | Rejected by default | Early package analysis inherits context from config/defaults instead of taking its own `--api` / `--compat` flag family, so this is invalid command usage (`E5008`) unless a later spec adds those flags |
 | `kali package-effects https://...` | Rejected by default | `package-effects` analyzes registry packages only; raw URLs belong to the project/import-graph workflow instead |
 | `kali package-audit [pkg]` | Later compatibility | Tooling feature, not a Phase 1-2 compiler/runtime milestone |
+| `kali package-audit lodash react` | Rejected by default | Early phases accept at most one explicit package argument for `package-audit`; multi-package audit requires a later explicit mode, so this is invalid command usage (`E5008`) |
 | `kali package-audit https://...` | Rejected by default | `package-audit` is registry-package-oriented rather than a second raw-URL analysis path |
 | `kali install --allow-scripts <pkg>` | Opt-in only | Explicit one-shot escape hatch for packages that need lifecycle scripts; still reject native addons / `node-gyp`, and do not treat this as implied Node-runtime or project-sandbox support |
 | `--compat eval` | Phase 4 compatibility | Before runtime support exists, reject with `E5006` rather than parsing and silently ignoring the flag |

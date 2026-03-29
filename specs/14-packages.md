@@ -366,7 +366,9 @@ kali package-audit lodash                   # Security audit
 ```
 
 Argument-kind simplification:
-- `kali package-effects <pkg>` and `kali package-audit <pkg>` accept only canonical **registry-package identifiers** (`lodash`, `@scope/name`, `jsr:@std/path`)
+- `kali package-effects <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
+- `kali package-audit [pkg]` takes **zero or one** explicit registry-package argument in early phases; passing more than one package is invalid command usage (`E5008`)
+- explicit package arguments for those commands must use canonical **registry-package identifiers** (`lodash`, `@scope/name`, `jsr:@std/path`)
 - raw URLs and local file paths are rejected for these commands instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
 - raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
 

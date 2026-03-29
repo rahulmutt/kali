@@ -359,6 +359,21 @@ Cross-spec rule:
 
 This is the canonical simplification for CLI examples, help text, and command-schema behavior.
 
+### Canonical Package-Argument Arity Rule
+
+To keep dependency/tooling commands as simple as the direct-entry commands, early phases also use one small package-argument rule:
+- `kali install [package]` accepts **zero or one** explicit package argument in Phase 1-2.
+- `kali package-effects <package>` accepts **exactly one** explicit package argument.
+- `kali package-audit [package]` accepts **zero or one** explicit package argument.
+- passing more than the allowed number of explicit package arguments is invalid command usage (`E5008`) rather than permission to invent an undocumented batch mode.
+- option flags that conceptually modify an explicit package target (for example `kali install --dev`) require that target in early phases; using them without one is also `E5008`.
+
+Cross-spec rule:
+- package-argument arity is separate from package-identifier validity; wrong *number* of package arguments is `E5008`, while a malformed or unsupported package identifier still uses the ordinary package/import diagnostic path for that command
+- lower-level specs should not imply undocumented multi-package install/audit/effect-analysis modes just because future schemas may use arrays internally
+
+This is the canonical simplification for package-tooling examples, help text, and CLI validation.
+
 ## Canonical ECMA-262 Interpretation
 
 To align the bootstrap goal of targeting the latest ECMA-262 edition with realistic phased delivery:
