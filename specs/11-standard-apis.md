@@ -40,46 +40,78 @@ Always available regardless of runtime mode.
 - `WebSocket`
 
 ### Deno API (`--api deno`, default)
-Primary API surface, following Deno's design:
-- `Deno.readTextFile`, `Deno.writeTextFile`, `Deno.readFile`, `Deno.writeFile`
-- `Deno.open`, `Deno.create`, `Deno.mkdir`, `Deno.remove`, `Deno.rename`
-- `Deno.stat`, `Deno.lstat`, `Deno.readDir`
-- `Deno.env.get`, `Deno.env.set`, `Deno.env.toObject`
-- `Deno.args`, `Deno.exit`, `Deno.pid`
+Deno is the primary standalone-runtime API surface because it fits Kali's explicit sandbox model.
+
+**Phase 1 MVP subset**
+- File APIs: `Deno.readTextFile`, `Deno.readTextFileSync`, `Deno.writeTextFile`, `Deno.writeTextFileSync`, `Deno.readFile`, `Deno.readFileSync`, `Deno.writeFile`, `Deno.writeFileSync`
+- Metadata APIs: `Deno.stat`, `Deno.statSync`, `Deno.readDir`, `Deno.readDirSync`
+- Process basics: `Deno.args`, `Deno.exit`, `Deno.pid`
+- Working directory: `Deno.cwd`, `Deno.chdir`
+- Environment access: `Deno.env.get`, `Deno.env.toObject` *(with `toObject()` exposing only variables permitted by `process.envRead` rather than the raw host environment)*
+- `Deno.permissions` as a read-only compatibility facade over Kali sandbox policy state; it reports granted/denied capabilities but does not perform interactive permission prompts
+
+Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should expose the sync and async forms together unless there is a strong implementation reason not to. This avoids needless package-compatibility drift between `readFile` and `readFileSync`-style code paths.
+
+**Phase 3+ expansion**
+- `Deno.open`, `Deno.create`, `Deno.mkdir`, `Deno.remove`, `Deno.rename`, `Deno.lstat`
+- `Deno.env.set`
 - `Deno.Command` (process spawning)
 - `Deno.serve` (HTTP server)
-- `Deno.cwd`, `Deno.chdir`
-- `Deno.permissions` as a read-only compatibility facade over Kali sandbox policy state; it reports granted/denied capabilities but does not perform interactive permission prompts
-- All sync and async variants
+- broader filesystem, networking, and subprocess coverage
+
+This keeps the Phase 1 host surface small and auditable while still establishing Deno as the default API model.
 
 ### Node.js API (`--api node`)
-Compatibility layer for Node.js ecosystem:
+Node compatibility is a **Phase 3 ecosystem target**, not a Phase 1 promise. The goal is package compatibility first, not full Node parity.
+
+**Phase 3 target subset**
 - `fs`, `fs/promises` — file system operations
 - `path` — path manipulation (pure, no host calls needed)
-- `os` — operating system info
-- `child_process` — process spawning
-- `http`, `https` — HTTP server/client
-- `crypto` — cryptographic operations
 - `buffer` — Buffer class
-- `stream` — Node streams
 - `events` — EventEmitter
 - `util` — utilities (promisify, inspect, etc.)
 - `url` — URL parsing
-- `querystring` — query string parsing
 - `assert` — assertions
-- `process` — process global (env, argv, exit, cwd, etc.)
+- `process` — process global subset (env, argv, exit, cwd, etc.)
 
-**Strategy**: Implement Node APIs as wrappers around Deno-style host functions. Use `deno_std/node` as a reference for compatibility.
+**Later compatibility expansion**
+- `os`
+- `child_process`
+- `http`, `https`
+- `crypto`
+- `stream`
+- `querystring`
+- remaining Node core modules justified by real package demand
+
+**Strategy**: Implement Node APIs as wrappers around Deno-style host functions where possible. Use `deno_std/node` as a compatibility reference, not as a hard dependency.
 
 ### Browser API (`--api browser`)
-For code targeting browser environments:
+Browser mode is primarily a **build/check profile** in early phases, not a promise that the standalone runtime behaves like a browser.
+
 - DOM APIs are **not** natively supported by the standalone Kali runtime (it does not embed a browser engine)
 - Only Web Platform APIs are available (no Deno or Node.js APIs)
 - Primarily for compiling browser-targeted libraries, shared modules, and non-DOM code paths
-- For actual browser deployment, use `kali build --bundle` to emit WASM + JS glue that runs in a real browser host
+- For actual browser deployment, use `kali build --bundle --api browser` to emit WASM + JS glue that runs in a real browser host
 - Any lightweight DOM test shim is a separate testing utility, not part of the core browser compatibility contract
 
-**Note**: The Phase 1 baseline Web Platform APIs are always available regardless of `--api` mode. The `--api` flag controls which *additional* platform-specific APIs are loaded. Later Web API expansions remain subject to phase gating and should not be assumed to exist merely because a different `--api` mode is selected.
+**Canonical early-phase rule**:
+- `kali check --api browser ...` is allowed for browser-targeted analysis
+- `kali build --bundle --api browser ...` is allowed for browser-targeted artifacts
+- `kali run --api browser ...` is rejected by default until a later runtime profile explicitly supports it
+
+**Note**: The Phase 1 baseline Web Platform APIs are always available regardless of `--api` mode. The `--api` flag controls which *additional* platform-specific APIs are loaded, and unsupported command/surface combinations in early phases should produce the canonical feature-maturity diagnostic described in [specs/15-errors.md](15-errors.md) rather than silently falling back.
+
+## Phase 1 Host API Exit Criteria
+
+This section turns the broad API story into a small implementation checklist so runtime, CLI, and testing do not drift:
+
+- **Web baseline must work end-to-end**: `console`, timers, `queueMicrotask`, `fetch`, `URL`, `TextEncoder`/`TextDecoder`, `AbortController`, `structuredClone`, `performance.now()`, and event primitives are available in `run` and covered by integration tests.
+- **Deno baseline must work end-to-end**: file read/write, metadata/read-dir, args/process basics, cwd/chdir, and read-only env access all execute through the host ABI and obey sandbox policy.
+- **Every Phase 1 host call is policy-aware**: the runtime may not expose an unchecked host backdoor just because the API itself is part of the MVP.
+- **Node mode is not partially implied**: `--api node` remains phase-gated until its documented subset is implemented; package compatibility must not depend on undocumented fallback behavior.
+- **Browser mode stays profile-oriented**: standalone runtime does not pretend to provide DOM APIs; browser-specific behavior comes from bundle/glue output and the real browser host.
+
+This intentionally keeps the Phase 1 promise small: one dependable Web baseline plus one dependable Deno baseline.
 
 ## Implementation Architecture
 

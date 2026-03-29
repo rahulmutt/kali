@@ -2,88 +2,53 @@
 
 - Iteration: 10 of 10
 - Prompt file: /workspace/prompts/iterate-spec.md
-- Updated: 2026-03-29T13:00:17.767Z
+- Updated: 2026-03-29T13:41:57.630Z
 
 ## Last emitted message
 
 ```text
-Done.
+Updated the specs to tighten phase boundaries and remove drift.
 
-Updated:
-- `/workspace/SPEC.md`
-- `/workspace/specs/04-type-system.md`
-- `/workspace/specs/07-specialization.md`
-- `/workspace/specs/18-schemas.md`
-- `/workspace/specs/19-feature-maturity.md`
+Changed:
+- `SPEC.md`
+- `specs/07-specialization.md`
+- `specs/09-sandboxing.md`
+- `specs/12-cli.md`
+- `specs/14-packages.md`
+- `specs/19-feature-maturity.md`
 
-What I improved
+What I fixed
+- Removed the ad hoc `--compat dynamic-require` reference from `specs/14-packages.md`.
+  - It was not defined anywhere canonically.
+  - Now future compatibility paths must be defined in `specs/19-feature-maturity.md` first.
+- Fixed an IR-phase inconsistency in `specs/07-specialization.md`.
+  - It previously assumed specialization always lowers through MIR.
+  - Now it matches the architecture spec: Phase 1 may lower directly to LIR.
+- Added `Sandbox validator functions` to the canonical maturity matrix in `specs/19-feature-maturity.md`.
+  - This was described in sandboxing, but not centrally tracked.
+- Tightened `specs/09-sandboxing.md` to make the “declarative policy first” rule explicit and aligned with the maturity matrix.
+- Gave `kali package-audit` an explicit “later tooling feature” status in:
+  - `specs/12-cli.md`
+  - `specs/14-packages.md`
+  This avoids implying it is part of the early core delivery.
+- Strengthened `SPEC.md` with two simplifying rules:
+  - declarative sandbox policies first
+  - no undocumented compatibility flags
 
-- Added cross-spec terminology to `SPEC.md`
-  - defines:
-    - `linked artifact`
-    - `compatibility mode`
-    - `dynamic effect boundary`
-  - this reduces repeated ad hoc wording across specs
+Net effect
+- fewer undocumented feature switches
+- clearer Phase 1 vs Phase 2 vs later behavior
+- better single-source-of-truth around feature gating
+- slightly simpler package/runtime/sandbox story
 
-- Tightened phaseing around effects
-  - `specs/04-type-system.md` now makes it explicit that:
-    - built-in effect inference / `pure` / explicit effect annotations are Phase 2
-    - user-defined / algebraic effects are later and experimental
-  - this now matches the rest of the sandboxing story better
+Main inconsistencies found
+1. `dynamic require` referenced a flag that didn’t exist canonically.
+2. specialization flow assumed MIR even though Phase 1 permits HIR → LIR.
+3. sandbox validator functions existed conceptually but had no maturity entry.
+4. `package-audit` appeared as a command without a clear delivery status.
 
-- Fixed a specialization inconsistency
-  - `specs/07-specialization.md` previously said:
-    - Phase 3 = “full specialization, no cap”
-    - but elsewhere still described fallback behavior
-  - now it consistently says:
-    - `--release-advanced` greatly expands specialization
-    - but still keeps an emergency fallback to avoid pathological code size
-
-- Reduced schema drift
-  - `specs/18-schemas.md` now explicitly maps policy keys to canonical effect names, e.g.
-    - `fileSystem.read` ↔ `FileSystem.Read`
-    - `process.spawn` ↔ `Process.Spawn`
-  - this makes the policy schema, effect report schema, and type/effect system line up more clearly
-
-- Extended the maturity matrix
-  - `specs/19-feature-maturity.md` now includes:
-    - built-in effect inference / `kali effects`
-    - explicit effect annotations / `pure`
-    - algebraic effect declarations / handlers
-  - this gives a canonical place for their phase status
-
-Why these changes help
-
-- fewer implicit assumptions between specs
-- less risk of future contradictions around effects
-- clearer MVP vs later-phase boundaries
-- simpler implementation guidance for the compiler/runtime split
-
-Main inconsistencies fixed
-
-1. Effect syntax and capability summaries were not fully phase-aligned
-2. Specialization “no cap” conflicted with fallback rules
-3. Policy JSON keys and effect-kind names were related, but not explicitly normalized
-4. Some important shared terms existed informally but not centrally
-
-Good next improvements
-
-1. Add a short compatibility target appendix
-   - define what “TypeScript-compatible” means by phase:
-     - syntax
-     - type-system behavior
-     - runtime behavior
-     - package compatibility
-
-2. Add a canonical “unsupported / gated features” diagnostic table
-   - e.g. for:
-     - `Proxy`
-     - `eval`
-     - dynamic `require()`
-     - non-literal `import(expr)`
-
-3. Normalize all phase-sensitive features to reference `specs/19-feature-maturity.md`
-   - some files still restate status inline instead of pointing back to the matrix
-
-If you want, I can do that final normalization pass across the remaining spec files too.
+If you want, I can do one more pass and normalize the remaining specs around a few more axes:
+- ensure every CLI command with phased behavior is listed in `19-feature-maturity.md`
+- add a small “non-goals for Phase 1” section to `SPEC.md`
+- add a config/schema section for `kali.json` similar to the sandbox policy schema so CLI/config docs don’t drift later
 ```

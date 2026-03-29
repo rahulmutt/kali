@@ -20,7 +20,7 @@ struct Token {
 `TokenKind` covers:
 - All ECMAScript keywords, punctuators, literals
 - TypeScript keywords: `type`, `interface`, `as`, `is`, `keyof`, `infer`, `readonly`, etc.
-- Kali contextual keywords: `pure` always available; `effect`, `perform`, `handle` reserved for experimental effect-handler syntax
+- Kali contextual keywords: `pure` and effect annotations are parsed so the AST can represent them, but semantic use is phase-gated; `effect`, `perform`, `handle` are reserved for experimental effect-handler syntax
 - Template literal parts (head, middle, tail)
 - RegExp literals (context-sensitive — parser assists disambiguation)
 - Numeric literals (all formats: decimal, hex, octal, binary, bigint, separators)
@@ -54,8 +54,8 @@ struct Token {
   - Declaration merging semantics (recorded for type checker)
   - `as`, `satisfies`, non-null assertion (`!`)
 - Kali extensions:
-  - Effect type annotations: `function foo(): number ! FileSystem.Read | Console.Write`
-  - `pure` function modifier
+  - Effect type annotations: `function foo(): number ! FileSystem.Read | Console.Write` *(parsed early, semantically enabled in Phase 2 per [specs/19-feature-maturity.md](19-feature-maturity.md))*
+  - `pure` function modifier *(parsed early, semantically enabled in Phase 2 per [specs/19-feature-maturity.md](19-feature-maturity.md))*
   - Experimental only: `effect` declarations, `perform` expressions, `handle` blocks
 - JSX/TSX grammar:
   - JSX elements, fragments, expressions, spread attributes

@@ -42,7 +42,7 @@ mod host {
     fn timer_set(callback_id: i32, delay_ms: i32, repeat: i32) -> i32;
     fn timer_clear(timer_id: i32);
     
-    // Eval (only imported when the Phase 4 compatibility path is enabled)
+    // Eval (only imported when the Phase 4 `--compat eval` path is enabled)
     fn eval_compile(src_ptr: i32, src_len: i32) -> i32;
     
     // System
@@ -83,8 +83,8 @@ For async operations, Kali implements a single-threaded event loop:
 `eval` and `Function()` are **Phase 4 compatibility features**.
 
 Implementation strategy:
-1. **Phases 1-3**: parse them, report the `Eval` effect, and either reject them in strict/AOT modes or route them through an explicitly marked compatibility path.
-2. **Phase 4**: support runtime compilation through a host callback (`eval_compile`) with conservative deoptimization of the surrounding scope.
+1. **Phases 1-3**: parse them, report the `Eval` effect, and reject them by default.
+2. **Phase 4**: support runtime compilation through a host callback (`eval_compile`) with conservative deoptimization of the surrounding scope, enabled via `--compat eval`.
 
 Requirements for the Phase 4 path:
 - Treat all directly reachable locals as boxed/shared values
@@ -121,14 +121,14 @@ async function fetch(url) → StateMachine {
 Kali's primary execution model is single-threaded (one event loop per runtime instance).
 
 ### SharedArrayBuffer & Atomics
-When WASM threads are enabled (via `--wasm-threads` flag):
+When WASM threads are enabled (via `--wasm-threads` flag, opt-in only):
 - Each worker/thread runs its own Kali runtime instance with a shared `SharedArrayBuffer`
 - `Atomics` operations map to WASM atomic instructions
 - Workers communicate via message passing (structured clone) or shared memory
 - Each thread has its own stack and allocator; the shared heap region is explicitly managed via `SharedArrayBuffer`
 - Thread count is constrained by sandbox policy (`resources.maxThreads`)
 
-This is an advanced feature. Most programs use the single-threaded event loop.
+This is an advanced feature. Most programs use the single-threaded event loop. If the selected target/engine cannot support the threaded runtime profile, the CLI/runtime must reject `--wasm-threads` with the canonical feature-maturity diagnostic rather than silently degrading to single-threaded execution.
 
 ## Module System
 

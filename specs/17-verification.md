@@ -19,7 +19,7 @@ Prove that Kali's type system is sound:
 
 ### Effect System Correctness
 - Prove effect inference is conservative (inferred effects ⊇ actual effects)
-- Prove sandbox policy checking is sound (if policy says "no FS", no FS access occurs)
+- Prove the sandbox policy decision procedure and enforcement model are sound (in the model, if policy says "no FS", no filesystem effect step is admitted)
 - If algebraic effect handlers are implemented in a later phase, prove their composition rules separately
 
 ### Memory Safety
@@ -96,5 +96,5 @@ Proofs are checked on every PR that modifies type system, effect system, or memo
 
 - Full ECMA-262 formalization (too large, diminishing returns)
 - Verification of the WASM binary encoder (rely on `wasm-validate` + testing)
-- Verification of host function implementations (I/O, network — tested, not proved)
+- Full verification of concrete host integrations (OS/filesystem/network behavior is tested, not mechanically proved end-to-end)
 - Real-time proof checking during development (Lean builds run in CI)

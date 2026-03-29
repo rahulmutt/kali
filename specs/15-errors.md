@@ -23,6 +23,10 @@ error[E1001]: Type 'string' is not assignable to type 'number'
 ### JSON (`--output json`)
 Diagnostics are emitted inside the CLI's versioned command envelope. The canonical JSON schemas for both the envelope and individual diagnostics live in [specs/18-schemas.md](18-schemas.md).
 
+Terminology note:
+- the compiler's internal `Span` is a byte-offset range used by the parser/AST/IR
+- the JSON diagnostic `span` is a `SourceSpan` with `file`/`line`/`column` fields derived from that internal span
+
 ## Error Code Ranges
 
 | Range | Category |
@@ -32,7 +36,7 @@ Diagnostics are emitted inside the CLI's versioned command envelope. The canonic
 | E2xxx | Syntax errors |
 | E3xxx | Name resolution errors |
 | E4xxx | Sandbox/effect violations |
-| E5xxx | Import/module errors |
+| E5xxx | Import/module/availability errors |
 | E6xxx | Runtime errors |
 | E7xxx | Memory/ownership errors |
 | W1xxx | Type warnings |
@@ -71,12 +75,34 @@ Diagnostics are emitted inside the CLI's versioned command envelope. The canonic
 - `E4003`: Resource limit exceeded (compile-time provable)
 - `E4004`: Dynamic effect detected (cannot statically verify)
 
-### Import/Module Errors (E5xxx)
+### Import/Module/Availability Errors (E5xxx)
 - `E5001`: Module not found
 - `E5002`: Circular dependency detected
 - `E5003`: Invalid module specifier
 - `E5004`: Package not installed
 - `E5005`: Ambiguous module resolution
+- `E5006`: Feature unavailable in current phase, API profile, or target configuration
+
+### Canonical Feature-Maturity Diagnostic
+
+Phase-gated or profile-gated features should share one primary diagnostic shape instead of inventing per-command or per-runtime wording.
+
+Example:
+```
+error[E5006]: feature unavailable in current phase: --api node
+  --> <cli>:1:1
+  |
+  = note: Node.js API compatibility is a Phase 3 target
+  = help: use --api deno for Phase 1, or enable the documented later-phase compatibility path
+```
+
+Use `E5006` for cases such as:
+- `--api node` before the documented Node subset is implemented
+- `eval` / `Function()` without `--compat eval`
+- dynamic `require()` in early phases
+- browser-only DOM assumptions in the standalone runtime
+- `run --api browser` in early phases where browser support exists only as a check/build profile
+- any parse-supported construct that is intentionally not semantically enabled in the current phase/profile
 
 ### Runtime Errors (E6xxx)
 - `E6001`: Uncaught exception
@@ -90,7 +116,7 @@ Diagnostics are emitted inside the CLI's versioned command envelope. The canonic
 
 ### Performance Warnings (W3xxx)
 - `W3001`: Dynamic object access forces hash map representation
-- `W3002`: `eval` usage disables optimizations in scope (when the compatibility mode is enabled)
+- `W3002`: `eval` usage disables optimizations in scope (when `--compat eval` is enabled)
 - `W3003`: Value escapes scope, requiring heap allocation
 - `W3004`: Generic function exceeds specialization limit
 
@@ -104,6 +130,8 @@ Default output shows just what's needed to fix the issue:
 - Fix suggestion when available
 
 No ASCII art, progress bars, or decorative elements in default mode.
+
+For unsupported features, prefer one stable code (`E5006`) with a short note naming the required phase/status from [specs/19-feature-maturity.md](19-feature-maturity.md).
 
 ### Rich for Humans
 With `--verbose` or in interactive terminals:
@@ -125,9 +153,9 @@ With `--verbose` or in interactive terminals:
 struct Diagnostic {
     severity: Severity,          // Error, Warning, Info, Hint
     code: DiagnosticCode,        // E1001, W3002, etc.
-    message: String,             // Primary message
     file: FileId,                // Source file
-    span: Span,                  // Primary span
+    span: Span,                  // Internal byte-offset span
+    message: String,             // Primary message
     labels: Vec<Label>,          // Annotated source spans
     help: Option<String>,        // Suggested fix (text)
     fix: Option<SuggestedFix>,   // Automated fix (structured)

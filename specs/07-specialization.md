@@ -17,7 +17,7 @@ Aggressively specialize generic functions at each call site based on concrete ty
 1. Collect all call sites for each generic function
 2. Group by unique type argument tuples
 3. For each unique tuple, instantiate the function body with concrete types
-4. Lower to MIR with concrete memory layouts (no boxing)
+4. Lower to the canonical layout-aware IR for the active phase: MIR in Phase 2+, or directly to LIR in Phase 1 while MIR is still being introduced
 5. Apply type-specific optimizations (e.g., integer arithmetic for `number`)
 
 ### Memory Layout Specialization

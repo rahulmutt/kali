@@ -11,6 +11,12 @@ Sandboxing is a first-class concern in Kali. The system combines:
 
 The static effect system is intentionally scoped around **sandbox-relevant capabilities** first. The initial goal is a conservative JSON summary of possible effects, not a full research-grade effect calculus.
 
+Phase simplification:
+- **Phase 1**: runtime sandbox enforcement, policy-schema validation, and resource limits work without requiring full static effect reports.
+- **Phase 2+**: `kali effects`, compile-time effect-vs-policy validation, and explicit `pure` / effect annotations become part of the supported workflow.
+
+This keeps the sandbox-first story implementable: enforcement exists from the beginning, while richer static analysis lands once the type/effect infrastructure is ready.
+
 ### Effect Inference
 The type checker infers effects for every function (see [specs/04-type-system.md](04-type-system.md)):
 ```typescript
@@ -25,6 +31,8 @@ function processFile(path: string) {
 ```bash
 kali effects program.ts
 ```
+
+`kali effects` is a Phase 2 target feature. Before then, equivalent internal analysis may exist only as compiler infrastructure and does not need to be exposed as a stable user-facing command.
 
 The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md). The report contains:
 - `schemaVersion`
@@ -53,8 +61,15 @@ Default format: `kali.policy.json`
 
 The canonical policy schema is defined in [specs/18-schemas.md](18-schemas.md). JSON is the canonical interchange format for CLI tooling and AI agents. An equivalent TOML format may be supported later, but it would be a convenience syntax layered on top of the JSON data model rather than a separate policy contract.
 
+For process environment access, the policy model distinguishes `process.envRead` from `process.envWrite` so read-only inspection and mutation can be granted independently.
+
 ### Policy Validation (Compile-Time)
-When a policy is provided at build time:
+Compile-time policy handling is intentionally split to keep Phase 1 smaller and less ambiguous:
+
+- **Phase 1**: `--sandbox` validates the policy file itself (schema, patterns, resource-limit ranges, unsupported fields) and attaches it to the build/run configuration, but does **not** promise a complete static proof that all effects fit the policy.
+- **Phase 2+**: inferred effects are checked against the allowed policy capabilities.
+
+In Phase 2+ when a policy is provided at build or check time:
 1. Inferred effects are checked against allowed effects
 2. Violations are **compile errors** (not warnings)
 3. Unused permissions are reported as **warnings**
@@ -99,18 +114,22 @@ Enforced by the WASM host (wasmtime in initial phases):
 - Count of active child processes tracked and limited
 
 ### Timer Limits
-- `setTimeout`/`setInterval` delays capped by policy
-- Maximum number of active timers enforced
-- Infinite loop detection via fuel
+- Timer creation can be disabled entirely via `effects.timer.schedule: false`
+- `setTimeout`/`setInterval` delays are capped by policy (`effects.timer.maxTimeoutMs`)
+- Maximum number of active timers is enforced (`effects.timer.maxActiveTimers`)
+- Infinite loop detection still relies on fuel metering
 
 ### Network Limits
-- URL pattern matching on fetch/connect
-- Port/address restrictions on listen
-- Connection count limits
+- URL pattern matching applies to `fetch` allowlists (`effects.network.fetch`)
+- Outbound socket-style connections can be disabled or gated separately (`effects.network.connect`)
+- Port/address listeners can be disabled or gated separately (`effects.network.listen`)
+- Concurrent network usage is capped by `effects.network.maxConnections`
 
 ## Sandbox Validator Functions (Later Phase)
 
-The initial sandbox model is intentionally **declarative**: path globs, URL patterns, booleans, and numeric resource limits. This keeps policy evaluation simple, auditable, and portable.
+The canonical maturity decision for this feature lives in [specs/19-feature-maturity.md](19-feature-maturity.md): the initial sandbox model is intentionally **declarative**.
+
+Phase 1-2 policies are limited to path globs, URL patterns, booleans, and numeric resource limits. This keeps policy evaluation simple, auditable, portable, and easy to validate before any untrusted code runs.
 
 Custom validator functions are a later-phase extension for embedding scenarios. If added, they must:
 - Be explicitly opt-in
@@ -157,6 +176,8 @@ If implemented, this enables:
 kali effects program.ts
 
 # Check program against a policy (no execution)
+# Phase 1: validates the policy file/config only
+# Phase 2+: also validates inferred effects against the policy
 kali check --sandbox kali.policy.json program.ts
 
 # Run with sandbox enforcement

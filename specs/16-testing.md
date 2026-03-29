@@ -15,8 +15,8 @@ Each crate has its own unit tests (Rust `#[cfg(test)]` modules):
 End-to-end tests in `tests/`:
 - Source file → compile → execute → check output
 - Source file → compile → check errors
-- Source file → effects analysis → check JSON output
-- Source file + policy → sandbox validation → check result
+- Source file → effects analysis → check JSON output *(Phase 2 target; earlier phases should assert that the command is unavailable or explicitly experimental)*
+- Source file + policy → sandbox validation → check result *(Phase 1: runtime enforcement + policy-file validation, Phase 2+: inferred-effect-vs-policy validation too)*
 
 ### Conformance Test Suites
 
@@ -46,8 +46,8 @@ let x: number = "hello";
 ```
 
 #### Kali-Specific Tests
-- **Effect inference tests**: Source → expected effects JSON
-- **Sandbox tests**: Source + policy → expected pass/fail
+- **Effect inference tests**: Source → expected effects JSON *(Phase 2 target; Phase 1 may instead test internal analysis units without a stable CLI surface)*
+- **Sandbox tests**: Source + policy → expected pass/fail, including explicit checks for Phase 1 runtime enforcement vs Phase 2 compile-time effect-policy rejection
 - **Memory tests**: Source → expected allocation strategy (stack/heap/Rc)
 - **Specialization tests**: Generic source → expected number of specializations
 - **Optimization tests**: Source → check specific optimization was applied
@@ -119,4 +119,5 @@ In addition to compiler tests, run compiled WASM programs and verify:
 - Exit codes are correct
 - Resource limits are enforced (sandbox tests)
 - Async operations complete correctly
-- API compatibility with Deno/Node behavior
+- API compatibility with the documented Phase 1 Web + Deno baseline
+- phase-gated features produce the canonical `E5006` diagnostic instead of silent fallback

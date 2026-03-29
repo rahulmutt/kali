@@ -31,8 +31,9 @@ let module = runtime.compile_file("lib.ts")?;
 let instance = runtime.instantiate(&module)?;
 let result = instance.call("add", &[Value::Number(1.0), Value::Number(2.0)])?;
 
-// Get effect analysis
-let effects = runtime.analyze_effects("program.ts")?;
+// Get effect analysis (Phase 2 target)
+// Before then, this API may be absent or return the canonical feature-maturity error.
+let effects = runtime.analyze_effects_file("program.ts")?;
 println!("{}", serde_json::to_string(&effects)?);
 ```
 
@@ -89,7 +90,7 @@ KaliRuntime* kali_runtime_new(KaliConfig* config);
 void kali_runtime_free(KaliRuntime* runtime);
 
 // Compilation
-KaliModule* kali_compile_string(KaliRuntime* runtime, const char* source, const char* filename);
+KaliModule* kali_compile_string(KaliRuntime* runtime, const char* filename, const char* source);
 KaliModule* kali_compile_file(KaliRuntime* runtime, const char* path);
 void kali_module_free(KaliModule* module);
 
@@ -116,8 +117,10 @@ const char* kali_error_message(const KaliError* error);
 int kali_error_code(const KaliError* error);
 const char* kali_error_json(const KaliError* error);
 
-// Effects analysis
-const char* kali_analyze_effects(KaliRuntime* runtime, const char* source);
+// Effects analysis (Phase 2 target; before then these return NULL and expose the canonical
+// feature-maturity error via kali_last_error())
+const char* kali_analyze_effects_file(KaliRuntime* runtime, const char* path);
+const char* kali_analyze_effects_string(KaliRuntime* runtime, const char* filename, const char* source);
 void kali_free_string(const char* s);
 
 // Host function registration
@@ -132,6 +135,7 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 - All `kali_*_new` / `kali_*_free` pairs — caller manages lifetime
 - Strings returned by Kali must be freed with `kali_free_string`
 - Thread safety: one `KaliRuntime` per thread in the initial implementation
+- Exposing a C ABI does **not** imply linking any C/C++ implementation into Kali itself; the runtime and compiler remain Rust-only internally
 
 ### Error Handling Convention
 - Functions that can fail return `NULL` on error
@@ -139,14 +143,21 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 - Error includes code, message, and JSON representation
 
 ### Building
+`kali build --capi` is an **artifact-generation mode for embedded programs**, not a request to turn user TypeScript directly into a native shared library.
+
 ```bash
-kali build --capi lib.ts                   # Produces a C-callable library artifact + kali.h
+kali build --capi lib.ts                   # Produces lib.wasm + generated kali.h/metadata for use with kali_capi
 ```
 
-Alternatively, build from source:
+The host-side C ABI itself is provided by the `kali_capi` crate:
 ```bash
-cargo build --release -p kali_capi         # Build the C API crate
+cargo build --release -p kali_capi         # Build the C API shared/static library
 ```
+
+Typical embedding flow:
+1. Build or ship `kali_capi` as the native C ABI layer.
+2. Compile Kali/TypeScript code to `foo.wasm` with `kali build --capi foo.ts`.
+3. Load that artifact through the `kali_*` API from C or another FFI consumer.
 
 The shared library exports only `kali_*` symbols. All Rust internals are hidden.
 

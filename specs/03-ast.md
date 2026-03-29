@@ -69,6 +69,8 @@ enum ModuleItem {
 - `PureModifier` — `pure function f() { ... }` (marker for purity checking)
 - Experimental only: `EffectDeclaration`, `PerformExpression`, `HandleExpression` for algebraic effects/handlers
 
+These nodes may appear in the AST before the corresponding feature has semantic support. The parser records the syntax; later phases of checking/lowering decide whether the construct is currently enabled.
+
 ### Patterns (Destructuring)
 - `IdentifierPattern`, `ObjectPattern`, `ArrayPattern`
 - `AssignmentPattern` (with default), `RestElement`

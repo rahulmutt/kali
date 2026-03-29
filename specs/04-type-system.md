@@ -164,7 +164,7 @@ The effect system feeds directly into the sandbox analyzer (see [specs/09-sandbo
 2. **Declaration processing**: Process type aliases, interfaces, class declarations
 3. **Inference**: Walk function bodies, generate constraints, run unification
 4. **Narrowing**: Apply flow-sensitive narrowing at each CFG node
-5. **Effect analysis**: Infer and check effect annotations
+5. **Effect analysis**: Infer capability effects and, once Phase 2 support is enabled, check explicit effect annotations / `pure`
 6. **Validation**: Check all constraints are satisfied, report errors
 
 Each phase operates per-module with cross-module dependencies resolved lazily (query-based).

@@ -50,6 +50,48 @@ Used by commands that opt into `--output json`.
 - `kali effects` may emit the raw effect report by default, but with `--output json` it must be wrapped in this envelope
 - Commands should avoid inventing top-level ad hoc fields when `payload` is sufficient
 
+## Common Source Location Types
+
+Kali uses two related but distinct span concepts:
+- **Internal compiler `Span`**: compact byte-offset range + file ID, used in the parser/AST/IR for speed.
+- **JSON `SourceSpan`**: human/tool-facing line/column range, derived from the internal span when emitting diagnostics, effect reports, stack traces, or other schemas.
+
+This distinction prevents drift between the implementation-oriented frontend specs and the machine-readable CLI/output specs.
+
+### `SourceLocation`
+
+```json
+{
+  "file": "src/main.ts",
+  "line": 5,
+  "column": 10
+}
+```
+
+Required fields:
+- `file: string`
+- `line: number` *(1-based)*
+- `column: number` *(1-based)*
+
+### `SourceSpan`
+
+```json
+{
+  "file": "src/main.ts",
+  "line": 5,
+  "column": 10,
+  "endLine": 5,
+  "endColumn": 17
+}
+```
+
+Required fields:
+- `file: string`
+- `line: number` *(1-based)*
+- `column: number` *(1-based)*
+- `endLine: number` *(1-based, inclusive line of end position)*
+- `endColumn: number` *(1-based, exclusive column of end position)*
+
 ## Diagnostic Schema
 
 ```json
@@ -59,6 +101,7 @@ Used by commands that opt into `--output json`.
   "message": "Type 'string' is not assignable to type 'number'",
   "file": "src/main.ts",
   "span": {
+    "file": "src/main.ts",
     "line": 5,
     "column": 10,
     "endLine": 5,
@@ -77,7 +120,7 @@ Used by commands that opt into `--output json`.
 - `code: string`
 - `message: string`
 - `file: string`
-- `span: Span`
+- `span: SourceSpan`
 - `labels: Label[]`
 
 ### Optional fields
@@ -101,7 +144,7 @@ Produced by `kali effects`.
         {
           "file": "program.ts",
           "line": 2,
-          "col": 18,
+          "column": 18,
           "function": "processFile"
         }
       ]
@@ -123,6 +166,8 @@ Produced by `kali effects`.
 - `dynamicEffects: true` means the report is conservative but incomplete
 - `usesEval: true` implies `dynamicEffects: true`
 - Effect `kind` names must match the canonical names derived from the type system and sandbox policy model
+- Effect locations use `SourceLocation` fields and the same 1-based `line` / `column` convention as diagnostics so tools do not need separate coordinate systems for errors vs effect reports
+- If a consumer needs a full range instead of a point location, it should use the same `SourceSpan` shape rather than inventing a command-specific span format
 
 ## Sandbox Policy Schema
 
@@ -134,9 +179,22 @@ Canonical filename: `kali.policy.json`
   "$schema": "https://kali.sh/schemas/policy-v1.json",
   "effects": {
     "fileSystem": { "read": ["/data/**"], "write": false },
-    "network": { "fetch": ["https://api.example.com/*"], "listen": false },
-    "process": { "spawn": false, "env": ["PATH", "HOME"] },
-    "timer": { "maxTimeoutMs": 5000 },
+    "network": {
+      "fetch": ["https://api.example.com/*"],
+      "connect": false,
+      "listen": false,
+      "maxConnections": 16
+    },
+    "process": {
+      "spawn": false,
+      "envRead": ["PATH", "HOME"],
+      "envWrite": false
+    },
+    "timer": {
+      "schedule": true,
+      "maxTimeoutMs": 5000,
+      "maxActiveTimers": 32
+    },
     "eval": false,
     "random": true,
     "console": true
@@ -153,10 +211,11 @@ Canonical filename: `kali.policy.json`
 
 ### Rules
 - Policies are declarative data, not executable code
-- Unknown fields are rejected in strict mode and warned on otherwise
+- Unknown fields are rejected to keep policy evaluation deterministic and auditable
 - Policy booleans mean fully allowed or fully denied for that capability
 - Pattern-bearing fields (`read`, `fetch`) are allowlists
-- Policy keys map to canonical effect kinds as follows: `fileSystem.read` ↔ `FileSystem.Read`, `network.fetch` ↔ `Network.Fetch`, `process.spawn` ↔ `Process.Spawn`, `process.env` ↔ `Process.EnvRead`/`Process.EnvWrite`, `timer.*` ↔ `Timer.*`, `random` ↔ `Random.*`, `console` ↔ `Console.*`, `eval` ↔ `Eval`
+- Numeric limit fields constrain otherwise-allowed capabilities; for example `timer.schedule: true` with `maxActiveTimers: 32` allows timers but caps concurrency
+- Policy keys map to canonical effect kinds as follows: `fileSystem.read` ↔ `FileSystem.Read`, `fileSystem.write` ↔ `FileSystem.Write`, `network.fetch` ↔ `Network.Fetch`, `network.connect` ↔ `Network.Connect`, `network.listen` ↔ `Network.Listen`, `process.spawn` ↔ `Process.Spawn`, `process.envRead` ↔ `Process.EnvRead`, `process.envWrite` ↔ `Process.EnvWrite`, `timer.schedule` ↔ `Timer.Schedule`, `random` ↔ `Random.*`, `console` ↔ `Console.*`, `eval` ↔ `Eval`
 
 ## Artifact Schema
 

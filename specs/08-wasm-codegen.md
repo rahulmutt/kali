@@ -104,9 +104,9 @@ Direct binary emission without intermediate text format:
 | Command | Output |
 |---------|--------|
 | `kali build foo.ts` | `foo.wasm` — Kali-hosted WASM module |
-| `kali build --bundle foo.ts` | `foo.wasm` + `foo.js` — WASM + JS glue for browsers |
+| `kali build --bundle --api browser foo.ts` | `foo.wasm` + `foo.js` — WASM + JS glue for browsers |
 | `kali build --lib foo.ts` | `foo.wasm` — library module (exports, no start) |
-| `kali build --capi foo.ts` | `foo.wasm` + generated C ABI metadata/header references — embedding artifact set |
+| `kali build --capi foo.ts` | `foo.wasm` + generated embedding metadata/header for use with the host-side `kali_capi` library |
 
 ## Source Maps
 

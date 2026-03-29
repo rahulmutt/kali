@@ -10,13 +10,17 @@ Kali supports npm packages that:
 - Do **not** use `node-gyp` or native addons
 - Use standard module systems (ESM or CJS)
 
-This covers the vast majority of the npm ecosystem (utility libraries, data processing, frameworks, etc.).
+Phase simplification:
+- **Phase 1 MVP**: packages that do not depend on unsupported Node core modules and fit the linked-artifact model.
+- **Phase 3+**: broader compatibility for packages that expect the `node` API surface and additional Node built-ins.
+
+This keeps the early ecosystem promise realistic: utility libraries, validators, parsers, and many framework packages are in scope early, while Node-host-heavy packages follow the Node compatibility work.
 
 ### Package Resolution
 Follow Node.js module resolution algorithm, adapted for Kali:
 1. Apply import-map rewrites from `kali.json#imports` before package resolution
 2. Check `node_modules/<package>/package.json` for `exports`, `main`, `module`, and `types` fields
-3. Support `exports` map conditions: `import`, `require`, `default`, `types`, and `browser` where relevant
+3. Support `exports` map conditions: `import`, `require`, `default`, and `types` in Phase 1; `browser` condition handling becomes relevant with the browser bundle profile and broader ecosystem support
 4. Resolve relative imports with extension probing (`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`)
 
 To keep configuration simple, `kali.json#imports` is the canonical aliasing mechanism in early phases. A separate TypeScript-style `paths`/`baseUrl` compatibility layer may be added later if ecosystem pressure justifies it, but it is not part of the MVP contract.
@@ -97,7 +101,7 @@ Support import maps in `kali.json`:
 
 - CJS modules (`require`, `module.exports`) are transformed to ESM at compile time
 - `require()` calls with static string arguments → ESM import
-- Dynamic `require()` is **not** part of the Phase 1-3 linked-artifact model; it is rejected by default or requires an explicit later-phase compatibility mode, and is flagged in effect analysis
+- Dynamic `require()` is **not** part of the Phase 1-3 linked-artifact model; it is rejected by default, and any later compatibility path must be documented in [specs/19-feature-maturity.md](19-feature-maturity.md) rather than invented ad hoc here
 - `__dirname`, `__filename` → transformed to `import.meta.dirname`, `import.meta.filename`
 
 ## Dynamic Imports
@@ -105,7 +109,7 @@ Support import maps in `kali.json`:
 To keep the module system aligned with the single-artifact architecture:
 - static `import` is the primary and fully supported path
 - literal-string `import("pkg")` is a later optimization/compatibility feature that may be rewritten against the already-linked graph
-- non-literal `import(expr)` is treated as a dynamic effect boundary and rejected by default in early phases unless an explicit compatibility mode is enabled
+- non-literal `import(expr)` is treated as a dynamic effect boundary and rejected by default in early phases; any later compatibility path must be documented in [specs/19-feature-maturity.md](19-feature-maturity.md)
 
 ## Type Resolution
 
@@ -129,5 +133,9 @@ Before installing, Kali can analyze a package:
 kali package-effects lodash                 # Show effects used by package
 kali package-audit lodash                   # Security audit
 ```
+
+`kali package-effects` depends on the Phase 2 effect-report pipeline. Until that lands, the command should be clearly unavailable or marked experimental rather than returning a partial bespoke format.
+
+`kali package-audit` is a later tooling feature rather than a core compiler/runtime milestone. If unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee.
 
 This integrates with the effect system — know what a dependency does before you use it.

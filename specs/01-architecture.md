@@ -7,13 +7,13 @@ Source (.ts/.tsx/.js/.jsx/.mjs)
   → Lexer              (specs/02-lexer-parser.md)
   → Parser             (specs/02-lexer-parser.md)
   → AST                (specs/03-ast.md)
-  → Type Checker        (specs/04-type-system.md)
-    ├─ Name Resolution  (symbol table, scopes)
-    ├─ Type Inference    (HM unification + flow narrowing)
-    └─ Effect Inference  (specs/09-sandboxing.md)
+  → Type Checker       (specs/04-type-system.md)
+    ├─ Name Resolution (symbol table, scopes)
+    ├─ Type Inference  (HM unification + flow narrowing)
+    └─ Effect Inference (specs/09-sandboxing.md)
   → Typed AST
   → HIR                (specs/05-ir.md) — High-level IR, desugared
-  → MIR                (specs/05-ir.md) — Mid-level IR, memory layouts + ownership
+  → MIR                (specs/05-ir.md) — Mid-level IR, memory layouts + ownership *(Phase 2+; Phase 1 may lower HIR → LIR directly)*
   → LIR                (specs/05-ir.md) — Low-level IR, WASM-ready
   → WASM Module        (specs/08-wasm-codegen.md)
   → Execution          (specs/10-runtime.md)
@@ -53,12 +53,12 @@ kali/
 
 ## Implementation Phases
 
-The architecture is intentionally staged so the compiler can become useful early:
+The architecture is intentionally staged so the compiler can become useful early. The phase names and scope here are canonicalized to match [SPEC.md](../SPEC.md):
 
-1. **Bootstrap**: lexer, parser, AST, name resolution, baseline TypeScript checking, HIR/LIR, simple WASM emission.
-2. **Safety**: MIR, ownership/escape analysis, effect summaries, sandbox policy checking.
-3. **Performance**: specialization, advanced layout selection, incremental compilation, stronger optimization.
-4. **Compatibility**: broader Node/Deno/browser APIs, advanced dynamic features, full `eval`, and deeper verification.
+1. **Phase 1 — Core compiler**: lexer, parser, AST, name resolution, baseline TypeScript checking, HIR/LIR, simple WASM emission, a minimal Web/Deno host surface, the core CLI workflow, and a library-first internal architecture so the CLI is built on reusable compiler/runtime crates.
+2. **Phase 2 — Ownership + effects**: MIR, ownership/escape analysis, deterministic memory management, effect summaries, compile-time sandbox policy validation, and the first stable embedding surfaces.
+3. **Phase 3 — Specialization + ecosystem**: specialization, advanced layout selection, npm/CJS interoperability, broader Node compatibility, browser bundling glue, incremental compilation, and stronger optimization.
+4. **Phase 4 — Advanced compatibility**: hardest dynamic features (`eval`, `Function()`, non-literal dynamic loading), deeper API coverage, and broader formal verification.
 
 Every crate should expose a stable internal boundary even if its initial implementation is partial.
 
@@ -78,7 +78,9 @@ Follow a demand-driven (query-based) compilation model similar to rustc and Sals
 All identifiers, string literals, and type representations are interned for fast comparison and low memory usage. Use a global `Interner` backed by a concurrent hash map.
 
 ### Source Spans
-Every AST/IR node carries a `Span` (byte offset range + file ID) for error reporting. Spans are compact (8 bytes) and cheaply copyable.
+Every AST/IR node carries a compact internal `Span` (byte offset range + file ID) for error reporting. Spans are compact (8 bytes) and cheaply copyable.
+
+When Kali emits JSON diagnostics/effect reports, this internal span is translated into the schema-level `SourceSpan` / `SourceLocation` shapes defined in [specs/18-schemas.md](18-schemas.md). This keeps the implementation fast without forcing byte offsets into the external tooling contract.
 
 ### Arenas
 AST and IR nodes are arena-allocated for cache-friendly traversal and bulk deallocation. Each compilation unit gets its own arena.
@@ -92,6 +94,8 @@ AST and IR nodes are arena-allocated for cache-friendly traversal and bulk deall
 ### Linking Strategy
 Early-phase builds compile the full static module graph into a **single linked WASM artifact**. This avoids premature dependence on experimental WASM module-linking features and simplifies optimization, packaging, and embedding.
 
+This is a semantic rule, not just a packaging preference: features that imply arbitrary runtime module loading must either lower back into the already-linked graph or be rejected/gated according to [specs/19-feature-maturity.md](19-feature-maturity.md).
+
 To keep the model simple and consistent:
 - static `import` / `export` are part of the core MVP
 - dynamic `import()` is **not** a general runtime-linking mechanism in early phases
@@ -104,7 +108,7 @@ To keep the model simple and consistent:
 |------|-------------|
 | `--fast` | Minimal optimization, fastest compile time (default) |
 | `--release` | Standard optimizations: inlining, dead code elimination, layout optimization |
-| `--release-advanced` | Aggressive optimization: full specialization, WASM opt passes, LTO |
+| `--release-advanced` | Aggressive optimization: expanded specialization budget, optional external WASM post-pass, LTO |
 
 ### Error Strategy
 Compilation is resilient — continue after errors to report as many issues as possible in one pass. Use a `Diagnostics` collector that accumulates errors/warnings without aborting. See [specs/15-errors.md](15-errors.md).
