@@ -40,6 +40,7 @@ Promotion rule:
   - type-system behavior → checker/inference baselines
   - package compatibility → curated package corpus results
   - host/runtime APIs → integration + sandbox/resource-limit coverage
+  - browser-targeted analysis/build support → browser-targeted check/build tests + emitted-bundle smoke runs in a real browser harness
   - CLI/JSON contracts → golden/snapshot/schema tests
 - isolated demos or one package anecdote do **not** by themselves justify raising a feature's maturity wording
 
@@ -80,7 +81,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | `FinalizationRegistry` | Later compatibility | Same reason as weak collections |
 | `SharedArrayBuffer` / `Atomics` | Later compatibility (opt-in only) | Requires a separate threaded runtime profile and should not be implied by the Phase 1 single-threaded runtime |
 | `--wasm-threads` | Later compatibility (opt-in only) | Enables the threaded runtime profile once that profile exists; must fail explicitly before then and on unsupported targets/engines |
-| Browser API surface for supported analysis/build commands (`--api browser`) | Phase 1 MVP | Phase 1 enables browser-targeted analysis/build against the real browser ambient surface for `check` and `build --bundle`, without claiming DOM support in Kali's standalone runtime; later analysis commands may reuse that same browser context once their own maturity rows allow it |
+| Browser API surface for supported analysis/build commands (`--api browser`) | Phase 1 MVP | Phase 1 enables browser-targeted analysis/build against the real browser ambient surface for `check` and `build --bundle`, without claiming DOM support in Kali's standalone runtime; this status requires its own browser-targeted evidence track rather than inference from standalone runtime tests, and later analysis commands may reuse that same browser context once their own maturity rows allow it |
 | `package.json#exports` condition `deno` for `--api deno` resolution | Phase 1 MVP | Aligns package resolution with the default Deno-oriented standalone API surface |
 | `package.json#browser` / `exports` condition `browser` in browser bundle mode | Phase 1 MVP | Needed for practical browser-targeted npm compatibility without widening standalone runtime claims |
 | `run --api browser` | Rejected by default | Early standalone runtime does not emulate a browser host |
@@ -191,6 +192,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
 - The checker ships the bounded HM-style local/return inference fragment promised for Phase 1, while still falling back conservatively instead of doing open-ended whole-program search.
 - Browser-targeted `check --api browser` and `build --bundle --api browser` work against the real browser ambient surface without implying DOM runtime support in Kali itself.
+- That browser-targeted claim is backed by dedicated browser-targeted tests, including emitted-bundle smoke runs in a real browser harness rather than only mock DOM/unit tests.
 - `kali check` / `build` / `run` / `test` all use the same early-phase API-surface maturity rules: Deno-supported, Node phase-gated, browser supported only for the documented browser-targeted check/bundle paths.
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
@@ -263,7 +265,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Web-baseline randomness subset (`crypto.getRandomValues`) | Phase 1 MVP | Covers the schema-v1 `effects.random` / `Random.GetBytes` capability without implying full Web Crypto support |
 | Mutable environment access / process-environment mutation | Phase 3 target | Policy-controlled host mutation, not part of the Phase 1 baseline |
 | Subprocess spawning and socket/listener networking | Phase 3 target | Shares the same sandbox/process/network maturity path as the corresponding capability rows above |
-| Browser-targeted `check` and `build --bundle` | Phase 1 MVP | Real browser host via emitted glue, with browser ambient typings available during analysis/build but no standalone browser emulation |
+| Browser-targeted `check` and `build --bundle` | Phase 1 MVP | Real browser host via emitted glue, with browser ambient typings available during analysis/build but no standalone browser emulation; support claims require dedicated browser-targeted tests and real-browser bundle smoke coverage |
 | Standalone `run --api browser` | Rejected by default | No embedded browser engine |
 | Node API surface across `check` / `effects` / `build` / `run` / `test` | Phase 3 target | Package-driven subset first; early phases reject `--api node` consistently rather than exposing a partial surface |
 | Threaded runtime profile / `--wasm-threads` | Later compatibility (opt-in only) | Runtime-profile switch, independent from API-surface selection |

@@ -17,6 +17,8 @@ End-to-end tests in `tests/`:
 - Source file → compile → check errors
 - Source file → effects analysis → check JSON output *(Phase 2 target; earlier phases should assert that the command is unavailable or explicitly experimental)*
 - Source file + policy → sandbox validation → check result *(Phase 1: runtime enforcement + policy-file validation, Phase 2+: inferred-effect-vs-policy validation too)*
+- Browser-targeted source → `kali check --api browser` → expected diagnostics/type success
+- Browser-targeted source → `kali build --bundle --api browser` → emitted artifact + smoke execution in a real browser harness
 
 ### Conformance Test Suites
 
@@ -31,6 +33,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | Language syntax/semantics | parser tests + integration coverage + the applicable test262/conformance subset |
 | Type checking / inference | checker baselines + inference golden tests + targeted regression cases |
 | Host APIs / runtime behavior | integration tests that execute the API path + sandbox/resource-limit tests where relevant |
+| Browser-targeted analysis/build support | browser-targeted check/build tests + emitted-bundle smoke runs in a real browser harness |
 | Package compatibility | curated package corpus results recorded per command/profile (`check`, `build`, `test`, `run`) |
 | CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |
 | Proof-backed claims | passing Lean proof jobs for the currently modeled subset |
@@ -72,6 +75,13 @@ Because Kali aims to support real npm/JS ecosystems, package compatibility needs
 - record whether each package is expected to `check`, `build`, `test`, or `run` under each supported profile
 - treat package suites as phase-scoped contracts: Phase 1 corpus targets pure JS/TS packages that fit the linked-artifact model; later corpora can add harder Node/browser packages
 - failures should distinguish resolution/type-check/runtime/sandbox causes so roadmap gaps are visible
+
+#### Browser-Targeted Evidence Track
+Because Phase 1 already promises `check --api browser` and `build --bundle --api browser`, those paths need an explicit evidence lane instead of being treated as a side effect of standalone runtime tests:
+- run browser-targeted type-check fixtures that exercise DOM/browser ambient typings without implying standalone DOM runtime support
+- run bundle smoke tests in at least one real browser automation harness so emitted JS glue + WASM bootstrap are tested together
+- include negative tests that confirm unsupported standalone browser commands (`run --api browser`, `test --api browser`) still fail with the canonical gating diagnostic
+- keep this track separate from any lightweight DOM/unit-test shim so Kali does not accidentally overclaim browser-runtime support from mock-only tests
 
 #### Kali-Specific Tests
 - **Effect inference tests**: Source → expected effects JSON for the full statically reachable graph from the chosen entrypoint *(Phase 2 target; Phase 1 may instead test internal analysis units without a stable CLI surface)*
@@ -159,4 +169,5 @@ In addition to compiler tests, run compiled WASM programs and verify:
 - Resource limits are enforced (sandbox tests)
 - Async operations complete correctly
 - API compatibility with the documented Phase 1 Web + Deno baseline
+- browser-targeted bundle smoke tests execute through the real browser host + generated glue path rather than only through mocked DOM/unit harnesses
 - phase-gated features produce the canonical `E5006` diagnostic instead of silent fallback
