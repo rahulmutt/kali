@@ -422,7 +422,9 @@ Required fields:
 
 Interpretation rules:
 - `PackageCoordinate` is for **registry packages only**; schema v1 package-effect payloads do not use this shape for raw URLs or local paths
-- `package.version` is the concrete resolved version actually analyzed. The CLI package argument may be versionless in schema v1, but the emitted payload must record the exact resolved version so caches, diffs, and audit trails stay reproducible.
+- `package.version` is the concrete resolved version actually analyzed. The CLI package argument is versionless in schema v1; for `package-effects`, that resolved version follows the canonical registry-analysis rule of selecting the latest non-yanked stable published version for the targeted package identity unless a later spec adds an explicit version/range selector.
+- because schema-v1 registry analysis is intentionally project-independent, this resolved version is not inferred from the current project's manifest or lockfile.
+- the emitted payload must still record the exact resolved version so caches, diffs, and audit trails stay reproducible.
 - the nested `report` is the same canonical effect-report payload shape documented above; tools should not expect a package-specific effect vocabulary
 - inside that nested report, `analysisContext` records which API surface / runtime-profile / compatibility-feature selection the package was analyzed under
 - in early phases, `kali package-effects` inherits that analysis context from the effective config/defaults rather than introducing a second package-analysis-only flag family; the schema records the chosen context, regardless of how it was selected

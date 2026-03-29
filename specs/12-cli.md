@@ -414,7 +414,9 @@ Analyze effects of an npm/JSR package before installing.
 Argument-kind rule:
 - `kali package-effects <package>` takes exactly one explicit package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - `<package>` uses the same canonical registry-package identifier grammar as `kali install`: normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names
-- early schema-v1 package analysis takes a **package identity only**, not an inline version/range selector; the command resolves one concrete published package version to analyze and records that resolved version in the output payload
+- early schema-v1 package analysis takes a **package identity only**, not an inline version/range selector
+- to keep registry analysis deterministic and project-independent in schema v1, the command resolves the **latest non-yanked stable published version** for that package identity from the registry and records that resolved version in the output payload
+- `package-effects` therefore does **not** consult the current project's manifest or lockfile to choose a different version in early phases; a later explicit version/range or lock-aware mode would need its own documented selector
 - raw URLs and local file paths are rejected for `package-effects`; this command analyzes registry packages, while raw URL dependencies remain part of the project/import-graph workflow handled by `kali install` + `kali effects`
 
 Project-state rule:
@@ -432,6 +434,7 @@ By default, `kali package-effects` emits its native JSON payload directly, follo
 
 Analysis scope rule:
 - `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
+- in schema v1, that analysis starts from the registry's latest non-yanked stable published version for the targeted package identity rather than from any already-installed project copy or lockfile entry
 - the nested `report.entryPoints` field should name that analysis root using the same canonical registry identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than an opaque tarball URL or cache path
 - in early phases, that analysis context is inherited from the effective `kali.json` / default analysis settings rather than from package-specific `--api` / `--compat` flags
 - because the command intentionally reuses inherited context instead of growing a second near-duplicate flag family, `kali package-effects` does **not** take `--api`, `--compat`, or `--sandbox` in early phases; passing any of them is invalid command usage (`E5008`) unless a later spec explicitly adds that mode
@@ -447,11 +450,13 @@ Security audit for one registry package.
 Argument-kind rule:
 - `kali package-audit <package>` accepts exactly one explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - the package argument uses the canonical registry-package identifier grammar (normal npm package name or `jsr:`-prefixed JSR name)
-- early schema-v1 package audit likewise takes a **package identity only**, not an inline version/range selector; if/when the command resolves and reports a concrete package version, that version is result metadata rather than part of the required input spelling
+- early schema-v1 package audit likewise takes a **package identity only**, not an inline version/range selector
+- to keep audit behavior aligned with `package-effects` and avoid hidden project-state coupling, the command targets the **latest non-yanked stable published version** for that package identity in schema v1 and, when it reports machine-readable/package metadata, includes that resolved version as result metadata rather than as part of the required input spelling
 - raw URLs and local file paths are rejected for `package-audit`; package-audit is registry-package-oriented rather than a second raw-URL analysis path
 
 Project-state rule:
 - like `package-effects`, audit may use temporary fetched metadata but must not silently install or materialize dependencies into the project's managed state
+- because schema-v1 package audit is registry-oriented rather than project-lock-oriented, it likewise resolves against the registry's latest non-yanked stable published version for the targeted package identity instead of consulting the current project's manifest or lockfile by default
 
 Status: later tooling feature. It should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
 ```bash
