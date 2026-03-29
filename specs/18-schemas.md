@@ -527,7 +527,8 @@ Interpretation rules:
 - tools may materialize these defaults internally, but should preserve a minimal on-disk config unless the user explicitly asks for a fuller form
 - when a tool normalizes `kali.json`, it must not change semantics by adding or removing fields whose values equal these defaults
 - `compilerOptions.apiSurface` is the canonical config name for the host API family; CLI uses `--api`
-- `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `effects` / `build` / `run` / `test`, and the inherited analysis context used by `package-effects`, but schema v1 does **not** imply separate per-surface lockfiles or install trees for the same manifest/import graph and it does **not** change the semantics of early `package-audit`
+- command/context participation follows the canonical table in [SPEC.md](../SPEC.md): `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `effects` / `build` / `run` / `test`, and the inherited analysis context used by `package-effects`, but schema v1 does **not** imply separate per-surface lockfiles or install trees for the same manifest/import graph
+- because early `package-audit` is context-free, inherited `compilerOptions.apiSurface`, `compilerOptions.buildMode`, `compilerOptions.runtimeProfiles`, `compat.features`, and top-level `sandbox` do **not** change its semantics
 - `compilerOptions.buildMode` is one of `fast`, `release`, or `release-advanced`
 - `compilerOptions.runtimeProfiles` is an array of semantic runtime-profile names; in schema v1 it is usually empty because later profiles such as `wasm-threads` are still phase-gated
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
@@ -538,6 +539,7 @@ Interpretation rules:
 - if `sandbox` is a relative path, it is resolved relative to the directory containing that `kali.json`
 - omitting top-level `sandbox` means no default project policy file is attached; schema v1 does **not** model that omission as an implicit serialized allow-all policy
 - the canonical effect-reporting and sandbox-agnostic command classes from [SPEC.md](../SPEC.md) ignore top-level `sandbox` rather than treating it as an error or as an implicit request to perform policy validation
+- in particular, `package-effects` still ignores `sandbox` even though it inherits the other semantic analysis axes, and `package-audit` ignores the entire host-analysis/runtime/sandbox context bundle in early phases
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
 - when set-like arrays such as `compilerOptions.runtimeProfiles` or `compat.features` are normalized in on-disk config, normalization should preserve semantics without inventing duplicates; preserving first-seen order for minimal user-file churn is preferred even though the arrays are semantically unordered
 - machine-emitted payloads that report those sets back out again (for example `analysisContext` in effect/package-effect JSON) should instead use stable lexical order so caches and diffs do not depend on original input ordering

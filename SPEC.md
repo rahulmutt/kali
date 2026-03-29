@@ -234,7 +234,7 @@ Note:
 - when `package-effects` and `package-audit` are available, they stay single-package registry-analysis commands rather than growing an implicit whole-project mode
 - in early phases, registry-analysis commands also avoid a second per-command `--api` / `--compat` flag family: `package-effects` reuses the inherited analysis context, while `package-audit` stays **context-free** (registry/package metadata focused) rather than becoming a second host-mode selector
 - config-selected `apiSurface`, `runtimeProfiles`, and `compat.features` therefore influence `package-effects`, but they do not change the semantics of early `package-audit`
-- for clarity, early `package-audit` still uses ordinary project/config discovery for generic CLI behavior (for example project root, `--output`, `--quiet`), but it intentionally ignores host-analysis knobs such as `apiSurface`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
+- for clarity, early `package-audit` still uses ordinary project/config discovery for generic CLI behavior (for example project root, `--output`, `--quiet`), but it intentionally ignores host-analysis/runtime knobs such as `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
 - this keeps each command in one primary category and avoids overlapping near-duplicate workflows
 
 ## Canonical Default Tuple
@@ -264,12 +264,38 @@ Interpretation rules:
 - Kali must not silently rewrite the effective context just to make a command succeed
 - if the effective context requests a real but unavailable feature/profile, fail with `E5006`
 - if the effective context creates a contradictory command shape, fail with `E5008`
-- a command may still document that some context axes are intentionally **non-semantic** for it in early phases; for example early `package-audit` still uses ordinary project/config discovery for generic CLI behavior, but it intentionally ignores host-analysis knobs such as `apiSurface`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
+- a command may still document that some context axes are intentionally **non-semantic** for it in early phases; for example early `package-audit` still uses ordinary project/config discovery for generic CLI behavior, but it intentionally ignores host-analysis/runtime knobs such as `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
 
 Canonical examples:
 - if `kali.json` sets `compilerOptions.apiSurface = "node"`, then plain `kali run main.ts` still hits the same Node phase gate as `kali run --api node main.ts`
 - if `kali.json` sets `compilerOptions.apiSurface = "browser"`, then plain `kali build main.ts` is still invalid early-phase command usage until `--bundle` is selected, just like `kali build --api browser main.ts`
 - commands must not silently fall back from config-selected `browser`/`node` to `deno`
+
+## Canonical Command-Context Axis Participation
+
+The effective command context has one shared vocabulary, but not every command treats every axis as semantic in early phases.
+
+| Command family | `apiSurface` | `buildMode` | `runtimeProfiles` | `compat.features` | `sandbox` |
+|---|---|---|---|---|---|
+| `run` | semantic | semantic | semantic | semantic | semantic |
+| `test` | semantic | semantic | semantic | semantic | semantic |
+| `build` | semantic | semantic | semantic | semantic | semantic |
+| `check` | semantic | non-semantic | semantic when analysis depends on a runtime profile | semantic | semantic |
+| `effects` | semantic | non-semantic | semantic | semantic | ignored in early phases |
+| `package-effects` | semantic via inherited analysis context | non-semantic | semantic via inherited analysis context | semantic via inherited analysis context | ignored in early phases |
+| `package-audit` | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases |
+| `install` | invalid/ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases |
+| `fmt` / `lint` | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases |
+| `init` | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases |
+
+Interpretation rules:
+- **semantic** means the axis can change command behavior, availability, or machine-readable results
+- **non-semantic** means the axis exists in the shared vocabulary but does not change that command's contract in early phases
+- `package-effects` reuses the inherited **analysis** axes (`apiSurface`, `runtimeProfiles`, `compat.features`) rather than adding its own parallel flag family
+- `package-audit` is intentionally **context-free** in early phases: inherited config values may still be discovered for generic CLI behavior, but they do not change the audit semantics or result shape
+- `install` remains profile-agnostic in early phases even when the project config contains host-analysis/runtime settings for other commands
+
+This table is the cross-spec simplification rule for statements like “inherits analysis context”, “ignores sandbox”, or “does not take `--api`”: other chapters should reference this participation model instead of drifting into near-duplicate command-by-command wording.
 
 ## Canonical Source-File Sets
 
@@ -395,7 +421,7 @@ These commands do not participate in sandbox-policy attachment in early phases:
 
 Interpretation rules:
 - top-level `kali.json#sandbox` is ignored for this set rather than being treated as an error
-- early `package-audit` remains context-free with respect to `apiSurface`, `runtimeProfiles`, and `compat.features`
+- early `package-audit` remains context-free with respect to `apiSurface`, `buildMode`, `runtimeProfiles`, and `compat.features`
 
 ## Canonical Dependency-State Mutability Rule
 

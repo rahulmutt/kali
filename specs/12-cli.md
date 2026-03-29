@@ -87,12 +87,12 @@ Effective-context validation rule:
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
 
-Package-analysis flag-surface simplification:
-- `kali package-effects`, when implemented, intentionally does **not** grow its own parallel `--api` / `--compat` flag set in early phases.
-- instead, it records the effective analysis context inherited from `kali.json` / built-in defaults in the nested `report.analysisContext` field.
-- `kali package-audit` likewise stays a single-package registry tool in early phases and does **not** add package-analysis-specific `--api` / `--compat` flags before there is a documented need.
-- unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `runtimeProfiles`, and `compat.features` do not change its semantics.
-- this keeps package analysis aligned with one canonical context vocabulary where it matters (`package-effects`) without turning package-audit into a second near-duplicate host-analysis command before there is evidence it is needed.
+Package-analysis flag/context simplification:
+- follow the canonical command-context axis participation table in [SPEC.md](../SPEC.md)
+- `kali package-effects`, when implemented, intentionally does **not** grow its own parallel `--api` / `--compat` flag set in early phases; instead it records the inherited analysis context in `report.analysisContext`
+- that inherited package-effects context is limited to the semantic analysis axes (`apiSurface`, `runtimeProfiles`, `compat.features`); `buildMode` and `sandbox` remain non-semantic for the command in early phases
+- `kali package-audit` likewise stays a single-package registry tool in early phases and does **not** add package-analysis-specific `--api` / `--compat` flags before there is a documented need
+- unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and `sandbox` do not change its semantics
 
 Build-mode continuity rule:
 - these three build-mode names are stable from Phase 1 onward
@@ -450,7 +450,7 @@ kali package-audit jsr:@std/path           # Audit specific JSR package
 ```
 Additional flag-surface rule:
 - like `package-effects`, `package-audit` does **not** take package-analysis-specific `--api` or `--compat` flags in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds them
-- unlike `package-effects`, early `package-audit` also does **not** inherit analysis context from `compilerOptions.apiSurface`, `compilerOptions.runtimeProfiles`, or `compat.features`; it remains a context-free registry tool
+- unlike `package-effects`, early `package-audit` also does **not** inherit analysis context from `compilerOptions.apiSurface`, `compilerOptions.buildMode`, `compilerOptions.runtimeProfiles`, or `compat.features`; it remains a context-free registry tool
 - top-level `kali.json#sandbox` is likewise ignored by `package-audit`, matching the broader sandbox-agnostic command rule from [SPEC.md](../SPEC.md)
 
 Output simplification rule:
