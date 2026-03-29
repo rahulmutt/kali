@@ -34,6 +34,8 @@ mod host {
     fn console_log(msg_ptr: i32, msg_len: i32);
 
     // Deno-oriented standalone filesystem/process surface
+    // (the same host-layer abstractions may be reused by later Node compatibility work,
+    // but their presence here does not imply early `--api node` support)
     fn fs_read(path_ptr: i32, path_len: i32) -> i32;
     fn fs_write(path_ptr: i32, path_len: i32, data_ptr: i32, data_len: i32) -> i32;
     fn fs_stat(path_ptr: i32, path_len: i32, out_ptr: i32) -> i32;
@@ -55,7 +57,7 @@ mod host {
 
 Interpretation rules:
 - `console`, timers, `fetch`, time, and randomness belong to the Phase 1 Web baseline and may exist across supported API surfaces.
-- `fs_read`, `fs_write`, `fs_stat`, `fs_read_dir`, `env_get`, `env_list`, `process_args`, and `process_pid` belong to the Deno/Node-oriented host surface, not to the shared Web baseline; browser-targeted builds must not assume they exist.
+- `fs_read`, `fs_write`, `fs_stat`, `fs_read_dir`, `env_get`, `env_list`, `process_args`, and `process_pid` belong to the Deno-oriented standalone host surface in Phase 1, not to the shared Web baseline; later Node compatibility may reuse similar host abstractions, but browser-targeted builds must not assume these imports exist.
 - `env_get` / `env_list` expose only the sandbox-permitted environment view; they must not leak the raw host environment and then rely on guest-side filtering.
 - The Phase 1 runtime does not provide interactive permission-prompt imports; permission state is an already-resolved sandbox contract, not a request-at-runtime workflow.
 - Every registered host import is policy-aware; enabling an API surface does not bypass sandbox checks.

@@ -210,7 +210,7 @@ The runtime should prioritize the subset needed by real-world packages and confo
 ## Global Scope
 
 The global object provides:
-- All Web Platform APIs
-- Runtime-specific APIs (Deno/Node based on mode)
+- All Web Platform APIs in the shared baseline
+- API-surface-specific additions selected by mode (`deno` in early standalone phases; broader `node` later when that surface is implemented)
 - `globalThis` reference
 - TypeScript-aware — all globals are typed in Kali's standard lib `.d.ts` files

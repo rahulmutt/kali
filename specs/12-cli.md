@@ -313,6 +313,7 @@ Omission/default rule for minimal configs:
 - Omitted fields inherit documented schema/CLI defaults rather than creating placeholder sections.
 - In schema v1, omitted `compilerOptions` means all compiler-option defaults apply.
 - In schema v1, omitted `compilerOptions.strict` means the default strict-checking bundle is enabled.
+- In schema v1, omitted `compilerOptions.maxSpecializations` means the project uses the default specialization cap of `16`.
 - Omitted `compat` means `compat.features = []`.
 
 Configuration simplification rules:
