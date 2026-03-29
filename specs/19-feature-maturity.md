@@ -78,18 +78,18 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
-| `kali run main.ts` | Phase 1 MVP | Compile and execute with default `--api deno` profile |
+| `kali run main.ts` | Phase 1 MVP | Compile and execute with the canonical default tuple: `apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]` |
 | `kali run --api deno main.ts` | Phase 1 MVP | Supported standalone runtime path |
 | `kali run --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands |
 | `kali run --api browser main.ts` | Rejected by default | Reject with `E5006`; browser is a check/build profile first |
 | `kali check --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node typing/global subset exists |
 | `kali check --api browser main.ts` | Phase 1 MVP | Supported browser-targeted analysis/profile |
 | `kali build --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for builds too |
-| `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`.wasm` + JS glue) |
+| `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`kind: wasm-module` + `kind: js-glue`) |
 | `kali build --api browser main.ts` | Rejected by default | In early phases browser mode is a bundle/check profile, not a standalone non-bundled artifact mode |
 | `kali build --lib lib.ts` | Phase 1 MVP | Produce one linked library-style WASM artifact without automatic program start |
-| `kali build --capi lib.ts` | Phase 2 target | Public embedding artifact generation should stay gated until the embedding contract is stable |
-| `kali test` / `kali test --api deno` | Phase 1 MVP | Compile and run tests with the default standalone Deno-oriented host surface |
+| `kali build --capi lib.ts` | Phase 2 target | Public embedding artifact generation should stay gated until the embedding contract is stable; when enabled it emits `kind: wasm-module` + `kind: c-header` + `kind: cabi-metadata` |
+| `kali test` / `kali test --api deno` | Phase 1 MVP | Compile and run tests with the default standalone tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`) unless overridden |
 | `kali test --api node` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for test runs too |
 | `kali test --api browser` | Rejected by default | Early browser support is a check/build profile, not a standalone test-runtime profile |
 | `kali effects main.ts` | Phase 2 target | Before then: unavailable or explicitly experimental, never a partial bespoke report |

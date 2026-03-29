@@ -107,12 +107,14 @@ Direct binary emission without intermediate text format:
 
 ## Output Artifacts
 
+Use the canonical artifact kinds from [specs/18-schemas.md](18-schemas.md) in CLI JSON output and embedding metadata.
+
 | Command | Output |
 |---------|--------|
-| `kali build foo.ts` | `foo.wasm` — Kali-hosted WASM module |
-| `kali build --bundle --api browser foo.ts` | `foo.wasm` + `foo.js` — WASM + JS glue for browsers |
-| `kali build --lib foo.ts` | `foo.wasm` — library module (exports, no automatic start) |
-| `kali build --capi foo.ts` | Phase 2 target: `foo.wasm` + generated embedding metadata/header for use with the host-side `kali_capi` library |
+| `kali build foo.ts` | `foo.wasm` — Kali-hosted WASM module (`kind: wasm-module`) |
+| `kali build --bundle --api browser foo.ts` | `foo.wasm` + `foo.js` — WASM + JS glue for browsers (`kind: wasm-module`, `kind: js-glue`) |
+| `kali build --lib foo.ts` | `foo.wasm` — library module (exports, no automatic start; `kind: wasm-module`) |
+| `kali build --capi foo.ts` | Phase 2 target: `foo.wasm` + generated embedding header/metadata for use with the host-side `kali_capi` library (`kind: wasm-module`, `kind: c-header`, `kind: cabi-metadata`) |
 
 ## Source Maps
 

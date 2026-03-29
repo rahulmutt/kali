@@ -102,6 +102,22 @@ Interpretation rules:
 - Node compatibility is phase-gated and must not be implied by fallback shims
 - browser support is initially a **check/build profile**, not a standalone runtime contract
 
+## Canonical Default Execution Tuple
+
+Unless a command, config file, or later feature gate says otherwise, the default execution/build tuple is:
+- `apiSurface = deno`
+- `buildMode = fast`
+- `runtimeProfiles = []`
+- `compat.features = []`
+
+Interpretation rules:
+- `runtimeProfiles = []` means the default single-threaded baseline runtime
+- `compat.features = []` means no later-phase compatibility escape hatches are enabled
+- `kali run main.ts`, `kali test`, and `kali build main.ts` should be read as using this tuple unless flags/config override it
+- `kali check main.ts` uses the same default host/API selection (`apiSurface = deno`) even though build mode and runtime-profile switches are only meaningful for build/run-style commands
+
+This tuple is the canonical simplification for examples across the CLI, embedding, runtime, and maturity specs.
+
 ## Canonical Sources of Truth
 
 Use these files as the primary authority for each concern:

@@ -49,6 +49,14 @@ Configuration precedence is intentionally simple:
 
 That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy.
 
+Canonical default tuple:
+- `apiSurface = deno`
+- `buildMode = fast`
+- `runtimeProfiles = []`
+- `compat.features = []`
+
+This is the default interpretation of examples such as `kali run main.ts`, `kali test`, and `kali build main.ts` unless the example explicitly overrides a field. `kali check main.ts` uses the same default API surface selection.
+
 ## Commands
 
 ### `kali run <file>`
@@ -86,14 +94,14 @@ AOT compile to a WASM module.
 
 `--capi` and other public embedding-oriented outputs follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): the compiler is library-first internally in Phase 1, but stable public embedding artifacts are a Phase 2 target.
 ```bash
-kali build main.ts                         # → main.wasm (--fast mode, default)
+kali build main.ts                         # → main.wasm (--fast mode, default; artifact kind: wasm-module)
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
-kali build --bundle --api browser main.ts  # WASM + JS glue for browsers
+kali build --bundle --api browser main.ts  # main.wasm + main.js (artifact kinds: wasm-module + js-glue)
 kali build --api browser main.ts           # Rejected in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
 kali build --lib lib.ts                    # Library module (exports, no start)
-kali build --capi lib.ts                   # Phase 2 target: foo.wasm + generated foo.exports.h/metadata for host-side embedding via kali_capi (see specs/13-embedding.md)
+kali build --capi lib.ts                   # Phase 2 target: foo.wasm + foo.exports.h + metadata (artifact kinds: wasm-module + c-header + cabi-metadata; see specs/13-embedding.md)
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap

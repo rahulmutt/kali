@@ -100,8 +100,10 @@ typedef struct KaliError KaliError;
 KaliConfig* kali_config_new(void);
 void kali_config_set_api(KaliConfig* config, int api_surface);
 void kali_config_set_build_mode(KaliConfig* config, int build_mode);
-void kali_config_set_runtime_profile(KaliConfig* config, int profile, bool enabled);
-void kali_config_set_compat_feature(KaliConfig* config, int feature, bool enabled);
+void kali_config_clear_runtime_profiles(KaliConfig* config);
+void kali_config_add_runtime_profile(KaliConfig* config, int profile);
+void kali_config_clear_compat_features(KaliConfig* config);
+void kali_config_add_compat_feature(KaliConfig* config, int feature);
 void kali_config_set_max_memory(KaliConfig* config, uint64_t bytes);
 void kali_config_set_max_cpu_time(KaliConfig* config, uint64_t ms);
 void kali_config_set_sandbox(KaliConfig* config, const char* policy_path);
@@ -159,6 +161,7 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 - All `kali_*_new` / `kali_*_free` pairs — caller manages lifetime
 - Strings returned by Kali must be freed with `kali_free_string`
 - Thread safety: one `KaliRuntime` per thread in the initial implementation
+- The C config surface follows the same set-like semantics as `kali.json` and the Rust builder API: runtime profiles and compat features are unordered unique sets, not boolean toggle pairs
 - C config/runtime setters for build mode, runtime profiles, and compat features follow the same phase-gating rules as the CLI/config surface; unsupported requests fail with the canonical availability error instead of degrading silently
 - Exposing a C ABI does **not** imply linking any C/C++ implementation into Kali itself; the runtime and compiler remain Rust-only internally
 
@@ -171,12 +174,13 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 `kali build --capi` is a **Phase 2 target** and is an artifact-generation mode for embedded programs, not a request to turn user TypeScript directly into a native shared library.
 
 ```bash
-kali build --capi lib.ts                   # Produces lib.wasm + generated lib.exports.h/metadata for use with kali_capi
+kali build --capi lib.ts                   # Produces lib.wasm + generated lib.exports.h + metadata for use with kali_capi
 ```
 
 Important distinction:
 - `kali_capi` ships the stable host ABI header: `kali.h`
 - `kali build --capi foo.ts` emits a **program-specific** exports header such as `foo.exports.h` plus metadata
+- In CLI JSON/artifact manifests, these outputs use the canonical artifact kinds `wasm-module`, `c-header`, and `cabi-metadata`
 
 This avoids overloading the name `kali.h` for two different purposes.
 
@@ -204,7 +208,7 @@ Compatibility policy:
 
 Typical embedding flow:
 1. Build or ship `kali_capi` as the native C ABI layer (including the stable `kali.h` host header).
-2. Compile Kali/TypeScript code to `foo.wasm` with `kali build --capi foo.ts` to obtain `foo.wasm` plus `foo.exports.h`/metadata.
+2. Compile Kali/TypeScript code to `foo.wasm` with `kali build --capi foo.ts` to obtain `foo.wasm` plus `foo.exports.h` and metadata.
 3. Verify ABI compatibility between the emitted metadata and the available `kali_capi` host library.
 4. Load that artifact through the `kali_*` API from C or another FFI consumer.
 
