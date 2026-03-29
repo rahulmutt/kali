@@ -433,7 +433,7 @@ Canonical filename: `kali.policy.json`
 - Policies are declarative data, not executable code
 - Unknown fields are rejected at every documented nesting level to keep policy evaluation deterministic and auditable
 - Policy booleans mean fully allowed or fully denied for that capability
-- Pattern-bearing fields (`read`, `fetch`) are allowlists
+- Pattern-bearing fields (`read`, `write`, `fetch`, `connect`, `listen`) are allowlists when they take arrays
 - Numeric limit fields inside `effects.*` constrain an otherwise-allowed capability locally; for example `timer.schedule: true` with `maxActiveTimers: 32` allows timers but caps timer concurrency
 - `resources.*` is reserved for cross-cutting runtime budgets rather than capability-specific allowlists/caps
 - `resources.maxOpenFiles` caps concurrently opened host file handles, including internal opens performed for higher-level file helpers
@@ -443,6 +443,34 @@ Canonical filename: `kali.policy.json`
 - Policy keys use the canonical built-in effect naming table above rather than redefining a separate namespace here
 - In schema v1, `random` and `console` are intentionally coarse-grained booleans. Any built-in effect report entry whose kind starts with `Random.` matches `random`, and any kind starting with `Console.` matches `console`.
 - Later experimental user-defined effects are outside the policy schema unless/until a future spec revision adds an explicit extension point
+
+### Canonical Capability Field Shapes (schema v1)
+
+To keep policy examples, validators, and runtime checks consistent, schema v1 uses these canonical value shapes:
+
+| Policy field | Allowed shape(s) | Meaning |
+|---|---|---|
+| `effects.fileSystem.read` | `false` \| `true` \| `string[]` | deny all, allow all, or allow only matching path patterns |
+| `effects.fileSystem.write` | `false` \| `true` \| `string[]` | deny all, allow all, or allow only matching path patterns |
+| `effects.network.fetch` | `false` \| `true` \| `string[]` | deny all, allow all, or allow only matching URL patterns |
+| `effects.network.connect` | `false` \| `true` \| `string[]` | deny all, allow all, or allow only matching outbound address/URL patterns |
+| `effects.network.listen` | `false` \| `true` \| `string[]` | deny all, allow all, or allow only matching bind address/port patterns |
+| `effects.process.spawn` | `false` \| `true` \| `string[]` | deny all, allow all, or allow only matching executable/command patterns |
+| `effects.process.envRead` | `false` \| `true` \| `string[]` | deny all, allow all environment reads, or allow only named variables |
+| `effects.process.envWrite` | `false` \| `true` \| `string[]` | deny all, allow all environment writes, or allow only named variables |
+| `effects.timer.schedule` | `boolean` | enable or disable timer creation |
+| `effects.timer.maxTimeoutMs` | `number` | maximum allowed timeout/interval delay |
+| `effects.timer.maxActiveTimers` | `number` | maximum concurrently active timers |
+| `effects.network.maxConnections` | `number` | maximum concurrent outbound/inbound network connections |
+| `effects.eval` | `boolean` | allow or deny `Eval` capability |
+| `effects.random` | `boolean` | allow or deny `Random.*` capability family |
+| `effects.console` | `boolean` | allow or deny `Console.*` capability family |
+
+Interpretation rules:
+- `true` means unrestricted for that capability within schema v1, subject to separate `resources.*` caps.
+- `string[]` means an allowlist; an empty array therefore denies all practical uses of that capability.
+- Field-specific arrays use canonical matching domains: filesystem paths for file APIs, URLs/addresses for network APIs, executable names/paths for process spawning, and exact environment-variable names for env access.
+- Specs and examples should reuse these shapes instead of inventing per-command variants.
 
 ## Artifact Schema
 

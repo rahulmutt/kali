@@ -16,6 +16,19 @@ Phase simplification:
 
 This keeps the early ecosystem promise realistic: utility libraries, validators, parsers, and many framework packages are in scope early, while Node-host-heavy packages follow the Node compatibility work.
 
+## Canonical Phase-1 Package-Compatibility Interpretation
+
+Early npm compatibility needs one explicit simplification so package support and host-mode support do not get conflated:
+- **Phase 1 package compatibility is broader than "only Deno-authored packages"**.
+- **Phase 1 package compatibility is narrower than "Node mode works"**.
+
+Concretely, a package can be supported in Phase 1 when:
+- its code can be resolved statically into the linked-artifact model,
+- its module format can be handled by Kali's ESM/CJS pipeline,
+- and its runtime needs are satisfied by the documented Phase 1 Web baseline plus Deno-oriented standalone surface.
+
+A package is **not** automatically in scope just because it lives on npm. If it depends on broader Node globals/core modules or native addons, it stays phase-gated with the rest of Node compatibility.
+
 ### Package Resolution
 Follow Node.js-style package resolution, but keep the early-phase rules explicit so browser, Deno, and package behavior do not drift.
 

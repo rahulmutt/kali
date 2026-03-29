@@ -32,6 +32,19 @@ These constraints are project-wide and should not be weakened in lower-level spe
 - **No silent semantic fallback**: unsupported or phase-gated features must fail explicitly rather than degrade invisibly
 - **AI-friendly machine contracts**: JSON output, diagnostics, and effect reports are stable, concise, and versioned
 
+## Long-Term Compatibility Targets vs Phase Promises
+
+A recurring source of confusion in a project like Kali is the difference between:
+- the **long-term language/runtime target**, and
+- the **features promised in a given implementation phase**
+
+The canonical rule is:
+- Kali's **long-term target** is broad ECMAScript / TypeScript compatibility, including the latest ECMA-262 edition, difficult dynamic features such as `eval`, and practical host coverage across Deno, browser, and later broader Node compatibility.
+- Kali's **phase promises** remain intentionally narrower and are defined by this file plus `specs/19-feature-maturity.md`.
+- If a feature is part of the long-term target but not yet part of the current phase, the compiler/runtime must reject it explicitly with the canonical maturity path instead of pretending it already works.
+
+This lets the spec stay ambitious without making Phase 1 commitments unrealistic.
+
 ## Canonical Vocabulary
 
 To reduce drift across the spec set, these terms are canonical:
@@ -181,6 +194,11 @@ To keep the roadmap credible, the following are intentionally **not** Phase 1 go
 - native addons, `node-gyp`, or any C/C++ dependency path
 - a fully general algebraic-effect language surface
 - broad formal verification of the full ECMAScript surface
+
+Important clarification:
+- **Phase 1 npm/package compatibility does not imply `--api node` support.**
+- Early package support comes from static resolution, CommonJS lowering, browser/Deno condition handling, and the Phase 1 Web + Deno host surface.
+- Packages that truly require broader Node globals/core modules remain phase-gated with the rest of Node compatibility.
 
 These are deferred by design, not omitted accidentally. Where they matter to users, the compiler should reject them explicitly and point to feature maturity.
 
