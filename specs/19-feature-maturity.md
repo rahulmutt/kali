@@ -90,6 +90,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
 | `kali init` | Phase 1 MVP | Create the minimal canonical `kali.json` scaffold; for the default app template this should normally be just `{ "schemaVersion": 1 }` unless the chosen template needs more |
+| `kali init --lib` | Phase 1 MVP | Select a library-oriented project template only; it does not implicitly change the later `kali build` artifact mode |
 | `kali fmt` | Phase 1 MVP | Stable formatting command for JS/TS sources |
 | `kali lint` | Phase 1 MVP | Stable lint command with conservative autofix support |
 | `kali install` | Phase 1 MVP | Resolve/materialize dependency state and write `kali.lock` for the project's declared dependency source kinds |
@@ -103,7 +104,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali check --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config; Phase 2+ also checks inferred effects against the policy |
 | `kali check --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node typing/global subset exists |
 | `kali check --api browser main.ts` | Phase 1 MVP | Supported browser-targeted analysis/profile |
-| `kali build main.ts` | Phase 1 MVP | Produce one linked WASM payload with the canonical default tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]`) |
+| `kali build main.ts` | Phase 1 MVP | Produce one linked WASM payload with the canonical default tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]`) and the default executable artifact mode |
 | `kali build --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config for the build; Phase 2+ also performs effect-vs-policy validation |
 | `kali build --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for builds too |
 | `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`kind: wasm-module` + `kind: js-glue`) |

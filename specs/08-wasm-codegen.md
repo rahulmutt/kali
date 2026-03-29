@@ -79,8 +79,8 @@ WASM Module:
   Start:     Optional module initialization function
 ```
 
-`Start` is output-mode dependent:
-- default executable builds may emit a start/init path for module setup before invoking the entrypoint
+`Start` is artifact-mode dependent:
+- the default executable artifact path may emit a start/init path for module setup before invoking the entrypoint
 - `kali build --lib` omits automatic program start so the host controls instantiation and exported entry calls
 - browser bundles may route initialization through generated JS glue instead of relying solely on the raw WASM start section
 
@@ -109,8 +109,9 @@ Direct binary emission without intermediate text format:
 
 Use the canonical artifact kinds from [specs/18-schemas.md](18-schemas.md) in CLI JSON output and embedding metadata.
 
-Early-phase output-mode rule:
-- `--bundle`, `--lib`, and `--capi` are mutually exclusive build output selectors
+Early-phase artifact-mode rule:
+- `--bundle`, `--lib`, and `--capi` are mutually exclusive build artifact-mode selectors
+- omitting all three selects the default executable artifact mode (`kali build foo.ts` → one executable-style `wasm-module` artifact)
 - in Phase 1, `--bundle` is reserved for browser-targeted output and therefore requires `--api browser`
 - in early phases, `--lib` and `--capi` are non-browser artifact modes; pairing them with `--api browser` is rejected until a separate browser-library/browser-embedding contract is specified
 - unsupported combinations must fail explicitly instead of guessing whether the user wanted an executable bundle, a library artifact, or a public embedding artifact set

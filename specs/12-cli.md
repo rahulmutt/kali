@@ -73,7 +73,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
 - documenting a command-specific flag here does **not** imply it needs a separate feature-maturity row unless it changes a phase promise or machine-readable contract
-- build output-mode flags should not silently combine into ambiguous artifact contracts; in early phases `--bundle`, `--lib`, and `--capi` are mutually exclusive selectors, and unsupported combinations must fail explicitly rather than guessing which artifact set the user meant
+- build artifact-mode flags should not silently combine into ambiguous artifact contracts; in early phases `--bundle`, `--lib`, and `--capi` are mutually exclusive selectors, and unsupported combinations must fail explicitly rather than guessing which artifact set the user meant
 - in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires `--api browser`, and `kali build --bundle` under `--api deno` or `--api node` must fail explicitly instead of inventing a second bundle contract
 - in early phases, `--lib` and `--capi` are non-browser artifact modes; `kali build --lib --api browser ...` and `kali build --capi --api browser ...` must fail explicitly rather than pretending browser bundle rules also apply to library/embedding builds
 
@@ -133,6 +133,11 @@ Sandbox flag behavior is intentionally phase-gated:
 
 ### `kali build <file>`
 AOT compile to a WASM module or linked artifact set.
+
+Canonical artifact-mode rule:
+- omitting `--bundle`, `--lib`, and `--capi` selects the default executable artifact mode
+- `--bundle`, `--lib`, and `--capi` are mutually exclusive artifact-mode selectors
+- `kali init --lib` chooses a project template only; it does not change the later default artifact mode of `kali build`
 
 `--capi` and other public embedding-oriented outputs follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): the compiler is library-first internally in Phase 1, but stable public embedding artifacts are a Phase 2 target.
 ```bash
@@ -229,7 +234,7 @@ Scaffold simplification rules:
 - For the default app template, that normally means a `kali.json` containing only `{ "schemaVersion": 1 }` plus the minimal entry source file.
 - The default scaffold should not pre-populate empty `dependencies`, `devDependencies`, `compat`, `sandbox`, or other placeholder sections just to advertise features.
 - `kali init --lib` may add library-oriented source/layout hints, but it should still reuse the same canonical config naming (`apiSurface`, `buildMode`, `runtimeProfiles`) instead of inventing template-specific aliases.
-- `kali init --lib` selects a **project template**, not an implicit default for the later `kali build --lib` artifact selector; template choice and build output mode remain separate knobs.
+- `kali init --lib` selects a **project template**, not an implicit default for the later `kali build --lib` artifact selector; template choice and build artifact mode remain separate knobs.
 - `kali init` should also create only the smallest source/layout skeleton needed for the chosen template (for example `main.ts` for the default app template or `mod.ts`/`lib.ts` for a library template) instead of emitting multiple unused example files.
 - Dependency state is still created by `kali install`, not by `kali init`.
 

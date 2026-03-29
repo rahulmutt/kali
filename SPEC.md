@@ -99,6 +99,7 @@ To reduce drift across the spec set, these terms are canonical:
 - **API surface**: the host API family selected by CLI/config, e.g. `deno`, `node`, `browser`
 - **Build mode**: optimization level, one of `fast`, `release`, `release-advanced`
 - **Runtime profile**: semantic runtime capability profile orthogonal to API surface, e.g. the default single-threaded baseline or later `wasm-threads`
+- **Artifact mode**: the build output selector chosen by `kali build`, e.g. the default executable WASM artifact path, `--bundle`, `--lib`, or `--capi`
 - **Feature maturity**: phase/status classification defined in `specs/19-feature-maturity.md`
 - **Schema contract**: machine-readable JSON formats defined in `specs/18-schemas.md`
 - **Linked artifact model**: compile the resolved static graph into one linked WASM payload rather than relying on runtime WASM module linking; companion artifacts such as JS glue or C headers do not change that single-payload rule
