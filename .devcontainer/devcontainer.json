@@ -4,14 +4,14 @@
   "workspaceFolder": "/workspace",
   "remoteUser": "dev",
   "containerEnv": {
-    "CARGO_HOME": "/root/.cargo",
-    "RUSTUP_HOME": "/root/.rustup"
+    "CARGO_HOME": "/home/dev/.cargo",
+    "RUSTUP_HOME": "/home/dev/.rustup"
   },
   "mounts": [
-    "source=devpod-home-cache,target=/root/.cache,type=volume",
-    "source=devpod-home-local,target=/root/.local,type=volume",
-    "source=devpod-cargo,target=/root/.cargo,type=volume",
-    "source=devpod-rustup,target=/root/.rustup,type=volume"
+    "source=devpod-home-cache,target=/home/dev/.cache,type=volume",
+    "source=devpod-home-local,target=/home/dev/.local,type=volume",
+    "source=devpod-cargo,target=/home/dev/.cargo,type=volume",
+    "source=devpod-rustup,target=/home/dev/.rustup,type=volume"
   ],
   "postCreateCommand": "post-create.sh",
   "customizations": {
