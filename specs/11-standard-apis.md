@@ -116,11 +116,18 @@ Canonical gating rule:
 ### Browser API (`--api browser`)
 Browser mode is primarily a **build/check profile** in early phases, not a promise that the standalone runtime behaves like a browser. See the canonical host/profile summary in [SPEC.md](../SPEC.md) and the phase-gating matrix in [19 — Feature Maturity](19-feature-maturity.md) when deciding whether a given command/profile combination is supported.
 
-- DOM APIs are **not** natively supported by the standalone Kali runtime (it does not embed a browser engine)
-- Only Web Platform APIs are available (no Deno or Node.js APIs)
-- Primarily for compiling browser-targeted libraries, shared modules, and non-DOM code paths
-- For actual browser deployment, use `kali build --bundle --api browser` to emit WASM + JS glue that runs in a real browser host
-- Any lightweight DOM test shim is a separate testing utility, not part of the core browser compatibility contract
+Two layers matter here and should not be conflated:
+- **browser ambient typing surface** — the globals/types visible to `check` and browser-targeted builds (for example `Window`, `Document`, `HTMLElement`, `fetch`, `URL`)
+- **standalone runtime host surface** — the APIs provided by Kali's own runtime when it executes code directly
+
+Canonical rule:
+- browser-targeted `check` and `build --bundle --api browser` should type-check against the real browser ambient surface, including DOM typings that are normally present in browser-focused TypeScript programs
+- this does **not** mean Kali's standalone runtime implements or emulates those DOM APIs
+- when Kali emits browser-targeted artifacts, DOM/Web APIs are expected to come from the real browser host at deployment time
+- no Deno or Node globals are exposed in browser mode unless a later compatibility spec explicitly says so
+- any lightweight DOM test shim is a separate testing utility, not part of the core browser compatibility contract
+
+This resolves a common ambiguity: browser-targeted analysis may know about `document`/`window`, while standalone execution still rejects browser-runtime assumptions because Kali does not embed a browser engine.
 
 **Canonical early-phase rule**:
 - `kali check --api browser ...` is allowed for browser-targeted analysis
@@ -139,7 +146,7 @@ This section turns the broad API story into a small implementation checklist so 
 - **Deno baseline must work end-to-end**: file read/write, metadata/read-dir, args/pid basics, and read-only env access all execute through the host ABI and obey sandbox policy.
 - **Every Phase 1 host call is policy-aware**: the runtime may not expose an unchecked host backdoor just because the API itself is part of the MVP.
 - **Node mode is not partially implied**: `--api node` remains phase-gated across `check` / `build` / `run` / `test` until its documented subset is implemented; package compatibility must not depend on undocumented fallback behavior.
-- **Browser mode stays profile-oriented**: standalone runtime does not pretend to provide DOM APIs; browser-specific behavior comes from bundle/glue output and the real browser host.
+- **Browser mode stays profile-oriented**: browser-targeted analysis/build can expose browser ambient typings, but standalone runtime does not pretend to provide DOM APIs; browser-specific behavior comes from bundle/glue output and the real browser host.
 
 This intentionally keeps the Phase 1 promise small: one dependable Web baseline plus one dependable Deno baseline.
 

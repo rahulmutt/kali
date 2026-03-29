@@ -445,9 +445,9 @@ Canonical filename: `kali.policy.json`
 - Numeric limit fields inside `effects.*` constrain an otherwise-allowed capability locally; for example `timer.schedule: true` with `maxActiveTimers: 32` allows timers but caps timer concurrency
 - `resources.*` is reserved for cross-cutting runtime budgets rather than capability-specific allowlists/caps
 - `resources.maxOpenFiles` caps concurrently opened host file handles, including internal opens performed for higher-level file helpers
-- `resources.maxSpawnedProcesses` caps concurrently active spawned processes
+- `resources.maxSpawnedProcesses` caps concurrently active spawned processes once subprocess APIs exist; before then, validation should reject values greater than `0` instead of accepting a non-functional budget for an unavailable capability
 - `resources.maxThreads` is reserved for the later threaded runtime profile; before that profile exists, validation should reject values greater than `0` instead of silently accepting them
-- Policy validation should reject non-deny values for capability fields whose corresponding feature/API surface is unavailable in the selected command/profile/phase. For example: `effects.eval: true` before the eval compatibility path exists, `effects.process.spawn: true` before subprocess APIs exist, and `effects.process.envWrite: true` before mutable environment APIs exist.
+- Policy validation should reject non-deny values for capability fields whose corresponding feature/API surface is unavailable in the selected command/profile/phase. For example: `effects.eval: true` before the eval compatibility path exists, `effects.process.spawn: true` before subprocess APIs exist, `effects.process.envWrite: true` before mutable environment APIs exist, and `resources.maxSpawnedProcesses > 0` before subprocess APIs exist.
 - Per-invocation CLI resource overrides may only tighten these policy limits; they must not widen them
 - Policy keys use the canonical built-in effect naming table above rather than redefining a separate namespace here
 - In schema v1, `random` and `console` are intentionally coarse-grained booleans. Any built-in effect report entry whose kind starts with `Random.` matches `random`, and any kind starting with `Console.` matches `console`.
@@ -480,6 +480,15 @@ Interpretation rules:
 - `string[]` means an allowlist; an empty array therefore denies all practical uses of that capability.
 - Field-specific arrays use canonical matching domains: filesystem paths for file APIs, URLs/addresses for network APIs, executable names/paths for process spawning, and exact environment-variable names for env access.
 - Specs and examples should reuse these shapes instead of inventing per-command variants.
+
+## Coverage Reporting Status
+
+Coverage output is intentionally absent from schema v1.
+
+Interpretation rule:
+- `kali test --coverage` is a Phase 2 target because it needs its own stable machine-readable contract
+- until that contract exists, docs and implementations must not imply that ad hoc text output is the canonical coverage format
+- when coverage lands, its schema belongs in this file rather than being defined informally in the testing or CLI chapters
 
 ## Artifact Schema
 

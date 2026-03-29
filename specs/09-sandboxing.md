@@ -152,7 +152,8 @@ Effective-limit rule:
 
 ### Process Limits
 - Process spawning goes through host functions → policy-checked
-- Count of active child processes is capped by `resources.maxSpawnedProcesses`
+- `resources.maxSpawnedProcesses` is the cross-cutting cap for concurrently active child processes once subprocess APIs exist
+- before subprocess support lands, policy validation should reject values greater than `0` here for the same reason it rejects `effects.process.spawn: true`: the policy must not appear to enable or budget for an unavailable capability
 
 ### Timer Limits
 - Timer creation can be disabled entirely via `effects.timer.schedule: false`
@@ -168,7 +169,7 @@ Effective-limit rule:
 
 ### Thread Limits (Later Threaded Profile)
 - `resources.maxThreads` matters only for the later `--wasm-threads` runtime profile
-- Before that profile exists, policy validation should reject `maxThreads > 0` rather than silently accepting a non-functional limit
+- before that profile exists, policy validation should reject `maxThreads > 0` rather than silently accepting a non-functional limit
 - Once threading exists, the runtime must enforce the cap across worker/thread creation
 - A per-invocation thread-limit override may only reduce the effective cap; it must never increase a stricter policy limit
 

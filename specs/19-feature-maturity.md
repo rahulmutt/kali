@@ -52,7 +52,7 @@ This table exists to keep the status labels operational: a label implies whether
 | `FinalizationRegistry` | Later compatibility | Same reason as weak collections |
 | `SharedArrayBuffer` / `Atomics` | Later compatibility (opt-in only) | Requires a separate threaded runtime profile and should not be implied by the Phase 1 single-threaded runtime |
 | `--wasm-threads` | Later compatibility (opt-in only) | Enables the threaded runtime profile once that profile exists; must fail explicitly before then and on unsupported targets/engines |
-| `--api browser` for `check` / `build --bundle` | Phase 1 MVP | Browser-targeted analysis/build without claiming DOM support in the standalone runtime |
+| `--api browser` for `check` / `build --bundle` | Phase 1 MVP | Browser-targeted analysis/build against the real browser ambient surface, without claiming DOM support in Kali's standalone runtime |
 | `package.json#exports` condition `deno` for `--api deno` resolution | Phase 1 MVP | Aligns package resolution with the default Deno-oriented standalone API surface |
 | `package.json#browser` / `exports` condition `browser` in browser bundle mode | Phase 1 MVP | Needed for practical browser-targeted npm compatibility without widening standalone runtime claims |
 | `run --api browser` | Rejected by default | Early standalone runtime does not emulate a browser host |
@@ -62,6 +62,7 @@ This table exists to keep the status labels operational: a label implies whether
 | Stable public Rust embedding API | Phase 2 target | Phase 1 stays library-first internally, but the public embedding contract is stabilized later |
 | Stable public C ABI / `kali build --capi` flow | Phase 2 target | Depends on the same public embedding stabilization work |
 | Host ABI versioning for `kali_capi` | Phase 2 target | Stable embedding requires explicit load-time compatibility checks |
+| Browser ambient DOM typings for `check --api browser` / `build --bundle --api browser` | Phase 1 MVP | Type-check against the real browser host surface for browser-targeted programs; this is not a standalone runtime promise |
 | DOM APIs in standalone runtime | Rejected by default | Kali does not embed a browser engine |
 
 ## Interpretation Rules
@@ -119,7 +120,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 ### Phase 1 exit criteria
 - One linked-artifact compile/run pipeline works end-to-end for TS and JS inputs.
 - `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
-- Browser-targeted `check --api browser` and `build --bundle --api browser` work without implying DOM runtime support.
+- Browser-targeted `check --api browser` and `build --bundle --api browser` work against the real browser ambient surface without implying DOM runtime support in Kali itself.
 - `kali check` / `build` / `run` / `test` all use the same early-phase API-surface maturity rules: Deno-supported, Node phase-gated, browser supported only for the documented browser-targeted check/bundle paths.
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
@@ -174,7 +175,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Concern | Early canonical status | Notes |
 |---|---|---|
 | Deno-oriented standalone API surface (`--api deno`) | Phase 1 MVP | Default API surface for standalone execution; typically paired with the baseline single-threaded runtime profile |
-| Browser-targeted `check` and `build --bundle` | Phase 1 MVP | Real browser host via emitted glue, not standalone browser emulation |
+| Browser-targeted `check` and `build --bundle` | Phase 1 MVP | Real browser host via emitted glue, with browser ambient typings available during analysis/build but no standalone browser emulation |
 | Standalone `run --api browser` | Rejected by default | No embedded browser engine |
 | Node API surface across `check` / `build` / `run` / `test` | Phase 3 target | Package-driven subset first; early phases reject `--api node` consistently rather than exposing a partial surface |
 | Threaded runtime profile / `--wasm-threads` | Later compatibility (opt-in only) | Runtime-profile switch, independent from API-surface selection |

@@ -106,8 +106,8 @@ This table is the compact cross-spec reference for what each host/API mode means
 |---|---|---|---|---|
 | `--api deno` (default standalone) | Yes | Yes | No | No |
 | `--api node` | Yes | No by default; Node compatibility is its own surface | Phase 3 target subset only | No |
-| `--api browser` for `check` | Analysis target only | No | No | No standalone runtime implied |
-| `build --bundle --api browser` | Yes, targeting the real browser host | No | No | Emit WASM + JS glue for deployment in a real browser |
+| `--api browser` for `check` | Analysis target only, with browser ambient typings | No | No | No standalone runtime implied |
+| `build --bundle --api browser` | Yes, targeting the real browser host and browser ambient typings | No | No | Emit WASM + JS glue for deployment in a real browser |
 | `run/test --api browser` | Rejected by default in early phases | No | No | No embedded browser engine |
 
 Interpretation rules:
@@ -115,6 +115,7 @@ Interpretation rules:
 - early standalone execution is **Deno-first**
 - Node compatibility is phase-gated and must not be implied by fallback shims
 - browser support is initially a **check/build profile**, not a standalone runtime contract
+- browser-targeted analysis/build may expose browser ambient typings, but standalone execution still does not imply DOM emulation inside Kali
 
 ## Canonical Default Execution Tuple
 
