@@ -125,9 +125,10 @@ Argument semantics are intentionally simple:
 - plain `kali install` reconciles the current manifest + import graph with `kali.lock`, `node_modules/`, and `.kali/cache/urls/`, and may prune raw URL entries that are no longer reachable from that graph
 
 Install-graph discovery rule:
-- because `kali install` usually runs without an explicit entrypoint, source-level raw URL imports are discovered from the project's install-time file set rather than from one ad hoc command entrypoint
-- that install-time file set is defined by `kali.json` `include` / `exclude` when present, or by the default project discovery rules for the canonical source-file kinds when those fields are omitted
+- because `kali install` usually runs without an explicit entrypoint, source-level raw URL imports are discovered from the canonical project-discovery result rather than from one ad hoc command entrypoint
+- that install-time scan set is filtered by `kali.json` `include` / `exclude` when present, or by the default project-discovery rules from [SPEC.md](../SPEC.md) when those fields are omitted
 - discovery may use a cheap lexical/module-specifier scan of those files plus `kali.json#imports`; it does not require a full check/build just to decide which raw URLs belong in the lock/cache state
+- the install-time scan may include declaration-only files too, because they can own type-only imports that still belong to the project's declared dependency graph
 - pruning of raw URL lock/cache entries is judged against this install-time declaration graph, not against arbitrary unrelated files elsewhere in the repository
 
 Installation is **fetch-and-link by default**, not "execute package scripts" by default. To preserve sandbox-first behavior:

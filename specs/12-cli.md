@@ -23,6 +23,7 @@ Canonical input-kind rule:
 - `check`, `fmt`, and `lint` accept that same executable/analyzable set **plus** declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`)
 - declaration-only files may therefore be checked/formatted/linted directly and may also participate in ambient type loading and package type resolution
 - declaration-only files are never valid runtime-bearing entrypoints; passing one where an executable entrypoint is required should fail explicitly with the canonical invalid-entrypoint diagnostic described in [specs/15-errors.md](15-errors.md) rather than being treated as an empty program or silently ignored
+- when a command runs without explicit file arguments, it should discover files using the canonical project-discovery rules from [SPEC.md](../SPEC.md) rather than inventing a command-local root walk
 
 Naming rule:
 - CLI keeps short flag names such as `--api`
@@ -220,7 +221,7 @@ kali lint --fix                            # Auto-fix where possible
 ```
 
 Canonical discovery rule:
-- project-oriented lint discovery uses the same supported source-file set as `kali fmt`: executable/analyzable files plus declaration-only files (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.d.ts`, `.d.mts`, `.d.cts`)
+- project-oriented lint discovery starts from the canonical project file set and then keeps the same supported source-file set as `kali fmt`: executable/analyzable files plus declaration-only files (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.d.ts`, `.d.mts`, `.d.cts`)
 - when explicit file arguments are supplied, those paths are linted directly if they belong to that same supported set
 
 ### `kali test [files...]`
@@ -236,7 +237,7 @@ kali test --api browser                    # Rejected in early phases; browser i
 ```
 
 Canonical discovery rule:
-- default test discovery matches `*.test.*` / `*_test.*` only across the shared executable/analyzable source set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
+- default test discovery starts from the canonical project-discovery result, then matches `*.test.*` / `*_test.*` only across the shared executable/analyzable source set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
 - declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`) are never test entrypoints even if they match the naming pattern
 - if explicit file arguments are supplied to `kali test`, each file must still belong to the executable/analyzable set; passing a declaration-only file is an invalid-entrypoint error, not a silent skip
 
@@ -278,8 +279,8 @@ Argument-kind rules:
 - a **raw URL argument** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
 - an ad hoc raw-URL install is therefore a **staging/pin workflow**; if the project does not reference that URL from source or `kali.json#imports`, a later plain `kali install` may prune it again
 - plain `kali install` consumes the current manifest/import graph and reconciles lock + materialized state for the dependency source kinds actually used by the project
-- because `kali install` normally has no explicit entrypoint, source-level raw URL imports are discovered from the project's install-time file set: `include` / `exclude` when present, otherwise the default project discovery rules for the canonical source-file kinds
-- this discovery step may be a cheap lexical/module-specifier scan rather than a full build
+- because `kali install` normally has no explicit entrypoint, source-level raw URL imports are discovered from the canonical project-discovery result (filtered by `include` / `exclude` when present, otherwise by the default project-discovery rules from [SPEC.md](../SPEC.md))
+- this discovery step may be a cheap lexical/module-specifier scan rather than a full build, and it may scan declaration-only files too because they can participate in the project's type/import graph
 - because raw URL entries are owned by the current source/import-map graph instead of a manifest dependency table, plain `kali install` may prune raw URL lock/cache entries that are no longer referenced
 - `kali install` is intentionally **profile-agnostic** in early phases: it locks versions and materializes package contents once for the current manifest/import graph, but it does not pre-bake a separate install for each `--api` surface; later `check` / `effects` / `build` / `run` / `test` choose `deno`/browser-targeted package branches from the already-installed metadata at command time
 
@@ -411,7 +412,8 @@ Configuration simplification rules:
 - non-sandbox-aware commands (`init`, `fmt`, `lint`, `install`, `effects`, `package-effects`, `package-audit`) ignore the top-level `sandbox` setting rather than erroring or silently turning themselves into policy-validation commands
 - `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans
 - in schema v1, the only canonical compatibility feature name is `"eval"`; it gates both direct `eval` support and the `Function()` constructor compatibility path
-- `include` / `exclude` constrain project file discovery for project-oriented commands; direct file arguments still name the primary entry explicitly
+- `include` / `exclude` constrain the canonical project-discovery result for project-oriented commands; direct file arguments still name the primary entry explicitly
+- unless overridden, project-oriented discovery still skips the default managed/generated directories named in [SPEC.md](../SPEC.md)
 - `include` / `exclude` filter only the project's own discoverable files; they do not suppress transitive imports/dependencies reached from an accepted entrypoint and they are not a second package-resolution mechanism
 - generated config from `kali init` should prefer these canonical names and should not duplicate them as parallel top-level keys
 - `kali init` should not emit `sandbox`, `compat`, `dependencies`, or other optional sections unless the chosen template or user request actually needs them

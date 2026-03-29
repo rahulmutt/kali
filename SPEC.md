@@ -225,8 +225,9 @@ Interpretation rules:
 This keeps raw URL support simple: source/import maps declare durable URL dependencies, the lock/cache materialize them, and `kali install` reconciles the two. An ad hoc `kali install https://...` is just a convenient way to pre-pin/materialize a URL that the project is expected to reference explicitly.
 
 Install-graph discovery rule for raw URLs:
-- because `kali install` normally runs without an explicit entrypoint, the install-time declaration graph for source-level raw URL imports is the set of project files selected by `kali.json` `include` / `exclude` (or the default project discovery rules when those fields are omitted)
+- because `kali install` normally runs without an explicit entrypoint, the install-time declaration graph for source-level raw URL imports is the canonical project-discovery result filtered by `kali.json` `include` / `exclude` (or by the default project-discovery rules when those fields are omitted)
 - `kali install` may discover these dependencies with a cheap lexical/module-specifier scan rather than a full typecheck/build
+- that scan may include declaration-only files too, because they can participate in the project's type/import graph
 - pruning of raw URL lock/cache state is judged against that install-time declaration graph plus `kali.json#imports`, not against arbitrary unopened files elsewhere in the repository
 - direct-entry commands such as `kali run path/to/file.ts` may still fail with `E5004` if that explicit entrypoint reaches a raw URL dependency that was not part of the last installed project graph; the fix remains to run `kali install` after adjusting the project's declared/discoverable sources
 
@@ -242,10 +243,21 @@ To keep the frontend, package resolver, CLI, and test runner aligned, Kali uses 
 Interpretation rules:
 - executable/analyzable source files may participate in parsing, checking, lowering, building, running, and test discovery according to the selected command/profile
 - declaration-only files participate in type checking, ambient library loading, and package type resolution, but they are never valid `run` / `effects` / `build` / `test` entrypoints by themselves
-- project-oriented file discovery should use the executable/analyzable set for runtime-bearing source traversal and add declaration-only files only where the command specifically needs type information, formatting, or linting support
-- test discovery should match the executable/analyzable source set only; declaration files are excluded even if they happen to match a naming convention like `*.test.d.ts`
+- the **project file set** is the union of executable/analyzable files plus declaration-only files
+- project-oriented command discovery starts from that project file set, then narrows by command intent: runtime-bearing entrypoint discovery uses executable/analyzable files only; `fmt`/`lint`/type-oriented discovery may include declaration-only files too
+- test discovery is a narrower filter on top of executable/analyzable files only; declaration files are excluded even if they happen to match a naming convention like `*.test.d.ts`
 
-This is the canonical simplification for file-extension handling across architecture, CLI, package resolution, and testing.
+### Canonical Project Discovery Rules
+
+When a command operates on the project rather than on explicit file arguments, use this shared discovery model:
+- the **project root** is the directory containing `kali.json`; if no `kali.json` exists, project-oriented commands default to the current working directory
+- `include` / `exclude` in `kali.json` filter the project file set relative to that project root
+- when `include` is omitted, discovery recursively includes the canonical project file set under the project root
+- when `exclude` is omitted, discovery still skips the default managed/generated directories: `.git/`, `.kali/`, `node_modules/`, `dist/`, `build/`, `target/`, and `coverage/`
+- explicit CLI file arguments bypass project discovery for those named paths, but they do not change how transitive imports/dependencies are resolved
+- commands that need only a subset of discovered files (for example test files, runtime-bearing entrypoints, or install-time raw-URL scans) should narrow from this shared project-discovery result instead of redefining their own unrelated root walk
+
+This is the canonical simplification for file-extension handling and project discovery across architecture, CLI, packages, and testing.
 
 ## Canonical ECMA-262 Interpretation
 
