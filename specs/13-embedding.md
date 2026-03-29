@@ -1,10 +1,16 @@
 # 13 — Embedding & C API
 
+Public embedding is intentionally phased:
+- **Phase 1**: reusable internal crates exist so the CLI is built library-first, but the public embedding surface may still change freely.
+- **Phase 2 target**: the Rust embedding API, C ABI, and `kali build --capi` artifact flow become the first stable public embedding contract.
+
 ## Rust Library API (`kali_embed`)
 
-Kali is designed to be used as a Rust library, similar to Deno's embedding API.
+Kali is designed to be used as a Rust library, similar to Deno's embedding API, once the public embedding surface reaches Phase 2.
 
 ### Core API
+The API below describes the intended stable shape for the Phase 2 public surface; earlier internal versions may differ.
+
 ```rust
 use kali_embed::{Runtime, Config, SandboxPolicy, Value};
 
@@ -64,7 +70,10 @@ while let Some(step) = runner.next_step()? {
 
 Exposes Kali functionality via a stable C ABI for embedding from any language.
 
-### Header (`kali.h`)
+### Host ABI Header (`kali.h`)
+The C declarations below describe the intended stable ABI surface for Phase 2+.
+They come from the host-side `kali_capi` library itself.
+
 ```c
 #ifndef KALI_H
 #define KALI_H
@@ -80,6 +89,7 @@ typedef struct KaliError KaliError;
 
 // Configuration
 KaliConfig* kali_config_new(void);
+void kali_config_set_api(KaliConfig* config, int api_surface);
 void kali_config_set_max_memory(KaliConfig* config, uint64_t bytes);
 void kali_config_set_max_cpu_time(KaliConfig* config, uint64_t ms);
 void kali_config_set_sandbox(KaliConfig* config, const char* policy_path);
@@ -143,11 +153,17 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 - Error includes code, message, and JSON representation
 
 ### Building
-`kali build --capi` is an **artifact-generation mode for embedded programs**, not a request to turn user TypeScript directly into a native shared library.
+`kali build --capi` is a **Phase 2 target** and is an artifact-generation mode for embedded programs, not a request to turn user TypeScript directly into a native shared library.
 
 ```bash
-kali build --capi lib.ts                   # Produces lib.wasm + generated kali.h/metadata for use with kali_capi
+kali build --capi lib.ts                   # Produces lib.wasm + generated lib.exports.h/metadata for use with kali_capi
 ```
+
+Important distinction:
+- `kali_capi` ships the stable host ABI header: `kali.h`
+- `kali build --capi foo.ts` emits a **program-specific** exports header such as `foo.exports.h` plus metadata
+
+This avoids overloading the name `kali.h` for two different purposes.
 
 The host-side C ABI itself is provided by the `kali_capi` crate:
 ```bash
@@ -155,8 +171,8 @@ cargo build --release -p kali_capi         # Build the C API shared/static libra
 ```
 
 Typical embedding flow:
-1. Build or ship `kali_capi` as the native C ABI layer.
-2. Compile Kali/TypeScript code to `foo.wasm` with `kali build --capi foo.ts`.
+1. Build or ship `kali_capi` as the native C ABI layer (including the stable `kali.h` host header).
+2. Compile Kali/TypeScript code to `foo.wasm` with `kali build --capi foo.ts` to obtain `foo.wasm` plus `foo.exports.h`/metadata.
 3. Load that artifact through the `kali_*` API from C or another FFI consumer.
 
 The shared library exports only `kali_*` symbols. All Rust internals are hidden.
@@ -171,4 +187,4 @@ The C API enables bindings for:
 - C# (`P/Invoke`)
 - Zig (direct C interop)
 
-Initial release focuses on C API stability; language-specific bindings are community-driven.
+Once the public embedding surface lands, the stable contract focuses first on the C ABI; language-specific bindings remain community-driven or higher-level wrappers over that ABI.

@@ -22,34 +22,38 @@ An engine abstraction may be added later to support backends such as `wasmer` wh
 ## Host-Guest Interface
 
 ### Host Functions
-The WASM module imports host functions for operations that can't be done in pure WASM:
+The WASM module imports host functions for operations that can't be done in pure WASM.
+
+Phase 1 baseline imports stay intentionally small and policy-aware:
 
 ```rust
-// Categories of host imports
+// Phase 1 baseline categories of host imports
 mod host {
     // I/O
     fn fs_read(path_ptr: i32, path_len: i32) -> i32;
     fn fs_write(path_ptr: i32, path_len: i32, data_ptr: i32, data_len: i32) -> i32;
     fn net_fetch(url_ptr: i32, url_len: i32, opts_ptr: i32) -> i32;
     fn console_log(msg_ptr: i32, msg_len: i32);
-    
-    // Process
-    fn process_exit(code: i32);
-    fn process_spawn(cmd_ptr: i32, cmd_len: i32) -> i32;
+
+    // Environment / process metadata
     fn env_get(key_ptr: i32, key_len: i32, val_ptr: i32) -> i32;
-    
+    fn process_args(buf_ptr: i32) -> i32;
+    fn process_pid() -> i32;
+
     // Timers
     fn timer_set(callback_id: i32, delay_ms: i32, repeat: i32) -> i32;
     fn timer_clear(timer_id: i32);
-    
-    // Eval (only imported when the Phase 4 `--compat eval` path is enabled)
-    fn eval_compile(src_ptr: i32, src_len: i32) -> i32;
-    
+
     // System
     fn clock_now() -> f64;
     fn random_bytes(buf_ptr: i32, len: i32);
 }
 ```
+
+Later compatibility/embedding imports extend this set when the corresponding API surface is enabled:
+- `process_spawn(...)` for subprocess support
+- `process_exit(code)` for explicit termination control / embedding
+- `eval_compile(...)` only for the Phase 4 `--compat eval` path
 
 ### Data Passing
 - Strings/buffers: passed as (pointer, length) pairs referencing WASM linear memory
@@ -121,14 +125,16 @@ async function fetch(url) → StateMachine {
 Kali's primary execution model is single-threaded (one event loop per runtime instance).
 
 ### SharedArrayBuffer & Atomics
-When WASM threads are enabled (via `--wasm-threads` flag, opt-in only):
+`SharedArrayBuffer`, `Atomics`, and the `--wasm-threads` runtime profile are later compatibility features, not part of the Phase 1 single-threaded baseline.
+
+Once the threaded profile exists and `--wasm-threads` is enabled:
 - Each worker/thread runs its own Kali runtime instance with a shared `SharedArrayBuffer`
 - `Atomics` operations map to WASM atomic instructions
 - Workers communicate via message passing (structured clone) or shared memory
 - Each thread has its own stack and allocator; the shared heap region is explicitly managed via `SharedArrayBuffer`
 - Thread count is constrained by sandbox policy (`resources.maxThreads`)
 
-This is an advanced feature. Most programs use the single-threaded event loop. If the selected target/engine cannot support the threaded runtime profile, the CLI/runtime must reject `--wasm-threads` with the canonical feature-maturity diagnostic rather than silently degrading to single-threaded execution.
+Until then, the CLI/runtime must reject `--wasm-threads` with the canonical feature-maturity diagnostic rather than silently degrading to single-threaded execution. Even after the threaded profile lands, unsupported targets/engines must still reject the flag explicitly.
 
 ## Module System
 

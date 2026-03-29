@@ -14,7 +14,7 @@ The canonical compilation target for Phases 1-3 is a **single `wasm32` module us
   - Reference types (for carefully bounded host interop)
   - Tail calls
   - Exception handling (for try/catch)
-  - Threads (for SharedArrayBuffer, Atomics)
+  - Threads (later compatibility only, for the separate `--wasm-threads` runtime profile used by `SharedArrayBuffer` / `Atomics`)
   - SIMD (for typed array optimizations)
 
 The emitted `.wasm` artifact is portable at the WASM layer, but its full execution contract depends on the Kali host ABI and the feature set required by the chosen build mode. In practice, Phase 1-3 execution is standardized on wasmtime.
@@ -59,8 +59,9 @@ Strings in linear memory:
 - String interning for constants at compile time
 
 ### Number Representation
-- All JS numbers → WASM `f64` by default
-- When provably integer (through type analysis) → WASM `i32` or `i64`
+- All JS numbers use `f64` semantics by default
+- The compiler may lower hot integer-only regions to `i32` / `i64` internally when it can prove equivalence or insert overflow/semantic guards that preserve JavaScript-visible behavior
+- Typed-array element loads/stores may use narrower machine types (`i8`/`i16`/`i32`/`f32`) at the memory boundary while values re-enter normal JS semantics through the appropriate coercions
 - BigInt → runtime arbitrary-precision integer (in linear memory)
 
 ## Module Structure
@@ -75,8 +76,13 @@ WASM Module:
   Globals:   Module-level state, stack pointer
   Exports:   Entry point, public API functions
   Data:      Static data segments (strings, constants)
-  Start:     Module initialization function
+  Start:     Optional module initialization function
 ```
+
+`Start` is output-mode dependent:
+- default executable builds may emit a start/init path for module setup before invoking the entrypoint
+- `kali build --lib` omits automatic program start so the host controls instantiation and exported entry calls
+- browser bundles may route initialization through generated JS glue instead of relying solely on the raw WASM start section
 
 ## Runtime Support Functions
 
@@ -105,8 +111,8 @@ Direct binary emission without intermediate text format:
 |---------|--------|
 | `kali build foo.ts` | `foo.wasm` — Kali-hosted WASM module |
 | `kali build --bundle --api browser foo.ts` | `foo.wasm` + `foo.js` — WASM + JS glue for browsers |
-| `kali build --lib foo.ts` | `foo.wasm` — library module (exports, no start) |
-| `kali build --capi foo.ts` | `foo.wasm` + generated embedding metadata/header for use with the host-side `kali_capi` library |
+| `kali build --lib foo.ts` | `foo.wasm` — library module (exports, no automatic start) |
+| `kali build --capi foo.ts` | Phase 2 target: `foo.wasm` + generated embedding metadata/header for use with the host-side `kali_capi` library |
 
 ## Source Maps
 

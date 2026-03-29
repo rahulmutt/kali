@@ -45,16 +45,19 @@ Deno is the primary standalone-runtime API surface because it fits Kali's explic
 **Phase 1 MVP subset**
 - File APIs: `Deno.readTextFile`, `Deno.readTextFileSync`, `Deno.writeTextFile`, `Deno.writeTextFileSync`, `Deno.readFile`, `Deno.readFileSync`, `Deno.writeFile`, `Deno.writeFileSync`
 - Metadata APIs: `Deno.stat`, `Deno.statSync`, `Deno.readDir`, `Deno.readDirSync`
-- Process basics: `Deno.args`, `Deno.exit`, `Deno.pid`
-- Working directory: `Deno.cwd`, `Deno.chdir`
+- Process basics: `Deno.args`, `Deno.pid`
 - Environment access: `Deno.env.get`, `Deno.env.toObject` *(with `toObject()` exposing only variables permitted by `process.envRead` rather than the raw host environment)*
 - `Deno.permissions` as a read-only compatibility facade over Kali sandbox policy state; it reports granted/denied capabilities but does not perform interactive permission prompts
+
+Process termination (`Deno.exit`) and working-directory mutation/introspection (`Deno.cwd`, `Deno.chdir`) are deferred until a later phase. They widen the embedding/sandbox contract but are not needed for the initial package-oriented MVP.
 
 Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should expose the sync and async forms together unless there is a strong implementation reason not to. This avoids needless package-compatibility drift between `readFile` and `readFileSync`-style code paths.
 
 **Phase 3+ expansion**
 - `Deno.open`, `Deno.create`, `Deno.mkdir`, `Deno.remove`, `Deno.rename`, `Deno.lstat`
+- `Deno.cwd`, `Deno.chdir`
 - `Deno.env.set`
+- `Deno.exit`
 - `Deno.Command` (process spawning)
 - `Deno.serve` (HTTP server)
 - broader filesystem, networking, and subprocess coverage
@@ -72,7 +75,7 @@ Node compatibility is a **Phase 3 ecosystem target**, not a Phase 1 promise. The
 - `util` — utilities (promisify, inspect, etc.)
 - `url` — URL parsing
 - `assert` — assertions
-- `process` — process global subset (env, argv, exit, cwd, etc.)
+- `process` — process global subset needed by real packages first (`env`, `argv`, `pid`, selected control/query helpers); `exit` / `cwd` style process-control APIs should follow only once the policy and embedding contract for them is specified
 
 **Later compatibility expansion**
 - `os`
@@ -97,6 +100,7 @@ Browser mode is primarily a **build/check profile** in early phases, not a promi
 **Canonical early-phase rule**:
 - `kali check --api browser ...` is allowed for browser-targeted analysis
 - `kali build --bundle --api browser ...` is allowed for browser-targeted artifacts
+- `kali build --api browser ...` without `--bundle` is rejected by default in early phases to keep browser mode tied to a real browser-host deployment path
 - `kali run --api browser ...` is rejected by default until a later runtime profile explicitly supports it
 
 **Note**: The Phase 1 baseline Web Platform APIs are always available regardless of `--api` mode. The `--api` flag controls which *additional* platform-specific APIs are loaded, and unsupported command/surface combinations in early phases should produce the canonical feature-maturity diagnostic described in [specs/15-errors.md](15-errors.md) rather than silently falling back.
@@ -106,7 +110,7 @@ Browser mode is primarily a **build/check profile** in early phases, not a promi
 This section turns the broad API story into a small implementation checklist so runtime, CLI, and testing do not drift:
 
 - **Web baseline must work end-to-end**: `console`, timers, `queueMicrotask`, `fetch`, `URL`, `TextEncoder`/`TextDecoder`, `AbortController`, `structuredClone`, `performance.now()`, and event primitives are available in `run` and covered by integration tests.
-- **Deno baseline must work end-to-end**: file read/write, metadata/read-dir, args/process basics, cwd/chdir, and read-only env access all execute through the host ABI and obey sandbox policy.
+- **Deno baseline must work end-to-end**: file read/write, metadata/read-dir, args/pid basics, and read-only env access all execute through the host ABI and obey sandbox policy.
 - **Every Phase 1 host call is policy-aware**: the runtime may not expose an unchecked host backdoor just because the API itself is part of the MVP.
 - **Node mode is not partially implied**: `--api node` remains phase-gated until its documented subset is implemented; package compatibility must not depend on undocumented fallback behavior.
 - **Browser mode stays profile-oriented**: standalone runtime does not pretend to provide DOM APIs; browser-specific behavior comes from bundle/glue output and the real browser host.
@@ -156,7 +160,7 @@ Implemented in `kali_runtime` (compiled to WASM), in phases:
 - `Reflect` subset required by transpiled/bundled code
 
 **Later compatibility phases**
-- `SharedArrayBuffer` (when WASM threads are enabled)
+- `SharedArrayBuffer` (later compatibility, only when the separate WASM-threaded runtime profile is implemented and enabled)
 - `WeakMap`, `WeakSet` (only once weak-reference semantics are specified well enough to preserve behavior)
 - `FinalizationRegistry` (only once weak/finalization semantics can be preserved without undermining the no-tracing-GC design)
 - `Proxy`

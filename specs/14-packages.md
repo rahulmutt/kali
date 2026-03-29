@@ -19,9 +19,13 @@ This keeps the early ecosystem promise realistic: utility libraries, validators,
 ### Package Resolution
 Follow Node.js module resolution algorithm, adapted for Kali:
 1. Apply import-map rewrites from `kali.json#imports` before package resolution
-2. Check `node_modules/<package>/package.json` for `exports`, `main`, `module`, and `types` fields
-3. Support `exports` map conditions: `import`, `require`, `default`, and `types` in Phase 1; `browser` condition handling becomes relevant with the browser bundle profile and broader ecosystem support
-4. Resolve relative imports with extension probing (`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`)
+2. Check `node_modules/<package>/package.json` for `exports`, `main`, `module`, `browser`, and `types` fields
+3. Choose `exports` conditions by command/profile instead of one fixed global order:
+   - default Phase 1 standalone order: `types` (for type lookup), then `import` or `require` as appropriate, then `default`
+   - browser bundle/profile order: `types`, `browser`, `import`, `default`
+   - later Node-profile order may add `node` once the broader `--api node` surface is implemented
+4. When `--api browser --bundle` is active, support the classic `package.json#browser` replacement/false-mapping behavior for statically resolvable entries so browser-targeted npm packages do not require ad hoc per-package patches
+5. Resolve relative imports with extension probing (`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`)
 
 To keep configuration simple, `kali.json#imports` is the canonical aliasing mechanism in early phases. A separate TypeScript-style `paths`/`baseUrl` compatibility layer may be added later if ecosystem pressure justifies it, but it is not part of the MVP contract.
 
@@ -34,8 +38,9 @@ kali install https://deno.land/std/path/mod.ts  # URL import (cached locally)
 ```
 
 Installation is **fetch-and-link by default**, not "execute package scripts" by default. To preserve sandbox-first behavior:
-- npm lifecycle scripts (`preinstall`, `install`, `postinstall`) are not executed unless the user explicitly opts in
-- packages requiring native build steps are rejected as unsupported
+- npm lifecycle scripts (`preinstall`, `install`, `postinstall`) are not executed unless the user explicitly opts in with `kali install --allow-scripts`
+- `--allow-scripts` applies only to that install invocation; it is not an ambient project default
+- packages requiring native build steps are rejected as unsupported even when lifecycle scripts are enabled
 - package metadata and tarballs can still be analyzed before linking
 
 Uses standard `node_modules/` layout by default for maximum ecosystem compatibility. Kali-specific caches live under `.kali/` instead of inventing a second package tree:
@@ -99,6 +104,7 @@ Support import maps in `kali.json`:
 
 ## CommonJS Compatibility
 
+Baseline CommonJS support is part of the Phase 1 package story, but it is intentionally narrow and compile-time-oriented:
 - CJS modules (`require`, `module.exports`) are transformed to ESM at compile time
 - `require()` calls with static string arguments → ESM import
 - Dynamic `require()` is **not** part of the Phase 1-3 linked-artifact model; it is rejected by default, and any later compatibility path must be documented in [specs/19-feature-maturity.md](19-feature-maturity.md) rather than invented ad hoc here

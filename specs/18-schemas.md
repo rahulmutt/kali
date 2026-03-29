@@ -119,15 +119,125 @@ Required fields:
 - `severity: "error" | "warning" | "info" | "hint"`
 - `code: string`
 - `message: string`
-- `file: string`
 - `span: SourceSpan`
 - `labels: Label[]`
 
 ### Optional fields
+- `file: string` *(convenience mirror of `span.file` for shallow consumers)*
 - `help: string`
 - `related: RelatedInfo[]`
 - `fix: SuggestedFix`
 - `notes: string[]`
+
+## Reusable Supporting Types
+
+These types are referenced by the envelope and diagnostic schemas above and should not be redefined ad hoc elsewhere.
+
+### `Label`
+
+```json
+{
+  "span": {
+    "file": "src/main.ts",
+    "line": 5,
+    "column": 10,
+    "endLine": 5,
+    "endColumn": 17
+  },
+  "message": "expected 'number', found 'string'",
+  "style": "primary"
+}
+```
+
+Required fields:
+- `span: SourceSpan`
+- `message: string`
+- `style: "primary" | "secondary"`
+
+### `RelatedInfo`
+
+```json
+{
+  "message": "variable declared here",
+  "span": {
+    "file": "src/main.ts",
+    "line": 2,
+    "column": 7,
+    "endLine": 2,
+    "endColumn": 8
+  }
+}
+```
+
+Required fields:
+- `message: string`
+- `span: SourceSpan`
+
+### `TextEdit`
+
+```json
+{
+  "file": "src/main.ts",
+  "start": { "file": "src/main.ts", "line": 5, "column": 10 },
+  "end": { "file": "src/main.ts", "line": 5, "column": 17 },
+  "newText": "42"
+}
+```
+
+Required fields:
+- `file: string`
+- `start: SourceLocation`
+- `end: SourceLocation`
+- `newText: string`
+
+Semantics:
+- `start` is inclusive and `end` is exclusive
+- `start.file` and `end.file` must match `file`
+- edits inside one `SuggestedFix` must be non-overlapping
+
+### `SuggestedFix`
+
+```json
+{
+  "message": "Replace the string literal with a number",
+  "edits": []
+}
+```
+
+Required fields:
+- `message: string`
+- `edits: TextEdit[]`
+
+### `PhaseTiming`
+
+```json
+{
+  "phase": "typecheck",
+  "milliseconds": 12.4
+}
+```
+
+Required fields:
+- `phase: string`
+- `milliseconds: number`
+
+### `Artifact`
+
+```json
+{
+  "path": "main.wasm",
+  "kind": "wasm-module",
+  "bytes": 145408
+}
+```
+
+Required fields:
+- `path: string`
+- `kind: string`
+- `bytes: number`
+
+Optional fields:
+- `role: string` — command-specific role such as `primary`, `glue`, or `debug`
 
 ## Effect Report Schema
 
@@ -162,12 +272,63 @@ Produced by `kali effects`.
 - `dynamicEffects: boolean`
 - `usesEval: boolean`
 
+### `EffectOccurrence`
+```json
+{
+  "kind": "FileSystem.Read",
+  "locations": [
+    {
+      "file": "program.ts",
+      "line": 2,
+      "column": 18,
+      "function": "processFile"
+    }
+  ]
+}
+```
+
+Required fields:
+- `kind: string`
+- `locations: EffectLocation[]`
+
+### `EffectLocation`
+Uses the `SourceLocation` shape plus optional effect-specific context.
+
+Optional fields:
+- `function: string` — nearest enclosing function or method name when available
+
 ### Semantics
 - `dynamicEffects: true` means the report is conservative but incomplete
 - `usesEval: true` implies `dynamicEffects: true`
-- Effect `kind` names must match the canonical names derived from the type system and sandbox policy model
+- Effect `kind` names must match the canonical built-in names derived from the type system and sandbox policy model
+- Phase 1-2 effect reports are limited to built-in sandbox-relevant effect kinds; later experimental user-defined effects, if exposed, should use a reserved `Custom.<name>` namespace rather than overloading built-in policy keys
 - Effect locations use `SourceLocation` fields and the same 1-based `line` / `column` convention as diagnostics so tools do not need separate coordinate systems for errors vs effect reports
 - If a consumer needs a full range instead of a point location, it should use the same `SourceSpan` shape rather than inventing a command-specific span format
+
+## Canonical Built-in Effect Names
+
+To keep the checker, CLI, effect reports, and sandbox policy model aligned, built-in effect names use one canonical dotted namespace.
+
+| Effect report / checker name | Policy key |
+|---|---|
+| `FileSystem.Read` | `effects.fileSystem.read` |
+| `FileSystem.Write` | `effects.fileSystem.write` |
+| `Network.Fetch` | `effects.network.fetch` |
+| `Network.Connect` | `effects.network.connect` |
+| `Network.Listen` | `effects.network.listen` |
+| `Process.Spawn` | `effects.process.spawn` |
+| `Process.EnvRead` | `effects.process.envRead` |
+| `Process.EnvWrite` | `effects.process.envWrite` |
+| `Timer.Schedule` | `effects.timer.schedule` |
+| `Random.GetBytes` | `effects.random` |
+| `Console.Write` | `effects.console` |
+| `Eval` | `effects.eval` |
+
+Rules:
+- Phase 1-2 stable machine-readable contracts are limited to these built-in names.
+- Later experimental user-defined effects, if exposed, must use the reserved `Custom.<name>` namespace.
+- Coarse policy keys may match a namespace prefix. In schema v1, `effects.random` matches any `Random.*` built-in effect, and `effects.console` matches any `Console.*` built-in effect.
+- New built-in effect names must be added here before they appear in diagnostics, effect reports, or policy examples elsewhere in the spec set.
 
 ## Sandbox Policy Schema
 
@@ -215,19 +376,13 @@ Canonical filename: `kali.policy.json`
 - Policy booleans mean fully allowed or fully denied for that capability
 - Pattern-bearing fields (`read`, `fetch`) are allowlists
 - Numeric limit fields constrain otherwise-allowed capabilities; for example `timer.schedule: true` with `maxActiveTimers: 32` allows timers but caps concurrency
-- Policy keys map to canonical effect kinds as follows: `fileSystem.read` ↔ `FileSystem.Read`, `fileSystem.write` ↔ `FileSystem.Write`, `network.fetch` ↔ `Network.Fetch`, `network.connect` ↔ `Network.Connect`, `network.listen` ↔ `Network.Listen`, `process.spawn` ↔ `Process.Spawn`, `process.envRead` ↔ `Process.EnvRead`, `process.envWrite` ↔ `Process.EnvWrite`, `timer.schedule` ↔ `Timer.Schedule`, `random` ↔ `Random.*`, `console` ↔ `Console.*`, `eval` ↔ `Eval`
+- Policy keys use the canonical built-in effect naming table above rather than redefining a separate namespace here
+- In schema v1, `random` and `console` are intentionally coarse-grained booleans. Any built-in effect report entry whose kind starts with `Random.` matches `random`, and any kind starting with `Console.` matches `console`.
+- Later experimental user-defined effects are outside the policy schema unless/until a future spec revision adds an explicit extension point
 
 ## Artifact Schema
 
-For build-like commands.
-
-```json
-{
-  "path": "main.wasm",
-  "kind": "wasm-module",
-  "bytes": 145408
-}
-```
+For build-like commands. This is the canonical meaning of the reusable `Artifact` type above.
 
 Common `kind` values:
 - `wasm-module`
@@ -239,3 +394,5 @@ Common `kind` values:
 ## Simplification Rule
 
 If a schema needs more than one example across the spec set, the canonical structure belongs in this file and other specs should link here instead of duplicating the full object shape.
+
+Additional simplification rule for diagnostics: `span` is the canonical source-range field. Any top-level `file` mirror is optional convenience data and must not diverge from `span.file`.

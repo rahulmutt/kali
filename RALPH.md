@@ -2,53 +2,83 @@
 
 - Iteration: 10 of 10
 - Prompt file: /workspace/prompts/iterate-spec.md
-- Updated: 2026-03-29T13:41:57.630Z
+- Updated: 2026-03-29T14:12:56.943Z
 
 ## Last emitted message
 
 ```text
-Updated the specs to tighten phase boundaries and remove drift.
+I reviewed `BOOTSTRAP.md` against the current spec set and applied another cleanup pass.
 
-Changed:
+Updated files:
 - `SPEC.md`
-- `specs/07-specialization.md`
-- `specs/09-sandboxing.md`
-- `specs/12-cli.md`
-- `specs/14-packages.md`
+- `specs/04-type-system.md`
+- `specs/18-schemas.md`
 - `specs/19-feature-maturity.md`
 
-What I fixed
-- Removed the ad hoc `--compat dynamic-require` reference from `specs/14-packages.md`.
-  - It was not defined anywhere canonically.
-  - Now future compatibility paths must be defined in `specs/19-feature-maturity.md` first.
-- Fixed an IR-phase inconsistency in `specs/07-specialization.md`.
-  - It previously assumed specialization always lowers through MIR.
-  - Now it matches the architecture spec: Phase 1 may lower directly to LIR.
-- Added `Sandbox validator functions` to the canonical maturity matrix in `specs/19-feature-maturity.md`.
-  - This was described in sandboxing, but not centrally tracked.
-- Tightened `specs/09-sandboxing.md` to make the “declarative policy first” rule explicit and aligned with the maturity matrix.
-- Gave `kali package-audit` an explicit “later tooling feature” status in:
-  - `specs/12-cli.md`
-  - `specs/14-packages.md`
-  This avoids implying it is part of the early core delivery.
-- Strengthened `SPEC.md` with two simplifying rules:
-  - declarative sandbox policies first
-  - no undocumented compatibility flags
+What I changed
 
-Net effect
-- fewer undocumented feature switches
-- clearer Phase 1 vs Phase 2 vs later behavior
-- better single-source-of-truth around feature gating
-- slightly simpler package/runtime/sandbox story
+- `SPEC.md`
+  - Added a canonical **Phase 1 non-goals** section.
+  - Tightened wording around:
+    - no full Node parity in Phase 1
+    - no browser/DOM runtime in Phase 1
+    - no dynamic-code compatibility release in Phase 1
+    - no stable public embedding ABI in Phase 1
+    - no full static effect proof system in Phase 1
+  - This reduces drift across other specs.
 
-Main inconsistencies found
-1. `dynamic require` referenced a flag that didn’t exist canonically.
-2. specialization flow assumed MIR even though Phase 1 permits HIR → LIR.
-3. sandbox validator functions existed conceptually but had no maturity entry.
-4. `package-audit` appeared as a command without a clear delivery status.
+- `specs/04-type-system.md`
+  - Added a canonical **JavaScript fallback contract**.
+  - Clarified the ordered fallback ladder:
+    - precise static type + stable layout
+    - small unions
+    - `unknown` at boundaries
+    - dynamic/tagged values
+    - dynamic object layout
+    - reject unsupported semantics rather than guessing
+  - Also made explicit that Kali should not invent fresh `any` just to avoid analysis.
 
-If you want, I can do one more pass and normalize the remaining specs around a few more axes:
-- ensure every CLI command with phased behavior is listed in `19-feature-maturity.md`
-- add a small “non-goals for Phase 1” section to `SPEC.md`
-- add a config/schema section for `kali.json` similar to the sandbox policy schema so CLI/config docs don’t drift later
+- `specs/18-schemas.md`
+  - Added a canonical **built-in effect naming table**.
+  - Centralized mappings like:
+    - `FileSystem.Read`
+    - `Network.Fetch`
+    - `Process.EnvRead`
+    - `Timer.Schedule`
+    - `Random.GetBytes`
+    - `Console.Write`
+    - `Eval`
+  - Simplified sandbox-policy wording so it points to this table instead of redefining names inline.
+
+- `specs/19-feature-maturity.md`
+  - Added **phase exit criteria** for Phases 1–4.
+  - This makes the maturity doc actionable instead of only descriptive.
+
+Main improvements from this pass
+
+1. Better simplification
+   - Phase 1 is now more clearly bounded.
+   - Fewer places need to repeat caveats.
+
+2. Better consistency
+   - Effect naming is now centralized.
+   - JS fallback behavior is now explicit instead of implied.
+
+3. Better execution guidance
+   - Phase labels now have exit checklists.
+   - Easier to use the spec set as a delivery roadmap.
+
+Remaining suggestion
+
+One additional improvement I’d still consider:
+- add a short “canonical terminology” glossary somewhere near `SPEC.md` or `specs/01-architecture.md`
+  - e.g. define:
+    - “dynamic/tagged value”
+    - “dynamic object layout”
+    - “linked artifact”
+    - “profile”
+    - “compatibility path”
+  - That would reduce subtle wording drift later.
+
+If you want, I can do one more pass focused purely on cross-file terminology cleanup and deduplicating repeated phase language.
 ```

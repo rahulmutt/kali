@@ -4,19 +4,19 @@
 
 ```
 Source (.ts/.tsx/.js/.jsx/.mjs)
-  → Lexer              (specs/02-lexer-parser.md)
-  → Parser             (specs/02-lexer-parser.md)
-  → AST                (specs/03-ast.md)
-  → Type Checker       (specs/04-type-system.md)
+  → Lexer              (02-lexer-parser.md)
+  → Parser             (02-lexer-parser.md)
+  → AST                (03-ast.md)
+  → Type Checker       (04-type-system.md)
     ├─ Name Resolution (symbol table, scopes)
     ├─ Type Inference  (HM unification + flow narrowing)
-    └─ Effect Inference (specs/09-sandboxing.md)
+    └─ Effect Inference (09-sandboxing.md)
   → Typed AST
-  → HIR                (specs/05-ir.md) — High-level IR, desugared
-  → MIR                (specs/05-ir.md) — Mid-level IR, memory layouts + ownership *(Phase 2+; Phase 1 may lower HIR → LIR directly)*
-  → LIR                (specs/05-ir.md) — Low-level IR, WASM-ready
-  → WASM Module        (specs/08-wasm-codegen.md)
-  → Execution          (specs/10-runtime.md)
+  → HIR                (05-ir.md) — High-level IR, desugared
+  → MIR                (05-ir.md) — Mid-level IR, memory layouts + ownership *(Phase 2+; Phase 1 may lower HIR → LIR directly)*
+  → LIR                (05-ir.md) — Low-level IR, WASM-ready
+  → WASM Module        (08-wasm-codegen.md)
+  → Execution          (10-runtime.md)
 ```
 
 ## Crate Structure
@@ -55,9 +55,9 @@ kali/
 
 The architecture is intentionally staged so the compiler can become useful early. The phase names and scope here are canonicalized to match [SPEC.md](../SPEC.md):
 
-1. **Phase 1 — Core compiler**: lexer, parser, AST, name resolution, baseline TypeScript checking, HIR/LIR, simple WASM emission, a minimal Web/Deno host surface, the core CLI workflow, and a library-first internal architecture so the CLI is built on reusable compiler/runtime crates.
+1. **Phase 1 — Core compiler**: lexer, parser, AST, name resolution, baseline TypeScript checking, HIR/LIR, simple WASM emission, a minimal Web/Deno host surface, browser-targeted `check --api browser` and `build --bundle --api browser`, the core CLI workflow, and a library-first internal architecture so the CLI is built on reusable compiler/runtime crates.
 2. **Phase 2 — Ownership + effects**: MIR, ownership/escape analysis, deterministic memory management, effect summaries, compile-time sandbox policy validation, and the first stable embedding surfaces.
-3. **Phase 3 — Specialization + ecosystem**: specialization, advanced layout selection, npm/CJS interoperability, broader Node compatibility, browser bundling glue, incremental compilation, and stronger optimization.
+3. **Phase 3 — Specialization + ecosystem**: specialization, advanced layout selection, broader npm package compatibility beyond the Phase 1 CJS/literal-`require` baseline, broader Node compatibility, broader browser packaging/interoperability beyond the Phase 1 bundle baseline, incremental compilation, and stronger optimization.
 4. **Phase 4 — Advanced compatibility**: hardest dynamic features (`eval`, `Function()`, non-literal dynamic loading), deeper API coverage, and broader formal verification.
 
 Every crate should expose a stable internal boundary even if its initial implementation is partial.

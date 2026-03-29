@@ -19,18 +19,18 @@ These flags are shared across the CLI, but some apply only to specific command f
 | `--quiet` | all commands | Suppress all non-error output |
 | `--max-errors N` | diagnostic-producing commands | Cap reported errors (default: 50) |
 | `--color auto\|always\|never` | text-output commands | Color output control |
-| `--api deno\|node\|browser` | compile/check/run commands | Select host API surface; unsupported surfaces for the current command/profile must error explicitly |
-| `--compat <feature[,feature...]>` | compile/check/run commands | Enable documented compatibility features such as `eval` only when that feature is implemented for the selected phase/profile |
-| `--fast` | compile-producing commands | Fastest compile time, minimal optimization (default build mode) |
-| `--release` | compile-producing commands | Standard optimization profile |
-| `--release-advanced` | compile-producing commands | Aggressive optimization profile |
+| `--api deno\|node\|browser` | commands that compile or execute code | Select host API surface; unsupported surfaces for the current command/profile must error explicitly (for example, early browser builds require `--bundle`) |
+| `--compat <feature[,feature...]>` | commands that compile or execute code | Enable documented compatibility features such as `eval` only when that feature is implemented for the selected phase/profile |
+| `--fast` | `build`, `run`, `test` | Fastest compile time, minimal optimization (default build mode) |
+| `--release` | `build`, `run`, `test` | Standard optimization profile |
+| `--release-advanced` | `build`, `run`, `test` | Aggressive optimization profile |
 | `--sandbox <policy>` | `run`, `test`, `check`, `build` | Attach and validate `kali.policy.json`; in Phase 1 this enforces at runtime for `run`/`test` and validates policy/config for `check`/`build` |
 | `--max-memory <size>` | execution commands | Override/append memory limits for the current invocation |
 | `--max-cpu <duration>` | execution commands | Override/append CPU limits for the current invocation |
 | `--max-threads N` | execution commands | Override/append thread limits for the current invocation |
-| `--wasm-threads` | compile/run/test commands | Opt into the threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; unsupported targets or phases must fail with `E5006` |
+| `--wasm-threads` | compile/run/test commands | Opt into the later threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; before that profile exists, or on unsupported targets, the command must fail with `E5006` |
 
-`--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `buildMode` field instead of parallel booleans.
+`--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step.
 
 ## Commands
 
@@ -53,9 +53,9 @@ When a command or flag is rejected due to phase/profile maturity, the CLI should
 
 Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
-- `--api browser` is valid early for `check` and `build --bundle`; it is rejected for standalone `run` until a later runtime profile explicitly supports it.
+- `--api browser` is valid early for `check` and `build --bundle`; it is rejected for standalone `run`, and `build --api browser` without `--bundle` is also rejected, until a later runtime profile/output contract explicitly supports those modes.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
-- `--wasm-threads` selects a different runtime profile rather than a small optimization toggle. If the selected target/engine/profile cannot honor it, the command must reject it explicitly instead of silently dropping thread support.
+- `--wasm-threads` selects a different runtime profile rather than a small optimization toggle. Until that threaded profile exists, the flag is rejected. After it exists, if the selected target/engine/profile cannot honor it, the command must still reject it explicitly instead of silently dropping thread support.
 
 Sandbox flag behavior is intentionally phase-gated:
 - `kali run --sandbox ...` is a Phase 1 feature for runtime policy enforcement.
@@ -64,13 +64,16 @@ Sandbox flag behavior is intentionally phase-gated:
 
 ### `kali build <file>`
 AOT compile to a WASM module.
+
+`--capi` and other public embedding-oriented outputs follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): the compiler is library-first internally in Phase 1, but stable public embedding artifacts are a Phase 2 target.
 ```bash
 kali build main.ts                         # → main.wasm (--fast mode, default)
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # WASM + JS glue for browsers
+kali build --api browser main.ts           # Rejected in early phases; browser build mode requires --bundle
 kali build --lib lib.ts                    # Library module (exports, no start)
-kali build --capi lib.ts                   # foo.wasm + generated kali.h/metadata for host-side embedding via kali_capi (see specs/13-embedding.md)
+kali build --capi lib.ts                   # Phase 2 target: foo.wasm + generated foo.exports.h/metadata for host-side embedding via kali_capi (see specs/13-embedding.md)
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
@@ -95,7 +98,7 @@ kali effects main.ts                       # Compact effect report JSON to stdou
 kali effects --pretty main.ts              # Pretty-printed effect report JSON
 kali effects --output json main.ts         # Command envelope + effect payload
 ```
-By default, `kali effects` prints the effect report payload directly because JSON is the primary output of the command. With `--output json`, it is wrapped in the standard command envelope described below. See [specs/09-sandboxing.md](09-sandboxing.md) for the payload schema.
+By default, `kali effects` prints the effect report payload directly because JSON is the primary output of the command. With `--output json`, it is wrapped in the standard command envelope described below. See [specs/18-schemas.md](18-schemas.md) for the canonical payload schema.
 
 ### `kali fmt [files...]`
 Format source files (implemented in `kali_fmt`).
@@ -130,10 +133,13 @@ kali init --lib                            # Library project template
 
 ### `kali install [package]`
 Install npm/JSR packages.
+
+Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that require native addons remain unsupported even when scripts are enabled.
 ```bash
 kali install lodash                        # Install from npm
 kali install                               # Install all dependencies from kali.json
 kali install --dev vitest                  # Dev dependency
+kali install --allow-scripts esbuild       # Opt into lifecycle scripts for this install only
 kali install https://deno.land/std/path/mod.ts  # URL import (cached)
 ```
 
@@ -157,10 +163,9 @@ kali package-audit lodash                  # Audit specific package
 ## Output Design
 
 ### Success Output (Default)
-Minimal — one line or nothing. For commands intended for automation, prefer either no success output or a single deterministic line. Human-friendly decoration belongs behind `--verbose`, not in the default contract:
+Minimal — one line or nothing. For commands intended for automation, prefer no success output when there is no artifact or program stdout to report; otherwise print a single deterministic line. Human-friendly decoration belongs behind `--verbose`, not in the default contract:
 ```
 $ kali check main.ts
-No errors
 
 $ kali build main.ts
 main.wasm 142KB 23ms
@@ -230,13 +235,21 @@ Exception: `kali effects` already emits JSON as its native output, so `--output 
 
 ## Exit Codes
 
+Interpretation rule:
+- compile/check/build diagnostics, including `E5006` feature gating and Phase 2+ compile-time sandbox/effect violations, exit with **1**
+- runtime sandbox enforcement failures exit with **3**
+- runtime resource exhaustion/fuel/memory-limit failures exit with **4**
+- invalid CLI arguments, invalid config, or invalid policy schema/ranges exit with **5**
+
+This keeps exit codes simple: command-time failures are separated from runtime enforcement failures.
+
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Compilation error (type error, syntax error) |
+| 1 | Compilation/check error (syntax, type, name resolution, build-time sandbox/effect violation, unsupported feature reported during compile/check) |
 | 2 | Runtime error (uncaught exception) |
-| 3 | Sandbox violation |
-| 4 | Resource limit exceeded |
-| 5 | Configuration error |
+| 3 | Runtime sandbox violation |
+| 4 | Runtime resource limit exceeded |
+| 5 | Configuration / CLI usage / invalid policy file error |
 | 126 | Permission denied |
 | 127 | File not found |

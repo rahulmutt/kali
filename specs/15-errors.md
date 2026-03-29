@@ -26,6 +26,7 @@ Diagnostics are emitted inside the CLI's versioned command envelope. The canonic
 Terminology note:
 - the compiler's internal `Span` is a byte-offset range used by the parser/AST/IR
 - the JSON diagnostic `span` is a `SourceSpan` with `file`/`line`/`column` fields derived from that internal span
+- if a JSON diagnostic also includes a top-level `file`, it is only a convenience mirror of `span.file`, not a second canonical location field
 
 ## Error Code Ranges
 
@@ -102,6 +103,8 @@ Use `E5006` for cases such as:
 - dynamic `require()` in early phases
 - browser-only DOM assumptions in the standalone runtime
 - `run --api browser` in early phases where browser support exists only as a check/build profile
+- `build --api browser` without `--bundle` in early phases where browser support exists only as a bundle/check profile
+- `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - any parse-supported construct that is intentionally not semantically enabled in the current phase/profile
 
 ### Runtime Errors (E6xxx)

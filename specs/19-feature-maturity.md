@@ -12,6 +12,7 @@ If another spec needs to mention one of these features, it should link here for 
 - **Phase 4 compatibility** — supported only in the advanced compatibility phase
 - **Later compatibility** — intentionally deferred until semantics and cost are justified
 - **Opt-in only** — supported only behind an explicit flag or config
+- **Later compatibility (opt-in only)** — deferred until a later phase and, even then, enabled only behind an explicit runtime/profile switch
 - **Rejected by default** — parser may accept the syntax, but compile/run should fail unless the documented compatibility switch is enabled in a phase that actually implements the feature
 
 ## Canonical Matrix
@@ -19,27 +20,33 @@ If another spec needs to mention one of these features, it should link here for 
 | Feature | Status | Rationale |
 |---|---|---|
 | Static ESM `import` / `export` | Phase 1 MVP | Core module system |
-| CommonJS module lowering | Phase 1 MVP | Needed for broad npm package compatibility |
+| First-class JavaScript compilation with inference | Phase 1 MVP | Required so `.js` projects are not forced to migrate to TypeScript before benefiting from Kali |
+| CommonJS module lowering | Phase 1 MVP | Needed for early npm package compatibility within the linked-artifact model |
 | `require("literal")` | Phase 1 MVP | Rewritten during compilation when statically resolvable |
 | Dynamic `require()` | Rejected by default | Conflicts with the early single-linked-artifact model |
+| Broad npm compatibility for packages that expect more Node built-ins | Phase 3 target | Depends on broader `--api node` support beyond the Phase 1 package baseline |
 | Literal-string `import()` | Phase 3 target | Can be lowered to the already-linked graph without runtime WASM module linking |
 | Non-literal `import(expr)` | Later compatibility | Requires a dynamic host-mediated path and conservative effect handling |
 | `eval` | Phase 4 compatibility | Parsed and effect-tracked earlier, but full runtime support is deferred; compatibility path is `--compat eval` when implemented |
 | `Function()` constructor | Phase 4 compatibility | Same status as `eval` and uses the same compatibility switch |
 | Built-in effect inference / `kali effects` | Phase 2 target | Required for sandbox-first analysis and policy checking |
 | Explicit effect annotations / `pure` | Phase 2 target | Initially scoped to the built-in sandbox capability model |
+| User-defined/custom effect kinds in stable reports or policy checking | Later compatibility | Keep Phase 1-2 machine contracts limited to built-in sandbox-relevant effects |
 | Algebraic effect declarations / handlers | Later compatibility | Experimental and must not block delivery of the core capability/effect system |
 | Sandbox validator functions | Later compatibility | Initial policies stay declarative; host-registered pure validators may be added later for embedding scenarios |
 | `Proxy` | Later compatibility | High semantic cost and optimization barriers |
 | `WeakMap` / `WeakSet` | Later compatibility | Deferred until weak-reference semantics fit the no-tracing-GC design |
 | `FinalizationRegistry` | Later compatibility | Same reason as weak collections |
-| `SharedArrayBuffer` / `Atomics` | Opt-in only | Requires WASM threads and a different runtime profile |
-| `--wasm-threads` | Opt-in only | Enables the threaded runtime profile; must fail explicitly on unsupported targets/engines |
+| `SharedArrayBuffer` / `Atomics` | Later compatibility (opt-in only) | Requires a separate threaded runtime profile and should not be implied by the Phase 1 single-threaded runtime |
+| `--wasm-threads` | Later compatibility (opt-in only) | Enables the threaded runtime profile once that profile exists; must fail explicitly before then and on unsupported targets/engines |
 | `--api browser` for `check` / `build --bundle` | Phase 1 MVP | Browser-targeted analysis/build without claiming DOM support in the standalone runtime |
+| `package.json#browser` / `exports` condition `browser` in browser bundle mode | Phase 1 MVP | Needed for practical browser-targeted npm compatibility without widening standalone runtime claims |
 | `run --api browser` | Rejected by default | Early standalone runtime does not emulate a browser host |
-| npm lifecycle scripts | Opt-in only | Disabled by default for sandbox-first behavior |
+| npm lifecycle scripts (`kali install --allow-scripts`) | Opt-in only | Disabled by default for sandbox-first behavior; enabling scripts does not make native addons supported |
 | Native addons / `node-gyp` packages | Rejected by default | Violates the pure-Rust/no-native-addon constraints |
 | npm packages that require unsupported Node core modules | Phase 3 target | Depends on broader `--api node` compatibility work |
+| Stable public Rust embedding API | Phase 2 target | Phase 1 stays library-first internally, but the public embedding contract is stabilized later |
+| Stable public C ABI / `kali build --capi` flow | Phase 2 target | Depends on the same public embedding stabilization work |
 | DOM APIs in standalone runtime | Rejected by default | Kali does not embed a browser engine |
 
 ## Interpretation Rules
@@ -62,10 +69,44 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali run --api browser main.ts` | Rejected by default | Reject with `E5006`; browser is a check/build profile first |
 | `kali check --api browser main.ts` | Phase 1 MVP | Supported browser-targeted analysis/profile |
 | `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`.wasm` + JS glue) |
+| `kali build --api browser main.ts` | Rejected by default | In early phases browser mode is a bundle/check profile, not a standalone non-bundled artifact mode |
+| `kali build --lib lib.ts` | Phase 1 MVP | Produce one linked library-style WASM artifact without automatic program start |
+| `kali build --capi lib.ts` | Phase 2 target | Public embedding artifact generation should stay gated until the embedding contract is stable |
 | `kali effects main.ts` | Phase 2 target | Before then: unavailable or explicitly experimental, never a partial bespoke report |
 | `kali package-effects lodash` | Phase 2 target | Depends on effect-report pipeline; reject/mark experimental before then |
+| `kali install --allow-scripts <pkg>` | Opt-in only | Explicit one-shot escape hatch for packages that need lifecycle scripts; still reject native addons / `node-gyp` |
 | `--compat eval` | Phase 4 compatibility | Before runtime support exists, reject with `E5006` rather than parsing and silently ignoring the flag |
-| `--wasm-threads` | Opt-in only | Supported only with the threaded runtime profile; reject explicitly when unavailable |
+| `--wasm-threads` | Later compatibility (opt-in only) | Reject with `E5006` until the threaded runtime profile exists; after that, still reject explicitly when unavailable on the selected target/engine |
+
+## Phase Exit Criteria
+
+These checklists keep the phase labels operational rather than purely descriptive.
+
+### Phase 1 exit criteria
+- One linked-artifact compile/run pipeline works end-to-end for TS and JS inputs.
+- `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
+- Browser-targeted `check --api browser` and `build --bundle --api browser` work without implying DOM runtime support.
+- Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
+- Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
+- Package support works for the documented pure JS/TS, statically linkable subset.
+
+### Phase 2 exit criteria
+- MIR is the canonical ownership/layout IR.
+- `kali effects` emits the documented stable JSON report.
+- Explicit effect annotations and `pure` checking are enabled for the built-in capability model.
+- Compile/check-time effect-vs-policy validation works against the declarative policy schema.
+- Stable public Rust embedding and C ABI surfaces are documented and shipped.
+
+### Phase 3 exit criteria
+- Specialization materially improves generated code for common generic/layout-heavy programs.
+- Incremental compilation exists for realistic multi-module projects.
+- Node compatibility covers a meaningful documented subset rather than isolated package anecdotes.
+- Browser packaging/interoperability improves beyond the Phase 1 bundle baseline.
+
+### Phase 4 exit criteria
+- Dynamic-compatibility paths such as `eval` are implemented behind explicit compatibility switches.
+- Advanced compatibility features preserve the sandbox/effect model instead of bypassing it.
+- Proof coverage expands for the most security- and correctness-critical subsystems.
 
 ## Features Most Likely to Appear in Diagnostics
 
@@ -77,7 +118,7 @@ The compiler should produce clear, stable diagnostics for these cases, using the
 - `Proxy` usage in unsupported runtime modes
 - weak-reference APIs before their semantics are implemented
 - `--api node` or browser-only assumptions outside the documented profile
-- `--wasm-threads` on targets/profiles that do not support the threaded runtime
+- `--wasm-threads` before the threaded runtime profile exists, or on targets/profiles that do not support it
 
 ## Canonical Early-Phase Handling
 

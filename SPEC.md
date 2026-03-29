@@ -11,8 +11,11 @@ It is implemented in Rust, avoids embedded C/C++ dependencies, emits WebAssembly
 
 ## Core Product Definition
 
+The goals in [BOOTSTRAP.md](BOOTSTRAP.md) are the **long-term product definition**. This spec set turns that vision into a phased plan so the project can ship in coherent increments without weakening the eventual target.
+
 Kali should eventually provide:
 - broad ECMAScript + TypeScript compatibility
+- first-class `.js` support with type inference strong enough to compile plain JavaScript efficiently
 - AOT compilation to WebAssembly only
 - no tracing garbage collector
 - deterministic ownership-based memory management
@@ -31,6 +34,7 @@ To keep the project implementable, the spec set makes these simplifying choices:
 - **Library-first architecture**: the CLI is built on reusable crates; stable embedding surfaces follow once the core pipeline is solid.
 - **Sandbox-first, proof-later**: runtime enforcement lands before full static effect-policy proofs.
 - **Declarative policy first**: sandbox policy files stay data-only in the core phases; programmable validators are an embedding-oriented later extension.
+- **Capability effects first**: the initial effect system is a conservative sandbox-capability summary, not a full algebraic-effect language.
 - **Parse broad, enable narrowly**: the parser can accept syntax before the runtime/checker fully supports it; unsupported semantics must be gated explicitly.
 - **Compatibility is phased**: "support everything" is the long-term goal, not the MVP promise.
 
@@ -42,11 +46,13 @@ The canonical phase matrix lives in [specs/19-feature-maturity.md](specs/19-feat
 Deliver a practically useful compiler/runtime with:
 - lexer, parser, AST
 - name resolution and baseline TypeScript-compatible checking
+- JavaScript compilation powered by the same inference pipeline, with conservative fallback to dynamic representations where needed
 - HIR and LIR
 - direct HIR → LIR lowering allowed
 - simple WASM emission
 - runtime sandbox enforcement and resource limits
 - minimal Web + Deno host surface
+- browser-targeted `check --api browser` and `build --bundle --api browser` support
 - core CLI (`run`, `build`, `check`, `fmt`, `lint`, `test`, `install`)
 - package support for pure JS/TS packages that fit the early host model
 
@@ -63,9 +69,9 @@ Add:
 Add:
 - aggressive specialization and richer layout selection
 - stronger optimizations and incremental compilation
-- broader npm/CJS compatibility
+- broader npm package compatibility beyond the Phase 1 linked-artifact/CJS baseline
 - meaningful Node API support
-- browser bundle workflow
+- broader browser packaging/interoperability beyond the Phase 1 bundle baseline
 
 ### Phase 4 — Advanced compatibility
 Add the hardest dynamic semantics:
@@ -105,6 +111,31 @@ Add the hardest dynamic semantics:
 - [18 — Schemas](specs/18-schemas.md)
 - [19 — Feature Maturity](specs/19-feature-maturity.md)
 
+## Phase-1 Simplification Rules
+
+To keep the MVP realistic, Phase 1 explicitly does **not** promise:
+- general runtime support for `eval`, `Function()`, dynamic `require()`, or non-literal `import(expr)`
+- runtime dynamic module loading beyond the statically linked module graph
+- standalone browser-host emulation or DOM APIs in `kali run`
+- full Node.js parity just because some npm packages already work
+- stable public embedding contracts yet, even though the implementation is library-first internally
+- full static sandbox proofs; runtime enforcement comes first
+
+These are deliberate staging choices, not reductions of the long-term goal.
+
+## Canonical Phase-1 Non-Goals
+
+This section is the short checklist other chapters should link to instead of restating their own partial caveats.
+
+Phase 1 is **not**:
+- a full Node compatibility release
+- a browser-engine or DOM-runtime implementation
+- a dynamic-code compatibility release (`eval`, `Function()`, dynamic module loading)
+- a full static-effect-proof system
+- a stable public embedding/ABI release
+
+If a later chapter needs to mention one of these, it should reference this section and [specs/19-feature-maturity.md](specs/19-feature-maturity.md) rather than inventing a new phase promise.
+
 ## Cross-Cutting Rules
 
 These rules override local ambiguity in individual chapters:
@@ -123,6 +154,8 @@ This top-level spec also resolves a few ambiguities across the existing chapters
 - **Phase language tightened**: embedding is library-first internally in Phase 1, with stable public embedding surfaces in Phase 2.
 - **Feature gating centralized**: use [specs/19-feature-maturity.md](specs/19-feature-maturity.md) and `E5006` instead of repeating slightly different support claims.
 - **No ad hoc compatibility flags**: if a dynamic feature needs a future opt-in path, define it once in the maturity matrix before referencing it elsewhere.
+- **Phase 1 host surface narrowed**: Deno `exit` / `cwd` / `chdir` are deferred so the initial sandbox/effect contract stays small and auditable.
+- **C embedding artifacts disambiguated**: `kali_capi` owns the stable host header `kali.h`; `kali build --capi` emits program-specific headers such as `foo.exports.h`.
 
 ## How To Use This Spec Set
 
