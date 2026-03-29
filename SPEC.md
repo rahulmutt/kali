@@ -589,6 +589,31 @@ In early phases:
 - browser-targeted commands may validate policy shape and capability compatibility
 - they must **not** imply Kali-controlled post-deployment enforcement of CPU, memory, file, process, or thread budgets inside a real browser host
 
+## Canonical Kali-Mediated Capability Subset
+
+To keep the browser-targeted sandbox/effect story precise, Kali uses one cross-spec term for the capabilities it models directly in schema v1.
+
+The **Kali-mediated capability subset** is the built-in capability family shared by:
+- stable effect reports
+- sandbox policy keys
+- runtime host enforcement where Kali controls the host
+- browser-targeted static compatibility checks
+
+In schema v1 this subset is the built-in capability namespace represented by:
+- filesystem
+- network (`fetch`, later `connect` / `listen`)
+- process (`envRead`, later `envWrite` / `spawn`)
+- timers
+- randomness
+- console
+- `eval`
+
+Interpretation rules:
+- this subset is narrower than the full browser ambient surface and narrower than “all globals visible during type checking”
+- browser-targeted analysis/build may expose real browser ambient typings such as DOM globals without implying that every DOM operation has its own stable effect key or sandbox-policy knob
+- browser-targeted policy validation and effect reporting therefore speak only about this **Kali-mediated capability subset**, not arbitrary ambient browser behavior outside the schema-v1 model
+- when later specs add a new built-in stable effect/policy capability, it joins this subset explicitly rather than by implication
+
 ## Canonical Sandbox Attachment Matrix
 
 This is the compact cross-spec meaning of attaching a sandbox policy.

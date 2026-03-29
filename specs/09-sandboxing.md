@@ -95,7 +95,7 @@ The canonical policy schema is defined in [specs/18-schemas.md](18-schemas.md). 
 Cross-spec consistency rule:
 - schema v1 string allowlists use the canonical matching rules from [specs/18-schemas.md](18-schemas.md)
 - validation, compile-time effect-vs-policy checks, and runtime enforcement must all apply those same normalization/matching rules rather than inventing subsystem-specific pattern semantics
-- schema v1 covers the built-in **Kali-mediated capability surface**, not every ambient browser/DOM API that may be visible during browser-targeted analysis/build
+- schema v1 covers only the **Kali-mediated capability subset** from [SPEC.md](../SPEC.md), not every ambient browser/DOM API that may be visible during browser-targeted analysis/build
 
 For process environment access, the policy model distinguishes `effects.process.envRead` from `effects.process.envWrite` so read-only inspection and mutation can be granted independently.
 
@@ -125,8 +125,8 @@ Availability rule for policy validation:
 - in schema v1, `effects.timer.maxTimeoutMs`, `effects.timer.maxActiveTimers`, and `effects.network.maxConnections` must be positive integers when present; `0` is invalid for those fields rather than a second disable/deny form
 - examples include `effects.fileSystem.read: true` or `effects.fileSystem.read: ["/tmp/**"]` under an effective API surface of `browser`, `effects.eval: true` before Phase 4, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
 - under an effective API surface of `browser`, this rejection applies to capabilities outside the browser-targeted Phase 1 surface, and it also applies to cross-cutting `resources.*` runtime budgets with any non-deny value because those budgets are a Kali-hosted execution contract rather than a post-deployment browser-bundle guarantee
-- the shared Web-baseline capability keys (`effects.network.fetch`, `effects.timer.*`, `effects.random`, `effects.console`) remain valid browser-targeted policy targets at the capability-model level, but that does **not** upgrade browser bundles into a full cross-cutting runtime-budget-enforcement environment
-- browser ambient DOM APIs are still outside the schema-v1 capability model even when browser typings are visible during analysis/build; policy validation must not imply there is a per-DOM-call sandbox key just because `Window`/`Document` types are available
+- the shared Web-baseline capability keys (`effects.network.fetch`, `effects.timer.*`, `effects.random`, `effects.console`) remain valid browser-targeted policy targets within the **Kali-mediated capability subset**, but that does **not** upgrade browser bundles into a full cross-cutting runtime-budget-enforcement environment
+- browser ambient DOM APIs are still outside that schema-v1 subset even when browser typings are visible during analysis/build; policy validation must not imply there is a per-DOM-call sandbox key just because `Window`/`Document` types are available
 - this avoids a misleading policy that appears more permissive than the runtime/compiler can really honor
 
 Phase-1 capability snapshot for supported surfaces:
@@ -180,9 +180,9 @@ To keep the sandbox story precise across commands and deployment targets:
 - **Browser-targeted builds** (`kali build --bundle --api browser`) may be checked against a policy at build time, but the emitted artifact running inside a real browser does not automatically inherit Kali runtime enforcement after deployment.
 
 Interpretation rule:
-- a successful browser-targeted build under `--sandbox` means the source graph is compatible with the supplied policy under Kali's static model
+- a successful browser-targeted build under `--sandbox` means the source graph is compatible with the supplied policy under Kali's static model for the **Kali-mediated capability subset**
 - it does **not** mean Kali can mediate every later browser-host capability once the bundle is deployed outside a Kali-controlled runtime
-- browser ambient APIs that are outside the schema-v1 capability model (for example most DOM object operations) are therefore analysis/build concerns, not individually policy-governed runtime calls in early phases
+- browser ambient APIs that are outside that schema-v1 subset (for example most DOM object operations) are therefore analysis/build concerns, not individually policy-governed runtime calls in early phases
 - cross-cutting `resources.*` budgets are also outside the early browser-deployment guarantee; browser-targeted `check` / `build --bundle` may validate policy shape, but they must not imply post-deployment enforcement of CPU, memory, file-handle, process, or thread budgets in the real browser host
 - specs and diagnostics should therefore avoid wording that suggests browser deployment has the same runtime-enforcement guarantee as `kali run` / `kali test`
 
@@ -239,6 +239,7 @@ Effective-limit rule:
 - Outbound socket-style connections can be disabled or gated separately (`effects.network.connect`)
 - Port/address listeners can be disabled or gated separately (`effects.network.listen`)
 - Concurrent network usage is capped by the capability-local field `effects.network.maxConnections`, not by `resources.*`; this keeps network-specific concurrency policy attached to the network capability instead of duplicating it as a second global resource knob
+- in browser-targeted contexts, that cap applies only to the modeled **Kali-mediated capability subset** network paths, not to arbitrary ambient browser networking APIs outside the schema-v1 model
 - `effects.network.maxConnections` is a positive-integer constraint when present; `0` is rejected instead of being treated as an alternate deny form
 
 ### Thread Limits (Later Threaded Profile)

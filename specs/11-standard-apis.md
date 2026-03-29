@@ -152,7 +152,7 @@ Canonical rule:
 - this does **not** mean Kali's standalone runtime implements or emulates those DOM APIs
 - when Kali emits browser-targeted artifacts, DOM/Web APIs are expected to come from the real browser host at deployment time
 - the generated browser glue is for runtime bootstrap plus Kali-mediated capability wiring; it is **not** a claim that every browser ambient API is wrapped behind a Kali-specific shim or individually mediated by the schema-v1 sandbox model
-- schema-v1 sandbox policies and stable effect reports cover Kali-mediated built-in capabilities such as filesystem, network, timers, random, console, process, and eval; they do **not** create one policy/effect key per DOM API just because DOM ambient typings are available during browser-targeted analysis/build
+- schema-v1 sandbox policies and stable effect reports cover only the **Kali-mediated capability subset** from [SPEC.md](../SPEC.md): filesystem, network, timers, random, console, process, and eval. They do **not** create one policy/effect key per DOM API just because DOM ambient typings are available during browser-targeted analysis/build
 - `--sandbox` on a browser-targeted build therefore constrains static analysis/build-time compatibility, not automatic post-deployment browser-permission enforcement by Kali itself
 - no Deno or Node globals are exposed in browser mode unless a later compatibility spec explicitly says so
 - any lightweight DOM test shim is a separate testing utility, not part of the core browser compatibility contract
@@ -224,7 +224,7 @@ User Code (WASM)
 ```
 
 Boundary clarification:
-- this browser host adapter covers guest-ABI bootstrap and the documented Kali-mediated capability paths
+- this browser host adapter covers guest-ABI bootstrap and the documented **Kali-mediated capability subset** paths
 - ordinary DOM/global browser operations still resolve against the real browser ambient environment rather than being re-modeled as one Kali host-adapter entry per browser API
 
 ### Pure vs Host APIs
