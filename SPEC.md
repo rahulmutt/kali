@@ -230,9 +230,10 @@ To keep `build`, embedding, schemas, and feature-maturity docs aligned, Kali tre
 
 Cross-spec rules:
 - these modes are mutually exclusive unless a later spec explicitly defines an implication
-- `--bundle` is the browser-targeted executable packaging mode only; it does not mean “generic multi-file output”
+- `--bundle` is the browser-targeted executable packaging mode only; in early phases it requires `--api browser` and does not mean “generic multi-file output”
 - `--lib` is the base non-browser library/export mode; `--capi` and `--component` are Phase 2 packaging layers over that same exported-library contract, not unrelated parallel semantics
 - because `--capi` and `--component` already select exported-library semantics, users should not combine them with `--lib` in early phases; these are separate artifact-mode selectors, not additive modifiers
+- `kali init --lib` changes the scaffold template only; it does not silently change the later default artifact mode of `kali build`
 - WIT is not a separate user-selected build mode; once the public library/export surface stabilizes, relevant library-oriented modes emit it by default
 - companion artifacts do not weaken the single linked-WASM-payload rule for the compiled static graph
 
@@ -514,7 +515,7 @@ When extending the spec set:
 
 The spec intentionally makes a few simplifying choices to keep implementation tractable:
 - one primary execution engine first (`wasmtime` in early phases), while keeping room for later backend expansion if the same runtime contracts are preserved
-- one linked WASM payload per build in early phases, with optional companion artifacts such as JS glue, WIT files, component wrappers, or C headers when the selected output mode requires them
+- one linked WASM payload per build in early phases, with optional companion artifacts such as JS glue, WIT files, component wrappers, or C headers when the selected artifact mode requires them
 - one canonical machine-readable JSON contract per output type, with command-specific payloads wrapped in one shared CLI envelope when JSON transport is requested
 - one primary standalone runtime surface early (`deno`), with browser as a check/build profile first
 - one initial effect model centered on sandbox-relevant built-in capabilities

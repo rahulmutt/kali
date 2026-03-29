@@ -112,7 +112,7 @@ This avoids forcing one lifetime strategy onto every stage while keeping allocat
 ### Linking Strategy
 Early-phase builds compile the full static module graph into a **single linked WASM payload**. This avoids premature dependence on experimental WASM module-linking features and simplifies optimization, packaging, and embedding.
 
-Companion artifacts such as browser JS glue or embedding headers/metadata may still be emitted by specific output modes, but they do not weaken the single-payload rule for the compiled program graph itself.
+Companion artifacts such as browser JS glue or embedding headers/metadata may still be emitted by specific artifact modes, but they do not weaken the single-payload rule for the compiled program graph itself.
 
 This is a semantic rule, not just a packaging preference: features that imply arbitrary runtime module loading must either lower back into the already-linked graph or be rejected/gated according to [specs/19-feature-maturity.md](19-feature-maturity.md).
 

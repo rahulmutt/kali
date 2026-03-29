@@ -159,7 +159,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 These checklists keep the phase labels operational rather than purely descriptive.
 
 ### Phase 1 exit criteria
-- One linked-WASM-payload compile/run pipeline works end-to-end for TS and JS inputs, with companion artifacts only where an output mode explicitly requires them.
+- One linked-WASM-payload compile/run pipeline works end-to-end for TS and JS inputs, with companion artifacts only where an artifact mode explicitly requires them.
 - `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
 - The checker ships the bounded HM-style local/return inference fragment promised for Phase 1, while still falling back conservatively instead of doing open-ended whole-program search.
 - Browser-targeted `check --api browser` and `build --bundle --api browser` work against the real browser ambient surface without implying DOM runtime support in Kali itself.
