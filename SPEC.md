@@ -128,6 +128,7 @@ To reduce drift across the spec set, these terms are canonical:
 - **API surface**: the host API family selected by CLI/config, e.g. `deno`, `node`, `browser`
 - **Build mode**: optimization level, one of `fast`, `release`, `release-advanced`
 - **Runtime profile**: semantic runtime capability profile orthogonal to API surface, e.g. the default single-threaded baseline or later `wasm-threads`
+- **Browser-targeted profile**: the early supported browser paths only — `kali check --api browser` and `kali build --bundle --api browser` — not a standalone browser runtime or DOM emulation promise
 - **Artifact mode**: the build output selector chosen by `kali build`, e.g. the default executable WASM artifact path, `--bundle`, `--lib`, `--capi`, or `--component`
 - **Feature maturity**: phase/status classification defined in `specs/19-feature-maturity.md`
 - **Compatibility feature**: an explicit later-phase escape hatch named in `compat.features` / `--compat`, for example `eval`
@@ -403,6 +404,16 @@ Cross-spec rule:
 - when these constructs are unsupported for the selected phase/profile, the compiler/runtime must reject them with the canonical feature-maturity diagnostic instead of inventing fallback behavior
 
 This is the canonical simplification for reasoning about `require`, `import()`, `eval`, and related dynamic features across architecture, packages, sandboxing, and runtime.
+
+## Canonical Browser-Ambient vs Sandbox Boundary
+
+To keep browser-targeted analysis/build support consistent with the sandbox-first story:
+- browser ambient typings such as `Window`, `Document`, and `HTMLElement` are part of the **browser-targeted analysis/build profile**, not proof that Kali itself mediates those APIs at runtime
+- schema-v1 sandbox policies and stable effect reports cover **Kali-mediated built-in capabilities** (filesystem, network, process, timers, random, console, eval), not every browser ambient object or DOM method
+- therefore a browser-targeted build may type-check against DOM APIs while still having no schema-v1 policy key for `document.createElement(...)`-style behavior
+- browser-targeted `check/build --sandbox` remains a static compatibility check over the documented Kali effect/capability model; once deployed into a real browser host, Kali does not automatically enforce per-DOM-call policy decisions unless a later browser-host contract explicitly adds them
+
+This boundary prevents a common false implication: “browser ambient support” is broader than “browser runtime sandbox mediation”.
 
 ## Canonical Sources of Truth
 

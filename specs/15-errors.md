@@ -137,7 +137,7 @@ Use `E5007` when the user passes a file/input kind that the selected command fun
 
 Boundary rule:
 - `E5007` is for **input-kind mismatch** (for example a declaration-only file passed where an executable/analyzable entrypoint is required)
-- missing required entrypoints, too many explicit direct-entry arguments, or other command-usage/arity mistakes are still ordinary CLI/config usage errors rather than `E5007`
+- missing required entrypoints, too many explicit direct-entry arguments, conflicting build artifact-mode selectors (for example `--bundle --lib`), or other command-usage/arity mistakes are still ordinary CLI/config usage errors rather than `E5007`
 - in the CLI exit-code model, those command-usage cases and `E5007` both typically exit with code `5`, even though `E5007` remains the structured diagnostic for the input-kind mismatch case
 
 Example:

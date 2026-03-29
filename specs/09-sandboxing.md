@@ -87,6 +87,7 @@ The canonical policy schema is defined in [specs/18-schemas.md](18-schemas.md). 
 Cross-spec consistency rule:
 - schema v1 string allowlists use the canonical matching rules from [specs/18-schemas.md](18-schemas.md)
 - validation, compile-time effect-vs-policy checks, and runtime enforcement must all apply those same normalization/matching rules rather than inventing subsystem-specific pattern semantics
+- schema v1 covers the built-in **Kali-mediated capability surface**, not every ambient browser/DOM API that may be visible during browser-targeted analysis/build
 
 For process environment access, the policy model distinguishes `effects.process.envRead` from `effects.process.envWrite` so read-only inspection and mutation can be granted independently.
 
@@ -163,6 +164,7 @@ To keep the sandbox story precise across commands and deployment targets:
 Interpretation rule:
 - a successful browser-targeted build under `--sandbox` means the source graph is compatible with the supplied policy under Kali's static model
 - it does **not** mean Kali can mediate every later browser-host capability once the bundle is deployed outside a Kali-controlled runtime
+- browser ambient APIs that are outside the schema-v1 capability model (for example most DOM object operations) are therefore analysis/build concerns, not individually policy-governed runtime calls in early phases
 - specs and diagnostics should therefore avoid wording that suggests browser deployment has the same runtime-enforcement guarantee as `kali run` / `kali test`
 
 ## Runtime Resource Limits
