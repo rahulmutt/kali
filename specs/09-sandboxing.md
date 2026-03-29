@@ -63,6 +63,10 @@ Default format: `kali.policy.json`
 
 The canonical policy schema is defined in [specs/18-schemas.md](18-schemas.md). JSON is the canonical interchange format for CLI tooling and AI agents. An equivalent TOML format may be supported later, but it would be a convenience syntax layered on top of the JSON data model rather than a separate policy contract.
 
+Cross-spec consistency rule:
+- schema v1 string allowlists use the canonical matching rules from [specs/18-schemas.md](18-schemas.md)
+- validation, compile-time effect-vs-policy checks, and runtime enforcement must all apply those same normalization/matching rules rather than inventing subsystem-specific pattern semantics
+
 For process environment access, the policy model distinguishes `effects.process.envRead` from `effects.process.envWrite` so read-only inspection and mutation can be granted independently.
 
 Policy-structure simplification rule:
@@ -123,7 +127,7 @@ For dynamic effects that can't be checked at compile time:
 - Host function imports are wrapped with policy-checking middleware
 - Violations terminate the current operation with `SandboxViolationError`
 - By default, sandbox violations are treated as fatal runtime errors for the top-level execution unless the embedding host explicitly opts into catchable host exceptions
-- All API calls check path patterns, URL patterns, etc. at runtime
+- All API calls check the same canonical path/URL/address/env matching rules described in [specs/18-schemas.md](18-schemas.md)
 - Runtime enforcement only applies to capabilities that are actually registered for the selected API surface/profile; sandbox policy does not conjure unavailable APIs into existence
 
 ## Runtime Resource Limits

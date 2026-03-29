@@ -248,6 +248,7 @@ This is the canonical simplification for reasoning about the original “policy 
 To keep the module, runtime, and sandbox specs aligned, Kali draws one explicit line between **static linking**, **dynamic loading**, and **dynamic code generation**:
 
 - **Phase 1 MVP**: static ESM graphs and statically resolvable CommonJS `require("literal")`
+- **Rejected by default in early phases**: dynamic CommonJS loading via `require(expr)`
 - **Phase 3 target**: literal-string `import("pkg")`, lowered against the already-linked graph rather than runtime WASM module linking
 - **Later compatibility**: non-literal `import(expr)`, treated as a dynamic effect boundary that requires host mediation
 - **Phase 4 compatibility**: dynamic code generation via `eval` / `Function()` behind the documented compatibility path
@@ -255,7 +256,7 @@ To keep the module, runtime, and sandbox specs aligned, Kali draws one explicit 
 Cross-spec rule:
 - Phase 1-3 keep the **single linked WASM payload** model; none of the later dynamic features may quietly reintroduce ad hoc runtime module linking
 - parser support for a construct does **not** imply runtime support for it
-- static analysis should distinguish **dynamic loading** (`import(expr)`) from **dynamic code generation** (`eval`, `Function()`), because they have different maturity paths and sandbox consequences
+- static analysis should distinguish **dynamic loading** (`require(expr)`, `import(expr)`) from **dynamic code generation** (`eval`, `Function()`), because they have different maturity paths and sandbox consequences
 - when these constructs are unsupported for the selected phase/profile, the compiler/runtime must reject them with the canonical feature-maturity diagnostic instead of inventing fallback behavior
 
 This is the canonical simplification for reasoning about `require`, `import()`, `eval`, and related dynamic features across architecture, packages, sandboxing, and runtime.

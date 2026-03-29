@@ -561,6 +561,34 @@ Interpretation rules:
 - Field-specific arrays use canonical matching domains: filesystem paths for file APIs, URLs/addresses for network APIs, executable names/paths for process spawning, and exact environment-variable names for env access.
 - Specs and examples should reuse these shapes instead of inventing per-command variants.
 
+### Canonical matching rules (schema v1)
+
+To keep policy validation, compile-time effect checks, and runtime enforcement aligned, schema v1 uses one shared matcher model:
+
+- `effects.fileSystem.read` / `effects.fileSystem.write`
+  - candidate paths are normalized before matching
+  - matching uses `/` as the separator on every host; Windows-style `\` separators are normalized first
+  - relative policy entries are resolved against the project root before matching
+  - `*` matches within one path segment; `**` may cross `/` boundaries
+- `effects.network.fetch`
+  - candidates are matched against the normalized absolute URL string
+  - scheme and host are normalized using standard URL serialization before matching
+  - the same `*` / `**` wildcard rules apply over the serialized URL string
+- `effects.network.connect` / `effects.network.listen`
+  - candidates are matched against a normalized address string chosen by the host API (`host:port` for socket-style APIs, or an absolute URL string when the API is URL-shaped)
+  - the same `*` / `**` wildcard rules apply
+- `effects.process.spawn`
+  - candidates are matched against a normalized executable identity string (absolute path when available, otherwise the invoked program name)
+  - the same `*` / `**` wildcard rules apply
+- `effects.process.envRead` / `effects.process.envWrite`
+  - schema v1 arrays are exact environment-variable names, not glob patterns
+  - matching is by exact string equality after the host's normal environment-name normalization rules are applied
+
+Consistency rules:
+- policy engines must use the same normalized matcher semantics at validation time and enforcement time
+- implementations must not silently interpret the same policy array as a regex in one subsystem and a glob in another
+- future schema revisions may add richer match objects, but schema v1 keeps the string form intentionally simple
+
 ## Coverage Reporting Status
 
 Coverage output is intentionally absent from schema v1.
