@@ -20,15 +20,18 @@ This is the compact top-level breakdown of the bootstrap brief into canonical sp
 | Bootstrap concern | Canonical handling |
 |---|---|
 | AOT-only TS/JS → WASM compiler | [01 — Architecture](./specs/01-architecture.md), [08 — WASM Codegen](./specs/08-wasm-codegen.md) |
+| Latest ECMA-262 grammar coverage, broad syntax acceptance | [02 — Lexer & Parser](./specs/02-lexer-parser.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
 | Stronger-than-TS checking and inference | [04 — Type System](./specs/04-type-system.md) |
 | No tracing GC; compile-time ownership/allocation | [06 — Memory Management](./specs/06-memory.md) |
 | Aggressive specialization | [07 — Specialization](./specs/07-specialization.md) |
 | Sandboxing and effect-aware execution | [09 — Sandboxing](./specs/09-sandboxing.md), [10 — Runtime](./specs/10-runtime.md) *(declarative policy first; later trusted host predicates for embedding)* |
 | JSON effect reporting and policy schemas | [09 — Sandboxing](./specs/09-sandboxing.md), [18 — Schemas](./specs/18-schemas.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
-| Deno / browser / later Node API surfaces | [11 — Standard APIs](./specs/11-standard-apis.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
+| Deno-first standalone runtime, browser-targeted analysis/build, later Node support | [11 — Standard APIs](./specs/11-standard-apis.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
+| Dynamic compatibility paths (`eval`, `Function()`, dynamic loading) | [10 — Runtime](./specs/10-runtime.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
 | npm / JSR / raw URL package workflows | [14 — Package Management](./specs/14-packages.md) |
 | AI-friendly CLI and diagnostics | [12 — CLI](./specs/12-cli.md), [15 — Errors](./specs/15-errors.md), [18 — Schemas](./specs/18-schemas.md) |
 | Rust embedding, C ABI, WIT, Component Model | [13 — Embedding](./specs/13-embedding.md), [18 — Schemas](./specs/18-schemas.md) |
+| Conformance, regression, and package-evidence testing | [16 — Testing](./specs/16-testing.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
 | Lean-backed formal verification | [17 — Formal Verification](./specs/17-verification.md) |
 
 ## Hard Constraints

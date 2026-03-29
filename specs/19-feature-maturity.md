@@ -81,7 +81,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | `FinalizationRegistry` | Later compatibility | Same reason as weak collections |
 | `SharedArrayBuffer` / `Atomics` | Later compatibility (opt-in only) | Requires a separate threaded runtime profile and should not be implied by the Phase 1 single-threaded runtime |
 | `--wasm-threads` | Later compatibility (opt-in only) | Enables the threaded runtime profile once that profile exists; must fail explicitly before then and on unsupported targets/engines |
-| Browser API surface for supported analysis/build commands (`--api browser`) | Phase 1 MVP | Phase 1 enables browser-targeted analysis/build against the real browser ambient surface for `check` and `build --bundle`, without claiming DOM support in Kali's standalone runtime; this status requires its own browser-targeted evidence track rather than inference from standalone runtime tests, and later analysis commands may reuse that same browser context once their own maturity rows allow it |
+| Browser API surface for supported analysis/build commands (`--api browser`), including ambient DOM typings for those commands | Phase 1 MVP | Phase 1 enables browser-targeted analysis/build against the real browser ambient surface for `check` and `build --bundle`, including the DOM typings normally expected in browser programs, without claiming DOM support in Kali's standalone runtime; this status requires its own browser-targeted evidence track rather than inference from standalone runtime tests, and later analysis commands may reuse that same browser context once their own maturity rows allow it |
 | `package.json#exports` condition `deno` for `--api deno` resolution | Phase 1 MVP | Aligns package resolution with the default Deno-oriented standalone API surface |
 | `package.json#browser` / `exports` condition `browser` in browser bundle mode | Phase 1 MVP | Needed for practical browser-targeted npm compatibility without widening standalone runtime claims |
 | `run --api browser` | Rejected by default | Early standalone runtime does not emulate a browser host |
@@ -93,7 +93,6 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | WIT emission for public library/embedding interfaces | Phase 2 target | Gives Rust/C/component consumers one canonical exported interface description instead of parallel ad hoc metadata |
 | WebAssembly Component Model packaging (`kali build --component`) | Phase 2 target | Layered on top of the linked core WASM payload for host interop; executable builds still center on the core module path |
 | Host ABI versioning for `kali_capi` | Phase 2 target | Stable embedding requires explicit load-time compatibility checks |
-| Browser ambient DOM typings for `check --api browser` / `build --bundle --api browser` | Phase 1 MVP | Type-check against the real browser host surface for browser-targeted programs; this is not a standalone runtime promise |
 | DOM APIs in standalone runtime | Rejected by default | Kali does not embed a browser engine |
 
 ## Interpretation Rules
