@@ -139,7 +139,12 @@ async function fetch(url) → StateMachine {
 Kali's primary execution model is single-threaded (one event loop per runtime instance).
 
 ### SharedArrayBuffer & Atomics
-`SharedArrayBuffer`, `Atomics`, and the `--wasm-threads` runtime profile are later compatibility features, not part of the Phase 1 single-threaded baseline.
+`SharedArrayBuffer`, `Atomics`, and the threaded runtime profile `wasm-threads` are later compatibility features, not part of the Phase 1 single-threaded baseline.
+
+Terminology rule:
+- CLI uses `--wasm-threads`
+- config/embedding use the runtime-profile name `wasm-threads`
+- both refer to the same runtime-profile switch rather than two separate features
 
 Once the threaded profile exists and `--wasm-threads` is enabled:
 - Each worker/thread runs its own Kali runtime instance with a shared `SharedArrayBuffer`

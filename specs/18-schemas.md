@@ -379,6 +379,7 @@ Canonical filename: `kali.json`
 ```
 
 ### Rules
+- The JSON block above is a **full illustrative example**, not the minimal scaffold that `kali init` should emit by default
 - `schemaVersion: number` is required on `kali.json` like every other top-level machine-readable Kali JSON document
 - `compilerOptions.apiSurface` is the canonical config name for the host API family; CLI uses `--api`
 - `compilerOptions.buildMode` is one of `fast`, `release`, or `release-advanced`
@@ -447,7 +448,7 @@ Canonical filename: `kali.policy.json`
 - `resources.maxOpenFiles` caps concurrently opened host file handles, including internal opens performed for higher-level file helpers
 - `resources.maxSpawnedProcesses` caps concurrently active spawned processes once subprocess APIs exist; before then, validation should reject values greater than `0` instead of accepting a non-functional budget for an unavailable capability
 - `resources.maxThreads` is reserved for the later threaded runtime profile; before that profile exists, validation should reject values greater than `0` instead of silently accepting them
-- Policy validation should reject non-deny values for capability fields whose corresponding feature/API surface is unavailable in the selected command/profile/phase. For example: `effects.eval: true` before the eval compatibility path exists, `effects.process.spawn: true` before subprocess APIs exist, `effects.process.envWrite: true` before mutable environment APIs exist, and `resources.maxSpawnedProcesses > 0` before subprocess APIs exist.
+- Policy validation should reject non-deny values for capability fields whose corresponding feature/API surface is unavailable in the selected command/profile/phase. For example: `effects.eval: true` before the eval compatibility path exists, `effects.process.spawn: true` before subprocess APIs exist, `effects.process.envWrite: true` before mutable environment APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess APIs exist, and `resources.maxThreads > 0` before the threaded runtime profile exists.
 - Per-invocation CLI resource overrides may only tighten these policy limits; they must not widen them
 - Policy keys use the canonical built-in effect naming table above rather than redefining a separate namespace here
 - In schema v1, `random` and `console` are intentionally coarse-grained booleans. Any built-in effect report entry whose kind starts with `Random.` matches `random`, and any kind starting with `Console.` matches `console`.
