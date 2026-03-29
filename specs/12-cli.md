@@ -176,7 +176,7 @@ Canonical artifact-mode rule:
 Sandbox clarification:
 - `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config, and in Phase 2+ it also performs effect-vs-policy validation.
 - For `kali build --bundle --api browser --sandbox ...`, this remains a **build-time** compatibility check only. It must not be described as automatic runtime sandbox enforcement once the emitted browser bundle is deployed into a real browser host.
-- In that browser-targeted profile, cross-cutting `resources.*` budgets are not part of the supported contract and should be rejected when non-deny values are provided in the attached policy file.
+- In that browser-targeted analysis/build context, cross-cutting `resources.*` budgets are not part of the supported contract and should be rejected when non-deny values are provided in the attached policy file.
 ```bash
 kali build main.ts                         # → main.wasm (--fast mode, default; artifact: kind=wasm-module, role=primary-executable)
 kali build --release main.ts               # Optimized build
@@ -186,7 +186,7 @@ kali build --bundle main.ts               # Rejected under the default config; -
 kali build --api browser main.ts           # Rejected in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
 kali build --lib lib.ts                    # Library module (exports, no start; Phase 1 artifact: kind=wasm-module, role=primary-library; Phase 2+ adds kind=wit, role=interface-wit by default)
-kali build --lib --api browser lib.ts      # Rejected in early phases; browser mode is a bundle/check profile, not a library artifact profile
+kali build --lib --api browser lib.ts      # Rejected in early phases; browser mode is an analysis/build context tied to `check` and `build --bundle`, not a library artifact profile
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + metadata (artifacts: wasm-module + wit + c-header + cabi-metadata; roles: primary-library + interface-wit + embedding-header + embedding-metadata; see specs/13-embedding.md)
 kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit + lib.component.wasm (artifacts: lib.wasm kind=wasm-module role=primary-library; lib.wit kind=wit role=interface-wit; lib.component.wasm kind=wasm-component role=primary-component)
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
@@ -241,7 +241,7 @@ Input-kind and host-selection rules:
 - `kali effects` is a direct-entry command in early phases: it requires exactly one explicit executable/analyzable source-file entrypoint and does not fall back to project-wide discovery
 - `kali effects` accepts only executable/analyzable source files; declaration-only files are type inputs, not effect-report entrypoints
 - unless overridden by CLI/config, `kali effects` uses the same default API-surface selection as `kali check` (`apiSurface = deno`)
-- `--api browser` follows the same browser-targeted analysis intent as `kali check --api browser`
+- `--api browser` follows the same browser API-surface analysis context as `kali check --api browser`; in Phase 2 this extends browser-targeted analysis to `effects` without implying standalone browser execution
 - `--api node` remains phase-gated until the documented Node surface exists
 - `--compat ...` affects effect analysis too: enabled compatibility paths such as `eval` change the reported effect set/dynamic reasons only when that compatibility feature is actually implemented for the selected phase/profile
 
@@ -279,7 +279,7 @@ kali test --sandbox kali.policy.json       # Run tests in sandbox
 kali test --coverage                       # Phase 2 target: with coverage report once the stable contract lands
 kali test --api deno                       # Supported early standalone test profile
 kali test --api node                       # Phase 3 target
-kali test --api browser                    # Rejected in early phases; browser is a check/build profile first
+kali test --api browser                    # Rejected in early phases; browser is an analysis/build context first
 ```
 
 Canonical discovery rule:

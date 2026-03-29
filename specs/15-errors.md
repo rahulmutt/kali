@@ -123,8 +123,8 @@ Use `E5006` for cases such as:
 - `--api node` before the documented Node subset is implemented
 - `eval` / `Function()` without `--compat eval`
 - dynamic `require()` in early phases
-- `run --api browser` in early phases where browser support exists only as a check/build profile
-- `build --api browser` without `--bundle` in early phases where browser support exists only as a bundle/check profile
+- `run --api browser` in early phases where browser support exists only as an analysis/build context
+- `build --api browser` without `--bundle` in early phases where browser support exists only as an analysis/build context tied to `build --bundle`
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - any parse-supported construct that is intentionally not semantically enabled in the current phase/profile
 

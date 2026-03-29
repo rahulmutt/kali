@@ -80,7 +80,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | `FinalizationRegistry` | Later compatibility | Same reason as weak collections |
 | `SharedArrayBuffer` / `Atomics` | Later compatibility (opt-in only) | Requires a separate threaded runtime profile and should not be implied by the Phase 1 single-threaded runtime |
 | `--wasm-threads` | Later compatibility (opt-in only) | Enables the threaded runtime profile once that profile exists; must fail explicitly before then and on unsupported targets/engines |
-| `--api browser` for `check` / `build --bundle` | Phase 1 MVP | Browser-targeted analysis/build against the real browser ambient surface, without claiming DOM support in Kali's standalone runtime |
+| Browser API surface for supported analysis/build commands (`--api browser`) | Phase 1 MVP | Phase 1 enables browser-targeted analysis/build against the real browser ambient surface for `check` and `build --bundle`, without claiming DOM support in Kali's standalone runtime; later analysis commands may reuse that same browser context once their own maturity rows allow it |
 | `package.json#exports` condition `deno` for `--api deno` resolution | Phase 1 MVP | Aligns package resolution with the default Deno-oriented standalone API surface |
 | `package.json#browser` / `exports` condition `browser` in browser bundle mode | Phase 1 MVP | Needed for practical browser-targeted npm compatibility without widening standalone runtime claims |
 | `run --api browser` | Rejected by default | Early standalone runtime does not emulate a browser host |
@@ -124,7 +124,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali run --sandbox kali.policy.json main.ts` | Phase 1 MVP | Runtime sandbox enforcement path; policy schema/ranges must validate before execution starts |
 | `kali run --api deno main.ts` | Phase 1 MVP | Supported standalone runtime path |
 | `kali run --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands |
-| `kali run --api browser main.ts` | Rejected by default | Reject with `E5006`; browser is a check/build profile first |
+| `kali run --api browser main.ts` | Rejected by default | Reject with `E5006`; browser is an analysis/build context first |
 | `kali check` | Phase 1 MVP | Type-check the canonical project-discovery result with the default API surface (`apiSurface=deno`) |
 | `kali check main.ts` | Phase 1 MVP | Type-check with the canonical default API surface (`apiSurface=deno`) |
 | `kali check types.d.ts` | Phase 1 MVP | Declaration-only files are valid direct inputs for `check`, even though they are not valid runtime/build/test entrypoints |
@@ -140,9 +140,9 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali build --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for builds too |
 | `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`kind: wasm-module` + `kind: js-glue`) |
 | `kali build --bundle main.ts` | Rejected by default | Under the default tuple this fails because `--bundle` is reserved for browser-targeted output and therefore requires the effective `apiSurface` to be `browser`; with browser selected via CLI/config, the browser-bundle path is the supported Phase 1 mode |
-| `kali build --api browser main.ts` | Rejected by default | In early phases browser mode is a bundle/check profile, not a standalone non-bundled artifact mode |
+| `kali build --api browser main.ts` | Rejected by default | In early phases browser mode is an analysis/build context tied to `check` and `build --bundle`, not a standalone non-bundled artifact mode |
 | `kali build --lib lib.ts` | Phase 1 MVP | Produce one linked library-style WASM artifact without automatic program start; Phase 1 emits the base `wasm-module` (`role: primary-library`), and Phase 2+ public-library builds add the default `wit` sidecar (`role: interface-wit`) |
-| `kali build --lib --api browser lib.ts` | Rejected by default | Early browser support is a bundle/check profile, not a browser-library artifact mode |
+| `kali build --lib --api browser lib.ts` | Rejected by default | Early browser support is an analysis/build context tied to `check` and `build --bundle`, not a browser-library artifact mode |
 | `kali build --capi lib.ts` | Phase 2 target | Public embedding artifact generation should stay gated until the embedding contract is stable; when enabled it emits `kind: wasm-module` (`role: primary-library`) + `kind: wit` (`role: interface-wit`) + `kind: c-header` (`role: embedding-header`) + `kind: cabi-metadata` (`role: embedding-metadata`) |
 | `kali build --component lib.ts` | Phase 2 target | Component-oriented library packaging path; when enabled it emits `kind: wasm-module` (`role: primary-library`) + `kind: wit` (`role: interface-wit`) + `kind: wasm-component` (`role: primary-component`) |
 | `kali build --bundle --lib main.ts` | Rejected by default | Conflicting artifact-mode selectors; this is `E5008`, not a feature-maturity gate |
@@ -150,19 +150,19 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali build --bundle --component lib.ts` | Rejected by default | Conflicting artifact-mode selectors; `--bundle` and `--component` select incompatible output contracts, so this should fail with `E5008` |
 | `kali build --lib --capi lib.ts` | Rejected by default | Conflicting artifact-mode selectors; `--capi` already selects a library/export packaging mode, so this should fail with `E5008` |
 | `kali build --lib --component lib.ts` | Rejected by default | Conflicting artifact-mode selectors; `--component` already selects a library/export packaging mode, so this should fail with `E5008` |
-| `kali build --capi --api browser lib.ts` | Rejected by default | Early browser support is a bundle/check profile, not a browser-embedding artifact mode |
-| `kali build --component --api browser lib.ts` | Rejected by default | Early browser support is a bundle/check profile, not a browser-component artifact mode |
+| `kali build --capi --api browser lib.ts` | Rejected by default | Early browser support is an analysis/build context tied to `check` and `build --bundle`, not a browser-embedding artifact mode |
+| `kali build --component --api browser lib.ts` | Rejected by default | Early browser support is an analysis/build context tied to `check` and `build --bundle`, not a browser-component artifact mode |
 | `kali test` / `kali test --api deno` | Phase 1 MVP | Compile and run tests with the default standalone tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]`) unless overridden |
 | declaration-only file passed to `run` / `effects` / `build` / `test` as an entrypoint | Rejected by default | Declaration files are analysis/type inputs, not executable/effect-report entrypoints |
 | `kali test --sandbox kali.policy.json` | Phase 1 MVP | Runtime sandbox enforcement path for tests; policy schema/ranges must validate before execution starts |
 | `kali test --api node` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for test runs too |
-| `kali test --api browser` | Rejected by default | Early browser support is a check/build profile, not a standalone test-runtime profile |
+| `kali test --api browser` | Rejected by default | Early browser support is an analysis/build context, not a standalone test-runtime profile |
 | `kali test --coverage` | Phase 2 target | Coverage needs a stable machine-readable report contract instead of ad hoc runner output |
 | `kali effects` with no explicit entrypoint | Rejected by default | `effects` is a direct-entry command in early phases; omitting the entrypoint should fail with `E5008` rather than permission to scan the project |
 | `kali effects a.ts b.ts` | Rejected by default | Early phases accept exactly one primary analysis entrypoint for `effects`; multi-entry reporting requires a later explicit mode, so this should fail with `E5008` |
 | `kali effects main.ts` | Phase 2 target | Before then: unavailable or explicitly experimental, never a partial bespoke report; when available it uses the same default API-surface selection as `check` (`apiSurface=deno`) unless overridden |
 | `kali effects --sandbox kali.policy.json main.ts` | Rejected by default | Keep `effects` as a pure reporting command; policy validation belongs to `check/build --sandbox` so the CLI has one canonical policy-validation path. This rejection should use `E5008`, not the `E5006` maturity gate. |
-| `kali effects --api browser main.ts` | Phase 2 target | Browser-targeted effect analysis follows the same browser-analysis intent as `kali check --api browser` once the Phase 2 command exists |
+| `kali effects --api browser main.ts` | Phase 2 target | Reuses the same browser API-surface analysis context as `kali check --api browser` once the Phase 2 command exists, without implying standalone browser execution |
 | `kali effects --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset exists for effect analysis too |
 | `kali package-effects lodash` | Phase 2 target | Depends on effect-report pipeline; reject/mark experimental before then. When it does exist, it still uses the effective inherited analysis context and must reject unsupported contexts such as early `apiSurface=node` with `E5006` rather than silently falling back. |
 | `kali package-effects https://...` | Rejected by default | `package-effects` analyzes registry packages only; raw URLs belong to the project/import-graph workflow instead |

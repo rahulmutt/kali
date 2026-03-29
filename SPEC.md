@@ -128,7 +128,7 @@ To reduce drift across the spec set, these terms are canonical:
 - **API surface**: the host API family selected by CLI/config, e.g. `deno`, `node`, `browser`
 - **Build mode**: optimization level, one of `fast`, `release`, `release-advanced`; these mode names are stable from Phase 1 onward, even though the amount of optimization each mode unlocks grows as later compiler phases land
 - **Runtime profile**: semantic runtime capability profile orthogonal to API surface, e.g. the default single-threaded baseline or later `wasm-threads`
-- **Browser-targeted profile**: the early supported browser paths only — `kali check --api browser` and `kali build --bundle --api browser` — not a standalone browser runtime or DOM emulation promise
+- **Browser API surface / browser-targeted context**: selecting `apiSurface = browser` for the commands that support it. In Phase 1 this is the early browser-targeted analysis/build path (`kali check --api browser` and `kali build --bundle --api browser`); later analysis commands such as `kali effects --api browser` may reuse the same ambient/package-selection context without implying a standalone browser runtime or DOM emulation promise
 - **Artifact mode**: the build output selector chosen by `kali build`, e.g. the default executable WASM artifact path, `--bundle`, `--lib`, `--capi`, or `--component`
 - **Feature maturity**: phase/status classification defined in `specs/19-feature-maturity.md`
 - **Compatibility feature**: an explicit later-phase escape hatch named in `compat.features` / `--compat`, for example `eval`
@@ -194,10 +194,10 @@ This table is the compact cross-spec reference for what each host/API mode means
 | `run/test --api browser` | Rejected by default in early phases | No | No | No embedded browser engine |
 
 Interpretation rules:
-- the **Web baseline** is the shared baseline across supported surfaces; `--api` selects additional globals/modules or a browser-targeted profile on top of that baseline
+- the **Web baseline** is the shared baseline across supported surfaces; `--api` selects additional globals/modules or a browser-targeted analysis/build context on top of that baseline
 - early standalone execution is **Deno-first**
 - Node compatibility is phase-gated and must not be implied by fallback shims
-- browser support is initially a **check/build profile**, not a standalone runtime contract
+- browser support is initially an **analysis/build context**, not a standalone runtime contract
 - browser-targeted analysis/build may expose browser ambient typings, but standalone execution still does not imply DOM emulation inside Kali
 
 ## Canonical Default Execution Tuple
@@ -533,7 +533,7 @@ The spec intentionally makes a few simplifying choices to keep implementation tr
 - one primary execution engine first (`wasmtime` in early phases), while keeping room for later backend expansion if the same runtime contracts are preserved
 - one linked WASM payload per build in early phases, with optional companion artifacts such as JS glue, WIT files, component wrappers, or C headers when the selected artifact mode requires them
 - one canonical machine-readable JSON contract per output type, with command-specific payloads wrapped in one shared CLI envelope when JSON transport is requested
-- one primary standalone runtime surface early (`deno`), with browser as a check/build profile first
+- one primary standalone runtime surface early (`deno`), with browser as an analysis/build context first
 - one initial effect model centered on sandbox-relevant built-in capabilities
 
 These simplifications are design choices, not omissions. They keep the project coherent while still leaving room for later compatibility layers.
