@@ -560,7 +560,8 @@ Configuration simplification rules:
 ## Exit Codes
 
 Interpretation rule:
-- compile/check/build diagnostics over otherwise valid command inputs, including `E5006` feature gating and Phase 2+ compile-time sandbox/effect violations, exit with **1**
+- compile/check/build diagnostics over otherwise valid command inputs, including `E5004` dependency-state failures, `E5006` feature gating, and Phase 2+ compile-time sandbox/effect violations, exit with **1**
+- `fmt --check` and lint-style contract failures that report ordinary command diagnostics also exit with **1**
 - runtime sandbox enforcement failures exit with **3**
 - runtime resource exhaustion/fuel/memory-limit failures exit with **4**
 - invalid CLI arguments, invalid config, invalid policy schema/ranges, and command-input/entrypoint-usage mistakes exit with **5**
@@ -576,7 +577,7 @@ This keeps exit codes simple: command-time failures are separated from runtime e
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Compilation/check error (syntax, type, name resolution, build-time sandbox/effect violation, unsupported feature reported during compile/check) |
+| 1 | Compilation/check-style diagnostic failure (`E5004` dependency state, syntax, type, name resolution, build-time sandbox/effect violation, unsupported feature reported during compile/check, `fmt --check`, lint contract failures) |
 | 2 | Runtime error (uncaught exception) |
 | 3 | Runtime sandbox violation |
 | 4 | Runtime resource limit exceeded |

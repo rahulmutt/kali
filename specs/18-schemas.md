@@ -617,6 +617,7 @@ Canonical filename: `kali.policy.json`
 - Policy booleans mean fully allowed or fully denied for that capability
 - Pattern-bearing fields (`read`, `write`, `fetch`, `connect`, `listen`) are allowlists when they take arrays
 - Numeric limit fields inside `effects.*` constrain an otherwise-allowed capability locally; for example `timer.schedule: true` with `maxActiveTimers: 32` allows timers but caps timer concurrency
+- `effects.timer.maxTimeoutMs`, `effects.timer.maxActiveTimers`, and `effects.network.maxConnections` must be positive integers when present; `0` is invalid for these fields rather than a hidden deny value because deny/disable semantics already live on the surrounding boolean/allowlist capability fields
 - `resources.*` is reserved for cross-cutting runtime budgets rather than capability-specific allowlists/caps
 - resource-budget fields are **not** one generic boolean/deny channel in numeric form; they keep field-specific numeric semantics
 - omission is the canonical schema-v1 meaning of "no explicit budget provided" for `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles`
@@ -654,9 +655,9 @@ To keep policy examples, validators, and runtime checks consistent, schema v1 us
 | `effects.process.envRead` | `false` \| `true` \| `string[]` | deny all, allow all environment reads, or allow only named variables |
 | `effects.process.envWrite` | `false` \| `true` \| `string[]` | deny all, allow all environment writes, or allow only named variables |
 | `effects.timer.schedule` | `boolean` | enable or disable timer creation |
-| `effects.timer.maxTimeoutMs` | `number` | maximum allowed timeout/interval delay |
-| `effects.timer.maxActiveTimers` | `number` | maximum concurrently active timers |
-| `effects.network.maxConnections` | `number` | maximum concurrent outbound/inbound network connections |
+| `effects.timer.maxTimeoutMs` | positive integer | maximum allowed timeout/interval delay |
+| `effects.timer.maxActiveTimers` | positive integer | maximum concurrently active timers |
+| `effects.network.maxConnections` | positive integer | maximum concurrent outbound/inbound network connections |
 | `effects.eval` | `boolean` | allow or deny `Eval` capability |
 | `effects.random` | `boolean` | allow or deny `Random.*` capability family |
 | `effects.console` | `boolean` | allow or deny `Console.*` capability family |
@@ -666,6 +667,7 @@ Interpretation rules:
 - `false` is the canonical boolean **deny** value.
 - `string[]` means an allowlist; an empty array therefore denies all practical uses of that capability and is the canonical array-shaped **deny** value.
 - numeric limit fields are **constraints only**; they never imply that the surrounding capability is enabled.
+- for `effects.timer.maxTimeoutMs`, `effects.timer.maxActiveTimers`, and `effects.network.maxConnections`, any present value must be a positive integer; `0` is invalid rather than a second disable channel.
 - for `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles`, omission means "no explicit budget in this policy" and any present value must be a positive integer.
 - for `resources.maxSpawnedProcesses` and `resources.maxThreads`, `0` is valid and means zero concurrent uses are permitted; positive values remain phase/profile-gated by feature availability.
 - Field-specific arrays use canonical matching domains: filesystem paths for file APIs, URLs/addresses for network APIs, executable names/paths for process spawning, and exact environment-variable names for env access.

@@ -122,6 +122,7 @@ Availability rule for policy validation:
 - a policy must **not claim to allow** a capability that the selected command/profile/API surface/phase cannot actually provide
 - therefore validation should reject any unavailable capability being enabled through a non-deny value, not just `true`; non-empty arrays/allowlists are equally invalid when the capability itself is unavailable, and unavailable numeric-budget fields such as `resources.maxSpawnedProcesses` / `resources.maxThreads` must also reject positive values
 - capability-local numeric limit fields are **constraints only**, not implicit enable switches; for example `effects.network.maxConnections` does not by itself allow network use, and `effects.timer.maxActiveTimers` does not by itself permit timers when `effects.timer.schedule` is `false`
+- in schema v1, `effects.timer.maxTimeoutMs`, `effects.timer.maxActiveTimers`, and `effects.network.maxConnections` must be positive integers when present; `0` is invalid for those fields rather than a second disable/deny form
 - examples include `effects.fileSystem.read: true` or `effects.fileSystem.read: ["/tmp/**"]` under an effective API surface of `browser`, `effects.eval: true` before Phase 4, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
 - under an effective API surface of `browser`, this rejection applies to capabilities outside the browser-targeted Phase 1 surface, and it also applies to cross-cutting `resources.*` runtime budgets with any non-deny value because those budgets are a Kali-hosted execution contract rather than a post-deployment browser-bundle guarantee
 - the shared Web-baseline capability keys (`effects.network.fetch`, `effects.timer.*`, `effects.random`, `effects.console`) remain valid browser-targeted policy targets at the capability-model level, but that does **not** upgrade browser bundles into a full cross-cutting runtime-budget-enforcement environment
@@ -230,6 +231,7 @@ Effective-limit rule:
 - Timer creation can be disabled entirely via `effects.timer.schedule: false`
 - `setTimeout`/`setInterval` delays are capped by policy (`effects.timer.maxTimeoutMs`)
 - Maximum number of active timers is enforced (`effects.timer.maxActiveTimers`)
+- `effects.timer.maxTimeoutMs` and `effects.timer.maxActiveTimers` are positive-integer constraints when present; `0` is rejected instead of being treated as an alternate disable channel
 - Infinite loop detection still relies on fuel metering
 
 ### Network Limits
@@ -237,6 +239,7 @@ Effective-limit rule:
 - Outbound socket-style connections can be disabled or gated separately (`effects.network.connect`)
 - Port/address listeners can be disabled or gated separately (`effects.network.listen`)
 - Concurrent network usage is capped by the capability-local field `effects.network.maxConnections`, not by `resources.*`; this keeps network-specific concurrency policy attached to the network capability instead of duplicating it as a second global resource knob
+- `effects.network.maxConnections` is a positive-integer constraint when present; `0` is rejected instead of being treated as an alternate deny form
 
 ### Thread Limits (Later Threaded Profile)
 - `resources.maxThreads` matters only for the later `--wasm-threads` runtime profile
