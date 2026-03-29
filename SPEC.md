@@ -233,6 +233,7 @@ Note:
 - when `package-effects` and `package-audit` are available, they stay single-package registry-analysis commands rather than growing an implicit whole-project mode
 - in early phases, registry-analysis commands also avoid a second per-command `--api` / `--compat` flag family: `package-effects` reuses the inherited analysis context, while `package-audit` stays **context-free** (registry/package metadata focused) rather than becoming a second host-mode selector
 - config-selected `apiSurface`, `runtimeProfiles`, and `compat.features` therefore influence `package-effects`, but they do not change the semantics of early `package-audit`
+- for clarity, early `package-audit` still uses ordinary project/config discovery for generic CLI behavior (for example project root, `--output`, `--quiet`), but it intentionally ignores host-analysis knobs such as `apiSurface`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
 - this keeps each command in one primary category and avoids overlapping near-duplicate workflows
 
 ## Canonical Default Tuple

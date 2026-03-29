@@ -374,7 +374,7 @@ Argument-kind rules:
 - a **registry package argument** uses the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names (for example `jsr:@std/path`)
 - a **registry package argument** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
 - `kali install` does **not** take `--api` in early phases; install is profile-agnostic, so passing `--api ...` is invalid command usage (`E5008`) rather than a request for a second install graph
-- `--dev` is valid only with a **registry package argument**; using `--dev` without an explicit package or pairing it with a raw URL is rejected explicitly rather than inventing a second URL-specific manifest bucket
+- `--dev` is valid only with a **registry package argument**; using `--dev` without an explicit package or pairing it with a raw URL (`kali install --dev https://...`) is rejected explicitly rather than inventing a second URL-specific manifest bucket
 - a **raw URL argument** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
 - an ad hoc raw-URL install is therefore a **staging/pin workflow**; if the project does not reference that URL from source or `kali.json#imports`, a later plain `kali install` may prune it again
 - plain `kali install` consumes the current manifest/import graph and reconciles lock + materialized state for the dependency source kinds actually used by the project
@@ -442,6 +442,11 @@ kali package-audit jsr:@std/path           # Audit specific JSR package
 Additional flag-surface rule:
 - like `package-effects`, `package-audit` does **not** take package-analysis-specific `--api` or `--compat` flags in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds them
 - unlike `package-effects`, early `package-audit` also does **not** inherit analysis context from `compilerOptions.apiSurface`, `compilerOptions.runtimeProfiles`, or `compat.features`; it remains a context-free registry tool
+- top-level `kali.json#sandbox` is likewise ignored by `package-audit`, matching the broader rule that non-sandbox-aware commands do not silently turn into policy-validation workflows
+
+Output simplification rule:
+- unlike `kali effects` and `kali package-effects`, `kali package-audit` does **not** define a native bare-JSON payload in schema v1
+- if/when machine-readable audit output is added, it should travel through the standard `--output json` command envelope instead of inventing a second ad hoc top-level format
 
 ## Output Design
 

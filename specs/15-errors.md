@@ -192,6 +192,7 @@ Use `E5008` for cases such as:
 - `kali install --api deno`
 - `kali install --allow-scripts` in a URL-only / no-registry project graph
 - `kali install --allow-scripts https://example.com/mod.ts`
+- `kali install --dev https://example.com/mod.ts`
 - `kali package-effects`
 - `kali package-effects lodash react`
 - `kali package-effects --api browser lodash`
@@ -200,6 +201,7 @@ Use `E5008` for cases such as:
 - `kali package-audit --compat eval lodash`
 - `kali package-audit` with no package argument
 - `kali package-audit lodash react`
+- `kali package-audit https://example.com/mod.ts`
 - `kali build --bundle --api node main.ts`
 - conflicting artifact-mode selectors such as `--bundle --lib`, `--bundle --capi`, or `--lib --component`
 - other command-local flag/arity combinations that the CLI contract rejects independently of feature maturity

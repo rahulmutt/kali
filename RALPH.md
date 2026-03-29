@@ -1,35 +1,33 @@
 # RALPH
 
-- Iteration: 47 of 1000
+- Iteration: 63 of 1000
 - Prompt file: /workspace/prompts/iterate-spec.md
-- Updated: 2026-03-29T22:05:00.000Z
+- Updated: 2026-03-29T22:35:00Z
 
 ## Last emitted message
 
 ```text
 Done.
 
-Changes made:
-- `specs/11-standard-apis.md`
-  - tightened the Phase 1 browser-support exit criteria
-  - clarified that browser-targeted support must be evidenced separately from standalone runtime tests
-
-- `specs/16-testing.md`
-  - added explicit browser-targeted integration coverage requirements
-  - introduced a dedicated browser-targeted evidence track
-  - required real-browser bundle smoke tests instead of relying only on DOM mocks/unit shims
-
+Changed:
+- `SPEC.md`
+- `specs/12-cli.md`
+- `specs/14-packages.md`
+- `specs/15-errors.md`
 - `specs/19-feature-maturity.md`
-  - aligned maturity/evidence language with the testing spec
-  - made browser-targeted support promotion depend on dedicated browser-targeted test evidence
-  - added a Phase 1 exit criterion for real-browser bundle smoke coverage
+- `RALPH.md`
 
-Main improvement made:
-- the specs were already clear that browser support is analysis/build-first, but they did not require a dedicated evidence path for that promise. The updated docs now make browser-targeted support measurable and harder to overclaim.
+What I improved:
+- clarified the exact boundary for early `package-audit`:
+  - it still uses normal project/config discovery for generic CLI behavior
+  - but it intentionally ignores `apiSurface`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
+- simplified the machine-readable story for `package-audit` so it does not accidentally grow a second native bare-JSON format before a dedicated audit schema exists
+- fixed a small install/docs inconsistency by making `kali install --dev https://...` explicitly invalid with `E5008` across CLI, package, error, and maturity docs
+- added the missing `package-audit https://...` invalid-usage example to the error catalog
 
-Simplification made:
-- browser-targeted support now has one canonical evidence story reused across API, testing, and maturity docs instead of implicit assumptions spread across sections.
+Commit:
+- pending
 
-Git:
-- Pending commit/push for this iteration.
+Push:
+- pending
 ```

@@ -158,7 +158,7 @@ kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL depend
 Argument semantics are intentionally simple:
 - registry package arguments use the canonical registry-package identifier grammar from this chapter (`lodash`, `@types/node`, `jsr:@std/path`)
 - registry package arguments mutate `kali.json` (`dependencies` or `devDependencies`) and then refresh lock/materialized state
-- `--dev` applies only to registry package arguments; `kali install --dev https://...` is rejected explicitly instead of inventing a raw-URL dev-dependency table
+- `--dev` applies only to registry package arguments; `kali install --dev https://...` is rejected with `E5008` instead of inventing a raw-URL dev-dependency table
 - raw URL arguments update the shared lock/cache state only; they do not invent a second manifest section and should not rewrite source/import-map declarations implicitly
 - a raw-URL install is therefore best understood as **pin/materialize this exact URL in the shared dependency state**, not as a request to add a new named dependency kind
 - if that URL is not actually referenced from source or `kali.json#imports`, it is only staged materialization and may disappear on the next plain `kali install`
@@ -406,6 +406,6 @@ Canonical output simplification:
 - the nested shared effect report still summarizes the full statically reachable package graph selected for analysis under that recorded context; it is not just a manifest-level metadata report
 - `--output json` wraps that payload in the standard CLI command envelope; it does not create a third package-effects-only outer format
 
-`kali package-audit` is a later tooling feature rather than a core compiler/runtime milestone. Keeping it single-package in early phases avoids an ambiguous no-argument "audit the whole project" mode that would otherwise overlap with future dependency-health workflows. It also keeps the flag surface small: like `package-effects`, `package-audit` does **not** take package-analysis-specific `--api` or `--compat` flags in early phases unless a later spec explicitly adds them. Unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `runtimeProfiles`, and `compat.features` do not change its semantics. If unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee.
+`kali package-audit` is a later tooling feature rather than a core compiler/runtime milestone. Keeping it single-package in early phases avoids an ambiguous no-argument "audit the whole project" mode that would otherwise overlap with future dependency-health workflows. It also keeps the flag surface small: like `package-effects`, `package-audit` does **not** take package-analysis-specific `--api` or `--compat` flags in early phases unless a later spec explicitly adds them. Unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics. If unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee. If/when machine-readable audit output is added, it should use the standard `--output json` command envelope rather than inventing a second native bare-JSON format.
 
 This integrates with the effect system — know what a dependency does before you use it.
