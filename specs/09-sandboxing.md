@@ -115,9 +115,12 @@ Compile-time policy handling is intentionally split to keep Phase 1 smaller and 
 
 Availability rule for policy validation:
 - a policy may always **deny** a capability, even if that capability's corresponding API/feature is later-phase
-- in schema v1, the canonical deny values are `false` for boolean capability fields, `[]` for allowlist-shaped capability fields, and `0` for numeric resource caps
+- in schema v1, the canonical deny values for capability fields are `false` for boolean capabilities and `[]` for allowlist-shaped capabilities
+- numeric limit/budget fields are **not** one generic "deny" channel across the whole schema: they remain numeric constraints with field-specific semantics
+- omission is the canonical "no explicit budget provided" state for resource-budget fields such as `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles`
+- `0` is meaningful only for the resource counters whose domain naturally allows zero concurrent uses (`resources.maxSpawnedProcesses`, `resources.maxThreads`); it is not the generic schema-wide deny value for every numeric field
 - a policy must **not claim to allow** a capability that the selected command/profile/API surface/phase cannot actually provide
-- therefore validation should reject any **non-deny** value for an unavailable capability, not just `true`; non-empty arrays/allowlists are equally invalid when the capability itself is unavailable
+- therefore validation should reject any unavailable capability being enabled through a non-deny value, not just `true`; non-empty arrays/allowlists are equally invalid when the capability itself is unavailable, and unavailable numeric-budget fields such as `resources.maxSpawnedProcesses` / `resources.maxThreads` must also reject positive values
 - capability-local numeric limit fields are **constraints only**, not implicit enable switches; for example `effects.network.maxConnections` does not by itself allow network use, and `effects.timer.maxActiveTimers` does not by itself permit timers when `effects.timer.schedule` is `false`
 - examples include `effects.fileSystem.read: true` or `effects.fileSystem.read: ["/tmp/**"]` under an effective API surface of `browser`, `effects.eval: true` before Phase 4, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
 - under an effective API surface of `browser`, this rejection applies to capabilities outside the browser-targeted Phase 1 surface, and it also applies to cross-cutting `resources.*` runtime budgets with any non-deny value because those budgets are a Kali-hosted execution contract rather than a post-deployment browser-bundle guarantee
