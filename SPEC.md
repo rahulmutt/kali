@@ -19,7 +19,7 @@ Kali aims to:
 - infer effects and support sandbox policies for untrusted or AI-generated code
 - avoid tracing GC by making compile-time ownership and allocation decisions where possible
 - aggressively specialize code and memory layouts when the program is analyzable
-- provide a clean CLI and embeddable Rust/C APIs
+- provide a clean CLI and embeddable Rust/C APIs, with reusable internal crates from the start and a stable public embedding contract in Phase 2
 - support practical ecosystems: Deno-first runtime behavior, browser-targeted builds early, broader Node compatibility later
 
 ## Hard Constraints

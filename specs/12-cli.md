@@ -47,6 +47,10 @@ Naming rule:
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
 
+Clarification:
+- `--max-specializations` is an upper bound, not a promise that the current build mode will spend that full budget
+- in Phase 1, `--fast` may still perform little or no user-authored generic specialization even when a higher cap is configured, while `--release` and `--release-advanced` are the modes that actively consume that budget
+
 ## Command-Specific Flags
 
 To keep the shared-flag table small and avoid implying that every convenience flag is globally meaningful, command-local switches are listed here.
@@ -57,7 +61,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--lib` | `build`, `init` | Build or scaffold a library-oriented project/artifact without automatic program start |
 | `--capi` | `build` | Emit the Phase-2 public C-embedding artifact set (`wasm-module` + `c-header` + `cabi-metadata`) |
 | `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
-| `--max-specializations N` | `build`, `run`, `test` | Override the specialization fan-out cap for a single invocation |
+| `--max-specializations N` | `build`, `run`, `test` | Override the specialization fan-out cap upper bound for a single invocation; `--fast` may still skip most user-authored generic specialization entirely |
 | `--fix` | `check`, `lint` | Apply only structured, tool-generated safe fixes for the selected command |
 | `--pretty` | `effects`, `package-effects` | Pretty-print the native JSON payload for effect-analysis commands without changing its schema |
 | `--check` | `fmt` | Report formatting drift without rewriting files |
@@ -225,6 +229,7 @@ Scaffold simplification rules:
 - For the default app template, that normally means a `kali.json` containing only `{ "schemaVersion": 1 }` plus the minimal entry source file.
 - The default scaffold should not pre-populate empty `dependencies`, `devDependencies`, `compat`, `sandbox`, or other placeholder sections just to advertise features.
 - `kali init --lib` may add library-oriented source/layout hints, but it should still reuse the same canonical config naming (`apiSurface`, `buildMode`, `runtimeProfiles`) instead of inventing template-specific aliases.
+- `kali init --lib` selects a **project template**, not an implicit default for the later `kali build --lib` artifact selector; template choice and build output mode remain separate knobs.
 - `kali init` should also create only the smallest source/layout skeleton needed for the chosen template (for example `main.ts` for the default app template or `mod.ts`/`lib.ts` for a library template) instead of emitting multiple unused example files.
 - Dependency state is still created by `kali install`, not by `kali init`.
 
@@ -362,7 +367,8 @@ Configuration simplification rules:
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
 - `compilerOptions.apiSurface` and `compilerOptions.runtimeProfiles` describe different axes and must not be conflated: `deno`/`node`/`browser` select host APIs, while runtime profiles select execution capabilities such as threads
 - `compilerOptions.strict` is the config-level strictness bundle; it should mirror the documented strict-checking behavior rather than introducing many parallel booleans in early phases
-- `compilerOptions.maxSpecializations` caps specialization fan-out for generic/layout-driven optimization; CLI `--max-specializations` overrides it for a single invocation
+- `compilerOptions.maxSpecializations` caps specialization fan-out for generic/layout-driven optimization in modes that actively specialize; CLI `--max-specializations` overrides it for a single invocation
+- `compilerOptions.maxSpecializations` is an upper bound rather than a promise that `buildMode = fast` will consume that full budget; `fast` may still skip most user-authored generic specialization by design
 - top-level `sandbox` is an optional default policy-file path equivalent to supplying `--sandbox <path>` for commands that honor sandboxing; an explicit CLI `--sandbox` overrides it
 - `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans
 - `include` / `exclude` constrain project file discovery for project-oriented commands; direct file arguments still name the primary entry explicitly
