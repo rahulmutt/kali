@@ -169,7 +169,7 @@ Compatibility rule:
 ### `kali fmt [files...]`
 Format source files (implemented in `kali_fmt`).
 ```bash
-kali fmt                                   # Format all supported JS/TS source files in project (.ts/.tsx/.mts/.cts/.js/.jsx/.mjs/.cjs)
+kali fmt                                   # Format all supported JS/TS source + declaration files in project (.ts/.tsx/.mts/.cts/.js/.jsx/.mjs/.cjs/.d.ts/.d.mts/.d.cts)
 kali fmt --check                           # Check formatting (CI mode, exit code 1 if unformatted)
 kali fmt main.ts                           # Format specific file
 ```

@@ -207,6 +207,7 @@ Target feature families include:
 ### Extensions Beyond tsc
 - **First-class JavaScript inference**: infer useful types for unannotated `.js` programs and module boundaries without forcing TypeScript migration first
 - **Fuller program inference**: infer more types across module boundaries without annotations, but prefer predictable behavior over maximal cleverness
+- **Boundary fidelity over guesswork**: cross-module/package types must follow the exact resolved import subpath rather than a package-wide shortcut; see the canonical declaration-resolution rules in [specs/14-packages.md](14-packages.md)
 - **Effect annotations** *(Phase 2 target)*: `function read(path: string): string ! FileSystem.Read`
 - **Purity checking** *(Phase 2 target)*: `pure function add(a: number, b: number): number`
 - **User-defined/algebraic effects** *(later, experimental)*: kept out of the MVP and introduced only after the sandbox capability model is stable
@@ -223,3 +224,7 @@ Target feature families include:
 6. **Validation**: Check all constraints are satisfied, report errors
 
 Each phase operates per-module with cross-module dependencies resolved lazily (query-based).
+
+Cross-spec rule:
+- package-boundary type information must be attached to the same resolved package/subpath edge chosen by the resolver/runtime pipeline
+- when package declarations are incomplete or ambiguous for that exact edge, Kali should fall back conservatively (`unknown`, warning, or canonical availability failure) instead of borrowing unrelated package-root declarations

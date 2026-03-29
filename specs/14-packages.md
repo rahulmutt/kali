@@ -231,17 +231,24 @@ To keep the module system aligned with the single-artifact architecture and the 
 
 ## Type Resolution
 
-For registry packages, Kali should prefer the strongest sound information available without inventing fresh `any` merely to suppress analysis:
-1. Check the package's own `types` / `typings` field in `package.json`
-2. Apply `typesVersions` if present and relevant to the active resolution mode
-3. Check for bundled declaration files (`.d.ts`, `.d.mts`, `.d.cts`) alongside package source/entry files
-4. Check for `@types/<package>` in dependencies as a fallback when the package does not ship authoritative declarations
-5. If package source is available as JS/TS, run the normal Kali checker/inference pipeline on that package and synthesize module-boundary types from the result
-6. If Kali still cannot justify a precise exported type, fall back to `unknown` at the package boundary with a warning
+For registry packages, Kali should prefer the strongest sound information available without inventing fresh `any` merely to suppress analysis.
+
+Canonical rule: declaration lookup must follow the **same exact package/subpath edge** chosen by code resolution. Type resolution may consult declaration-specific metadata (`exports` `types`, `types` / `typings`, bundled declarations), but it must not silently type-check one package subpath while runtime resolution executes another.
+
+Type-resolution ladder for a resolved package edge:
+1. If the resolved package/subpath publishes declaration-specific `exports` metadata for that exact edge (for example a `types` condition or declaration target associated with the chosen subpath), use it first.
+2. Otherwise, for a package-root entry, check the package's own top-level `types` / `typings` field in `package.json`.
+3. Apply `typesVersions` if present and relevant to the chosen declaration target.
+4. Check for bundled declaration files (`.d.ts`, `.d.mts`, `.d.cts`) alongside the resolved source/entry files for that same package/subpath.
+5. Check for `@types/<package>` in dependencies as a fallback when the package does not ship authoritative declarations.
+6. If package source is available as JS/TS, run the normal Kali checker/inference pipeline on that package and synthesize module-boundary types from the result.
+7. If Kali still cannot justify a precise exported type, fall back to `unknown` at the package boundary with a warning.
 
 Interpretation rules:
+- declaration lookup is **subpath-aware**: package-root metadata must not override a more specific declaration target published for the requested subpath
 - bundled package types win over `@types` because they are the package author's authoritative declarations
-- `typesVersions` refines how a package's own declarations are selected; it does not outrank the package's own top-level declaration ownership
+- `typesVersions` refines selection within the package's own declaration ownership; it does not outrank an exact subpath declaration target
+- runtime/code resolution must still ignore declaration-only metadata; the separation is that runtime picks the code edge first, then type resolution finds the matching declaration edge
 - explicit `any` from upstream declarations is preserved as authored
 - synthesized package-boundary `unknown` follows the same conservative fallback philosophy described in [specs/04-type-system.md](04-type-system.md)
 - a later loose-compatibility mode may offer broader `any`-style interop, but that must be an explicit opt-in rather than the default package contract
