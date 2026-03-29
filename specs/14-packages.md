@@ -349,6 +349,7 @@ Isolation rule:
 Canonical output simplification:
 - `kali package-effects <pkg>` should reuse the same effect vocabulary and `dynamicReasons` contract as `kali effects`
 - the native payload adds only package-specific metadata (see [specs/18-schemas.md](18-schemas.md)) instead of inventing a second unrelated effect schema
+- the nested shared effect report still summarizes the full statically reachable package graph selected for analysis under the active API surface/profile; it is not just a manifest-level metadata report
 - `--output json` wraps that payload in the standard CLI command envelope; it does not create a third package-effects-only outer format
 
 `kali package-audit` is a later tooling feature rather than a core compiler/runtime milestone. If unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee.

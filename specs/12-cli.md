@@ -213,6 +213,10 @@ kali effects --output json main.ts         # Command envelope + effect payload
 ```
 By default, `kali effects` prints the effect report payload directly because JSON is the primary output of the command. With `--output json`, it is wrapped in the standard command envelope described below. See [specs/18-schemas.md](18-schemas.md) for the canonical payload schema.
 
+Analysis scope rule:
+- `kali effects <file>` summarizes effects for the full statically reachable graph rooted at that entrypoint under the selected API surface/profile; it is not limited to syntax that appears textually in the one named file
+- `entryPoints` in the emitted payload identifies the analysis root(s), while `effects` summarizes the reachable program/dependency graph from those roots
+
 Sandbox-interaction rule:
 - `kali effects` reports inferred effects only; it does **not** accept `--sandbox`
 - effect-vs-policy validation belongs to `kali check --sandbox ...` and `kali build --sandbox ...`
@@ -339,6 +343,10 @@ kali package-effects --pretty lodash       # Pretty-printed package-effect repor
 kali package-effects --output json lodash  # Command envelope + package-effect payload
 ```
 By default, `kali package-effects` emits its native JSON payload directly, following the same simplification as `kali effects`. With `--output json`, that payload is wrapped in the standard command envelope. See [specs/18-schemas.md](18-schemas.md) for the canonical package-effect payload schema.
+
+Analysis scope rule:
+- `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active API surface/profile; it is not just a shallow inspection of the package's top-level manifest
+- the nested `report.entryPoints` field names those package-analysis roots using the shared effect-report schema
 
 ### `kali package-audit [package]`
 Security audit for dependencies.

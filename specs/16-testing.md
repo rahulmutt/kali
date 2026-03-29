@@ -56,8 +56,8 @@ Because Kali aims to support real npm/JS ecosystems, package compatibility needs
 - failures should distinguish resolution/type-check/runtime/sandbox causes so roadmap gaps are visible
 
 #### Kali-Specific Tests
-- **Effect inference tests**: Source → expected effects JSON *(Phase 2 target; Phase 1 may instead test internal analysis units without a stable CLI surface)*
-- **Sandbox tests**: Source + policy → expected pass/fail, including explicit checks for Phase 1 runtime enforcement vs Phase 2 compile-time effect-policy rejection
+- **Effect inference tests**: Source → expected effects JSON for the full statically reachable graph from the chosen entrypoint *(Phase 2 target; Phase 1 may instead test internal analysis units without a stable CLI surface)*
+- **Sandbox tests**: Source + policy → expected pass/fail, including explicit checks for Phase 1 runtime enforcement vs Phase 2 compile-time effect-policy rejection, and for policy checks over transitive imports/dependencies rather than just the root file
 - **Memory tests**: Source → expected allocation strategy (stack/owned-heap/shared-heap)
 - **Specialization tests**: Generic source → expected number of specializations
 - **Optimization tests**: Source → check specific optimization was applied

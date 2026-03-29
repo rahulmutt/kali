@@ -41,6 +41,11 @@ The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md)
 - `dynamicEffects`
 - `dynamicReasons`
 
+Scope rule:
+- `entryPoints` names the analysis roots
+- the summarized `effects` cover the full statically reachable program/dependency graph rooted at those entry points under the selected API surface/profile
+- the report is therefore a conservative whole-program summary for that rooted graph, not a file-local listing of only the syntax inside the directly named source file
+
 Other commands that embed effect data should place the full report under the CLI envelope's `payload` field instead of redefining the structure.
 
 CLI simplification rule:
