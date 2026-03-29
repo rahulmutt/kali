@@ -86,6 +86,8 @@ Terminology note:
 - `E5006`: Feature unavailable in current phase, API surface, command/profile, or target configuration
 - `E5007`: Invalid command input or entrypoint kind for the selected command
 - `E5008`: Invalid CLI usage or flag/arity combination for the selected command
+- `E5009`: Invalid project configuration
+- `E5010`: Invalid sandbox policy file
 
 Use `E5004` for dependency-state problems such as:
 - project dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports from the install-time project discovery set) have not been installed/materialized yet
@@ -132,7 +134,8 @@ Use `E5006` for cases such as:
 Boundary clarification:
 - use `E5006` when the requested feature/profile is real but unavailable in the current phase/profile
 - use `E5008` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it, or `kali build --api browser` without `--bundle` while browser builds are bundle-only)
-- a well-formed policy file that is semantically incompatible with the selected command/profile/api surface still falls on the `E5006` side of this boundary; malformed policy JSON, unknown fields, or invalid numeric/path/pattern shapes remain ordinary invalid-policy/config failures instead
+- a well-formed policy file that is semantically incompatible with the selected command/profile/api surface still falls on the `E5006` side of this boundary
+- malformed project config should use `E5009`; malformed policy JSON, unknown policy fields, or invalid policy numeric/path/pattern shapes should use `E5010`
 - the same rule applies when the triggering value came from discovered config rather than a literal CLI flag; diagnostics should explain the effective value instead of pretending no selection was made
 - in JSON mode, prefer filling structured diagnostic `context` metadata (`origin`, `configPath`/`flag`, and `effectiveValue` when useful) in addition to any human-oriented prose notes
 
@@ -169,14 +172,44 @@ Clarification:
 - `E5007` is about **input-kind mismatch**, not phase gating or general CLI misuse
 - module-resolution issues inside an otherwise valid program still use the ordinary `E5001`-`E5005` family
 
+### Canonical Invalid-Config Diagnostic
+
+Use `E5009` when the discovered `kali.json` is malformed or semantically invalid independent of the command's source inputs.
+
+Boundary rule:
+- `E5009` is for **project configuration shape/content errors**, not for CLI-usage mistakes and not for a well-formed config that merely selects a phase-gated feature
+- if the config is structurally valid but its effective value selects an unavailable documented feature/profile, use `E5006` instead
+- if the config is valid but combines values into an impossible command shape for the selected invocation, use `E5008`
+
+Use `E5009` for cases such as:
+- malformed `kali.json`
+- unknown config keys or wrong value types in `kali.json`
+- duplicate/invalid entries in set-like config arrays such as `compilerOptions.runtimeProfiles` or `compat.features`
+- invalid `imports`, `include`, or `exclude` field shapes that violate the documented schema
+
+### Canonical Invalid-Policy Diagnostic
+
+Use `E5010` when an attached `kali.policy.json` is malformed or violates the documented policy schema.
+
+Boundary rule:
+- `E5010` is for **policy-file syntax/schema/shape/range errors**, not for a well-formed policy that requests a real but unavailable capability/profile
+- if the policy is well-formed but tries to enable a feature that is phase-gated or unavailable in the effective command context, use `E5006`
+
+Use `E5010` for cases such as:
+- malformed `kali.policy.json`
+- unknown policy keys or wrong value types
+- invalid allowlist entry shapes or invalid path/URL matcher syntax under the schema-v1 matcher rules
+- invalid numeric values such as `resources.maxMemoryMB = 0` or `effects.timer.maxActiveTimers = 0`
+
 ### Canonical Invalid-Usage Diagnostic
 
 Use `E5008` when the command line itself is malformed for the selected command, even though the requested feature may otherwise exist.
 
 Boundary rule:
-- `E5008` is for **CLI/config usage shape errors**, not language/runtime maturity gating
+- `E5008` is for **CLI/config usage shape errors**, not language/runtime maturity gating and not malformed config/policy files
 - use `E5006` when the user asked for a documented feature/profile that exists in the spec set but is unavailable in the current phase/profile
 - use `E5007` when the problem is the supplied input kind rather than the overall command shape
+- use `E5009` / `E5010` for malformed config / policy files respectively
 - config-derived contradictions count too: if discovered config makes the effective command shape impossible (for example `apiSurface = browser` for plain early-phase `kali build main.ts` without `--bundle`), the diagnostic is still `E5008`
 
 Example:

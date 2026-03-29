@@ -584,7 +584,7 @@ Interpretation rule:
 - `fmt --check` and lint-style contract failures that report ordinary command diagnostics also exit with **1**
 - runtime sandbox enforcement failures exit with **3**
 - runtime resource exhaustion/fuel/memory-limit failures exit with **4**
-- invalid CLI arguments, invalid config, invalid policy schema/ranges, and command-input/entrypoint-usage mistakes exit with **5**
+- invalid CLI arguments, invalid config (`E5009`), invalid policy schema/ranges (`E5010`), and command-input/entrypoint-usage mistakes exit with **5**
 - malformed/invalid policy files stay on the `5` path; only semantically valid policy files that hit documented feature/profile gating move onto the ordinary diagnostic `1` path
 
 Command-input/entrypoint-usage mistakes include:
@@ -602,6 +602,6 @@ This keeps exit codes simple: command-time failures are separated from runtime e
 | 2 | Runtime error (uncaught exception) |
 | 3 | Runtime sandbox violation |
 | 4 | Runtime resource limit exceeded |
-| 5 | Configuration / CLI usage / malformed or schema-invalid policy file / invalid command input or entrypoint |
+| 5 | Configuration (`E5009`) / malformed or schema-invalid policy file (`E5010`) / CLI usage (`E5008`) / invalid command input or entrypoint (`E5007`) |
 | 126 | Permission denied |
 | 127 | File not found |

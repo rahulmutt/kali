@@ -64,7 +64,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | `Function()` constructor | Phase 4 compatibility | Same status as `eval`; schema v1 intentionally reuses the same `--compat eval` switch instead of introducing a second compatibility-feature name |
 | Invocation arguments (`Deno.args`; later Node `process.argv`) | Phase 1 MVP | Treated as caller-supplied execution context rather than a separately policy-gated host capability in schema v1 |
 | Read-only environment access (`Deno.env.get`, `Deno.env.toObject`, policy-filtered host env view) | Phase 1 MVP | Needed for practical standalone compatibility while still fitting the sandbox model |
-| Read-only `Deno.permissions` facade (`query`-style granted/denied view only) | Phase 1 MVP | Exposes Kali sandbox state for compatibility without interactive permission escalation |
+| Read-only `Deno.permissions` facade (`query`-style granted/denied view only; no `request()` / `revoke()` escalation path) | Phase 1 MVP | Exposes Kali sandbox state for compatibility without interactive permission escalation |
 | Web Crypto randomness subset (`crypto.getRandomValues`, mapping to the canonical `Random.GetBytes` effect / `effects.random` policy key) | Phase 1 MVP | Keeps the Phase 1 Web baseline aligned with the effect and sandbox schemas without overpromising the full Web Crypto surface |
 | Mutable environment access (`Deno.env.set`, `process.env = ...`-style host mutation) | Phase 3 target | Widens the host contract and must remain policy-controlled |
 | Subprocess spawning (`Deno.Command`, host `process_spawn`) | Phase 3 target | Requires explicit sandbox/process-budget integration |
@@ -295,7 +295,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 |---|---|---|
 | Deno-oriented standalone API surface (`--api deno`) | Phase 1 MVP | Default API surface for standalone execution; typically paired with the baseline single-threaded runtime profile |
 | Invocation arguments in the standalone surface (`Deno.args`) | Phase 1 MVP | Part of the execution context rather than a separately policy-gated capability in schema v1 |
-| Read-only `Deno.permissions` facade over resolved policy state | Phase 1 MVP | Observation-only compatibility surface: report granted/denied capability state without interactive `request()` / `revoke()` escalation flows |
+| Read-only `Deno.permissions` facade over resolved policy state | Phase 1 MVP | Observation-only, query-oriented compatibility surface: report granted/denied capability state without interactive `request()` / `revoke()` escalation flows |
 | Read-only environment access in the Deno standalone surface | Phase 1 MVP | Exposes only the sandbox-permitted environment view |
 | Web-baseline randomness subset (`crypto.getRandomValues`) | Phase 1 MVP | Covers the schema-v1 `effects.random` / `Random.GetBytes` capability without implying full Web Crypto support |
 | Mutable environment access / process-environment mutation | Phase 3 target | Policy-controlled host mutation, not part of the Phase 1 baseline |
