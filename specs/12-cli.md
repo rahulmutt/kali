@@ -114,6 +114,17 @@ Configuration precedence is intentionally simple:
 
 That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy. If no policy is attached, those direct invocation flags simply become the effective cap for the current command instead of being compared against an implicit allow-all policy.
 
+Canonical path-resolution rule:
+- a `--sandbox <path>` argument is resolved relative to the current working directory
+- top-level `kali.json#sandbox` is resolved relative to the directory containing that `kali.json`
+- after resolution, commands should preserve one normalized absolute/canonical path internally so diagnostics and caching do not depend on the caller's original spelling
+
+Canonical resource-literal rule:
+- `--max-memory` accepts either a plain byte count or a size literal with one of: `kb`, `mb`, `gb`, `kib`, `mib`, `gib`
+- `--max-cpu` accepts either a plain millisecond count or a duration literal with one of: `ms`, `s`, `m`
+- CLI parsing normalizes these to bytes and milliseconds before comparing them with sandbox-policy limits
+- schema v1 policy files keep the simpler integer fields `resources.maxMemoryMB` and `resources.maxCpuTimeMs`; CLI literals are a convenience syntax over that same effective-limit model rather than a second resource schema
+
 Canonical default tuple:
 - `apiSurface = deno`
 - `buildMode = fast`
@@ -482,6 +493,7 @@ Configuration simplification rules:
 - `compilerOptions.maxSpecializations` caps specialization fan-out for generic/layout-driven optimization in modes that actively specialize; CLI `--max-specializations` overrides it for a single invocation
 - `compilerOptions.maxSpecializations` is an upper bound rather than a promise that `buildMode = fast` will consume that full budget; `fast` may still skip most user-authored generic specialization by design
 - top-level `sandbox` is an optional default policy-file path equivalent to supplying `--sandbox <path>` for sandbox-aware commands (`run`, `test`, `check`, `build`); an explicit CLI `--sandbox` overrides it
+- relative `sandbox` paths in `kali.json` are resolved relative to the directory containing that config file rather than relative to whatever directory the user happened to run the command from
 - omitting top-level `sandbox` means no default policy is attached; it does **not** ask tools to synthesize an implicit permissive policy file
 - non-sandbox-aware commands (`init`, `fmt`, `lint`, `install`, `effects`, `package-effects`, `package-audit`) ignore the top-level `sandbox` setting rather than erroring or silently turning themselves into policy-validation commands
 - `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans

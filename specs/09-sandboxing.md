@@ -75,6 +75,7 @@ An attached sandbox policy is optional even though sandboxing is a first-class d
 
 Canonical behavior when no policy is attached:
 - if neither `--sandbox <policy>` nor top-level `kali.json#sandbox` is provided, Kali runs with **no project policy file attached**
+- a CLI `--sandbox <policy>` path is resolved relative to the current working directory; a relative `kali.json#sandbox` path is resolved relative to the directory containing that config file
 - in that mode, Kali still enforces intrinsic guarantees such as API-surface/feature gating, WASM/runtime safety, and any direct invocation resource caps explicitly supplied on the CLI
 - `kali check` / `kali build` simply skip policy validation when no policy is attached
 - `kali run` / `kali test` skip policy-file-driven capability filtering when no policy is attached
@@ -195,6 +196,8 @@ Cross-contract simplification:
 Effective-limit rule:
 - when a sandbox policy is attached, its values are the maximum capability/resource envelope for the run
 - per-invocation CLI overrides such as `--max-memory` and `--max-cpu` may further tighten that envelope
+- `--max-memory` literals normalize to bytes internally, while schema-v1 policy values are stored as `resources.maxMemoryMB`; comparison therefore happens after canonical unit conversion rather than by string matching
+- `--max-cpu` literals normalize to milliseconds internally, while schema-v1 policy values are stored as `resources.maxCpuTimeMs`
 - when no sandbox policy is attached, direct invocation caps become the effective envelope for the resource dimensions they cover
 - CLI/config must not silently widen a stricter sandbox policy at runtime
 

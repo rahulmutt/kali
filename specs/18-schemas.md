@@ -531,6 +531,7 @@ Interpretation rules:
 - `compilerOptions.maxSpecializations` is the project-default specialization cap upper bound; schema v1 defaults it to `16`, and CLI `--max-specializations` may override it per invocation
 - `compilerOptions.maxSpecializations` does not force every build mode to spend that full budget; `buildMode = fast` may still skip most user-authored generic specialization by design, while `release`-oriented modes consume the budget more aggressively
 - top-level `sandbox` is an optional default sandbox-policy path; it is the config equivalent of supplying `--sandbox <path>` for sandbox-aware commands (`run`, `test`, `check`, `build`), and an explicit CLI flag overrides it
+- if `sandbox` is a relative path, it is resolved relative to the directory containing that `kali.json`
 - omitting top-level `sandbox` means no default project policy file is attached; schema v1 does **not** model that omission as an implicit serialized allow-all policy
 - non-sandbox-aware commands (`init`, `fmt`, `lint`, `install`, `effects`, `package-effects`, `package-audit`) ignore top-level `sandbox` rather than treating it as an error or as an implicit request to perform policy validation
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
@@ -601,6 +602,7 @@ Canonical filename: `kali.policy.json`
 - Numeric limit fields inside `effects.*` constrain an otherwise-allowed capability locally; for example `timer.schedule: true` with `maxActiveTimers: 32` allows timers but caps timer concurrency
 - `resources.*` is reserved for cross-cutting runtime budgets rather than capability-specific allowlists/caps
 - `resources.maxOpenFiles` caps concurrently opened host file handles, including internal opens performed for higher-level file helpers
+- `resources.maxMemoryMB` and `resources.maxCpuTimeMs` are the canonical schema-v1 storage fields for memory and CPU budgets; CLI flags such as `--max-memory 256mb` and `--max-cpu 10s` are convenience syntaxes that normalize into the same effective-limit model before comparison
 - `resources.maxSpawnedProcesses` caps concurrently active spawned processes once subprocess APIs exist; before then, validation should reject values greater than `0` instead of accepting a non-functional budget for an unavailable capability
 - `resources.maxThreads` is reserved for the later threaded runtime profile; before that profile exists, validation should reject values greater than `0` instead of silently accepting them
 - schema v1 intentionally has no stable policy keys for process identity, process termination, or working-directory introspection/mutation (`Deno.pid`, `process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`); those APIs therefore remain unavailable until a future schema/effect-model revision adds an auditable policy contract for them
@@ -610,6 +612,7 @@ Canonical filename: `kali.policy.json`
 - The shared Web-baseline capability keys (`effects.network.fetch`, `effects.timer.*`, `effects.random`, and `effects.console`) remain valid schema-v1 policy targets for browser-targeted `check` / `build --bundle` at the capability-model level.
 - Numeric limit fields constrain an already-defined capability family; they do not enable that family by themselves. For example, `effects.network.maxConnections` does not by itself turn on `fetch`/`connect`/`listen`, and `effects.timer.maxActiveTimers` does not by itself allow timer creation when `effects.timer.schedule` is `false`.
 - absence of a policy file is distinct from a permissive policy object; schemas in this chapter describe the shape of an attached `kali.policy.json`, not a hidden default object that tools should synthesize when no policy is configured
+- when a sandbox policy path comes from CLI, relative paths are resolved against the current working directory; when it comes from top-level `kali.json#sandbox`, relative paths are resolved against the directory containing that config file
 - Per-invocation CLI resource overrides may only tighten these policy limits; they must not widen them
 - Policy keys use the canonical built-in effect naming table above rather than redefining a separate namespace here
 - In schema v1, `random` and `console` are intentionally coarse-grained booleans. Any built-in effect report entry whose kind starts with `Random.` matches `random`, and any kind starting with `Console.` matches `console`.
