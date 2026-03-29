@@ -148,6 +148,7 @@ Canonical rule:
 - browser-targeted `check` and `build --bundle --api browser` should type-check against the real browser ambient surface, including DOM typings that are normally present in browser-focused TypeScript programs
 - this does **not** mean Kali's standalone runtime implements or emulates those DOM APIs
 - when Kali emits browser-targeted artifacts, DOM/Web APIs are expected to come from the real browser host at deployment time
+- the generated browser glue is for runtime bootstrap plus Kali-mediated capability wiring; it is **not** a claim that every browser ambient API is wrapped behind a Kali-specific shim or individually mediated by the schema-v1 sandbox model
 - `--sandbox` on a browser-targeted build therefore constrains static analysis/build-time compatibility, not automatic post-deployment browser-permission enforcement by Kali itself
 - no Deno or Node globals are exposed in browser mode unless a later compatibility spec explicitly says so
 - any lightweight DOM test shim is a separate testing utility, not part of the core browser compatibility contract
@@ -216,6 +217,10 @@ User Code (WASM)
         ├── JSON parse/stringify
         └── RegExp engine
 ```
+
+Boundary clarification:
+- this browser host adapter covers guest-ABI bootstrap and the documented Kali-mediated capability paths
+- ordinary DOM/global browser operations still resolve against the real browser ambient environment rather than being re-modeled as one Kali host-adapter entry per browser API
 
 ### Pure vs Host APIs
 - **Pure**: Implemented in Rust, compiled to WASM, runs inside the guest/runtime artifact (Math, String, Array, JSON, RegExp)

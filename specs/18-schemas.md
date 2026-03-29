@@ -260,6 +260,7 @@ Canonical schema-v1 `role` values:
 Interpretation rules:
 - `kind` stays the primary cross-command type discriminator (`wasm-module`, `wasm-component`, `js-glue`, `wit`, `c-header`, `cabi-metadata`, `source-map`)
 - `role` exists so tools do not have to infer semantic intent from filenames alone when multiple artifact modes reuse the same `kind`
+- in component-oriented outputs, the wrapped core `wasm-module` normally keeps role `primary-library` while the outer `wasm-component` carries role `primary-component`; this avoids making tools guess which artifact is the deployable wrapper versus the linked core payload
 - adding a new stable `role` value is a schema-contract change and should get the same review discipline as new artifact `kind` values
 
 ## Effect Report Schema

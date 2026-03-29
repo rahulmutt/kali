@@ -182,6 +182,10 @@ kali build --capi lib.ts                   # Produces lib.wasm + lib.wit + gener
 kali build --component lib.ts              # Produces lib.wasm + lib.wit + lib.component.wasm for Component Model consumers
 ```
 
+Artifact-role clarification:
+- `kali build --capi` uses the core `wasm-module` as the exported-library artifact (`role: primary-library`) plus `wit` (`role: interface-wit`), generated header (`role: embedding-header`), and metadata (`role: embedding-metadata`)
+- `kali build --component` keeps the same linked core library payload (`role: primary-library`) and WIT sidecar (`role: interface-wit`), then adds the outer Component Model wrapper as `kind: wasm-component`, `role: primary-component`
+
 Important distinction:
 - `kali_capi` ships the stable host ABI header: `kali.h`
 - `kali build --capi foo.ts` emits a **program-specific** exports header such as `foo.exports.h` plus metadata

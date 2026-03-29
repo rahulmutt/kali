@@ -225,8 +225,8 @@ To keep `build`, embedding, schemas, and feature-maturity docs aligned, Kali tre
 | Executable | _(default)_ | Phase 1 MVP | One linked core `wasm-module` with role `primary-executable` |
 | Browser bundle | `--bundle --api browser` | Phase 1 MVP | One linked core `wasm-module` with role `primary-executable` plus browser `js-glue` with role `browser-glue` |
 | Library | `--lib` | Phase 1 MVP | Phase 1 emits one linked core `wasm-module` with role `primary-library`; Phase 2+ public-library builds also emit the canonical `wit` sidecar with role `interface-wit` by default |
-| C embedding package | `--capi` | Phase 2 target | Library-style core `wasm-module` + canonical `wit` sidecar + generated `c-header` + `cabi-metadata` |
-| Component package | `--component` | Phase 2 target | Library-style core `wasm-module` + canonical `wit` sidecar + `wasm-component` wrapper |
+| C embedding package | `--capi` | Phase 2 target | Library-style core `wasm-module` with role `primary-library` + canonical `wit` sidecar with role `interface-wit` + generated `c-header` with role `embedding-header` + `cabi-metadata` with role `embedding-metadata` |
+| Component package | `--component` | Phase 2 target | Library-style core `wasm-module` with role `primary-library` + canonical `wit` sidecar with role `interface-wit` + `wasm-component` wrapper with role `primary-component` |
 
 Cross-spec rules:
 - these modes are mutually exclusive unless a later spec explicitly defines an implication

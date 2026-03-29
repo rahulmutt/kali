@@ -43,7 +43,7 @@ Important loading rule: the runtime registers only the host imports required by 
 mod host {
     // Shared Web-platform baseline
     fn net_fetch(url_ptr: i32, url_len: i32, opts_ptr: i32) -> i32;
-    fn console_log(msg_ptr: i32, msg_len: i32);
+    fn console_write(level: i32, msg_ptr: i32, msg_len: i32);
 
     // Deno-oriented standalone filesystem/process surface
     // (the same host-layer abstractions may be reused by later Node compatibility work,
@@ -68,6 +68,7 @@ mod host {
 
 Interpretation rules:
 - `console`, timers, `fetch`, time, and randomness belong to the Phase 1 Web baseline and may exist across supported API surfaces.
+- `console_write` is the canonical host-import shape for the Phase 1 console family; guest-visible `console.log` / `warn` / `error` / `debug` / `info` all lower through this one `Console.Write` capability family with a level discriminator rather than through separate ad hoc imports per method.
 - in Kali-hosted standalone/embedded execution, these are normally satisfied by native Rust host functions; in browser-targeted bundle output, the generated JS glue is responsible for wiring the equivalent behavior onto the real browser host
 - `fs_read`, `fs_write`, `fs_stat`, `fs_read_dir`, `env_get`, `env_list`, and `process_args` belong to the Deno-oriented standalone host surface in Phase 1, not to the shared Web baseline; later Node compatibility may reuse similar host abstractions, but browser-targeted builds must not assume these imports exist.
 - `process_args` exposes only the invocation's caller-supplied argument vector; in schema v1 this is treated as execution-context input rather than a separately policy-gated host capability.
@@ -76,6 +77,7 @@ Interpretation rules:
 - The Phase 1 runtime does not provide interactive permission-prompt imports; permission state is an already-resolved sandbox contract, not a request-at-runtime workflow.
 - Every registered host import is policy-aware; enabling an API surface does not bypass sandbox checks.
 - This native host-import enforcement model applies directly only when code executes inside a Kali-controlled runtime or embedding host. Browser-targeted emitted artifacts instead rely on the generated JS glue/browser host adapter, which must preserve the documented browser-targeted capability contract without being described as Kali-controlled post-deployment sandbox enforcement unless a later browser-specific host contract says otherwise.
+- That browser glue is responsible for runtime bootstrap plus Kali-mediated capability calls that still go through the guest ABI; it is not a promise that every ambient browser API (for example arbitrary DOM methods) is lowered through one Kali host import per browser primitive.
 - Unsupported imports for the current command/profile are not stubbed silently.
 - If lowering/runtime setup requires a capability that is phase-gated or profile-gated, fail with the canonical feature-maturity diagnostic.
 - If source code merely references a global that is absent from the selected ambient surface in an otherwise-supported mode, that should normally already have been reported as an ordinary name/type error before runtime setup.
