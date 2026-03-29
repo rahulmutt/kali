@@ -182,6 +182,12 @@ kali install --allow-scripts esbuild       # Opt into lifecycle scripts for this
 kali install https://deno.land/std/path/mod.ts  # URL import (cached)
 ```
 
+Determinism rules:
+- `kali install` is the command that resolves versions and writes `kali.lock`.
+- `kali check`, `build`, `run`, and `test` consume existing dependency state; they must not silently modify `kali.json`, `kali.lock`, or `node_modules` as a side effect.
+- If dependency state is missing or stale, those non-install commands fail with the canonical `E5004` path and point the user to `kali install`.
+- `--allow-scripts` is install-scoped only; it does not loosen later execution/build sandbox rules.
+
 ### `kali package-effects <package>`
 Analyze effects of an npm/JSR package before installing.
 

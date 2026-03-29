@@ -121,6 +121,18 @@ integrity = "sha256-..."
 dependencies = []
 ```
 
+## Deterministic Install & Resolution Contract
+
+To keep package behavior predictable across `install`, `check`, `build`, `run`, and `test`, Kali uses one simple rule set:
+- `kali install` is the command that resolves dependency versions and writes `kali.lock`.
+- `kali check`, `build`, `run`, and `test` consume the existing lockfile/package tree; they must not silently re-resolve packages or mutate dependency state as a side effect.
+- If `kali.json` declares dependencies but the required package tree/lock data is missing or stale, non-install commands fail with `E5004` and tell the user to run `kali install`.
+- `node_modules/` is the materialized package tree for ecosystem compatibility; `kali.lock` is the canonical reproducibility record.
+- When `kali.lock` and `node_modules/` disagree, `kali install` is responsible for reconciling them. Other commands should fail clearly rather than guessing which source of truth to trust.
+- `--allow-scripts` affects install-time behavior only; it does not change later `check`/`build`/`run` semantics for an already-installed package graph.
+
+This is an intentional simplification: one command mutates dependency state, all other commands consume it deterministically.
+
 ## Import Styles
 
 ### ESM (Primary)
@@ -134,6 +146,11 @@ import { z } from "zod";
 import { join } from "https://deno.land/std@0.220.0/path/mod.ts";
 ```
 URL imports are cached in `.kali/cache/urls/`. Integrity is verified against the lock file.
+
+Early-phase simplification:
+- a URL import used by source code participates in the same lockfile discipline as registry packages
+- non-install commands may fetch only when the URL dependency is already pinned/authorized by the existing project state; they must not silently turn `run` or `check` into an implicit dependency-resolution step
+- refreshing or first-time pinning of URL dependencies belongs to `kali install` or another explicit dependency-management workflow, not to ordinary compilation
 
 ### Import Maps
 Support import maps in `kali.json`:
