@@ -262,17 +262,16 @@ Support import maps in `kali.json`:
     "schemaVersion": 1,
     "imports": {
         "std/": "https://deno.land/std@0.220.0/",
-        "~/": "./src/",
-        "path/": "jsr:@std/path/"
+        "~/": "./src/"
     }
 }
 ```
 
 Interpretation rule:
-- `imports` is part of the canonical dependency declaration path for URL-based and alias-based resolution
+- `imports` is part of the canonical dependency declaration path for URL-based and path/local alias resolution
 - raw URL dependencies discovered through source code or expanded import-map entries participate in the same `kali.lock` + `.kali/cache/urls/` discipline as direct URL specifiers
 - registry dependencies still belong under `dependencies` / `devDependencies`; `imports` is not a second registry manifest
-- import-map targets may still point at canonical registry package identifiers such as `jsr:@std/path/`, which preserves registry identity without inventing a second package namespace
+- schema v1 import-map targets are therefore limited to relative/absolute path-like rewrites and raw URLs; rewrites to bare package specifiers or canonical registry identifiers such as `jsr:@std/path` are rejected explicitly instead of creating a shadow registry-declaration path
 
 ## CommonJS Compatibility
 

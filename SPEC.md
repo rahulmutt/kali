@@ -251,6 +251,8 @@ Canonical registry-package identifier grammar:
 - this same identifier form should be used consistently in `kali.json`, CLI package arguments, diagnostics, and lockfile provenance so registry identity never depends on guesswork
 
 Interpretation rules:
+- schema v1 `kali.json#imports` is for **raw URL and path/local alias rewrites only**; it is not a second place to declare or alias registry packages
+- registry packages therefore remain owned by `dependencies` / `devDependencies`, while `imports` stays in the source/import-map lane
 - raw URL imports are **not** duplicated under `dependencies` / `devDependencies`
 - `kali.lock` records both source kinds even though they materialize into different on-disk locations
 - `kali install <registry-package>` mutates manifest + lock/materialized state for registry dependencies

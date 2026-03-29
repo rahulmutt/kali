@@ -540,6 +540,7 @@ Interpretation rules:
 - for `kali install`, this same project-discovery result is also the install-time scan set used to discover source-level raw URL imports when no explicit entrypoint is provided
 - project-oriented discovery starts from the canonical project file set from [SPEC.md](../SPEC.md): executable/analyzable files plus declaration-only files, then narrows by command intent (runtime-bearing entrypoint discovery uses executable/analyzable files only)
 - `imports` is the canonical alias/import-map section for URL and path-like rewrites; it is not a second registry-dependency manifest
+- schema v1 import-map targets are limited to raw URLs and path/local rewrites; rewrites to bare package specifiers or canonical registry identifiers such as `jsr:@std/path` are rejected explicitly so registry ownership stays in one place
 - `dependencies` and `devDependencies` are top-level package manifests for **registry packages** owned by `kali install`; they are not nested under `compilerOptions`
 - dependency keys use the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names
 - because schema v1 registry dependencies materialize into one early-phase `node_modules/` tree, install must reject a manifest that would require two distinct registry identities to occupy the same on-disk package path
