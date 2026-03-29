@@ -286,6 +286,8 @@ Install-graph discovery rule for raw URLs:
 To keep package tooling, sandboxing, and host-API promises from drifting together, Kali treats npm lifecycle scripts as a **separate install-time escape hatch**, not as part of the ordinary program-execution contract:
 - lifecycle scripts are enabled only by the explicit one-shot CLI opt-in `kali install --allow-scripts`
 - they are **registry-package install hooks**, not source-program entrypoints and not a second use of `kali run`
+- with an explicit package argument, `--allow-scripts` is valid only for **registry packages**; pairing it with a raw URL is invalid command usage
+- with no explicit package argument, `kali install --allow-scripts` is valid only when the effective install graph contains at least one registry package; on a URL-only/no-registry graph it should fail explicitly instead of silently behaving like plain `install`
 - enabling them does **not** imply `--api node` support, broader runtime host compatibility, or participation in the normal `kali effects` / sandbox-policy model
 - top-level project `sandbox` config is ignored by `install`, and schema-v1 `kali.policy.json` does not try to govern lifecycle-script behavior
 - package compatibility claims for ordinary `check` / `build` / `run` / `test` must therefore stay separate from the narrower opt-in claim that an install hook can be executed during dependency materialization

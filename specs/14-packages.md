@@ -146,6 +146,7 @@ Practical classifier note:
 kali install lodash                         # Add/install single registry package from npm
 kali install jsr:@std/path                  # Add/install single registry package from JSR
 kali install                                # Materialize all declared dependencies for the project
+kali install --allow-scripts                # Same as plain install, but permit lifecycle hooks for discovered registry packages
 kali install --dev vitest                   # Add/install dev dependency
 kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency
 ```
@@ -173,6 +174,7 @@ Installation is **fetch-and-link by default**, not "execute package scripts" by 
 - npm lifecycle scripts (`preinstall`, `install`, `postinstall`) are not executed unless the user explicitly opts in with `kali install --allow-scripts`
 - `--allow-scripts` applies only to that install invocation; it is not an ambient project default
 - pairing `--allow-scripts` with an explicit raw URL install argument is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
+- with **no explicit package argument**, `kali install --allow-scripts` applies only to the discovered registry-package portion of the effective install graph; if that graph contains no registry packages at all, the command should fail with `E5008` instead of silently acting like plain `install`
 - packages requiring native build steps are rejected as unsupported even when lifecycle scripts are enabled
 - package metadata and tarballs can still be analyzed before linking
 

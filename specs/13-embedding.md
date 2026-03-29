@@ -185,6 +185,7 @@ kali build --component lib.ts              # Produces lib.wasm + lib.wit + lib.c
 Artifact-role clarification:
 - `kali build --capi` uses the core `wasm-module` as the exported-library artifact (`role: primary-library`) plus `wit` (`role: interface-wit`), generated header (`role: embedding-header`), and metadata (`role: embedding-metadata`)
 - `kali build --component` keeps the same linked core library payload (`role: primary-library`) and WIT sidecar (`role: interface-wit`), then adds the outer Component Model wrapper as `kind: wasm-component`, `role: primary-component`
+- that outer component wrapper is packaging over the already-linked core payload, not a second independently linked guest-program graph; this keeps embedding/component outputs aligned with the single-linked-core-payload rule from [SPEC.md](../SPEC.md)
 
 Important distinction:
 - `kali_capi` ships the stable host ABI header: `kali.h`

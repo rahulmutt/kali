@@ -189,6 +189,7 @@ Use `E5008` for cases such as:
 - `kali install foo bar`
 - `kali install --dev`
 - `kali install --api browser`
+- `kali install --allow-scripts` in a URL-only / no-registry project graph
 - `kali install --allow-scripts https://example.com/mod.ts`
 - `kali package-effects`
 - `kali package-effects lodash react`

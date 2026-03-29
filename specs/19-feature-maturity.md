@@ -121,6 +121,8 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali install --dev` | Rejected by default | `--dev` modifies an explicit registry package target in early phases; using it without one is invalid command usage (`E5008`) |
 | `kali install --api deno` | Rejected by default | `install` is profile-agnostic in early phases, so `--api` is invalid command usage (`E5008`) rather than a second install mode |
 | `kali install https://...` | Phase 1 MVP | Explicitly pin/materialize a raw URL dependency into the shared lock/materialization model |
+| `kali install --allow-scripts` | Opt-in only | Valid when the effective install graph includes at least one registry package; it permits lifecycle hooks for that registry portion of the graph during this invocation only |
+| `kali install --allow-scripts` on a URL-only / no-registry graph | Rejected by default | If there is no registry-package install work for the flag to affect, fail with `E5008` instead of silently behaving like plain `install` |
 | `kali install --allow-scripts https://...` | Rejected by default | Raw URLs do not have registry lifecycle hooks, so pairing `--allow-scripts` with a raw URL is invalid command usage (`E5008`) rather than a second install mode |
 | `kali run` with no explicit entrypoint | Rejected by default | `run` is a direct-entry command in early phases; omitting the entrypoint should fail with `E5008` rather than guessing `main.ts` or scanning the project |
 | `kali run a.ts b.ts` | Rejected by default | Early phases accept exactly one primary runtime entrypoint; multi-entry execution requires a later explicit mode, so this should fail with `E5008` |
