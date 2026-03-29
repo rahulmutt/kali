@@ -132,7 +132,7 @@ kali test --coverage                        # Phase 2 target: with coverage repo
 Kali's own test runner for discovered test files, supporting:
 - default discovery starts from the canonical project-discovery result from [SPEC.md](../SPEC.md), then matches `*.test.*` / `*_test.*` across the executable/analyzable source set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
 - declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`) are excluded from test discovery even if they match the naming pattern
-- explicit file arguments to `kali test` must also belong to the executable/analyzable source set; passing a declaration-only file is an invalid-entrypoint error rather than a silent skip
+- explicit file arguments to `kali test` must also belong to the executable/analyzable source set; passing a declaration-only file is the canonical invalid-entrypoint error (`E5007`) rather than a silent skip
 - coverage reporting is a **Phase 2 target** so Phase 1 may reject `--coverage` or mark it experimental until the report contract is stabilized
 - `describe`, `it`, `test` blocks
 - `expect` assertions

@@ -240,6 +240,7 @@ integrity = "sha256-..."
 
 Interpretation rules:
 - `[[package]]` entries are for registry dependencies only and include the originating registry kind (`npm` or `jsr`)
+- lockfile package records intentionally keep `registry` and `name` as separate fields for compact diff-friendly storage; the canonical registry identifier used for ordering, diagnostics, and cross-spec references is the derived pair (`lodash` for npm, `jsr:@std/path` for the example JSR entry above)
 - `[[url]]` entries are for exact raw URL imports after import-map expansion/pinning
 - future lockfile revisions may add optional metadata fields, but they should preserve this top-level split instead of collapsing both source kinds into one ambiguous record shape
 - to keep lockfile diffs deterministic, producers should emit `[[package]]` entries sorted by canonical registry identifier, then version; emit `[[url]]` entries sorted by canonical pinned specifier; and sort per-entry dependency lists lexically by canonical dependency identifier

@@ -160,7 +160,7 @@ Interpretation rule:
 | `kali build main.ts` | Phase 1 MVP | Produce one linked WASM payload with the canonical default tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]`) and the default executable artifact mode |
 | `kali build --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config for the build; Phase 2+ also performs effect-vs-policy validation |
 | `kali build --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for builds too |
-| `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`kind: wasm-module` + `kind: js-glue`) |
+| `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`kind: wasm-module`, `role: primary-executable` + `kind: js-glue`, `role: browser-glue`) |
 | `kali build --bundle --api browser --sandbox kali.policy.json main.ts` | Phase 1 MVP | Browser-targeted static policy validation path only; non-deny `resources.*` policy values are rejected because early browser bundles do not promise Kali-hosted runtime-budget enforcement after deployment |
 | `kali build --bundle main.ts` | Rejected by default | Under the default tuple this is invalid command usage (`E5008`) because `--bundle` is reserved for browser-targeted output and therefore requires the effective API surface to be `browser`; with browser selected via CLI/config, the browser-bundle path is the supported Phase 1 mode |
 | `kali build --bundle --api node main.ts` | Rejected by default | Invalid command usage (`E5008`): browser bundle mode exists, but pairing `--bundle` with an explicit non-browser API surface is a contradictory command shape rather than a separate maturity-gated runtime mode |
@@ -177,7 +177,7 @@ Interpretation rule:
 | `kali build --component --api browser lib.ts` | Rejected by default | Early browser support is an analysis/build context tied to `check` and `build --bundle`, not a browser-component artifact mode |
 | `kali test` / `kali test --api deno` | Phase 1 MVP | Compile and run tests with the default standalone tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]`) unless overridden |
 | `kali test a.test.ts b.test.ts` | Phase 1 MVP | Explicit test files bypass naming-pattern discovery and are treated as one explicit test-module set, provided every file is from the executable/analyzable source set |
-| declaration-only file passed to `run` / `effects` / `build` / `test` as an entrypoint | Rejected by default | Declaration files are analysis/type inputs, not executable/effect-report entrypoints |
+| declaration-only file passed to `run` / `effects` / `build` / `test` as an entrypoint | Rejected by default | Declaration files are analysis/type inputs, not executable/effect-report entrypoints; use the canonical invalid-entrypoint diagnostic (`E5007`) rather than treating this as general CLI misuse |
 | `kali test --sandbox kali.policy.json` | Phase 1 MVP | Runtime sandbox enforcement path for tests; policy schema/ranges must validate before execution starts |
 | `kali test --api node` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for test runs too |
 | `kali test --api browser` | Rejected by default | Early browser support is an analysis/build context, not a standalone test-runtime profile |
