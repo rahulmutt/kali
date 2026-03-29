@@ -124,6 +124,16 @@ Import-map boundary rule:
 - It must not be used to alias one registry package to another bare specifier or to a canonical registry identifier such as `jsr:@std/path`.
 - Registry ownership stays in `dependencies` / `devDependencies` so install, lockfile provenance, diagnostics, and package-analysis commands all have one source of truth.
 
+Canonical `kali.json#imports` matching rules (schema v1):
+- keys without a trailing `/` are **exact-match** rewrites for the full module specifier
+- keys with a trailing `/` are **prefix-match** rewrites and apply only when the imported specifier starts with that full prefix
+- when multiple keys could match, the **longest matching key wins**
+- a prefix key ending with `/` must rewrite to a target that also ends with `/` so the unmatched suffix can be appended without inventing path-join heuristics
+- local path targets (`./...`, `../...`, or absolute path-like targets when supported by the host platform) are resolved relative to the directory containing the owning `kali.json`
+- raw-URL targets stay absolute after rewrite and then participate in the normal lock/cache materialization flow
+- import-map rewrites happen before package resolution; if no import-map entry matches, the original specifier continues into the normal relative/package resolution ladder
+- schema v1 does **not** support wildcard/glob/regex import-map keys or targets; exact and prefix rewrites are the whole stable contract
+
 Simplification rule: for any package-resolution edge case not yet modeled faithfully, prefer an explicit `E5006`/availability failure over bundler-style guesswork. This keeps package behavior deterministic and auditable for sandboxed builds.
 
 Practical classifier note:

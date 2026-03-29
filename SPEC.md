@@ -260,6 +260,8 @@ Interpretation rules:
 - schema v1 `kali.json#imports` is for **raw URL and path/local alias rewrites only**; it is not a second place to declare or alias registry packages
 - registry packages therefore remain owned by `dependencies` / `devDependencies`, while `imports` stays in the source/import-map lane
 - raw URL imports are **not** duplicated under `dependencies` / `devDependencies`
+- `kali.json#imports` follows one small import-map-style rule set in early phases: exact keys match whole specifiers, keys ending in `/` are prefix matches, the longest matching key wins, and local path targets are resolved relative to the directory containing that `kali.json`
+- import-map targets are limited to raw URLs and path/local rewrites; they are not regexes, glob patterns, or a second registry-alias mechanism
 - `kali.lock` records both source kinds even though they materialize into different on-disk locations
 - `kali install <registry-package>` mutates manifest + lock/materialized state for registry dependencies
 - because registry packages share one early-phase `node_modules/` tree, Kali must reject a dependency set that would map two distinct registries to the same on-disk package path rather than inventing shadow package trees or ambiguous lookup rules

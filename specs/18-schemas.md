@@ -543,6 +543,11 @@ Interpretation rules:
 - project-oriented discovery starts from the canonical project file set from [SPEC.md](../SPEC.md): executable/analyzable files plus declaration-only files, then narrows by command intent (runtime-bearing entrypoint discovery uses executable/analyzable files only)
 - `imports` is the canonical alias/import-map section for URL and path-like rewrites; it is not a second registry-dependency manifest
 - schema v1 import-map targets are limited to raw URLs and path/local rewrites; rewrites to bare package specifiers or canonical registry identifiers such as `jsr:@std/path` are rejected explicitly so registry ownership stays in one place
+- import-map keys without a trailing `/` are exact-match rewrites; keys ending in `/` are prefix rewrites
+- when multiple import-map keys match, the longest matching key wins
+- a prefix key ending in `/` must map to a target ending in `/` so the unmatched suffix is appended deterministically
+- local path-like import-map targets are resolved relative to the directory containing that `kali.json`
+- schema v1 import maps do not support wildcard/glob/regex keys or targets; exact and prefix rewrites are the complete stable contract
 - `dependencies` and `devDependencies` are top-level package manifests for **registry packages** owned by `kali install`; they are not nested under `compilerOptions`
 - dependency keys use the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names
 - because schema v1 registry dependencies materialize into one early-phase `node_modules/` tree, install must reject a manifest that would require two distinct registry identities to occupy the same on-disk package path
