@@ -144,7 +144,6 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - The checker ships the bounded HM-style local/return inference fragment promised for Phase 1, while still falling back conservatively instead of doing open-ended whole-program search.
 - Browser-targeted `check --api browser` and `build --bundle --api browser` work against the real browser ambient surface without implying DOM runtime support in Kali itself.
 - `kali check` / `build` / `run` / `test` all use the same early-phase API-surface maturity rules: Deno-supported, Node phase-gated, browser supported only for the documented browser-targeted check/bundle paths.
-- once `kali effects` lands in Phase 2, it follows the same API-surface split as analysis commands: default `deno`, browser-targeted analysis supported, and Node phase-gated until the documented subset exists.
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
 - Package support works for the documented pure JS/TS, statically linkable subset.
@@ -166,6 +165,16 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - Dynamic-compatibility paths such as `eval` are implemented behind explicit compatibility switches.
 - Advanced compatibility features preserve the sandbox/effect model instead of bypassing it.
 - Proof coverage expands for the most security- and correctness-critical subsystems.
+
+## Cross-Phase Command Continuity Rule
+
+When a later-phase command or profile becomes user-visible, it inherits the same already-established axis splits unless this matrix explicitly overrides them:
+- analysis-oriented commands default to `apiSurface = deno`
+- browser support remains browser-targeted analysis/build first unless a standalone browser-runtime contract is added explicitly
+- Node support remains phase-gated uniformly across `check` / `effects` / `build` / `run` / `test` until the documented Node subset exists
+- adding a new command should reuse existing artifact/effect/policy contracts instead of inventing a near-duplicate workflow
+
+This keeps Phase 1 exit criteria phase-correct while still making later command behavior predictable.
 
 ## Compatibility Appendix by Concern Area
 
