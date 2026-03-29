@@ -3,9 +3,15 @@
   "image": "ghcr.io/rahulmutt/dev:sha-ba1dc42",
   "workspaceFolder": "/workspace",
   "remoteUser": "dev",
+  "containerEnv": {
+    "CARGO_HOME": "/root/.cargo",
+    "RUSTUP_HOME": "/root/.rustup"
+  },
   "mounts": [
     "source=devpod-home-cache,target=/root/.cache,type=volume",
     "source=devpod-home-local,target=/root/.local,type=volume",
+    "source=devpod-cargo,target=/root/.cargo,type=volume",
+    "source=devpod-rustup,target=/root/.rustup,type=volume"
   ],
   "postCreateCommand": "post-create.sh",
   "customizations": {
