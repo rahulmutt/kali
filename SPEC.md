@@ -206,6 +206,11 @@ To keep install behavior, lockfiles, and configuration simple, Kali uses exactly
 - **Registry packages** (`npm` / `jsr`) are declared in `kali.json` under `dependencies` or `devDependencies` and materialized into `node_modules/`.
 - **Raw URL imports** are declared in source code or in `kali.json#imports` and materialized into `.kali/cache/urls/`.
 
+Canonical registry-package identifier grammar:
+- bare package names mean npm (for example `lodash`)
+- JSR packages use an explicit `jsr:` prefix (for example `jsr:@std/path`)
+- this same identifier form should be used consistently in `kali.json`, CLI package arguments, diagnostics, and lockfile provenance so registry identity never depends on guesswork
+
 Interpretation rules:
 - raw URL imports are **not** duplicated under `dependencies` / `devDependencies`
 - `kali.lock` records both source kinds even though they materialize into different on-disk locations

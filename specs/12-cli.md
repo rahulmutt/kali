@@ -244,6 +244,7 @@ Install or materialize project dependencies.
 Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that require native addons remain unsupported even when scripts are enabled.
 ```bash
 kali install lodash                        # Add/install registry dependency from npm
+kali install jsr:@std/path                 # Add/install registry dependency from JSR
 kali install                               # Materialize all declared dependencies for the project
 kali install --dev vitest                  # Add/install dev dependency
 kali install --allow-scripts esbuild       # Opt into lifecycle scripts for this install only
@@ -251,6 +252,7 @@ kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL depend
 ```
 
 Argument-kind rules:
+- a **registry package argument** uses the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): bare names for npm (for example `lodash`) and `jsr:`-prefixed names for JSR (for example `jsr:@std/path`)
 - a **registry package argument** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
 - `--dev` is valid only with a **registry package argument**; pairing `--dev` with a raw URL is rejected explicitly rather than inventing a second URL-specific manifest bucket
 - a **raw URL argument** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
@@ -276,7 +278,8 @@ Project-state rule:
 
 Status: depends on the Phase 2 effect-report pipeline; if package-level analysis is not yet implemented, the CLI should report that clearly instead of returning partial ad hoc output.
 ```bash
-kali package-effects lodash                # Compact package-effect report JSON to stdout
+kali package-effects lodash                # Analyze npm package
+kali package-effects jsr:@std/path         # Analyze JSR package
 kali package-effects --pretty lodash       # Pretty-printed package-effect report JSON
 kali package-effects --output json lodash  # Command envelope + package-effect payload
 ```
@@ -291,7 +294,8 @@ Project-state rule:
 Status: later tooling feature. It should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
 ```bash
 kali package-audit                         # Audit all installed dependencies
-kali package-audit lodash                  # Audit specific package
+kali package-audit lodash                  # Audit specific npm package
+kali package-audit jsr:@std/path           # Audit specific JSR package
 ```
 
 ## Output Design

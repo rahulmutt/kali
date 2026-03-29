@@ -416,7 +416,8 @@ Canonical filename: `kali.json`
     "~/": "./src/"
   },
   "dependencies": {
-    "lodash": "^4.17.21"
+    "lodash": "^4.17.21",
+    "jsr:@std/path": "^1.0.8"
   },
   "devDependencies": {
     "vitest": "^1.0.0"
@@ -470,6 +471,7 @@ Interpretation rules:
 - project-oriented discovery should use the canonical source-file-kind split from [SPEC.md](../SPEC.md): executable/analyzable files for runtime-bearing entrypoint discovery, plus declaration-only files where the command is specifically type/format/lint oriented
 - `imports` is the canonical alias/import-map section for URL and path-like rewrites; it is not a second registry-dependency manifest
 - `dependencies` and `devDependencies` are top-level package manifests for **registry packages** owned by `kali install`; they are not nested under `compilerOptions`
+- dependency keys use the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): bare package names for npm and `jsr:`-prefixed names for JSR
 - raw URL dependencies are declared in source/import maps and tracked via `kali.lock`; schema v1 intentionally does **not** add a second manifest section for them
 - an ad hoc `kali install https://...` therefore stages/pins materialization for that exact URL, but durable project ownership still comes from source imports or `imports`
 - Config should not mirror every CLI boolean directly when a more semantic field already exists

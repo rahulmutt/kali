@@ -35,6 +35,18 @@ To keep install, lock, and materialization rules simple, Kali distinguishes only
 - **Registry packages** — npm and JSR packages declared in `kali.json` under `dependencies` / `devDependencies`, resolved by package name/version, and materialized into `node_modules/`
 - **Raw URL imports** — exact `https://...` dependencies declared in source code or `kali.json#imports`, cached under `.kali/cache/urls/`
 
+### Canonical Registry Package Identifiers
+
+Kali uses one shared registry-package identifier grammar across `kali.json`, `kali install`, package-analysis commands, and lockfile provenance:
+- **npm packages** use the normal bare package name, for example `lodash` or `@types/node`
+- **JSR packages** use an explicit `jsr:` prefix, for example `jsr:@std/path`
+
+Interpretation rules:
+- bare package names default to the npm registry in CLI/package-manifest contexts
+- the `jsr:` prefix is required for JSR so package identity stays unambiguous in `kali.json`, lockfiles, diagnostics, and install commands
+- this prefix is a **registry identity marker**, not a request to invent a second installation layout; both npm and JSR registry packages still materialize into `node_modules/` in early phases
+- docs and examples should prefer this canonical form instead of relying on context to guess whether `@scope/name` came from npm or JSR
+
 Declaration-model rule:
 - registry dependencies belong in the project manifest
 - raw URL dependencies belong in source/import maps, not in a second manifest dependency table
@@ -54,19 +66,20 @@ Follow Node.js-style package resolution, but keep the early-phase rules explicit
 
 Canonical early-phase code-resolution ladder:
 1. Apply import-map rewrites from `kali.json#imports` before package resolution.
-2. Resolve package self-references (`"name": "pkg"` imported as `pkg/...`) using the package's own `exports` map before walking upward into `node_modules`.
-3. If the specifier names a package or package subpath, consult `package.json#exports` first.
-4. Evaluate `exports` against the current API surface and edge kind:
+2. Preserve any explicit registry qualifier on the package specifier (for example `jsr:@std/path`) so later resolution, lockfile lookup, and diagnostics keep the same package identity.
+3. Resolve package self-references (`"name": "pkg"` imported as `pkg/...`) using the package's own `exports` map before walking upward into `node_modules`.
+4. If the specifier names a package or package subpath, consult `package.json#exports` first.
+5. Evaluate `exports` against the current API surface and edge kind:
    - distinguish **ESM import edges** from **CJS require edges**
    - resolve the exact requested subpath; do not flatten subpath exports into one package-wide entry
    - use the canonical condition order table below
    - unsupported or unmatched conditional branches are skipped; Kali should not guess a fallback branch that the package did not publish
-5. If `exports` does not resolve the entry, fall back to legacy entry fields using the same API-surface intent **and still respecting edge kind**:
+6. If `exports` does not resolve the entry, fall back to legacy entry fields using the same API-surface intent **and still respecting edge kind**:
    - browser-targeted profile (`kali check --api browser` and `kali build --bundle --api browser`): apply `browser` replacement map semantics first where applicable; then for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
    - Deno-oriented standalone profile (`--api deno`, Phase 1 default): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
    - later Node profile may add `node`-specific behavior before the generic fallback ladder when explicitly documented
-6. Resolve relative/file entries with extension probing (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`).
-7. Classify the resolved file as ESM or CJS using Node-compatible signals (`.mts` / `.mjs`, `.cts` / `.cjs`, nearest `package.json#type`, and syntax where necessary).
+7. Resolve relative/file entries with extension probing (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`).
+8. Classify the resolved file as ESM or CJS using Node-compatible signals (`.mts` / `.mjs`, `.cts` / `.cjs`, nearest `package.json#type`, and syntax where necessary).
 
 Canonical `exports` condition order:
 
@@ -96,12 +109,14 @@ Simplification rule: for any package-resolution edge case not yet modeled faithf
 ### Installation
 ```bash
 kali install lodash                         # Add/install single registry package from npm
+kali install jsr:@std/path                  # Add/install single registry package from JSR
 kali install                                # Materialize all declared dependencies for the project
 kali install --dev vitest                   # Add/install dev dependency
 kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency
 ```
 
 Argument semantics are intentionally simple:
+- registry package arguments use the canonical registry-package identifier grammar from this chapter (`lodash`, `@types/node`, `jsr:@std/path`)
 - registry package arguments mutate `kali.json` (`dependencies` or `devDependencies`) and then refresh lock/materialized state
 - `--dev` applies only to registry package arguments; `kali install --dev https://...` is rejected explicitly instead of inventing a raw-URL dev-dependency table
 - raw URL arguments update the shared lock/cache state only; they do not invent a second manifest section and should not rewrite source/import-map declarations implicitly
@@ -223,7 +238,8 @@ Support import maps in `kali.json`:
     "schemaVersion": 1,
     "imports": {
         "std/": "https://deno.land/std@0.220.0/",
-        "~/": "./src/"
+        "~/": "./src/",
+        "path/": "jsr:@std/path/"
     }
 }
 ```
@@ -232,6 +248,7 @@ Interpretation rule:
 - `imports` is part of the canonical dependency declaration path for URL-based and alias-based resolution
 - raw URL dependencies discovered through source code or expanded import-map entries participate in the same `kali.lock` + `.kali/cache/urls/` discipline as direct URL specifiers
 - registry dependencies still belong under `dependencies` / `devDependencies`; `imports` is not a second registry manifest
+- import-map targets may still point at canonical registry package identifiers such as `jsr:@std/path/`, which preserves registry identity without inventing a second package namespace
 
 ## CommonJS Compatibility
 
