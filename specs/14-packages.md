@@ -75,6 +75,20 @@ Registry-collision simplification rule:
 - the failure should name both conflicting package identities so the user can choose one source of truth
 - early phases prefer this explicit rejection over a more complex multi-registry shadow layout
 
+### Canonical stable-release selection rule (schema v1)
+
+Several early schema-v1 workflows intentionally accept a **package identity only** instead of an inline version/range selector. To keep those workflows deterministic, they share one resolution rule:
+- **latest non-yanked stable published version** means the highest published SemVer version for that package identity that has **no prerelease identifier** and is not yanked
+- those identity-only workflows must fail explicitly rather than silently selecting a prerelease when no non-yanked stable version exists
+
+Schema-v1 uses this rule for:
+- registry-analysis commands such as `kali package-effects <pkg>` and `kali package-audit <pkg>`
+- explicit registry-package adds via `kali install <pkg>` and `kali install --dev <pkg>`
+
+Install simplification:
+- when `kali install <pkg>` or `kali install --dev <pkg>` adds a new manifest entry from a package-identity-only argument, it resolves that latest non-yanked stable published version, writes the lockfile using that concrete resolved version, and records the dependency in `kali.json` using the canonical default manifest range `^<resolvedVersion>`
+- later explicit version/range selectors may be added, but they must be introduced as a separate documented CLI/input mode rather than inferred implicitly from the identity-only form
+
 ### Package Resolution
 Follow Node.js-style package resolution, but keep the early-phase rules explicit so browser, Deno, and package behavior do not drift.
 
@@ -157,7 +171,9 @@ kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL depend
 
 Argument semantics are intentionally simple:
 - registry package arguments use the canonical registry-package identifier grammar from this chapter (`lodash`, `@types/node`, `jsr:@std/path`)
-- registry package arguments mutate `kali.json` (`dependencies` or `devDependencies`) and then refresh lock/materialized state
+- in schema v1, explicit registry-package install arguments are **package identities only**, not inline version/range selectors
+- adding a registry package through that identity-only CLI form uses the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1): resolve the latest non-yanked stable published version, refresh `kali.lock` using that concrete version, and record the manifest dependency with the canonical default range `^<resolvedVersion>`
+- registry package arguments therefore mutate `kali.json` (`dependencies` or `devDependencies`) and then refresh lock/materialized state
 - `--dev` applies only to registry package arguments; `kali install --dev https://...` is rejected with `E5008` instead of inventing a raw-URL dev-dependency table
 - raw URL arguments update the shared lock/cache state only; they do not invent a second manifest section and should not rewrite source/import-map declarations implicitly
 - a raw-URL install is therefore best understood as **pin/materialize this exact URL in the shared dependency state**, not as a request to add a new named dependency kind
@@ -389,7 +405,7 @@ Argument-kind simplification:
 - `kali package-audit <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - explicit package arguments for those commands must use canonical **registry-package identifiers** (`lodash`, `@scope/name`, `jsr:@std/path`)
 - early schema-v1 package-analysis commands take a **package identity only**, not an inline version/range selector
-- to keep registry analysis deterministic and independent from ambient project state in schema v1, they resolve the **latest non-yanked stable published version** for that package identity from the registry and report that resolved version as result metadata when applicable
+- to keep registry analysis deterministic and independent from ambient project state in schema v1, they use the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1) and report the resolved version as result metadata when applicable
 - they therefore do **not** consult the current project's manifest or lockfile to choose a different version in early phases; any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly
 - raw URLs and local file paths are rejected for these commands instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
 - raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
@@ -403,7 +419,7 @@ Isolation rule:
 
 Canonical output simplification:
 - `kali package-effects <pkg>` should reuse the same effect vocabulary and `dynamicReasons` contract as `kali effects`
-- in schema v1, the analyzed package root is the registry's latest non-yanked stable published version for the targeted package identity, not an ambient project-installed copy
+- in schema v1, the analyzed package root is selected by the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1), not from an ambient project-installed copy
 - the native payload adds only package-specific metadata (see [specs/18-schemas.md](18-schemas.md)) instead of inventing a second unrelated effect schema
 - the nested `report.entryPoints` field should identify the package-analysis root with the same canonical registry identifier spelling the user targeted (`lodash`, `jsr:@std/path`) rather than an opaque tarball URL, extracted cache path, or internal package ID
 - the nested shared effect report includes `analysisContext` so the chosen `apiSurface`, `runtimeProfiles`, and `compatFeatures` travel with the report instead of living only in ambient CLI/config state
@@ -414,6 +430,6 @@ Canonical output simplification:
 - the nested shared effect report still summarizes the full statically reachable package graph selected for analysis under that recorded context; it is not just a manifest-level metadata report
 - `--output json` wraps that payload in the standard CLI command envelope; it does not create a third package-effects-only outer format
 
-`kali package-audit` is a later tooling feature rather than a core compiler/runtime milestone. Keeping it single-package in early phases avoids an ambiguous no-argument "audit the whole project" mode that would otherwise overlap with future dependency-health workflows. It also keeps the flag surface small: like `package-effects`, `package-audit` does **not** take package-analysis-specific `--api`, `--compat`, or `--sandbox` flags in early phases unless a later spec explicitly adds them. Unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics. In schema v1, its package target is likewise the registry's latest non-yanked stable published version for the requested package identity rather than any ambient project lockfile selection. If unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee. If/when machine-readable audit output is added, it should use the standard `--output json` command envelope rather than inventing a second native bare-JSON format.
+`kali package-audit` is a later tooling feature rather than a core compiler/runtime milestone. Keeping it single-package in early phases avoids an ambiguous no-argument "audit the whole project" mode that would otherwise overlap with future dependency-health workflows. It also keeps the flag surface small: like `package-effects`, `package-audit` does **not** take package-analysis-specific `--api`, `--compat`, or `--sandbox` flags in early phases unless a later spec explicitly adds them. Unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics. In schema v1, its package target is likewise selected by the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1) rather than from any ambient project lockfile selection. If unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee. If/when machine-readable audit output is added, it should use the standard `--output json` command envelope rather than inventing a second native bare-JSON format.
 
 This integrates with the effect system — know what a dependency does before you use it.

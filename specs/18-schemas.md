@@ -422,7 +422,7 @@ Required fields:
 
 Interpretation rules:
 - `PackageCoordinate` is for **registry packages only**; schema v1 package-effect payloads do not use this shape for raw URLs or local paths
-- `package.version` is the concrete resolved version actually analyzed. The CLI package argument is versionless in schema v1; for `package-effects`, that resolved version follows the canonical registry-analysis rule of selecting the latest non-yanked stable published version for the targeted package identity unless a later spec adds an explicit version/range selector.
+- `package.version` is the concrete resolved version actually analyzed. The CLI package argument is versionless in schema v1; for `package-effects`, that resolved version follows the shared stable-release rule from [specs/14-packages.md](14-packages.md) unless a later spec adds an explicit version/range selector.
 - because schema-v1 registry analysis is intentionally project-independent, this resolved version is not inferred from the current project's manifest or lockfile.
 - the emitted payload must still record the exact resolved version so caches, diffs, and audit trails stay reproducible.
 - the nested `report` is the same canonical effect-report payload shape documented above; tools should not expect a package-specific effect vocabulary
@@ -565,6 +565,7 @@ Interpretation rules:
 - schema v1 import maps do not support wildcard/glob/regex keys or targets; exact and prefix rewrites are the complete stable contract
 - `dependencies` and `devDependencies` are top-level package manifests for **registry packages** owned by `kali install`; they are not nested under `compilerOptions`
 - dependency keys use the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names
+- when `kali install <pkg>` or `kali install --dev <pkg>` adds a new registry dependency from the schema-v1 identity-only CLI form, it uses the shared stable-release rule from [specs/14-packages.md](14-packages.md): resolve the latest non-yanked stable published version, write `kali.lock` with that concrete version, and record the manifest entry using the canonical default range `^<resolvedVersion>`
 - because schema v1 registry dependencies materialize into one early-phase `node_modules/` tree, install must reject a manifest that would require two distinct registry identities to occupy the same on-disk package path
 - raw URL dependencies are declared in source/import maps and tracked via `kali.lock`; schema v1 intentionally does **not** add a second manifest section for them
 - an ad hoc `kali install https://...` therefore stages/pins materialization for that exact URL, but durable project ownership still comes from source imports or `imports`
