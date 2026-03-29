@@ -55,6 +55,7 @@ Used by commands that opt into `--output json`.
 - `command` is intentionally an open-ended string so new CLI subcommands do not force a schema-version bump; stable built-in command names should mirror the CLI subcommand path in kebab-case (for example `check`, `build`, `package-effects`)
 - `kali effects` and `kali package-effects` may emit their native JSON payloads by default, but with `--output json` they must be wrapped in this envelope
 - for execution-style commands in JSON mode, guest/program stdout and stderr belong in the envelope's `stdout` / `stderr` fields rather than being interleaved as raw text around the JSON payload
+- diagnostics inside the envelope may carry optional structured `context` metadata when a config/flag-derived effective command context materially caused the failure
 - Commands should avoid inventing top-level ad hoc fields when `payload` is sufficient
 - To keep JSON outputs diff-friendly and deterministic, producers should emit array fields in stable order when the producer naturally owns that order: diagnostics by file/line/column/code, artifacts by `role`, then `kind`, then path, and timings by canonical phase order
 
@@ -136,6 +137,7 @@ Required fields:
 - `related: RelatedInfo[]`
 - `fix: SuggestedFix`
 - `notes: string[]`
+- `context: DiagnosticContext` *(structured machine-readable command/config context for diagnostics whose meaning depends on the effective invocation state)*
 
 ## Reusable Supporting Types
 
@@ -180,6 +182,33 @@ Required fields:
 Required fields:
 - `message: string`
 - `span: SourceSpan`
+
+### `DiagnosticContext`
+
+```json
+{
+  "origin": "config",
+  "configPath": "compilerOptions.apiSurface",
+  "effectiveValue": "browser"
+}
+```
+
+Required fields:
+- `origin: "cli" | "config" | "default" | "source"`
+
+Optional fields:
+- `configPath: string` — canonical config path when a discovered/inherited config value materially caused the diagnostic (for example `compilerOptions.apiSurface`)
+- `flag: string` — canonical CLI flag spelling when an explicit flag materially caused the diagnostic (for example `--api` or `--sandbox`)
+- `requestedValue: object | array | string | number | boolean | null` — user-requested value before normalization when that distinction matters
+- `effectiveValue: object | array | string | number | boolean | null` — normalized effective value that the command actually validated against
+
+Interpretation rules:
+- this field exists primarily for AI/tooling-friendly diagnostics such as `E5006` and `E5008`, where the failure often depends on the merged command/config context rather than only the source span
+- populate it only when the command/config selection materially contributes to the diagnostic; ordinary type/syntax errors usually do not need it
+- when a discovered config value caused the failure, prefer `origin: "config"` plus `configPath` so tools do not have to scrape prose notes to learn that the user omitted the CLI flag but inherited the effective value
+- when an explicit CLI flag caused the failure, prefer `origin: "cli"` plus `flag`
+- producers may include both `requestedValue` and `effectiveValue` when normalization or merging matters (for example a config-derived browser API surface making plain `kali build main.ts` invalid because the effective API surface is `browser` even though the CLI spelled no `--api` flag)
+- this field is explanatory metadata, not a second source of truth for the actual command semantics; the canonical rules still live in the CLI/spec chapters
 
 ### `TextEdit`
 

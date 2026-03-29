@@ -27,6 +27,7 @@ Terminology note:
 - the compiler's internal `Span` is a byte-offset range used by the parser/AST/IR
 - the JSON diagnostic `span` is a `SourceSpan` with `file`/`line`/`column` fields derived from that internal span
 - if a JSON diagnostic also includes a top-level `file`, it is only a convenience mirror of `span.file`, not a second canonical location field
+- when a diagnostic depends materially on the merged command/config state rather than only source text, the JSON form should also populate the optional `context` object from [specs/18-schemas.md](18-schemas.md) so tools do not have to recover effective values from free-form prose notes alone
 
 ## Error Code Ranges
 
@@ -131,6 +132,7 @@ Boundary clarification:
 - use `E5006` when the requested feature/profile is real but unavailable in the current phase/profile
 - use `E5008` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it, or `kali build --api browser` without `--bundle` while browser builds are bundle-only)
 - the same rule applies when the triggering value came from discovered config rather than a literal CLI flag; diagnostics should explain the effective value instead of pretending no selection was made
+- in JSON mode, prefer filling structured diagnostic `context` metadata (`origin`, `configPath`/`flag`, and `effectiveValue` when useful) in addition to any human-oriented prose notes
 
 Clarification:
 - use `E5006` for **documented feature/profile gating**
@@ -218,6 +220,7 @@ Clarification:
 - `E5008` is for **invalid command shape**, not unsupported language/runtime semantics
 - commands should still emit the normal versioned diagnostic/envelope structure in JSON mode rather than printing ad hoc usage text only
 - where config caused the invalid shape, the help text should name the relevant config path (for example `compilerOptions.apiSurface`) so the user can fix either the config or the command line
+- in JSON mode, prefer including that same information in structured diagnostic `context` metadata instead of leaving it only in prose notes/help text
 
 ### Runtime Errors (E6xxx)
 - `E6001`: Uncaught exception
@@ -276,6 +279,15 @@ struct Diagnostic {
     fix: Option<SuggestedFix>,   // Automated fix (structured)
     related: Vec<RelatedInfo>,   // Related locations
     notes: Vec<String>,          // Additional context
+    context: Option<DiagnosticContext>, // Optional machine-readable command/config context
+}
+
+struct DiagnosticContext {
+    origin: DiagnosticOrigin,          // Cli, Config, Default, Source
+    config_path: Option<String>,       // e.g. compilerOptions.apiSurface
+    flag: Option<String>,              // e.g. --api
+    requested_value: Option<JsonValue>,
+    effective_value: Option<JsonValue>,
 }
 
 struct SuggestedFix {

@@ -411,7 +411,7 @@ Determinism rules:
 - Registry packages (npm/JSR) are materialized into `node_modules/`; raw URL imports are materialized under `.kali/cache/urls/`. Non-install commands consume whichever of those stores are relevant to the current project instead of assuming every project must have both.
 
 ### `kali package-effects <package>`
-Analyze effects of an npm/JSR package before installing.
+Analyze effects of an npm/JSR package independently of project install state.
 
 Argument-kind rule:
 - `kali package-effects <package>` takes exactly one explicit package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
@@ -432,7 +432,7 @@ kali package-effects jsr:@std/path         # Analyze JSR package
 kali package-effects --pretty lodash       # Pretty-printed package-effect report JSON
 kali package-effects --output json lodash  # Command envelope + package-effect payload
 ```
-By default, `kali package-effects` emits its native JSON payload directly, following the same simplification as `kali effects`. With `--output json`, that payload is wrapped in the standard command envelope. See [specs/18-schemas.md](18-schemas.md) for the canonical package-effect payload schema.
+By default, `kali package-effects` emits its native JSON payload directly, following the same simplification as `kali effects`. With `--output json`, that payload is wrapped in the standard command envelope. `--pretty` changes formatting only; if combined with `--output json`, it formats the outer envelope while leaving the nested package-effect payload schema-identical. See [specs/18-schemas.md](18-schemas.md) for the canonical package-effect payload schema.
 
 Analysis scope rule:
 - `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
@@ -444,7 +444,6 @@ Analysis scope rule:
 - inherited `apiSurface = browser` is the intended browser-targeted package-analysis path once `kali package-effects` exists in Phase 2; that keeps package analysis aligned with the same browser ambient/package-selection context used by `kali check --api browser`
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
 - the nested `report.entryPoints` field names those package-analysis roots using the shared effect-report schema
-- `--pretty` changes formatting only; if combined with `--output json`, it formats the outer command envelope while leaving the nested package-effect payload schema-identical
 
 ### `kali package-audit <package>`
 Security audit for one registry package.
@@ -513,7 +512,7 @@ Quiet-mode interaction rule:
 - for ordinary human-oriented commands, that usually means nothing is printed on success unless the command's main purpose is to emit stdout from the user program or a requested machine payload
 - for `kali effects`, `kali package-effects`, and `--output json` modes, the requested JSON payload/envelope remains the primary output even under `--quiet`
 
-Feature gating is part of the machine contract too: phase/profile rejections should serialize the same stable diagnostic code and note structure as human output.
+Feature gating is part of the machine contract too: phase/profile rejections should serialize the same stable diagnostic code and note structure as human output. When the failure depends on merged CLI/config state (for example a config-selected API surface or a contradictory artifact-mode combination), JSON diagnostics should also populate the optional structured `context` metadata from [specs/18-schemas.md](18-schemas.md) so tools can see the effective value without scraping prose.
 
 Rules:
 - top-level output uses the versioned command envelope

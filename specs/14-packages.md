@@ -394,7 +394,7 @@ To keep schema v1 small and avoid undocumented config surface area, early-phase 
 
 ## Package Analysis
 
-Before installing, Kali can analyze a package:
+Independently of project install state, Kali can analyze a registry package:
 ```bash
 kali package-effects lodash                 # Show effects used by package
 kali package-audit lodash                   # Security audit
