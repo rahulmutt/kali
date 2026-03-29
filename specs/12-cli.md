@@ -326,6 +326,7 @@ kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL depend
 Argument-kind rules:
 - a **registry package argument** uses the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names (for example `jsr:@std/path`)
 - a **registry package argument** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
+- `kali install` does **not** take `--api` in early phases; install is profile-agnostic, so passing `--api ...` is invalid command usage (`E5008`) rather than a request for a second install graph
 - `--dev` is valid only with a **registry package argument**; pairing `--dev` with a raw URL is rejected explicitly rather than inventing a second URL-specific manifest bucket
 - a **raw URL argument** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
 - an ad hoc raw-URL install is therefore a **staging/pin workflow**; if the project does not reference that URL from source or `kali.json#imports`, a later plain `kali install` may prune it again
@@ -368,6 +369,7 @@ By default, `kali package-effects` emits its native JSON payload directly, follo
 Analysis scope rule:
 - `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
 - in early phases, that context is inherited from the effective `kali.json` / default analysis settings rather than from package-specific `--api` / `--compat` flags
+- because the command intentionally reuses inherited context instead of growing a second near-duplicate flag family, `kali package-effects` does **not** take `--api` or `--compat` in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds those flags
 - the inherited context is still subject to the normal maturity rules for that command; for example, if config selects `apiSurface = node` before Node package analysis is supported, `kali package-effects` should fail with `E5006` rather than silently analyzing under some other surface
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
 - the nested `report.entryPoints` field names those package-analysis roots using the shared effect-report schema

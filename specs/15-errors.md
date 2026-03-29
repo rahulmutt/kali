@@ -182,6 +182,8 @@ Use `E5008` for cases such as:
 - `kali run` with no explicit entrypoint
 - `kali build a.ts b.ts` in early phases where `build` is a single-entry direct command
 - `kali effects --sandbox kali.policy.json main.ts`
+- `kali install --api browser`
+- `kali package-effects --api browser lodash`
 - conflicting artifact-mode selectors such as `--bundle --lib`, `--bundle --capi`, or `--lib --component`
 - other command-local flag/arity combinations that the CLI contract rejects independently of feature maturity
 

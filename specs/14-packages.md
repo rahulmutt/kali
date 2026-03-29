@@ -37,6 +37,7 @@ To keep install, lock, and materialization rules simple, Kali distinguishes only
 
 Clarification:
 - path/local alias rewrites in `kali.json#imports` are not a third dependency source kind; they are source-organization rewrites that do not create separate external lock/materialization state.
+- schema v1 `kali.json#imports` stays in the URL/path-rewrite lane: it may target raw URLs or path/local rewrites, but it must not alias registry packages or canonical registry identifiers such as `jsr:@std/path`.
 
 ### Canonical Registry Package Identifiers
 
@@ -118,6 +119,11 @@ Important separation rules:
 
 To keep configuration simple, `kali.json#imports` is the canonical aliasing mechanism in early phases. A separate TypeScript-style `paths`/`baseUrl` compatibility layer may be added later if ecosystem pressure justifies it, but it is not part of the MVP contract.
 
+Import-map boundary rule:
+- `kali.json#imports` may rewrite to raw URLs or path/local targets only.
+- It must not be used to alias one registry package to another bare specifier or to a canonical registry identifier such as `jsr:@std/path`.
+- Registry ownership stays in `dependencies` / `devDependencies` so install, lockfile provenance, diagnostics, and package-analysis commands all have one source of truth.
+
 Simplification rule: for any package-resolution edge case not yet modeled faithfully, prefer an explicit `E5006`/availability failure over bundler-style guesswork. This keeps package behavior deterministic and auditable for sandboxed builds.
 
 Practical classifier note:
@@ -142,6 +148,7 @@ Argument semantics are intentionally simple:
 - a raw-URL install is therefore best understood as **pin/materialize this exact URL in the shared dependency state**, not as a request to add a new named dependency kind
 - if that URL is not actually referenced from source or `kali.json#imports`, it is only staged materialization and may disappear on the next plain `kali install`
 - plain `kali install` reconciles the current manifest + import graph with `kali.lock`, `node_modules/`, and `.kali/cache/urls/`, and may prune raw URL entries that are no longer reachable from that graph
+- because install is intentionally profile-agnostic in early phases, `kali install` does **not** take `--api`; passing `--api ...` is invalid command usage (`E5008`), not a request for a second install graph
 
 Install-graph discovery rule:
 - because `kali install` usually runs without an explicit entrypoint, source-level raw URL imports are discovered from the canonical project-discovery result rather than from one ad hoc command entrypoint
@@ -360,6 +367,7 @@ Canonical output simplification:
 - the native payload adds only package-specific metadata (see [specs/18-schemas.md](18-schemas.md)) instead of inventing a second unrelated effect schema
 - the nested shared effect report includes `analysisContext` so the chosen `apiSurface`, `runtimeProfiles`, and `compatFeatures` travel with the report instead of living only in ambient CLI/config state
 - in early phases, that package-analysis context is inherited from the effective `kali.json` / built-in defaults rather than from a second package-analysis-only `--api` or `--compat` flag family
+- because of that design, `kali package-effects` does **not** take `--api` or `--compat` in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds those flags
 - that inherited context is still validated against the normal maturity rules for package analysis; for example, a config-selected `apiSurface = node` should still produce `E5006` until Node package analysis is supported, rather than silently falling back to `deno`
 - the nested shared effect report still summarizes the full statically reachable package graph selected for analysis under that recorded context; it is not just a manifest-level metadata report
 - `--output json` wraps that payload in the standard CLI command envelope; it does not create a third package-effects-only outer format
