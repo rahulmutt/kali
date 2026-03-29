@@ -1,4 +1,4 @@
-# kali
+# Kali
 An ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembly, designed for sandboxed execution, strong static analysis, and AI-friendly tooling.
 
 ## Specification

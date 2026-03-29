@@ -470,6 +470,7 @@ Interpretation rules:
 - `imports` is the canonical alias/import-map section for URL and path-like rewrites; it is not a second registry-dependency manifest
 - `dependencies` and `devDependencies` are top-level package manifests for **registry packages** owned by `kali install`; they are not nested under `compilerOptions`
 - raw URL dependencies are declared in source/import maps and tracked via `kali.lock`; schema v1 intentionally does **not** add a second manifest section for them
+- an ad hoc `kali install https://...` therefore stages/pins materialization for that exact URL, but durable project ownership still comes from source imports or `imports`
 - Config should not mirror every CLI boolean directly when a more semantic field already exists
 - Precedence is `CLI > kali.json > defaults`, except sandbox policy restrictions still bound effective runtime behavior
 - Unknown config fields are rejected at every documented nesting level unless a future schema revision adds an explicit extension mechanism

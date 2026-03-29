@@ -249,12 +249,14 @@ Argument-kind rules:
 - a **registry package argument** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
 - `--dev` is valid only with a **registry package argument**; pairing `--dev` with a raw URL is rejected explicitly rather than inventing a second URL-specific manifest bucket
 - a **raw URL argument** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
+- an ad hoc raw-URL install is therefore a **staging/pin workflow**; if the project does not reference that URL from source or `kali.json#imports`, a later plain `kali install` may prune it again
 - plain `kali install` consumes the current manifest/import graph and reconciles lock + materialized state for the dependency source kinds actually used by the project
 - because raw URL entries are owned by the current source/import-map graph instead of a manifest dependency table, plain `kali install` may prune raw URL lock/cache entries that are no longer referenced
 
 Determinism rules:
 - `kali install` is the command that resolves versions, pins URL imports, and writes `kali.lock`.
 - `kali check`, `build`, `run`, and `test` consume existing dependency state; they must not silently modify `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/` as a side effect. Missing URL-cache materialization is treated the same as missing `node_modules/`: fail with `E5004` and point the user to `kali install`.
+- For `E5004`, "stale" means the current manifest/import graph, lockfile entries, and required materialized artifacts no longer match for the dependency kinds the project actually uses. It does **not** require ad hoc timestamp-based guessing by non-install commands.
 - If dependency state is missing or stale for the dependency source kinds the project actually uses, those non-install commands fail with the canonical `E5004` path and point the user to `kali install`.
 - `--allow-scripts` is install-scoped only; it does not loosen later execution/build sandbox rules.
 - Registry packages (npm/JSR) are materialized into `node_modules/`; raw URL imports are materialized under `.kali/cache/urls/`. Non-install commands consume whichever of those stores are relevant to the current project instead of assuming every project must have both.

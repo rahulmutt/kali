@@ -39,6 +39,7 @@ Declaration-model rule:
 - registry dependencies belong in the project manifest
 - raw URL dependencies belong in source/import maps, not in a second manifest dependency table
 - `kali install https://...` is therefore a pin/materialize workflow for the shared lock/cache model, not a request to invent a new top-level manifest section
+- ad hoc raw-URL installs are a **staging/pin convenience**, not a second durable declaration channel; durable raw URL dependencies still belong in source imports or `kali.json#imports`
 - because raw URL state is owned by the current source/import-map graph instead of a manifest dependency table, plain `kali install` may prune raw URL lock/cache entries that are no longer referenced
 
 Lockfile rule:
@@ -105,6 +106,7 @@ Argument semantics are intentionally simple:
 - `--dev` applies only to registry package arguments; `kali install --dev https://...` is rejected explicitly instead of inventing a raw-URL dev-dependency table
 - raw URL arguments update the shared lock/cache state only; they do not invent a second manifest section and should not rewrite source/import-map declarations implicitly
 - a raw-URL install is therefore best understood as **pin/materialize this exact URL in the shared dependency state**, not as a request to add a new named dependency kind
+- if that URL is not actually referenced from source or `kali.json#imports`, it is only staged materialization and may disappear on the next plain `kali install`
 - plain `kali install` reconciles the current manifest + import graph with `kali.lock`, `node_modules/`, and `.kali/cache/urls/`, and may prune raw URL entries that are no longer reachable from that graph
 
 Installation is **fetch-and-link by default**, not "execute package scripts" by default. To preserve sandbox-first behavior:
@@ -173,6 +175,7 @@ To keep package behavior predictable across `install`, `check`, `build`, `run`, 
 - `kali install` is the command that resolves dependency versions and writes `kali.lock`.
 - `kali check`, `build`, `run`, and `test` consume the existing lockfile/materialized dependency state; they must not silently re-resolve packages or mutate dependency state as a side effect.
 - If the project's declared dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports) require materialized state that is missing or stale, non-install commands fail with `E5004` and tell the user to run `kali install`.
+- Here, "stale" means the current declared dependency graph, the corresponding `kali.lock` entries, and the required materialized artifacts no longer agree. Non-install commands should not try to infer staleness from arbitrary mtimes or repair it opportunistically.
 - `node_modules/` is the materialized tree for registry packages (npm/JSR), while `.kali/cache/urls/` is the materialized cache for raw URL imports; `kali.lock` is the canonical reproducibility record for both.
 - When `kali.lock` and the required materialized dependency state disagree, `kali install` is responsible for reconciling them. Other commands should fail clearly rather than guessing which source of truth to trust.
 - `--allow-scripts` affects install-time behavior only; it does not change later `check`/`build`/`run` semantics for an already-installed package graph.

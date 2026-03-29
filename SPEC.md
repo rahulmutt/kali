@@ -193,10 +193,11 @@ Interpretation rules:
 - `kali.lock` records both source kinds even though they materialize into different on-disk locations
 - `kali install <registry-package>` mutates manifest + lock/materialized state for registry dependencies
 - `kali install https://...` pins/materializes that exact URL in the shared lock/materialization model but does **not** invent a second manifest section or silently rewrite source imports
+- ad hoc raw-URL installs are therefore a **staging/pin workflow**, not a second durable declaration channel; long-lived raw URL dependencies still belong in source imports or `kali.json#imports`
 - `--dev` applies only to **registry package** install arguments; pairing `--dev` with a raw URL is rejected explicitly instead of inventing a `devUrls`-style manifest concept
 - because raw URL pins are owned by the current source/import-map graph rather than a separate manifest table, a later plain `kali install` may prune lock/cache entries for raw URLs no longer referenced by the project
 
-This keeps raw URL support simple: source/import maps declare it, the lock/cache materialize it, and `kali install` reconciles the two.
+This keeps raw URL support simple: source/import maps declare durable URL dependencies, the lock/cache materialize them, and `kali install` reconciles the two. An ad hoc `kali install https://...` is just a convenient way to pre-pin/materialize a URL that the project is expected to reference explicitly.
 
 This is the canonical simplification for dependency management across the CLI, package, and schema specs.
 

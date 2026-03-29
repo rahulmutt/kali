@@ -88,7 +88,12 @@ Terminology note:
 Use `E5004` for dependency-state problems such as:
 - project dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports) have not been installed/materialized yet
 - `kali.lock`, `node_modules/`, or `.kali/cache/urls/` is missing/stale for the dependency kinds the project uses
+- the current declared dependency graph, lockfile entries, and required materialized artifacts no longer agree
 - the resolver needs explicit dependency installation/synchronization instead of silently re-resolving during `check`, `build`, `run`, or `test`
+
+Clarification:
+- for `E5004`, "stale" is a **lock/materialization mismatch**, not a vague timestamp heuristic
+- non-install commands should fail clearly and point to `kali install`; they should not repair dependency state as a side effect
 
 ### Canonical Feature-Maturity Diagnostic
 
