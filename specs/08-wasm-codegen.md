@@ -118,4 +118,8 @@ Use the canonical artifact kinds from [specs/18-schemas.md](18-schemas.md) in CL
 
 ## Source Maps
 
-Generate WASM source maps (DWARF-based) mapping WASM offsets back to TypeScript/JavaScript source positions for debugging. Artifact metadata exposed through the CLI JSON envelope should describe source maps using the shared artifact schema in [specs/18-schemas.md](18-schemas.md).
+When debug/source-map output is requested, Kali may emit WASM source maps (DWARF-based) mapping WASM offsets back to TypeScript/JavaScript source positions for debugging. Artifact metadata exposed through the CLI JSON envelope should describe source maps using the shared artifact schema in [specs/18-schemas.md](18-schemas.md).
+
+Clarification:
+- source maps are optional companion debug artifacts, not part of the minimal Phase 1 default artifact contract
+- when emitted, they use artifact kind `source-map`

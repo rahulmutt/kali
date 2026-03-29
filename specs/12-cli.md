@@ -132,7 +132,7 @@ kali build --bundle --api browser main.ts  # main.wasm + main.js (artifact kinds
 kali build --api browser main.ts           # Rejected in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
 kali build --lib lib.ts                    # Library module (exports, no start)
-kali build --capi lib.ts                   # Phase 2 target: foo.wasm + foo.exports.h + metadata (artifact kinds: wasm-module + c-header + cabi-metadata; see specs/13-embedding.md)
+kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.exports.h + metadata (artifact kinds: wasm-module + c-header + cabi-metadata; see specs/13-embedding.md)
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
@@ -311,6 +311,12 @@ Minimal canonical shape:
   }
 }
 ```
+
+Omission/default rule for minimal configs:
+- `kali init` should emit only the smallest canonical shape needed for the chosen template.
+- Omitted fields inherit documented schema/CLI defaults rather than creating placeholder sections.
+- In schema v1, omitted `compilerOptions.strict` means the default strict-checking bundle is enabled.
+- Omitted `compat` means `compat.features = []`.
 
 Configuration simplification rules:
 - `compilerOptions.apiSurface` is the config equivalent of the CLI `--api` flag

@@ -381,6 +381,22 @@ Canonical filename: `kali.json`
 ### Rules
 - The JSON block above is a **full illustrative example**, not the minimal scaffold that `kali init` should emit by default
 - `schemaVersion: number` is required on `kali.json` like every other top-level machine-readable Kali JSON document
+
+### Schema-v1 defaulting and omission rules
+To keep `kali.json` minimal and avoid placeholder churn, schema v1 uses a small canonical default set when fields are omitted.
+
+Defaults:
+- omitted `compilerOptions.strict` means `true`
+- omitted `compilerOptions.apiSurface` means `deno`
+- omitted `compilerOptions.buildMode` means `fast`
+- omitted `compilerOptions.runtimeProfiles` means `[]`
+- omitted `compat` means `{"features": []}`
+- omitted `compat.features` means `[]`
+
+Interpretation rules:
+- `kali init` should prefer omission of default-valued optional fields over emitting empty placeholder sections
+- tools may materialize these defaults internally, but should preserve a minimal on-disk config unless the user explicitly asks for a fuller form
+- when a tool normalizes `kali.json`, it must not change semantics by adding or removing fields whose values equal these defaults
 - `compilerOptions.apiSurface` is the canonical config name for the host API family; CLI uses `--api`
 - `compilerOptions.buildMode` is one of `fast`, `release`, or `release-advanced`
 - `compilerOptions.runtimeProfiles` is an array of semantic runtime-profile names; in schema v1 it is usually empty because later profiles such as `wasm-threads` are still phase-gated
@@ -501,6 +517,9 @@ Canonical schema-v1 `kind` values:
 - `c-header`
 - `cabi-metadata`
 - `source-map`
+
+Interpretation rule:
+- `source-map` is a valid artifact kind when debug/source-map output is emitted, but ordinary Phase 1 builds do not need to produce source maps by default
 
 Simplification rule:
 - build-like commands should use these canonical artifact kinds instead of inventing near-synonyms such as `wasm`, `header`, or `metadata-json`
