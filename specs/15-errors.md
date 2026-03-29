@@ -131,6 +131,7 @@ Use `E5006` for cases such as:
 - `--max-spawned-processes N` with a non-zero value before subprocess support exists for the selected command/profile/API surface
 - an attached sandbox policy trying to enable a real capability/profile that exists in the spec set but is unavailable in the current phase/profile/api surface or effective compatibility context (for example `effects.eval: true` before the eval path exists, `effects.eval: true` without effective `--compat eval`, or non-deny `resources.*` budgets in early browser-targeted `check` / `build --bundle`)
 - any parse-supported construct that is intentionally not semantically enabled in the current phase/profile
+- library-oriented build/embedding modes whose entry module does not lower to one statically known export surface (for example a dynamic CommonJS export shape that Kali cannot reduce to a fixed set for `--lib` / `--capi` / `--component`)
 
 Boundary clarification:
 - use `E5006` when the requested feature/profile is real but unavailable in the current phase/profile

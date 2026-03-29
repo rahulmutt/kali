@@ -512,10 +512,11 @@ These selectors are mutually exclusive unless a later spec explicitly says other
 
 Interpretation rules:
 - `--bundle` is **browser-only** in early phases and requires the effective `apiSurface` to be `browser`
-- `--lib`, `--capi`, and `--component` are **library-oriented artifact modes** in early phases: they are non-browser, export-oriented modes derived from the module's explicit exports
+- `--lib`, `--capi`, and `--component` are **library-oriented artifact modes** in early phases: they are non-browser, export-oriented modes derived from a statically known module export surface
 - plain `--lib` is the **base library artifact** in Phase 1: useful for internal/experimental host integration, but the stable public embedding/WIT contract is still Phase 2 work
 - once that public contract stabilizes in Phase 2+, plain `--lib` becomes the canonical stable public library artifact and emits WIT by default; `--capi` and `--component` remain packaging layers over that same exported library surface rather than alternate reflection-based APIs
-- the exported host-facing surface for every library-oriented mode comes only from the module's explicit exports; these modes must not expose arbitrary internal declarations through reflection or artifact-specific special cases
+- the exported host-facing surface for every library-oriented mode comes only from the module's explicit exports after frontend lowering resolves the entry module to a fixed export set; these modes must not expose arbitrary internal declarations through reflection or artifact-specific special cases
+- ESM entrypoints satisfy this rule directly; CommonJS entrypoints participate only when Kali's static CJS lowering can prove one fixed export set for the entry module, otherwise the library-oriented build must fail with `E5006` instead of inventing reflection-based exports
 - library-oriented modes still obey the ordinary build-command API-surface gates: for example `kali build --lib --api node lib.ts` is a **Phase 3** Node build and therefore uses the same `E5006` gate as other early `--api node` builds, while `kali build --lib --api browser lib.ts` is an `E5008` contradiction because browser mode is only defined for `--bundle`
 - library-oriented modes omit any synthetic executable entry invocation, but still preserve ordinary ECMAScript module-instantiation semantics for top-level initialization when the host instantiates the module
 - WIT is an output detail of public library/embedding/component modes, not a separate selector
