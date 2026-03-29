@@ -246,7 +246,7 @@ To keep install behavior, lockfiles, and configuration simple, Kali uses exactly
 - **Raw URL imports** are declared in source code or in `kali.json#imports` and materialized into `.kali/cache/urls/`.
 
 Canonical registry-package identifier grammar:
-- bare package names mean npm (for example `lodash`)
+- npm packages use the normal npm package-name grammar (for example `lodash` or `@types/node`)
 - JSR packages use an explicit `jsr:` prefix (for example `jsr:@std/path`)
 - this same identifier form should be used consistently in `kali.json`, CLI package arguments, diagnostics, and lockfile provenance so registry identity never depends on guesswork
 

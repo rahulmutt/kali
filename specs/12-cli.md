@@ -316,7 +316,7 @@ kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL depend
 ```
 
 Argument-kind rules:
-- a **registry package argument** uses the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): bare names for npm (for example `lodash`) and `jsr:`-prefixed names for JSR (for example `jsr:@std/path`)
+- a **registry package argument** uses the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names (for example `jsr:@std/path`)
 - a **registry package argument** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
 - `--dev` is valid only with a **registry package argument**; pairing `--dev` with a raw URL is rejected explicitly rather than inventing a second URL-specific manifest bucket
 - a **raw URL argument** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
@@ -340,7 +340,7 @@ Determinism rules:
 Analyze effects of an npm/JSR package before installing.
 
 Argument-kind rule:
-- `<package>` uses the same canonical registry-package identifier grammar as `kali install`: bare names for npm and `jsr:`-prefixed names for JSR
+- `<package>` uses the same canonical registry-package identifier grammar as `kali install`: normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names
 - raw URLs and local file paths are rejected for `package-effects`; this command analyzes registry packages, while raw URL dependencies remain part of the project/import-graph workflow handled by `kali install` + `kali effects`
 
 Project-state rule:
@@ -366,7 +366,7 @@ Analysis scope rule:
 Security audit for dependencies.
 
 Argument-kind rule:
-- when a package argument is supplied, it uses the canonical registry-package identifier grammar (npm bare name or `jsr:`-prefixed JSR name)
+- when a package argument is supplied, it uses the canonical registry-package identifier grammar (normal npm package name or `jsr:`-prefixed JSR name)
 - raw URLs and local file paths are rejected for `package-audit`; package-audit is registry-package-oriented rather than a second raw-URL analysis path
 - with no explicit package argument, `kali package-audit` audits the currently installed registry-package dependency set rather than inventing a separate audit meaning for raw URL cache entries
 
