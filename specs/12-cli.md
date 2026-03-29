@@ -26,7 +26,7 @@ Naming rule:
 |------|-------|-------------|
 | `--verbose` | all commands | Detailed output: timing per phase, optimization decisions |
 | `--output json` | all commands | Machine-parseable JSON output |
-| `--quiet` | all commands | Suppress all non-error output |
+| `--quiet` | all commands | Suppress non-error status/progress output; for data-producing commands such as `effects` and `package-effects`, it must not suppress the primary payload itself |
 | `--max-errors N` | diagnostic-producing commands | Cap reported errors (default: 50) |
 | `--color auto\|always\|never` | text-output commands | Color output control |
 | `--api deno\|node\|browser` | `check`, `build`, `run`, `test` | Select host API surface; unsupported surfaces for the current command/profile must error explicitly (for example, early browser builds require `--bundle`) |
@@ -241,6 +241,10 @@ Determinism rules:
 ### `kali package-effects <package>`
 Analyze effects of an npm/JSR package before installing.
 
+Project-state rule:
+- `kali package-effects <package>` may fetch package metadata/tarballs into an ephemeral analysis cache, but it must **not** mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
+- turning an analyzed package into a project dependency remains the job of `kali install`
+
 Status: depends on the Phase 2 effect-report pipeline; if package-level analysis is not yet implemented, the CLI should report that clearly instead of returning partial ad hoc output.
 ```bash
 kali package-effects lodash                # Compact package-effect report JSON to stdout
@@ -251,6 +255,9 @@ By default, `kali package-effects` emits its native JSON payload directly, follo
 
 ### `kali package-audit [package]`
 Security audit for dependencies.
+
+Project-state rule:
+- like `package-effects`, audit may use temporary fetched metadata but must not silently install or materialize dependencies into the project's managed state
 
 Status: later tooling feature. It should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
 ```bash
@@ -292,6 +299,11 @@ Adds: timing per phase, IR dumps, optimization decisions, memory layout choices.
 ### JSON Output (`--output json`)
 Machine-parseable output for commands that normally print human-oriented text. The canonical command-envelope schema lives in [specs/18-schemas.md](18-schemas.md).
 
+Quiet-mode interaction rule:
+- `--quiet` suppresses extra success/status text, not the command's primary payload
+- for ordinary human-oriented commands, that usually means nothing is printed on success unless the command's main purpose is to emit stdout from the user program or a requested machine payload
+- for `kali effects`, `kali package-effects`, and `--output json` modes, the requested JSON payload/envelope remains the primary output even under `--quiet`
+
 Feature gating is part of the machine contract too: phase/profile rejections should serialize the same stable diagnostic code and note structure as human output.
 
 Rules:
@@ -314,6 +326,9 @@ Minimal canonical shape:
   "schemaVersion": 1
 }
 ```
+
+Optional metadata field:
+- `$schema` may be included for editor/schema tooling, but `kali init` should omit it by default unless the user/template explicitly asks for it
 
 Omission/default rule for minimal configs:
 - `kali init` should emit only the smallest canonical shape needed for the chosen template.

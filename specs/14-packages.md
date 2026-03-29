@@ -269,6 +269,11 @@ kali package-effects lodash                 # Show effects used by package
 kali package-audit lodash                   # Security audit
 ```
 
+Isolation rule:
+- package-analysis commands may fetch package metadata/tarballs into a temporary analysis cache
+- they must **not** mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
+- promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
+
 `kali package-effects` depends on the Phase 2 effect-report pipeline. Until that lands, the command should be clearly unavailable or marked experimental rather than returning a partial bespoke format.
 
 Canonical output simplification:

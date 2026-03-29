@@ -427,6 +427,7 @@ Canonical filename: `kali.json`
 ### Rules
 - The JSON block above is a **full illustrative example**, not the minimal scaffold that `kali init` should emit by default
 - `schemaVersion: number` is required on `kali.json` like every other top-level machine-readable Kali JSON document
+- `$schema: string` is an optional, recognized top-level metadata field for editor/tooling integration; it is not treated as an unknown extension field
 
 ### Schema-v1 defaulting and omission rules
 To keep `kali.json` minimal and avoid placeholder churn, schema v1 uses a small canonical default set when fields are omitted.
@@ -512,6 +513,7 @@ Canonical filename: `kali.policy.json`
 
 ### Rules
 - Policies are declarative data, not executable code
+- `$schema: string` is an optional, recognized top-level metadata field for editor/tooling integration; it is not treated as an unknown extension field
 - Unknown fields are rejected at every documented nesting level to keep policy evaluation deterministic and auditable
 - Policy booleans mean fully allowed or fully denied for that capability
 - Pattern-bearing fields (`read`, `write`, `fetch`, `connect`, `listen`) are allowlists when they take arrays
