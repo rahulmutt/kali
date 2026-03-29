@@ -279,6 +279,7 @@ To keep sandbox claims realistic across standalone execution, embedding, and bro
 
 - **Kali-hosted execution** — `kali run`, `kali test`, and embedding hosts that instantiate the Kali runtime can provide **runtime sandbox enforcement** because host calls flow through Kali-controlled policy checks and resource-limit machinery.
 - **Check/build workflows** — `kali check --sandbox ...` and `kali build --sandbox ...` provide **policy validation** in Phase 1 and **effect-vs-policy validation** in Phase 2+, but they do not by themselves execute the program.
+- **Effect reporting is observational, not policy-applying** — `kali effects` reports inferred effects, but sandbox-policy comparison stays on the `check/build --sandbox` path so the CLI does not grow two near-duplicate policy-validation workflows.
 - **Browser-targeted emitted artifacts** — `kali build --bundle --api browser` may be analyzed against a sandbox policy at build time, but once the emitted JS/WASM is deployed into a real browser host, Kali does **not** automatically control that browser's runtime permissions.
 
 Cross-spec rule:

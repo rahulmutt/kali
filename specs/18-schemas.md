@@ -468,7 +468,7 @@ Interpretation rules:
 - `compilerOptions.strict` is the canonical strict-checking bundle switch in config; early phases should avoid multiplying near-duplicate strictness booleans unless a later schema revision documents them explicitly
 - `compilerOptions.maxSpecializations` is the project-default specialization cap upper bound; schema v1 defaults it to `16`, and CLI `--max-specializations` may override it per invocation
 - `compilerOptions.maxSpecializations` does not force every build mode to spend that full budget; `buildMode = fast` may still skip most user-authored generic specialization by design, while `release`-oriented modes consume the budget more aggressively
-- top-level `sandbox` is an optional default sandbox-policy path; it is the config equivalent of supplying `--sandbox <path>` for commands that honor sandboxing, and an explicit CLI flag overrides it
+- top-level `sandbox` is an optional default sandbox-policy path; it is the config equivalent of supplying `--sandbox <path>` for sandbox-aware commands (`run`, `test`, `check`, `build`), and an explicit CLI flag overrides it
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
 - when set-like arrays such as `compilerOptions.runtimeProfiles` or `compat.features` are normalized by tooling, normalization should preserve semantics without inventing duplicates; preserving first-seen order for display/diff stability is preferred even though the arrays are semantically unordered
 - `include` / `exclude` define project file discovery globs for project-oriented commands and editor/tooling integrations; they do not reinterpret an explicit CLI file argument as a different entry point

@@ -43,6 +43,11 @@ The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md)
 
 Other commands that embed effect data should place the full report under the CLI envelope's `payload` field instead of redefining the structure.
 
+CLI simplification rule:
+- `kali effects` is an observational reporting command, not a second policy-validation command
+- therefore `kali effects --sandbox ...` is rejected rather than inventing a second place to compare effects against policy
+- policy compatibility checks belong to `kali check --sandbox ...` and `kali build --sandbox ...`, which already own the pass/fail contract
+
 ### `dynamicEffects` Flag
 Set to `true` when the report has one or more canonical `dynamicReasons` from [specs/18-schemas.md](18-schemas.md). That schema file is the single source of truth for the stable machine-readable reason codes.
 
@@ -241,7 +246,7 @@ If implemented, this enables:
 ## Integration with CLI
 
 ```bash
-# Show all effects (JSON)
+# Show inferred effects only (JSON; no policy comparison here)
 kali effects program.ts
 
 # Check program against a policy (no execution)

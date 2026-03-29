@@ -185,6 +185,11 @@ kali effects --output json main.ts         # Command envelope + effect payload
 ```
 By default, `kali effects` prints the effect report payload directly because JSON is the primary output of the command. With `--output json`, it is wrapped in the standard command envelope described below. See [specs/18-schemas.md](18-schemas.md) for the canonical payload schema.
 
+Sandbox-interaction rule:
+- `kali effects` reports inferred effects only; it does **not** accept `--sandbox`
+- effect-vs-policy validation belongs to `kali check --sandbox ...` and `kali build --sandbox ...`
+- rejecting `kali effects --sandbox ...` keeps one canonical policy-validation workflow instead of two overlapping ones
+
 Input-kind and host-selection rules:
 - `kali effects` accepts only executable/analyzable source files; declaration-only files are type inputs, not effect-report entrypoints
 - unless overridden by CLI/config, `kali effects` uses the same default API-surface selection as `kali check` (`apiSurface = deno`)
@@ -399,7 +404,7 @@ Configuration simplification rules:
 - `compilerOptions.strict` is the config-level strictness bundle; it should mirror the documented strict-checking behavior rather than introducing many parallel booleans in early phases
 - `compilerOptions.maxSpecializations` caps specialization fan-out for generic/layout-driven optimization in modes that actively specialize; CLI `--max-specializations` overrides it for a single invocation
 - `compilerOptions.maxSpecializations` is an upper bound rather than a promise that `buildMode = fast` will consume that full budget; `fast` may still skip most user-authored generic specialization by design
-- top-level `sandbox` is an optional default policy-file path equivalent to supplying `--sandbox <path>` for commands that honor sandboxing; an explicit CLI `--sandbox` overrides it
+- top-level `sandbox` is an optional default policy-file path equivalent to supplying `--sandbox <path>` for sandbox-aware commands (`run`, `test`, `check`, `build`); an explicit CLI `--sandbox` overrides it
 - `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans
 - in schema v1, the only canonical compatibility feature name is `"eval"`; it gates both direct `eval` support and the `Function()` constructor compatibility path
 - `include` / `exclude` constrain project file discovery for project-oriented commands; direct file arguments still name the primary entry explicitly
