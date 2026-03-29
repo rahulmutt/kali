@@ -162,6 +162,15 @@ CLI spelling: `--api ...`
 
 Config spelling: `compilerOptions.apiSurface`
 
+### Browser-targeted context
+A command context whose **effective** `apiSurface` is `browser` for a command that actually supports browser targeting.
+
+Interpretation rules:
+- in Phase 1, the supported browser-targeted commands are `kali check --api browser` and `kali build --bundle --api browser`
+- later analysis commands such as `kali effects --api browser` and inherited browser-context `kali package-effects` may reuse that same ambient/package-selection context once their own maturity rows allow it
+- this term names an **analysis/build context**, not a promise that Kali embeds a standalone browser runtime or DOM engine
+- `run --api browser` and `test --api browser` therefore remain rejected until a later spec adds an explicit browser-runtime contract
+
 ### Build mode
 The optimization/compile-time tradeoff:
 - `fast`
@@ -263,7 +272,7 @@ Note:
 - in early phases, registry-analysis commands also avoid a second per-command **analysis-context flag family**: `package-effects` reuses the inherited analysis context instead of taking package-analysis-specific `--api`, runtime-profile flags, or `--compat` switches, while `package-audit` stays **context-free** (registry/package metadata focused) rather than becoming a second host-mode selector
 - config-selected `apiSurface`, `runtimeProfiles`, and `compat.features` therefore influence `package-effects`, but they do not change the semantics of early `package-audit`
 - unsupported inherited analysis-context values for `package-effects` fail with the same canonical availability path (`E5006`) used by direct analysis commands; Kali must not silently drop an inherited `node`, `wasm-threads`, or later compatibility feature just because `package-effects` has no parallel flag family of its own
-- for clarity, early `package-audit` still uses ordinary project/config discovery for generic CLI behavior (for example project root, `--output`, `--quiet`), but it intentionally ignores host-analysis/runtime knobs such as `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
+- for clarity, early `package-audit` still uses ordinary project/config discovery plus generic CLI behavior (for example project root selection, `--output`, and `--quiet`), but it intentionally ignores host-analysis/runtime knobs such as `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
 - this keeps each command in one primary category and avoids overlapping near-duplicate workflows
 
 ## Canonical Default Tuple
@@ -293,7 +302,7 @@ Interpretation rules:
 - Kali must not silently rewrite the effective context just to make a command succeed
 - if the effective context requests a real but unavailable feature/profile, fail with `E5006`
 - if the effective context creates a contradictory command shape, fail with `E5008`
-- a command may still document that some context axes are intentionally **non-semantic** for it in early phases; for example early `package-audit` still uses ordinary project/config discovery for generic CLI behavior, but it intentionally ignores host-analysis/runtime knobs such as `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
+- a command may still document that some context axes are intentionally **non-semantic** for it in early phases; for example early `package-audit` still uses ordinary project/config discovery plus generic CLI behavior, but it intentionally ignores host-analysis/runtime knobs such as `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
 
 Canonical examples:
 - if `kali.json` sets `compilerOptions.apiSurface = "node"`, then plain `kali run main.ts` still hits the same Node phase gate as `kali run --api node main.ts`
@@ -313,7 +322,7 @@ The effective command context has one shared vocabulary, but not every command t
 | `effects` | semantic | non-semantic | semantic | semantic | ignored in early phases |
 | `package-effects` | semantic via inherited analysis context | non-semantic | semantic via inherited analysis context | semantic via inherited analysis context | ignored in early phases |
 | `package-audit` | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases |
-| `install` | invalid/ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases |
+| `install` | CLI `--api` invalid; inherited config ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases |
 | `fmt` / `lint` | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases |
 | `init` | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases | ignored in early phases |
 
@@ -322,6 +331,7 @@ Interpretation rules:
 - **non-semantic** means the axis exists in the shared vocabulary but does not change that command's contract in early phases
 - `package-effects` reuses the inherited **analysis** axes (`apiSurface`, `runtimeProfiles`, `compat.features`) rather than adding its own package-analysis-specific analysis-context flag family (`--api`, runtime-profile flags, `--compat`)
 - `package-audit` is intentionally **context-free** in early phases: inherited config values may still be discovered for generic CLI behavior, but they do not change the audit semantics or result shape
+- for `install`, “CLI `--api` invalid; inherited config ignored” means exactly that: an explicit `--api` flag is rejected with `E5008`, while config/default host-analysis settings may still be discovered but do not create a second install graph or change install semantics
 - `install` remains profile-agnostic in early phases even when the project config contains host-analysis/runtime settings for other commands
 
 This table is the cross-spec simplification rule for statements like “inherits analysis context”, “ignores sandbox”, or “does not take `--api`”: other chapters should reference this participation model instead of drifting into near-duplicate command-by-command wording.

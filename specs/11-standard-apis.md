@@ -30,8 +30,8 @@ To keep runtime imports, globals, and package expectations aligned:
 This prevents a common source of drift: host-runtime implementation convenience must not silently widen the language-visible API contract.
 
 Canonical terminology simplification:
-- **browser API surface / browser-targeted context** means selecting `apiSurface = browser` for a command that supports browser targeting
-- in Phase 1, the supported browser-targeted commands are `kali check --api browser` and `kali build --bundle --api browser`
+- use the cross-spec term **browser-targeted context** from [SPEC.md](../SPEC.md) for command contexts whose effective `apiSurface` is `browser`
+- in Phase 1, that means `kali check --api browser` and `kali build --bundle --api browser`
 - later analysis commands may reuse that same ambient/package-selection context once their own maturity rows allow it
 - it does **not** mean a standalone embedded browser runtime, DOM emulation layer, or permission to expose non-browser globals during analysis/build
 

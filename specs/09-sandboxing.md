@@ -129,6 +129,11 @@ Availability rule for policy validation:
 - browser ambient DOM APIs are still outside that schema-v1 subset even when browser typings are visible during analysis/build; policy validation must not imply there is a per-DOM-call sandbox key just because `Window`/`Document` types are available
 - this avoids a misleading policy that appears more permissive than the runtime/compiler can really honor
 
+Diagnostic boundary:
+- use `E5010` when the policy file itself is malformed (unknown keys, wrong types, invalid matcher shapes, invalid numeric ranges)
+- use `E5006` when the policy is well-formed but tries to enable a real capability/profile that is unavailable in the effective command/profile/API-surface context
+- this keeps policy validation aligned with [specs/15-errors.md](15-errors.md) and the CLI exit-code rules in [specs/12-cli.md](12-cli.md)
+
 Phase-1 capability snapshot for supported surfaces:
 
 | Policy capability | Early availability | Notes |
