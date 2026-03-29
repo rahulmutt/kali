@@ -13,6 +13,7 @@ Write a top-level SPEC.md that references specs/*.md to breakdown into logical u
  - [tsc](https://github.com/microsoft/Typescript)
  - [Porffor](https://github.com/CanadaHonk/porffor)
  - [Hermes](https://github.com/facebook/hermes)
+ - [Bun](https://github.com/oven-sh/bun)
 - No JIT compilation! This project is not designed for Just-In Time compilation at all and it should AOT compile (Ahead of Time).
 - No Garbage Collection, must decide at compile-time whether to allocate to the heap, to the stack, similar to Rust. Should also decide whether to use shared references (like Rc<T>) in Rust all at compile-time.
 - Aggressively specialize generic functions - specialize both memory layouts of inputs / outputs - based on call-site usage.
