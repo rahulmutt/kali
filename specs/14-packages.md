@@ -32,8 +32,13 @@ A package is **not** automatically in scope just because it lives in npm or JSR.
 ## Dependency Source Kinds
 
 To keep install, lock, and materialization rules simple, Kali distinguishes only these early source kinds:
-- **Registry packages** — npm and JSR packages resolved by package name/version and materialized into `node_modules/`
-- **Raw URL imports** — exact `https://...` dependencies cached under `.kali/cache/urls/`
+- **Registry packages** — npm and JSR packages declared in `kali.json` under `dependencies` / `devDependencies`, resolved by package name/version, and materialized into `node_modules/`
+- **Raw URL imports** — exact `https://...` dependencies declared in source code or `kali.json#imports`, cached under `.kali/cache/urls/`
+
+Declaration-model rule:
+- registry dependencies belong in the project manifest
+- raw URL dependencies belong in source/import maps, not in a second manifest dependency table
+- `kali install https://...` is therefore a pin/materialize workflow for the shared lock/cache model, not a request to invent a new top-level manifest section
 
 Lockfile rule:
 - `kali.lock` is the canonical reproducibility record for **both** source kinds
@@ -88,11 +93,16 @@ Simplification rule: for any package-resolution edge case not yet modeled faithf
 
 ### Installation
 ```bash
-kali install lodash                         # Install single package from npm
-kali install                                # Install all dependencies from kali.json
-kali install --dev vitest                   # Dev dependency
-kali install https://deno.land/std/path/mod.ts  # URL import (cached locally)
+kali install lodash                         # Add/install single registry package from npm
+kali install                                # Materialize all declared dependencies for the project
+kali install --dev vitest                   # Add/install dev dependency
+kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency
 ```
+
+Argument semantics are intentionally simple:
+- registry package arguments mutate `kali.json` (`dependencies` or `devDependencies`) and then refresh lock/materialized state
+- raw URL arguments update the shared lock/cache state only; they do not invent a second manifest section and should not rewrite source/import-map declarations implicitly
+- plain `kali install` reconciles the current manifest + import graph with `kali.lock`, `node_modules/`, and `.kali/cache/urls/`
 
 Installation is **fetch-and-link by default**, not "execute package scripts" by default. To preserve sandbox-first behavior:
 - npm lifecycle scripts (`preinstall`, `install`, `postinstall`) are not executed unless the user explicitly opts in with `kali install --allow-scripts`
@@ -177,6 +187,11 @@ Support import maps in `kali.json`:
     }
 }
 ```
+
+Interpretation rule:
+- `imports` is part of the canonical dependency declaration path for URL-based and alias-based resolution
+- raw URL dependencies discovered through source code or expanded import-map entries participate in the same `kali.lock` + `.kali/cache/urls/` discipline as direct URL specifiers
+- registry dependencies still belong under `dependencies` / `devDependencies`; `imports` is not a second registry manifest
 
 ## CommonJS Compatibility
 

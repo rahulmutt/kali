@@ -183,12 +183,17 @@ Install or materialize project dependencies.
 
 Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that require native addons remain unsupported even when scripts are enabled.
 ```bash
-kali install lodash                        # Install from npm
-kali install                               # Install all dependencies from kali.json
-kali install --dev vitest                  # Dev dependency
+kali install lodash                        # Add/install registry dependency from npm
+kali install                               # Materialize all declared dependencies for the project
+kali install --dev vitest                  # Add/install dev dependency
 kali install --allow-scripts esbuild       # Opt into lifecycle scripts for this install only
-kali install https://deno.land/std/path/mod.ts  # URL import (cached)
+kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency
 ```
+
+Argument-kind rules:
+- a **registry package argument** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
+- a **raw URL argument** pins/materializes that URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
+- plain `kali install` consumes the current manifest/import graph and reconciles lock + materialized state for the dependency source kinds actually used by the project
 
 Determinism rules:
 - `kali install` is the command that resolves versions, pins URL imports, and writes `kali.lock`.

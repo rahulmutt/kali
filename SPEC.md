@@ -55,6 +55,7 @@ To reduce drift across the spec set, these terms are canonical:
 - **Feature maturity**: phase/status classification defined in `specs/19-feature-maturity.md`
 - **Schema contract**: machine-readable JSON formats defined in `specs/18-schemas.md`
 - **Linked artifact model**: compile the resolved static graph into one linked WASM artifact rather than relying on runtime WASM module linking
+- **Dependency source kind**: one of the early canonical dependency declaration/materialization channels: registry package or raw URL import
 
 If another spec needs to describe maturity, schemas, or command/profile gating, it should reference the canonical doc instead of redefining it.
 
@@ -130,6 +131,20 @@ Interpretation rules:
 - `kali check main.ts` uses the same default host/API selection (`apiSurface = deno`) even though build mode and runtime-profile switches are only meaningful for build/run-style commands
 
 This tuple is the canonical simplification for examples across the CLI, embedding, runtime, and maturity specs.
+
+## Canonical Dependency Declaration Model
+
+To keep install behavior, lockfiles, and configuration simple, Kali uses exactly two early dependency declaration channels:
+- **Registry packages** (`npm` / `jsr`) are declared in `kali.json` under `dependencies` or `devDependencies` and materialized into `node_modules/`.
+- **Raw URL imports** are declared in source code or in `kali.json#imports` and materialized into `.kali/cache/urls/`.
+
+Interpretation rules:
+- raw URL imports are **not** duplicated under `dependencies` / `devDependencies`
+- `kali.lock` records both source kinds even though they materialize into different on-disk locations
+- `kali install <registry-package>` mutates manifest + lock/materialized state for registry dependencies
+- `kali install https://...` pins/materializes that URL dependency in the shared lock/materialization model but does **not** invent a second manifest section or silently rewrite source imports
+
+This is the canonical simplification for dependency management across the CLI, package, and schema specs.
 
 ## Canonical Sources of Truth
 

@@ -384,7 +384,8 @@ Canonical filename: `kali.json`
 - `compilerOptions.runtimeProfiles` is an array of semantic runtime-profile names; in schema v1 it is usually empty because later profiles such as `wasm-threads` are still phase-gated
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
-- `dependencies` and `devDependencies` are top-level package manifests owned by `kali install`; they are not nested under `compilerOptions`
+- `dependencies` and `devDependencies` are top-level package manifests for **registry packages** owned by `kali install`; they are not nested under `compilerOptions`
+- raw URL dependencies are declared in source/import maps and tracked via `kali.lock`; schema v1 intentionally does **not** add a second manifest section for them
 - Config should not mirror every CLI boolean directly when a more semantic field already exists
 - Precedence is `CLI > kali.json > defaults`, except sandbox policy restrictions still bound effective runtime behavior
 - Unknown config fields are rejected at every documented nesting level unless a future schema revision adds an explicit extension mechanism
