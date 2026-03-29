@@ -69,7 +69,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | Flag | Scope | Description |
 |------|-------|-------------|
 | `--bundle` | `build` | In Phase 1, selects the browser-targeted artifact path and therefore requires `--api browser`; it is not a generic "multi-artifact output" switch, and any future extension must be specified explicitly |
-| `--lib` | `build`, `init` | Build or scaffold a library-oriented project/artifact without automatic program start |
+| `--lib` | `build`, `init` | For `build`: select the base library/export artifact mode (no automatic program start). For `init`: scaffold a library-oriented project template only |
 | `--capi` | `build` | Emit the Phase-2 public C-embedding artifact set (`wasm-module` + `wit` + `c-header` + `cabi-metadata`) |
 | `--component` | `build` | Emit a WebAssembly Component Model wrapper for a library/export-oriented build once that packaging path exists; phase-gated until the component flow is implemented |
 | `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
@@ -89,6 +89,7 @@ Interpretation rule:
 - in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires `--api browser`, and `kali build --bundle` under `--api deno` or `--api node` must fail explicitly instead of inventing a second bundle contract
 - in early phases, `--lib`, `--capi`, and `--component` are non-browser artifact modes; `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` must fail explicitly rather than pretending browser bundle rules also apply to library/embedding builds
 - `--lib` is the base exported-library mode; `--capi` and `--component` are later packaging layers over that same exported-library contract rather than unrelated semantics
+- because `--capi` and `--component` already choose exported-library semantics, users should not combine them with `--lib` in early phases; those flags are separate artifact-mode selectors, not additive modifiers
 - WIT sidecars are not a separate artifact-mode selector: Phase 1 plain `--lib` emits the core library `wasm-module`, and once the public library/embedding surface stabilizes in Phase 2+, the relevant library-oriented modes emit WIT by default so callers do not have to choose between "C ABI" and "component metadata" paths
 
 Config-array normalization rule:

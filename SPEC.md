@@ -231,6 +231,7 @@ Cross-spec rules:
 - these modes are mutually exclusive unless a later spec explicitly defines an implication
 - `--bundle` is the browser-targeted executable packaging mode only; it does not mean “generic multi-file output”
 - `--lib` is the base non-browser library/export mode; `--capi` and `--component` are Phase 2 packaging layers over that same exported-library contract, not unrelated parallel semantics
+- because `--capi` and `--component` already select exported-library semantics, users should not combine them with `--lib` in early phases; these are separate artifact-mode selectors, not additive modifiers
 - WIT is not a separate user-selected build mode; once the public library/export surface stabilizes, relevant library-oriented modes emit it by default
 - companion artifacts do not weaken the single linked-WASM-payload rule for the compiled static graph
 

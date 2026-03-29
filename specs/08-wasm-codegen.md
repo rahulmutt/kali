@@ -122,6 +122,7 @@ Early-phase artifact-mode rule:
 - in Phase 1, `--bundle` is reserved for browser-targeted output and therefore requires `--api browser`
 - in early phases, `--lib`, `--capi`, and `--component` are non-browser artifact modes; pairing them with `--api browser` is rejected until a separate browser-library/browser-embedding contract is specified
 - `--lib` is the base exported-library mode; `--capi` and `--component` are later packaging layers over that same exported-library contract
+- because `--capi` and `--component` already choose exported-library semantics, users should not combine them with `--lib` in early phases; these are separate artifact-mode selectors, not additive modifiers
 - WIT sidecars are not a separate artifact mode: Phase 1 plain `--lib` emits the core library `wasm-module`, and relevant library/embedding outputs emit WIT by default once the public interface surface stabilizes in Phase 2+
 - unsupported combinations must fail explicitly instead of guessing whether the user wanted an executable bundle, a library artifact, a public embedding artifact set, or a component wrapper
 
