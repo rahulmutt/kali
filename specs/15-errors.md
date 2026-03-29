@@ -76,14 +76,14 @@ Terminology note:
 - `E4003`: Resource limit exceeded (compile-time provable)
 - `E4004`: Dynamic effect detected (cannot statically verify)
 
-### Import/Module/Availability Errors (E5xxx)
+### Import/Module/Availability/Command-Input Errors (E5xxx)
 - `E5001`: Module not found
 - `E5002`: Circular dependency detected
 - `E5003`: Invalid module specifier
 - `E5004`: Dependency state not installed or not materialized for the current lockfile
 - `E5005`: Ambiguous module resolution or registry-path conflict
 - `E5006`: Feature unavailable in current phase, API surface, command/profile, or target configuration
-- `E5007`: Invalid input or entrypoint kind for the selected command
+- `E5007`: Invalid command input or entrypoint kind for the selected command
 
 Use `E5004` for dependency-state problems such as:
 - project dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports from the install-time project discovery set) have not been installed/materialized yet
@@ -134,6 +134,11 @@ Clarification:
 ### Canonical Invalid-Entrypoint Diagnostic
 
 Use `E5007` when the user passes a file/input kind that the selected command fundamentally cannot treat as an entrypoint, even though the file itself may still be meaningful elsewhere in the toolchain.
+
+Boundary rule:
+- `E5007` is for **input-kind mismatch** (for example a declaration-only file passed where an executable/analyzable entrypoint is required)
+- missing required entrypoints, too many explicit direct-entry arguments, or other command-usage/arity mistakes are still ordinary CLI/config usage errors rather than `E5007`
+- in the CLI exit-code model, those command-usage cases and `E5007` both typically exit with code `5`, even though `E5007` remains the structured diagnostic for the input-kind mismatch case
 
 Example:
 ```

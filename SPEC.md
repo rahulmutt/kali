@@ -321,6 +321,7 @@ To remove another recurring ambiguity, early phases also use one small arity rul
 - Passing zero entrypoints is a CLI-usage/config error.
 - Passing more than one explicit entrypoint to those commands is also a CLI-usage/config error unless a later spec explicitly adds a multi-entry build/report mode.
 - `kali check [files...]`, `kali fmt [files...]`, `kali lint [files...]`, and `kali test [files...]` may still accept multiple explicit file arguments because their contracts are set-oriented rather than single-artifact/single-program oriented.
+- These arity mistakes are distinct from the canonical invalid-entrypoint diagnostic (`E5007`): arity is a command-usage problem, while `E5007` is for an explicitly supplied path of the wrong input kind (for example a declaration-only file passed to `run`).
 
 Cross-spec rule:
 - if a command is defined as direct-entry, omitting the entrypoint is a CLI-usage/config error rather than permission to walk the project opportunistically

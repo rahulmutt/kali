@@ -448,10 +448,15 @@ Configuration simplification rules:
 ## Exit Codes
 
 Interpretation rule:
-- compile/check/build diagnostics, including `E5006` feature gating and Phase 2+ compile-time sandbox/effect violations, exit with **1**
+- compile/check/build diagnostics over otherwise valid command inputs, including `E5006` feature gating and Phase 2+ compile-time sandbox/effect violations, exit with **1**
 - runtime sandbox enforcement failures exit with **3**
 - runtime resource exhaustion/fuel/memory-limit failures exit with **4**
-- invalid CLI arguments, invalid config, or invalid policy schema/ranges exit with **5**
+- invalid CLI arguments, invalid config, invalid policy schema/ranges, and command-input/entrypoint-usage mistakes exit with **5**
+
+Command-input/entrypoint-usage mistakes include:
+- missing required direct-entry arguments for `run`, `build`, or `effects`
+- too many explicit direct-entry arguments for those same commands in early phases
+- `E5007` invalid-entrypoint/input-kind cases such as passing a declaration-only file to `run`, `build`, `effects`, or `test`
 
 This keeps exit codes simple: command-time failures are separated from runtime enforcement failures.
 
@@ -462,6 +467,6 @@ This keeps exit codes simple: command-time failures are separated from runtime e
 | 2 | Runtime error (uncaught exception) |
 | 3 | Runtime sandbox violation |
 | 4 | Runtime resource limit exceeded |
-| 5 | Configuration / CLI usage / invalid policy file error |
+| 5 | Configuration / CLI usage / invalid policy file / invalid command input or entrypoint |
 | 126 | Permission denied |
 | 127 | File not found |
