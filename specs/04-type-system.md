@@ -10,8 +10,9 @@ Kali's type system is a superset of TypeScript's, combining:
 
 Implementation order matters:
 - **Phase 1**: preserve TypeScript compatibility, support `.js` inputs as first-class programs, and keep flow-sensitive narrowing predictable.
-- **Phase 2**: add broader inference for locals, returns, and module boundaries.
-- **Phase 3+**: expand effect polymorphism and more advanced constraints.
+- **Phase 2**: add broader inference for locals, returns, module boundaries, and the built-in capability-effect model.
+- **Phase 3 target**: expand bounded advanced constraints where compile-time cost stays predictable.
+- **Later compatibility**: effect polymorphism and other higher-complexity type-system extensions land only after the built-in capability/effect contract is stable.
 
 The type checker operates on the raw AST and produces a `TypedAST` (AST with resolved type information in side tables keyed by `NodeId`). Name resolution is the first phase of type checking — it builds the symbol table and scope tree from the AST.
 
@@ -172,7 +173,7 @@ enum Effect {
 ### Effect Inference
 - Effects are inferred bottom-up: leaf functions determine effects, callers accumulate
 - **Phase 2 target**: explicit effect annotations (`! Effect`) and `pure` modifiers are checked against inferred effects for the built-in sandbox-relevant capability set
-- **Later phase**: effect polymorphism and user-defined/custom effect syntax may be added once the built-in capability model is stable
+- **Later compatibility**: effect polymorphism and user-defined/custom effect syntax may be added once the built-in capability model is stable
 - Until that later phase lands, policy checking, diagnostics, and machine-readable effect reports are defined only for the built-in sandbox-relevant effect family
 - `pure` functions have an empty effect set — enforced by the checker when the explicit effect-annotation surface is enabled
 

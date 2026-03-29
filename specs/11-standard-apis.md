@@ -74,25 +74,28 @@ Deno is the primary standalone-runtime API surface because it fits Kali's explic
 
 For host-capability maturity, the canonical source of truth is [specs/19-feature-maturity.md](19-feature-maturity.md). In particular:
 - read-only environment access is part of the Phase 1 standalone contract
-- mutable environment access, subprocess spawning, socket/listener networking, and process-control APIs follow the Phase 3 maturity path
+- mutable environment access, subprocess spawning, and socket/listener networking follow the Phase 3 maturity path
+- process termination and working-directory APIs remain a later-compatibility path until a future schema/policy revision gives them an auditable contract
 
 Process termination (`Deno.exit`) and working-directory mutation/introspection (`Deno.cwd`, `Deno.chdir`) are therefore intentionally outside the Phase 1 MVP. They widen the embedding/sandbox contract but are not needed for the initial package-oriented baseline.
 
 Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should expose the sync and async forms together unless there is a strong implementation reason not to. This avoids needless package-compatibility drift between `readFile` and `readFileSync`-style code paths.
 
-**Phase 3+ expansion**
+**Phase 3 target expansion**
 - `Deno.open`, `Deno.create`, `Deno.mkdir`, `Deno.remove`, `Deno.rename`, `Deno.lstat`
-- `Deno.cwd`, `Deno.chdir`
 - `Deno.env.set`
-- `Deno.exit`
 - `Deno.Command` (process spawning)
 - `Deno.serve` (HTTP server / listen path)
 - broader filesystem, networking, and subprocess coverage
 
+**Later compatibility expansion**
+- `Deno.cwd`, `Deno.chdir`
+- `Deno.exit`
+
 Cross-spec consistency note:
 - subprocess, mutable-environment, and network/listener APIs fit schema-v1's policy vocabulary
 - process termination and working-directory APIs do **not** yet have dedicated schema-v1 policy/effect keys
-- therefore `Deno.exit`, `Deno.cwd`, and `Deno.chdir` remain phase-gated not just on implementation work, but also on a future schema/policy revision that makes their sandbox contract explicit
+- therefore `Deno.exit`, `Deno.cwd`, and `Deno.chdir` remain later-compatibility features until a future schema/policy revision makes their sandbox contract explicit
 
 This keeps the Phase 1 host surface small and auditable while still establishing Deno as the default API model.
 
@@ -111,7 +114,7 @@ Canonical gating rule:
 - `util` — utilities (promisify, inspect, etc.)
 - `url` — URL parsing
 - `assert` — assertions
-- `process` — process global subset needed by real packages first (`env`, `argv`, `pid`, selected control/query helpers); `exit` / `cwd` style process-control APIs should follow only once the policy and embedding contract for them is specified
+- `process` — process global subset needed by real packages first (`env`, `argv`, `pid`, selected control/query helpers); `exit` / `cwd` style process-control APIs stay on the later-compatibility path until the policy and embedding contract for them is specified
 
 **Later compatibility expansion**
 - `os`
