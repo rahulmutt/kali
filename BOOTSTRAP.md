@@ -1,7 +1,7 @@
 Write a top-level SPEC.md that references specs/*.md to breakdown into logical units the implementation of the following:
 
 - Kali is an implementation of TypeScript that uses the extra type information to generate straight and fast WebAssembly code from it. It should also support compiling JavaScript with type-inference for efficiently compilation.
-- Kali is designed with sandboxing as a first class concern, because it is intended as a target for AI agents to generate code from. It should be able to constrain as far as number of processes spawned, CPU usage, Memory usage, etc. Sanboxing / validation of core APIs / syscalls can be tightly controlled - users can declare functions that determine conditions under which a core API is valid or not.
+- Kali is designed with sandboxing as a first class concern, because it is intended as a target for AI agents to generate code from. It should be able to constrain as far as number of processes spawned, CPU usage, Memory usage, etc. Sanboxing / validation of core APIs / syscalls can be tightly controlled - users can declare functions that determine conditions under which a core API is valid or not via a sandboxing policy passed in when running a Kali program.
 - Should be able to statically run a command a get a JSON output of all the potential effects the program can peform. If needed, extend the type system with effects if that makes it easier to implement this feature and if it will help with sandboxing.
 - Kali can be a superset of TypeScript - extend the type system and the type inference algorithm to do more advanced (but fast) type checking. Constraint solving is on the table.
 - Take inspiration and best practices from projects like:
@@ -12,6 +12,7 @@ Write a top-level SPEC.md that references specs/*.md to breakdown into logical u
  - [Deno](https://github.com/denoland/deno)
  - [tsc](https://github.com/microsoft/Typescript)
  - [Porffor](https://github.com/CanadaHonk/porffor)
+ - [Hermes](https://github.com/facebook/hermes)
 - No JIT compilation! This project is not designed for Just-In Time compilation at all and it should avoid doing any compilation at runtime as best as possible.
 - No Garbage Collection, must decide at compile-time whether to allocate to the heap, to the stack, similar to Rust. Should also decide whether to use shared references (like Rc<T>) in Rust all at compile-time.
 - Aggressively specialize generic functions - specialize both memory layouts of inputs / outputs - based on call-site usage.
