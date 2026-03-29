@@ -46,7 +46,7 @@ This table exists to keep the status labels operational: a label implies whether
 | Explicit effect annotations / `pure` | Phase 2 target | Initially scoped to the built-in sandbox capability model |
 | User-defined/custom effect kinds in stable reports or policy checking | Later compatibility | Keep Phase 1-2 machine contracts limited to built-in sandbox-relevant effects |
 | Algebraic effect declarations / handlers | Later compatibility | Experimental and must not block delivery of the core capability/effect system |
-| Sandbox validator functions | Later compatibility | Initial policies stay declarative; host-registered pure validators may be added later for embedding scenarios |
+| Host-registered sandbox policy predicates | Later compatibility | Initial policies stay declarative; a later embedding-only extension may add pure host-registered predicates without turning policy files into executable code |
 | `Proxy` | Later compatibility | High semantic cost and optimization barriers |
 | `WeakMap` / `WeakSet` | Later compatibility | Deferred until weak-reference semantics fit the no-tracing-GC design |
 | `FinalizationRegistry` | Later compatibility | Same reason as weak collections |
@@ -84,11 +84,16 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali install` | Phase 1 MVP | Resolve/materialize dependency state and write `kali.lock` for the project's declared dependency source kinds |
 | `kali install https://...` | Phase 1 MVP | Explicitly pin/materialize a raw URL dependency into the shared lock/materialization model |
 | `kali run main.ts` | Phase 1 MVP | Compile and execute with the canonical default tuple: `apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]` |
+| `kali run --sandbox kali.policy.json main.ts` | Phase 1 MVP | Runtime sandbox enforcement path; policy schema/ranges must validate before execution starts |
 | `kali run --api deno main.ts` | Phase 1 MVP | Supported standalone runtime path |
 | `kali run --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands |
 | `kali run --api browser main.ts` | Rejected by default | Reject with `E5006`; browser is a check/build profile first |
+| `kali check main.ts` | Phase 1 MVP | Type-check with the canonical default API surface (`apiSurface=deno`) |
+| `kali check --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config; Phase 2+ also checks inferred effects against the policy |
 | `kali check --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node typing/global subset exists |
 | `kali check --api browser main.ts` | Phase 1 MVP | Supported browser-targeted analysis/profile |
+| `kali build main.ts` | Phase 1 MVP | Produce one linked WASM artifact with the canonical default tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]`) |
+| `kali build --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config for the build; Phase 2+ also performs effect-vs-policy validation |
 | `kali build --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for builds too |
 | `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`kind: wasm-module` + `kind: js-glue`) |
 | `kali build --api browser main.ts` | Rejected by default | In early phases browser mode is a bundle/check profile, not a standalone non-bundled artifact mode |
@@ -204,7 +209,7 @@ The compiler should produce clear, stable diagnostics for these cases, using the
 - dynamic `require()` in early phases
 - non-literal `import(expr)` in early phases
 - `eval` / `Function()` without `--compat eval`
-- sandbox validator functions before the documented embedding-only compatibility path exists
+- host-registered sandbox policy predicates before the documented embedding-only compatibility path exists
 - `Proxy` usage in unsupported runtime modes
 - weak-reference APIs before their semantics are implemented
 - `--api node` or browser-only assumptions outside the documented profile

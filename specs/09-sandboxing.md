@@ -149,18 +149,21 @@ Effective-limit rule:
 - Once threading exists, the runtime must enforce the cap across worker/thread creation
 - A per-invocation thread-limit override may only reduce the effective cap; it must never increase a stricter policy limit
 
-## Sandbox Validator Functions (Later Phase)
+## Sandbox Policy Predicates (Later Embedding-Only Extension)
 
 The canonical maturity decision for this feature lives in [specs/19-feature-maturity.md](19-feature-maturity.md): the initial sandbox model is intentionally **declarative**.
 
 Phase 1-2 policies are limited to path globs, URL patterns, booleans, and numeric resource limits. This keeps policy evaluation simple, auditable, portable, and easy to validate before any untrusted code runs.
 
-Custom validator functions are a later-phase extension for embedding scenarios. If added, they must:
+Longer-term, Kali may support **host-registered sandbox policy predicates** for embedding scenarios where declarative allowlists are not expressive enough. This is the spec's compatibility path for the original idea of user-defined sandbox conditions, but it deliberately avoids turning `kali.policy.json` itself into executable code.
+
+If policy predicates are added, they must:
 - Be explicitly opt-in
-- Be `pure` (no effects) — enforced by the compiler
+- Be registered by the embedding host rather than loaded from arbitrary project code by default
+- Be `pure` (no effects) and deterministic under the documented capability model
 - Run synchronously before the guarded operation
 - Return `false` → `SandboxViolationError`
-- Integrate through the embedding API as host-registered validators, rather than requiring the runtime to self-host arbitrary policy code by default
+- Receive a small canonical operation-context object rather than raw host handles, so policy checks stay auditable and portable
 
 ## Algebraic Effect Handlers (Advanced, Experimental)
 
