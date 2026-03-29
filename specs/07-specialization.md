@@ -58,19 +58,19 @@ Each specialization uses the most compact possible layout for its concrete type.
 - **Bounds check elimination**: Prove array accesses are in bounds, remove checks
 
 ### Phase 3: LIR/WASM Optimizations (--release-advanced)
-- **Full specialization**: Specialize all generics (no cap)
+- **Expanded specialization budget**: Specialize far more generic instantiations than `--release`, potentially approaching whole-program monomorphization for hot code, while still retaining an emergency fallback for pathological code-size growth
 - **Aggressive inlining**: Higher threshold, inline across module boundaries
 - **Tail call optimization**: WASM tail-call proposal when available
 - **WASM-specific peephole**: Combine instruction sequences, optimize local usage
 - **Linear memory layout optimization**: Place frequently co-accessed data adjacently
 - **LTO (Link-Time Optimization)**: Cross-module inlining and dead code elimination
-- **wasm-opt integration**: Optionally pipe output through Binaryen's `wasm-opt` (external tool, not linked — must be installed separately; invoked as a subprocess)
+- **Optional external post-pass**: If users install `wasm-opt`, Kali may invoke it as a separate tool, but Kali's core optimization pipeline must remain fully implemented in Rust and must not depend on Binaryen
 
 ## Dynamic Fallback
 
 When specialization is not possible (type unknown, exceeds specialization cap), the compiler falls back to tagged/dynamic representations. See [specs/05-ir.md](05-ir.md#value-representation) for the `ValueRepr` enum and NaN-boxing scheme.
 
-In `--fast` mode, all generics use the `Tagged` representation (no specialization). In `--release`, generics are specialized up to the cap, with remaining call sites using `Tagged`. In `--release-advanced`, all generics are fully specialized.
+In `--fast` mode, all generics use the `Tagged` representation (no specialization). In `--release`, generics are specialized up to the cap, with remaining call sites using `Tagged`. In `--release-advanced`, the compiler may remove or greatly raise the cap, but should still retain an emergency fallback to avoid pathological code-size explosions.
 
 ## Profile-Guided Optimization (Future)
 

@@ -4,8 +4,9 @@
 
 1. **AI-agent optimized**: Concise output by default, verbose with `--verbose`
 2. **Deno-inspired**: Familiar subcommand structure
-3. **Single binary**: `kali` is one statically linked executable
+3. **Single binary**: `kali` is distributed as one primary executable; static linking is preferred where practical but not required on every target
 4. **Zero config**: Sensible defaults, explicit configuration when needed
+5. **Stable machine contract**: JSON output is versioned and remains backward-compatible across minor releases
 
 ## Global Flags
 
@@ -15,6 +16,7 @@ Available on all subcommands:
 |------|-------------|
 | `--verbose` | Detailed output: timing per phase, optimization decisions |
 | `--output json` | Machine-parseable JSON output for all commands |
+| `--api deno\|node\|browser` | Select host API surface |
 | `--quiet` | Suppress all non-error output |
 | `--max-errors N` | Cap reported errors (default: 50) |
 | `--color auto\|always\|never` | Color output control |
@@ -25,15 +27,16 @@ Available on all subcommands:
 Compile and execute a TypeScript/JavaScript file.
 ```bash
 kali run main.ts                           # Run with default settings
-kali run --sandbox policy.ts main.ts       # Run with sandbox
+kali run --sandbox kali.policy.json main.ts # Run with sandbox
 kali run --max-memory 256mb main.ts        # Resource limit
 kali run --max-cpu 10s main.ts             # CPU time limit
 kali run --api node main.ts                # Use Node.js API surface
 kali run --api deno main.ts                # Use Deno API surface (default)
 kali run --api browser main.ts             # Use browser API surface (Web Platform APIs)
-kali run --runtime wasmer main.ts          # Use wasmer instead of wasmtime
 kali run --wasm-threads main.ts            # Enable WASM threads (SharedArrayBuffer, Atomics)
 ```
+
+Initial implementations use wasmtime; alternative runtime backends are a later-phase feature.
 
 ### `kali build <file>`
 AOT compile to a WASM module.
@@ -43,8 +46,8 @@ kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle main.ts                # WASM + JS glue for browsers
 kali build --lib lib.ts                    # Library module (exports, no start)
-kali build --capi                          # C API: libkali.a + libkali.so + kali.h (see specs/13-embedding.md)
-kali build --sandbox policy.ts main.ts     # Validate sandbox policy at compile time
+kali build --capi lib.ts                   # C API-compatible library artifact + kali.h metadata (see specs/13-embedding.md)
+kali build --sandbox kali.policy.json main.ts # Validate sandbox policy at compile time
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
 ```
@@ -53,17 +56,19 @@ kali build --max-specializations 32 main.ts # Override specialization cap
 Type-check without compiling.
 ```bash
 kali check main.ts                         # Type check
-kali check --sandbox policy.ts main.ts     # Type check + sandbox policy validation
-kali check --fix main.ts                   # Type check + auto-apply suggested fixes
+kali check --sandbox kali.policy.json main.ts # Type check + sandbox policy validation
+kali check --fix main.ts                   # Apply only safe, compiler-provided suggested fixes
 ```
+`--fix` is intentionally conservative: it is limited to unambiguous structured edits attached to diagnostics, not arbitrary refactors or speculative type rewrites.
 
 ### `kali effects <file>`
 Output static effect analysis as JSON.
 ```bash
-kali effects main.ts                       # Compact JSON to stdout
-kali effects --pretty main.ts              # Pretty-printed JSON
+kali effects main.ts                       # Compact effect report JSON to stdout
+kali effects --pretty main.ts              # Pretty-printed effect report JSON
+kali effects --output json main.ts         # Command envelope + effect payload
 ```
-See [specs/09-sandboxing.md](09-sandboxing.md) for JSON schema.
+By default, `kali effects` prints the effect report payload directly because JSON is the primary output of the command. With `--output json`, it is wrapped in the standard command envelope described below. See [specs/09-sandboxing.md](09-sandboxing.md) for the payload schema.
 
 ### `kali fmt [files...]`
 Format source files (implemented in `kali_fmt`).
@@ -85,7 +90,7 @@ Run test files.
 ```bash
 kali test                                  # Run all *_test.ts / *.test.ts
 kali test --filter "math"                  # Filter by name
-kali test --sandbox policy.ts              # Run tests in sandbox
+kali test --sandbox kali.policy.json       # Run tests in sandbox
 kali test --coverage                       # With coverage report
 ```
 
@@ -121,13 +126,13 @@ kali package-audit lodash                  # Audit specific package
 ## Output Design
 
 ### Success Output (Default)
-Minimal — one line or nothing:
+Minimal — one line or nothing. For commands intended for automation, prefer either no success output or a single deterministic line. Human-friendly decoration belongs behind `--verbose`, not in the default contract:
 ```
 $ kali check main.ts
-✓ No errors
+No errors
 
 $ kali build main.ts
-✓ main.wasm (142 KB, 23ms)
+main.wasm 142KB 23ms
 
 $ kali run main.ts
 Hello, world!
@@ -151,24 +156,15 @@ Found 1 error.
 Adds: timing per phase, IR dumps, optimization decisions, memory layout choices.
 
 ### JSON Output (`--output json`)
-Machine-parseable output for all commands:
-```json
-{
-    "success": false,
-    "errors": [
-        {
-            "code": "E1001",
-            "message": "Type 'string' is not assignable to type 'number'",
-            "file": "main.ts",
-            "line": 5,
-            "column": 10,
-            "endLine": 5,
-            "endColumn": 17
-        }
-    ],
-    "warnings": []
-}
-```
+Machine-parseable output for commands that normally print human-oriented text. The canonical command-envelope schema lives in [specs/18-schemas.md](18-schemas.md).
+
+Rules:
+- top-level output uses the versioned command envelope
+- diagnostics reuse the shared diagnostic schema
+- command-specific structured data goes in `payload`
+- common optional top-level fields include `artifacts`, `stdout`, and `timings`
+
+Exception: `kali effects` already emits JSON as its native output, so `--output json` wraps that payload in the envelope instead of changing the effect-report schema itself.
 
 ## Configuration (`kali.json`)
 
@@ -181,7 +177,7 @@ Machine-parseable output for all commands:
         "releaseAdvanced": false,
         "maxSpecializations": 16
     },
-    "sandbox": "./sandbox.policy.ts",
+    "sandbox": "./kali.policy.json",
     "include": ["src/**/*.ts"],
     "exclude": ["**/*.test.ts"],
     "imports": {

@@ -20,7 +20,7 @@ Prove that Kali's type system is sound:
 ### Effect System Correctness
 - Prove effect inference is conservative (inferred effects ⊇ actual effects)
 - Prove sandbox policy checking is sound (if policy says "no FS", no FS access occurs)
-- Prove effect composition rules (handler removes effects correctly)
+- If algebraic effect handlers are implemented in a later phase, prove their composition rules separately
 
 ### Memory Safety
 - Prove ownership analysis is sound (no use-after-free in the model)
@@ -48,7 +48,7 @@ proofs/
 │   ├── Effects/
 │   │   ├── Core.lean        — Effect definitions
 │   │   ├── Inference.lean   — Effect inference correctness
-│   │   └── Handlers.lean    — Effect handler soundness
+│   │   └── Handlers.lean    — Effect handler soundness (optional, later phase)
 │   ├── Memory/
 │   │   ├── Ownership.lean   — Ownership model
 │   │   ├── Escape.lean      — Escape analysis correctness

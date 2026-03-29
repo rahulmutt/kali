@@ -21,11 +21,14 @@ End-to-end tests in `tests/`:
 ### Conformance Test Suites
 
 #### ECMAScript (test262)
-Run against the [test262](https://github.com/nicelhc13/test262) conformance suite:
+Run against the [test262](https://github.com/tc39/test262) conformance suite:
 - Track pass/fail/skip counts
 - Known failures documented and triaged
-- CI blocks regressions (new failures)
-- Target: >95% pass rate for non-annex-B tests
+- CI blocks regressions within the currently supported feature set
+- Conformance targets are phased:
+  - Phase 1: parser/runtime smoke coverage on a curated subset
+  - Phase 2-3: expanding automated coverage with feature-based gating
+  - Later compatibility goal: >95% pass rate for supported non-annex-B tests
 
 #### TypeScript (tsc tests)
 Inspired by TypeScript's test suite:

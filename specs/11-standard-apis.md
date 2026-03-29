@@ -4,26 +4,40 @@
 
 Implement APIs as host functions provided by the runtime. Each API surface is a separate crate that registers its host functions with the WASM runtime.
 
+Compatibility is delivered in layers:
+1. **Baseline**: Web platform primitives needed by modern JS libraries.
+2. **Primary host**: Deno-style APIs, since they align well with explicit permissions and sandboxing.
+3. **Compatibility layers**: Node.js shims and browser-facing glue, added incrementally and tested against real packages.
+
+The spec goal is broad compatibility, but the implementation should prefer a smaller, dependable surface over a shallow imitation of every host API.
+
+A key simplification rule applies throughout this section: Phase 1 should target the smallest API set that unlocks real-world package execution, and every later API addition should be justified by package compatibility or standards pressure.
+
+For dynamic or semantically expensive APIs (for example `Proxy`, weak references, and threaded primitives), the canonical phase/status lives in [specs/19-feature-maturity.md](19-feature-maturity.md). This section should describe API layering, not restate a conflicting maturity decision.
+
 ## API Layers
 
 ### Web Platform APIs (Baseline)
-Always available regardless of runtime mode:
-- `console` (log, warn, error, debug, info, table, time/timeEnd)
-- `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`
+Always available regardless of runtime mode.
+
+**Phase 1 MVP baseline**
+- `console` (`log`, `warn`, `error`, `debug`, `info`)
+- `setTimeout`, `clearTimeout`, `setInterval`, `clearInterval`
 - `queueMicrotask`
-- `fetch` (WHATWG Fetch API)
+- `fetch`, `Headers`, `Request`, `Response`
 - `URL`, `URLSearchParams`
 - `TextEncoder`, `TextDecoder`
-- `crypto` (Web Crypto API subset: getRandomValues, subtle)
 - `AbortController`, `AbortSignal`
-- `Blob`, `File`, `FormData`
-- `Headers`, `Request`, `Response`
-- `ReadableStream`, `WritableStream`, `TransformStream`
 - `structuredClone`
-- `atob`, `btoa`
 - `performance.now()`
-- `WebSocket`
 - `EventTarget`, `Event`, `CustomEvent`
+
+**Later compatibility expansion**
+- `Blob`, `File`, `FormData`
+- `ReadableStream`, `WritableStream`, `TransformStream`
+- `crypto` (broader Web Crypto surface beyond the MVP subset)
+- `atob`, `btoa`
+- `WebSocket`
 
 ### Deno API (`--api deno`, default)
 Primary API surface, following Deno's design:
@@ -35,7 +49,7 @@ Primary API surface, following Deno's design:
 - `Deno.Command` (process spawning)
 - `Deno.serve` (HTTP server)
 - `Deno.cwd`, `Deno.chdir`
-- `Deno.permissions` (maps to Kali sandbox policies)
+- `Deno.permissions` as a read-only compatibility facade over Kali sandbox policy state; it reports granted/denied capabilities but does not perform interactive permission prompts
 - All sync and async variants
 
 ### Node.js API (`--api node`)
@@ -59,13 +73,13 @@ Compatibility layer for Node.js ecosystem:
 
 ### Browser API (`--api browser`)
 For code targeting browser environments:
-- DOM APIs are **not** natively supported (Kali does not embed a browser engine)
-- Provide a minimal DOM shim for testing (`kali_api_web`): `window`, `document`, `navigator` stubs
+- DOM APIs are **not** natively supported by the standalone Kali runtime (it does not embed a browser engine)
 - Only Web Platform APIs are available (no Deno or Node.js APIs)
-- Primarily for running browser-targeted library code in server/CLI context
-- For actual browser deployment, use `kali build --bundle` to emit WASM + JS glue that runs in real browsers
+- Primarily for compiling browser-targeted libraries, shared modules, and non-DOM code paths
+- For actual browser deployment, use `kali build --bundle` to emit WASM + JS glue that runs in a real browser host
+- Any lightweight DOM test shim is a separate testing utility, not part of the core browser compatibility contract
 
-**Note**: Web Platform APIs (fetch, crypto, streams, etc.) are always available regardless of `--api` mode. The `--api` flag controls which *additional* platform-specific APIs are loaded.
+**Note**: The Phase 1 baseline Web Platform APIs are always available regardless of `--api` mode. The `--api` flag controls which *additional* platform-specific APIs are loaded. Later Web API expansions remain subject to phase gating and should not be assumed to exist merely because a different `--api` mode is selected.
 
 ## Implementation Architecture
 
@@ -91,22 +105,32 @@ User Code (WASM)
 - **Host**: Implemented as wasmtime host functions, run outside WASM (I/O, network, process, crypto)
 
 ### Built-in Objects (WASM Runtime)
-Implemented in `kali_runtime` (compiled to WASM):
+Implemented in `kali_runtime` (compiled to WASM), in phases:
+
+**Phase 1 core runtime**
 - `Object` prototype methods
-- `Array` and all typed arrays (`Uint8Array`, etc.)
-- `Map`, `Set`, `WeakMap`, `WeakSet`
+- `Array` and typed arrays needed by common libraries
 - `Promise`
-- `RegExp` (using a pure-Rust regex engine)
+- `RegExp` (using a pure-Rust implementation of ECMAScript RegExp semantics; a generic Rust regex crate is only acceptable as an internal building block, not as the semantic contract)
 - `Date`
 - `JSON`
 - `Math`
 - `String` prototype methods
 - `Number`, `Boolean`, `Symbol`
-- `Error` and subtypes
-- `Proxy`, `Reflect`
-- `Intl` (basic — full ICU is large, provide subset)
-- `ArrayBuffer`, `SharedArrayBuffer`, `DataView`
+- `Error` and common subtypes
+- `ArrayBuffer`, `DataView`
 - Iterators, Generators, AsyncGenerators
+- `Map`, `Set`
+- `Reflect` subset required by transpiled/bundled code
+
+**Later compatibility phases**
+- `SharedArrayBuffer` (when WASM threads are enabled)
+- `WeakMap`, `WeakSet` (only once weak-reference semantics are specified well enough to preserve behavior)
+- `FinalizationRegistry` (only once weak/finalization semantics can be preserved without undermining the no-tracing-GC design)
+- `Proxy`
+- fuller `Intl` support
+
+The runtime should prioritize the subset needed by real-world packages and conformance tests before implementing hard edge-case APIs with large semantic cost.
 
 ## Global Scope
 

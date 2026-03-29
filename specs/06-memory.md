@@ -2,14 +2,16 @@
 
 ## Principle
 
-Kali has **no garbage collector**. All memory management decisions are made at compile time through ownership analysis, lifetime inference, and escape analysis. This is inspired by Rust's ownership model, adapted for TypeScript/JavaScript semantics.
+Kali has **no tracing garbage collector**. Allocation class and ownership strategy are chosen statically where possible through ownership analysis, lifetime inference, and escape analysis. The compiler may still insert deterministic runtime bookkeeping such as reference-count increments/decrements when sharing cannot be eliminated. This is inspired by Rust's ownership model, adapted for TypeScript/JavaScript semantics.
+
+For compatibility-heavy APIs and dynamic features mentioned in this document, the canonical maturity/status matrix lives in [specs/19-feature-maturity.md](19-feature-maturity.md). This section focuses on memory strategy, not on redefining feature phase decisions.
 
 ## Allocation Strategy Decision
 
 For every value, the compiler determines:
 
 1. **Where** it lives: stack or heap
-2. **How** it's owned: unique, shared (Rc), or borrowed
+2. **How** it's owned: unique, shared (reference-counted), or borrowed
 3. **When** it's freed: scope exit, last use, or ref-count drop to zero
 
 ### Decision Flow
@@ -29,7 +31,7 @@ Value Created
   │   → Heap allocation, unique ownership, freed by owner
   │
   └─ Escapes and shared (stored in multiple places, closures)?
-      → Heap allocation, reference-counted (Rc<T>)
+      → Heap allocation, reference-counted shared ownership
 ```
 
 ## Escape Analysis
@@ -45,7 +47,7 @@ Determines whether a value's lifetime exceeds its creating scope:
 ### Closure Analysis
 Closures capture variables. For each capture:
 - If the variable is only read and the closure doesn't outlive the variable → borrow
-- If the variable is mutated or the closure escapes → Rc<RefCell<T>> equivalent
+- If the variable is mutated or the closure escapes → lower to a shared heap cell with deterministic reference counting and interior mutability semantics
 - If only one closure captures it and ownership can transfer → move
 
 ## Reference Counting
@@ -113,20 +115,21 @@ JavaScript's semantics assume GC. Key cases:
 
 | JS Pattern | Kali Strategy |
 |---|---|
-| Closures capturing variables | Rc<RefCell<T>> for escaping mutable captures |
-| Circular references | Weak refs or scope-based collection |
-| `arguments` object | Stack-allocated array (doesn't usually escape) |
-| Prototype chains | Static when class hierarchy is known; Rc for dynamic |
-| WeakMap/WeakSet | True weak references with ref-count integration |
-| FinalizationRegistry | Hooked into Rc destructor path |
+| Closures capturing variables | Shared heap cell with deterministic ref counting for escaping mutable captures |
+| Circular references | Weak refs, explicit back-edge lowering, or bounded cycle-reclamation strategies |
+| `arguments` object | Stack-allocated array when non-escaping; heap otherwise |
+| Prototype chains | Static when class hierarchy is known; shared heap object for dynamic cases |
+| WeakMap/WeakSet | Later-phase compatibility feature; unsupported in early phases until weak-reference semantics are specified without violating observable behavior |
+| FinalizationRegistry | Later compatibility feature; unsupported in early phases until semantics fit the no-tracing-GC design |
 | Global objects | Static lifetime, no counting |
 
 ### `eval` and Dynamic Features
 When `eval` or `Function()` is used:
 - All local variables in scope are conservatively heap-allocated
-- Ownership defaults to Rc
+- Ownership defaults to shared heap representation with deterministic reference counting
 - This is flagged as a performance warning by the compiler
 - The sandbox system can prohibit `eval` entirely
+- Full runtime `eval` semantics are only required in Phase 4 (see [specs/10-runtime.md](10-runtime.md))
 
 ## Memory Safety
 

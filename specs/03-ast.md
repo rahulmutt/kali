@@ -65,11 +65,9 @@ enum ModuleItem {
 - `JsxText` — literal text content
 
 ### Kali-Specific Nodes
-- `EffectAnnotation` — effect type on function signatures: `! Effect1 | Effect2`
-- `EffectDeclaration` — `effect Name { ... }` (algebraic effect definition)
-- `PerformExpression` — `perform effectName(args)` for algebraic effects
-- `HandleExpression` — `handle expr { Effect.op(args) => ... }` for effect handlers
+- `EffectAnnotation` — effect summary on function signatures: `! FileSystem.Read | Network.Fetch`
 - `PureModifier` — `pure function f() { ... }` (marker for purity checking)
+- Experimental only: `EffectDeclaration`, `PerformExpression`, `HandleExpression` for algebraic effects/handlers
 
 ### Patterns (Destructuring)
 - `IdentifierPattern`, `ObjectPattern`, `ArrayPattern`

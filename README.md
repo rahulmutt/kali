@@ -1,5 +1,5 @@
 # kali
-A functional, type-safe, AI-native programming language designed to be sandboxed and have all effects known at compile-time as much as possible.
+An ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembly, designed for sandboxed execution, strong static analysis, and AI-friendly tooling.
 
 # Users
 - [Kai](https://github.com/rahulmutt/kai) an AI-based coding assistant.

@@ -21,21 +21,7 @@ error[E1001]: Type 'string' is not assignable to type 'number'
 ```
 
 ### JSON (`--output json`)
-```json
-{
-    "severity": "error",
-    "code": "E1001",
-    "message": "Type 'string' is not assignable to type 'number'",
-    "file": "src/main.ts",
-    "span": { "line": 5, "column": 10, "endLine": 5, "endColumn": 17 },
-    "labels": [
-        { "span": { "line": 5, "column": 10, "endColumn": 16 }, "text": "expected type" },
-        { "span": { "line": 5, "column": 19, "endColumn": 26 }, "text": "expected 'number', found 'string'" }
-    ],
-    "help": "Remove the type annotation or change the value",
-    "related": []
-}
-```
+Diagnostics are emitted inside the CLI's versioned command envelope. The canonical JSON schemas for both the envelope and individual diagnostics live in [specs/18-schemas.md](18-schemas.md).
 
 ## Error Code Ranges
 
@@ -104,7 +90,7 @@ error[E1001]: Type 'string' is not assignable to type 'number'
 
 ### Performance Warnings (W3xxx)
 - `W3001`: Dynamic object access forces hash map representation
-- `W3002`: `eval` usage disables optimizations in scope
+- `W3002`: `eval` usage disables optimizations in scope (when the compatibility mode is enabled)
 - `W3003`: Value escapes scope, requiring heap allocation
 - `W3004`: Generic function exceeds specialization limit
 

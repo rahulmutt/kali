@@ -2,6 +2,8 @@
 
 ## npm Compatibility
 
+Package loading is compile-time first: Kali resolves, analyzes, and links dependency graphs during build/check/run. For normal builds, application code and its static dependencies are emitted as one linked artifact rather than a fleet of runtime-linked WASM modules.
+
 ### Supported Packages
 Kali supports npm packages that:
 - Are pure JavaScript/TypeScript (no native code)
@@ -12,11 +14,12 @@ This covers the vast majority of the npm ecosystem (utility libraries, data proc
 
 ### Package Resolution
 Follow Node.js module resolution algorithm, adapted for Kali:
-1. Check `kali_modules/<package>/package.json` for `exports`, `main`, `module` fields
-2. Support `exports` map conditions: `import`, `require`, `default`, `types`
-3. Resolve relative imports with extension probing (`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`)
-4. Support `paths` and `baseUrl` from `kali.json`
-5. Also check `node_modules/` for backwards compatibility with existing projects
+1. Apply import-map rewrites from `kali.json#imports` before package resolution
+2. Check `node_modules/<package>/package.json` for `exports`, `main`, `module`, and `types` fields
+3. Support `exports` map conditions: `import`, `require`, `default`, `types`, and `browser` where relevant
+4. Resolve relative imports with extension probing (`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`)
+
+To keep configuration simple, `kali.json#imports` is the canonical aliasing mechanism in early phases. A separate TypeScript-style `paths`/`baseUrl` compatibility layer may be added later if ecosystem pressure justifies it, but it is not part of the MVP contract.
 
 ### Installation
 ```bash
@@ -26,16 +29,25 @@ kali install --dev vitest                   # Dev dependency
 kali install https://deno.land/std/path/mod.ts  # URL import (cached locally)
 ```
 
-Uses a `kali_modules/` directory (not `node_modules/`) with flat structure:
+Installation is **fetch-and-link by default**, not "execute package scripts" by default. To preserve sandbox-first behavior:
+- npm lifecycle scripts (`preinstall`, `install`, `postinstall`) are not executed unless the user explicitly opts in
+- packages requiring native build steps are rejected as unsupported
+- package metadata and tarballs can still be analyzed before linking
+
+Uses standard `node_modules/` layout by default for maximum ecosystem compatibility. Kali-specific caches live under `.kali/` instead of inventing a second package tree:
 ```
-kali_modules/
-├── lodash@4.17.21/
+node_modules/
+├── lodash/
 │   ├── package.json
 │   └── ...
-├── zod@3.22.0/
-│   └── ...
-└── .cache/              — Cached URL imports
+└── zod/
+    └── ...
+
+.kali/
+└── cache/
+    └── urls/            — Cached URL imports and metadata
 ```
+This simplifies interoperability with existing tools, package metadata, and source layouts.
 
 ### Lock File
 `kali.lock` — deterministic lockfile (project root, committed to version control). Uses a line-oriented format for clean diffs:
@@ -68,7 +80,7 @@ import { z } from "zod";
 ```typescript
 import { join } from "https://deno.land/std@0.220.0/path/mod.ts";
 ```
-URL imports are cached in `kali_modules/.cache/`. Integrity is verified against the lock file.
+URL imports are cached in `.kali/cache/urls/`. Integrity is verified against the lock file.
 
 ### Import Maps
 Support import maps in `kali.json`:
@@ -85,8 +97,15 @@ Support import maps in `kali.json`:
 
 - CJS modules (`require`, `module.exports`) are transformed to ESM at compile time
 - `require()` calls with static string arguments → ESM import
-- Dynamic `require()` → runtime resolution (flagged in effect analysis)
+- Dynamic `require()` is **not** part of the Phase 1-3 linked-artifact model; it is rejected by default or requires an explicit later-phase compatibility mode, and is flagged in effect analysis
 - `__dirname`, `__filename` → transformed to `import.meta.dirname`, `import.meta.filename`
+
+## Dynamic Imports
+
+To keep the module system aligned with the single-artifact architecture:
+- static `import` is the primary and fully supported path
+- literal-string `import("pkg")` is a later optimization/compatibility feature that may be rewritten against the already-linked graph
+- non-literal `import(expr)` is treated as a dynamic effect boundary and rejected by default in early phases unless an explicit compatibility mode is enabled
 
 ## Type Resolution
 

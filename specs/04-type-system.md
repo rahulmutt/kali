@@ -4,9 +4,14 @@
 
 Kali's type system is a superset of TypeScript's, combining:
 1. **Flow-sensitive typing** (like tsc) — narrowing through control flow
-2. **Hindley-Milner inference** — global type inference for unannotated code
-3. **Effect types** — tracking side effects for sandboxing
+2. **Hindley-Milner-style inference** — inference for unannotated code where it improves on TypeScript without sacrificing predictable compile times
+3. **Effect summaries** — tracking side effects for sandboxing
 4. **Constraint solving** — for advanced generic inference
+
+Implementation order matters:
+- **Phase 1**: preserve TypeScript compatibility and flow-sensitive narrowing.
+- **Phase 2**: add broader inference for locals, returns, and module boundaries.
+- **Phase 3+**: expand effect polymorphism and more advanced constraints.
 
 The type checker operates on the raw AST and produces a `TypedAST` (AST with resolved type information in side tables keyed by `NodeId`). Name resolution is the first phase of type checking — it builds the symbol table and scope tree from the AST.
 
@@ -54,10 +59,11 @@ Types are interned via `TypeId` (u32 index into a type arena) for cheap comparis
 
 ### Unification
 - Unification variables (`TypeVariable`) are generated for unannotated parameters and locals
-- Unification follows standard Algorithm W, extended for:
+- In practice, Kali uses a **hybrid inference engine**: TypeScript-style contextual typing and flow analysis first, HM-style unification second where it is unambiguous and cheap.
+- Unification is extended for:
   - Row polymorphism (object types with unknown fields)
-  - Subtyping (TypeScript's structural subtyping)
-  - Effect polymorphism
+  - Structural subtyping where it does not break principal inference
+  - Effect polymorphism in later phases
 
 ### Let-Generalization
 - Functions and let-bindings are generalized (polymorphic) when their type variables don't escape
@@ -91,6 +97,8 @@ Narrowing state is forked at branches and merged at join points (union of narrow
 ## Effect System
 
 ### Effect Types
+
+Effect tracking is primarily a **capability summary system** for sandboxing. It is not required to expose full algebraic effects syntax in the initial implementation.
 ```rust
 struct EffectType {
     /// Set of effects this function may perform
@@ -98,27 +106,27 @@ struct EffectType {
 }
 
 enum Effect {
-    FileSystem(FsAccess),   // File system access (read, write, delete)
-    Network(NetAccess),     // Network access (listen, connect, fetch)
-    Process(ProcAccess),    // Process operations (spawn, exit, env)
-    Timer,                  // setTimeout, setInterval
-    Random,                 // Math.random, crypto
-    Eval,                   // eval, Function constructor
-    Console,                // console.log, console.error, etc.
-    Custom(InternedString), // User-defined effects (via `effect` declarations)
+    FileSystem(FsAccess),        // e.g. FileSystem.Read, FileSystem.Write
+    Network(NetAccess),          // e.g. Network.Fetch, Network.Listen
+    Process(ProcAccess),         // e.g. Process.Spawn, Process.EnvRead
+    Timer(TimerAccess),          // e.g. Timer.Schedule
+    Random(RandomAccess),        // e.g. Random.GetBytes
+    Eval,                        // eval, Function constructor
+    Console(ConsoleAccess),      // e.g. Console.Write
+    Custom(InternedString),      // User-defined effects (via `effect` declarations)
 }
 
 // Note: There is no `IO` super-effect. Each effect is tracked individually.
 // Sandbox policies in specs/09-sandboxing.md map directly to these variants.
-// FsAccess, NetAccess, ProcAccess are sub-enums for finer-grained control
-// (e.g., FsAccess::Read vs FsAccess::Write).
+// FsAccess, NetAccess, ProcAccess, TimerAccess, RandomAccess, and ConsoleAccess
+// are sub-enums for finer-grained control and stable JSON names.
 ```
 
 ### Effect Inference
 - Effects are inferred bottom-up: leaf functions determine effects, callers accumulate
-- Annotated effects (`! Effect`) are checked against inferred effects
-- Effect polymorphism: generic functions can be polymorphic over effects
-- `pure` functions have an empty effect set — enforced by the checker
+- **Phase 2 target**: explicit effect annotations (`! Effect`) and `pure` modifiers are checked against inferred effects for the built-in sandbox-relevant capability set
+- **Later phase**: effect polymorphism and user-defined/custom effect syntax may be added once the built-in capability model is stable
+- `pure` functions have an empty effect set — enforced by the checker when the explicit effect-annotation surface is enabled
 
 ### Relationship to Sandboxing
 The effect system feeds directly into the sandbox analyzer (see [specs/09-sandboxing.md](09-sandboxing.md)):
@@ -143,11 +151,12 @@ The effect system feeds directly into the sandbox analyzer (see [specs/09-sandbo
 - `const` type parameters
 
 ### Extensions Beyond tsc
-- **Full program inference**: infer types across module boundaries without annotations
-- **Effect annotations**: `function read(path: string): string ! FileSystem`
-- **Purity checking**: `pure function add(a: number, b: number): number`
+- **Fuller program inference**: infer more types across module boundaries without annotations, but prefer predictable behavior over maximal cleverness
+- **Effect annotations** *(Phase 2 target)*: `function read(path: string): string ! FileSystem.Read`
+- **Purity checking** *(Phase 2 target)*: `pure function add(a: number, b: number): number`
+- **User-defined/algebraic effects** *(later, experimental)*: kept out of the MVP and introduced only after the sandbox capability model is stable
 - **Refined types** (future): `type PositiveInt = number & { __brand: "positive" }`
-- **Constraint propagation**: more aggressive generic resolution than tsc
+- **Constraint propagation**: more aggressive generic resolution than tsc where compile-time cost stays bounded
 
 ## Type Checking Phases
 

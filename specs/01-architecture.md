@@ -51,6 +51,17 @@ kali/
 └── Cargo.toml             — Workspace manifest
 ```
 
+## Implementation Phases
+
+The architecture is intentionally staged so the compiler can become useful early:
+
+1. **Bootstrap**: lexer, parser, AST, name resolution, baseline TypeScript checking, HIR/LIR, simple WASM emission.
+2. **Safety**: MIR, ownership/escape analysis, effect summaries, sandbox policy checking.
+3. **Performance**: specialization, advanced layout selection, incremental compilation, stronger optimization.
+4. **Compatibility**: broader Node/Deno/browser APIs, advanced dynamic features, full `eval`, and deeper verification.
+
+Every crate should expose a stable internal boundary even if its initial implementation is partial.
+
 ## Key Design Decisions
 
 ### Pure Rust
@@ -61,6 +72,7 @@ Follow a demand-driven (query-based) compilation model similar to rustc and Sals
 - Incremental compilation
 - Parallel type checking
 - Lazy evaluation of unused modules
+- Clean separation between source resolution, semantic analysis, and final whole-program linking
 
 ### Interning
 All identifiers, string literals, and type representations are interned for fast comparison and low memory usage. Use a global `Interner` backed by a concurrent hash map.
@@ -77,6 +89,15 @@ AST and IR nodes are arena-allocated for cache-friendly traversal and bulk deall
 - Codegen: per-function parallelism
 - Use `rayon` for data parallelism where appropriate.
 
+### Linking Strategy
+Early-phase builds compile the full static module graph into a **single linked WASM artifact**. This avoids premature dependence on experimental WASM module-linking features and simplifies optimization, packaging, and embedding.
+
+To keep the model simple and consistent:
+- static `import` / `export` are part of the core MVP
+- dynamic `import()` is **not** a general runtime-linking mechanism in early phases
+- literal-string `import()` may be lowered later to an async view over the already-linked graph
+- non-literal dynamic loading remains later-phase compatibility work and a dynamic effect boundary
+
 ### Compilation Modes
 
 | Mode | Description |
@@ -87,3 +108,11 @@ AST and IR nodes are arena-allocated for cache-friendly traversal and bulk deall
 
 ### Error Strategy
 Compilation is resilient — continue after errors to report as many issues as possible in one pass. Use a `Diagnostics` collector that accumulates errors/warnings without aborting. See [specs/15-errors.md](15-errors.md).
+
+### Canonical Target Assumption
+Early phases target a single canonical execution profile:
+- `wasm32` linear memory
+- one linked module graph per build artifact
+- the Kali host ABI implemented on top of wasmtime
+
+This keeps pointer layout, tagged-value representation, allocator design, and host import conventions consistent across the rest of the spec. Later phases may add additional targets or backends, but they should be layered on top of this baseline rather than weakening it.

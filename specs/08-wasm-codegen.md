@@ -2,17 +2,22 @@
 
 ## Target
 
-- **WASM MVP** as baseline (maximum compatibility)
-- **WASM extensions** used when available:
+The canonical compilation target for Phases 1-3 is a **single `wasm32` module using the Kali host ABI**.
+
+- **Required baseline**:
+  - WASM MVP
+  - 32-bit linear memory (`wasm32`)
+  - Kali host imports for I/O, timers, process, networking, and runtime services
+- **Optional WASM extensions** used when available and enabled by the selected build profile:
   - Multi-value returns
   - Bulk memory operations
-  - Reference types (for GC-free externref passing)
+  - Reference types (for carefully bounded host interop)
   - Tail calls
   - Exception handling (for try/catch)
   - Threads (for SharedArrayBuffer, Atomics)
   - SIMD (for typed array optimizations)
 
-Emit a `.wasm` binary module that can run in any conformant runtime.
+The emitted `.wasm` artifact is portable at the WASM layer, but its full execution contract depends on the Kali host ABI and the feature set required by the chosen build mode. In practice, Phase 1-3 execution is standardized on wasmtime.
 
 ## Code Generation from LIR
 
@@ -84,7 +89,7 @@ Compiled into the WASM module from `kali_runtime`:
 - Error creation and stack trace capture
 - Iterator protocol support
 - Promise/async state machine support
-- `eval` handler (calls back to host for compilation)
+- `eval` handler hook (Phase 4 compatibility path; calls back to host for compilation when enabled)
 
 ## WASM Binary Emission
 
@@ -98,10 +103,11 @@ Direct binary emission without intermediate text format:
 
 | Command | Output |
 |---------|--------|
-| `kali build foo.ts` | `foo.wasm` — standalone WASM module |
+| `kali build foo.ts` | `foo.wasm` — Kali-hosted WASM module |
 | `kali build --bundle foo.ts` | `foo.wasm` + `foo.js` — WASM + JS glue for browsers |
 | `kali build --lib foo.ts` | `foo.wasm` — library module (exports, no start) |
+| `kali build --capi foo.ts` | `foo.wasm` + generated C ABI metadata/header references — embedding artifact set |
 
 ## Source Maps
 
-Generate WASM source maps (DWARF-based) mapping WASM offsets back to TypeScript/JavaScript source positions for debugging.
+Generate WASM source maps (DWARF-based) mapping WASM offsets back to TypeScript/JavaScript source positions for debugging. Artifact metadata exposed through the CLI JSON envelope should describe source maps using the shared artifact schema in [specs/18-schemas.md](18-schemas.md).

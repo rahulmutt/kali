@@ -9,6 +9,8 @@ Sandboxing is a first-class concern in Kali. The system combines:
 
 ## Static Effect Analysis
 
+The static effect system is intentionally scoped around **sandbox-relevant capabilities** first. The initial goal is a conservative JSON summary of possible effects, not a full research-grade effect calculus.
+
 ### Effect Inference
 The type checker infers effects for every function (see [specs/04-type-system.md](04-type-system.md)):
 ```typescript
@@ -24,28 +26,14 @@ function processFile(path: string) {
 kali effects program.ts
 ```
 
-Outputs:
-```json
-{
-    "effects": [
-        {
-            "kind": "FileSystem.Read",
-            "locations": [
-                {"file": "program.ts", "line": 2, "col": 18, "function": "processFile"}
-            ]
-        },
-        {
-            "kind": "Console.Write",
-            "locations": [
-                {"file": "program.ts", "line": 3, "col": 5, "function": "processFile"}
-            ]
-        }
-    ],
-    "entryPoints": ["main"],
-    "dynamicEffects": false,
-    "usesEval": false
-}
-```
+The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md). The report contains:
+- `schemaVersion`
+- `entryPoints`
+- `effects`
+- `dynamicEffects`
+- `usesEval`
+
+Other commands that embed effect data should place the full report under the CLI envelope's `payload` field instead of redefining the structure.
 
 ### `dynamicEffects` Flag
 Set to `true` when:
@@ -59,26 +47,11 @@ When `true`, the static analysis is incomplete — the sandbox must enforce at r
 ## Sandbox Policies
 
 ### Policy Definition
-```typescript
-// sandbox.policy.ts
-export const policy: SandboxPolicy = {
-    effects: {
-        fileSystem: { read: ["/data/**"], write: false },
-        network: { fetch: ["https://api.example.com/*"], listen: false },
-        process: { spawn: false, env: ["PATH", "HOME"] },
-        timer: { maxTimeout: 5000 },
-        eval: false,
-        random: true,
-    },
-    resources: {
-        maxMemoryMB: 256,
-        maxCpuTimeMs: 10_000,
-        maxOpenFiles: 10,
-        maxSpawnedProcesses: 0,
-        maxThreads: 0,
-    },
-};
-```
+Sandbox policies are **declarative data files**, not arbitrary executable TypeScript. This keeps them auditable, easy to diff, and safe to evaluate before running untrusted code.
+
+Default format: `kali.policy.json`
+
+The canonical policy schema is defined in [specs/18-schemas.md](18-schemas.md). JSON is the canonical interchange format for CLI tooling and AI agents. An equivalent TOML format may be supported later, but it would be a convenience syntax layered on top of the JSON data model rather than a separate policy contract.
 
 ### Policy Validation (Compile-Time)
 When a policy is provided at build time:
@@ -87,7 +60,7 @@ When a policy is provided at build time:
 3. Unused permissions are reported as **warnings**
 
 ```bash
-kali build --sandbox sandbox.policy.ts program.ts
+kali build --sandbox kali.policy.json program.ts
 ```
 
 ```
@@ -97,18 +70,19 @@ error[E4001]: sandbox violation: FileSystem.Write not allowed
 5 |     Deno.writeTextFileSync("out.txt", result);
   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
-  = policy: fileSystem.write is disabled in sandbox.policy.ts:4
+  = policy: fileSystem.write is disabled in kali.policy.json
 ```
 
 ### Policy Validation (Runtime)
 For dynamic effects that can't be checked at compile time:
 - Host function imports are wrapped with policy-checking middleware
-- Violations throw a `SandboxViolationError` (non-catchable by default)
+- Violations terminate the current operation with `SandboxViolationError`
+- By default, sandbox violations are treated as fatal runtime errors for the top-level execution unless the embedding host explicitly opts into catchable host exceptions
 - All API calls check path patterns, URL patterns, etc. at runtime
 
 ## Runtime Resource Limits
 
-Enforced by the WASM host (wasmtime/wasmer):
+Enforced by the WASM host (wasmtime in initial phases):
 
 ### CPU Limits
 - **Fuel-based**: wasmtime's fuel mechanism — each WASM instruction consumes fuel
@@ -134,35 +108,22 @@ Enforced by the WASM host (wasmtime/wasmer):
 - Port/address restrictions on listen
 - Connection count limits
 
-## Sandbox Validator Functions
+## Sandbox Validator Functions (Later Phase)
 
-Users can define custom validation functions in the policy:
+The initial sandbox model is intentionally **declarative**: path globs, URL patterns, booleans, and numeric resource limits. This keeps policy evaluation simple, auditable, and portable.
 
-```typescript
-export const policy: SandboxPolicy = {
-    validators: {
-        // Custom validator for file system access
-        fileSystemRead(path: string): boolean {
-            return path.startsWith("/safe/") && !path.includes("..");
-        },
-        // Custom validator for network access
-        networkFetch(url: string): boolean {
-            const u = new URL(url);
-            return u.hostname === "api.example.com" && u.protocol === "https:";
-        },
-    },
-};
-```
-
-Validator functions:
-- Must be `pure` (no effects) — enforced by the compiler
+Custom validator functions are a later-phase extension for embedding scenarios. If added, they must:
+- Be explicitly opt-in
+- Be `pure` (no effects) — enforced by the compiler
 - Run synchronously before the guarded operation
 - Return `false` → `SandboxViolationError`
-- Are themselves compiled by Kali and run in the host
+- Integrate through the embedding API as host-registered validators, rather than requiring the runtime to self-host arbitrary policy code by default
 
-## Algebraic Effect Handlers (Advanced)
+## Algebraic Effect Handlers (Advanced, Experimental)
 
-Kali supports algebraic effects for advanced control over side effects:
+Algebraic effects are a later-phase feature. They are explicitly optional for the initial implementation and should not block delivery of capability summaries, policy checking, or runtime enforcement.
+
+Illustrative syntax:
 
 ```typescript
 effect FileSystem {
@@ -184,7 +145,7 @@ handle processFile("/data/input.txt") {
 }
 ```
 
-This enables:
+If implemented, this enables:
 - **Testing**: Mock all I/O without dependency injection
 - **Sandboxing**: Intercept and validate every effect occurrence
 - **Composition**: Layer effect handlers for logging, caching, etc.
@@ -196,10 +157,10 @@ This enables:
 kali effects program.ts
 
 # Check program against a policy (no execution)
-kali check --sandbox policy.ts program.ts
+kali check --sandbox kali.policy.json program.ts
 
 # Run with sandbox enforcement
-kali run --sandbox policy.ts program.ts
+kali run --sandbox kali.policy.json program.ts
 
 # Run with resource limits only (no effect policy)
 kali run --max-memory 256mb --max-cpu 10s program.ts

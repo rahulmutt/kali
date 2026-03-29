@@ -13,16 +13,16 @@ let config = Config::builder()
     .api(ApiSurface::Deno)
     .max_memory_mb(256)
     .max_cpu_time_ms(10_000)
-    .sandbox(SandboxPolicy::from_file("policy.ts")?)
+    .sandbox(SandboxPolicy::from_file("kali.policy.json")?)
     .build();
 
 let mut runtime = Runtime::new(config)?;
 
-// Compile and run TypeScript
-let result = runtime.eval("const x: number = 1 + 2; x")?;
+// Compile and run a source string
+let result = runtime.run_string("inline.ts", "const x: number = 1 + 2; x")?;
 assert_eq!(result.as_number(), Some(3.0));
 
-// Compile a module
+// Compile a module graph into one linked artifact
 let module = runtime.compile_file("main.ts")?;
 let result = runtime.run_module(&module)?;
 
@@ -95,7 +95,7 @@ void kali_module_free(KaliModule* module);
 
 // Execution
 KaliValue* kali_run(KaliRuntime* runtime, KaliModule* module);
-KaliValue* kali_eval(KaliRuntime* runtime, const char* source);
+KaliValue* kali_run_string(KaliRuntime* runtime, const char* filename, const char* source);
 KaliValue* kali_call(KaliRuntime* runtime, KaliModule* module,
                      const char* fn_name, KaliValue** args, uint32_t argc);
 
@@ -131,7 +131,7 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 ### Memory Management
 - All `kali_*_new` / `kali_*_free` pairs — caller manages lifetime
 - Strings returned by Kali must be freed with `kali_free_string`
-- Thread safety: one `KaliRuntime` per thread (not `Send`/`Sync`)
+- Thread safety: one `KaliRuntime` per thread in the initial implementation
 
 ### Error Handling Convention
 - Functions that can fail return `NULL` on error
@@ -140,7 +140,7 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 
 ### Building
 ```bash
-kali build --capi                          # Produces libkali.a + libkali.so + kali.h
+kali build --capi lib.ts                   # Produces a C-callable library artifact + kali.h
 ```
 
 Alternatively, build from source:

@@ -3,22 +3,21 @@
 ## WASM Execution Engine
 
 ### Engine Choice: wasmtime
-Use `wasmtime` as the primary WASM execution engine:
+**Phase 1-3 mandate:** use `wasmtime` as the execution engine.
 - Pure Rust implementation
 - Fuel-based metering for CPU limits
 - Configurable memory limits
 - Mature, well-maintained, WASI support
-- Uses Cranelift internally to compile WASM to native machine code at load time
+- Supports serialized/precompiled artifacts for production embedding
 
-Note: Kali's AOT pipeline compiles TypeScript/JavaScript → WASM. The WASM runtime (wasmtime) then compiles WASM → native code for execution. These are two separate compilation stages.
+**Important consistency rule**: Kali itself is AOT-only and performs no language-level JIT compilation. A host runtime may still validate, translate, or precompile the emitted WASM as an execution detail, but Kali must not depend on speculative/adaptive JIT behavior for correctness or performance.
 
-### Alternative: wasmer
-Provide wasmer as an optional backend for cases where:
-- Different platform support is needed
-- Users want the Singlepass compiler for faster cold start
-- Specific embedding requirements
+Preferred execution modes:
+- **Development**: instantiate emitted WASM directly in wasmtime for fast iteration
+- **Production/embedding**: use wasmtime's precompiled/serialized module support where available to avoid per-launch recompilation costs
 
-Selectable via `--runtime wasmer` flag.
+### Optional Alternative Backend (Later Phase)
+An engine abstraction may be added later to support backends such as `wasmer` when there is a demonstrated embedding or platform need. This must not complicate the initial runtime design; all core specs assume wasmtime semantics first.
 
 ## Host-Guest Interface
 
@@ -43,7 +42,7 @@ mod host {
     fn timer_set(callback_id: i32, delay_ms: i32, repeat: i32) -> i32;
     fn timer_clear(timer_id: i32);
     
-    // Eval (when permitted)
+    // Eval (only imported when the Phase 4 compatibility path is enabled)
     fn eval_compile(src_ptr: i32, src_len: i32) -> i32;
     
     // System
@@ -81,28 +80,25 @@ For async operations, Kali implements a single-threaded event loop:
 
 ## `eval` Support
 
-`eval` and `Function()` constructor are supported via a host callback:
+`eval` and `Function()` are **Phase 4 compatibility features**.
 
-1. WASM calls `eval_compile(source)` host function
-2. Host invokes the Kali compiler on the source string (full pipeline: lex → parse → typecheck → codegen)
-3. New WASM module is produced and instantiated
-4. New module is linked to share the parent module's linear memory and function table
-5. Eval'd code can access variables in scope via a shared scope descriptor passed to the host
-6. Result is returned to the calling WASM module
+Implementation strategy:
+1. **Phases 1-3**: parse them, report the `Eval` effect, and either reject them in strict/AOT modes or route them through an explicitly marked compatibility path.
+2. **Phase 4**: support runtime compilation through a host callback (`eval_compile`) with conservative deoptimization of the surrounding scope.
 
-Memory sharing details:
-- The parent module exports its `Memory` and `Table` objects
-- The eval'd module imports them, enabling direct access to the same linear memory
-- The eval'd module uses the same heap allocator (shared allocator state in linear memory)
-- Scope variables are serialized to a known memory region before eval and deserialized after
-- Reference counts are shared — the eval'd code can inc/dec refs on parent objects correctly since both use the same `RcHeader` layout in shared linear memory
+Requirements for the Phase 4 path:
+- Treat all directly reachable locals as boxed/shared values
+- Disable layout-sensitive optimizations in the affected region
+- Preserve JavaScript-visible semantics before recovering performance
+- Cache repeated eval compilations where safe
 
-This is:
-- **Expensive** (full compilation per eval call)
+This is intentionally conservative:
+- **Expensive** — full compilation may occur at runtime
 - **Blocked by default** in sandbox policies (effect: `Eval`)
 - **Flagged** in static effect analysis (see [specs/09-sandboxing.md](09-sandboxing.md))
-- **Correct** — maintains full language semantics
-- **Cacheable** — repeated eval of the same source string reuses compiled module
+- **Optimization barrier** for surrounding code
+
+The exact mechanism for scope capture and memory sharing is an implementation detail and is deliberately left unspecified here to avoid overspecifying a fragile design too early.
 
 ## Async/Await Runtime
 
@@ -137,15 +133,22 @@ This is an advanced feature. Most programs use the single-threaded event loop.
 ## Module System
 
 ### ES Modules
-- `import`/`export` → WASM module linking
-- Static imports resolved at compile time → direct function calls
-- Dynamic `import()` → host function that compiles and loads module at runtime
+Initial implementation strategy:
+- Parse the full static module graph up front
+- Resolve `import`/`export` in the compiler
+- Lower the whole program/package graph into a **single linked WASM module** per build artifact
+- Static imports become direct internal calls or data references after linking
+- Literal-string `import()` may later be lowered to an async lookup over the already-linked graph
+- Non-literal dynamic `import()` remains a host-mediated compatibility path and is treated as a dynamic effect boundary
+
+This deliberately avoids depending on the WebAssembly module-linking proposal in early phases.
 
 ### Module Instantiation Order
-1. Parse and compile all statically imported modules
-2. Link modules (resolve imports/exports)
-3. Execute module top-level code in dependency order
-4. Run entry point
+1. Parse and compile all statically imported modules in the graph
+2. Resolve imports/exports in the compiler linker
+3. Emit one linked WASM artifact for the graph
+4. Execute module top-level code in ECMAScript dependency order
+5. Run entry point
 
 ## Error Handling
 

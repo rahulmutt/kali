@@ -5,7 +5,7 @@
 ### Requirements
 - Full ECMA-262 (16th edition) lexical grammar support
 - TypeScript syntax extensions (type annotations, generics, enums, etc.)
-- Kali-specific syntax extensions (effect annotations, sandbox directives)
+- Kali-specific syntax extensions, kept intentionally small in early phases (effect annotations first; advanced effect syntax behind an experimental flag)
 - Zero-copy where possible — tokens reference source via spans
 - Streaming/lazy tokenization — parser pulls tokens on demand
 
@@ -20,7 +20,7 @@ struct Token {
 `TokenKind` covers:
 - All ECMAScript keywords, punctuators, literals
 - TypeScript keywords: `type`, `interface`, `as`, `is`, `keyof`, `infer`, `readonly`, etc.
-- Kali contextual keywords: `effect`, `perform`, `handle`, `pure`
+- Kali contextual keywords: `pure` always available; `effect`, `perform`, `handle` reserved for experimental effect-handler syntax
 - Template literal parts (head, middle, tail)
 - RegExp literals (context-sensitive — parser assists disambiguation)
 - Numeric literals (all formats: decimal, hex, octal, binary, bigint, separators)
@@ -54,9 +54,9 @@ struct Token {
   - Declaration merging semantics (recorded for type checker)
   - `as`, `satisfies`, non-null assertion (`!`)
 - Kali extensions:
-  - Effect type annotations: `function foo(): number ! IOException`
-  - `effect` declarations, `perform` expressions, `handle` blocks
+  - Effect type annotations: `function foo(): number ! FileSystem.Read | Console.Write`
   - `pure` function modifier
+  - Experimental only: `effect` declarations, `perform` expressions, `handle` blocks
 - JSX/TSX grammar:
   - JSX elements, fragments, expressions, spread attributes
   - Disambiguated from TypeScript generics via context (same approach as tsc)
