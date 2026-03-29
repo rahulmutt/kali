@@ -196,9 +196,11 @@ Use `E5008` for cases such as:
 - `kali package-effects`
 - `kali package-effects lodash react`
 - `kali package-effects --api browser lodash`
+- `kali package-effects --wasm-threads lodash`
 - `kali package-effects --compat eval lodash`
 - `kali package-effects --sandbox kali.policy.json lodash`
 - `kali package-audit --api browser lodash`
+- `kali package-audit --wasm-threads lodash`
 - `kali package-audit --compat eval lodash`
 - `kali package-audit --sandbox kali.policy.json lodash`
 - `kali package-audit` with no package argument

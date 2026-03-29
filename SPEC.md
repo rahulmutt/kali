@@ -245,7 +245,7 @@ Note:
 - when invoked without explicit files, `check` also uses canonical project discovery
 - `install` also uses canonical project discovery when it needs to scan source files for raw URL imports
 - when `package-effects` and `package-audit` are available, they stay single-package registry-analysis commands rather than growing an implicit whole-project mode
-- in early phases, registry-analysis commands also avoid a second per-command `--api` / `--compat` flag family: `package-effects` reuses the inherited analysis context, while `package-audit` stays **context-free** (registry/package metadata focused) rather than becoming a second host-mode selector
+- in early phases, registry-analysis commands also avoid a second per-command **analysis-context flag family**: `package-effects` reuses the inherited analysis context instead of taking package-analysis-specific `--api`, runtime-profile flags, or `--compat` switches, while `package-audit` stays **context-free** (registry/package metadata focused) rather than becoming a second host-mode selector
 - config-selected `apiSurface`, `runtimeProfiles`, and `compat.features` therefore influence `package-effects`, but they do not change the semantics of early `package-audit`
 - unsupported inherited analysis-context values for `package-effects` fail with the same canonical availability path (`E5006`) used by direct analysis commands; Kali must not silently drop an inherited `node`, `wasm-threads`, or later compatibility feature just because `package-effects` has no parallel flag family of its own
 - for clarity, early `package-audit` still uses ordinary project/config discovery for generic CLI behavior (for example project root, `--output`, `--quiet`), but it intentionally ignores host-analysis/runtime knobs such as `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
@@ -305,7 +305,7 @@ The effective command context has one shared vocabulary, but not every command t
 Interpretation rules:
 - **semantic** means the axis can change command behavior, availability, or machine-readable results
 - **non-semantic** means the axis exists in the shared vocabulary but does not change that command's contract in early phases
-- `package-effects` reuses the inherited **analysis** axes (`apiSurface`, `runtimeProfiles`, `compat.features`) rather than adding its own parallel flag family
+- `package-effects` reuses the inherited **analysis** axes (`apiSurface`, `runtimeProfiles`, `compat.features`) rather than adding its own package-analysis-specific analysis-context flag family (`--api`, runtime-profile flags, `--compat`)
 - `package-audit` is intentionally **context-free** in early phases: inherited config values may still be discovered for generic CLI behavior, but they do not change the audit semantics or result shape
 - `install` remains profile-agnostic in early phases even when the project config contains host-analysis/runtime settings for other commands
 
