@@ -233,6 +233,7 @@ Sandbox-interaction rule:
 - `kali effects` reports inferred effects only; it does **not** accept `--sandbox`
 - effect-vs-policy validation belongs to `kali check --sandbox ...` and `kali build --sandbox ...`
 - rejecting `kali effects --sandbox ...` keeps one canonical policy-validation workflow instead of two overlapping ones
+- that rejection is a **CLI usage/config error**, not a feature-maturity error: the command intentionally has no sandbox-comparison mode
 
 Input-kind and host-selection rules:
 - `kali effects` is a direct-entry command in early phases: it requires exactly one explicit executable/analyzable source-file entrypoint and does not fall back to project-wide discovery

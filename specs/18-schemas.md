@@ -604,6 +604,7 @@ Canonical filename: `kali.policy.json`
 - schema v1 intentionally has no stable policy keys for process identity, process termination, or working-directory introspection/mutation (`Deno.pid`, `process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`); those APIs therefore remain unavailable until a future schema/effect-model revision adds an auditable policy contract for them
 - Policy validation should reject non-deny values for capability fields whose corresponding feature/API surface is unavailable in the selected command/profile/api surface/phase. For example: `effects.fileSystem.read: true` under `--api browser`, `effects.eval: true` before the eval compatibility path exists, `effects.process.spawn: true` before subprocess APIs exist, `effects.process.envWrite: true` before mutable environment APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess APIs exist, and `resources.maxThreads > 0` before the threaded runtime profile exists.
 - Under `--api browser`, that rejection applies to Deno/Node-only capabilities, not to the shared Web-baseline ones: `effects.network.fetch`, `effects.timer.*`, `effects.random`, and `effects.console` remain valid schema-v1 policy targets for browser-targeted `check` / `build --bundle`.
+- Numeric limit fields constrain an already-defined capability family; they do not enable that family by themselves. For example, `effects.network.maxConnections` does not by itself turn on `fetch`/`connect`/`listen`, and `effects.timer.maxActiveTimers` does not by itself allow timer creation when `effects.timer.schedule` is `false`.
 - absence of a policy file is distinct from a permissive policy object; schemas in this chapter describe the shape of an attached `kali.policy.json`, not a hidden default object that tools should synthesize when no policy is configured
 - Per-invocation CLI resource overrides may only tighten these policy limits; they must not widen them
 - Policy keys use the canonical built-in effect naming table above rather than redefining a separate namespace here
@@ -634,7 +635,9 @@ To keep policy examples, validators, and runtime checks consistent, schema v1 us
 
 Interpretation rules:
 - `true` means unrestricted for that capability within schema v1, subject to separate `resources.*` caps.
-- `string[]` means an allowlist; an empty array therefore denies all practical uses of that capability.
+- `false` is the canonical boolean **deny** value.
+- `string[]` means an allowlist; an empty array therefore denies all practical uses of that capability and is the canonical array-shaped **deny** value.
+- numeric limit fields are **constraints only**; they never imply that the surrounding capability is enabled.
 - Field-specific arrays use canonical matching domains: filesystem paths for file APIs, URLs/addresses for network APIs, executable names/paths for process spawning, and exact environment-variable names for env access.
 - Specs and examples should reuse these shapes instead of inventing per-command variants.
 

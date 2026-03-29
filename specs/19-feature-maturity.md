@@ -161,7 +161,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali effects` with no explicit entrypoint | Rejected by default | `effects` is a direct-entry command in early phases; omitting the entrypoint is a CLI-usage/config error rather than permission to scan the project |
 | `kali effects a.ts b.ts` | Rejected by default | Early phases accept exactly one primary analysis entrypoint for `effects`; multi-entry reporting requires a later explicit mode |
 | `kali effects main.ts` | Phase 2 target | Before then: unavailable or explicitly experimental, never a partial bespoke report; when available it uses the same default API-surface selection as `check` (`apiSurface=deno`) unless overridden |
-| `kali effects --sandbox kali.policy.json main.ts` | Rejected by default | Keep `effects` as a pure reporting command; policy validation belongs to `check/build --sandbox` so the CLI has one canonical policy-validation path |
+| `kali effects --sandbox kali.policy.json main.ts` | Rejected by default | Keep `effects` as a pure reporting command; policy validation belongs to `check/build --sandbox` so the CLI has one canonical policy-validation path. This rejection is a CLI usage/config error, not an `E5006` maturity gate. |
 | `kali effects --api browser main.ts` | Phase 2 target | Browser-targeted effect analysis follows the same browser-analysis intent as `kali check --api browser` once the Phase 2 command exists |
 | `kali effects --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset exists for effect analysis too |
 | `kali package-effects lodash` | Phase 2 target | Depends on effect-report pipeline; reject/mark experimental before then |
