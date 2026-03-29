@@ -179,7 +179,7 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 - Error includes the stable string diagnostic code, message, and JSON representation so embedders see the same canonical machine contract as the CLI
 
 ### Building
-Artifact selection follows the canonical build matrix in [SPEC.md](../SPEC.md): plain `--lib` is the base exported-library mode, and `kali build --capi` / `kali build --component` are **Phase 2** packaging layers over that same exported-library contract rather than unrelated semantics.
+Artifact selection follows the canonical build matrix in [SPEC.md](../SPEC.md): plain `--lib` is the Phase-1 **base exported-library** mode, and `kali build --capi` / `kali build --component` are **Phase 2** packaging layers over that same exported-library contract rather than unrelated semantics.
 
 `kali build --capi` and `kali build --component` are **Phase 2 targets** and are artifact-generation modes for embedded programs, not requests to turn user TypeScript directly into a native shared library.
 
@@ -197,7 +197,8 @@ Artifact-role clarification:
 Important distinction:
 - `kali_capi` ships the stable host ABI header: `kali.h`
 - `kali build --capi foo.ts` emits a **program-specific** exports header such as `foo.exports.h` plus metadata
-- Phase 1 plain `kali build --lib foo.ts` emits the base library `wasm-module` only; once the public interface contract stabilizes in Phase 2+, library/component-oriented outputs emit a WIT sidecar by default so C bindings and Component Model wrappers derive from the same canonical exported interface description
+- Phase 1 plain `kali build --lib foo.ts` emits the base library `wasm-module` only; this is intentionally useful before the public embedding contract is frozen, but it should be treated as the pre-stable exported-library artifact rather than as the full public embedding surface
+- once the public interface contract stabilizes in Phase 2+, library/component-oriented outputs emit a WIT sidecar by default so C bindings and Component Model wrappers derive from the same canonical exported interface description
 - library builds omit any synthetic executable entry invocation, but ordinary top-level module initialization still occurs when the host instantiates the artifact; exported functions are the host-callable surface layered on top of that normal module-instantiation behavior
 - In CLI JSON/artifact manifests, these outputs use the canonical artifact kinds `wasm-module`, `wit`, `wasm-component`, `c-header`, and `cabi-metadata`
 

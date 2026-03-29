@@ -451,13 +451,14 @@ These selectors are mutually exclusive unless a later spec explicitly says other
 |---|---|---|---|
 | `kali build main.ts` | default executable | one linked `wasm-module` with role `primary-executable` | Phase 1 MVP |
 | `kali build --bundle --api browser main.ts` | browser bundle | one linked `wasm-module` with role `primary-executable` plus browser JS glue with role `browser-glue` | Phase 1 MVP |
-| `kali build --lib lib.ts` | library | one linked export-oriented `wasm-module` with role `primary-library`; no synthetic executable entry is invoked, and later public-library outputs also emit WIT | Phase 1 MVP |
+| `kali build --lib lib.ts` | base library | one linked export-oriented `wasm-module` with role `primary-library`; no synthetic executable entry is invoked. This Phase-1 artifact establishes the library/export contract but does **not** by itself promise the later stable public embedding/WIT surface. | Phase 1 MVP |
 | `kali build --capi lib.ts` | C embedding package | library core + WIT + generated C header + C-ABI metadata | Phase 2 target |
 | `kali build --component lib.ts` | Component package | library core + WIT + wrapped `wasm-component` | Phase 2 target |
 
 Interpretation rules:
 - `--bundle` is **browser-only** in early phases and requires the effective `apiSurface` to be `browser`
 - `--lib`, `--capi`, and `--component` are **library-oriented artifact modes** in early phases: they are non-browser, export-oriented modes derived from the module's explicit exports
+- plain `--lib` is the **base library artifact** in Phase 1: useful for internal/experimental host integration, but the stable public embedding/WIT contract is still Phase 2 work
 - the exported host-facing surface for every library-oriented mode comes only from the module's explicit exports; these modes must not expose arbitrary internal declarations through reflection or artifact-specific special cases
 - library-oriented modes still obey the ordinary build-command API-surface gates: for example `kali build --lib --api node lib.ts` is a **Phase 3** Node build and therefore uses the same `E5006` gate as other early `--api node` builds, while `kali build --lib --api browser lib.ts` is an `E5008` contradiction because browser mode is only defined for `--bundle`
 - library-oriented modes omit any synthetic executable entry invocation, but still preserve ordinary ECMAScript module-instantiation semantics for top-level initialization when the host instantiates the module

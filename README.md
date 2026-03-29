@@ -7,7 +7,7 @@ Early-phase headline assumptions:
 - broader Node compatibility is a **later ecosystem phase**, not an implied MVP promise
 - latest ECMA-262 grammar tracking does **not** imply blanket same-phase runtime support for every accepted feature
 - dynamic compatibility paths such as `eval` are part of the long-term contract, but remain explicitly phase-gated
-- build artifact modes follow one canonical matrix: default executable, browser bundle, library, later C embedding package, and later Component Model package
+- build artifact modes follow one canonical matrix: default executable, browser bundle, a Phase-1 **base library** artifact, and later stable public C embedding / Component Model packages layered on that library contract
 
 ## Specification
 - Top-level overview, canonical terminology, artifact-mode matrix, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
