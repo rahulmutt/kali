@@ -80,13 +80,13 @@ Terminology note:
 - `E5001`: Module not found
 - `E5002`: Circular dependency detected
 - `E5003`: Invalid module specifier
-- `E5004`: Package not installed or dependency state not materialized for the current lockfile
+- `E5004`: Dependency state not installed or not materialized for the current lockfile
 - `E5005`: Ambiguous module resolution
 - `E5006`: Feature unavailable in current phase, API profile, or target configuration
 
 Use `E5004` for dependency-state problems such as:
-- `kali.json` references packages that have not been installed yet
-- `kali.lock` or `node_modules/` is missing/stale for a non-install command
+- `kali.json` references dependencies that have not been installed/materialized yet
+- `kali.lock`, `node_modules/`, or `.kali/cache/urls/` is missing/stale for the dependency kinds the project uses
 - the resolver needs explicit dependency installation/synchronization instead of silently re-resolving during `check`, `build`, `run`, or `test`
 
 ### Canonical Feature-Maturity Diagnostic

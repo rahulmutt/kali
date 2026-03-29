@@ -94,6 +94,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali test --api browser` | Rejected by default | Early browser support is a check/build profile, not a standalone test-runtime profile |
 | `kali effects main.ts` | Phase 2 target | Before then: unavailable or explicitly experimental, never a partial bespoke report |
 | `kali package-effects lodash` | Phase 2 target | Depends on effect-report pipeline; reject/mark experimental before then |
+| `kali package-audit [pkg]` | Later compatibility | Tooling feature, not a Phase 1-2 compiler/runtime milestone |
 | `kali install --allow-scripts <pkg>` | Opt-in only | Explicit one-shot escape hatch for packages that need lifecycle scripts; still reject native addons / `node-gyp` |
 | `--compat eval` | Phase 4 compatibility | Before runtime support exists, reject with `E5006` rather than parsing and silently ignoring the flag |
 | `--wasm-threads` | Later compatibility (opt-in only) | Reject with `E5006` until the threaded runtime profile exists; after that, still reject explicitly when unavailable on the selected target/engine |
@@ -170,6 +171,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Concern | Early canonical status | Notes |
 |---|---|---|
 | Pure JS/TS npm packages within the linked-artifact model | Phase 1 MVP | No native addons |
+| Pure JS/TS JSR packages within the linked-artifact model | Phase 1 MVP | Registry-style install/lock/materialization path just like npm in early phases |
 | Deno-condition package resolution in the default standalone surface | Phase 1 MVP | Honor `exports` condition `deno` when `--api deno` is selected |
 | Browser-condition package resolution in browser bundle mode | Phase 1 MVP | `browser` field / `exports` browser condition |
 | npm lifecycle scripts | Opt-in only | `kali install --allow-scripts` |

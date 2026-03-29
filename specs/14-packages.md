@@ -1,11 +1,11 @@
 # 14 — Package Management
 
-## npm Compatibility
+## Registry Compatibility
 
 Package loading is compile-time first: Kali resolves, analyzes, and links dependency graphs during build/check/run. For normal builds, application code and its static dependencies are emitted as one linked artifact rather than a fleet of runtime-linked WASM modules.
 
 ### Supported Packages
-Kali supports npm packages that:
+Kali supports registry packages (npm/JSR) that:
 - Are pure JavaScript/TypeScript (no native code)
 - Do **not** use `node-gyp` or native addons
 - Use standard module systems (ESM or CJS)
@@ -18,7 +18,7 @@ This keeps the early ecosystem promise realistic: utility libraries, validators,
 
 ## Canonical Phase-1 Package-Compatibility Interpretation
 
-Early npm compatibility needs one explicit simplification so package support and host-mode support do not get conflated:
+Early registry-package compatibility needs one explicit simplification so package support and host-mode support do not get conflated:
 - **Phase 1 package compatibility is broader than "only Deno-authored packages"**.
 - **Phase 1 package compatibility is narrower than "Node mode works"**.
 
@@ -27,7 +27,20 @@ Concretely, a package can be supported in Phase 1 when:
 - its module format can be handled by Kali's ESM/CJS pipeline,
 - and its runtime needs are satisfied by the documented Phase 1 Web baseline plus Deno-oriented standalone surface.
 
-A package is **not** automatically in scope just because it lives on npm. If it depends on broader Node globals/core modules or native addons, it stays phase-gated with the rest of Node compatibility.
+A package is **not** automatically in scope just because it lives in npm or JSR. If it depends on broader Node globals/core modules or native addons, it stays phase-gated with the rest of Node compatibility.
+
+## Dependency Source Kinds
+
+To keep install, lock, and materialization rules simple, Kali distinguishes only these early source kinds:
+- **Registry packages** — npm and JSR packages resolved by package name/version and materialized into `node_modules/`
+- **Raw URL imports** — exact `https://...` dependencies cached under `.kali/cache/urls/`
+
+Lockfile rule:
+- `kali.lock` is the canonical reproducibility record for **both** source kinds
+- registry packages and raw URL imports may use different on-disk materialization locations, but they share one lock discipline
+- non-install commands must check the required materialized state for the dependency kinds actually used by the project instead of assuming `node_modules/` alone is always the full dependency state
+
+This removes an ambiguity from the earlier wording: a URL-only project may have no `node_modules/` tree at all and still be fully installed.
 
 ### Package Resolution
 Follow Node.js-style package resolution, but keep the early-phase rules explicit so browser, Deno, and package behavior do not drift.
@@ -125,10 +138,10 @@ dependencies = []
 
 To keep package behavior predictable across `install`, `check`, `build`, `run`, and `test`, Kali uses one simple rule set:
 - `kali install` is the command that resolves dependency versions and writes `kali.lock`.
-- `kali check`, `build`, `run`, and `test` consume the existing lockfile/package tree; they must not silently re-resolve packages or mutate dependency state as a side effect.
-- If `kali.json` declares dependencies but the required package tree/lock data is missing or stale, non-install commands fail with `E5004` and tell the user to run `kali install`.
-- `node_modules/` is the materialized package tree for ecosystem compatibility; `kali.lock` is the canonical reproducibility record.
-- When `kali.lock` and `node_modules/` disagree, `kali install` is responsible for reconciling them. Other commands should fail clearly rather than guessing which source of truth to trust.
+- `kali check`, `build`, `run`, and `test` consume the existing lockfile/materialized dependency state; they must not silently re-resolve packages or mutate dependency state as a side effect.
+- If `kali.json` declares dependencies but the required materialized state for the active dependency source kinds is missing or stale, non-install commands fail with `E5004` and tell the user to run `kali install`.
+- `node_modules/` is the materialized tree for registry packages (npm/JSR), while `.kali/cache/urls/` is the materialized cache for raw URL imports; `kali.lock` is the canonical reproducibility record for both.
+- When `kali.lock` and the required materialized dependency state disagree, `kali install` is responsible for reconciling them. Other commands should fail clearly rather than guessing which source of truth to trust.
 - `--allow-scripts` affects install-time behavior only; it does not change later `check`/`build`/`run` semantics for an already-installed package graph.
 
 This is an intentional simplification: one command mutates dependency state, all other commands consume it deterministically.
@@ -149,7 +162,8 @@ URL imports are cached in `.kali/cache/urls/`. Integrity is verified against the
 
 Early-phase simplification:
 - a URL import used by source code participates in the same lockfile discipline as registry packages
-- non-install commands may fetch only when the URL dependency is already pinned/authorized by the existing project state; they must not silently turn `run` or `check` into an implicit dependency-resolution step
+- URL-only projects may therefore have an empty or absent `node_modules/` tree without being considered uninstalled
+- non-install commands may fetch only when the URL dependency is already pinned/authorized by the existing project state and a recoverable local cache miss occurs; they must not silently change the pinned dependency set or rewrite the lockfile
 - refreshing or first-time pinning of URL dependencies belongs to `kali install` or another explicit dependency-management workflow, not to ordinary compilation
 
 ### Import Maps
@@ -181,7 +195,7 @@ To keep the module system aligned with the single-artifact architecture:
 
 ## Type Resolution
 
-For npm packages, Kali should prefer the strongest sound information available without inventing fresh `any` merely to suppress analysis:
+For registry packages, Kali should prefer the strongest sound information available without inventing fresh `any` merely to suppress analysis:
 1. Check the package's own `types` / `typings` field in `package.json`
 2. Apply `typesVersions` if present and relevant to the active resolution mode
 3. Check for bundled `.d.ts` files alongside `.js` files
@@ -201,7 +215,7 @@ Interpretation rules:
 - Default registry: `https://registry.npmjs.org`
 - Configurable in `kali.json` or `KALI_REGISTRY` env var
 - Support for private registries with auth tokens
-- Support for JSR (Deno's registry) as an alternative source
+- Support for JSR (Deno's registry) as an alternative registry source, following the same lock/materialization model as npm packages unless a later phase documents a stronger divergence
 
 ## Package Analysis
 
