@@ -54,6 +54,7 @@ This table exists to keep the status labels operational: a label implies whether
 | Explicit effect annotations / `pure` | Phase 2 target | Initially scoped to the built-in sandbox capability model |
 | User-defined/custom effect kinds in stable reports or policy checking | Later compatibility | Keep Phase 1-2 machine contracts limited to built-in sandbox-relevant effects |
 | Algebraic effect declarations / handlers | Later compatibility | Experimental and must not block delivery of the core capability/effect system |
+| Executable project-local sandbox policy code (`kali.policy.json` hooks / inline predicates) | Rejected by default | Project policy files stay declarative data; Kali should not execute project code just to decide whether a capability is allowed |
 | Host-registered sandbox policy predicates | Later compatibility | Initial policies stay declarative; a later embedding-only extension may add pure host-registered predicates without turning policy files into executable code |
 | Annex B / web-legacy compatibility corners | Later compatibility | Keep the MVP focused on dependable core semantics; add legacy web behaviors only when conformance value justifies the cost |
 | `Proxy` | Later compatibility | High semantic cost and optimization barriers |

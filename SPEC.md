@@ -92,6 +92,23 @@ Interpretation rules:
 - “formally verified” means proofs over the documented **core modeled subset** first, not an immediate proof of the whole JavaScript ecosystem surface
 - every lower-level spec should say which track it is talking about when ambiguity is likely
 
+## Canonical Support-Tier Vocabulary
+
+A recurring simplification across the spec set is that a construct can be supported at different layers without implying full end-to-end support.
+
+Use these meanings consistently:
+- **Parse support**: the lexer/parser/AST accept the syntax.
+- **Check/analyze support**: name resolution, typing, effect analysis, and diagnostics understand the construct well enough to reason about it.
+- **Lowering/codegen support**: the IR pipeline and WASM backend can compile it faithfully.
+- **Execution support**: the selected runtime/API surface/profile can actually run the lowered result.
+
+Cross-spec rule:
+- parse support alone does **not** imply lowering or execution support
+- check/analyze support may exist mainly to produce correct diagnostics/effect summaries for a still-gated runtime feature
+- feature-maturity decisions should describe the highest supported tier for the current phase when that distinction matters
+
+This vocabulary keeps docs for `eval`, dynamic loading, browser modes, `Proxy`, and future compatibility work shorter and less ambiguous.
+
 ## Canonical Vocabulary
 
 To reduce drift across the spec set, these terms are canonical:

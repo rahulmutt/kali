@@ -46,11 +46,12 @@ Other commands that embed effect data should place the full report under the CLI
 ### `dynamicEffects` Flag
 Set to `true` when the report has one or more canonical `dynamicReasons` from [specs/18-schemas.md](18-schemas.md). That schema file is the single source of truth for the stable machine-readable reason codes.
 
-In schema v1, these reasons cover cases such as:
-- `eval` or `Function()`
-- Dynamic `import()` with non-literal specifier
-- `Proxy` with handler traps that could perform any effect
-- Computed property access on host API objects
+In schema v1, these reasons use the canonical machine-readable codes from [specs/18-schemas.md](18-schemas.md):
+- `eval`
+- `function-constructor`
+- `dynamic-import`
+- `proxy-traps`
+- `computed-host-access`
 
 When `true`, the static analysis is incomplete — the sandbox must enforce at runtime.
 
@@ -72,6 +73,7 @@ For process environment access, the policy model distinguishes `effects.process.
 Policy-structure simplification rule:
 - `effects.*` controls whether a capability exists and, where needed, capability-local allowlists/caps (for example URL patterns, timer counts, or network connection counts)
 - `resources.*` is reserved for cross-cutting runtime budgets that apply regardless of which specific API triggered them (for example total memory, CPU time, open files, spawned processes, threads)
+- schema v1 intentionally has **no** executable predicate/hook fields inside `kali.policy.json`; later programmable checks, if added, belong only to the embedding-oriented host-predicate extension described below
 - specs should not duplicate the same numeric limit in both places under different names
 
 ### Policy Validation (Compile-Time)
