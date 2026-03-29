@@ -82,6 +82,7 @@ Effective-context validation rule:
 | `--max-memory <size>` | execution commands | Override the invocation memory cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-cpu <duration>` | execution commands | Override the invocation CPU cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-open-files N` | execution commands | Override the invocation open-file-handle cap; may only tighten the effective limit relative to config/policy, never widen it |
+| `--max-spawned-processes N` | execution commands | Override the invocation child-process cap; may only tighten the effective limit and is rejected when the selected command/profile/API surface does not support subprocesses |
 | `--max-threads N` | execution commands | Override the invocation thread cap for the threaded runtime profile; may only tighten the effective limit and is rejected unless threading is supported and enabled |
 | `--wasm-threads` | `check`, `effects`, `build`, `run`, `test` | Opt into the later threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; before that profile exists, or on unsupported targets, the command must fail with `E5006` |
 
@@ -145,7 +146,7 @@ Configuration precedence is intentionally simple:
 2. the effective discovered `kali.json` overrides built-in defaults
 3. Sandbox policy caps, when a policy is attached, remain upper bounds for runtime capabilities and resource limits
 
-That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy. If no policy is attached, those direct invocation flags simply become the effective cap for the current command instead of being compared against an implicit allow-all policy. In Phase 1 this tightening path applies to `--max-memory`, `--max-cpu`, and `--max-open-files`; later resource flags should follow the same rule.
+That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy. If no policy is attached, those direct invocation flags simply become the effective cap for the current command instead of being compared against an implicit allow-all policy. In Phase 1 this tightening path applies to `--max-memory`, `--max-cpu`, and `--max-open-files`; later resource flags such as `--max-spawned-processes` and `--max-threads` follow the same rule once their underlying capabilities exist.
 
 Interpretation rule:
 - the resulting merged values are the command's one **effective context** for validation, lowering, and reporting
@@ -160,8 +161,10 @@ Canonical resource-literal rule:
 - `--max-memory` accepts either a plain byte count or a size literal with one of: `kb`, `mb`, `gb`, `kib`, `mib`, `gib`
 - `--max-cpu` accepts either a plain millisecond count or a duration literal with one of: `ms`, `s`, `m`
 - `--max-open-files` accepts a plain non-negative integer count
+- `--max-spawned-processes` accepts a plain non-negative integer count
+- `--max-threads` accepts a plain non-negative integer count
 - CLI parsing normalizes these to bytes, milliseconds, and integer counts before comparing them with sandbox-policy limits
-- schema v1 policy files keep the simpler integer fields `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles`; CLI literals are a convenience syntax over that same effective-limit model rather than a second resource schema
+- schema v1 policy files keep the simpler integer fields `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, `resources.maxOpenFiles`, `resources.maxSpawnedProcesses`, and `resources.maxThreads`; CLI literals/counts are a convenience syntax over that same effective-limit model rather than a second resource schema
 
 Canonical default tuple:
 - `apiSurface = deno`
@@ -181,6 +184,7 @@ kali run --sandbox kali.policy.json main.ts # Run with sandbox
 kali run --max-memory 256mb main.ts        # Resource limit
 kali run --max-cpu 10s main.ts             # CPU time limit
 kali run --max-open-files 32 main.ts       # Open-file-handle limit
+kali run --max-spawned-processes 0 main.ts # Disallow child processes for this run
 kali run --api node main.ts                # Use Node.js API surface (Phase 3 target)
 kali run --api deno main.ts                # Use Deno API surface (default)
 kali run --api browser main.ts             # Rejected in early standalone phases; browser is a browser-targeted context first
@@ -200,16 +204,17 @@ Canonical interpretation rules:
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
 - in schema v1, `--compat eval` is the only stable compatibility-feature spelling and it gates both direct `eval` and `Function()`; the CLI should not invent a separate `--compat function-constructor` alias.
 - `--wasm-threads` selects a different runtime profile rather than a small optimization toggle. Until that threaded profile exists, the flag is rejected. After it exists, if the selected target/engine/profile cannot honor it, the command must still reject it explicitly instead of silently dropping thread support.
+- `--max-spawned-processes N` is meaningful only when the selected command/profile/API surface exposes subprocess support. A non-zero process cap without effective subprocess support must be rejected explicitly rather than ignored.
 - `--max-threads N` is meaningful only together with the threaded runtime profile. A non-zero thread cap without effective thread support must be rejected explicitly rather than ignored.
 
 Sandbox flag behavior is intentionally phase-gated:
 - `kali run --sandbox ...` is a Phase 1 feature for runtime policy enforcement.
 - `kali check/build --sandbox ...` validate the policy file/config in Phase 1.
 - Full inferred-effect-vs-policy validation is a Phase 2 feature.
-- Policy validation must also reject policies that try to enable capabilities unavailable in the selected command/profile/phase (for example `effects.eval: true` before the eval compatibility path exists, or `resources.maxThreads > 0` before the threaded runtime profile exists).
+- Policy validation must also reject policies that try to enable capabilities unavailable in the selected command/profile/phase (for example `effects.eval: true` before the eval compatibility path exists, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists).
 - For browser-targeted `check --api browser --sandbox ...` and `build --bundle --api browser --sandbox ...`, non-deny `resources.*` policy budgets are rejected explicitly: those cross-cutting CPU/memory/file/process/thread budgets belong to Kali-hosted execution, not to the early browser deployment contract.
 - Policy files remain declarative; any later host-registered sandbox policy predicates are an embedding-oriented extension, not a second inline policy language.
-- If neither CLI nor config attaches a policy, the command runs with **no project policy file**; direct resource flags such as `--max-memory` still apply, but there is no hidden synthesized policy document behind the scenes.
+- If neither CLI nor config attaches a policy, the command runs with **no project policy file**; direct resource flags such as `--max-memory` and later supported caps such as `--max-spawned-processes` still apply, but there is no hidden synthesized policy document behind the scenes.
 
 ### `kali build <file>`
 AOT compile to a WASM module or linked artifact set.
