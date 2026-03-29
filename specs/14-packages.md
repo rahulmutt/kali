@@ -350,6 +350,7 @@ Canonical output simplification:
 - `kali package-effects <pkg>` should reuse the same effect vocabulary and `dynamicReasons` contract as `kali effects`
 - the native payload adds only package-specific metadata (see [specs/18-schemas.md](18-schemas.md)) instead of inventing a second unrelated effect schema
 - the nested shared effect report includes `analysisContext` so the chosen `apiSurface`, `runtimeProfiles`, and `compatFeatures` travel with the report instead of living only in ambient CLI/config state
+- in early phases, that package-analysis context is inherited from the effective `kali.json` / built-in defaults rather than from a second package-analysis-only `--api` or `--compat` flag family
 - the nested shared effect report still summarizes the full statically reachable package graph selected for analysis under that recorded context; it is not just a manifest-level metadata report
 - `--output json` wraps that payload in the standard CLI command envelope; it does not create a third package-effects-only outer format
 

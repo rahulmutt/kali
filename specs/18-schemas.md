@@ -420,6 +420,7 @@ Interpretation rules:
 - `PackageCoordinate` is for **registry packages only**; schema v1 package-effect payloads do not use this shape for raw URLs or local paths
 - the nested `report` is the same canonical effect-report payload shape documented above; tools should not expect a package-specific effect vocabulary
 - inside that nested report, `analysisContext` records which API surface / runtime-profile / compatibility-feature selection the package was analyzed under
+- in early phases, `kali package-effects` inherits that analysis context from the effective config/defaults rather than introducing a second package-analysis-only flag family; the schema records the chosen context, regardless of how it was selected
 - `entryPoints` names the package-analysis roots (for example the canonical package root specifier) and the summarized effects still cover the full statically reachable graph selected for that package analysis, not only the top-level `package.json` metadata file
 - `schemaVersion` at the outer package-effect layer versions the package-analysis payload; the nested `report.schemaVersion` continues to version the shared effect-report schema independently
 - by default, `kali package-effects` may emit this payload directly; with `--output json`, it is wrapped in the standard CLI command envelope with this object under `payload`

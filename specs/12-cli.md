@@ -62,6 +62,11 @@ Naming rule:
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
 
+Package-analysis context simplification:
+- `kali package-effects` intentionally does **not** grow its own parallel `--api` / `--compat` flag set in early phases.
+- instead, it records the effective analysis context inherited from `kali.json` / built-in defaults in the nested `report.analysisContext` field.
+- this keeps package analysis aligned with the same canonical context vocabulary (`apiSurface`, `runtimeProfiles`, `compatFeatures`) without creating a second near-duplicate flag surface before there is evidence it is needed.
+
 Build-mode continuity rule:
 - these three build-mode names are stable from Phase 1 onward
 - later phases deepen what `release` and `release-advanced` actually do, but they should not force users to learn a second generation of optimization-mode names just because MIR/LIR passes became more capable
@@ -352,9 +357,9 @@ kali package-effects --output json lodash  # Command envelope + package-effect p
 By default, `kali package-effects` emits its native JSON payload directly, following the same simplification as `kali effects`. With `--output json`, that payload is wrapped in the standard command envelope. See [specs/18-schemas.md](18-schemas.md) for the canonical package-effect payload schema.
 
 Analysis scope rule:
-- `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active API surface/profile; it is not just a shallow inspection of the package's top-level manifest
-- in early phases, that active context comes from the effective config/default analysis settings rather than from a separate package-analysis install mode
-- the nested `report.analysisContext` field records that context explicitly so tools do not have to infer it from ambient project state
+- `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
+- in early phases, that context is inherited from the effective `kali.json` / default analysis settings rather than from package-specific `--api` / `--compat` flags
+- the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
 - the nested `report.entryPoints` field names those package-analysis roots using the shared effect-report schema
 
 ### `kali package-audit [package]`
