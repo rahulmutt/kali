@@ -189,12 +189,14 @@ Use `E5008` for cases such as:
 - `kali effects --sandbox kali.policy.json main.ts`
 - `kali install foo bar`
 - `kali install --dev`
-- `kali install --api browser`
+- `kali install --api deno`
 - `kali install --allow-scripts` in a URL-only / no-registry project graph
 - `kali install --allow-scripts https://example.com/mod.ts`
 - `kali package-effects`
 - `kali package-effects lodash react`
 - `kali package-effects --api browser lodash`
+- `kali package-effects --compat eval lodash`
+- `kali package-audit --api browser lodash`
 - `kali package-audit` with no package argument
 - `kali package-audit lodash react`
 - `kali build --bundle --api node main.ts`

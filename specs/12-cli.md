@@ -86,9 +86,10 @@ Effective-context validation rule:
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
 
-Package-analysis context simplification:
+Package-analysis flag-surface simplification:
 - `kali package-effects`, when implemented, intentionally does **not** grow its own parallel `--api` / `--compat` flag set in early phases.
 - instead, it records the effective analysis context inherited from `kali.json` / built-in defaults in the nested `report.analysisContext` field.
+- `kali package-audit` likewise stays a single-package registry tool in early phases and does **not** add package-analysis-specific `--api` / `--compat` flags before there is a documented need.
 - this keeps package analysis aligned with the same canonical context vocabulary (`apiSurface`, `runtimeProfiles`, `compatFeatures`) without creating a second near-duplicate flag surface before there is evidence it is needed.
 
 Build-mode continuity rule:
@@ -437,6 +438,8 @@ Status: later tooling feature. It should not block Phase 1-2 compiler/runtime de
 kali package-audit lodash                  # Audit specific npm package
 kali package-audit jsr:@std/path           # Audit specific JSR package
 ```
+Additional flag-surface rule:
+- like `package-effects`, `package-audit` does **not** take package-analysis-specific `--api` or `--compat` flags in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds them
 
 ## Output Design
 

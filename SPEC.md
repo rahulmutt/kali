@@ -193,6 +193,7 @@ Note:
 - when invoked without explicit files, `check` also uses canonical project discovery
 - `install` also uses canonical project discovery when it needs to scan source files for raw URL imports
 - when `package-effects` and `package-audit` are available, they stay single-package registry-analysis commands rather than growing an implicit whole-project mode
+- in early phases, registry-analysis commands also avoid a second per-command `--api` / `--compat` flag family: `package-effects` reuses the inherited analysis context, and `package-audit` stays a single-package registry tool rather than a second host-mode selector
 - this keeps each command in one primary category and avoids overlapping near-duplicate workflows
 
 ## Canonical Default Tuple
