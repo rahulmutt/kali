@@ -22,6 +22,25 @@ Kali aims to:
 - provide a clean CLI and embeddable Rust/C APIs, with reusable internal crates from the start and a stable public embedding contract in Phase 2
 - support practical ecosystems: Deno-first runtime behavior, browser-targeted builds early, broader Node compatibility later
 
+## Bootstrap Requirement Map
+
+This table turns the original bootstrap requirements into a compact cross-reference so the spec set is easier to audit and extend.
+
+| Bootstrap concern | Canonical handling |
+|---|---|
+| AOT-only TS/JS → WASM compiler | [01 — Architecture](specs/01-architecture.md), [08 — WebAssembly Code Generation](specs/08-wasm-codegen.md) |
+| Stronger-than-TS type inference while staying pragmatic | [04 — Type System](specs/04-type-system.md) |
+| No tracing GC; stack/heap/reference-count decisions at compile time | [06 — Memory Management](specs/06-memory.md) |
+| Aggressive specialization of code and layouts | [07 — Optimization & Specialization](specs/07-specialization.md) |
+| Sandboxing as a first-class concern | [09 — Sandboxing & Effects](specs/09-sandboxing.md), [10 — Runtime](specs/10-runtime.md) |
+| JSON effect reporting and policy alignment | [09 — Sandboxing & Effects](specs/09-sandboxing.md), [18 — Schemas](specs/18-schemas.md), [19 — Feature Maturity](specs/19-feature-maturity.md) |
+| Deno / browser / later Node host surfaces | [11 — Standard APIs](specs/11-standard-apis.md), [19 — Feature Maturity](specs/19-feature-maturity.md) |
+| npm / JSR / raw URL package workflows | [14 — Package Management](specs/14-packages.md) |
+| AI-friendly CLI and diagnostics | [12 — CLI](specs/12-cli.md), [15 — Error Reporting](specs/15-errors.md), [18 — Schemas](specs/18-schemas.md) |
+| Embeddable Rust API and C ABI | [13 — Embedding & C API](specs/13-embedding.md) |
+| Lean-backed verification | [17 — Formal Verification](specs/17-verification.md) |
+| Phase-gated compatibility decisions | [19 — Feature Maturity](specs/19-feature-maturity.md) |
+
 ## Hard Constraints
 
 These constraints are project-wide and should not be weakened in lower-level specs:
@@ -44,6 +63,19 @@ The canonical rule is:
 - If a feature is part of the long-term target but not yet part of the current phase, the compiler/runtime must reject it explicitly with the canonical maturity path instead of pretending it already works.
 
 This lets the spec stay ambitious without making Phase 1 commitments unrealistic.
+
+## Canonical Tension Resolutions
+
+Several bootstrap goals pull in different directions. These decisions are the spec-level resolutions and should remain stable unless there is a deliberate cross-spec rewrite.
+
+| Tension | Canonical resolution |
+|---|---|
+| Broad ECMAScript compatibility vs implementable Phase 1 scope | Keep parser/front-end breadth high, but gate unsupported semantics through the feature-maturity matrix instead of overpromising runtime behavior |
+| Browser / Deno / Node support vs a small dependable MVP | Phase 1 is Deno-first for standalone execution, browser-targeted for `check` and `build --bundle`, and Node is a Phase 3 ecosystem target |
+| “Policy functions” flexibility vs auditable sandboxing | Project policies stay declarative JSON; programmable policy predicates, if added later, are embedding-only and explicitly opt-in |
+| No tracing GC vs JavaScript dynamism | Preserve the highest justified static/layout-aware representation first, then downgrade conservatively through the canonical representation ladder |
+| Support `eval` eventually vs keep AOT and sandboxing coherent | Parse and effect-track `eval`/`Function()` early, but keep runtime support behind the Phase 4 compatibility path |
+| AI-friendly output vs human usability | Default output stays terse and machine-stable; richer explanation lives behind `--verbose` and the structured JSON schemas |
 
 ## Compatibility Tracks
 
@@ -183,6 +215,16 @@ Interpretation rules:
 
 This is the canonical simplification for file-extension handling across architecture, CLI, package resolution, and testing.
 
+## Canonical ECMA-262 Interpretation
+
+To align the bootstrap goal of targeting the latest ECMA-262 edition with realistic phased delivery:
+- Kali should track the **latest published ECMA-262 edition** as the language-reference direction for lexer, parser, and core semantic coverage
+- broad syntax acceptance is desirable early, but syntax acceptance alone does **not** promise immediate lowering/runtime support for every costly or dynamic feature
+- web-legacy and other high-cost compatibility corners should be judged through the feature-maturity matrix rather than being implied automatically by the phrase "latest ECMA-262"
+- when Kali intentionally accepts syntax ahead of full support, the checker/runtime should fail with canonical diagnostics instead of silently changing semantics
+
+This keeps the language target ambitious while preserving a dependable, phase-based implementation plan.
+
 ## Canonical Sandbox Policy Boundary
 
 To keep the bootstrap goals and the detailed sandbox specs aligned, Kali draws one explicit line between **declarative project policies** and **programmable embedding-time policy hooks**:
@@ -270,6 +312,18 @@ Cross-spec rule:
 - diagnostics may mention when a construct forces a lower rung if that materially impacts performance or sandbox reasoning
 
 This ladder is the canonical simplification for reasoning about "dynamic" behavior across the type system, IR, memory, and optimization specs.
+
+## Phase 1 Success Definition
+
+Phase 1 should be considered successful only when all of the following are true together:
+- TS and JS projects compile end-to-end into one linked WASM payload for the supported static graph
+- runtime sandbox enforcement and resource limits work for the documented Phase 1 host surface
+- `kali run`, `build`, `check`, `fmt`, `lint`, `test`, `init`, and `install` behave deterministically under the documented dependency and config model
+- browser-targeted `check --api browser` and `build --bundle --api browser` work without implying a standalone browser runtime
+- unsupported dynamic or phase-gated features fail with the canonical availability/maturity diagnostics rather than partial emulation
+- package compatibility is dependable for the documented pure JS/TS, statically linkable subset
+
+This section is intentionally short; the detailed phase exit criteria remain in [specs/19-feature-maturity.md](specs/19-feature-maturity.md).
 
 ## Explicit Early-Phase Non-Goals
 

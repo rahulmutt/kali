@@ -32,6 +32,7 @@ This table exists to keep the status labels operational: a label implies whether
 
 | Feature | Status | Rationale |
 |---|---|---|
+| Latest published ECMA-262 lexical/parser grammar (current standard edition) | Phase 1 MVP | Front-end coverage should track the current standard grammar even when some semantics remain phase-gated |
 | Static ESM `import` / `export` | Phase 1 MVP | Core module system |
 | First-class JavaScript compilation with inference | Phase 1 MVP | Required so `.js` projects are not forced to migrate to TypeScript before benefiting from Kali |
 | CommonJS module lowering | Phase 1 MVP | Needed for early npm package compatibility within the linked-artifact model |
@@ -53,6 +54,7 @@ This table exists to keep the status labels operational: a label implies whether
 | User-defined/custom effect kinds in stable reports or policy checking | Later compatibility | Keep Phase 1-2 machine contracts limited to built-in sandbox-relevant effects |
 | Algebraic effect declarations / handlers | Later compatibility | Experimental and must not block delivery of the core capability/effect system |
 | Host-registered sandbox policy predicates | Later compatibility | Initial policies stay declarative; a later embedding-only extension may add pure host-registered predicates without turning policy files into executable code |
+| Annex B / web-legacy compatibility corners | Later compatibility | Keep the MVP focused on dependable core semantics; add legacy web behaviors only when conformance value justifies the cost |
 | `Proxy` | Later compatibility | High semantic cost and optimization barriers |
 | `WeakMap` / `WeakSet` | Later compatibility | Deferred until weak-reference semantics fit the no-tracing-GC design |
 | `FinalizationRegistry` | Later compatibility | Same reason as weak collections |
@@ -163,7 +165,8 @@ This appendix separates the broad compatibility story into smaller tables so lan
 
 | Concern | Early canonical status | Notes |
 |---|---|---|
-| Core ECMAScript syntax and static ESM graph | Phase 1 MVP | Parser stays broad; unsupported semantics are gated separately |
+| Core ECMAScript syntax and static ESM graph | Phase 1 MVP | Parser stays broad and should track the latest published standard grammar; unsupported semantics are gated separately |
+| Annex B / web-legacy semantics | Later compatibility | Broad syntax support does not imply immediate support for every legacy browser semantic corner |
 | Plain JavaScript compilation with inference | Phase 1 MVP | `.js` is a first-class input, not a degraded compatibility mode |
 | CommonJS lowering with statically resolvable `require("...")` | Phase 1 MVP | Compile-time transform inside the linked-artifact model |
 | Literal-string `import()` | Phase 3 target | Lower to the already-linked graph rather than runtime WASM module linking |
