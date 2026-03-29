@@ -121,7 +121,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--filter <pattern>` | `test` | Run only matching tests |
 | `--coverage` | `test` | Emit test coverage data once the coverage report contract is stabilized; before then this flag is phase-gated or explicitly experimental |
 | `--dev` | `install` | Add the named registry dependency to `devDependencies` instead of `dependencies` |
-| `--allow-scripts` | `install` | Opt into npm lifecycle scripts for that install invocation only; meaningful only for registry-package install work, and still rejects native addons, `node-gyp`, and install-time binary/bootstrap package contracts |
+| `--allow-scripts` | `install` | Opt into npm lifecycle scripts for that install invocation only; meaningful only when the effective install work includes at least one **npm** registry package, and still rejects native addons, `node-gyp`, and install-time binary/bootstrap package contracts |
 
 Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
@@ -373,15 +373,16 @@ Boundary rule:
 - `--allow-scripts` is an **install-time tooling escape hatch**, not a runtime/API-surface feature
 - enabling it does **not** imply `--api node`, does not cause lifecycle scripts to participate in `kali effects`, and does not make project `--sandbox` / `kali.json#sandbox` govern install-time hook execution
 - pairing `--allow-scripts` with an explicit raw URL argument is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
-- plain `kali install --allow-scripts` is valid only when the effective install graph contains at least one registry package whose lifecycle hooks could run; on a URL-only/no-registry graph it should fail with `E5008` instead of silently degenerating into plain `install`
+- pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
+- plain `kali install --allow-scripts` is valid only when the effective install graph contains at least one **npm** registry package whose lifecycle hooks could run; on a URL-only, JSR-only, or otherwise no-npm-scriptable graph it should fail with `E5008` instead of silently degenerating into plain `install`
 - package-compatibility claims for normal `check` / `build` / `run` / `test` remain separate from this narrower opt-in install behavior
 ```bash
 kali install lodash                        # Add/install registry dependency from npm
 kali install jsr:@std/path                 # Add/install registry dependency from JSR
 kali install                               # Materialize all declared dependencies for the project
-kali install --allow-scripts               # Permit lifecycle hooks for discovered registry packages in this install run
+kali install --allow-scripts               # Permit lifecycle hooks for discovered npm packages in this install run
 kali install --dev vitest                  # Add/install dev dependency
-kali install --allow-scripts <pkg>         # Opt into lifecycle scripts for one registry package install; still not a promise that binary/bootstrap-heavy packages are supported
+kali install --allow-scripts <pkg>         # Opt into lifecycle scripts for one npm package install; invalid for explicit `jsr:` or raw-URL targets; still not a promise that binary/bootstrap-heavy packages are supported
 kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency
 ```
 

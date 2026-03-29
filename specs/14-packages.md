@@ -164,7 +164,7 @@ Practical classifier note:
 kali install lodash                         # Add/install single registry package from npm
 kali install jsr:@std/path                  # Add/install single registry package from JSR
 kali install                                # Materialize all declared dependencies for the project
-kali install --allow-scripts                # Permit lifecycle hooks for discovered registry packages when the effective install graph actually contains registry packages
+kali install --allow-scripts                # Permit lifecycle hooks for discovered npm packages when the effective install graph actually contains npm packages
 kali install --dev vitest                   # Add/install dev dependency
 kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency
 ```
@@ -196,12 +196,13 @@ Installation is **fetch-and-link by default**, not "execute package scripts" by 
 - npm lifecycle scripts (`preinstall`, `install`, `postinstall`) are not executed unless the user explicitly opts in with `kali install --allow-scripts`
 - `--allow-scripts` applies only to that install invocation; it is not an ambient project default
 - pairing `--allow-scripts` with an explicit raw URL install argument is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
-- with **no explicit package argument**, `kali install --allow-scripts` applies only to the discovered registry-package portion of the effective install graph; if that graph contains no registry packages at all, the command should fail with `E5008` instead of silently acting like plain `install`
+- pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
+- with **no explicit package argument**, `kali install --allow-scripts` applies only to the discovered **npm-package** portion of the effective install graph; if that graph contains no npm packages at all, the command should fail with `E5008` instead of silently acting like plain `install`
 - packages requiring native build steps, postinstall-downloaded executables, or other platform-specific binary/bootstrap artifacts are rejected as unsupported even when lifecycle scripts are enabled
 - package metadata and tarballs can still be analyzed before linking
 
 Canonical lifecycle-script boundary:
-- lifecycle scripts are an **install-time registry-package hook path**, not part of the ordinary Kali source-program execution model
+- lifecycle scripts are an **install-time npm-package hook path**, not part of the ordinary Kali source-program execution model
 - enabling `--allow-scripts` does **not** imply `--api node`, broader Node package/runtime compatibility, or coverage by the normal `kali effects` / `kali.policy.json` contract
 - raw URL installs stay outside this escape hatch entirely because they have no registry lifecycle-script surface
 - top-level project sandbox config is ignored by `kali install`, so lifecycle-script execution is intentionally outside the schema-v1 project-policy model rather than being half-governed by it
