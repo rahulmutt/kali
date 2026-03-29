@@ -87,6 +87,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | `package.json#browser` / `exports` condition `browser` in browser bundle mode | Phase 1 MVP | Needed for practical browser-targeted npm compatibility without widening standalone runtime claims |
 | `run --api browser` | Rejected by default | Early standalone runtime does not emulate a browser host |
 | npm lifecycle scripts (`kali install --allow-scripts`) | Opt-in only | Disabled by default for sandbox-first behavior; this is an install-time package-hook escape hatch, not evidence of `--api node` support or participation in the normal sandbox/effect-report contract |
+| Automatic dependency installation or lockfile/materialization repair during `check` / `effects` / `build` / `run` / `test` | Rejected by default | Keeps dependency state deterministic and makes `kali install` the single mutating dependency-management command; missing/stale state should fail with `E5004` instead of being repaired implicitly |
 | Packages whose normal install/runtime path depends on native addons, compiled native code, postinstall-downloaded executables, or other platform-specific binary/bootstrap artifacts | Rejected by default | Violates the pure-Rust/no-native-addon goal, weakens deterministic install expectations, and should not be implied by `--allow-scripts` |
 | Native addons / `node-gyp` packages | Rejected by default | Violates the pure-Rust/no-native-addon constraints |
 | npm packages that require unsupported Node core modules | Phase 3 target | Depends on broader `--api node` compatibility work |
@@ -131,6 +132,7 @@ Interpretation rule:
 | `kali install --allow-scripts` | Opt-in only | Valid when the effective install graph includes at least one registry package; it permits lifecycle hooks for that registry portion of the graph during this invocation only |
 | `kali install --allow-scripts` on a URL-only / no-registry graph | Rejected by default | If there is no registry-package install work for the flag to affect, fail with `E5008` instead of silently behaving like plain `install` |
 | `kali install --allow-scripts https://...` | Rejected by default | Raw URLs do not have registry lifecycle hooks, so pairing `--allow-scripts` with a raw URL is invalid command usage (`E5008`) rather than a second install mode |
+| non-install command auto-repair of missing/stale dependency state | Rejected by default | `check` / `effects` / `build` / `run` / `test` must fail with `E5004` and point users to `kali install` instead of mutating dependency state opportunistically |
 | `kali run` with no explicit entrypoint | Rejected by default | `run` is a direct-entry command in early phases; omitting the entrypoint should fail with `E5008` rather than guessing `main.ts` or scanning the project |
 | `kali run a.ts b.ts` | Rejected by default | Early phases accept exactly one primary runtime entrypoint; multi-entry execution requires a later explicit mode, so this should fail with `E5008` |
 | `kali run main.ts` | Phase 1 MVP | Compile and execute with the canonical default tuple: `apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]` |

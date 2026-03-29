@@ -23,9 +23,9 @@ This is the compact top-level breakdown of the bootstrap brief into canonical sp
 | Latest ECMA-262 grammar coverage, broad syntax acceptance | [02 — Lexer & Parser](./specs/02-lexer-parser.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
 | Stronger-than-TS checking and inference | [04 — Type System](./specs/04-type-system.md) |
 | No tracing GC; compile-time ownership/allocation | [06 — Memory Management](./specs/06-memory.md) |
-| Aggressive specialization | [07 — Specialization](./specs/07-specialization.md) |
-| Sandboxing and effect-aware execution | [09 — Sandboxing](./specs/09-sandboxing.md), [10 — Runtime](./specs/10-runtime.md) *(declarative policy first; later trusted host predicates for embedding)* |
-| JSON effect reporting and policy schemas | [09 — Sandboxing](./specs/09-sandboxing.md), [18 — Schemas](./specs/18-schemas.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
+| Aggressive specialization | [07 — Optimization & Specialization](./specs/07-specialization.md) |
+| Sandboxing and effect-aware execution | [09 — Sandboxing & Effects](./specs/09-sandboxing.md), [10 — Runtime](./specs/10-runtime.md) *(declarative policy first; later trusted host predicates for embedding)* |
+| JSON effect reporting and policy schemas | [09 — Sandboxing & Effects](./specs/09-sandboxing.md), [18 — Schemas](./specs/18-schemas.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
 | Deno-first standalone runtime, browser-targeted analysis/build, later Node support | [11 — Standard APIs](./specs/11-standard-apis.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
 | Dynamic compatibility paths (`eval`, `Function()`, dynamic loading) | [10 — Runtime](./specs/10-runtime.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
 | npm / JSR / raw URL package workflows | [14 — Package Management](./specs/14-packages.md) |
@@ -42,7 +42,25 @@ These constraints are global and should not be weakened by subsystem docs:
 - **No tracing/background GC**: deterministic ownership techniques only
 - **Single linked core WASM payload** for the resolved static graph in early phases
 - **No silent fallback** for unsupported semantics or unsupported host/profile combinations
-- **Stable machine-readable contracts** for JSON output, diagnostics, and effect reports
+- **Stable machine-readable contracts** for every machine-readable surface Kali exposes (JSON output, diagnostics, effect reports, artifact metadata, config, and policy schemas)
+
+## Reference Inspirations
+
+Kali should take implementation and design inspiration from projects such as:
+- [Boa](https://github.com/boa-dev/boa)
+- [V8](https://github.com/v8/v8)
+- JavaScriptCore
+- SpiderMonkey
+- [Deno](https://github.com/denoland/deno)
+- [TypeScript / `tsc`](https://github.com/microsoft/TypeScript)
+- [Porffor](https://github.com/CanadaHonk/porffor)
+- [Hermes](https://github.com/facebook/hermes)
+- [Bun](https://github.com/oven-sh/bun)
+- Rust, Haskell, Idris, Agda, and Lean for language/type-system design inspiration
+
+Interpretation rule:
+- these are **reference points**, not blanket compatibility or implementation-parity promises
+- Kali should copy proven ideas where they fit the goal-precedence rules below, while keeping one coherent sandbox-first, AOT-first, pure-Rust design
 
 ## Canonical Goal Precedence
 
@@ -113,6 +131,15 @@ These assumptions are intentionally explicit so the rest of the spec set does no
 - **companion artifacts are allowed**, but they do not change the single-payload rule
 - **no tracing garbage collector** is introduced as a hidden fallback
 - **no JIT**; Kali is AOT-only
+
+### Deliberate Early-Phase Non-Goals
+
+To keep the roadmap implementable and the specs honest, Kali should explicitly avoid implying these early:
+- a standalone browser engine or DOM-emulating runtime
+- full Node parity before the documented Phase 3 subset exists
+- native addons, `node-gyp`, or install-time binary/bootstrap package contracts as part of Phase 1 package compatibility
+- executable project policy code inside `kali.policy.json`
+- automatic dependency installation or lockfile mutation during `check`, `effects`, `build`, `run`, or `test`
 
 For phase labels and command/profile maturity, see [specs/19-feature-maturity.md](./specs/19-feature-maturity.md).
 
@@ -482,9 +509,9 @@ When a new feature is added, prefer:
 - [04 — Type System](./specs/04-type-system.md)
 - [05 — Intermediate Representations](./specs/05-ir.md)
 - [06 — Memory Management](./specs/06-memory.md)
-- [07 — Specialization](./specs/07-specialization.md)
-- [08 — WASM Codegen](./specs/08-wasm-codegen.md)
-- [09 — Sandboxing](./specs/09-sandboxing.md)
+- [07 — Optimization & Specialization](./specs/07-specialization.md)
+- [08 — WASM Code Generation](./specs/08-wasm-codegen.md)
+- [09 — Sandboxing & Effects](./specs/09-sandboxing.md)
 - [10 — Runtime](./specs/10-runtime.md)
 - [11 — Standard APIs](./specs/11-standard-apis.md)
 - [12 — CLI](./specs/12-cli.md)
