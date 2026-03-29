@@ -85,7 +85,12 @@ Canonical early-phase code-resolution ladder:
    - Deno-oriented standalone profile (`--api deno`, Phase 1 default): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
    - later Node profile may add `node`-specific behavior before the generic fallback ladder when explicitly documented
 7. Resolve relative/file entries with extension probing (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`).
-8. Classify the resolved file as ESM or CJS using Node-compatible signals (`.mts` / `.mjs`, `.cts` / `.cjs`, nearest `package.json#type`, and syntax where necessary).
+8. Classify the resolved file as ESM or CJS using the canonical early-phase rule set:
+   - `.mts` / `.mjs` → always ESM
+   - `.cts` / `.cjs` → always CommonJS
+   - `.ts` / `.tsx` / `.js` / `.jsx` inside a package boundary follow the nearest applicable `package.json#type`
+   - when those ambiguous extensions appear outside an applicable package boundary, default to ESM unless the documented resolver/classifier rules require a specific CommonJS interpretation
+   - the chosen module kind for a resolved file is shared by resolution, checking, and lowering; Kali must not let one subsystem treat the same file as ESM while another treats it as CJS
 
 Canonical `exports` condition order:
 
@@ -111,6 +116,11 @@ Important separation rules:
 To keep configuration simple, `kali.json#imports` is the canonical aliasing mechanism in early phases. A separate TypeScript-style `paths`/`baseUrl` compatibility layer may be added later if ecosystem pressure justifies it, but it is not part of the MVP contract.
 
 Simplification rule: for any package-resolution edge case not yet modeled faithfully, prefer an explicit `E5006`/availability failure over bundler-style guesswork. This keeps package behavior deterministic and auditable for sandboxed builds.
+
+Practical classifier note:
+- package resolution owns the final module-kind decision for a resolved file edge
+- parser/checker/codegen must consume that same decision rather than rerunning slightly different heuristics later
+- this avoids a common cross-tool drift where `package.json#type`, extension-based classification, and TS/JS frontend assumptions disagree about the same dependency file
 
 ### Installation
 ```bash

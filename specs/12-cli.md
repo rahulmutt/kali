@@ -18,6 +18,12 @@ Command-family terminology used in this chapter:
 - **build-like commands**: `build`, plus the compile step embedded inside `run` and `test`
 - **diagnostic-producing commands**: `check`, `build`, `run`, `test`, `fmt --check`, and `lint`
 
+Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
+- `run`, `build`, and `effects` are **direct-entry commands** in early phases: they require explicit executable/analyzable entrypoint arguments and do not guess `main.ts` or invent a project-default entrypoint
+- `check` is a **hybrid analysis command**: it accepts explicit file arguments, or falls back to the canonical project-discovery result when no files are provided
+- `fmt`, `lint`, and `test` are **project-oriented commands** when invoked without explicit file arguments
+- `init`, `install`, `package-effects`, and `package-audit` are not source-entrypoint commands
+
 Canonical input-kind rule:
 - `run`, `build`, `effects`, and discovered `test` entrypoints accept only the shared executable/analyzable source-file set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
 - `check`, `fmt`, and `lint` accept that same executable/analyzable set **plus** declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`)
@@ -113,6 +119,8 @@ kali run --api browser main.ts             # Rejected in early standalone phases
 kali run --wasm-threads main.ts            # Enable WASM threads (SharedArrayBuffer, Atomics; opt-in only)
 ```
 
+`kali run` is a direct-entry command in early phases: it requires an explicit executable/analyzable source entrypoint and does not guess a project default such as `main.ts`.
+
 Initial implementations use wasmtime; alternative runtime backends are a later-phase feature. Feature flags and subcommands that depend on later phases should be hidden or clearly diagnosed when unavailable rather than exposed as silently nonfunctional options.
 
 When a command or flag is rejected due to phase/profile maturity, the CLI should use the canonical feature-maturity diagnostic shape from [specs/15-errors.md](15-errors.md) rather than ad hoc wording.
@@ -137,6 +145,7 @@ Sandbox flag behavior is intentionally phase-gated:
 AOT compile to a WASM module or linked artifact set.
 
 Canonical artifact-mode rule:
+- `kali build` is a direct-entry command in early phases: it requires an explicit executable/analyzable source entrypoint and does not guess a project default such as `main.ts`
 - omitting `--bundle`, `--lib`, `--capi`, and `--component` selects the default executable artifact mode
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive artifact-mode selectors unless a later spec explicitly defines one as an implication of another
 - `kali init --lib` chooses a project template only; it does not change the later default artifact mode of `kali build`
@@ -165,9 +174,10 @@ kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
 ```
 
-### `kali check <file>`
+### `kali check [files...]`
 Type-check without compiling.
 ```bash
+kali check                                 # Type-check the canonical project-discovery result
 kali check main.ts                         # Type check executable/analyzable source
 kali check types.d.ts                      # Validate a declaration-only file directly
 kali check --api browser main.ts           # Browser-targeted analysis/profile (no standalone DOM runtime implied)
@@ -175,7 +185,7 @@ kali check --api node main.ts              # Phase 3 target: Node API surface is
 kali check --sandbox kali.policy.json main.ts # Phase 1: type check + policy file/config validation; Phase 2+: effect-policy validation
 kali check --fix main.ts                   # Apply only safe, compiler-provided suggested fixes
 ```
-`kali check` is the direct-entry command that may accept declaration-only inputs; `run`, `build`, and `test` may not.
+`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. Declaration-only files are valid direct inputs for `check`; `run`, `build`, `effects`, and `test` entrypoints may not be declaration-only.
 
 `--fix` is intentionally conservative: it is limited to unambiguous structured edits attached to diagnostics, not arbitrary refactors or speculative type rewrites.
 
@@ -198,6 +208,7 @@ Sandbox-interaction rule:
 - rejecting `kali effects --sandbox ...` keeps one canonical policy-validation workflow instead of two overlapping ones
 
 Input-kind and host-selection rules:
+- `kali effects` is a direct-entry command in early phases: it requires explicit executable/analyzable source-file entrypoints and does not fall back to project-wide discovery
 - `kali effects` accepts only executable/analyzable source files; declaration-only files are type inputs, not effect-report entrypoints
 - unless overridden by CLI/config, `kali effects` uses the same default API-surface selection as `kali check` (`apiSurface = deno`)
 - `--api browser` follows the same browser-targeted analysis intent as `kali check --api browser`

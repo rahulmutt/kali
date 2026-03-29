@@ -100,16 +100,19 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali lint` | Phase 1 MVP | Stable lint command with conservative autofix support |
 | `kali install` | Phase 1 MVP | Resolve/materialize dependency state and write `kali.lock` for the project's declared dependency source kinds; install is profile-agnostic in early phases and does not require separate per-`--api` installs |
 | `kali install https://...` | Phase 1 MVP | Explicitly pin/materialize a raw URL dependency into the shared lock/materialization model |
+| `kali run` with no explicit entrypoint | Rejected by default | `run` is a direct-entry command in early phases; omitting the entrypoint is a CLI-usage/config error, not permission to guess `main.ts` or scan the project |
 | `kali run main.ts` | Phase 1 MVP | Compile and execute with the canonical default tuple: `apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]` |
 | `kali run --sandbox kali.policy.json main.ts` | Phase 1 MVP | Runtime sandbox enforcement path; policy schema/ranges must validate before execution starts |
 | `kali run --api deno main.ts` | Phase 1 MVP | Supported standalone runtime path |
 | `kali run --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands |
 | `kali run --api browser main.ts` | Rejected by default | Reject with `E5006`; browser is a check/build profile first |
+| `kali check` | Phase 1 MVP | Type-check the canonical project-discovery result with the default API surface (`apiSurface=deno`) |
 | `kali check main.ts` | Phase 1 MVP | Type-check with the canonical default API surface (`apiSurface=deno`) |
 | `kali check types.d.ts` | Phase 1 MVP | Declaration-only files are valid direct inputs for `check`, even though they are not valid runtime/build/test entrypoints |
 | `kali check --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config; Phase 2+ also checks inferred effects against the policy |
 | `kali check --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node typing/global subset exists |
 | `kali check --api browser main.ts` | Phase 1 MVP | Supported browser-targeted analysis/profile |
+| `kali build` with no explicit entrypoint | Rejected by default | `build` is a direct-entry command in early phases; omitting the entrypoint is a CLI-usage/config error, not permission to guess `main.ts` or scan the project |
 | `kali build main.ts` | Phase 1 MVP | Produce one linked WASM payload with the canonical default tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]`) and the default executable artifact mode |
 | `kali build --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config for the build; Phase 2+ also performs effect-vs-policy validation |
 | `kali build --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for builds too |
@@ -128,6 +131,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali test --api node` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for test runs too |
 | `kali test --api browser` | Rejected by default | Early browser support is a check/build profile, not a standalone test-runtime profile |
 | `kali test --coverage` | Phase 2 target | Coverage needs a stable machine-readable report contract instead of ad hoc runner output |
+| `kali effects` with no explicit entrypoint | Rejected by default | `effects` is a direct-entry command in early phases; omitting the entrypoint is a CLI-usage/config error rather than permission to scan the project |
 | `kali effects main.ts` | Phase 2 target | Before then: unavailable or explicitly experimental, never a partial bespoke report; when available it uses the same default API-surface selection as `check` (`apiSurface=deno`) unless overridden |
 | `kali effects --sandbox kali.policy.json main.ts` | Rejected by default | Keep `effects` as a pure reporting command; policy validation belongs to `check/build --sandbox` so the CLI has one canonical policy-validation path |
 | `kali effects --api browser main.ts` | Phase 2 target | Browser-targeted effect analysis follows the same browser-analysis intent as `kali check --api browser` once the Phase 2 command exists |

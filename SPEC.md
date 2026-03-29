@@ -251,6 +251,17 @@ Interpretation rules:
 - project-oriented command discovery starts from that project file set, then narrows by command intent: runtime-bearing entrypoint discovery uses executable/analyzable files only; `fmt`/`lint`/type-oriented discovery may include declaration-only files too
 - test discovery is a narrower filter on top of executable/analyzable files only; declaration files are excluded even if they happen to match a naming convention like `*.test.d.ts`
 
+### Canonical Module-Kind Classification
+
+To keep parsing, package resolution, and runtime lowering aligned, Kali uses one shared early-phase module-kind rule set:
+- `.mjs` and `.mts` are always treated as **ESM**
+- `.cjs` and `.cts` are always treated as **CommonJS**
+- `.js`, `.jsx`, `.ts`, and `.tsx` follow the nearest applicable package/module metadata (for example `package.json#type`) when they are inside a package boundary
+- if those ambiguous extensions appear outside an applicable package boundary, Kali defaults them to **ESM** unless the documented resolver/classifier rules say a specific CommonJS interpretation is required
+- package/type resolution, checker assumptions, and lowering must use the same chosen module kind for a given resolved file rather than letting one subsystem treat a file as ESM while another treats it as CJS
+
+This is the canonical simplification for avoiding "same file, different module kind" drift across the frontend, package resolver, and runtime specs.
+
 ### Canonical Project Discovery Rules
 
 When a command operates on the project rather than on explicit file arguments, use this shared discovery model:
@@ -262,6 +273,21 @@ When a command operates on the project rather than on explicit file arguments, u
 - commands that need only a subset of discovered files (for example test files, runtime-bearing entrypoints, or install-time raw-URL scans) should narrow from this shared project-discovery result instead of redefining their own unrelated root walk
 
 This is the canonical simplification for file-extension handling and project discovery across architecture, CLI, packages, and testing.
+
+## Canonical Command Input Modes
+
+To keep CLI behavior predictable and avoid ad hoc "maybe this command scans the project, maybe it needs an entrypoint" rules, Kali uses one shared command-input split:
+- **Direct-entry commands**: `run`, `build`, and `effects` require at least one explicit executable/analyzable entrypoint argument in early phases; they do not guess `main.ts`, consult `package.json` scripts, or invent an implicit project default entry.
+- **Project-oriented commands**: `fmt`, `lint`, and `test` operate on the canonical project-discovery result when no explicit file arguments are supplied.
+- **Hybrid analysis command**: `check` may operate on explicit files or, when invoked without file arguments, on the canonical project-discovery result.
+- **Non-source-entrypoint commands**: `init`, `install`, `package-effects`, and `package-audit` do not consume source entrypoint arguments the way compiler/test commands do.
+
+Cross-spec rule:
+- if a command is defined as direct-entry, omitting the entrypoint is a CLI-usage/config error rather than permission to walk the project opportunistically
+- if a command is project-oriented, its no-argument behavior must narrow from the canonical project-discovery result instead of inventing command-local directory walks
+- explicit file arguments still bypass discovery for the named paths, subject to the canonical input-kind rules for that command
+
+This is the canonical simplification for CLI examples, help text, and command-schema behavior.
 
 ## Canonical ECMA-262 Interpretation
 
