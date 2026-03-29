@@ -190,10 +190,11 @@ kali check main.ts                         # Type check executable/analyzable so
 kali check types.d.ts                      # Validate a declaration-only file directly
 kali check --api browser main.ts           # Browser-targeted analysis/profile (no standalone DOM runtime implied)
 kali check --api node main.ts              # Phase 3 target: Node API surface is phase-gated for checking too
-kali check --sandbox kali.policy.json main.ts # Phase 1: type check + policy file/config validation; Phase 2+: effect-policy validation
+kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation; Phase 2+: effect-policy validation over the discovered project graph
+kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file/input set
 kali check --fix main.ts                   # Apply only safe, compiler-provided suggested fixes
 ```
-`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. Declaration-only files are valid direct inputs for `check`; `run`, `build`, `effects`, and `test` entrypoints may not be declaration-only.
+`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. The same rule applies when `--sandbox` is present: `kali check --sandbox <policy>` without file arguments validates the discovered project graph rather than becoming a separate command mode. Declaration-only files are valid direct inputs for `check`; `run`, `build`, `effects`, and `test` entrypoints may not be declaration-only.
 
 `--fix` is intentionally conservative: it is limited to unambiguous structured edits attached to diagnostics, not arbitrary refactors or speculative type rewrites.
 

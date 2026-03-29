@@ -290,13 +290,14 @@ Produced by `kali effects`.
 
 ### Required fields
 - `schemaVersion: number`
-- `entryPoints: string[]` — logical program entry names analyzed for this report (for example `main`, discovered test entrypoints, or exported embedding entry names)
+- `entryPoints: string[]` — logical entry labels analyzed for this report (for example a normalized CLI entry path such as `src/main.ts`, a discovered test entry label, or an exported embedding entry name)
 - `effects: EffectOccurrence[]`
 - `dynamicEffects: boolean`
 - `dynamicReasons: string[]` — canonical reason codes explaining why the report is conservative/incomplete; empty when `dynamicEffects` is `false`
 
 Early-phase interpretation rule:
 - for the Phase 2 CLI command `kali effects <file>`, `entryPoints` normally contains exactly one element because the command takes one explicit primary entrypoint in early phases
+- for direct CLI entrypoints, the canonical label should be the normalized user-facing entry path (preferably project-root-relative when that root is known) rather than an implementation-specific symbol ID or opaque internal module handle
 - the field stays an array so the same schema can later cover package-wide, test-runner, or embedding-oriented reports without inventing a second effect-report shape
 
 ### `EffectOccurrence`

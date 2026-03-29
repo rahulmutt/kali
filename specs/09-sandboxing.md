@@ -101,6 +101,7 @@ Compile-time policy handling is intentionally split to keep Phase 1 smaller and 
 
 - **Phase 1**: `--sandbox` validates the policy file itself (schema, patterns, resource-limit ranges, unsupported fields) and attaches it to the build/run configuration, but does **not** promise a complete static proof that all effects fit the policy.
 - **Phase 2+**: inferred effects are checked against the allowed policy capabilities.
+- For the hybrid `kali check` command, `kali check --sandbox <policy>` without explicit file arguments still uses the canonical project-discovery result; `--sandbox` adds policy validation, not a new input-selection mode.
 
 Availability rule for policy validation:
 - a policy may always **deny** a capability, even if that capability's corresponding API/feature is later-phase
@@ -265,9 +266,12 @@ If implemented, this enables:
 # Show inferred effects only (JSON; no policy comparison here)
 kali effects program.ts
 
-# Check program against a policy (no execution)
+# Check the discovered project against a policy (no execution)
 # Phase 1: validates the policy file/config only
 # Phase 2+: also validates inferred effects against the policy
+kali check --sandbox kali.policy.json
+
+# Check one explicit entry/input set against a policy instead
 kali check --sandbox kali.policy.json program.ts
 
 # Run with sandbox enforcement
