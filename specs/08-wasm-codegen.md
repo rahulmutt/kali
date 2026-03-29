@@ -7,7 +7,7 @@ The canonical compilation target for Phases 1-3 is a **single `wasm32` module us
 - **Required baseline**:
   - WASM MVP
   - 32-bit linear memory (`wasm32`)
-  - Kali host imports for I/O, timers, process, networking, and runtime services
+  - Kali host ABI support for runtime services plus the subset of host imports selected by the active API surface/runtime profile; emitted modules must not imply that process/network/file imports always exist in every build
 - **Optional WASM extensions** used when available and enabled by the selected target/profile:
   - Multi-value returns
   - Bulk memory operations

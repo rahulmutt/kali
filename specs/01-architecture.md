@@ -19,6 +19,8 @@ Source (.ts/.tsx/.mts/.cts/.js/.jsx/.mjs/.cjs)
   → Execution          (10-runtime.md)
 ```
 
+Declaration-only inputs (`.d.ts`, `.d.mts`, `.d.cts`) participate in parsing/checking/type loading as needed, but they are analysis-only side inputs rather than executable entrypoints in this pipeline.
+
 ## Crate Structure
 
 ```

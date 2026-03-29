@@ -96,7 +96,9 @@ kali test --filter "type"                   # Filter by name
 kali test --coverage                        # Phase 2 target: with coverage report once the stable contract lands
 ```
 
-Kali's own test runner for `.test.ts` / `_test.ts` files, supporting:
+Kali's own test runner for discovered test files, supporting:
+- default discovery matches `*.test.*` / `*_test.*` across the executable/analyzable source set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
+- declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`) are excluded from test discovery even if they match the naming pattern
 - coverage reporting is a **Phase 2 target** so Phase 1 may reject `--coverage` or mark it experimental until the report contract is stabilized
 - `describe`, `it`, `test` blocks
 - `expect` assertions

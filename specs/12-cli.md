@@ -188,7 +188,7 @@ kali lint --fix                            # Auto-fix where possible
 ### `kali test [files...]`
 Run test files.
 ```bash
-kali test                                  # Run all *_test.ts / *.test.ts
+kali test                                  # Run discovered tests matching supported executable source extensions
 kali test --filter "math"                  # Filter by name
 kali test --sandbox kali.policy.json       # Run tests in sandbox
 kali test --coverage                       # Phase 2 target: with coverage report once the stable contract lands
@@ -196,6 +196,10 @@ kali test --api deno                       # Supported early standalone test pro
 kali test --api node                       # Phase 3 target
 kali test --api browser                    # Rejected in early phases; browser is a check/build profile first
 ```
+
+Canonical discovery rule:
+- default test discovery matches `*.test.*` / `*_test.*` only across the shared executable/analyzable source set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
+- declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`) are never test entrypoints even if they match the naming pattern
 
 Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run`, and `kali check` / `kali build` follow the same API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
 
@@ -228,6 +232,7 @@ kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL depend
 
 Argument-kind rules:
 - a **registry package argument** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
+- `--dev` is valid only with a **registry package argument**; pairing `--dev` with a raw URL is rejected explicitly rather than inventing a second URL-specific manifest bucket
 - a **raw URL argument** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
 - plain `kali install` consumes the current manifest/import graph and reconciles lock + materialized state for the dependency source kinds actually used by the project
 - because raw URL entries are owned by the current source/import-map graph instead of a manifest dependency table, plain `kali install` may prune raw URL lock/cache entries that are no longer referenced

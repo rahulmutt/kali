@@ -161,11 +161,27 @@ Interpretation rules:
 - `kali.lock` records both source kinds even though they materialize into different on-disk locations
 - `kali install <registry-package>` mutates manifest + lock/materialized state for registry dependencies
 - `kali install https://...` pins/materializes that exact URL in the shared lock/materialization model but does **not** invent a second manifest section or silently rewrite source imports
+- `--dev` applies only to **registry package** install arguments; pairing `--dev` with a raw URL is rejected explicitly instead of inventing a `devUrls`-style manifest concept
 - because raw URL pins are owned by the current source/import-map graph rather than a separate manifest table, a later plain `kali install` may prune lock/cache entries for raw URLs no longer referenced by the project
 
 This keeps raw URL support simple: source/import maps declare it, the lock/cache materialize it, and `kali install` reconciles the two.
 
 This is the canonical simplification for dependency management across the CLI, package, and schema specs.
+
+## Canonical Source-File Kinds
+
+To keep the frontend, package resolver, CLI, and test runner aligned, Kali uses one shared source-file classification:
+
+- **Executable/analyzable source files**: `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`
+- **Declaration-only type inputs**: `.d.ts`, `.d.mts`, `.d.cts`
+
+Interpretation rules:
+- executable/analyzable source files may participate in parsing, checking, lowering, building, running, and test discovery according to the selected command/profile
+- declaration-only files participate in type checking, ambient library loading, and package type resolution, but they are never valid `run` / `build` / `test` entrypoints by themselves
+- project-oriented file discovery should use the executable/analyzable set for runtime-bearing source traversal and add declaration-only files only where the command specifically needs type information or formatting support
+- test discovery should match the executable/analyzable source set only; declaration files are excluded even if they happen to match a naming convention like `*.test.d.ts`
+
+This is the canonical simplification for file-extension handling across architecture, CLI, package resolution, and testing.
 
 ## Canonical Sandbox Policy Boundary
 
