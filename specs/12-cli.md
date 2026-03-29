@@ -257,6 +257,7 @@ Argument-kind rules:
 - an ad hoc raw-URL install is therefore a **staging/pin workflow**; if the project does not reference that URL from source or `kali.json#imports`, a later plain `kali install` may prune it again
 - plain `kali install` consumes the current manifest/import graph and reconciles lock + materialized state for the dependency source kinds actually used by the project
 - because raw URL entries are owned by the current source/import-map graph instead of a manifest dependency table, plain `kali install` may prune raw URL lock/cache entries that are no longer referenced
+- `kali install` is intentionally **profile-agnostic** in early phases: it locks versions and materializes package contents once for the current manifest/import graph, but it does not pre-bake a separate install for each `--api` surface; later `check` / `build` / `run` / `test` choose `deno`/browser-targeted package branches from the already-installed metadata at command time
 
 Determinism rules:
 - `kali install` is the command that resolves versions, pins URL imports, and writes `kali.lock`.
@@ -369,6 +370,7 @@ Omission/default rule for minimal configs:
 
 Configuration simplification rules:
 - `compilerOptions.apiSurface` is the config equivalent of the CLI `--api` flag
+- `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `build` / `run` / `test`, but it does **not** cause `kali install` to maintain separate lock/materialization state per API surface in early phases
 - `compilerOptions.buildMode` replaces separate optimization booleans
 - `compilerOptions.runtimeProfiles` is an array of explicit semantic runtime-profile switches; an empty array means the default single-threaded baseline, while a future threaded config would use `"runtimeProfiles": ["wasm-threads"]`
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates

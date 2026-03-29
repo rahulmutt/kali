@@ -169,6 +169,20 @@ Interpretation rules:
 - `[[url]]` entries are for exact raw URL imports after import-map expansion/pinning
 - future lockfile revisions may add optional metadata fields, but they should preserve this top-level split instead of collapsing both source kinds into one ambiguous record shape
 
+## Install-Time vs Command-Time Resolution Boundary
+
+Because package resolution can vary by API surface/profile (`deno`, browser-targeted bundle mode, and later `node`), Kali needs one explicit boundary so `install`, lockfiles, and ordinary commands do not drift:
+
+- `kali install` is **profile-agnostic** in Phase 1-3. It locks package versions, fetches/materializes package contents, and records reproducibility data, but it does **not** pre-resolve one permanent `exports`/`browser`/`deno` branch for every future command.
+- `check`, `build`, `run`, and `test` perform the final **command-time package edge selection** from the already-installed package metadata using the active API surface/profile.
+- therefore one `kali.lock` and one materialized package tree can serve both the default Deno-oriented standalone path and the browser-targeted `check` / `build --bundle` path without requiring separate per-profile installs.
+- this is possible because early-phase profile differences choose between files that are already present inside the installed package contents; they do not require separate version solves for each supported profile.
+- if a later feature truly requires profile-specific solving or materially different dependency graphs, that complexity must be introduced explicitly in a future lockfile/versioning revision rather than being implied accidentally by Phase 1 package wording.
+
+Practical consequence:
+- `kali install` does not take `--api` in early phases, and `compilerOptions.apiSurface` does not cause `install` to write a different lockfile for the same manifest/import graph.
+- changing `--api` between `deno` and browser-targeted build/check affects which already-installed package entry files are chosen at command time, not whether the project is considered installed.
+
 ## Deterministic Install & Resolution Contract
 
 To keep package behavior predictable across `install`, `check`, `build`, `run`, and `test`, Kali uses one simple rule set:
@@ -248,6 +262,12 @@ Type-resolution ladder for a resolved package edge:
 5. Check for `@types/<package>` in dependencies as a fallback when the package does not ship authoritative declarations.
 6. If package source is available as JS/TS, run the normal Kali checker/inference pipeline on that package and synthesize module-boundary types from the result.
 7. If Kali still cannot justify a precise exported type, fall back to `unknown` at the package boundary with a warning.
+
+Canonical declaration-condition simplification:
+- declaration lookup follows the **already chosen code edge**, then refines only within that same subpath/branch for declaration metadata
+- if an `exports` object for that exact edge contains a declaration-specific branch, Kali should prefer `types` first, then the active edge-kind branch (`import` or `require`) when it points directly at declarations, then `default`
+- API-surface conditions such as `deno`, `browser`, or later `node` are resolved during **code-edge selection** first; declaration lookup should not restart a second independent condition walk that might land on a different subpath
+- package-root `types` / `typings` metadata is a fallback only when the resolved edge did not already publish a more specific declaration target
 
 Interpretation rules:
 - declaration lookup is **subpath-aware**: package-root metadata must not override a more specific declaration target published for the requested subpath

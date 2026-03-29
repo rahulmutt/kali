@@ -94,7 +94,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali init --lib` | Phase 1 MVP | Select a library-oriented project template only; it does not implicitly change the later `kali build` artifact mode |
 | `kali fmt` | Phase 1 MVP | Stable formatting command for JS/TS sources |
 | `kali lint` | Phase 1 MVP | Stable lint command with conservative autofix support |
-| `kali install` | Phase 1 MVP | Resolve/materialize dependency state and write `kali.lock` for the project's declared dependency source kinds |
+| `kali install` | Phase 1 MVP | Resolve/materialize dependency state and write `kali.lock` for the project's declared dependency source kinds; install is profile-agnostic in early phases and does not require separate per-`--api` installs |
 | `kali install https://...` | Phase 1 MVP | Explicitly pin/materialize a raw URL dependency into the shared lock/materialization model |
 | `kali run main.ts` | Phase 1 MVP | Compile and execute with the canonical default tuple: `apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]` |
 | `kali run --sandbox kali.policy.json main.ts` | Phase 1 MVP | Runtime sandbox enforcement path; policy schema/ranges must validate before execution starts |
