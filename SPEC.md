@@ -382,8 +382,9 @@ These selectors are mutually exclusive unless a later spec explicitly says other
 
 Interpretation rules:
 - `--bundle` is **browser-only** in early phases and requires the effective `apiSurface` to be `browser`
-- `--lib`, `--capi`, and `--component` are non-browser artifact modes in early phases
-- library-oriented modes are **export-oriented**: they package the module's explicit exports for host use, omit any synthetic executable entry invocation, and still preserve ordinary ECMAScript module-instantiation semantics for top-level initialization when the host instantiates the module
+- `--lib`, `--capi`, and `--component` are **library-oriented artifact modes** in early phases: they are non-browser, export-oriented modes derived from the module's explicit exports
+- library-oriented modes still obey the ordinary build-command API-surface gates: for example `kali build --lib --api node lib.ts` is a **Phase 3** Node build and therefore uses the same `E5006` gate as other early `--api node` builds, while `kali build --lib --api browser lib.ts` is an `E5008` contradiction because browser mode is only defined for `--bundle`
+- library-oriented modes omit any synthetic executable entry invocation, but still preserve ordinary ECMAScript module-instantiation semantics for top-level initialization when the host instantiates the module
 - WIT is an output detail of public library/embedding/component modes, not a separate selector
 - companion artifacts do not weaken the single linked-payload rule for the compiled program graph itself
 

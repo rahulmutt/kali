@@ -124,7 +124,8 @@ Interpretation rule:
 - build artifact-mode flags follow the canonical matrix in [SPEC.md](../SPEC.md): in early phases `--bundle`, `--lib`, `--capi`, and `--component` are one small closed set of mutually exclusive selectors unless a later spec explicitly says one implies another
 - the omitted selector means the default executable artifact mode; supplying more than one explicit selector from that set (for example `--bundle --lib`, `--bundle --capi`, `--bundle --component`, `--lib --capi`, `--lib --component`, or `--capi --component`) should use the canonical invalid-usage diagnostic `E5008`, not a feature-maturity rejection
 - in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires the **effective API surface** to be `browser`, and `kali build --bundle` under an effective API surface of `deno` or `node` is invalid command usage (`E5008`) rather than a feature-maturity rejection, because the browser bundle mode itself exists but the selected flag/config combination is contradictory
-- in early phases, `--lib`, `--capi`, and `--component` are non-browser artifact modes; `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` must fail explicitly rather than pretending browser bundle rules also apply to library/embedding builds
+- in early phases, `--lib`, `--capi`, and `--component` are **library-oriented artifact modes**: non-browser, export-oriented build modes derived from the module's explicit exports
+- those library-oriented modes still obey the ordinary build-command API-surface gates: `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` are `E5008` contradictions because browser mode is only defined for `--bundle`, while `kali build --lib --api node ...` remains on the same Phase 3 `E5006` path as other early `--api node` builds
 - `--lib` is the base exported-library mode; `--capi` and `--component` are later packaging layers over that same exported-library contract rather than unrelated semantics
 - because `--capi` and `--component` already choose exported-library semantics, users should not combine them with `--lib` in early phases; those flags are separate artifact-mode selectors, not additive modifiers
 - WIT sidecars are not a separate artifact-mode selector: Phase 1 plain `--lib` emits the core library `wasm-module`, and once the public library/embedding surface stabilizes in Phase 2+, the relevant library-oriented modes emit WIT by default so callers do not have to choose between "C ABI" and "component metadata" paths
@@ -214,7 +215,8 @@ Canonical artifact-mode rule:
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive artifact-mode selectors unless a later spec explicitly defines one as an implication of another
 - `kali init --lib` chooses a project template only; it does not change the later default artifact mode of `kali build`
 - WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag
-- library-oriented modes derive their host-facing surface from the module's explicit exports; they do not implicitly expose arbitrary internal declarations just because the source file was compiled in `--lib`/`--capi`/`--component` mode
+- these **library-oriented artifact modes** derive their host-facing surface from the module's explicit exports; they do not implicitly expose arbitrary internal declarations just because the source file was compiled in `--lib`/`--capi`/`--component` mode
+- they also keep the ordinary build-command API-surface semantics: Node-targeted library builds are still phase-gated with `E5006`, while browser-targeted library/embedding combinations are invalid command shapes (`E5008`) until a separate browser-library contract exists
 
 `--capi` and other public embedding-oriented outputs follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): the compiler is library-first internally in Phase 1, but stable public embedding artifacts are a Phase 2 target.
 
@@ -232,9 +234,12 @@ kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is 
 kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
 kali build --lib lib.ts                    # Export-oriented library module (no synthetic executable entry invocation; top-level init still runs on instantiation; Phase 1 artifact: kind=wasm-module, role=primary-library; Phase 2+ adds kind=wit, role=interface-wit by default)
-kali build --lib --api browser lib.ts      # Rejected in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library artifact mode
+kali build --lib --api node lib.ts         # Phase 3 target: Node API surface remains build-gated for library-oriented modes too
+kali build --lib --api browser lib.ts      # Invalid usage (E5008) in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library artifact mode
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + metadata (artifacts: wasm-module + wit + c-header + cabi-metadata; roles: primary-library + interface-wit + embedding-header + embedding-metadata; see specs/13-embedding.md)
+kali build --capi --api node lib.ts        # Phase 3 target: still gated by the Node build surface even after public embedding artifacts exist
 kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit + lib.component.wasm (artifacts: lib.wasm kind=wasm-module role=primary-library; lib.wit kind=wit role=interface-wit; lib.component.wasm kind=wasm-component role=primary-component)
+kali build --component --api node lib.ts   # Phase 3 target: still gated by the Node build surface even after component packaging exists
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Build-time policy compatibility only; no automatic browser-runtime enforcement is implied after deployment
 kali build --validate-ir main.ts           # Run IR validators (debug aid)

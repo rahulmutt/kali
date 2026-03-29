@@ -52,7 +52,8 @@ Canonical embedding-alignment rule:
 - the canonical runtime-profile name remains `wasm-threads`; if the Rust API exposes `RuntimeProfile::WasmThreads`, that is just the typed embedding spelling of the same underlying profile selected by CLI `--wasm-threads`
 - WIT is the canonical host-facing interface description for public library/component outputs; Rust-typed helpers, generated C headers, and later component wrappers are projections of that same exported interface contract rather than unrelated parallel ABI descriptions
 - embedding APIs may use idiomatic Rust enums/builders instead of the JSON field names, but they should not invent a second incompatible vocabulary for the same concepts
-- if a CLI/config/runtime feature is phase-gated (for example `RuntimeProfile::WasmThreads` or `CompatFeature::Eval`), the embedding API should surface the same canonical `E5006`-style availability failure rather than silently ignoring the request
+- build-oriented embedding calls obey the same API-surface gates as the CLI/spec matrix: for example, `ApiSurface::Node` remains Phase 3-gated for compile/build flows, while browser-targeted build output is still the `--bundle`-style path rather than a generic library/export mode
+- if a CLI/config/runtime feature is phase-gated (for example `ApiSurface::Node`, `RuntimeProfile::WasmThreads`, or `CompatFeature::Eval`), the embedding API should surface the same canonical `E5006`-style availability failure rather than silently ignoring the request
 
 ### Custom Host Functions
 ```rust
