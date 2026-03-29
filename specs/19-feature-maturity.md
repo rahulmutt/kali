@@ -71,13 +71,15 @@ This table exists to keep the status labels operational: a label implies whether
 | npm packages that require unsupported Node core modules | Phase 3 target | Depends on broader `--api node` compatibility work |
 | Stable public Rust embedding API | Phase 2 target | Phase 1 stays library-first internally, but the public embedding contract is stabilized later |
 | Stable public C ABI / `kali build --capi` flow | Phase 2 target | Depends on the same public embedding stabilization work |
+| WIT emission for public library/embedding interfaces | Phase 2 target | Gives Rust/C/component consumers one canonical exported interface description instead of parallel ad hoc metadata |
+| WebAssembly Component Model packaging (`kali build --component`) | Phase 2 target | Layered on top of the linked core WASM payload for host interop; executable builds still center on the core module path |
 | Host ABI versioning for `kali_capi` | Phase 2 target | Stable embedding requires explicit load-time compatibility checks |
 | Browser ambient DOM typings for `check --api browser` / `build --bundle --api browser` | Phase 1 MVP | Type-check against the real browser host surface for browser-targeted programs; this is not a standalone runtime promise |
 | DOM APIs in standalone runtime | Rejected by default | Kali does not embed a browser engine |
 
 ## Interpretation Rules
 
-1. **Single-payload rule**: Phase 1-3 builds target one linked WASM payload for the resolved static graph. Output modes may still add companion artifacts such as JS glue or C headers, but they must not reintroduce runtime WASM module linking.
+1. **Single-payload rule**: Phase 1-3 builds target one linked WASM payload for the resolved static graph. Output modes may still add companion artifacts such as JS glue, WIT files, component wrappers, or C headers, but they must not reintroduce runtime WASM module linking.
 2. **Parse vs support**: accepted syntax does not imply full runtime support; unsupported dynamic features should be diagnosed explicitly.
 3. **Effect boundaries**: features marked as dynamic compatibility paths should be reflected in static effect analysis.
 4. **No silent fallback**: if a feature cannot be implemented faithfully under the current phase constraints, Kali should reject or gate it rather than emulate it loosely.
@@ -116,8 +118,10 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali build --api browser main.ts` | Rejected by default | In early phases browser mode is a bundle/check profile, not a standalone non-bundled artifact mode |
 | `kali build --lib lib.ts` | Phase 1 MVP | Produce one linked library-style WASM artifact without automatic program start |
 | `kali build --lib --api browser lib.ts` | Rejected by default | Early browser support is a bundle/check profile, not a browser-library artifact mode |
-| `kali build --capi lib.ts` | Phase 2 target | Public embedding artifact generation should stay gated until the embedding contract is stable; when enabled it emits `kind: wasm-module` + `kind: c-header` + `kind: cabi-metadata` |
+| `kali build --capi lib.ts` | Phase 2 target | Public embedding artifact generation should stay gated until the embedding contract is stable; when enabled it emits `kind: wasm-module` + `kind: wit` + `kind: c-header` + `kind: cabi-metadata` |
+| `kali build --component lib.ts` | Phase 2 target | Component-oriented library packaging path; when enabled it emits `kind: wasm-module` + `kind: wit` + `kind: wasm-component` |
 | `kali build --capi --api browser lib.ts` | Rejected by default | Early browser support is a bundle/check profile, not a browser-embedding artifact mode |
+| `kali build --component --api browser lib.ts` | Rejected by default | Early browser support is a bundle/check profile, not a browser-component artifact mode |
 | `kali test` / `kali test --api deno` | Phase 1 MVP | Compile and run tests with the default standalone tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]`) unless overridden |
 | declaration-only file passed to `run` / `effects` / `build` / `test` as an entrypoint | Rejected by default | Declaration files are analysis/type inputs, not executable/effect-report entrypoints |
 | `kali test --sandbox kali.policy.json` | Phase 1 MVP | Runtime sandbox enforcement path for tests; policy schema/ranges must validate before execution starts |
@@ -154,6 +158,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - Explicit effect annotations and `pure` checking are enabled for the built-in capability model.
 - Compile/check-time effect-vs-policy validation works against the declarative policy schema.
 - Stable public Rust embedding and C ABI surfaces are documented and shipped.
+- Public library/component outputs emit the documented WIT interface contract, and the initial Component Model packaging path works end-to-end.
 
 ### Phase 3 exit criteria
 - Specialization materially improves generated code for common generic/layout-heavy programs.

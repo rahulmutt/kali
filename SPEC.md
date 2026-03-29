@@ -20,6 +20,7 @@ Kali aims to:
 - avoid tracing GC by making compile-time ownership and allocation decisions where possible
 - aggressively specialize code and memory layouts when the program is analyzable
 - provide a clean CLI and embeddable Rust/C APIs, with reusable internal crates from the start and a stable public embedding contract in Phase 2
+- use WIT as the canonical interface description for exported library/embedding surfaces, with Component Model support layered on when it improves interoperability
 - support practical ecosystems: Deno-first runtime behavior, browser-targeted builds early, broader Node compatibility later
 
 ## Bootstrap Requirement Map
@@ -37,7 +38,7 @@ This table turns the original bootstrap requirements into a compact cross-refere
 | Deno / browser / later Node host surfaces | [11 — Standard APIs](specs/11-standard-apis.md), [19 — Feature Maturity](specs/19-feature-maturity.md) |
 | npm / JSR / raw URL package workflows | [14 — Package Management](specs/14-packages.md) |
 | AI-friendly CLI and diagnostics | [12 — CLI](specs/12-cli.md), [15 — Error Reporting](specs/15-errors.md), [18 — Schemas](specs/18-schemas.md) |
-| Embeddable Rust API and C ABI | [13 — Embedding & C API](specs/13-embedding.md) |
+| Embeddable Rust API, C ABI, WIT, and Component Model interop | [13 — Embedding & C API](specs/13-embedding.md), [08 — WebAssembly Code Generation](specs/08-wasm-codegen.md), [18 — Schemas](specs/18-schemas.md) |
 | Lean-backed verification | [17 — Formal Verification](specs/17-verification.md) |
 | Phase-gated compatibility decisions | [19 — Feature Maturity](specs/19-feature-maturity.md) |
 
@@ -47,7 +48,7 @@ These constraints are project-wide and should not be weakened in lower-level spe
 - **AOT-only**: no language-level JIT compilation
 - **Pure Rust**: no embedded C/C++ libraries
 - **Sandbox-first**: runtime enforcement is a first-class requirement, not an afterthought
-- **Single linked WASM payload early**: Phase 1-3 builds target one linked WASM payload for the resolved static graph, even when a build also emits companion artifacts such as JS glue or C headers
+- **Single linked WASM payload early**: Phase 1-3 builds target one linked WASM payload for the resolved static graph, even when a build also emits companion artifacts such as JS glue, WIT files, component wrappers, or C headers
 - **No silent semantic fallback**: unsupported or phase-gated features must fail explicitly rather than degrade invisibly
 - **AI-friendly machine contracts**: JSON output, diagnostics, and effect reports are stable, concise, and versioned
 
@@ -116,11 +117,12 @@ To reduce drift across the spec set, these terms are canonical:
 - **API surface**: the host API family selected by CLI/config, e.g. `deno`, `node`, `browser`
 - **Build mode**: optimization level, one of `fast`, `release`, `release-advanced`
 - **Runtime profile**: semantic runtime capability profile orthogonal to API surface, e.g. the default single-threaded baseline or later `wasm-threads`
-- **Artifact mode**: the build output selector chosen by `kali build`, e.g. the default executable WASM artifact path, `--bundle`, `--lib`, or `--capi`
+- **Artifact mode**: the build output selector chosen by `kali build`, e.g. the default executable WASM artifact path, `--bundle`, `--lib`, `--capi`, or `--component`
 - **Feature maturity**: phase/status classification defined in `specs/19-feature-maturity.md`
 - **Compatibility feature**: an explicit later-phase escape hatch named in `compat.features` / `--compat`, for example `eval`
 - **Schema contract**: machine-readable JSON formats defined in `specs/18-schemas.md`
-- **Linked artifact model**: compile the resolved static graph into one linked WASM payload rather than relying on runtime WASM module linking; companion artifacts such as JS glue or C headers do not change that single-payload rule
+- **Interface contract**: the exported host-facing ABI/IDL for a library artifact; in Kali this is described canonically by WIT once the public embedding surface stabilizes
+- **Linked artifact model**: compile the resolved static graph into one linked WASM payload rather than relying on runtime WASM module linking; companion artifacts such as JS glue, WIT files, component wrappers, or C headers do not change that single-payload rule
 - **Dependency source kind**: one of the early canonical dependency declaration/materialization channels: registry package or raw URL import
 
 If another spec needs to describe maturity, schemas, or command/profile gating, it should reference the canonical doc instead of redefining it.
@@ -147,6 +149,7 @@ Add:
 - stable effect reports and compile/check-time policy validation
 - explicit `pure` and effect annotations for the built-in capability model
 - stable public Rust embedding API and C ABI
+- default WIT emission for public library/embedding interfaces, plus an initial WebAssembly Component Model packaging path where it meaningfully improves interop
 
 ### Phase 3 — Specialization and ecosystem breadth
 Add:
@@ -430,12 +433,17 @@ When extending the spec set:
 
 The spec intentionally makes a few simplifying choices to keep implementation tractable:
 - one primary execution engine (`wasmtime`) first
-- one linked WASM payload per build in early phases, with optional companion artifacts such as JS glue or C headers when the selected output mode requires them
+- one linked WASM payload per build in early phases, with optional companion artifacts such as JS glue, WIT files, component wrappers, or C headers when the selected output mode requires them
 - one canonical machine-readable JSON contract per output type, with command-specific payloads wrapped in one shared CLI envelope when JSON transport is requested
 - one primary standalone runtime surface early (`deno`), with browser as a check/build profile first
 - one initial effect model centered on sandbox-relevant built-in capabilities
 
 These simplifications are design choices, not omissions. They keep the project coherent while still leaving room for later compatibility layers.
+
+WIT / Component Model clarification:
+- the core compiler pipeline still lowers Kali programs to one linked core WASM payload first
+- WIT and Component Model support are treated as **interface/export layers** over that payload, not as a replacement for the core linked-artifact model
+- executable builds stay centered on the core WASM payload, while public library/embedding outputs should prefer WIT-described interfaces once that Phase 2 surface stabilizes
 
 ## Spec Index
 

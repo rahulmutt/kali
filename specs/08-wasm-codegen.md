@@ -19,6 +19,11 @@ The canonical compilation target for Phases 1-3 is a **single `wasm32` module us
 
 The emitted `.wasm` artifact is portable at the WASM layer, but its full execution contract depends on the Kali host ABI and the feature set required by the chosen profile (API surface + build mode + runtime-profile switches). In practice, Phase 1-3 execution is standardized on wasmtime.
 
+Interface-layer rule:
+- core code generation still targets a linked core WASM module first
+- WIT descriptions and any later WebAssembly Component Model wrapper are derived from that core artifact and its exported ABI
+- these interface-layer artifacts improve embedding/interoperability but do not change the underlying single-linked-payload compilation model
+
 ## Code Generation from LIR
 
 ### Function Emission
@@ -110,20 +115,22 @@ Direct binary emission without intermediate text format:
 Use the canonical artifact kinds from [specs/18-schemas.md](18-schemas.md) in CLI JSON output and embedding metadata.
 
 Early-phase artifact-mode rule:
-- `--bundle`, `--lib`, and `--capi` are mutually exclusive build artifact-mode selectors
-- omitting all three selects the default executable artifact mode (`kali build foo.ts` → one executable-style `wasm-module` artifact)
+- `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive build artifact-mode selectors unless a later spec explicitly defines one as implying another
+- omitting all four selects the default executable artifact mode (`kali build foo.ts` → one executable-style `wasm-module` artifact)
 - in Phase 1, `--bundle` is reserved for browser-targeted output and therefore requires `--api browser`
-- in early phases, `--lib` and `--capi` are non-browser artifact modes; pairing them with `--api browser` is rejected until a separate browser-library/browser-embedding contract is specified
-- unsupported combinations must fail explicitly instead of guessing whether the user wanted an executable bundle, a library artifact, or a public embedding artifact set
+- in early phases, `--lib`, `--capi`, and `--component` are non-browser artifact modes; pairing them with `--api browser` is rejected until a separate browser-library/browser-embedding contract is specified
+- WIT sidecars are not a separate artifact mode: once the public interface surface stabilizes, relevant library/embedding outputs emit them by default
+- unsupported combinations must fail explicitly instead of guessing whether the user wanted an executable bundle, a library artifact, a public embedding artifact set, or a component wrapper
 
 | Command | Output |
 |---------|--------|
 | `kali build foo.ts` | `foo.wasm` — Kali-hosted WASM module (`kind: wasm-module`, `role: primary-executable`) |
 | `kali build --bundle --api browser foo.ts` | `foo.wasm` + `foo.js` — WASM + JS glue for browsers (`foo.wasm`: `kind: wasm-module`, `role: primary-executable`; `foo.js`: `kind: js-glue`, `role: browser-glue`) |
 | `kali build --bundle foo.ts` | Rejected in early phases; `--bundle` is reserved for browser-targeted output and requires `--api browser` |
-| `kali build --lib foo.ts` | `foo.wasm` — library module (exports, no automatic start; `kind: wasm-module`, `role: primary-library`) |
+| `kali build --lib foo.ts` | `foo.wasm` — library module (exports, no automatic start; `kind: wasm-module`, `role: primary-library`). Phase 2+ public-library outputs should also emit `foo.wit` (`kind: wit`, `role: interface-wit`) by default once the interface contract is stabilized. |
 | `kali build --lib --api browser foo.ts` | Rejected in early phases; browser mode is a bundle/check profile, not a library-artifact profile |
-| `kali build --capi foo.ts` | Phase 2 target: `foo.wasm` + generated embedding header/metadata for use with the host-side `kali_capi` library (`foo.wasm`: `kind: wasm-module`, typically `role: primary-library`; header: `kind: c-header`, `role: embedding-header`; metadata: `kind: cabi-metadata`, `role: embedding-metadata`) |
+| `kali build --capi foo.ts` | Phase 2 target: `foo.wasm` + `foo.wit` + generated embedding header/metadata for use with the host-side `kali_capi` library (`foo.wasm`: `kind: wasm-module`, typically `role: primary-library`; WIT: `kind: wit`, `role: interface-wit`; header: `kind: c-header`, `role: embedding-header`; metadata: `kind: cabi-metadata`, `role: embedding-metadata`) |
+| `kali build --component foo.ts` | Phase 2 target: `foo.wasm` + `foo.wit` + `foo.component.wasm` for a Component Model packaging path (`foo.component.wasm`: `kind: wasm-component`, `role: primary-component`) |
 
 ## Source Maps
 

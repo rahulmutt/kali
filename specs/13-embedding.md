@@ -2,7 +2,7 @@
 
 Public embedding is intentionally phased:
 - **Phase 1**: reusable internal crates exist so the CLI is built library-first, but the public embedding surface may still change freely.
-- **Phase 2 target**: the Rust embedding API, C ABI, and `kali build --capi` artifact flow become the first stable public embedding contract.
+- **Phase 2 target**: the Rust embedding API, C ABI, WIT interface emission, and `kali build --capi` / `kali build --component` artifact flows become the first stable public embedding contract.
 
 ## Rust Library API (`kali_embed`)
 
@@ -50,6 +50,7 @@ Canonical embedding-alignment rule:
 - the public embedding config should expose the same semantic knobs as CLI/config where they matter to compilation and execution: **API surface**, **build mode**, **runtime profiles**, and **compat features**
 - prefer set-like builder methods such as `runtime_profiles([...])` and `compat_features([...])` over boolean enable/disable pairs so the embedding vocabulary stays aligned with `kali.json`
 - the canonical runtime-profile name remains `wasm-threads`; if the Rust API exposes `RuntimeProfile::WasmThreads`, that is just the typed embedding spelling of the same underlying profile selected by CLI `--wasm-threads`
+- WIT is the canonical host-facing interface description for public library/component outputs; Rust-typed helpers, generated C headers, and later component wrappers are projections of that same exported interface contract rather than unrelated parallel ABI descriptions
 - embedding APIs may use idiomatic Rust enums/builders instead of the JSON field names, but they should not invent a second incompatible vocabulary for the same concepts
 - if a CLI/config/runtime feature is phase-gated (for example `RuntimeProfile::WasmThreads` or `CompatFeature::Eval`), the embedding API should surface the same canonical `E5006`-style availability failure rather than silently ignoring the request
 
@@ -172,18 +173,20 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 - Error includes the stable string diagnostic code, message, and JSON representation so embedders see the same canonical machine contract as the CLI
 
 ### Building
-`kali build --capi` is a **Phase 2 target** and is an artifact-generation mode for embedded programs, not a request to turn user TypeScript directly into a native shared library.
+`kali build --capi` and `kali build --component` are **Phase 2 targets** and are artifact-generation modes for embedded programs, not requests to turn user TypeScript directly into a native shared library.
 
 ```bash
-kali build --capi lib.ts                   # Produces lib.wasm + generated lib.exports.h + metadata for use with kali_capi
+kali build --capi lib.ts                   # Produces lib.wasm + lib.wit + generated lib.exports.h + metadata for use with kali_capi
+kali build --component lib.ts              # Produces lib.wasm + lib.wit + lib.component.wasm for Component Model consumers
 ```
 
 Important distinction:
 - `kali_capi` ships the stable host ABI header: `kali.h`
 - `kali build --capi foo.ts` emits a **program-specific** exports header such as `foo.exports.h` plus metadata
-- In CLI JSON/artifact manifests, these outputs use the canonical artifact kinds `wasm-module`, `c-header`, and `cabi-metadata`
+- public library/component-oriented outputs should emit a WIT sidecar by default once the interface contract stabilizes, so C bindings and Component Model wrappers derive from the same canonical exported interface description
+- In CLI JSON/artifact manifests, these outputs use the canonical artifact kinds `wasm-module`, `wit`, `wasm-component`, `c-header`, and `cabi-metadata`
 
-This avoids overloading the name `kali.h` for two different purposes.
+This avoids overloading the name `kali.h` for two different purposes and keeps C ABI generation aligned with the Component Model path.
 
 The host-side C ABI itself is provided by the `kali_capi` crate:
 ```bash
@@ -209,9 +212,14 @@ Compatibility policy:
 
 Typical embedding flow:
 1. Build or ship `kali_capi` as the native C ABI layer (including the stable `kali.h` host header).
-2. Compile Kali/TypeScript code to `foo.wasm` with `kali build --capi foo.ts` to obtain `foo.wasm` plus `foo.exports.h` and metadata.
+2. Compile Kali/TypeScript code to `foo.wasm` with `kali build --capi foo.ts` to obtain `foo.wasm` plus `foo.wit`, `foo.exports.h`, and metadata.
 3. Verify ABI compatibility between the emitted metadata and the available `kali_capi` host library.
 4. Load that artifact through the `kali_*` API from C or another FFI consumer.
+
+Typical component flow:
+1. Compile Kali/TypeScript code with `kali build --component foo.ts`.
+2. Use the emitted `foo.wit` as the canonical interface description for tooling/review.
+3. Load `foo.component.wasm` in a Component Model host that matches the documented runtime/profile constraints.
 
 The shared library exports only `kali_*` symbols. All Rust internals are hidden.
 

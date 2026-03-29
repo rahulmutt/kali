@@ -58,7 +58,8 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 |------|-------|-------------|
 | `--bundle` | `build` | In Phase 1, selects the browser-targeted artifact path and therefore requires `--api browser`; later phases may extend it to other multi-artifact packaging modes |
 | `--lib` | `build`, `init` | Build or scaffold a library-oriented project/artifact without automatic program start |
-| `--capi` | `build` | Emit the Phase-2 public C-embedding artifact set (`wasm-module` + `c-header` + `cabi-metadata`) |
+| `--capi` | `build` | Emit the Phase-2 public C-embedding artifact set (`wasm-module` + `wit` + `c-header` + `cabi-metadata`) |
+| `--component` | `build` | Emit a WebAssembly Component Model wrapper for a library/export-oriented build once that packaging path exists; phase-gated until the component flow is implemented |
 | `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
 | `--max-specializations N` | `build`, `run`, `test` | Override the specialization fan-out cap upper bound for a single invocation; this is an upper bound, not a promise that the current build mode will spend the full budget, and `--fast` may still skip most user-authored generic specialization entirely |
 | `--fix` | `check`, `lint` | Apply only structured, tool-generated safe fixes for the selected command |
@@ -72,9 +73,10 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
 - documenting a command-specific flag here does **not** imply it needs a separate feature-maturity row unless it changes a phase promise or machine-readable contract
-- build artifact-mode flags should not silently combine into ambiguous artifact contracts; in early phases `--bundle`, `--lib`, and `--capi` are mutually exclusive selectors, and unsupported combinations must fail explicitly rather than guessing which artifact set the user meant
+- build artifact-mode flags should not silently combine into ambiguous artifact contracts; in early phases `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive selectors unless a later spec explicitly says one implies another
 - in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires `--api browser`, and `kali build --bundle` under `--api deno` or `--api node` must fail explicitly instead of inventing a second bundle contract
-- in early phases, `--lib` and `--capi` are non-browser artifact modes; `kali build --lib --api browser ...` and `kali build --capi --api browser ...` must fail explicitly rather than pretending browser bundle rules also apply to library/embedding builds
+- in early phases, `--lib`, `--capi`, and `--component` are non-browser artifact modes; `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` must fail explicitly rather than pretending browser bundle rules also apply to library/embedding builds
+- WIT sidecars are not a separate artifact-mode selector: once the public embedding/library surface stabilizes, they are emitted by the relevant artifact modes by default so callers do not have to choose between "C ABI" and "component metadata" paths
 
 Config-array normalization rule:
 - `compilerOptions.runtimeProfiles` and `compat.features` are set-like lists, not ordered pipelines
@@ -135,9 +137,10 @@ Sandbox flag behavior is intentionally phase-gated:
 AOT compile to a WASM module or linked artifact set.
 
 Canonical artifact-mode rule:
-- omitting `--bundle`, `--lib`, and `--capi` selects the default executable artifact mode
-- `--bundle`, `--lib`, and `--capi` are mutually exclusive artifact-mode selectors
+- omitting `--bundle`, `--lib`, `--capi`, and `--component` selects the default executable artifact mode
+- `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive artifact-mode selectors unless a later spec explicitly defines one as an implication of another
 - `kali init --lib` chooses a project template only; it does not change the later default artifact mode of `kali build`
+- WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag
 
 `--capi` and other public embedding-oriented outputs follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): the compiler is library-first internally in Phase 1, but stable public embedding artifacts are a Phase 2 target.
 
@@ -154,7 +157,8 @@ kali build --api browser main.ts           # Rejected in early phases; browser b
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
 kali build --lib lib.ts                    # Library module (exports, no start; artifact: kind=wasm-module, role=primary-library)
 kali build --lib --api browser lib.ts      # Rejected in early phases; browser mode is a bundle/check profile, not a library artifact profile
-kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.exports.h + metadata (artifacts: wasm-module + c-header + cabi-metadata; roles typically primary-library + embedding-header + embedding-metadata; see specs/13-embedding.md)
+kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + metadata (artifacts: wasm-module + wit + c-header + cabi-metadata; roles typically primary-library + interface-wit + embedding-header + embedding-metadata; see specs/13-embedding.md)
+kali build --component lib.ts              # Phase 2 target: library-style build with a component wrapper once the component flow lands
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Build-time policy compatibility only; no automatic browser-runtime enforcement is implied after deployment
 kali build --validate-ir main.ts           # Run IR validators (debug aid)

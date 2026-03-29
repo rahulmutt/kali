@@ -250,13 +250,15 @@ Optional fields:
 Canonical schema-v1 `role` values:
 - `primary-executable` — the main executable-style artifact from `kali build foo.ts`
 - `primary-library` — the main library-style artifact from `kali build --lib foo.ts`
+- `primary-component` — the main Component Model wrapper artifact from `kali build --component foo.ts`
 - `browser-glue` — browser-targeted JS glue emitted alongside a browser bundle
+- `interface-wit` — canonical WIT interface description emitted for public library/embedding/component outputs
 - `embedding-header` — generated program-specific C exports header from `kali build --capi`
 - `embedding-metadata` — generated C-ABI/embedding metadata from `kali build --capi`
 - `debug-source-map` — source-map/debug companion artifact
 
 Interpretation rules:
-- `kind` stays the primary cross-command type discriminator (`wasm-module`, `js-glue`, `c-header`, `cabi-metadata`, `source-map`)
+- `kind` stays the primary cross-command type discriminator (`wasm-module`, `wasm-component`, `js-glue`, `wit`, `c-header`, `cabi-metadata`, `source-map`)
 - `role` exists so tools do not have to infer semantic intent from filenames alone when multiple artifact modes reuse the same `kind`
 - adding a new stable `role` value is a schema-contract change and should get the same review discipline as new artifact `kind` values
 
@@ -635,7 +637,9 @@ For build-like commands. This is the canonical meaning of the reusable `Artifact
 
 Canonical schema-v1 `kind` values:
 - `wasm-module`
+- `wasm-component`
 - `js-glue`
+- `wit`
 - `c-header`
 - `cabi-metadata`
 - `source-map`
