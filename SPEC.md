@@ -121,18 +121,24 @@ Early-phase hybrid analysis command:
 - `check`
 
 ### Project-oriented command
-A command whose primary no-argument behavior is defined in terms of canonical project discovery rather than a required explicit entrypoint.
+A command whose primary no-argument behavior is defined in terms of canonical project discovery over source files rather than a required explicit entrypoint.
 
 Early-phase project-oriented commands:
 - `fmt`
 - `lint`
 - `test`
+
+### Dependency-graph command
+A command whose no-argument behavior is defined in terms of the discovered project dependency graph rather than a required explicit source entrypoint.
+
+Early-phase dependency-graph command:
 - `install`
 
 Note:
 - `check` is still the canonical **hybrid analysis command**
 - when invoked without explicit files, `check` also uses canonical project discovery
-- this keeps `check` in one main command category while preserving the shared discovery behavior
+- `install` also uses canonical project discovery when it needs to scan source files for raw URL imports
+- this keeps `check` and `install` in one primary category each while preserving their shared discovery behavior
 
 ## Canonical Default Tuple
 
@@ -216,7 +222,7 @@ From the canonical project-discovery result:
 - `check` uses the discovered file set directly
 - `fmt` and `lint` use the discovered file set directly
 - `test` matches `*.test.*` and `*_test.*` only across discovered executable/analyzable files
-- `install` may scan the discovered file set, including declaration-only files, for source-level raw URL imports
+- `install` may scan the discovered file set, including declaration-only files, for source-level raw URL imports as part of dependency-graph reconciliation
 
 ## Canonical Command/Input Shape Rules
 

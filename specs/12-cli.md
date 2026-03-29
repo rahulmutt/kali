@@ -22,7 +22,8 @@ Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - `run`, `build`, and `effects` are **direct-entry commands** in early phases: they require explicit executable/analyzable entrypoint arguments and do not guess `main.ts` or invent a project-default entrypoint
 - `check` is a **hybrid analysis command**: it accepts explicit file arguments, or falls back to the canonical project-discovery result when no files are provided
 - `fmt`, `lint`, and `test` are **project-oriented commands** when invoked without explicit file arguments
-- `init`, `install`, `package-effects`, and `package-audit` are not source-entrypoint commands
+- `install` is the canonical **dependency-graph command**: with no explicit package argument it reconciles the discovered project dependency graph, including raw URL imports found through project discovery
+- `init`, `package-effects`, and `package-audit` are not source-entrypoint commands
 
 Canonical early-phase entrypoint-arity rule:
 - `run`, `build`, and `effects` each take **exactly one** explicit primary entrypoint in early phases
@@ -53,7 +54,7 @@ Canonical config-discovery rule:
 - unless a later spec adds an explicit `--config` override, commands discover the effective project config by searching the current working directory and then its ancestors for the nearest `kali.json`
 - if none exists, the command runs configless with the current working directory as the effective project root
 - explicit CLI file arguments do **not** relocate that chosen config/root; they resolve relative to the current working directory, while config-owned relative paths continue to resolve relative to the directory containing the discovered `kali.json`
-- recursive project discovery for no-argument `check` / `fmt` / `lint` / `test` and for `install` graph scanning must stop at nested child directories that contain their own `kali.json` unless the user explicitly names files inside them
+- recursive project discovery for no-argument `check` / `fmt` / `lint` / `test` and for no-package-argument `install` graph scanning must stop at nested child directories that contain their own `kali.json` unless the user explicitly names files inside them
 
 | Flag | Scope | Description |
 |------|-------|-------------|
@@ -516,7 +517,7 @@ Configuration simplification rules:
 - non-sandbox-aware commands (`init`, `fmt`, `lint`, `install`, `effects`, `package-effects`, `package-audit`) ignore the top-level `sandbox` setting rather than erroring or silently turning themselves into policy-validation commands
 - `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans
 - in schema v1, the only canonical compatibility feature name is `"eval"`; it gates both direct `eval` support and the `Function()` constructor compatibility path
-- `include` / `exclude` constrain the canonical project-discovery result for project-oriented commands and for hybrid no-argument discovery commands such as `check`; direct file arguments still name the primary entry explicitly
+- `include` / `exclude` constrain the canonical project-discovery result for project-oriented commands, the dependency-graph install scan, and hybrid no-argument discovery commands such as `check`; direct file arguments still name the primary entry explicitly
 - unless overridden, project-oriented discovery still skips the default managed/generated directories named in [SPEC.md](../SPEC.md)
 - `include` / `exclude` filter only the project's own discoverable files; they do not suppress transitive imports/dependencies reached from an accepted entrypoint and they are not a second package-resolution mechanism
 - generated config from `kali init` should prefer these canonical names and should not duplicate them as parallel top-level keys
