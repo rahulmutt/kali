@@ -65,6 +65,11 @@ For phase labels and command/profile maturity, see [specs/19-feature-maturity.md
 
 ## Canonical Axes and Terms
 
+Availability note:
+- the command-family labels below describe **command shape**, not guaranteed current-phase support
+- a command can belong to one of these families even if its availability is phase-gated elsewhere
+- canonical availability promises still live in [specs/19-feature-maturity.md](./specs/19-feature-maturity.md)
+
 ### API surface
 The selected host-facing API family:
 - `deno`
@@ -109,7 +114,7 @@ Config spelling: `compat.features`
 ### Direct-entry command
 A command that requires explicit entrypoint arguments and must not guess a project default entry.
 
-Early-phase direct-entry commands:
+Current CLI-vocabulary members of this family:
 - `run`
 - `build`
 - `effects`
@@ -117,13 +122,13 @@ Early-phase direct-entry commands:
 ### Hybrid analysis command
 A command that accepts explicit files, or falls back to project discovery when invoked without them.
 
-Early-phase hybrid analysis command:
+Current CLI-vocabulary members of this family:
 - `check`
 
 ### Project-oriented command
 A command whose primary no-argument behavior is defined in terms of canonical project discovery over source files rather than a required explicit entrypoint.
 
-Early-phase project-oriented commands:
+Current CLI-vocabulary members of this family:
 - `fmt`
 - `lint`
 - `test`
@@ -131,13 +136,13 @@ Early-phase project-oriented commands:
 ### Dependency-graph command
 A command whose no-argument behavior is defined in terms of the discovered project dependency graph rather than a required explicit source entrypoint.
 
-Early-phase dependency-graph command:
+Current CLI-vocabulary members of this family:
 - `install`
 
 ### Registry-analysis command
 A command that analyzes one explicit registry package identifier rather than discovered source files or the whole project graph.
 
-Early-phase registry-analysis commands:
+Current CLI-vocabulary members of this family:
 - `package-effects`
 - `package-audit`
 
@@ -145,7 +150,7 @@ Note:
 - `check` is still the canonical **hybrid analysis command**
 - when invoked without explicit files, `check` also uses canonical project discovery
 - `install` also uses canonical project discovery when it needs to scan source files for raw URL imports
-- `package-effects` and `package-audit` stay single-package registry-analysis commands in early phases rather than growing an implicit whole-project mode
+- when `package-effects` and `package-audit` are available, they stay single-package registry-analysis commands rather than growing an implicit whole-project mode
 - this keeps each command in one primary category and avoids overlapping near-duplicate workflows
 
 ## Canonical Default Tuple

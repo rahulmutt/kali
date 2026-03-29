@@ -369,6 +369,8 @@ Simplification rule:
 - Phase 1-2 effect reports are limited to built-in sandbox-relevant effect kinds; later experimental user-defined effects, if exposed, should use a reserved `Custom.<name>` namespace rather than overloading built-in policy keys
 - Effect locations use `SourceLocation` fields and the same 1-based `line` / `column` convention as diagnostics so tools do not need separate coordinate systems for errors vs effect reports
 - If a consumer needs a full range instead of a point location, it should use the same `SourceSpan` shape rather than inventing a command-specific span format
+- To keep reports diff-friendly and AI-friendly, producers should emit a deterministic order: sort `effects` by `kind`, then sort each occurrence list by normalized `file`, `line`, `column`, and `function` when present
+- `dynamicReasons` should be deduplicated and emitted in stable lexical order
 
 ## Package Effect Report Schema
 

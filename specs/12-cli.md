@@ -14,6 +14,9 @@
 These flags are shared across the CLI, but some apply only to specific command families. For the canonical meaning of **API surface**, **build mode**, and **runtime profile**, see [SPEC.md](../SPEC.md). For command/profile gating, see [19 — Feature Maturity](19-feature-maturity.md).
 
 Command-family terminology used in this chapter:
+- these labels describe **command shape and behavior**, not guaranteed current-phase availability
+- commands such as `effects`, `package-effects`, or `package-audit` may still be phase-gated even though their command family is defined here
+- canonical availability promises live in [19 — Feature Maturity](19-feature-maturity.md)
 - **execution commands**: `run` and `test`
 - **build-like commands**: `build`, plus the compile step embedded inside `run` and `test`
 - **diagnostic-producing commands**: `check`, `build`, `run`, `test`, `fmt --check`, and `lint`
@@ -23,7 +26,7 @@ Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - `check` is a **hybrid analysis command**: it accepts explicit file arguments, or falls back to the canonical project-discovery result when no files are provided
 - `fmt`, `lint`, and `test` are **project-oriented commands** when invoked without explicit file arguments
 - `install` is the canonical **dependency-graph command**: with no explicit package argument it reconciles the discovered project dependency graph, including raw URL imports found through project discovery
-- `package-effects` and `package-audit` are the canonical **registry-analysis commands**: each takes one explicit registry package identifier and does not invent a no-argument whole-project analysis mode in early phases
+- `package-effects` and `package-audit`, when available, are the canonical **registry-analysis commands**: each takes one explicit registry package identifier and does not invent a no-argument whole-project analysis mode in early phases
 - `init` is not a source-entrypoint command
 
 Canonical early-phase entrypoint-arity rule:
@@ -79,7 +82,7 @@ Canonical config-discovery rule:
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
 
 Package-analysis context simplification:
-- `kali package-effects` intentionally does **not** grow its own parallel `--api` / `--compat` flag set in early phases.
+- `kali package-effects`, when implemented, intentionally does **not** grow its own parallel `--api` / `--compat` flag set in early phases.
 - instead, it records the effective analysis context inherited from `kali.json` / built-in defaults in the nested `report.analysisContext` field.
 - this keeps package analysis aligned with the same canonical context vocabulary (`apiSurface`, `runtimeProfiles`, `compatFeatures`) without creating a second near-duplicate flag surface before there is evidence it is needed.
 

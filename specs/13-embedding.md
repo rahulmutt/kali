@@ -62,15 +62,20 @@ runtime.register_host_function("myApi", "getData", |args: &[Value]| -> Result<Va
 })?;
 ```
 
-### Event Handling
+### Optional Runtime-Control Conveniences
+These APIs are intentionally **optional/later convenience layers** over the minimal Phase 2 embedding contract.
+
+The stable Phase 2 promise is the compile / instantiate / run / call surface above plus aligned config and error contracts. More opinionated host-loop helpers such as async driving, server-style idle loops, or step-by-step execution may arrive later or remain host-specific wrappers rather than part of the minimum embedding guarantee.
+
+Illustrative examples:
 ```rust
-// Run with async event loop
+// Optional async convenience once the host-loop contract is stabilized
 let result = runtime.run_async("main.ts").await?;
 
-// Run until idle (for servers)
+// Optional host-driven event-loop helper for long-lived embeddings
 runtime.run_event_loop().await?;
 
-// Step-by-step execution (for debugging)
+// Optional step-by-step execution/debug wrapper
 let mut runner = runtime.step_runner("main.ts")?;
 while let Some(step) = runner.next_step()? {
     println!("Executing: {:?}", step);
