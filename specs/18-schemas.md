@@ -6,15 +6,18 @@ Kali emits several machine-consumed JSON formats:
 - CLI command envelopes
 - diagnostics
 - effect reports
+- project configuration (`kali.json`)
 - sandbox policies
 
 To keep the specs consistent and AI-friendly, these formats are centralized here instead of being redefined independently in multiple chapters.
 
 ## Versioning Rules
 
-- Every top-level machine-readable document carries `schemaVersion`
+- Every top-level machine-readable **JSON** document carries `schemaVersion`
+- Non-JSON machine-readable artifacts version themselves using their own canonical mechanism (for example `kali.lock v1` in the lockfile header)
 - Schema changes that break old consumers require a version bump
 - Additive changes within a version are allowed only for optional fields
+- For enum-like machine strings (for example canonical `dynamicReasons`, stable effect names, or artifact `kind` values documented here), introducing new stable values requires a schema-version bump unless the field is explicitly documented as open-ended
 - CLI text output is human-oriented; JSON output is the stable tooling contract
 
 ## CLI Command Envelope
@@ -44,6 +47,7 @@ Used by commands that opt into `--output json`.
 - `artifacts: Artifact[]`
 - `stdout: string`
 - `timings: PhaseTiming[]`
+- `exitCode: number` — canonical process exit code for the command invocation when the caller needs it in-band
 
 ### Notes
 - `payload` holds command-specific structured data
@@ -261,7 +265,7 @@ Produced by `kali effects`.
     }
   ],
   "dynamicEffects": false,
-  "usesEval": false
+  "dynamicReasons": []
 }
 ```
 
@@ -270,7 +274,7 @@ Produced by `kali effects`.
 - `entryPoints: string[]`
 - `effects: EffectOccurrence[]`
 - `dynamicEffects: boolean`
-- `usesEval: boolean`
+- `dynamicReasons: string[]` — canonical reason codes explaining why the report is conservative/incomplete; empty when `dynamicEffects` is `false`
 
 ### `EffectOccurrence`
 ```json
@@ -299,7 +303,11 @@ Optional fields:
 
 ### Semantics
 - `dynamicEffects: true` means the report is conservative but incomplete
-- `usesEval: true` implies `dynamicEffects: true`
+- `dynamicReasons` uses canonical reason strings so tools do not have to infer *why* the report became conservative from free-form notes alone
+- Schema v1 reason strings are: `eval`, `function-constructor`, `dynamic-import`, `proxy-traps`, and `computed-host-access`
+- Because `dynamicReasons` is a stable machine contract, adding new canonical reason strings requires a schema-version bump
+- `dynamicReasons` must be empty when `dynamicEffects` is `false`
+- If `dynamicReasons` contains `eval` or `function-constructor`, the report should also include the built-in `Eval` effect in `effects`
 - Effect `kind` names must match the canonical built-in names derived from the type system and sandbox policy model
 - Phase 1-2 effect reports are limited to built-in sandbox-relevant effect kinds; later experimental user-defined effects, if exposed, should use a reserved `Custom.<name>` namespace rather than overloading built-in policy keys
 - Effect locations use `SourceLocation` fields and the same 1-based `line` / `column` convention as diagnostics so tools do not need separate coordinate systems for errors vs effect reports
@@ -329,6 +337,7 @@ Rules:
 - Later experimental user-defined effects, if exposed, must use the reserved `Custom.<name>` namespace.
 - Coarse policy keys may match a namespace prefix. In schema v1, `effects.random` matches any `Random.*` built-in effect, and `effects.console` matches any `Console.*` built-in effect.
 - New built-in effect names must be added here before they appear in diagnostics, effect reports, or policy examples elsewhere in the spec set.
+- Adding a new stable built-in effect name that can appear in machine-readable output is a schema-contract change and should be accompanied by a schema-version review.
 
 ## Project Configuration Schema
 
@@ -336,6 +345,7 @@ Canonical filename: `kali.json`
 
 ```json
 {
+  "schemaVersion": 1,
   "$schema": "https://kali.sh/schemas/config-v1.json",
   "compilerOptions": {
     "strict": true,
@@ -364,14 +374,16 @@ Canonical filename: `kali.json`
 ```
 
 ### Rules
+- `schemaVersion: number` is required on `kali.json` like every other top-level machine-readable Kali JSON document
 - `compilerOptions.apiSurface` is the canonical config name for the host API family; CLI uses `--api`
 - `compilerOptions.buildMode` is one of `fast`, `release`, or `release-advanced`
 - `compilerOptions.runtimeProfiles` is an array of semantic runtime-profile names; in schema v1 it is usually empty because later profiles such as `wasm-threads` are still phase-gated
+- `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
+- `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
 - `dependencies` and `devDependencies` are top-level package manifests owned by `kali install`; they are not nested under `compilerOptions`
 - Config should not mirror every CLI boolean directly when a more semantic field already exists
-- `compilerOptions.api` may be accepted as a deprecated alias for migration, but tools should emit `apiSurface`
 - Precedence is `CLI > kali.json > defaults`, except sandbox policy restrictions still bound effective runtime behavior
-- Unknown top-level config fields should be diagnosed unless reserved for a documented extension mechanism
+- Unknown config fields are rejected at every documented nesting level unless a future schema revision adds an explicit extension mechanism
 
 ## Sandbox Policy Schema
 
@@ -415,7 +427,7 @@ Canonical filename: `kali.policy.json`
 
 ### Rules
 - Policies are declarative data, not executable code
-- Unknown fields are rejected to keep policy evaluation deterministic and auditable
+- Unknown fields are rejected at every documented nesting level to keep policy evaluation deterministic and auditable
 - Policy booleans mean fully allowed or fully denied for that capability
 - Pattern-bearing fields (`read`, `fetch`) are allowlists
 - Numeric limit fields constrain otherwise-allowed capabilities; for example `timer.schedule: true` with `maxActiveTimers: 32` allows timers but caps concurrency

@@ -2,59 +2,64 @@
 
 - Iteration: 10 of 10
 - Prompt file: /workspace/prompts/iterate-spec.md
-- Updated: 2026-03-29T14:38:29.880Z
+- Updated: 2026-03-29T15:08:45.962Z
 
 ## Last emitted message
 
 ```text
-Updated the specs to tighten a few inconsistencies and simplify duplication.
+Made a spec cleanup pass and fixed a few inconsistencies.
 
-Changed files:
-- `/workspace/SPEC.md`
-- `/workspace/specs/11-standard-apis.md`
-- `/workspace/specs/12-cli.md`
-- `/workspace/specs/19-feature-maturity.md`
+Updated:
+- `specs/05-ir.md`
+- `specs/06-memory.md`
+- `specs/07-specialization.md`
+- `specs/14-packages.md`
+- `specs/16-testing.md`
+- `RALPH.md`
 
-What I fixed
+What I improved
 
-1. Test command/API-surface ambiguity
-- Added explicit `kali test` host-profile rules to:
-  - `SPEC.md`
-  - `specs/12-cli.md`
-  - `specs/11-standard-apis.md`
-  - `specs/19-feature-maturity.md`
-- Canonicalized:
-  - `kali test` / `--api deno` = Phase 1 MVP
-  - `kali test --api node` = Phase 3 target
-  - `kali test --api browser` = rejected by default early
+1. Ownership vs layout terminology
+- In `specs/05-ir.md`, I made it explicit that:
+  - layout (`static`/`dynamic`) and
+  - ownership (`stack`/`owned heap`/`shared heap`/`borrowed`)
+  are separate axes.
+- This removes ambiguity where “heap allocated” could be misread as “dynamic object layout”.
 
-This removes drift between `run`, `build`, `check`, and `test`.
+2. Canonical ownership naming
+- Standardized spec language around `shared heap` instead of `Rc`.
+- Renamed MIR ownership wording to:
+  - `Stack`
+  - `OwnedHeap`
+  - `SharedHeap`
+  - `Borrowed`
+- Updated related wording in memory/optimization/testing docs.
 
-2. CLI config inconsistency
-- `specs/12-cli.md` had an older config example using `compilerOptions.api`.
-- Replaced it with the canonical naming:
-  - `compilerOptions.apiSurface`
-  - `compilerOptions.buildMode`
-  - `compilerOptions.runtimeProfiles`
+3. Cycle handling simplified
+- In `specs/06-memory.md`, I simplified cycle handling:
+  - prefer acyclic ownership when provable
+  - use shared-heap fallback for cyclic graphs
+  - allow targeted deterministic cycle reclamation
+  - allow region teardown for short-lived sandbox runs
+- Also clarified this does not imply early support for JS weak-ref APIs like `WeakMap` or `FinalizationRegistry`.
 
-3. Spec simplification
-- Removed the large duplicated full `kali.json` example from `specs/12-cli.md`.
-- Replaced it with a minimal canonical shape and a link to `specs/18-schemas.md`, which should remain the schema source of truth.
+4. `--fast` behavior clarified
+- In `specs/07-specialization.md`, I tightened the wording so `--fast` means:
+  - skip most user-authored generic specialization
+  - but still keep monomorphic/static optimizations where already justified
+- This avoids the misleading reading that `--fast` makes everything boxed/dynamic.
 
-4. Minor wording cleanup
-- Clarified browser build wording in CLI:
-  - “browser build path requires `--bundle`”
-- Added explicit note that `kali test` follows the same early-phase API gating as `kali run`.
+5. Browser package resolution consistency
+- In `specs/14-packages.md`, I aligned browser-targeted resolution rules for both:
+  - `kali check --api browser`
+  - `kali build --bundle --api browser`
+- This reduces the risk of `check` and `build` resolving different package branches.
 
-Why these changes help
+Notable inconsistency fixed
+- `specs/06-memory.md` previously mixed internal cycle-management ideas with weak-reference semantics.
+- I separated those cleanly so ordinary object cycles are handled internally, while weak-ref APIs remain later-phase features.
 
-- Reduces duplication between CLI docs and schema docs
-- Makes command/profile behavior more machine-checkable
-- Avoids undocumented “maybe supported” interpretations for browser/node test flows
-- Keeps `SPEC.md` and the maturity matrix aligned
-
-If you want, I can do a second pass focused on:
-- simplifying repeated phase-language across all `specs/*.md`
-- tightening package-resolution wording
-- auditing memory/effect/runtime chapters for any remaining subtle contradictions
+If you want, I can also do one last pass over:
+- `04` / `09` / `18` for effect-system naming consistency, or
+- `10` / `11` / `12` / `19` for runtime/API/profile cross-checking.
 ```

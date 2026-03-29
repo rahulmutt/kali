@@ -37,7 +37,7 @@ Each specialization uses the most compact possible layout for its concrete type.
 - Cap specializations per function (default: 16) to prevent code size explosion
 - Beyond the cap, fall back to a "generic" version using boxed/tagged representation
 - User-configurable via `--max-specializations N`
-- In `--fast` mode (the default), skip specialization entirely (use boxed/tagged representation for generics)
+- In `--fast` mode (the default), skip most user-authored generic specialization entirely (use boxed/tagged representation at those generic boundaries)
 
 ## Optimization Passes
 
@@ -49,7 +49,7 @@ Each specialization uses the most compact possible layout for its concrete type.
 
 ### Phase 2: MIR Optimizations (--release)
 - **Escape analysis refinement**: Promote heap → stack where possible
-- **Rc elision**: Remove unnecessary reference count operations
+- **Shared-refcount elision**: Remove unnecessary reference count operations
 - **Copy propagation**: Eliminate redundant copies/moves
 - **Common subexpression elimination (CSE)**
 - **Loop-invariant code motion (LICM)**
@@ -70,7 +70,12 @@ Each specialization uses the most compact possible layout for its concrete type.
 
 When specialization is not possible (type unknown, exceeds specialization cap), the compiler falls back to tagged/dynamic representations. See [specs/05-ir.md](05-ir.md#value-representation) for the `ValueRepr` enum and NaN-boxing scheme.
 
-In `--fast` mode, all generics use the `Tagged` representation (no specialization). In `--release`, generics are specialized up to the cap, with remaining call sites using `Tagged`. In `--release-advanced`, the compiler may remove or greatly raise the cap, but should still retain an emergency fallback to avoid pathological code-size explosions.
+Clarification:
+- disabling generic specialization in `--fast` does **not** mean the whole compiler becomes dynamically typed
+- monomorphic code, concrete object layouts, and straightforward scalar optimizations should still use the best representation already justified by the checker and IR pipeline
+- the fallback applies specifically at specialization boundaries where extra compile-time work or code-size growth would otherwise be required
+
+In `--fast` mode, user-authored generics normally use the `Tagged` representation (no additional specialization). In `--release`, generics are specialized up to the cap, with remaining call sites using `Tagged`. In `--release-advanced`, the compiler may remove or greatly raise the cap, but should still retain an emergency fallback to avoid pathological code-size explosions.
 
 ## Profile-Guided Optimization (Future)
 

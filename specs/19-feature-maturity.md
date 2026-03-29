@@ -15,6 +15,19 @@ If another spec needs to mention one of these features, it should link here for 
 - **Later compatibility (opt-in only)** — deferred until a later phase and, even then, enabled only behind an explicit runtime/profile switch
 - **Rejected by default** — parser may accept the syntax, but compile/run should fail unless the documented compatibility switch is enabled in a phase that actually implements the feature
 
+## Status Interpretation Table
+
+| Status label | Meaning in practice |
+|---|---|
+| Phase 1 MVP | Must ship in the first dependable end-to-end release |
+| Phase 2 target / Phase 3 target / Phase 4 compatibility | Planned work for that phase; before then, reject with the canonical gating path rather than partially emulating it |
+| Later compatibility | Intentionally deferred with no near-phase promise |
+| Opt-in only | Implemented only behind an explicit flag/config even after support exists |
+| Later compatibility (opt-in only) | Both deferred and explicitly gated when it eventually lands |
+| Rejected by default | Parse support may exist, but normal compile/run still rejects it unless a documented compatibility path exists and is implemented |
+
+This table exists to keep the status labels operational: a label implies whether Kali should ship, gate, reject, or require an explicit opt-in.
+
 ## Canonical Matrix
 
 | Feature | Status | Rationale |
@@ -40,6 +53,7 @@ If another spec needs to mention one of these features, it should link here for 
 | `SharedArrayBuffer` / `Atomics` | Later compatibility (opt-in only) | Requires a separate threaded runtime profile and should not be implied by the Phase 1 single-threaded runtime |
 | `--wasm-threads` | Later compatibility (opt-in only) | Enables the threaded runtime profile once that profile exists; must fail explicitly before then and on unsupported targets/engines |
 | `--api browser` for `check` / `build --bundle` | Phase 1 MVP | Browser-targeted analysis/build without claiming DOM support in the standalone runtime |
+| `package.json#exports` condition `deno` for `--api deno` resolution | Phase 1 MVP | Aligns package resolution with the default Deno-oriented standalone API surface |
 | `package.json#browser` / `exports` condition `browser` in browser bundle mode | Phase 1 MVP | Needed for practical browser-targeted npm compatibility without widening standalone runtime claims |
 | `run --api browser` | Rejected by default | Early standalone runtime does not emulate a browser host |
 | npm lifecycle scripts (`kali install --allow-scripts`) | Opt-in only | Disabled by default for sandbox-first behavior; enabling scripts does not make native addons supported |
@@ -154,10 +168,25 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Concern | Early canonical status | Notes |
 |---|---|---|
 | Pure JS/TS npm packages within the linked-artifact model | Phase 1 MVP | No native addons |
+| Deno-condition package resolution in the default standalone surface | Phase 1 MVP | Honor `exports` condition `deno` when `--api deno` is selected |
 | Browser-condition package resolution in browser bundle mode | Phase 1 MVP | `browser` field / `exports` browser condition |
 | npm lifecycle scripts | Opt-in only | `kali install --allow-scripts` |
 | Native addons / `node-gyp` | Rejected by default | Violates pure-Rust/no-native-addon constraints |
 | Broader Node-host-heavy npm compatibility | Phase 3 target | Depends on meaningful Node API support |
+
+## Hard-Feature Implementation Stage Matrix
+
+This matrix is a compact cross-check for the features most likely to drift between parser, checker, effects, lowering, and runtime docs.
+
+| Feature | Parse | Type/effect analysis | Lowering / codegen | Execution |
+|---|---|---|---|---|
+| dynamic `require()` | Yes | Recognize as unsupported dynamic loading | No early-phase lowering | Rejected by default |
+| literal-string `import()` | Yes | Analyze as statically known target once implemented | Phase 3 target lowering to the already-linked graph | Phase 3 target |
+| non-literal `import(expr)` | Yes | Mark as dynamic effect boundary when analyzed | No early-phase lowering | Rejected by default |
+| `eval` / `Function()` | Yes | Report `Eval` effect; type-check conservatively around the boundary | Phase 4 compatibility path only | Rejected by default unless `--compat eval` is implemented and enabled |
+| explicit `pure` / effect annotations | Yes | Phase 2 target validation | N/A beyond analysis metadata | N/A |
+| `Proxy` | Yes | Analyze conservatively where possible; may trigger `dynamicReasons: ["proxy-traps"]` | Lower only once faithful runtime support exists | Later compatibility |
+| `WeakMap` / `WeakSet` / `FinalizationRegistry` | Yes | Parse and basic type-checking may exist ahead of lowering | Lower only once faithful semantics are specified | Later compatibility |
 
 ## Features Most Likely to Appear in Diagnostics
 

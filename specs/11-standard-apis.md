@@ -17,6 +17,8 @@ For dynamic or semantically expensive APIs (for example `Proxy`, weak references
 
 ## API-Surface Loading Rule
 
+For the compact cross-spec summary of early host/API behavior, see the canonical host capability table in [SPEC.md](../SPEC.md).
+
 To keep runtime imports, globals, and package expectations aligned:
 - the **Web Platform baseline** is the shared baseline across supported surfaces
 - `--api deno`, `--api node`, and `--api browser` control which **additional** globals/modules beyond that baseline are available
@@ -28,7 +30,12 @@ This prevents a common source of drift: host-runtime implementation convenience 
 ## API Layers
 
 ### Web Platform APIs (Baseline)
-Always available regardless of runtime mode.
+Available across supported execution surfaces as the shared baseline.
+
+Interpretation rule:
+- in standalone execution (`run` / `test`), this baseline is present for supported runtime profiles
+- in browser-targeted output (`build --bundle --api browser`), this is the baseline the emitted code targets in the real browser host
+- command/profile combinations that are themselves phase-gated are still rejected according to [specs/19-feature-maturity.md](19-feature-maturity.md)
 
 **Phase 1 MVP baseline**
 - `console` (`log`, `warn`, `error`, `debug`, `info`)
@@ -56,7 +63,7 @@ Deno is the primary standalone-runtime API surface because it fits Kali's explic
 - File APIs: `Deno.readTextFile`, `Deno.readTextFileSync`, `Deno.writeTextFile`, `Deno.writeTextFileSync`, `Deno.readFile`, `Deno.readFileSync`, `Deno.writeFile`, `Deno.writeFileSync`
 - Metadata APIs: `Deno.stat`, `Deno.statSync`, `Deno.readDir`, `Deno.readDirSync`
 - Process basics: `Deno.args`, `Deno.pid`
-- Environment access: `Deno.env.get`, `Deno.env.toObject` *(with `toObject()` exposing only variables permitted by `process.envRead` rather than the raw host environment)*
+- Environment access: `Deno.env.get`, `Deno.env.toObject` *(with `toObject()` exposing only variables permitted by `effects.process.envRead` rather than the raw host environment)*
 - `Deno.permissions` as a read-only compatibility facade over Kali sandbox policy state; it reports granted/denied capabilities but does not perform interactive permission prompts
 
 Process termination (`Deno.exit`) and working-directory mutation/introspection (`Deno.cwd`, `Deno.chdir`) are deferred until a later phase. They widen the embedding/sandbox contract but are not needed for the initial package-oriented MVP.
@@ -114,7 +121,7 @@ Browser mode is primarily a **build/check profile** in early phases, not a promi
 - `kali run --api browser ...` is rejected by default until a later runtime profile explicitly supports it
 - `kali test --api browser ...` is also rejected by default in early phases for the same reason; browser support is not yet a standalone execution/test-runtime contract
 
-**Note**: The Phase 1 baseline Web Platform APIs are always available regardless of `--api` mode. The `--api` flag controls which *additional* platform-specific APIs are loaded, and unsupported command/surface combinations in early phases should produce the canonical feature-maturity diagnostic described in [specs/15-errors.md](15-errors.md) rather than silently falling back.
+**Note**: For supported command/profile combinations, the Phase 1 baseline Web Platform APIs are available regardless of `--api` mode. The `--api` flag controls which *additional* platform-specific APIs are loaded, and unsupported command/surface combinations in early phases should produce the canonical feature-maturity diagnostic described in [specs/15-errors.md](15-errors.md) rather than silently falling back.
 
 ## Phase 1 Host API Exit Criteria
 
@@ -136,7 +143,7 @@ User Code (WASM)
     ├── Direct calls → Host Functions (Rust)
     │                      │
     │                      ├── Sandbox policy check
-    │                      ├── Actual I/O (via tokio)
+    │                      ├── Actual I/O (via Rust async/runtime primitives)
     │                      └── Return result to WASM
     │
     └── Pure APIs (in WASM runtime)

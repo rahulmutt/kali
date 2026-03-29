@@ -44,7 +44,7 @@ Determines whether a value's lifetime exceeds its creating scope:
 - **Escapes via return**: moved to caller, single owner transfer
 - **Escapes via closure capture**: captured by a closure that outlives the scope → shared
 - **Escapes via container**: stored in an object/array that escapes → follows container's ownership
-- **Escapes via global/module state**: stored in module-level variable → heap + Rc
+- **Escapes via global/module state**: stored in module-level variable → shared heap with deterministic reference counting
 
 ### Closure Analysis
 Closures capture variables. For each capture:
@@ -54,13 +54,13 @@ Closures capture variables. For each capture:
 
 ## Reference Counting
 
-When shared ownership is needed, Kali uses compile-time-inserted reference counting:
+When shared ownership is needed, Kali uses compile-time-inserted deterministic reference counting:
 
 ```rust
-struct RcHeader {
+struct SharedHeader {
     ref_count: u32,
-    // Optional weak count for cycle detection
-    weak_count: u32,
+    // Reserved for internal cycle-reclamation bookkeeping when enabled
+    aux_count: u32,
     // Type tag for runtime type checks (when needed)
     type_tag: u16,
     // Flags (e.g., frozen, sealed)
@@ -68,19 +68,28 @@ struct RcHeader {
 }
 ```
 
-### Rc Optimizations
+The header layout above is illustrative. The important contract is the ownership model, not the exact field names or bit layout.
+
+### Shared-Ownership Optimizations
 - **Elide inc/dec pairs**: When a borrow is provably temporary, skip ref counting
 - **Move optimization**: Transfer ownership without inc+dec (just dec the source)
 - **Static ref**: Objects known to live for program lifetime skip counting entirely
-- **Batch dec**: When a scope exits with multiple Rc values, batch the decrements
+- **Batch dec**: When a scope exits with multiple shared values, batch the decrements
 - **Inline ref count**: Small objects embed the count in their header (no indirection)
 
-### Cycle Detection
-JavaScript allows reference cycles (e.g., `a.b = b; b.a = a`). Strategies (all deterministic, none are tracing GC):
-1. **Static detection**: If the type system can prove a cycle is possible, use weak references automatically for back-edges
-2. **Trial deletion**: On `rc_dec` reaching a suspect threshold, perform local trial deletion (Bacon & Rajan algorithm) — this is a targeted, deterministic cycle reclamation, not a tracing GC
-3. **Scope-limited**: For short-lived computations (typical sandbox use), use region-based allocation — all memory freed in bulk when the scope/sandbox exits
-4. **Leak detection**: In debug mode, report potential cycles at program exit with source locations
+### Cycle Handling
+JavaScript allows ordinary strong-reference cycles (e.g., `a.b = b; b.a = a`), so Kali needs an explicit strategy even without a tracing GC.
+
+Early simplification:
+1. **Prefer acyclic ownership when provable**: keep stack or unique-ownership layouts when escape analysis can prove they are sufficient
+2. **Shared-heap fallback for cyclic graphs**: when objects must be shared, lower them to shared-heap ownership without changing their logical object layout unless other dynamic features force that too
+3. **Targeted cycle reclamation**: shared regions may use deterministic trial-deletion/local cycle collection when ordinary ref counting cannot reclaim a cycle
+4. **Sandbox/region teardown**: short-lived runtime instances may reclaim whole regions when the sandbox/program exits
+5. **Debug leak reporting**: in debug mode, report unreclaimed shared cycles at shutdown with source locations where possible
+
+Important separation rule:
+- this is an **internal memory-management strategy** for ordinary object graphs
+- it does **not** imply that JavaScript weak-reference APIs (`WeakMap`, `WeakSet`, `FinalizationRegistry`) are available early; those remain later-compatibility features as defined in [specs/19-feature-maturity.md](19-feature-maturity.md)
 
 ## Stack Allocation in Linear Memory
 
@@ -117,8 +126,8 @@ JavaScript's semantics assume GC. Key cases:
 
 | JS Pattern | Kali Strategy |
 |---|---|
-| Closures capturing variables | Shared heap cell with deterministic ref counting for escaping mutable captures |
-| Circular references | Weak refs, explicit back-edge lowering, or bounded cycle-reclamation strategies |
+| Closures capturing variables | Shared heap cell with deterministic reference counting for escaping mutable captures |
+| Circular references | Shared-heap fallback plus bounded deterministic cycle-reclamation strategies |
 | `arguments` object | Stack-allocated array when non-escaping; heap otherwise |
 | Prototype chains | Static when class hierarchy is known; shared heap object for dynamic cases |
 | WeakMap/WeakSet | Later-phase compatibility feature; unsupported in early phases until weak-reference semantics are specified without violating observable behavior |
@@ -128,7 +137,7 @@ JavaScript's semantics assume GC. Key cases:
 ### `eval` and Dynamic Features
 When `eval` or `Function()` is used:
 - All local variables in scope are conservatively heap-allocated
-- Ownership defaults to shared heap representation with deterministic reference counting
+- Ownership defaults to shared-heap representation with deterministic reference counting
 - This is flagged as a performance warning by the compiler
 - The sandbox system can prohibit `eval` entirely
 - Full runtime `eval` semantics are only required in Phase 4 (see [specs/10-runtime.md](10-runtime.md))
@@ -140,3 +149,7 @@ Even without a GC, Kali guarantees memory safety:
 - No buffer overflows: bounds checks on array access (elided when provably safe)
 - No uninitialized reads: all variables initialized before use (compiler-enforced)
 - WASM's inherent sandboxing provides a safety net for linear memory access
+
+Terminology note:
+- `stack`, `owned heap`, `shared heap`, and `borrowed` are the canonical ownership categories across the memory, IR, optimization, and testing specs
+- avoid using `Rc` as a separate semantic category in the spec set; it is an implementation technique for `shared heap`, not a user-facing model

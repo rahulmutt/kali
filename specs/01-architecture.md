@@ -9,8 +9,8 @@ Source (.ts/.tsx/.js/.jsx/.mjs/.cjs)
   → AST                (03-ast.md)
   → Type Checker       (04-type-system.md)
     ├─ Name Resolution (symbol table, scopes)
-    ├─ Type Inference  (HM unification + flow narrowing)
-    └─ Effect Inference (09-sandboxing.md)
+    ├─ Type Inference  (TS-compatible checking + flow narrowing early; broader HM-style inference grows in later phases)
+    └─ Effect Inference (09-sandboxing.md; internal analysis may exist before stable user-facing reports)
   → Typed AST
   → HIR                (05-ir.md) — High-level IR, desugared
   → MIR                (05-ir.md) — Mid-level IR, memory layouts + ownership *(Phase 2+; Phase 1 may lower HIR → LIR directly)*
@@ -36,7 +36,7 @@ kali/
 │   ├── kali_codegen/      — WASM binary emission
 │   ├── kali_optimize/     — Optimization and specialization passes
 │   ├── kali_sandbox/      — Sandboxing policies, effect analysis
-│   ├── kali_runtime/      — Runtime support library (Rust, compiled to WASM)
+│   ├── kali_runtime/      — Guest-side runtime support linked into emitted WASM artifacts
 │   ├── kali_api_deno/     — Deno API compatibility (host functions)
 │   ├── kali_api_node/     — Node.js API compatibility (host functions)
 │   ├── kali_api_web/      — Web-platform baseline APIs and browser-bundle glue support (not a standalone DOM engine)
@@ -55,7 +55,7 @@ kali/
 
 The architecture is intentionally staged so the compiler can become useful early. The phase names and scope here are canonicalized to match [SPEC.md](../SPEC.md):
 
-1. **Phase 1 — Core compiler**: lexer, parser, AST, name resolution, baseline TypeScript checking, HIR/LIR, simple WASM emission, a minimal Web/Deno host surface, browser-targeted `check --api browser` and `build --bundle --api browser`, the core CLI workflow, and a library-first internal architecture so the CLI is built on reusable compiler/runtime crates.
+1. **Phase 1 — Core compiler**: lexer, parser, AST, name resolution, TypeScript-compatible checking, first-class JavaScript compilation with conservative inference, HIR/LIR, simple WASM emission, a minimal Web/Deno host surface, browser-targeted `check --api browser` and `build --bundle --api browser`, the core CLI workflow, and a library-first internal architecture so the CLI is built on reusable compiler/runtime crates.
 2. **Phase 2 — Ownership + effects**: MIR, ownership/escape analysis, deterministic memory management, effect summaries, compile-time sandbox policy validation, and the first stable embedding surfaces.
 3. **Phase 3 — Specialization + ecosystem**: specialization, advanced layout selection, broader npm package compatibility beyond the Phase 1 CJS/literal-`require` baseline, broader Node compatibility, broader browser packaging/interoperability beyond the Phase 1 bundle baseline, incremental compilation, and stronger optimization.
 4. **Phase 4 — Advanced compatibility**: hardest dynamic features (`eval`, `Function()`, non-literal dynamic loading), deeper API coverage, and broader formal verification.
@@ -114,9 +114,9 @@ This section uses the canonical term **build mode** to match [SPEC.md](../SPEC.m
 
 | Build mode | Description |
 |------|-------------|
-| `--fast` | Minimal optimization, fastest compile time (default) |
-| `--release` | Standard optimizations: inlining, dead code elimination, layout optimization |
-| `--release-advanced` | Aggressive optimization: expanded specialization budget, optional external WASM post-pass, LTO |
+| `fast` | Minimal optimization, fastest compile time (default; selected by `--fast`) |
+| `release` | Standard optimizations: inlining, dead code elimination, layout optimization (selected by `--release`) |
+| `release-advanced` | Aggressive optimization: expanded specialization budget, optional external WASM post-pass, LTO (selected by `--release-advanced`) |
 
 ### Error Strategy
 Compilation is resilient — continue after errors to report as many issues as possible in one pass. Use a `Diagnostics` collector that accumulates errors/warnings without aborting. See [specs/15-errors.md](15-errors.md).

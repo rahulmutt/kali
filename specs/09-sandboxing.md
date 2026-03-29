@@ -39,13 +39,20 @@ The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md)
 - `entryPoints`
 - `effects`
 - `dynamicEffects`
-- `usesEval`
+- `dynamicReasons`
 
 Other commands that embed effect data should place the full report under the CLI envelope's `payload` field instead of redefining the structure.
 
 ### `dynamicEffects` Flag
-Set to `true` when:
-- `eval` or `Function()` is used
+Set to `true` when the report has one or more canonical `dynamicReasons`, currently:
+- `eval`
+- `function-constructor`
+- `dynamic-import`
+- `proxy-traps`
+- `computed-host-access`
+
+These correspond to cases such as:
+- `eval` or `Function()`
 - Dynamic `import()` with non-literal specifier
 - `Proxy` with handler traps that could perform any effect
 - Computed property access on host API objects
@@ -61,7 +68,7 @@ Default format: `kali.policy.json`
 
 The canonical policy schema is defined in [specs/18-schemas.md](18-schemas.md). JSON is the canonical interchange format for CLI tooling and AI agents. An equivalent TOML format may be supported later, but it would be a convenience syntax layered on top of the JSON data model rather than a separate policy contract.
 
-For process environment access, the policy model distinguishes `process.envRead` from `process.envWrite` so read-only inspection and mutation can be granted independently.
+For process environment access, the policy model distinguishes `effects.process.envRead` from `effects.process.envWrite` so read-only inspection and mutation can be granted independently.
 
 ### Policy Validation (Compile-Time)
 Compile-time policy handling is intentionally split to keep Phase 1 smaller and less ambiguous:

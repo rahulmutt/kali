@@ -58,7 +58,7 @@ Because Kali aims to support real npm/JS ecosystems, package compatibility needs
 #### Kali-Specific Tests
 - **Effect inference tests**: Source → expected effects JSON *(Phase 2 target; Phase 1 may instead test internal analysis units without a stable CLI surface)*
 - **Sandbox tests**: Source + policy → expected pass/fail, including explicit checks for Phase 1 runtime enforcement vs Phase 2 compile-time effect-policy rejection
-- **Memory tests**: Source → expected allocation strategy (stack/heap/Rc)
+- **Memory tests**: Source → expected allocation strategy (stack/owned-heap/shared-heap)
 - **Specialization tests**: Generic source → expected number of specializations
 - **Optimization tests**: Source → check specific optimization was applied
 - **AI-facing diagnostics tests**: ensure concise human output and stable JSON diagnostics remain aligned
@@ -66,7 +66,7 @@ Because Kali aims to support real npm/JS ecosystems, package compatibility needs
 ### Snapshot Tests
 For IR representations:
 - Source → HIR snapshot
-- Source → MIR snapshot (including memory layout decisions)
+- Source → MIR snapshot (including memory layout decisions) *(Phase 2+, once MIR is the canonical ownership/layout IR)*
 - Source → WASM text format snapshot
 - Snapshots reviewed on change, committed to repo
 

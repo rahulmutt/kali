@@ -1,212 +1,211 @@
 # Kali Specification
 
-This document is the top-level roadmap for Kali and the canonical index into `specs/*.md`.
+This document is the top-level index and canonical overview for the Kali project.
 
-Kali is an ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembly, with three priorities:
-1. **Fast compilation and fast generated code**
-2. **Sandbox-first execution for untrusted and AI-generated programs**
-3. **A machine-friendly developer experience**
+Kali is an ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembly, designed for:
+- fast compilation and execution
+- strong static analysis
+- sandboxed execution
+- AI-friendly diagnostics and tooling
+- pure-Rust implementation and embedding
 
-It is implemented in Rust, avoids embedded C/C++ dependencies, emits WebAssembly ahead of time, and uses stronger static analysis than TypeScript where that improves safety, performance, or sandboxability.
+It references the detailed specifications in `specs/*.md` and defines the canonical vocabulary used across them so the spec set stays consistent.
 
-## Core Product Definition
+## Product Summary
 
-The goals in [BOOTSTRAP.md](BOOTSTRAP.md) are the **long-term product definition**. This spec set turns that vision into a phased plan so the project can ship in coherent increments without weakening the eventual target.
+Kali aims to:
+- compile TypeScript and JavaScript to WebAssembly ahead of time
+- use richer static analysis than traditional TypeScript where it remains predictable and fast
+- infer effects and support sandbox policies for untrusted or AI-generated code
+- avoid tracing GC by making compile-time ownership and allocation decisions where possible
+- aggressively specialize code and memory layouts when the program is analyzable
+- provide a clean CLI and embeddable Rust/C APIs
+- support practical ecosystems: Deno-first runtime behavior, browser-targeted builds early, broader Node compatibility later
 
-Kali should eventually provide:
-- broad ECMAScript + TypeScript compatibility, tracking the latest published ECMA-262 edition as the language baseline while still phase-gating hard runtime features explicitly
-- first-class `.js` support with type inference strong enough to compile plain JavaScript efficiently
-- AOT compilation to WebAssembly only
-- no tracing garbage collector
-- deterministic ownership-based memory management
-- aggressive specialization of generics and layouts
-- static effect summaries for sandboxing
-- runtime sandbox enforcement for dynamic behavior
-- embeddable Rust and C APIs
-- AI-friendly diagnostics and JSON schemas
-- gradual formal verification in Lean 4
+## Hard Constraints
 
-## Canonical Simplifications
+These constraints are project-wide and should not be weakened in lower-level specs:
+- **AOT-only**: no language-level JIT compilation
+- **Pure Rust**: no embedded C/C++ libraries
+- **Sandbox-first**: runtime enforcement is a first-class requirement, not an afterthought
+- **Single linked artifact early**: Phase 1-3 builds target one linked WASM artifact for the resolved static graph
+- **No silent semantic fallback**: unsupported or phase-gated features must fail explicitly rather than degrade invisibly
+- **AI-friendly machine contracts**: JSON output, diagnostics, and effect reports are stable, concise, and versioned
 
-To keep the project implementable, the spec set makes these simplifying choices:
-- **Single linked artifact first**: early phases compile one resolved module graph into one linked WASM artifact.
-- **wasmtime first**: Phases 1-3 standardize on wasmtime as the execution engine.
-- **Library-first architecture**: the CLI is built on reusable crates; stable embedding surfaces follow once the core pipeline is solid.
-- **Sandbox-first, proof-later**: runtime enforcement lands before full static effect-policy proofs.
-- **Declarative policy first**: sandbox policy files stay data-only in the core phases; programmable validators are an embedding-oriented later extension.
-- **Capability effects first**: the initial effect system is a conservative sandbox-capability summary, not a full algebraic-effect language.
-- **Parse broad, enable narrowly**: the parser can accept syntax before the runtime/checker fully supports it; unsupported semantics must be gated explicitly.
-- **Latest-standard baseline, phased semantics**: language/frontend work should target the latest published ECMA-262 edition rather than a frozen edition number, while runtime-heavy or semantically expensive features still follow the maturity matrix.
-- **Compatibility is phased**: "support everything" is the long-term goal, not the MVP promise.
+## Canonical Vocabulary
 
-## Canonical Terminology
+To reduce drift across the spec set, these terms are canonical:
 
-These terms are used across the spec set and should keep the same meaning everywhere:
+- **API surface**: the host API family selected by CLI/config, e.g. `deno`, `node`, `browser`
+- **Build mode**: optimization level, one of `fast`, `release`, `release-advanced`
+- **Runtime profile**: semantic runtime capability profile, e.g. later `wasm-threads`
+- **Feature maturity**: phase/status classification defined in `specs/19-feature-maturity.md`
+- **Schema contract**: machine-readable JSON formats defined in `specs/18-schemas.md`
+- **Linked artifact model**: compile the resolved static graph into one linked WASM artifact rather than relying on runtime WASM module linking
 
-- **Linked artifact**: one compiled WASM artifact that contains the fully resolved static module graph for a program or library build. Early phases standardize on this model.
-- **API surface**: the host API family selected by `--api` such as `deno`, `node`, or `browser`.
-- **Build mode**: the optimization level selected by `--fast`, `--release`, or `--release-advanced`.
-- **Runtime profile**: execution-model switches that materially change runtime semantics or host requirements, such as the later `--wasm-threads` profile.
-- **Profile**: shorthand for the effective combination of API surface, build mode, target assumptions, and any enabled runtime-profile switches.
-- **Config naming**: in `kali.json`, the canonical config shape keeps these leaf keys under `compilerOptions`: `apiSurface`, `buildMode`, and `runtimeProfiles`; CLI flags remain `--api`, `--fast` / `--release` / `--release-advanced`, and later profile switches such as `--wasm-threads`.
-- **Compatibility path**: an explicit, documented opt-in route for expensive or semantically difficult features such as `eval`; it is never an implicit fallback.
-- **Dynamic/tagged value**: a runtime value carried in a generic tagged representation because the compiler could not keep it in a precise unboxed/static form.
-- **Dynamic object layout**: an object representation that cannot rely on a fixed compile-time field-offset layout because keys, mutation patterns, or prototype behavior are too dynamic.
+If another spec needs to describe maturity, schemas, or command/profile gating, it should reference the canonical doc instead of redefining it.
 
-## Canonical Host/Profile Combinations
+## Phase Roadmap
 
-To reduce drift between the CLI, runtime, package, and host-API chapters, early phases should treat these combinations as the canonical baseline:
-
-| API surface | Command/form | Early-phase status | Notes |
-|---|---|---|---|
-| `deno` | `run`, `build`, `check`, `test` | Phase 1 MVP | Default standalone host surface |
-| `browser` | `check` | Phase 1 MVP | Analysis/build profile only; no standalone DOM/runtime promise |
-| `browser` | `build --bundle` | Phase 1 MVP | Emits WASM + JS glue for a real browser host |
-| `browser` | `run`, `test`, or plain `build` | Rejected by default | Must fail with the canonical feature-maturity diagnostic |
-| `node` | `run`, `build`, `check`, `test` | Phase 3 target | Broader ecosystem profile once the documented Node subset exists |
-| any API surface + `--wasm-threads` | compile/run/test | Later compatibility (opt-in only) | Selects a different runtime profile; never silently ignored |
-
-This table is only a summary. The canonical command/profile matrix remains [specs/19-feature-maturity.md](specs/19-feature-maturity.md).
-
-## Canonical Representation-Downgrade Rules
-
-To keep the type checker, ownership analysis, IR, and codegen aligned, Kali should treat these representational downgrades as the canonical ladder when precision is lost:
-
-| From | To | Typical triggers | Canonical consequence |
-|---|---|---|---|
-| fixed object layout | dynamic object layout | computed property writes, unstable key sets, prototype-sensitive mutation, reflective operations | object stays valid but loses fixed-offset layout assumptions |
-| unboxed/static value | tagged/dynamic value | imprecise unions, dynamic operator behavior, unresolved JS boundary flows | later IR/codegen must preserve runtime tags and checks |
-| stack/local allocation | unique heap allocation | value escapes its creating scope but still has one owner | ownership stays deterministic; free on owner drop |
-| unique heap allocation | shared/ref-counted heap allocation | closure capture with mutation, aliasing across containers, multiple live owners | insert deterministic reference-counting operations |
-| precise static semantics | feature gate rejection | unsupported runtime feature such as early-phase `eval`, dynamic loading, or unsupported host/profile mode | emit the canonical maturity diagnostic instead of widening to `any` or silently degrading |
-
-These are semantic coordination rules, not just optimizer heuristics. Detailed per-subsystem behavior lives in [specs/04-type-system.md](specs/04-type-system.md), [specs/05-ir.md](specs/05-ir.md), and [specs/06-memory.md](specs/06-memory.md).
-
-## Delivery Phases
-
-The canonical phase matrix lives in [specs/19-feature-maturity.md](specs/19-feature-maturity.md). At a high level:
+The phase names below are canonical across the spec set.
 
 ### Phase 1 — Core compiler
 Deliver a practically useful compiler/runtime with:
-- lexer, parser, AST
-- name resolution and baseline TypeScript-compatible checking
-- JavaScript compilation powered by the same inference pipeline, with conservative fallback to dynamic representations where needed
-- HIR and LIR
-- direct HIR → LIR lowering allowed
-- simple WASM emission
+- lexer, parser, AST, name resolution
+- TypeScript-compatible checking and first-class JavaScript compilation with conservative inference
+- HIR and LIR, with direct `HIR -> LIR` lowering allowed
+- WASM emission and wasmtime-based execution
 - runtime sandbox enforcement and resource limits
-- minimal Web + Deno host surface
-- browser-targeted `check --api browser` and `build --bundle --api browser` support
-- core CLI (`run`, `build`, `check`, `fmt`, `lint`, `test`, `install`)
-- package support for pure JS/TS packages that fit the early host model
+- Web baseline APIs plus Deno-first standalone runtime subset
+- browser-targeted `check --api browser` and `build --bundle --api browser`
+- core CLI workflows: `run`, `build`, `check`, `fmt`, `lint`, `test`, `install`
 
-### Phase 2 — Ownership + effects
+### Phase 2 — Ownership, effects, embedding
 Add:
 - MIR as the canonical ownership/layout IR
-- escape analysis and deterministic memory management
-- effect summaries and `kali effects`
-- compile-time effect-vs-policy validation
-- explicit `pure` / effect annotations
-- first stable embedding surfaces
+- escape analysis and deterministic memory management strategy
+- stable effect reports and compile/check-time policy validation
+- explicit `pure` and effect annotations for the built-in capability model
+- stable public Rust embedding API and C ABI
 
-### Phase 3 — Specialization + ecosystem
+### Phase 3 — Specialization and ecosystem breadth
 Add:
-- aggressive specialization and richer layout selection
-- stronger optimizations and incremental compilation
-- broader npm package compatibility beyond the Phase 1 linked-artifact/CJS baseline
-- meaningful Node API support
-- broader browser packaging/interoperability beyond the Phase 1 bundle baseline
+- broader specialization and layout optimization
+- incremental compilation
+- broader Node compatibility
+- broader browser packaging/interoperability
+- broader npm compatibility beyond the early linked-artifact subset
 
 ### Phase 4 — Advanced compatibility
-Add the hardest dynamic semantics:
-- `eval` / `Function()` compatibility path
-- harder dynamic loading modes
-- deeper platform/API coverage
-- broader proof coverage
+Add:
+- hard dynamic compatibility features such as `eval` / `Function()`
+- more difficult runtime/API compatibility surfaces
+- broader proof coverage for critical subsystems
 
-## Spec Map
+The detailed maturity matrix lives in `specs/19-feature-maturity.md`.
 
-### 1. Frontend and semantic analysis
-- [01 — Architecture](specs/01-architecture.md)
-- [02 — Lexer & Parser](specs/02-lexer-parser.md)
-- [03 — AST](specs/03-ast.md)
-- [04 — Type System](specs/04-type-system.md)
+## Canonical Host Capability Table
 
-### 2. IR, memory, optimization, codegen
-- [05 — Intermediate Representations](specs/05-ir.md)
-- [06 — Memory Management](specs/06-memory.md)
-- [07 — Optimization & Specialization](specs/07-specialization.md)
-- [08 — WebAssembly Code Generation](specs/08-wasm-codegen.md)
+This table is the compact cross-spec reference for what each host/API mode means in early phases.
 
-### 3. Runtime, sandboxing, host APIs
-- [09 — Sandboxing & Effects](specs/09-sandboxing.md)
-- [10 — Runtime](specs/10-runtime.md)
-- [11 — Standard APIs](specs/11-standard-apis.md)
+| Surface / mode | Shared Web baseline | Deno additions | Node additions | Browser-only deployment behavior |
+|---|---|---|---|---|
+| `--api deno` (default standalone) | Yes | Yes | No | No |
+| `--api node` | Yes | No by default; Node compatibility is its own surface | Phase 3 target subset only | No |
+| `--api browser` for `check` | Analysis target only | No | No | No standalone runtime implied |
+| `build --bundle --api browser` | Yes, targeting the real browser host | No | No | Emit WASM + JS glue for deployment in a real browser |
+| `run/test --api browser` | Rejected by default in early phases | No | No | No embedded browser engine |
 
-### 4. Tooling, embedding, ecosystem
-- [12 — CLI](specs/12-cli.md)
-- [13 — Embedding & C API](specs/13-embedding.md)
-- [14 — Package Management](specs/14-packages.md)
-- [15 — Error Reporting](specs/15-errors.md)
+Interpretation rules:
+- the **Web baseline** is the shared baseline across supported surfaces; `--api` selects additional globals/modules or a browser-targeted profile on top of that baseline
+- early standalone execution is **Deno-first**
+- Node compatibility is phase-gated and must not be implied by fallback shims
+- browser support is initially a **check/build profile**, not a standalone runtime contract
 
-### 5. Validation and machine contracts
-- [16 — Testing](specs/16-testing.md)
-- [17 — Formal Verification](specs/17-verification.md)
-- [18 — Schemas](specs/18-schemas.md)
-- [19 — Feature Maturity](specs/19-feature-maturity.md)
+## Canonical Sources of Truth
 
-## Phase-1 Simplification Rules
+Use these files as the primary authority for each concern:
 
-To keep the MVP realistic, Phase 1 explicitly does **not** promise:
-- general runtime support for `eval`, `Function()`, dynamic `require()`, or non-literal `import(expr)`
-- runtime dynamic module loading beyond the statically linked module graph
-- standalone browser-host emulation or DOM APIs in `kali run`
-- full Node.js parity just because some npm packages already work
-- stable public embedding contracts yet, even though the implementation is library-first internally
-- full static sandbox proofs; runtime enforcement comes first
+- **Architecture and crate layout**: `specs/01-architecture.md`
+- **Lexing and parsing**: `specs/02-lexer-parser.md`
+- **AST and symbols**: `specs/03-ast.md`
+- **Type system and inference**: `specs/04-type-system.md`
+- **IR pipeline**: `specs/05-ir.md`
+- **Memory and ownership**: `specs/06-memory.md`
+- **Optimization and specialization**: `specs/07-specialization.md`
+- **WASM codegen**: `specs/08-wasm-codegen.md`
+- **Sandboxing and effects**: `specs/09-sandboxing.md`
+- **Runtime model**: `specs/10-runtime.md`
+- **Standard APIs / host surfaces**: `specs/11-standard-apis.md`
+- **CLI behavior**: `specs/12-cli.md`
+- **Embedding and C API**: `specs/13-embedding.md`
+- **Packages and resolution**: `specs/14-packages.md`
+- **Diagnostics**: `specs/15-errors.md`
+- **Testing strategy**: `specs/16-testing.md`
+- **Formal verification**: `specs/17-verification.md`
+- **JSON schemas**: `specs/18-schemas.md`
+- **Feature maturity matrix**: `specs/19-feature-maturity.md`
 
-These are deliberate staging choices, not reductions of the long-term goal.
+## Cross-Spec Consistency Rules
 
-## Canonical Phase-1 Non-Goals
+These rules should be followed whenever the specs evolve:
+- Do not restate a conflicting phase decision outside `specs/19-feature-maturity.md`
+- Do not redefine JSON shapes outside `specs/18-schemas.md`
+- Prefer one canonical term over near-synonyms (`apiSurface`, `buildMode`, `runtimeProfiles` in config)
+- If a feature is parse-supported but not semantically implemented yet, say so explicitly
+- Prefer explicit rejection over undocumented emulation for unsupported behavior
+- Keep Phase 1 promises narrow, dependable, and testable
 
-This section is the short checklist other chapters should link to instead of restating their own partial caveats.
+## Canonical Representation-Downgrade Ladder
 
-Phase 1 is **not**:
-- a full Node compatibility release
-- a browser-engine or DOM-runtime implementation
-- a dynamic-code compatibility release (`eval`, `Function()`, dynamic module loading)
-- a full static-effect-proof system
-- a stable public embedding/ABI release
+When Kali cannot keep a value or object on the most optimized path, it should degrade representation in this order instead of jumping unpredictably between ad hoc fallbacks:
 
-If a later chapter needs to mention one of these, it should reference this section and [specs/19-feature-maturity.md](specs/19-feature-maturity.md) rather than inventing a new phase promise.
+1. **Static typed layout** — fixed object/aggregate layout, unboxed scalars where possible
+2. **Owned structured heap layout** — still typed and layout-aware, but heap allocated due to escape/lifetime needs
+3. **Shared structured heap layout** — typed layout preserved, but deterministic reference counting is introduced
+4. **Tagged dynamic value** — value-level type uncertainty requires boxing/tagging
+5. **Dynamic object layout** — partially known object shape with a dynamic side table / fallback slot
+6. **Fully dynamic hash-map/object mode** — dictionary-like behavior with most layout optimizations disabled
 
-## Cross-Cutting Rules
+Cross-spec rule:
+- type-system uncertainty should widen types conservatively before IR/layout chooses a more dynamic representation
+- IR lowering should preserve the highest representation rung still justified by the checker and analyses
+- memory-management rules describe the ownership consequences of a downgrade, not a separate downgrade policy
+- diagnostics may mention when a construct forces a lower rung if that materially impacts performance or sandbox reasoning
 
-These rules override local ambiguity in individual chapters:
-- **No JIT**: Kali is AOT-only at the language/compiler level.
-- **No tracing GC**: ownership, escape analysis, stack allocation, unique ownership, and reference counting are the primary tools.
-- **Pure Rust implementation**: no embedded C/C++ implementation dependency in the compiler/runtime stack.
-- **Machine-readable stability**: JSON output and schemas are a first-class contract.
-- **AI-friendly defaults**: concise success output, structured errors, explicit gating.
-- **No silent fallback on unsupported semantics**: use the canonical feature-maturity diagnostic.
+This ladder is the canonical simplification for reasoning about "dynamic" behavior across the type system, IR, memory, and optimization specs.
 
-## Notable Improvements Applied While Consolidating
+## Explicit Early-Phase Non-Goals
 
-This top-level spec also resolves a few ambiguities across the existing chapters:
-- **IR pipeline clarified**: MIR is canonical in Phase 2+, but Phase 1 may lower HIR directly to LIR.
-- **Embedding clarified**: `kali build --capi` produces a WASM artifact plus generated embedding metadata/header; the native C ABI is provided by the host-side `kali_capi` library.
-- **Phase language tightened**: embedding is library-first internally in Phase 1, with stable public embedding surfaces in Phase 2.
-- **Feature gating centralized**: use [specs/19-feature-maturity.md](specs/19-feature-maturity.md) and `E5006` instead of repeating slightly different support claims.
-- **No ad hoc compatibility flags**: if a dynamic feature needs a future opt-in path, define it once in the maturity matrix before referencing it elsewhere.
-- **Phase 1 host surface narrowed**: Deno `exit` / `cwd` / `chdir` are deferred so the initial sandbox/effect contract stays small and auditable.
-- **C embedding artifacts disambiguated**: `kali_capi` owns the stable host header `kali.h`; `kali build --capi` emits program-specific headers such as `foo.exports.h`.
-- **Config/profile naming normalized**: the spec set now uses `compilerOptions.apiSurface`, `compilerOptions.buildMode`, and `compilerOptions.runtimeProfiles` as the canonical `kali.json` terminology instead of mixing CLI flag names directly into config examples or inventing duplicate top-level keys.
+To keep the roadmap credible, the following are intentionally **not** Phase 1 goals even though they remain part of Kali's long-term direction:
+- full Node.js API parity
+- standalone browser runtime or DOM emulation
+- full dynamic-loading compatibility (`eval`, `Function()`, non-literal `import()`)
+- native addons, `node-gyp`, or any C/C++ dependency path
+- a fully general algebraic-effect language surface
+- broad formal verification of the full ECMAScript surface
 
-## How To Use This Spec Set
+These are deferred by design, not omitted accidentally. Where they matter to users, the compiler should reject them explicitly and point to feature maturity.
 
-When making design or implementation decisions:
-1. Start here.
-2. Check [specs/19-feature-maturity.md](specs/19-feature-maturity.md) for the current support phase.
-3. Follow the relevant detailed chapter.
-4. If a machine-readable format is involved, use [specs/18-schemas.md](specs/18-schemas.md).
-5. If two chapters seem to conflict, prefer the more constrained interpretation and update the spec set to restore one canonical answer.
+## Spec Amendment Rules
+
+When extending the spec set:
+- new phase or status claims must update `specs/19-feature-maturity.md`
+- new machine-readable JSON fields or documents must update `specs/18-schemas.md`
+- new CLI flags, subcommands, or config entry points must update `specs/12-cli.md` and, when machine-readable, `specs/18-schemas.md`
+- new host API families or major API-surface promises must update `specs/11-standard-apis.md` and `specs/19-feature-maturity.md`
+- new runtime profiles must update this file, `specs/12-cli.md`, and `specs/19-feature-maturity.md`
+- if a change weakens an earlier simplification, the spec must explain why the extra complexity is worth it
+
+## Intentional Simplifications
+
+The spec intentionally makes a few simplifying choices to keep implementation tractable:
+- one primary execution engine (`wasmtime`) first
+- one linked WASM artifact per build in early phases
+- one canonical machine-readable JSON contract per output type
+- one primary standalone runtime surface early (`deno`), with browser as a check/build profile first
+- one initial effect model centered on sandbox-relevant built-in capabilities
+
+These simplifications are design choices, not omissions. They keep the project coherent while still leaving room for later compatibility layers.
+
+## Spec Index
+
+1. [01 — Architecture](specs/01-architecture.md)
+2. [02 — Lexer & Parser](specs/02-lexer-parser.md)
+3. [03 — AST](specs/03-ast.md)
+4. [04 — Type System](specs/04-type-system.md)
+5. [05 — Intermediate Representations](specs/05-ir.md)
+6. [06 — Memory Management](specs/06-memory.md)
+7. [07 — Optimization & Specialization](specs/07-specialization.md)
+8. [08 — WebAssembly Code Generation](specs/08-wasm-codegen.md)
+9. [09 — Sandboxing & Effects](specs/09-sandboxing.md)
+10. [10 — Runtime](specs/10-runtime.md)
+11. [11 — Standard APIs](specs/11-standard-apis.md)
+12. [12 — CLI](specs/12-cli.md)
+13. [13 — Embedding & C API](specs/13-embedding.md)
+14. [14 — Package Management](specs/14-packages.md)
+15. [15 — Error Reporting](specs/15-errors.md)
+16. [16 — Testing](specs/16-testing.md)
+17. [17 — Formal Verification](specs/17-verification.md)
+18. [18 — Schemas](specs/18-schemas.md)
+19. [19 — Feature Maturity](specs/19-feature-maturity.md)

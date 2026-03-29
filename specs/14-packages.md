@@ -23,29 +23,31 @@ Canonical early-phase code-resolution ladder:
 1. Apply import-map rewrites from `kali.json#imports` before package resolution.
 2. Resolve package self-references (`"name": "pkg"` imported as `pkg/...`) using the package's own `exports` map before walking upward into `node_modules`.
 3. If the specifier names a package or package subpath, consult `package.json#exports` first.
-4. Evaluate `exports` against the current profile and edge kind:
+4. Evaluate `exports` against the current API surface and edge kind:
    - distinguish **ESM import edges** from **CJS require edges**
    - resolve the exact requested subpath; do not flatten subpath exports into one package-wide entry
-   - browser bundle/profile prefers `browser`, then the edge-kind condition (`import` or `require`), then `default`
-   - default standalone profile prefers the edge-kind condition (`import` or `require`), then `default`
-   - a later Node profile may additionally consider `node` before the edge-kind condition
+   - use the canonical condition order table below
    - unsupported or unmatched conditional branches are skipped; Kali should not guess a fallback branch that the package did not publish
-5. If `exports` does not resolve the entry, fall back to legacy entry fields in this order:
-   - browser bundle/profile: `browser` replacement map semantics first where applicable, then `module`, then `main`
-   - if a `browser` replacement map resolves a path to `false`, treat that target as intentionally unavailable in browser mode and fail with the canonical availability diagnostic rather than falling through to a Node-oriented file
-   - default standalone profile: `module`, then `main`
-   - later Node profile may additionally consider `node`-specific conditions before the generic fallback ladder
+5. If `exports` does not resolve the entry, fall back to legacy entry fields using the same API-surface intent **and still respecting edge kind**:
+   - browser-targeted profile (`kali check --api browser` and `kali build --bundle --api browser`): apply `browser` replacement map semantics first where applicable; then for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
+   - Deno-oriented standalone profile (`--api deno`, Phase 1 default): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
+   - later Node profile may add `node`-specific behavior before the generic fallback ladder when explicitly documented
 6. Resolve relative/file entries with extension probing (`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`).
 7. Classify the resolved file as ESM or CJS using Node-compatible signals (`.mjs` / `.cjs`, nearest `package.json#type`, and syntax where necessary).
 
-Canonical `exports` condition preference is profile-dependent:
-- default Phase 1 standalone order: edge-kind condition (`import` or `require`) as appropriate, then `default`
-- browser bundle/profile order: `browser`, then the edge-kind condition, then `default`
-- later Node-profile order may add `node`, then the edge-kind condition, then `default`
+Canonical `exports` condition order:
+
+| API surface / profile | Condition order |
+|---|---|
+| Deno-oriented standalone (`--api deno`, Phase 1 default) | `deno`, then edge kind (`import` or `require`), then `default` |
+| browser-targeted profile (`check --api browser`, `build --bundle --api browser`) | `browser`, then edge kind, then `default` |
+| later Node profile | `node`, then edge kind, then `default` |
 
 Important separation rules:
 - runtime/code resolution must not treat `types` as a normal execution condition
-- `package.json#module` is treated only as a legacy bundler-compatibility fallback when `exports` is absent; it must not override an explicit `exports` map
+- the Deno-oriented standalone surface should honor a package's explicit `deno` condition when present instead of behaving like an unspecified generic bundler
+- the browser-targeted profile should honor a package's explicit `browser` mapping/condition consistently in both `check` and `build --bundle`, so analysis and emitted artifacts do not resolve different files by accident
+- `package.json#module` is treated only as a legacy bundler-compatibility fallback when `exports` is absent; it must not override an explicit `exports` map, and it should not outrank `main` on a legacy CJS `require` edge
 - when a package explicitly marks a path as unavailable for the active profile (for example `browser: false`), Kali must respect that instead of probing alternate files heuristically
 - declaration/type lookup follows the separate ladder in [Type Resolution](#type-resolution)
 
@@ -83,7 +85,7 @@ node_modules/
 This simplifies interoperability with existing tools, package metadata, and source layouts.
 
 ### Lock File
-`kali.lock` — deterministic lockfile (project root, committed to version control). Uses a line-oriented format for clean diffs:
+`kali.lock` — deterministic lockfile (project root, committed to version control). Uses a line-oriented TOML-based format for clean diffs and carries its own format version in the file header rather than a JSON `schemaVersion` field:
 ```toml
 # kali.lock v1 — do not edit manually
 
@@ -119,6 +121,7 @@ URL imports are cached in `.kali/cache/urls/`. Integrity is verified against the
 Support import maps in `kali.json`:
 ```json
 {
+    "schemaVersion": 1,
     "imports": {
         "std/": "https://deno.land/std@0.220.0/",
         "~/": "./src/"

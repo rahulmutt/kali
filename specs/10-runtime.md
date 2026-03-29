@@ -29,22 +29,22 @@ Important loading rule: the runtime registers only the host imports required by 
 ```rust
 // Union of early-phase host-import categories; actual registration is profile-dependent.
 mod host {
-    // Web baseline / I/O
-    fn fs_read(path_ptr: i32, path_len: i32) -> i32;
-    fn fs_write(path_ptr: i32, path_len: i32, data_ptr: i32, data_len: i32) -> i32;
+    // Shared Web-platform baseline
     fn net_fetch(url_ptr: i32, url_len: i32, opts_ptr: i32) -> i32;
     fn console_log(msg_ptr: i32, msg_len: i32);
 
-    // Deno/Node-style environment or process metadata
+    // Deno-oriented standalone filesystem/process surface
+    fn fs_read(path_ptr: i32, path_len: i32) -> i32;
+    fn fs_write(path_ptr: i32, path_len: i32, data_ptr: i32, data_len: i32) -> i32;
     fn env_get(key_ptr: i32, key_len: i32, val_ptr: i32) -> i32;
     fn process_args(buf_ptr: i32) -> i32;
     fn process_pid() -> i32;
 
-    // Timers
+    // Shared timers
     fn timer_set(callback_id: i32, delay_ms: i32, repeat: i32) -> i32;
     fn timer_clear(timer_id: i32);
 
-    // System
+    // Shared system primitives
     fn clock_now() -> f64;
     fn random_bytes(buf_ptr: i32, len: i32);
 }
@@ -52,7 +52,7 @@ mod host {
 
 Interpretation rules:
 - `console`, timers, `fetch`, time, and randomness belong to the Phase 1 Web baseline and may exist across supported API surfaces.
-- `env_get`, `process_args`, and `process_pid` are registered only for profiles that expose the corresponding Deno/Node process APIs; browser-targeted builds must not assume they exist.
+- `fs_read`, `fs_write`, `env_get`, `process_args`, and `process_pid` belong to the Deno/Node-oriented host surface, not to the shared Web baseline; browser-targeted builds must not assume they exist.
 - Every registered host import is policy-aware; enabling an API surface does not bypass sandbox checks.
 - Unsupported imports for the current command/profile are not stubbed silently; code that requires them should fail with the canonical feature-maturity diagnostic.
 
@@ -85,7 +85,7 @@ For async operations, Kali implements a single-threaded event loop:
 
 - **Microtasks**: Promise callbacks, queueMicrotask
 - **Macrotasks**: setTimeout/setInterval callbacks, I/O callbacks
-- Async I/O backed by `tokio` on the host side
+- Async I/O is backed by the host's Rust async/runtime primitives; the specific executor is an implementation detail unless a later embedding contract makes it observable
 - WASM execution is synchronous — async operations yield to the host
 
 ## `eval` Support
@@ -148,7 +148,7 @@ Until then, the CLI/runtime must reject `--wasm-threads` with the canonical feat
 Initial implementation strategy:
 - Parse the full static module graph up front
 - Resolve `import`/`export` in the compiler
-- Lower the whole program/package graph into a **single linked WASM module** per build artifact
+- Lower the whole program/package graph into one linked WASM module as the core payload of each build artifact *(for browser builds, this may be accompanied by JS glue, but not by runtime WASM module linking)*
 - Static imports become direct internal calls or data references after linking
 - Literal-string `import()` may later be lowered to an async lookup over the already-linked graph
 - Non-literal dynamic `import()` remains a host-mediated compatibility path and is treated as a dynamic effect boundary

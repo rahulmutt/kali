@@ -96,6 +96,7 @@ void kali_config_set_sandbox(KaliConfig* config, const char* policy_path);
 void kali_config_free(KaliConfig* config);
 
 // Runtime
+uint32_t kali_runtime_abi_version(void);
 KaliRuntime* kali_runtime_new(KaliConfig* config);
 void kali_runtime_free(KaliRuntime* runtime);
 
@@ -123,8 +124,9 @@ void kali_value_free(KaliValue* value);
 
 // Error handling
 const KaliError* kali_last_error(const KaliRuntime* runtime);
+const KaliError* kali_global_last_error(void); // for failures before a runtime exists
 const char* kali_error_message(const KaliError* error);
-int kali_error_code(const KaliError* error);
+const char* kali_error_code(const KaliError* error); // stable string code such as "E5006"
 const char* kali_error_json(const KaliError* error);
 
 // Effects analysis (Phase 2 target; before then these return NULL and expose the canonical
@@ -149,8 +151,8 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 
 ### Error Handling Convention
 - Functions that can fail return `NULL` on error
-- Call `kali_last_error()` to get error details
-- Error includes code, message, and JSON representation
+- Call `kali_last_error()` for runtime-bound failures, or `kali_global_last_error()` for failures that happen before a `KaliRuntime` exists (for example `kali_runtime_new` returning `NULL`)
+- Error includes the stable string diagnostic code, message, and JSON representation so embedders see the same canonical machine contract as the CLI
 
 ### Building
 `kali build --capi` is a **Phase 2 target** and is an artifact-generation mode for embedded programs, not a request to turn user TypeScript directly into a native shared library.
@@ -178,7 +180,7 @@ To keep embedding stable and machine-checkable, the C ABI needs one explicit com
 - the stable host header exposes it via constants/macros such as:
   - `KALI_CAPI_ABI_VERSION`
   - `KALI_CAPI_ABI_MIN_COMPAT_VERSION` *(optional if compatible windowing is needed)*
-- the runtime exports a query such as `uint32_t kali_runtime_abi_version(void);`
+- the runtime exports `uint32_t kali_runtime_abi_version(void);`
 - `kali build --capi foo.ts` embeds the expected host ABI version in emitted metadata so loaders can reject incompatible host/program combinations before instantiation
 - incompatible ABI versions are a hard load-time error; they must not silently proceed on a best-effort basis
 

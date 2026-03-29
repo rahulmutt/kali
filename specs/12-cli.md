@@ -15,7 +15,7 @@ These flags are shared across the CLI, but some apply only to specific command f
 Naming rule:
 - CLI keeps short flag names such as `--api`
 - `kali.json` keeps the canonical leaf keys under `compilerOptions`: `apiSurface`, `buildMode`, and `runtimeProfiles`
-- the legacy config key `compilerOptions.api` may be accepted as a deprecated alias during migration, but new docs and generated config should use `compilerOptions.apiSurface`
+- new docs, generated config, and machine-readable examples should use only these canonical config names
 
 | Flag | Scope | Description |
 |------|-------|-------------|
@@ -24,8 +24,8 @@ Naming rule:
 | `--quiet` | all commands | Suppress all non-error output |
 | `--max-errors N` | diagnostic-producing commands | Cap reported errors (default: 50) |
 | `--color auto\|always\|never` | text-output commands | Color output control |
-| `--api deno\|node\|browser` | commands that compile or execute code | Select host API surface; unsupported surfaces for the current command/profile must error explicitly (for example, early browser builds require `--bundle`) |
-| `--compat <feature[,feature...]>` | commands that compile or execute code | Enable documented compatibility features such as `eval` only when that feature is implemented for the selected phase/profile |
+| `--api deno\|node\|browser` | `check`, `build`, `run`, `test` | Select host API surface; unsupported surfaces for the current command/profile must error explicitly (for example, early browser builds require `--bundle`) |
+| `--compat <feature[,feature...]>` | `check`, `build`, `run`, `test` | Enable documented compatibility features such as `eval` only when that feature is implemented for the selected phase/profile |
 | `--fast` | `build`, `run`, `test` | Fastest compile time, minimal optimization (default build mode) |
 | `--release` | `build`, `run`, `test` | Standard optimization profile |
 | `--release-advanced` | `build`, `run`, `test` | Aggressive optimization profile |
@@ -36,6 +36,11 @@ Naming rule:
 | `--wasm-threads` | compile/run/test commands | Opt into the later threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; before that profile exists, or on unsupported targets, the command must fail with `E5006` |
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
+
+Config-array normalization rule:
+- `compilerOptions.runtimeProfiles` and `compat.features` are set-like lists, not ordered pipelines
+- entries should be unique
+- unknown entries are diagnosed instead of ignored
 
 Configuration precedence is intentionally simple:
 1. CLI flags override `kali.json`
@@ -112,6 +117,11 @@ kali effects --pretty main.ts              # Pretty-printed effect report JSON
 kali effects --output json main.ts         # Command envelope + effect payload
 ```
 By default, `kali effects` prints the effect report payload directly because JSON is the primary output of the command. With `--output json`, it is wrapped in the standard command envelope described below. See [specs/18-schemas.md](18-schemas.md) for the canonical payload schema.
+
+Compatibility rule:
+- plain `kali effects ...` emits the raw effect-report payload
+- `kali effects --output json ...` emits the standard command envelope with that same effect report under `payload`
+- `--pretty` changes formatting only; it does not change the effect-report schema or field names
 
 ### `kali fmt [files...]`
 Format source files (implemented in `kali_fmt`).
@@ -218,9 +228,11 @@ Rules:
 - top-level output uses the versioned command envelope
 - diagnostics reuse the shared diagnostic schema
 - command-specific structured data goes in `payload`
-- common optional top-level fields include `artifacts`, `stdout`, and `timings`
+- common optional top-level fields include `artifacts`, `stdout`, `timings`, and `exitCode`
 
 Exception: `kali effects` already emits JSON as its native output, so `--output json` wraps that payload in the envelope instead of changing the effect-report schema itself.
+
+This is intentional simplification: Kali has one canonical effect-report payload schema, and the command envelope is an outer transport wrapper rather than a second competing effect schema.
 
 ## Configuration (`kali.json`)
 
@@ -229,6 +241,7 @@ The canonical full config schema and example live in [specs/18-schemas.md](18-sc
 Minimal canonical shape:
 ```json
 {
+  "schemaVersion": 1,
   "compilerOptions": {
     "apiSurface": "deno",
     "buildMode": "fast",
@@ -241,6 +254,8 @@ Configuration simplification rules:
 - `compilerOptions.apiSurface` is the config equivalent of the CLI `--api` flag
 - `compilerOptions.buildMode` replaces separate optimization booleans
 - `compilerOptions.runtimeProfiles` is an array of explicit semantic runtime-profile switches; for example, a future threaded config would use `"runtimeProfiles": ["wasm-threads"]`
+- `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
+- `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans
 - generated config from `kali init` should prefer these canonical names and should not duplicate them as parallel top-level keys
 - precedence is `CLI > kali.json > defaults`, except sandbox-policy restrictions still bound the effective runtime behavior
 
