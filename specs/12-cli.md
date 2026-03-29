@@ -7,6 +7,7 @@
 3. **Single binary**: `kali` is distributed as one primary executable; static linking is preferred where practical but not required on every target
 4. **Zero config**: Sensible defaults, explicit configuration when needed
 5. **Stable machine contract**: JSON output is versioned and remains backward-compatible across minor releases
+6. **Single-channel machine output**: when `--output json` is selected, command metadata and any captured program streams are emitted through the JSON envelope rather than interleaving raw stdout/stderr text that would corrupt the payload
 
 ## Shared Flags
 
@@ -365,7 +366,8 @@ Rules:
 - top-level output uses the versioned command envelope
 - diagnostics reuse the shared diagnostic schema
 - command-specific structured data goes in `payload`
-- common optional top-level fields include `artifacts`, `stdout`, `timings`, and `exitCode`
+- common optional top-level fields include `artifacts`, `stdout`, `stderr`, `timings`, and `exitCode`
+- for execution-style commands in JSON mode, guest/program stdout and stderr are captured into the envelope fields instead of being interleaved as raw terminal text
 - build-like commands should populate artifact `role` whenever it helps distinguish artifact mode without forcing tools to guess from filenames (for example default executable vs `--lib` `wasm-module`)
 
 Exception: `kali effects` and `kali package-effects` already emit JSON as their native outputs, so `--output json` wraps those payloads in the envelope instead of changing their underlying schemas.
@@ -391,7 +393,7 @@ Omission/default rule for minimal configs:
 - For the default app template, that usually means just `{"schemaVersion": 1}`.
 - Omitted fields inherit documented schema/CLI defaults rather than creating placeholder sections.
 - In schema v1, omitted `compilerOptions` means all compiler-option defaults apply.
-- In schema v1, omitted `compilerOptions.strict` means the default strict-checking bundle is enabled.
+- In schema v1, omitted `compilerOptions.strict` means the default strict-checking bundle is enabled; its canonical semantics are defined in [specs/04-type-system.md](04-type-system.md).
 - In schema v1, omitted `compilerOptions.maxSpecializations` means the project uses the default specialization cap of `16`.
 - Omitted `compat` means `compat.features = []`.
 
@@ -402,7 +404,7 @@ Configuration simplification rules:
 - `compilerOptions.runtimeProfiles` is an array of explicit semantic runtime-profile switches; an empty array means the default single-threaded baseline, while a future threaded config would use `"runtimeProfiles": ["wasm-threads"]`
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
 - `compilerOptions.apiSurface` and `compilerOptions.runtimeProfiles` describe different axes and must not be conflated: `deno`/`node`/`browser` select host APIs, while runtime profiles select execution capabilities such as threads
-- `compilerOptions.strict` is the config-level strictness bundle; it should mirror the documented strict-checking behavior rather than introducing many parallel booleans in early phases
+- `compilerOptions.strict` is the config-level strictness bundle; its semantics live in [specs/04-type-system.md](04-type-system.md) and it should not be re-expanded into many parallel booleans in early phases
 - `compilerOptions.maxSpecializations` caps specialization fan-out for generic/layout-driven optimization in modes that actively specialize; CLI `--max-specializations` overrides it for a single invocation
 - `compilerOptions.maxSpecializations` is an upper bound rather than a promise that `buildMode = fast` will consume that full budget; `fast` may still skip most user-authored generic specialization by design
 - top-level `sandbox` is an optional default policy-file path equivalent to supplying `--sandbox <path>` for sandbox-aware commands (`run`, `test`, `check`, `build`); an explicit CLI `--sandbox` overrides it

@@ -202,6 +202,29 @@ The effect system feeds directly into the sandbox analyzer (see [specs/09-sandbo
 - **Phase 1**: runtime sandbox enforcement works even when full static effect-policy validation is not yet exposed as a stable user-facing feature
 - **Phase 2+**: inferred effects are validated against sandbox policies at compile/check time
 
+## Canonical Strictness Bundle
+
+Kali exposes one top-level strictness switch in schema v1: `compilerOptions.strict`.
+
+To keep CLI/config simple in early phases, this is a **bundle**, not a menu of many near-duplicate booleans. The canonical intent is:
+- `strict: true` *(default)* enables Kali's TypeScript-inspired strict checker behavior
+- `strict: false` relaxes only the subset of diagnostics where Kali has a documented conservative fallback
+- strictness changes type-checking diagnostics only; it must **not** change runtime semantics, sandbox enforcement, feature-maturity gating, or dependency-resolution behavior
+
+Phase-1 contents of the strict bundle:
+- strict nullability and flow-sensitive narrowing remain enabled as the default type model
+- definite-assignment / use-before-safe-initialization checks stay enabled where Kali can prove them cheaply
+- unsafe implicit-top-type behavior should be diagnosed instead of silently inventing fresh `any`
+- exported/package-boundary inference should prefer explicit annotations or conservative boundary types over unstable clever guesses
+
+Rules for `strict: false`:
+- Kali may downgrade selected strictness diagnostics to warnings or accept conservative fallback types such as `unknown` where the program can still be compiled faithfully
+- Kali must not use `strict: false` as permission to silently enable unsupported language/runtime features
+- Kali must not weaken sandbox/effect diagnostics, ownership safety checks, or canonical `E5006` feature-availability failures
+- the JavaScript fallback ladder from this chapter remains the same; `strict` is not a separate JS-vs-TS mode switch
+
+Future schema revisions may split this bundle into named sub-options only when there is clear ecosystem value and the behavior can be specified without reintroducing ambiguous checker modes.
+
 ## TypeScript Compatibility
 
 ### Long-Term Compatibility Targets

@@ -46,6 +46,7 @@ Used by commands that opt into `--output json`.
 - `payload: object | array | string | number | boolean | null`
 - `artifacts: Artifact[]`
 - `stdout: string`
+- `stderr: string`
 - `timings: PhaseTiming[]`
 - `exitCode: number` — canonical process exit code for the command invocation when the caller needs it in-band
 
@@ -53,6 +54,7 @@ Used by commands that opt into `--output json`.
 - `payload` holds command-specific structured data
 - `command` is intentionally an open-ended string so new CLI subcommands do not force a schema-version bump; stable built-in command names should mirror the CLI subcommand path in kebab-case (for example `check`, `build`, `package-effects`)
 - `kali effects` and `kali package-effects` may emit their native JSON payloads by default, but with `--output json` they must be wrapped in this envelope
+- for execution-style commands in JSON mode, guest/program stdout and stderr belong in the envelope's `stdout` / `stderr` fields rather than being interleaved as raw text around the JSON payload
 - Commands should avoid inventing top-level ad hoc fields when `payload` is sufficient
 
 ## Common Source Location Types
@@ -456,7 +458,7 @@ Smallest valid schema-v1 config:
 
 Defaults:
 - omitted `compilerOptions` means `{}`
-- omitted `compilerOptions.strict` means `true`
+- omitted `compilerOptions.strict` means `true`; the canonical semantics of this strictness bundle are defined in [specs/04-type-system.md](04-type-system.md)
 - omitted `compilerOptions.apiSurface` means `deno`
 - omitted `compilerOptions.buildMode` means `fast`
 - omitted `compilerOptions.runtimeProfiles` means `[]`
@@ -479,7 +481,7 @@ Interpretation rules:
 - `compilerOptions.buildMode` is one of `fast`, `release`, or `release-advanced`
 - `compilerOptions.runtimeProfiles` is an array of semantic runtime-profile names; in schema v1 it is usually empty because later profiles such as `wasm-threads` are still phase-gated
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
-- `compilerOptions.strict` is the canonical strict-checking bundle switch in config; early phases should avoid multiplying near-duplicate strictness booleans unless a later schema revision documents them explicitly
+- `compilerOptions.strict` is the canonical strict-checking bundle switch in config; its semantics are defined in [specs/04-type-system.md](04-type-system.md), and early phases should avoid multiplying near-duplicate strictness booleans unless a later schema revision documents them explicitly
 - `compilerOptions.maxSpecializations` is the project-default specialization cap upper bound; schema v1 defaults it to `16`, and CLI `--max-specializations` may override it per invocation
 - `compilerOptions.maxSpecializations` does not force every build mode to spend that full budget; `buildMode = fast` may still skip most user-authored generic specialization by design, while `release`-oriented modes consume the budget more aggressively
 - top-level `sandbox` is an optional default sandbox-policy path; it is the config equivalent of supplying `--sandbox <path>` for sandbox-aware commands (`run`, `test`, `check`, `build`), and an explicit CLI flag overrides it
