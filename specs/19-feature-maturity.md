@@ -43,6 +43,7 @@ This table exists to keep the status labels operational: a label implies whether
 | `eval` | Phase 4 compatibility | Parsed and effect-tracked earlier, but full runtime support is deferred; compatibility path is `--compat eval` when implemented |
 | `Function()` constructor | Phase 4 compatibility | Same status as `eval` and uses the same compatibility switch |
 | Read-only environment access (`Deno.env.get`, `Deno.env.toObject`, policy-filtered host env view) | Phase 1 MVP | Needed for practical standalone compatibility while still fitting the sandbox model |
+| Read-only `Deno.permissions` facade (`query`-style granted/denied view only) | Phase 1 MVP | Exposes Kali sandbox state for compatibility without interactive permission escalation |
 | Mutable environment access (`Deno.env.set`, `process.env = ...`-style host mutation) | Phase 3 target | Widens the host contract and must remain policy-controlled |
 | Subprocess spawning (`Deno.Command`, host `process_spawn`) | Phase 3 target | Requires explicit sandbox/process-budget integration |
 | Socket/listener networking (`Network.Connect`, `Network.Listen`, `Deno.serve`) | Phase 3 target | Requires explicit network policy and concurrency controls |
@@ -86,7 +87,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
-| `kali init` | Phase 1 MVP | Create a minimal `kali.json` project scaffold with canonical defaults |
+| `kali init` | Phase 1 MVP | Create the minimal canonical `kali.json` scaffold; for the default app template this should normally be just `{ "schemaVersion": 1 }` unless the chosen template needs more |
 | `kali fmt` | Phase 1 MVP | Stable formatting command for JS/TS sources |
 | `kali lint` | Phase 1 MVP | Stable lint command with conservative autofix support |
 | `kali install` | Phase 1 MVP | Resolve/materialize dependency state and write `kali.lock` for the project's declared dependency source kinds |

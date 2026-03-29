@@ -82,7 +82,7 @@ Terminology note:
 - `E5003`: Invalid module specifier
 - `E5004`: Dependency state not installed or not materialized for the current lockfile
 - `E5005`: Ambiguous module resolution
-- `E5006`: Feature unavailable in current phase, API profile, or target configuration
+- `E5006`: Feature unavailable in current phase, API surface, command/profile, or target configuration
 
 Use `E5004` for dependency-state problems such as:
 - project dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports) have not been installed/materialized yet
@@ -92,6 +92,10 @@ Use `E5004` for dependency-state problems such as:
 ### Canonical Feature-Maturity Diagnostic
 
 Phase-gated or profile-gated features should share one primary diagnostic shape instead of inventing per-command or per-runtime wording.
+
+Terminology rule:
+- prefer the canonical term **API surface** (`deno`, `node`, `browser`) from [SPEC.md](../SPEC.md)
+- use **profile** for command/runtime-profile gating such as browser build-only paths or later `--wasm-threads`
 
 Example:
 ```
