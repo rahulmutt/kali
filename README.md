@@ -1,5 +1,5 @@
 # kali
-A functional, type-safe, AI-native programming language designed to be sandboxed and have all effects known at compile-time.
+A functional, type-safe, AI-native programming language designed to be sandboxed and have all effects known at compile-time as much as possible.
 
 # Users
 - [Kai](https://github.com/rahulmutt/kai) an AI-based coding assistant.

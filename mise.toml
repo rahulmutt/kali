@@ -1,23 +1,2 @@
 [tools]
-rust = "1.93.0"
-"cargo:cargo-insta" = "1.46.1"
-"cargo:wasm-tools" = "1.244.0"
-"cargo:wasm-bindgen-cli" = "0.2.108"
-
-[tasks.'format']
-run = 'cargo fmt --all'
-
-[tasks.'lint']
-run = 'cargo clippy --workspace --all-targets -- -D warnings'
-depends_post = ['format']
-
-[tasks.'build']
-wait_for = ['format']
-run = 'cargo build --workspace --release'
-
-[tasks.'test']
-run = 'cargo nextest run --workspace'
-depends_post = ['format']
-
-[tasks.'run']
-run = 'cargo run -- run examples/test.kl'
+rust = "1.94.1"
