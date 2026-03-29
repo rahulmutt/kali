@@ -45,6 +45,7 @@ Interpretation rules:
 - bare package names default to the npm registry in CLI/package-manifest contexts
 - the `jsr:` prefix is required for JSR so package identity stays unambiguous in `kali.json`, lockfiles, diagnostics, and install commands
 - this prefix is a **registry identity marker**, not a request to invent a second installation layout; both npm and JSR registry packages still materialize into `node_modules/` in early phases
+- because early phases use one shared `node_modules/` tree, Kali must reject a project that would require two distinct registry identities to occupy the same on-disk package path (for example npm `@scope/name` and `jsr:@scope/name`) rather than inventing shadow package trees or ambiguous resolution precedence
 - docs and examples should prefer this canonical form instead of relying on context to guess whether `@scope/name` came from npm or JSR
 
 Declaration-model rule:
@@ -60,6 +61,11 @@ Lockfile rule:
 - non-install commands must check the required materialized state for the dependency kinds actually used by the project instead of assuming `node_modules/` alone is always the full dependency state
 
 This removes an ambiguity from the earlier wording: a URL-only project may have no `node_modules/` tree at all and still be fully installed.
+
+Registry-collision simplification rule:
+- if two manifest entries would collapse to the same `node_modules` package path after stripping the optional `jsr:` registry marker, `kali install` must fail explicitly before materialization
+- the failure should name both conflicting package identities so the user can choose one source of truth
+- early phases prefer this explicit rejection over a more complex multi-registry shadow layout
 
 ### Package Resolution
 Follow Node.js-style package resolution, but keep the early-phase rules explicit so browser, Deno, and package behavior do not drift.

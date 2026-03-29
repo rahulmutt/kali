@@ -485,6 +485,7 @@ Interpretation rules:
 - `compilerOptions.maxSpecializations` is the project-default specialization cap upper bound; schema v1 defaults it to `16`, and CLI `--max-specializations` may override it per invocation
 - `compilerOptions.maxSpecializations` does not force every build mode to spend that full budget; `buildMode = fast` may still skip most user-authored generic specialization by design, while `release`-oriented modes consume the budget more aggressively
 - top-level `sandbox` is an optional default sandbox-policy path; it is the config equivalent of supplying `--sandbox <path>` for sandbox-aware commands (`run`, `test`, `check`, `build`), and an explicit CLI flag overrides it
+- omitting top-level `sandbox` means no default project policy file is attached; schema v1 does **not** model that omission as an implicit serialized allow-all policy
 - non-sandbox-aware commands (`init`, `fmt`, `lint`, `install`, `effects`, `package-effects`, `package-audit`) ignore top-level `sandbox` rather than treating it as an error or as an implicit request to perform policy validation
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
 - when set-like arrays such as `compilerOptions.runtimeProfiles` or `compat.features` are normalized by tooling, normalization should preserve semantics without inventing duplicates; preserving first-seen order for display/diff stability is preferred even though the arrays are semantically unordered
@@ -496,6 +497,7 @@ Interpretation rules:
 - `imports` is the canonical alias/import-map section for URL and path-like rewrites; it is not a second registry-dependency manifest
 - `dependencies` and `devDependencies` are top-level package manifests for **registry packages** owned by `kali install`; they are not nested under `compilerOptions`
 - dependency keys use the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): bare package names for npm and `jsr:`-prefixed names for JSR
+- because schema v1 registry dependencies materialize into one early-phase `node_modules/` tree, install must reject a manifest that would require two distinct registry identities to occupy the same on-disk package path
 - raw URL dependencies are declared in source/import maps and tracked via `kali.lock`; schema v1 intentionally does **not** add a second manifest section for them
 - an ad hoc `kali install https://...` therefore stages/pins materialization for that exact URL, but durable project ownership still comes from source imports or `imports`
 - Config should not mirror every CLI boolean directly when a more semantic field already exists
@@ -556,6 +558,7 @@ Canonical filename: `kali.policy.json`
 - `resources.maxThreads` is reserved for the later threaded runtime profile; before that profile exists, validation should reject values greater than `0` instead of silently accepting them
 - schema v1 intentionally has no stable policy keys for process identity, process termination, or working-directory introspection/mutation (`Deno.pid`, `process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`); those APIs therefore remain unavailable until a future schema/effect-model revision adds an auditable policy contract for them
 - Policy validation should reject non-deny values for capability fields whose corresponding feature/API surface is unavailable in the selected command/profile/api surface/phase. For example: `effects.fileSystem.read: true` under `--api browser`, `effects.eval: true` before the eval compatibility path exists, `effects.process.spawn: true` before subprocess APIs exist, `effects.process.envWrite: true` before mutable environment APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess APIs exist, and `resources.maxThreads > 0` before the threaded runtime profile exists.
+- absence of a policy file is distinct from a permissive policy object; schemas in this chapter describe the shape of an attached `kali.policy.json`, not a hidden default object that tools should synthesize when no policy is configured
 - Per-invocation CLI resource overrides may only tighten these policy limits; they must not widen them
 - Policy keys use the canonical built-in effect naming table above rather than redefining a separate namespace here
 - In schema v1, `random` and `console` are intentionally coarse-grained booleans. Any built-in effect report entry whose kind starts with `Random.` matches `random`, and any kind starting with `Console.` matches `console`.

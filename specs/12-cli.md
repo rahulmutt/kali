@@ -84,9 +84,9 @@ Config-array normalization rule:
 Configuration precedence is intentionally simple:
 1. CLI flags override `kali.json`
 2. `kali.json` overrides built-in defaults
-3. Sandbox policy caps remain upper bounds for runtime capabilities and resource limits
+3. Sandbox policy caps, when a policy is attached, remain upper bounds for runtime capabilities and resource limits
 
-That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy.
+That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy. If no policy is attached, those direct invocation flags simply become the effective cap for the current command instead of being compared against an implicit allow-all policy.
 
 Canonical default tuple:
 - `apiSurface = deno`
@@ -129,6 +129,7 @@ Sandbox flag behavior is intentionally phase-gated:
 - Full inferred-effect-vs-policy validation is a Phase 2 feature.
 - Policy validation must also reject policies that try to enable capabilities unavailable in the selected command/profile/phase (for example `effects.eval: true` before the eval compatibility path exists, or `resources.maxThreads > 0` before the threaded runtime profile exists).
 - Policy files remain declarative; any later host-registered sandbox policy predicates are an embedding-oriented extension, not a second inline policy language.
+- If neither CLI nor config attaches a policy, the command runs with **no project policy file**; direct resource flags such as `--max-memory` still apply, but there is no hidden synthesized policy document behind the scenes.
 
 ### `kali build <file>`
 AOT compile to a WASM module or linked artifact set.
@@ -409,6 +410,7 @@ Configuration simplification rules:
 - `compilerOptions.maxSpecializations` caps specialization fan-out for generic/layout-driven optimization in modes that actively specialize; CLI `--max-specializations` overrides it for a single invocation
 - `compilerOptions.maxSpecializations` is an upper bound rather than a promise that `buildMode = fast` will consume that full budget; `fast` may still skip most user-authored generic specialization by design
 - top-level `sandbox` is an optional default policy-file path equivalent to supplying `--sandbox <path>` for sandbox-aware commands (`run`, `test`, `check`, `build`); an explicit CLI `--sandbox` overrides it
+- omitting top-level `sandbox` means no default policy is attached; it does **not** ask tools to synthesize an implicit permissive policy file
 - non-sandbox-aware commands (`init`, `fmt`, `lint`, `install`, `effects`, `package-effects`, `package-audit`) ignore the top-level `sandbox` setting rather than erroring or silently turning themselves into policy-validation commands
 - `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans
 - in schema v1, the only canonical compatibility feature name is `"eval"`; it gates both direct `eval` support and the `Function()` constructor compatibility path
@@ -417,6 +419,7 @@ Configuration simplification rules:
 - `include` / `exclude` filter only the project's own discoverable files; they do not suppress transitive imports/dependencies reached from an accepted entrypoint and they are not a second package-resolution mechanism
 - generated config from `kali init` should prefer these canonical names and should not duplicate them as parallel top-level keys
 - `kali init` should not emit `sandbox`, `compat`, `dependencies`, or other optional sections unless the chosen template or user request actually needs them
+- because absence of `sandbox` means “no policy attached” rather than “allow all by explicit policy”, tools should preserve omission when round-tripping minimal configs unless the user intentionally chooses a default policy path
 - precedence is `CLI > kali.json > defaults`, except sandbox-policy restrictions still constrain effective runtime behavior
 
 ## Exit Codes

@@ -81,7 +81,7 @@ Terminology note:
 - `E5002`: Circular dependency detected
 - `E5003`: Invalid module specifier
 - `E5004`: Dependency state not installed or not materialized for the current lockfile
-- `E5005`: Ambiguous module resolution
+- `E5005`: Ambiguous module resolution or registry-path conflict
 - `E5006`: Feature unavailable in current phase, API surface, command/profile, or target configuration
 - `E5007`: Invalid input or entrypoint kind for the selected command
 
@@ -95,6 +95,11 @@ Use `E5004` for dependency-state problems such as:
 Clarification:
 - for `E5004`, "stale" is a **lock/materialization mismatch**, not a vague timestamp heuristic
 - non-install commands should fail clearly and point to `kali install`; they should not repair dependency state as a side effect
+
+Use `E5005` for resolution ambiguity problems such as:
+- two candidate package/module edges remaining equally valid after applying the documented resolution rules
+- a manifest/import setup that would require two distinct registry identities to collapse onto the same early-phase `node_modules` package path
+- any other situation where Kali cannot pick one faithful resolution target without inventing extra precedence rules not defined by the spec
 
 ### Canonical Feature-Maturity Diagnostic
 

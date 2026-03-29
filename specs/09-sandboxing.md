@@ -62,6 +62,21 @@ When `true`, the static analysis is incomplete — the sandbox must enforce at r
 
 ## Sandbox Policies
 
+### No-Policy Default
+
+An attached sandbox policy is optional even though sandboxing is a first-class design concern.
+
+Canonical behavior when no policy is attached:
+- if neither `--sandbox <policy>` nor top-level `kali.json#sandbox` is provided, Kali runs with **no project policy file attached**
+- in that mode, Kali still enforces intrinsic guarantees such as API-surface/feature gating, WASM/runtime safety, and any direct invocation resource caps explicitly supplied on the CLI
+- `kali check` / `kali build` simply skip policy validation when no policy is attached
+- `kali run` / `kali test` skip policy-file-driven capability filtering when no policy is attached
+- `--max-memory`, `--max-cpu`, and later direct invocation resource-cap flags may still be used without a policy file; without a policy they become the effective cap directly
+
+Important distinction:
+- absence of a policy is **not** modeled as an implicit synthesized allow-all `kali.policy.json`
+- tooling and diagnostics should preserve the difference between “no policy attached”, “policy attached and permissive”, and “policy attached and restrictive”
+
 ### Policy Definition
 Sandbox policies are **declarative data files**, not arbitrary executable TypeScript. This keeps them auditable, easy to diff, and safe to evaluate before running untrusted code.
 
@@ -153,8 +168,9 @@ Interpretation rule:
 Enforced by the WASM host (wasmtime in initial phases).
 
 Effective-limit rule:
-- sandbox policy values are the maximum capability/resource envelope for the run
+- when a sandbox policy is attached, its values are the maximum capability/resource envelope for the run
 - per-invocation CLI overrides such as `--max-memory` and `--max-cpu` may further tighten that envelope
+- when no sandbox policy is attached, direct invocation caps become the effective envelope for the resource dimensions they cover
 - CLI/config must not silently widen a stricter sandbox policy at runtime
 
 

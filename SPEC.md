@@ -216,6 +216,7 @@ Interpretation rules:
 - raw URL imports are **not** duplicated under `dependencies` / `devDependencies`
 - `kali.lock` records both source kinds even though they materialize into different on-disk locations
 - `kali install <registry-package>` mutates manifest + lock/materialized state for registry dependencies
+- because registry packages share one early-phase `node_modules/` tree, Kali must reject a dependency set that would map two distinct registries to the same on-disk package path rather than inventing shadow package trees or ambiguous lookup rules
 - `kali install https://...` pins/materializes that exact URL in the shared lock/materialization model but does **not** invent a second manifest section or silently rewrite source imports
 - ad hoc raw-URL installs are therefore a **staging/pin workflow**, not a second durable declaration channel; long-lived raw URL dependencies still belong in source imports or `kali.json#imports`
 - `--dev` applies only to **registry package** install arguments; pairing `--dev` with a raw URL is rejected explicitly instead of inventing a `devUrls`-style manifest concept
@@ -284,6 +285,18 @@ Cross-spec rule:
 - specs should describe this as an extension of the sandbox contract, not as permission to weaken the declarative-policy default
 
 This is the canonical simplification for reasoning about the original “policy function” idea without undermining auditability or startup-time safety.
+
+### Canonical No-Policy Behavior
+
+To keep sandbox-first design compatible with normal development workflows, Kali distinguishes between **intrinsic runtime safety** and an **attached declarative sandbox policy**:
+- if no `--sandbox` flag is supplied and `kali.json` omits top-level `sandbox`, the command runs with **no attached project policy file**
+- in that mode, Kali still enforces intrinsic guarantees such as API-surface gating, phase/feature gating, WASM memory safety, and any hard engine invariants required for correctness
+- however, capability allow/deny decisions and policy-defined resource ceilings come only from an attached policy file; without one, `check`/`build` perform no policy validation and `run`/`test` perform no policy-file-driven capability filtering
+- per-invocation resource flags such as `--max-memory` and `--max-cpu` may still be used without a policy file; when a policy is present they can only tighten it, and when no policy is present they become the direct invocation caps
+
+Cross-spec rule:
+- absence of a policy file is **not** the same thing as an explicit permissive `kali.policy.json`; tools should preserve that distinction instead of materializing a fake allow-all policy behind the scenes
+- diagnostics should say whether a failure came from API/phase availability, explicit sandbox policy, or direct invocation resource caps so tooling can react correctly
 
 ## Canonical Sandbox Enforcement Domains
 
