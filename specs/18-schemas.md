@@ -527,7 +527,7 @@ Interpretation rules:
 - tools may materialize these defaults internally, but should preserve a minimal on-disk config unless the user explicitly asks for a fuller form
 - when a tool normalizes `kali.json`, it must not change semantics by adding or removing fields whose values equal these defaults
 - `compilerOptions.apiSurface` is the canonical config name for the host API family; CLI uses `--api`
-- `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `effects` / `build` / `run` / `test`, and the inherited analysis context used by `package-effects`, but schema v1 does **not** imply separate per-surface lockfiles or install trees for the same manifest/import graph
+- `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `effects` / `build` / `run` / `test`, and the inherited analysis context used by `package-effects`, but schema v1 does **not** imply separate per-surface lockfiles or install trees for the same manifest/import graph and it does **not** change the semantics of early `package-audit`
 - `compilerOptions.buildMode` is one of `fast`, `release`, or `release-advanced`
 - `compilerOptions.runtimeProfiles` is an array of semantic runtime-profile names; in schema v1 it is usually empty because later profiles such as `wasm-threads` are still phase-gated
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates

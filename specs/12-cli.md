@@ -90,7 +90,8 @@ Package-analysis flag-surface simplification:
 - `kali package-effects`, when implemented, intentionally does **not** grow its own parallel `--api` / `--compat` flag set in early phases.
 - instead, it records the effective analysis context inherited from `kali.json` / built-in defaults in the nested `report.analysisContext` field.
 - `kali package-audit` likewise stays a single-package registry tool in early phases and does **not** add package-analysis-specific `--api` / `--compat` flags before there is a documented need.
-- this keeps package analysis aligned with the same canonical context vocabulary (`apiSurface`, `runtimeProfiles`, `compatFeatures`) without creating a second near-duplicate flag surface before there is evidence it is needed.
+- unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `runtimeProfiles`, and `compat.features` do not change its semantics.
+- this keeps package analysis aligned with one canonical context vocabulary where it matters (`package-effects`) without turning package-audit into a second near-duplicate host-analysis command before there is evidence it is needed.
 
 Build-mode continuity rule:
 - these three build-mode names are stable from Phase 1 onward
@@ -440,6 +441,7 @@ kali package-audit jsr:@std/path           # Audit specific JSR package
 ```
 Additional flag-surface rule:
 - like `package-effects`, `package-audit` does **not** take package-analysis-specific `--api` or `--compat` flags in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds them
+- unlike `package-effects`, early `package-audit` also does **not** inherit analysis context from `compilerOptions.apiSurface`, `compilerOptions.runtimeProfiles`, or `compat.features`; it remains a context-free registry tool
 
 ## Output Design
 
@@ -519,7 +521,7 @@ Omission/default rule for minimal configs:
 
 Configuration simplification rules:
 - `compilerOptions.apiSurface` is the config equivalent of the CLI `--api` flag
-- `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `effects` / `build` / `run` / `test`, and for inherited-context package analysis via `package-effects`, but it does **not** cause `kali install` to maintain separate lock/materialization state per API surface in early phases
+- `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `effects` / `build` / `run` / `test`, and for inherited-context package analysis via `package-effects`, but it does **not** cause `kali install` to maintain separate lock/materialization state per API surface in early phases and it does **not** change the semantics of early `package-audit`
 - `compilerOptions.buildMode` replaces separate optimization booleans
 - `compilerOptions.runtimeProfiles` is an array of explicit semantic runtime-profile switches; an empty array means the default single-threaded baseline, while a future threaded config would use `"runtimeProfiles": ["wasm-threads"]`
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates

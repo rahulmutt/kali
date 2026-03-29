@@ -197,6 +197,7 @@ Use `E5008` for cases such as:
 - `kali package-effects --api browser lodash`
 - `kali package-effects --compat eval lodash`
 - `kali package-audit --api browser lodash`
+- `kali package-audit --compat eval lodash`
 - `kali package-audit` with no package argument
 - `kali package-audit lodash react`
 - `kali build --bundle --api node main.ts`
