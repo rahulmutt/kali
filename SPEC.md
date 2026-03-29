@@ -72,7 +72,7 @@ Deliver a practically useful compiler/runtime with:
 - runtime sandbox enforcement and resource limits
 - Web baseline APIs plus Deno-first standalone runtime subset
 - browser-targeted `check --api browser` and `build --bundle --api browser`
-- core CLI workflows: `run`, `build`, `check`, `fmt`, `lint`, `test`, `install`
+- core CLI workflows: `init`, `run`, `build`, `check`, `fmt`, `lint`, `test`, `install`
 
 ### Phase 2 — Ownership, effects, embedding
 Add:
@@ -249,7 +249,7 @@ When extending the spec set:
 The spec intentionally makes a few simplifying choices to keep implementation tractable:
 - one primary execution engine (`wasmtime`) first
 - one linked WASM artifact per build in early phases
-- one canonical machine-readable JSON contract per output type
+- one canonical machine-readable JSON contract per output type, with command-specific payloads wrapped in one shared CLI envelope when JSON transport is requested
 - one primary standalone runtime surface early (`deno`), with browser as a check/build profile first
 - one initial effect model centered on sandbox-relevant built-in capabilities
 

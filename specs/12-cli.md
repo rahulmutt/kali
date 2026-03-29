@@ -12,6 +12,11 @@
 
 These flags are shared across the CLI, but some apply only to specific command families. For the canonical meaning of **API surface**, **build mode**, and **runtime profile**, see [SPEC.md](../SPEC.md). For command/profile gating, see [19 — Feature Maturity](19-feature-maturity.md).
 
+Command-family terminology used in this chapter:
+- **execution commands**: `run` and `test`
+- **build-like commands**: `build`, plus the compile step embedded inside `run` and `test`
+- **diagnostic-producing commands**: `check`, `build`, `run`, `test`, `fmt --check`, and `lint`
+
 Naming rule:
 - CLI keeps short flag names such as `--api`
 - `kali.json` keeps the canonical leaf keys under `compilerOptions`: `apiSurface`, `buildMode`, and `runtimeProfiles`
@@ -36,6 +41,28 @@ Naming rule:
 | `--wasm-threads` | `build`, `run`, `test` | Opt into the later threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; before that profile exists, or on unsupported targets, the command must fail with `E5006` |
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
+
+## Command-Specific Flags
+
+To keep the shared-flag table small and avoid implying that every convenience flag is globally meaningful, command-local switches are listed here.
+
+| Flag | Scope | Description |
+|------|-------|-------------|
+| `--bundle` | `build` | Required for the early browser-targeted build path (`build --bundle --api browser`) and may later select other multi-artifact packaging modes |
+| `--lib` | `build`, `init` | Build or scaffold a library-oriented project/artifact without automatic program start |
+| `--capi` | `build` | Emit the Phase-2 public C-embedding artifact set (`wasm-module` + `c-header` + `cabi-metadata`) |
+| `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
+| `--max-specializations N` | `build`, `run`, `test` | Override the specialization fan-out cap for a single invocation |
+| `--fix` | `check`, `lint` | Apply only structured, tool-generated safe fixes for the selected command |
+| `--pretty` | `effects` | Pretty-print the effect-report JSON without changing its schema |
+| `--check` | `fmt` | Report formatting drift without rewriting files |
+| `--filter <pattern>` | `test` | Run only matching tests |
+| `--coverage` | `test` | Emit test coverage data using the documented test-report contract once that output is stabilized |
+| `--dev` | `install` | Add the named registry dependency to `devDependencies` instead of `dependencies` |
+
+Interpretation rule:
+- command-specific flags inherit the same phase/profile gating rules as the command they belong to
+- documenting a command-specific flag here does **not** imply it needs a separate feature-maturity row unless it changes a phase promise or machine-readable contract
 
 Config-array normalization rule:
 - `compilerOptions.runtimeProfiles` and `compat.features` are set-like lists, not ordered pipelines
@@ -92,7 +119,7 @@ Sandbox flag behavior is intentionally phase-gated:
 - Policy files remain declarative; any later host-registered sandbox policy predicates are an embedding-oriented extension, not a second inline policy language.
 
 ### `kali build <file>`
-AOT compile to a WASM module.
+AOT compile to a WASM module or linked artifact set.
 
 `--capi` and other public embedding-oriented outputs follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): the compiler is library-first internally in Phase 1, but stable public embedding artifacts are a Phase 2 target.
 ```bash
@@ -166,7 +193,7 @@ kali test --api browser                    # Rejected in early phases; browser i
 Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run`, and `kali check` / `kali build` follow the same API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
 
 ### `kali init`
-Initialize a new project.
+Initialize a new project scaffold.
 ```bash
 kali init                                  # Create kali.json in current dir
 kali init --lib                            # Library project template
@@ -176,6 +203,7 @@ Scaffold simplification rules:
 - `kali init` should generate the **minimal canonical** `kali.json` shape unless the selected template truly needs more.
 - The default scaffold should not pre-populate empty `dependencies`, `devDependencies`, `compat`, `sandbox`, or other placeholder sections just to advertise features.
 - `kali init --lib` may add library-oriented source/layout hints, but it should still reuse the same canonical config naming (`apiSurface`, `buildMode`, `runtimeProfiles`) instead of inventing template-specific aliases.
+- `kali init` should also create only the smallest source/layout skeleton needed for the chosen template (for example `main.ts` for the default app template or `mod.ts`/`lib.ts` for a library template) instead of emitting multiple unused example files.
 - Dependency state is still created by `kali install`, not by `kali init`.
 
 ### `kali install [package]`

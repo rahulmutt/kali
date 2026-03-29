@@ -51,6 +51,7 @@ Used by commands that opt into `--output json`.
 
 ### Notes
 - `payload` holds command-specific structured data
+- `command` is intentionally an open-ended string so new CLI subcommands do not force a schema-version bump; stable built-in command names should mirror the CLI subcommand path in kebab-case (for example `check`, `build`, `package-effects`)
 - `kali effects` may emit the raw effect report by default, but with `--output json` it must be wrapped in this envelope
 - Commands should avoid inventing top-level ad hoc fields when `payload` is sufficient
 
@@ -387,6 +388,7 @@ Canonical filename: `kali.json`
 - `compilerOptions.maxSpecializations` is the project-default specialization cap; CLI `--max-specializations` may override it per invocation
 - top-level `sandbox` is an optional default sandbox-policy path; it is the config equivalent of supplying `--sandbox <path>` for commands that honor sandboxing, and an explicit CLI flag overrides it
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
+- when set-like arrays such as `compilerOptions.runtimeProfiles` or `compat.features` are normalized by tooling, normalization should preserve semantics without inventing duplicates; preserving first-seen order for display/diff stability is preferred even though the arrays are semantically unordered
 - `include` / `exclude` define project file discovery globs for project-oriented commands and editor/tooling integrations; they do not reinterpret an explicit CLI file argument as a different entry point
 - `imports` is the canonical alias/import-map section for URL and path-like rewrites; it is not a second registry-dependency manifest
 - `dependencies` and `devDependencies` are top-level package manifests for **registry packages** owned by `kali install`; they are not nested under `compilerOptions`
