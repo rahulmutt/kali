@@ -132,7 +132,7 @@ The phase names below are canonical across the spec set.
 ### Phase 1 — Core compiler
 Deliver a practically useful compiler/runtime with:
 - lexer, parser, AST, name resolution
-- TypeScript-compatible checking and first-class JavaScript compilation with conservative inference
+- TypeScript-compatible checking and first-class JavaScript compilation with conservative inference plus a bounded HM-style local/return inference fragment
 - HIR and LIR, with direct `HIR -> LIR` lowering allowed
 - WASM emission and wasmtime-based execution
 - runtime sandbox enforcement and resource limits

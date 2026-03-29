@@ -48,10 +48,6 @@ Naming rule:
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
 
-Clarification:
-- `--max-specializations` is an upper bound, not a promise that the current build mode will spend that full budget
-- in Phase 1, `--fast` may still perform little or no user-authored generic specialization even when a higher cap is configured, while `--release` and `--release-advanced` are the modes that actively consume that budget
-
 ## Command-Specific Flags
 
 To keep the shared-flag table small and avoid implying that every convenience flag is globally meaningful, command-local switches are listed here.
@@ -62,7 +58,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--lib` | `build`, `init` | Build or scaffold a library-oriented project/artifact without automatic program start |
 | `--capi` | `build` | Emit the Phase-2 public C-embedding artifact set (`wasm-module` + `c-header` + `cabi-metadata`) |
 | `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
-| `--max-specializations N` | `build`, `run`, `test` | Override the specialization fan-out cap upper bound for a single invocation; `--fast` may still skip most user-authored generic specialization entirely |
+| `--max-specializations N` | `build`, `run`, `test` | Override the specialization fan-out cap upper bound for a single invocation; this is an upper bound, not a promise that the current build mode will spend the full budget, and `--fast` may still skip most user-authored generic specialization entirely |
 | `--fix` | `check`, `lint` | Apply only structured, tool-generated safe fixes for the selected command |
 | `--pretty` | `effects`, `package-effects` | Pretty-print the native JSON payload for effect-analysis commands without changing its schema |
 | `--check` | `fmt` | Report formatting drift without rewriting files |

@@ -60,7 +60,7 @@ Interpretation rule:
 
 The architecture is intentionally staged so the compiler can become useful early. The phase names and scope here are canonicalized to match [SPEC.md](../SPEC.md):
 
-1. **Phase 1 — Core compiler**: lexer, parser, AST, name resolution, TypeScript-compatible checking, first-class JavaScript compilation with conservative inference, HIR/LIR, simple WASM emission, a minimal Web/Deno host surface, browser-targeted `check --api browser` and `build --bundle --api browser`, the core CLI workflow, and a library-first internal architecture so the CLI is built on reusable compiler/runtime crates.
+1. **Phase 1 — Core compiler**: lexer, parser, AST, name resolution, TypeScript-compatible checking, first-class JavaScript compilation with conservative inference plus a bounded HM-style local/return inference fragment, HIR/LIR, simple WASM emission, a minimal Web/Deno host surface, browser-targeted `check --api browser` and `build --bundle --api browser`, the core CLI workflow, and a library-first internal architecture so the CLI is built on reusable compiler/runtime crates.
    - Source-kind clarification: `.mts` and `.cts` are part of the canonical TypeScript source set alongside `.ts` / `.tsx`.
    - `.mjs` / `.cjs` and package `type` metadata still control runtime module-kind interpretation where applicable.
    - File-extension support should not drift between the frontend, package resolver, CLI file discovery, and type-resolution rules.

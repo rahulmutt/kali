@@ -140,6 +140,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 ### Phase 1 exit criteria
 - One linked-WASM-payload compile/run pipeline works end-to-end for TS and JS inputs, with companion artifacts only where an output mode explicitly requires them.
 - `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
+- The checker ships the bounded HM-style local/return inference fragment promised for Phase 1, while still falling back conservatively instead of doing open-ended whole-program search.
 - Browser-targeted `check --api browser` and `build --bundle --api browser` work against the real browser ambient surface without implying DOM runtime support in Kali itself.
 - `kali check` / `build` / `run` / `test` all use the same early-phase API-surface maturity rules: Deno-supported, Node phase-gated, browser supported only for the documented browser-targeted check/bundle paths.
 - once `kali effects` lands in Phase 2, it follows the same API-surface split as analysis commands: default `deno`, browser-targeted analysis supported, and Node phase-gated until the documented subset exists.
@@ -188,6 +189,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 |---|---|---|
 | TypeScript-compatible checking and flow narrowing | Phase 1 MVP | Compatibility first |
 | Stronger JS inference and conservative fallback to `unknown` / dynamic representations | Phase 1 MVP | Needed for plain JS compilation |
+| Bounded HM-style local/return inference | Phase 1 MVP | Early inference should improve materially on plain `tsc` local inference without requiring open-ended whole-program search |
 | Stable built-in capability-effect reporting | Phase 2 target | `kali effects` and policy checking |
 | Explicit `pure` / effect annotations | Phase 2 target | Built-in sandbox capability model first |
 | Stable user-defined/custom effects in machine contracts | Later compatibility | Keep early schemas/policies simple |
