@@ -106,11 +106,14 @@ Use `E5006` for cases such as:
 - `--api node` before the documented Node subset is implemented
 - `eval` / `Function()` without `--compat eval`
 - dynamic `require()` in early phases
-- browser-only DOM assumptions in the standalone runtime
 - `run --api browser` in early phases where browser support exists only as a check/build profile
 - `build --api browser` without `--bundle` in early phases where browser support exists only as a bundle/check profile
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - any parse-supported construct that is intentionally not semantically enabled in the current phase/profile
+
+Clarification:
+- use `E5006` for **documented feature/profile gating**
+- use ordinary type/name diagnostics instead when user code simply references a global that is not present in the selected ambient surface (for example `document` under `--api deno` should normally be a regular unresolved-name/type error, not a feature-maturity error)
 
 ### Runtime Errors (E6xxx)
 - `E6001`: Uncaught exception

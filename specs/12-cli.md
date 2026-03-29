@@ -64,6 +64,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
 - documenting a command-specific flag here does **not** imply it needs a separate feature-maturity row unless it changes a phase promise or machine-readable contract
+- build output-mode flags should not silently combine into ambiguous artifact contracts; in early phases `--bundle` and `--capi` are mutually exclusive, and unsupported combinations must fail explicitly rather than guessing which artifact set the user meant
 
 Config-array normalization rule:
 - `compilerOptions.runtimeProfiles` and `compat.features` are set-like lists, not ordered pipelines
@@ -116,7 +117,7 @@ Sandbox flag behavior is intentionally phase-gated:
 - `kali run --sandbox ...` is a Phase 1 feature for runtime policy enforcement.
 - `kali check/build --sandbox ...` validate the policy file/config in Phase 1.
 - Full inferred-effect-vs-policy validation is a Phase 2 feature.
-- Policy validation must also reject policies that try to enable capabilities unavailable in the selected command/profile/phase (for example `effects.eval: true` before the eval compatibility path exists, or `maxThreads > 0` before the threaded runtime profile exists).
+- Policy validation must also reject policies that try to enable capabilities unavailable in the selected command/profile/phase (for example `effects.eval: true` before the eval compatibility path exists, or `resources.maxThreads > 0` before the threaded runtime profile exists).
 - Policy files remain declarative; any later host-registered sandbox policy predicates are an embedding-oriented extension, not a second inline policy language.
 
 ### `kali build <file>`
@@ -163,6 +164,7 @@ Compatibility rule:
 - plain `kali effects ...` emits the raw effect-report payload
 - `kali effects --output json ...` emits the standard command envelope with that same effect report under `payload`
 - `--pretty` changes formatting only; it does not change the effect-report schema or field names
+- if `--pretty` and `--output json` are combined, formatting applies to the outer command envelope while the nested effect payload remains schema-identical
 
 ### `kali fmt [files...]`
 Format source files (implemented in `kali_fmt`).

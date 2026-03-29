@@ -5,7 +5,7 @@
 Sandboxing is a first-class concern in Kali. The system combines:
 1. **Static effect analysis** — maintain a conservative capability-summary model, with a stable user-facing JSON report starting in Phase 2
 2. **Sandbox policies** — declarative rules for what's allowed
-3. **Runtime resource limits** — CPU, memory, processes, network
+3. **Runtime limits** — cross-cutting resource budgets (CPU, memory, open files, processes, threads) plus selected capability-local caps such as timers and network connections
 
 ## Static Effect Analysis
 
@@ -66,7 +66,7 @@ The canonical policy schema is defined in [specs/18-schemas.md](18-schemas.md). 
 For process environment access, the policy model distinguishes `effects.process.envRead` from `effects.process.envWrite` so read-only inspection and mutation can be granted independently.
 
 Policy-structure simplification rule:
-- `effects.*` controls whether a capability exists and, where needed, capability-local allowlists/caps (for example URL patterns or timer counts)
+- `effects.*` controls whether a capability exists and, where needed, capability-local allowlists/caps (for example URL patterns, timer counts, or network connection counts)
 - `resources.*` is reserved for cross-cutting runtime budgets that apply regardless of which specific API triggered them (for example total memory, CPU time, open files, spawned processes, threads)
 - specs should not duplicate the same numeric limit in both places under different names
 
@@ -79,7 +79,7 @@ Compile-time policy handling is intentionally split to keep Phase 1 smaller and 
 Availability rule for policy validation:
 - a policy may always **deny** a capability, even if that capability's corresponding API/feature is later-phase
 - a policy must **not claim to allow** a capability that the selected command/profile/phase cannot actually provide
-- therefore validation should reject enabling unavailable capabilities such as `effects.eval: true` before Phase 4, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, or `resources.maxThreads > 0` before the threaded runtime profile exists
+- therefore validation should reject enabling unavailable capabilities such as `effects.eval: true` before Phase 4, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
 - this avoids a misleading policy that appears more permissive than the runtime/compiler can really honor
 
 Phase-1 capability snapshot for supported surfaces:
@@ -165,11 +165,11 @@ Effective-limit rule:
 - URL pattern matching applies to `fetch` allowlists (`effects.network.fetch`)
 - Outbound socket-style connections can be disabled or gated separately (`effects.network.connect`)
 - Port/address listeners can be disabled or gated separately (`effects.network.listen`)
-- Concurrent network usage is capped by `effects.network.maxConnections`
+- Concurrent network usage is capped by the capability-local field `effects.network.maxConnections`, not by `resources.*`; this keeps network-specific concurrency policy attached to the network capability instead of duplicating it as a second global resource knob
 
 ### Thread Limits (Later Threaded Profile)
 - `resources.maxThreads` matters only for the later `--wasm-threads` runtime profile
-- before that profile exists, policy validation should reject `maxThreads > 0` rather than silently accepting a non-functional limit
+- before that profile exists, policy validation should reject `resources.maxThreads > 0` rather than silently accepting a non-functional limit
 - Once threading exists, the runtime must enforce the cap across worker/thread creation
 - A per-invocation thread-limit override may only reduce the effective cap; it must never increase a stricter policy limit
 
