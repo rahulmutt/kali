@@ -43,6 +43,7 @@ These constraints are global and should not be weakened by subsystem docs:
 - **Single linked core WASM payload** for the resolved static graph in early phases
 - **No silent fallback** for unsupported semantics or unsupported host/profile combinations
 - **Stable machine-readable contracts** for every machine-readable surface Kali exposes (JSON output, diagnostics, effect reports, artifact metadata, config, and policy schemas)
+- **One mutating dependency-management command** in early phases: `kali install` is the only command that writes project dependency state
 
 ## Reference Inspirations
 
@@ -358,6 +359,53 @@ In early phases:
 - `kali install [package]` accepts zero or one explicit package argument
 - `kali package-effects <package>` accepts exactly one explicit registry-package argument
 - `kali package-audit <package>` accepts exactly one explicit registry-package argument
+
+## Canonical Command Participation Classes
+
+### Sandbox-aware commands
+These commands participate in the project sandbox contract:
+- `run`
+- `test`
+- `check`
+- `build`
+
+Interpretation rules:
+- top-level `kali.json#sandbox` applies only to this set
+- `run` and `test` enforce the attached policy at runtime in Kali-hosted execution
+- `check` and `build` validate sandbox policy shape/config in Phase 1 and add inferred-effect-vs-policy validation in Phase 2+
+
+### Effect-reporting commands
+These commands report effect information, but do not become alternate policy-validation entrypoints in early phases:
+- `effects`
+- `package-effects`
+
+Interpretation rules:
+- they do **not** accept `--sandbox` in early phases
+- top-level `kali.json#sandbox` is ignored for them rather than being treated as an error
+- `effects` reports over one explicit source entrypoint; `package-effects` reports over one explicit registry package
+- `package-effects` still inherits the effective analysis context (`apiSurface`, `runtimeProfiles`, `compat.features`)
+
+### Sandbox-agnostic commands
+These commands do not participate in sandbox-policy attachment in early phases:
+- `init`
+- `fmt`
+- `lint`
+- `install`
+- `package-audit`
+
+Interpretation rules:
+- top-level `kali.json#sandbox` is ignored for this set rather than being treated as an error
+- early `package-audit` remains context-free with respect to `apiSurface`, `runtimeProfiles`, and `compat.features`
+
+## Canonical Dependency-State Mutability Rule
+
+Early-phase project dependency state belongs to the effective project root (`kali.lock`, `node_modules/`, `.kali/cache/urls/`).
+
+Interpretation rules:
+- `kali install` is the only command that mutates that project dependency state
+- `check`, `effects`, `build`, `run`, and `test` consume existing dependency state and fail with `E5004` when it is missing or stale
+- `package-effects` and `package-audit` may use temporary analysis caches, but they do **not** mutate project dependency state
+- commands must not silently repair lock/materialization drift as a side effect of ordinary analysis or execution
 
 ## Artifact-Mode Matrix
 

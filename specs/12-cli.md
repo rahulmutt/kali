@@ -78,7 +78,7 @@ Effective-context validation rule:
 | `--fast` | `build`, `run`, `test` | Fastest compile time, minimal optimization (default build mode) |
 | `--release` | `build`, `run`, `test` | Standard optimization profile |
 | `--release-advanced` | `build`, `run`, `test` | Aggressive optimization profile |
-| `--sandbox <policy>` | `run`, `test`, `check`, `build` | Attach and validate `kali.policy.json`; in Phase 1 this enforces at runtime for `run`/`test` and validates policy/config for `check`/`build` |
+| `--sandbox <policy>` | sandbox-aware commands | Attach and validate `kali.policy.json`; in Phase 1 this enforces at runtime for `run`/`test` and validates policy/config for `check`/`build` |
 | `--max-memory <size>` | execution commands | Override the invocation memory cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-cpu <duration>` | execution commands | Override the invocation CPU cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-open-files N` | execution commands | Override the invocation open-file-handle cap; may only tighten the effective limit relative to config/policy, never widen it |
@@ -374,7 +374,7 @@ kali install jsr:@std/path                 # Add/install registry dependency fro
 kali install                               # Materialize all declared dependencies for the project
 kali install --allow-scripts               # Permit lifecycle hooks for discovered registry packages in this install run
 kali install --dev vitest                  # Add/install dev dependency
-kali install --allow-scripts <pkg>                  # Opt into lifecycle scripts for one registry package install; still not a promise that binary/bootstrap-heavy packages are supported
+kali install --allow-scripts <pkg>         # Opt into lifecycle scripts for one registry package install; still not a promise that binary/bootstrap-heavy packages are supported
 kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency
 ```
 
@@ -451,7 +451,7 @@ kali package-audit jsr:@std/path           # Audit specific JSR package
 Additional flag-surface rule:
 - like `package-effects`, `package-audit` does **not** take package-analysis-specific `--api` or `--compat` flags in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds them
 - unlike `package-effects`, early `package-audit` also does **not** inherit analysis context from `compilerOptions.apiSurface`, `compilerOptions.runtimeProfiles`, or `compat.features`; it remains a context-free registry tool
-- top-level `kali.json#sandbox` is likewise ignored by `package-audit`, matching the broader rule that non-sandbox-aware commands do not silently turn into policy-validation workflows
+- top-level `kali.json#sandbox` is likewise ignored by `package-audit`, matching the broader sandbox-agnostic command rule from [SPEC.md](../SPEC.md)
 
 Output simplification rule:
 - unlike `kali effects` and `kali package-effects`, `kali package-audit` does **not** define a native bare-JSON payload in schema v1
@@ -543,10 +543,10 @@ Configuration simplification rules:
 - `compilerOptions.strict` is the config-level strictness bundle; its semantics live in [specs/04-type-system.md](04-type-system.md) and it should not be re-expanded into many parallel booleans in early phases
 - `compilerOptions.maxSpecializations` caps specialization fan-out for generic/layout-driven optimization in modes that actively specialize; CLI `--max-specializations` overrides it for a single invocation
 - `compilerOptions.maxSpecializations` is an upper bound rather than a promise that `buildMode = fast` will consume that full budget; `fast` may still skip most user-authored generic specialization by design
-- top-level `sandbox` is an optional default policy-file path equivalent to supplying `--sandbox <path>` for sandbox-aware commands (`run`, `test`, `check`, `build`); an explicit CLI `--sandbox` overrides it
+- top-level `sandbox` is an optional default policy-file path equivalent to supplying `--sandbox <path>` for the canonical sandbox-aware commands from [SPEC.md](../SPEC.md); an explicit CLI `--sandbox` overrides it
 - relative `sandbox` paths in `kali.json` are resolved relative to the directory containing that config file rather than relative to whatever directory the user happened to run the command from
 - omitting top-level `sandbox` means no default policy is attached; it does **not** ask tools to synthesize an implicit permissive policy file
-- non-sandbox-aware commands (`init`, `fmt`, `lint`, `install`, `effects`, `package-effects`, `package-audit`) ignore the top-level `sandbox` setting rather than erroring or silently turning themselves into policy-validation commands
+- the canonical effect-reporting and sandbox-agnostic command classes from [SPEC.md](../SPEC.md) ignore the top-level `sandbox` setting rather than erroring or silently turning themselves into policy-validation commands
 - `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans
 - in schema v1, the only canonical compatibility feature name is `"eval"`; it gates both direct `eval` support and the `Function()` constructor compatibility path
 - `include` / `exclude` constrain the canonical project-discovery result for project-oriented commands, the dependency-graph install scan, and hybrid no-argument discovery commands such as `check`; direct file arguments still name the primary entry explicitly

@@ -263,6 +263,8 @@ Practical consequence:
 
 ## Deterministic Install & Resolution Contract
 
+This chapter follows the top-level [canonical dependency-state mutability rule](../SPEC.md): in early phases, `kali install` is the only command that mutates project dependency state.
+
 To keep package behavior predictable across `install`, `check`, `effects`, `build`, `run`, and `test`, Kali uses one simple rule set:
 - `kali install` is the command that resolves dependency versions and writes `kali.lock`.
 - `kali check`, `effects`, `build`, `run`, and `test` consume the existing lockfile/materialized dependency state; they must not silently re-resolve packages or mutate dependency state as a side effect.
