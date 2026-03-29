@@ -156,6 +156,12 @@ Installation is **fetch-and-link by default**, not "execute package scripts" by 
 - packages requiring native build steps are rejected as unsupported even when lifecycle scripts are enabled
 - package metadata and tarballs can still be analyzed before linking
 
+Canonical lifecycle-script boundary:
+- lifecycle scripts are an **install-time registry-package hook path**, not part of the ordinary Kali source-program execution model
+- enabling `--allow-scripts` does **not** imply `--api node`, broader Node package/runtime compatibility, or coverage by the normal `kali effects` / `kali.policy.json` contract
+- top-level project sandbox config is ignored by `kali install`, so lifecycle-script execution is intentionally outside the schema-v1 project-policy model rather than being half-governed by it
+- package compatibility claims for normal `check` / `build` / `run` / `test` should therefore not be inflated by the existence of this opt-in installer escape hatch
+
 Uses standard `node_modules/` layout by default for maximum ecosystem compatibility. Kali-specific caches live under `.kali/` instead of inventing a second package tree:
 ```
 node_modules/
@@ -235,6 +241,7 @@ To keep package behavior predictable across `install`, `check`, `effects`, `buil
 - `node_modules/` is the materialized tree for registry packages (npm/JSR), while `.kali/cache/urls/` is the materialized cache for raw URL imports; `kali.lock` is the canonical reproducibility record for both.
 - When `kali.lock` and the required materialized dependency state disagree, `kali install` is responsible for reconciling them. Other commands should fail clearly rather than guessing which source of truth to trust.
 - `--allow-scripts` affects install-time behavior only; it does not change later `check`/`build`/`run` semantics for an already-installed package graph.
+- lifecycle scripts executed during install are outside the normal source-program effect-report/sandbox-policy contract and therefore are not evidence that the installed package graph itself requires those same effects at runtime.
 
 This is an intentional simplification: one command mutates dependency state, all other commands consume it deterministically. For raw URL imports, the source/import-map graph is the declaration source of truth and the lock/cache are the materialized state derived from it.
 

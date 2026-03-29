@@ -309,6 +309,11 @@ Scaffold simplification rules:
 Install or materialize project dependencies.
 
 Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that require native addons remain unsupported even when scripts are enabled.
+
+Boundary rule:
+- `--allow-scripts` is an **install-time tooling escape hatch**, not a runtime/API-surface feature
+- enabling it does **not** imply `--api node`, does not cause lifecycle scripts to participate in `kali effects`, and does not make project `--sandbox` / `kali.json#sandbox` govern install-time hook execution
+- package-compatibility claims for normal `check` / `build` / `run` / `test` remain separate from this narrower opt-in install behavior
 ```bash
 kali install lodash                        # Add/install registry dependency from npm
 kali install jsr:@std/path                 # Add/install registry dependency from JSR
@@ -337,6 +342,7 @@ Determinism rules:
 - If dependency state is missing or stale for the dependency source kinds the project actually uses, those non-install commands fail with the canonical `E5004` path and point the user to `kali install`.
 - If a direct-entry command names a file outside the last installed project discovery set and that file reaches additional raw URL imports, the command still fails with `E5004`; non-install commands must not auto-install or mutate the dependency graph opportunistically.
 - `--allow-scripts` is install-scoped only; it does not loosen later execution/build sandbox rules.
+- lifecycle scripts enabled through `--allow-scripts` are outside the normal source-program sandbox/effect-report contract; they are install-time package hooks, not guest-program entrypoints.
 - Registry packages (npm/JSR) are materialized into `node_modules/`; raw URL imports are materialized under `.kali/cache/urls/`. Non-install commands consume whichever of those stores are relevant to the current project instead of assuming every project must have both.
 
 ### `kali package-effects <package>`

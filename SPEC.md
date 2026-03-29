@@ -277,6 +277,17 @@ Install-graph discovery rule for raw URLs:
 - pruning of raw URL lock/cache state is judged against that install-time declaration graph plus `kali.json#imports`, not against arbitrary unopened files elsewhere in the repository
 - direct-entry commands such as `kali run path/to/file.ts` may still fail with `E5004` if that explicit entrypoint reaches a raw URL dependency that was not part of the last installed project graph; the fix remains to run `kali install` after adjusting the project's declared/discoverable sources
 
+### Canonical Install-Script Boundary
+
+To keep package tooling, sandboxing, and host-API promises from drifting together, Kali treats npm lifecycle scripts as a **separate install-time escape hatch**, not as part of the ordinary program-execution contract:
+- lifecycle scripts are enabled only by the explicit one-shot CLI opt-in `kali install --allow-scripts`
+- they are **registry-package install hooks**, not source-program entrypoints and not a second use of `kali run`
+- enabling them does **not** imply `--api node` support, broader runtime host compatibility, or participation in the normal `kali effects` / sandbox-policy model
+- top-level project `sandbox` config is ignored by `install`, and schema-v1 `kali.policy.json` does not try to govern lifecycle-script behavior
+- package compatibility claims for ordinary `check` / `build` / `run` / `test` must therefore stay separate from the narrower opt-in claim that an install hook can be executed during dependency materialization
+
+This keeps the default dependency workflow deterministic and sandbox-first while still allowing an explicit, auditable escape hatch for packages that need install-time preprocessing.
+
 This is the canonical simplification for dependency management across the CLI, package, and schema specs.
 
 ## Canonical Source-File Kinds
