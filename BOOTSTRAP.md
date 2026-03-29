@@ -34,4 +34,4 @@ Write a top-level SPEC.md that references specs/*.md to breakdown into logical u
 - It should have excellent error messages - AI agents should easily parse the error messages and be able to react easily.
 - Design the CLI output for AI agent consumption - don't be too verbose (add verbosity as a separate flag) on successes and for failures provide just enough detail to make AI loops token-efficient.
 - Take insipiration in langauge / type system design from languages Like Haskell, Idris, Adga, Lean. At the same time aim for a pragmatic and ergonomic language like Rust.
-- Add support for WIT / WebAssembly Component Model (make it a default if it is sensible to do).
+- Add support for WIT / WebAssembly Component Model (make it a default if it is sensible to do) and keep the interfaces well integrated with sandboxing and Kali-specific.
