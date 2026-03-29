@@ -72,6 +72,16 @@ Every crate should expose a stable internal boundary even if its initial impleme
 
 ## Key Design Decisions
 
+### Goal Precedence
+The canonical tie-breaker order from [SPEC.md](../SPEC.md) applies here too:
+1. semantic correctness
+2. sandbox honesty and auditability
+3. determinism and explicitness
+4. predictable compilation cost
+5. performance and compatibility breadth
+
+Architecture, optimization, and embedding choices should be evaluated in that order rather than treating raw throughput as the only north star.
+
 ### Pure Rust
 All components are implemented in Rust. No C/C++ libraries are embedded or linked. Early-phase external WASM execution is standardized on `wasmtime` (pure Rust), but that is an implementation default rather than a forever-exclusive backend choice. The only external Rust crate dependencies allowed are pure-Rust crates (e.g., `wasmtime`, `rayon`, `regex-automata`).
 
@@ -131,6 +141,12 @@ This section uses the canonical term **build mode** to match [SPEC.md](../SPEC.m
 | `fast` | Minimal optimization, fastest compile time (default; selected by `--fast`) |
 | `release` | Standard optimizations: inlining, dead code elimination, layout optimization (selected by `--release`) |
 | `release-advanced` | Aggressive optimization: expanded specialization budget, optional separate-tool WASM post-pass, LTO (selected by `--release-advanced`) |
+
+Compile-budget rule:
+- `fast` is the canonical bounded-cost path and should avoid optimization or inference strategies whose worst-case behavior is hard to predict
+- `release` may spend more compile budget on broadly beneficial whole-program improvements
+- `release-advanced` is the only early documented place where materially more expensive optimization search/post-processing should be expected by default
+- if an optimization, inference extension, or specialization strategy needs noticeably more compile budget, prefer gating it by build mode, an explicit flag, or a later phase rather than silently charging that cost to the default workflow
 
 ### Error Strategy
 Compilation is resilient — continue after errors to report as many issues as possible in one pass. Use a `Diagnostics` collector that accumulates errors/warnings without aborting. See [specs/15-errors.md](15-errors.md).

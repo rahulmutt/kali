@@ -44,6 +44,18 @@ These constraints are global and should not be weakened by subsystem docs:
 - **No silent fallback** for unsupported semantics or unsupported host/profile combinations
 - **Stable machine-readable contracts** for JSON output, diagnostics, and effect reports
 
+## Canonical Goal Precedence
+
+When bootstrap goals pull in different directions, Kali should break ties in this order:
+1. **Semantic correctness** — accepted/supported code must preserve the documented language/host behavior for the selected command/profile/surface
+2. **Sandbox honesty and auditability** — never describe a capability as controlled, verified, or enforced when Kali cannot actually guarantee that in the selected environment
+3. **Determinism and explicitness** — prefer one explicit, repeatable behavior over hidden fallback, ambient mutation, or heuristic mode switching
+4. **Predictable compilation cost** — fast/default workflows keep bounded compile-time behavior; more expensive optimization/inference belongs behind documented modes/phase gates
+5. **Performance and compatibility breadth** — pursue speed and ecosystem coverage aggressively, but not by violating the four rules above
+
+Interpretation rule:
+- when a subsystem doc seems to trade correctness or sandbox guarantees for convenience, this precedence order wins unless a later top-level spec revision changes it explicitly
+
 ## Long-Term Target vs Phase Promise
 
 Kali's long-term target is broad TypeScript/JavaScript compatibility, but phase promises are narrower.

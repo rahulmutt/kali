@@ -87,6 +87,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | `package.json#browser` / `exports` condition `browser` in browser bundle mode | Phase 1 MVP | Needed for practical browser-targeted npm compatibility without widening standalone runtime claims |
 | `run --api browser` | Rejected by default | Early standalone runtime does not emulate a browser host |
 | npm lifecycle scripts (`kali install --allow-scripts`) | Opt-in only | Disabled by default for sandbox-first behavior; this is an install-time package-hook escape hatch, not evidence of `--api node` support or participation in the normal sandbox/effect-report contract |
+| Packages whose normal install/runtime path depends on native addons, compiled native code, postinstall-downloaded executables, or other platform-specific binary/bootstrap artifacts | Rejected by default | Violates the pure-Rust/no-native-addon goal, weakens deterministic install expectations, and should not be implied by `--allow-scripts` |
 | Native addons / `node-gyp` packages | Rejected by default | Violates the pure-Rust/no-native-addon constraints |
 | npm packages that require unsupported Node core modules | Phase 3 target | Depends on broader `--api node` compatibility work |
 | Stable public Rust embedding API | Phase 2 target | Phase 1 stays library-first internally, but the public embedding contract is stabilized later |
@@ -180,7 +181,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali package-audit lodash` | Later compatibility | Tooling feature, not a Phase 1-2 compiler/runtime milestone |
 | `kali package-audit lodash react` | Rejected by default | Early phases accept exactly one explicit package argument for `package-audit`; multi-package audit requires a later explicit mode, so this is invalid command usage (`E5008`) |
 | `kali package-audit https://...` | Rejected by default | `package-audit` is registry-package-oriented rather than a second raw-URL analysis path |
-| `kali install --allow-scripts <pkg>` | Opt-in only | Explicit one-shot escape hatch for packages that need lifecycle scripts; still reject native addons / `node-gyp`, and do not treat this as implied Node-runtime or project-sandbox support |
+| `kali install --allow-scripts <pkg>` | Opt-in only | Explicit one-shot escape hatch for packages that need lifecycle scripts; still reject native addons, binary/bootstrap-heavy packages, and `node-gyp`, and do not treat this as implied Node-runtime or project-sandbox support |
 | `--compat eval` | Phase 4 compatibility | Before runtime support exists, reject with `E5006` rather than parsing and silently ignoring the flag |
 | `--wasm-threads` | Later compatibility (opt-in only) | Reject with `E5006` until the threaded runtime profile exists; after that, still reject explicitly when unavailable on the selected target/engine |
 
@@ -281,6 +282,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Deno-condition package resolution in the default standalone surface | Phase 1 MVP | Honor `exports` condition `deno` when `--api deno` is selected |
 | Browser-condition package resolution in browser bundle mode | Phase 1 MVP | `browser` field / `exports` browser condition |
 | npm lifecycle scripts | Opt-in only | `kali install --allow-scripts`; install-time package hooks stay outside the normal runtime API-surface and project-policy contracts |
+| Native/binary/bootstrap-dependent packages | Rejected by default | `--allow-scripts` must not silently broaden support to packages that need native code or platform-specific downloaded executables |
 | Native addons / `node-gyp` | Rejected by default | Violates pure-Rust/no-native-addon constraints |
 | Broader Node-host-heavy npm compatibility | Phase 3 target | Depends on meaningful Node API support |
 

@@ -11,10 +11,14 @@ Kali supports registry packages (npm/JSR) that:
 - Use standard module systems (ESM or CJS)
 
 Phase simplification:
-- **Phase 1 MVP**: packages that do not depend on unsupported Node core modules and fit the linked-artifact model.
+- **Phase 1 MVP**: packages that do not depend on unsupported Node core modules, native addons, or install-time binary/bootstrap steps, and that fit the linked-artifact model.
 - **Phase 3 target**: broader compatibility for packages that expect the `node` API surface and additional Node built-ins.
 
-This keeps the early ecosystem promise realistic: utility libraries, validators, parsers, and many framework packages are in scope early, while Node-host-heavy packages follow the Node compatibility work.
+This keeps the early ecosystem promise realistic: utility libraries, validators, parsers, and many framework packages are in scope early, while Node-host-heavy or binary-bootstrap-heavy packages follow the Node compatibility work.
+
+Install-time binary/bootstrap clarification:
+- packages whose normal install/runtime path depends on compiling native code, downloading platform-specific executables, or selecting prebuilt host binaries at install time are outside the Phase 1 compatibility promise even if the top-level package sources are mostly JS/TS
+- `--allow-scripts` may permit the hook to run for analysis/installation workflows, but it must not be misread as a promise that Kali supports the resulting native/binary package contract end-to-end
 
 ## Canonical Phase-1 Package-Compatibility Interpretation
 
@@ -175,7 +179,7 @@ Installation is **fetch-and-link by default**, not "execute package scripts" by 
 - `--allow-scripts` applies only to that install invocation; it is not an ambient project default
 - pairing `--allow-scripts` with an explicit raw URL install argument is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
 - with **no explicit package argument**, `kali install --allow-scripts` applies only to the discovered registry-package portion of the effective install graph; if that graph contains no registry packages at all, the command should fail with `E5008` instead of silently acting like plain `install`
-- packages requiring native build steps are rejected as unsupported even when lifecycle scripts are enabled
+- packages requiring native build steps, postinstall-downloaded executables, or other platform-specific binary/bootstrap artifacts are rejected as unsupported even when lifecycle scripts are enabled
 - package metadata and tarballs can still be analyzed before linking
 
 Canonical lifecycle-script boundary:

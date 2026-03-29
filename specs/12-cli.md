@@ -108,7 +108,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--filter <pattern>` | `test` | Run only matching tests |
 | `--coverage` | `test` | Emit test coverage data once the coverage report contract is stabilized; before then this flag is phase-gated or explicitly experimental |
 | `--dev` | `install` | Add the named registry dependency to `devDependencies` instead of `dependencies` |
-| `--allow-scripts` | `install` | Opt into npm lifecycle scripts for that install invocation only; meaningful only for registry-package install work, and still rejects native addons / `node-gyp` |
+| `--allow-scripts` | `install` | Opt into npm lifecycle scripts for that install invocation only; meaningful only for registry-package install work, and still rejects native addons, `node-gyp`, and install-time binary/bootstrap package contracts |
 
 Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
@@ -340,7 +340,7 @@ Scaffold simplification rules:
 ### `kali install [package]`
 Install or materialize project dependencies.
 
-Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that require native addons remain unsupported even when scripts are enabled.
+Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that require native addons or install-time binary/bootstrap artifacts remain unsupported even when scripts are enabled.
 
 Boundary rule:
 - `--allow-scripts` is an **install-time tooling escape hatch**, not a runtime/API-surface feature
@@ -354,7 +354,7 @@ kali install jsr:@std/path                 # Add/install registry dependency fro
 kali install                               # Materialize all declared dependencies for the project
 kali install --allow-scripts               # Permit lifecycle hooks for discovered registry packages in this install run
 kali install --dev vitest                  # Add/install dev dependency
-kali install --allow-scripts esbuild       # Opt into lifecycle scripts for this install only
+kali install --allow-scripts <pkg>                  # Opt into lifecycle scripts for one registry package install; still not a promise that binary/bootstrap-heavy packages are supported
 kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency
 ```
 
