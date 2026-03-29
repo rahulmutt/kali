@@ -61,9 +61,11 @@ Compatibility layer for Node.js ecosystem:
 For code targeting browser environments:
 - DOM APIs are **not** natively supported (Kali does not embed a browser engine)
 - Provide a minimal DOM shim for testing (`kali_api_web`): `window`, `document`, `navigator` stubs
-- Full Web Platform APIs (fetch, crypto, streams, etc.) are available
+- Only Web Platform APIs are available (no Deno or Node.js APIs)
 - Primarily for running browser-targeted library code in server/CLI context
 - For actual browser deployment, use `kali build --bundle` to emit WASM + JS glue that runs in real browsers
+
+**Note**: Web Platform APIs (fetch, crypto, streams, etc.) are always available regardless of `--api` mode. The `--api` flag controls which *additional* platform-specific APIs are loaded.
 
 ## Implementation Architecture
 

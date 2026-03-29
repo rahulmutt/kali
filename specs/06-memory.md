@@ -87,11 +87,11 @@ WASM linear memory has a software stack for:
 
 ```
 ┌──────────────────────┐ high address
-│  Heap (grows ↓)      │
+│  Stack (grows ↓)     │
 │                      │
 │  ─── free space ───  │
 │                      │
-│  Stack (grows ↑)     │
+│  Heap (grows ↑)      │
 ├──────────────────────┤
 │  Static data         │
 │  (strings, globals)  │

@@ -13,6 +13,7 @@ Kali is an ahead-of-time TypeScript/JavaScript compiler targeting WebAssembly, b
 7. **Spec-compliant** — Full ECMA-262 (16th edition) support including `eval`.
 8. **Fast** — Blazing-fast lexing, parsing, type-checking, and codegen with optional advanced optimizations.
 9. **Superset of TypeScript** — Kali extends TypeScript with effect types, algebraic effects, and advanced inference while remaining backwards-compatible with valid TypeScript.
+10. **Single-threaded by default** — One event loop per runtime instance. Threads opt-in via WASM threads for `SharedArrayBuffer`/`Atomics`.
 
 ## Specification Breakdown
 
@@ -24,7 +25,7 @@ Kali is an ahead-of-time TypeScript/JavaScript compiler targeting WebAssembly, b
 | 4 | [Type System](specs/04-type-system.md) | Extended type system: HM inference, flow typing, effects, constraints |
 | 5 | [Intermediate Representations](specs/05-ir.md) | Multi-level IR design with explicit memory layouts |
 | 6 | [Memory Management](specs/06-memory.md) | Compile-time ownership, stack/heap decisions, reference counting |
-| 7 | [Specialization & Optimization](specs/07-specialization.md) | Generic specialization, optimization passes, fast/advanced modes |
+| 7 | [Optimization & Specialization](specs/07-specialization.md) | Optimization passes, generic specialization, fast/advanced modes |
 | 8 | [WebAssembly Codegen](specs/08-wasm-codegen.md) | WASM code generation and AOT compilation |
 | 9 | [Sandboxing & Effects](specs/09-sandboxing.md) | Effect system, static analysis, runtime resource constraints, policies |
 | 10 | [Runtime](specs/10-runtime.md) | WASM execution (wasmtime/wasmer), built-in APIs |

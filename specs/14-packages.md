@@ -38,17 +38,22 @@ kali_modules/
 ```
 
 ### Lock File
-`kali.lock` — deterministic lockfile (project root, committed to version control):
-```json
-{
-    "version": 1,
-    "packages": {
-        "lodash@4.17.21": {
-            "integrity": "sha256-...",
-            "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz"
-        }
-    }
-}
+`kali.lock` — deterministic lockfile (project root, committed to version control). Uses a line-oriented format for clean diffs:
+```toml
+# kali.lock v1 — do not edit manually
+
+[[package]]
+name = "lodash"
+version = "4.17.21"
+resolved = "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz"
+integrity = "sha256-..."
+
+[[package]]
+name = "zod"
+version = "3.22.0"
+resolved = "https://registry.npmjs.org/zod/-/zod-3.22.0.tgz"
+integrity = "sha256-..."
+dependencies = []
 ```
 
 ## Import Styles

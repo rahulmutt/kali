@@ -84,7 +84,7 @@ Each AST node gets a unique `NodeId` (u32) assigned during parsing. This enables
 
 ## Symbol Table
 
-Built during a post-parse name-resolution pass (or integrated into the type checker):
+Built during the name-resolution phase of the type checker (see [specs/04-type-system.md](04-type-system.md)):
 - `Symbol` — represents a named entity (variable, function, class, type, etc.)
 - `Scope` — tree of lexical scopes with parent pointers
 - Each `Identifier` node is linked to its `Symbol` via `NodeId → SymbolId` map

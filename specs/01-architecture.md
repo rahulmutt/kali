@@ -4,18 +4,19 @@
 
 ```
 Source (.ts/.tsx/.js/.jsx/.mjs)
-  → Lexer            (specs/02-lexer-parser.md)
-  → Parser           (specs/02-lexer-parser.md)
-  → AST              (specs/03-ast.md)
-  → Name Resolution  (specs/03-ast.md — symbol table)
-  → Type Checker     (specs/04-type-system.md)
-  → Effect Inference  (specs/04-type-system.md, specs/09-sandboxing.md)
+  → Lexer              (specs/02-lexer-parser.md)
+  → Parser             (specs/02-lexer-parser.md)
+  → AST                (specs/03-ast.md)
+  → Type Checker        (specs/04-type-system.md)
+    ├─ Name Resolution  (symbol table, scopes)
+    ├─ Type Inference    (HM unification + flow narrowing)
+    └─ Effect Inference  (specs/09-sandboxing.md)
   → Typed AST
-  → HIR              (specs/05-ir.md) — High-level IR, desugared
-  → MIR              (specs/05-ir.md) — Mid-level IR, memory layouts + ownership
-  → LIR              (specs/05-ir.md) — Low-level IR, WASM-ready
-  → WASM Module      (specs/08-wasm-codegen.md)
-  → Execution        (specs/10-runtime.md)
+  → HIR                (specs/05-ir.md) — High-level IR, desugared
+  → MIR                (specs/05-ir.md) — Mid-level IR, memory layouts + ownership
+  → LIR                (specs/05-ir.md) — Low-level IR, WASM-ready
+  → WASM Module        (specs/08-wasm-codegen.md)
+  → Execution          (specs/10-runtime.md)
 ```
 
 ## Crate Structure
@@ -29,12 +30,11 @@ kali/
 │   ├── kali_parser/       — Parsing to AST (including JSX)
 │   ├── kali_ast/          — AST node definitions
 │   ├── kali_types/        — Type system, inference engine, effect system
-│   ├── kali_hir/          — High-level IR: desugaring, name resolution
+│   ├── kali_hir/          — High-level IR: desugaring from Typed AST
 │   ├── kali_mir/          — Mid-level IR: memory layout decisions, ownership
 │   ├── kali_lir/          — Low-level IR: WASM-oriented representation
 │   ├── kali_codegen/      — WASM binary emission
-│   ├── kali_optimize/     — Optimization passes (basic + advanced)
-│   ├── kali_specialize/   — Generic function specialization
+│   ├── kali_optimize/     — Optimization and specialization passes
 │   ├── kali_sandbox/      — Sandboxing policies, effect analysis
 │   ├── kali_runtime/      — Runtime support library (Rust, compiled to WASM)
 │   ├── kali_api_deno/     — Deno API compatibility (host functions)

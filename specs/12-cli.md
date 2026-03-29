@@ -30,7 +30,9 @@ kali run --max-memory 256mb main.ts        # Resource limit
 kali run --max-cpu 10s main.ts             # CPU time limit
 kali run --api node main.ts                # Use Node.js API surface
 kali run --api deno main.ts                # Use Deno API surface (default)
+kali run --api browser main.ts             # Use browser API surface (Web Platform APIs)
 kali run --runtime wasmer main.ts          # Use wasmer instead of wasmtime
+kali run --wasm-threads main.ts            # Enable WASM threads (SharedArrayBuffer, Atomics)
 ```
 
 ### `kali build <file>`
@@ -41,7 +43,7 @@ kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle main.ts                # WASM + JS glue for browsers
 kali build --lib lib.ts                    # Library module (exports, no start)
-kali build --capi                          # C API: libkali.a + libkali.so + kali.h
+kali build --capi                          # C API: libkali.a + libkali.so + kali.h (see specs/13-embedding.md)
 kali build --sandbox policy.ts main.ts     # Validate sandbox policy at compile time
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
@@ -175,7 +177,8 @@ Machine-parseable output for all commands:
     "compilerOptions": {
         "strict": true,
         "api": "deno",
-        "optimizationLevel": "fast",
+        "release": false,
+        "releaseAdvanced": false,
         "maxSpecializations": 16
     },
     "sandbox": "./sandbox.policy.ts",

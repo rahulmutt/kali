@@ -1,4 +1,6 @@
-# 07 — Specialization & Optimization
+# 07 — Optimization & Specialization
+
+Optimization and specialization passes are implemented in the `kali_optimize` crate, which operates on all IR levels. Analyses that feed into IR construction (e.g., escape analysis for MIR memory layout decisions) are co-located in the relevant IR crate (`kali_mir`) but invoked by `kali_optimize`.
 
 ## Generic Specialization
 
@@ -66,33 +68,9 @@ Each specialization uses the most compact possible layout for its concrete type.
 
 ## Dynamic Fallback
 
-When the compiler cannot statically determine types or layouts:
+When specialization is not possible (type unknown, exceeds specialization cap), the compiler falls back to tagged/dynamic representations. See [specs/05-ir.md](05-ir.md#value-representation) for the `ValueRepr` enum and NaN-boxing scheme.
 
-```rust
-enum ValueRepr {
-    /// Known type, unboxed, native WASM value
-    Unboxed { wasm_type: WasmValType },
-    /// Known type, struct layout in linear memory
-    Struct { layout: ObjectLayout },
-    /// Unknown type, tagged union (NaN-boxing or tagged pointer)
-    Tagged,
-    /// Fully dynamic, hash map representation
-    Dynamic,
-}
-```
-
-### NaN-Boxing for Tagged Values
-When a value's type is unknown at compile time, use NaN-boxing in a 64-bit float:
-- Doubles: stored directly
-- Integers (i31): tagged in NaN payload
-- Pointers: tagged in NaN payload (32-bit WASM address space)
-- Booleans, null, undefined: sentinel NaN values
-
-### Transitions
-The compiler inserts boxing/unboxing at boundaries between typed and untyped code:
-- Calling an untyped function from typed code → box arguments
-- Receiving results from untyped code → unbox (with runtime type check)
-- These transitions are flagged in diagnostics so users know where performance degrades
+In `--fast` mode, all generics use the `Tagged` representation (no specialization). In `--release`, generics are specialized up to the cap, with remaining call sites using `Tagged`. In `--release-advanced`, all generics are fully specialized.
 
 ## Profile-Guided Optimization (Future)
 

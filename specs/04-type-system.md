@@ -8,7 +8,7 @@ Kali's type system is a superset of TypeScript's, combining:
 3. **Effect types** — tracking side effects for sandboxing
 4. **Constraint solving** — for advanced generic inference
 
-The type checker operates on the AST + symbol table and produces a `TypedAST` (AST with resolved type information in side tables keyed by `NodeId`).
+The type checker operates on the raw AST and produces a `TypedAST` (AST with resolved type information in side tables keyed by `NodeId`). Name resolution is the first phase of type checking — it builds the symbol table and scope tree from the AST.
 
 ## Type Representation
 
@@ -98,7 +98,6 @@ struct EffectType {
 }
 
 enum Effect {
-    IO,                     // Any I/O operation (superset of FS + Net + Process)
     FileSystem(FsAccess),   // File system access (read, write, delete)
     Network(NetAccess),     // Network access (listen, connect, fetch)
     Process(ProcAccess),    // Process operations (spawn, exit, env)
@@ -108,6 +107,11 @@ enum Effect {
     Console,                // console.log, console.error, etc.
     Custom(InternedString), // User-defined effects (via `effect` declarations)
 }
+
+// Note: There is no `IO` super-effect. Each effect is tracked individually.
+// Sandbox policies in specs/09-sandboxing.md map directly to these variants.
+// FsAccess, NetAccess, ProcAccess are sub-enums for finer-grained control
+// (e.g., FsAccess::Read vs FsAccess::Write).
 ```
 
 ### Effect Inference

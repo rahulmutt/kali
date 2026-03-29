@@ -93,7 +93,9 @@ For async operations, Kali implements a single-threaded event loop:
 Memory sharing details:
 - The parent module exports its `Memory` and `Table` objects
 - The eval'd module imports them, enabling direct access to the same linear memory
+- The eval'd module uses the same heap allocator (shared allocator state in linear memory)
 - Scope variables are serialized to a known memory region before eval and deserialized after
+- Reference counts are shared — the eval'd code can inc/dec refs on parent objects correctly since both use the same `RcHeader` layout in shared linear memory
 
 This is:
 - **Expensive** (full compilation per eval call)
@@ -117,6 +119,20 @@ async function fetch(url) → StateMachine {
 - The event loop drives state machine progression
 - Promise resolution triggers the next state
 - Implemented without OS threads — single-threaded cooperative scheduling
+
+## Threading Model
+
+Kali's primary execution model is single-threaded (one event loop per runtime instance).
+
+### SharedArrayBuffer & Atomics
+When WASM threads are enabled (via `--wasm-threads` flag):
+- Each worker/thread runs its own Kali runtime instance with a shared `SharedArrayBuffer`
+- `Atomics` operations map to WASM atomic instructions
+- Workers communicate via message passing (structured clone) or shared memory
+- Each thread has its own stack and allocator; the shared heap region is explicitly managed via `SharedArrayBuffer`
+- Thread count is constrained by sandbox policy (`resources.maxThreads`)
+
+This is an advanced feature. Most programs use the single-threaded event loop.
 
 ## Module System
 

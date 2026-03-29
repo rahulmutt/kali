@@ -75,6 +75,7 @@ export const policy: SandboxPolicy = {
         maxCpuTimeMs: 10_000,
         maxOpenFiles: 10,
         maxSpawnedProcesses: 0,
+        maxThreads: 0,
     },
 };
 ```

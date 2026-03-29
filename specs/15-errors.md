@@ -77,8 +77,7 @@ error[E1001]: Type 'string' is not assignable to type 'number'
 - `E3001`: Undefined variable or reference
 - `E3002`: Duplicate declaration in same scope
 - `E3003`: Cannot access before initialization (TDZ)
-- `E3004`: Module not found
-- `E3005`: Export not found in module
+- `E3004`: Export not found in module
 
 ### Sandbox Errors (E4xxx)
 - `E4001`: Effect not permitted by sandbox policy
@@ -91,6 +90,7 @@ error[E1001]: Type 'string' is not assignable to type 'number'
 - `E5002`: Circular dependency detected
 - `E5003`: Invalid module specifier
 - `E5004`: Package not installed
+- `E5005`: Ambiguous module resolution
 
 ### Runtime Errors (E6xxx)
 - `E6001`: Uncaught exception
