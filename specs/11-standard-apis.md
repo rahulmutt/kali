@@ -44,6 +44,7 @@ Interpretation rule:
 - in standalone execution (`run` / `test`), this baseline is present for supported runtime profiles
 - in browser-targeted output (`build --bundle --api browser`), this is the baseline the emitted code targets in the real browser host
 - command/profile combinations that are themselves phase-gated are still rejected according to [specs/19-feature-maturity.md](19-feature-maturity.md)
+- this baseline list describes the JS-visible API contract, not a one-host-import-per-item requirement: some entries are expected to be implemented in Kali's guest/runtime support library rather than as dedicated host imports (for example `queueMicrotask`, `URL`, `TextEncoder`, `TextDecoder`, `AbortController`, `structuredClone`, and event primitives)
 
 **Phase 1 MVP baseline**
 - `console` (`log`, `warn`, `error`, `debug`, `info`)

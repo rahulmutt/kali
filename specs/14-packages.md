@@ -35,6 +35,9 @@ To keep install, lock, and materialization rules simple, Kali distinguishes only
 - **Registry packages** — npm and JSR packages declared in `kali.json` under `dependencies` / `devDependencies`, resolved by package name/version, and materialized into `node_modules/`
 - **Raw URL imports** — exact `https://...` dependencies declared in source code or `kali.json#imports`, cached under `.kali/cache/urls/`
 
+Clarification:
+- path/local alias rewrites in `kali.json#imports` are not a third dependency source kind; they are source-organization rewrites that do not create separate external lock/materialization state.
+
 ### Canonical Registry Package Identifiers
 
 Kali uses one shared registry-package identifier grammar across `kali.json`, `kali install`, package-analysis commands, and lockfile provenance:

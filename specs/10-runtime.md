@@ -38,6 +38,9 @@ The WASM module imports host functions for operations that can't be done in pure
 
 Important loading rule: the runtime registers only the host imports required by the selected **API surface** and **runtime profile**. The list below is the union of early-phase import categories, not a promise that every program always gets every import.
 
+Clarification:
+- not every Phase 1 Web-baseline API needs its own host import. Some baseline functionality is expected to live in the guest/runtime support library itself (for example `queueMicrotask`, `URL`, `URLSearchParams`, `TextEncoder`, `TextDecoder`, `AbortController`, `AbortSignal`, `structuredClone`, `EventTarget`, `Event`, and `CustomEvent`) and therefore does not have to appear as a dedicated host import in this table.
+
 ```rust
 // Union of early-phase host-import categories; actual registration is profile-dependent.
 mod host {
@@ -68,6 +71,7 @@ mod host {
 
 Interpretation rules:
 - `console`, timers, `fetch`, time, and randomness belong to the Phase 1 Web baseline and may exist across supported API surfaces.
+- the host-import table is therefore a capability/host-boundary summary, not an exhaustive inventory of every JS-visible global provided by the baseline library layer.
 - `console_write` is the canonical host-import shape for the Phase 1 console family; guest-visible `console.log` / `warn` / `error` / `debug` / `info` all lower through this one `Console.Write` capability family with a level discriminator rather than through separate ad hoc imports per method.
 - in Kali-hosted standalone/embedded execution, these are normally satisfied by native Rust host functions; in browser-targeted bundle output, the generated JS glue is responsible for wiring the equivalent behavior onto the real browser host
 - `fs_read`, `fs_write`, `fs_stat`, `fs_read_dir`, `env_get`, `env_list`, and `process_args` belong to the Deno-oriented standalone host surface in Phase 1, not to the shared Web baseline; later Node compatibility may reuse similar host abstractions, but browser-targeted builds must not assume these imports exist.
