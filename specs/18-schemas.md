@@ -325,7 +325,8 @@ Required fields:
 - `compatFeatures: string[]`
 
 Interpretation rules:
-- schema v1 uses the same canonical vocabulary as config/CLI: `apiSurface`, `runtimeProfiles`, and `compatFeatures`
+- schema v1 uses the same canonical vocabulary as config/CLI: `apiSurface`, `runtimeProfiles`, and compatibility features
+- because config stores compatibility features under the nested key `compat.features`, the effect-report field name is flattened to `compatFeatures` for a compact self-contained payload; this is a shape simplification, not a second vocabulary
 - `runtimeProfiles` and `compatFeatures` are semantic sets encoded as arrays; they must be deduplicated, and in machine-emitted payloads they should be sorted in stable lexical order
 - `apiSurface = "node"` or later compatibility/runtime-profile values may appear only when those modes are actually implemented for the command/profile; the schema records the chosen context, it does not relax feature-maturity rules
 - including `analysisContext` keeps effect payloads self-describing for caches, tooling, embedding, and AI-agent loops; the same entrypoint may have materially different effect results under different API surfaces or compatibility features

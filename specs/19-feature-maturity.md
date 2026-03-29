@@ -51,6 +51,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | Feature | Status | Rationale |
 |---|---|---|
 | Latest published ECMA-262 lexical/parser grammar (current standard edition) | Phase 1 MVP | Front-end coverage should track the current standard grammar even when some semantics remain phase-gated |
+| Current-edition non-Annex-B semantics for features Kali marks as supported in a given command/profile | Phase 1 MVP | "Latest standard support" is not parser-only: once Kali claims a feature is supported for a command/profile, the supported path should aim at faithful current-edition semantics and be backed by the matching evidence track rather than by syntax acceptance alone |
 | Static ESM `import` / `export` | Phase 1 MVP | Core module system |
 | First-class JavaScript compilation with inference | Phase 1 MVP | Required so `.js` projects are not forced to migrate to TypeScript before benefiting from Kali |
 | CommonJS module lowering | Phase 1 MVP | Needed for early npm package compatibility within the linked-artifact model |

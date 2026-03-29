@@ -31,6 +31,8 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | Concern area | Minimum evidence before claiming support |
 |---|---|
 | Language syntax/semantics | parser tests + integration coverage + the applicable test262/conformance subset |
+| Latest-ECMA grammar claim | parser fixtures for the current edition + tracked unsupported-semantics list where relevant |
+| Runtime semantic support claim | command/profile-specific integration tests + the applicable conformance subset for the claimed feature family |
 | Type checking / inference | checker baselines + inference golden tests + targeted regression cases |
 | Host APIs / runtime behavior | integration tests that execute the API path + sandbox/resource-limit tests where relevant |
 | Browser-targeted analysis/build support | browser-targeted check/build tests + emitted-bundle smoke runs in a real browser harness |
@@ -41,6 +43,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 Interpretation rule:
 - a feature can stay listed as a future phase target before these tests exist
 - but the spec set should only describe the feature as **supported** once the matching evidence track is in place and runs in CI
+- grammar-coverage claims and semantic-support claims are intentionally separate: accepting syntax from the latest ECMA-262 edition is not, by itself, evidence that every such construct already executes in every Kali mode
 - one passing demo or anecdotal package success is useful for exploration, but it is not enough to upgrade the canonical maturity wording
 
 #### ECMAScript (test262)
@@ -48,6 +51,7 @@ Run against the [test262](https://github.com/tc39/test262) conformance suite:
 - Track pass/fail/skip counts
 - Known failures documented and triaged
 - CI blocks regressions within the currently supported feature set
+- Keep parser-breadth tracking separate from execution-semantic support claims so "latest ECMA-262 grammar" does not silently become "every current-edition semantic edge already works"
 - Conformance targets are phased:
   - Phase 1: parser/runtime smoke coverage on a curated subset
   - Phase 2-3: expanding automated coverage with feature-based gating

@@ -68,6 +68,18 @@ Interpretation rules:
 
 This model is especially important for dynamic compatibility features such as `eval`, `Function()`, dynamic loading, `Proxy`, weak-reference APIs, and browser-targeted ambient globals: Kali may parse or analyze them earlier than it can faithfully execute them.
 
+## Conformance Claim Model
+
+To keep “latest ECMA-262 support” honest and non-ambiguous, Kali separates three different claim types:
+- **grammar coverage** — the parser tracks the latest published ECMA-262 grammar
+- **semantic support** — execution/checking claims are made feature-by-feature and command/profile-by-command/profile
+- **evidence-backed support** — a feature is described as supported only when the matching test/evidence track exists
+
+Interpretation rules:
+- grammar coverage alone is not a blanket promise that every accepted construct is already executable in every mode
+- semantic support for a feature still follows the phase/status matrix in [specs/19-feature-maturity.md](./specs/19-feature-maturity.md)
+- support wording in docs should follow the evidence rules in [specs/16-testing.md](./specs/16-testing.md) rather than one-off demos or anecdotal package wins
+
 ## Early-Phase Product Posture
 
 These assumptions are intentionally explicit so the rest of the spec set does not drift:
