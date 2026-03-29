@@ -43,7 +43,7 @@ The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md)
 - `dynamicReasons`
 
 Scope rule:
-- `analysisContext` records the semantic knobs that materially affect the report (`apiSurface`, `runtimeProfiles`, `compatFeatures`)
+- `analysisContext` records the semantic knobs that materially affect the report: `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md))
 - `entryPoints` names the analysis roots
 - the summarized `effects` cover the full statically reachable program/dependency graph rooted at those entry points under that recorded analysis context
 - the report is therefore a conservative whole-program summary for that rooted graph, not a file-local listing of only the syntax inside the directly named source file
@@ -79,7 +79,7 @@ Canonical behavior when no policy is attached:
 - in that mode, Kali still enforces intrinsic guarantees such as API-surface/feature gating, WASM/runtime safety, and any direct invocation resource caps explicitly supplied on the CLI
 - `kali check` / `kali build` simply skip policy validation when no policy is attached
 - `kali run` / `kali test` skip policy-file-driven capability filtering when no policy is attached
-- `--max-memory`, `--max-cpu`, `--max-open-files`, and later direct invocation resource-cap flags may still be used without a policy file; without a policy they become the effective cap directly
+- `--max-memory`, `--max-cpu`, `--max-open-files`, and later profile-specific caps such as `--max-threads` may still be used without a policy file; without a policy they become the effective cap directly
 
 Important distinction:
 - absence of a policy is **not** modeled as an implicit synthesized allow-all `kali.policy.json`
@@ -199,7 +199,7 @@ Cross-contract simplification:
 
 Effective-limit rule:
 - when a sandbox policy is attached, its values are the maximum capability/resource envelope for the run
-- per-invocation CLI overrides such as `--max-memory`, `--max-cpu`, and `--max-open-files` may further tighten that envelope
+- per-invocation CLI overrides such as `--max-memory`, `--max-cpu`, `--max-open-files`, and later profile-specific caps such as `--max-threads` may further tighten that envelope
 - `--max-memory` literals normalize to bytes internally, while schema-v1 policy values are stored as `resources.maxMemoryMB`; comparison therefore happens after canonical unit conversion rather than by string matching
 - `--max-cpu` literals normalize to milliseconds internally, while schema-v1 policy values are stored as `resources.maxCpuTimeMs`
 - `--max-open-files` normalizes to an integer handle count and compares against `resources.maxOpenFiles`

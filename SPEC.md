@@ -205,6 +205,18 @@ Interpretation rules:
 - `package-effects` inherits this context from defaults/config instead of growing a second package-specific `--api` / `--compat` flag family
 - early `package-audit` is intentionally **context-free** and does not inherit this analysis context
 
+### Canonical naming bridge: config vs emitted reports
+Kali keeps one semantic vocabulary even when config and emitted JSON use slightly different field shapes.
+
+Canonical rule:
+- config stores compatibility features under `compat.features`
+- machine-emitted `analysisContext` objects flatten that field to `compatFeatures`
+- this is a shape simplification for self-contained JSON payloads, not a second concept or a second compatibility namespace
+
+Interpretation rule:
+- prose may refer to the semantic axis as **compatibility features** or `compat.features`
+- when a chapter is describing the exact emitted JSON field name, it should say `compatFeatures`
+
 ### Direct-entry command
 A command that requires explicit entrypoint arguments and must not guess a project default entry.
 

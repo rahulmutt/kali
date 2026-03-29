@@ -284,7 +284,7 @@ kali effects --output json main.ts         # Command envelope + effect payload
 By default, `kali effects` prints the effect report payload directly because JSON is the primary output of the command. With `--output json`, it is wrapped in the standard command envelope described below. See [specs/18-schemas.md](18-schemas.md) for the canonical payload schema.
 
 Analysis scope rule:
-- the emitted payload includes `analysisContext`, which records the `apiSurface`, `runtimeProfiles`, and `compatFeatures` used for analysis
+- the emitted payload includes `analysisContext`, which records `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md))
 - `kali effects <file>` summarizes effects for the full statically reachable graph rooted at that entrypoint under the selected API surface/profile; it is not limited to syntax that appears textually in the one named file
 - `entryPoints` in the emitted payload identifies the analysis root(s), while `effects` summarizes the reachable program/dependency graph from those roots
 
