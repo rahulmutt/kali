@@ -76,6 +76,12 @@ Compile-time policy handling is intentionally split to keep Phase 1 smaller and 
 - **Phase 1**: `--sandbox` validates the policy file itself (schema, patterns, resource-limit ranges, unsupported fields) and attaches it to the build/run configuration, but does **not** promise a complete static proof that all effects fit the policy.
 - **Phase 2+**: inferred effects are checked against the allowed policy capabilities.
 
+Availability rule for policy validation:
+- a policy may always **deny** a capability, even if that capability's corresponding API/feature is later-phase
+- a policy must **not claim to allow** a capability that the selected command/profile/phase cannot actually provide
+- therefore validation should reject enabling unavailable capabilities such as `effects.eval: true` before Phase 4, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, or `resources.maxThreads > 0` before the threaded runtime profile exists
+- this avoids a misleading policy that appears more permissive than the runtime/compiler can really honor
+
 In Phase 2+ when a policy is provided at build or check time:
 1. Inferred effects are checked against allowed effects
 2. Violations are **compile errors** (not warnings)
@@ -101,6 +107,7 @@ For dynamic effects that can't be checked at compile time:
 - Violations terminate the current operation with `SandboxViolationError`
 - By default, sandbox violations are treated as fatal runtime errors for the top-level execution unless the embedding host explicitly opts into catchable host exceptions
 - All API calls check path patterns, URL patterns, etc. at runtime
+- Runtime enforcement only applies to capabilities that are actually registered for the selected API surface/profile; sandbox policy does not conjure unavailable APIs into existence
 
 ## Runtime Resource Limits
 

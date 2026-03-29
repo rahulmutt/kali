@@ -63,8 +63,8 @@ Deno is the primary standalone-runtime API surface because it fits Kali's explic
 - File APIs: `Deno.readTextFile`, `Deno.readTextFileSync`, `Deno.writeTextFile`, `Deno.writeTextFileSync`, `Deno.readFile`, `Deno.readFileSync`, `Deno.writeFile`, `Deno.writeFileSync`
 - Metadata APIs: `Deno.stat`, `Deno.statSync`, `Deno.readDir`, `Deno.readDirSync`
 - Process basics: `Deno.args`, `Deno.pid`
-- Environment access: `Deno.env.get`, `Deno.env.toObject` *(with `toObject()` exposing only variables permitted by `effects.process.envRead` rather than the raw host environment)*
-- `Deno.permissions` as a read-only compatibility facade over Kali sandbox policy state; it reports granted/denied capabilities but does not perform interactive permission prompts
+- Environment access: `Deno.env.get`, `Deno.env.toObject` *(both expose only the sandbox-permitted environment view rather than the raw host environment)*
+- `Deno.permissions` as a read-only compatibility facade over Kali sandbox policy state; it reports granted/denied capabilities but does not perform interactive permission prompts, `request()`, or `revoke()`-style privilege escalation flows in Phase 1
 
 Process termination (`Deno.exit`) and working-directory mutation/introspection (`Deno.cwd`, `Deno.chdir`) are deferred until a later phase. They widen the embedding/sandbox contract but are not needed for the initial package-oriented MVP.
 
