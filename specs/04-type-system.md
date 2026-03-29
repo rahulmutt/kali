@@ -98,15 +98,15 @@ struct EffectType {
 }
 
 enum Effect {
-    IO,                     // Any I/O operation
+    IO,                     // Any I/O operation (superset of FS + Net + Process)
     FileSystem(FsAccess),   // File system access (read, write, delete)
     Network(NetAccess),     // Network access (listen, connect, fetch)
     Process(ProcAccess),    // Process operations (spawn, exit, env)
     Timer,                  // setTimeout, setInterval
     Random,                 // Math.random, crypto
     Eval,                   // eval, Function constructor
-    Dom,                    // DOM manipulation
-    Custom(InternedString), // User-defined effects
+    Console,                // console.log, console.error, etc.
+    Custom(InternedString), // User-defined effects (via `effect` declarations)
 }
 ```
 
@@ -118,7 +118,7 @@ enum Effect {
 
 ### Relationship to Sandboxing
 The effect system feeds directly into the sandbox analyzer (see [specs/09-sandboxing.md](09-sandboxing.md)):
-- Static `--effects` flag outputs all effects as JSON
+- `kali effects` subcommand outputs all effects as JSON (see [specs/12-cli.md](12-cli.md))
 - Sandbox policies are validated against inferred effects at compile time
 
 ## TypeScript Compatibility

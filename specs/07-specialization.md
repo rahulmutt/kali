@@ -35,7 +35,7 @@ Each specialization uses the most compact possible layout for its concrete type.
 - Cap specializations per function (default: 16) to prevent code size explosion
 - Beyond the cap, fall back to a "generic" version using boxed/tagged representation
 - User-configurable via `--max-specializations N`
-- In `--fast` mode, skip specialization entirely (use boxed representation)
+- In `--fast` mode (the default), skip specialization entirely (use boxed/tagged representation for generics)
 
 ## Optimization Passes
 
@@ -62,7 +62,7 @@ Each specialization uses the most compact possible layout for its concrete type.
 - **WASM-specific peephole**: Combine instruction sequences, optimize local usage
 - **Linear memory layout optimization**: Place frequently co-accessed data adjacently
 - **LTO (Link-Time Optimization)**: Cross-module inlining and dead code elimination
-- **wasm-opt integration**: Optionally pipe output through Binaryen's `wasm-opt` (as a WASM module, not C++ dependency)
+- **wasm-opt integration**: Optionally pipe output through Binaryen's `wasm-opt` (external tool, not linked — must be installed separately; invoked as a subprocess)
 
 ## Dynamic Fallback
 

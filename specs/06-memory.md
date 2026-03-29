@@ -72,10 +72,11 @@ struct RcHeader {
 - **Inline ref count**: Small objects embed the count in their header (no indirection)
 
 ### Cycle Detection
-JavaScript allows reference cycles (e.g., `a.b = b; b.a = a`). Strategies:
-1. **Static detection**: If the type system can prove a cycle is possible, use weak references automatically
-2. **Backup cycle collector**: Optional, conservative mark-sweep for long-running programs
-3. **Scope-limited**: For short-lived computations (typical sandbox use), cycles freed in bulk at scope end
+JavaScript allows reference cycles (e.g., `a.b = b; b.a = a`). Strategies (all deterministic, none are tracing GC):
+1. **Static detection**: If the type system can prove a cycle is possible, use weak references automatically for back-edges
+2. **Trial deletion**: On `rc_dec` reaching a suspect threshold, perform local trial deletion (Bacon & Rajan algorithm) — this is a targeted, deterministic cycle reclamation, not a tracing GC
+3. **Scope-limited**: For short-lived computations (typical sandbox use), use region-based allocation — all memory freed in bulk when the scope/sandbox exits
+4. **Leak detection**: In debug mode, report potential cycles at program exit with source locations
 
 ## Stack Allocation in Linear Memory
 

@@ -56,10 +56,20 @@ enum ModuleItem {
 - `AsExpression`, `SatisfiesExpression`, `NonNullExpression`
 - `TypePredicateAnnotation` (`x is T`)
 
+### JSX Nodes
+- `JsxElement` — `<Foo>...</Foo>`, opening + closing tags
+- `JsxSelfClosingElement` — `<Foo />`
+- `JsxFragment` — `<>...</>`
+- `JsxAttribute`, `JsxSpreadAttribute`
+- `JsxExpression` — `{expr}` within JSX
+- `JsxText` — literal text content
+
 ### Kali-Specific Nodes
 - `EffectAnnotation` — effect type on function signatures: `! Effect1 | Effect2`
-- `SandboxDirective` — decorator-like policy annotation
+- `EffectDeclaration` — `effect Name { ... }` (algebraic effect definition)
 - `PerformExpression` — `perform effectName(args)` for algebraic effects
+- `HandleExpression` — `handle expr { Effect.op(args) => ... }` for effect handlers
+- `PureModifier` — `pure function f() { ... }` (marker for purity checking)
 
 ### Patterns (Destructuring)
 - `IdentifierPattern`, `ObjectPattern`, `ArrayPattern`

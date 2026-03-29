@@ -11,18 +11,19 @@ Kali supports npm packages that:
 This covers the vast majority of the npm ecosystem (utility libraries, data processing, frameworks, etc.).
 
 ### Package Resolution
-Follow Node.js module resolution algorithm:
-1. Check `node_modules/<package>/package.json` for `exports`, `main`, `module` fields
+Follow Node.js module resolution algorithm, adapted for Kali:
+1. Check `kali_modules/<package>/package.json` for `exports`, `main`, `module` fields
 2. Support `exports` map conditions: `import`, `require`, `default`, `types`
 3. Resolve relative imports with extension probing (`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`)
-4. Support `paths` and `baseUrl` from `tsconfig.json` / `kali.json`
+4. Support `paths` and `baseUrl` from `kali.json`
+5. Also check `node_modules/` for backwards compatibility with existing projects
 
 ### Installation
 ```bash
-kali install lodash                         # Install single package
-kali install                                # Install from kali.json
+kali install lodash                         # Install single package from npm
+kali install                                # Install all dependencies from kali.json
 kali install --dev vitest                   # Dev dependency
-kali add https://deno.land/std/path/mod.ts  # URL import (Deno-style)
+kali install https://deno.land/std/path/mod.ts  # URL import (cached locally)
 ```
 
 Uses a `kali_modules/` directory (not `node_modules/`) with flat structure:
@@ -33,11 +34,11 @@ kali_modules/
 │   └── ...
 ├── zod@3.22.0/
 │   └── ...
-└── .kali-lock.json
+└── .cache/              — Cached URL imports
 ```
 
 ### Lock File
-`kali-lock.json` — deterministic lockfile:
+`kali.lock` — deterministic lockfile (project root, committed to version control):
 ```json
 {
     "version": 1,
@@ -62,7 +63,7 @@ import { z } from "zod";
 ```typescript
 import { join } from "https://deno.land/std@0.220.0/path/mod.ts";
 ```
-URL imports are cached in `kali_modules/.cache/`.
+URL imports are cached in `kali_modules/.cache/`. Integrity is verified against the lock file.
 
 ### Import Maps
 Support import maps in `kali.json`:

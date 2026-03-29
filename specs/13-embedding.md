@@ -143,6 +143,11 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 kali build --capi                          # Produces libkali.a + libkali.so + kali.h
 ```
 
+Alternatively, build from source:
+```bash
+cargo build --release -p kali_capi         # Build the C API crate
+```
+
 The shared library exports only `kali_*` symbols. All Rust internals are hidden.
 
 ## Language Bindings (Future)

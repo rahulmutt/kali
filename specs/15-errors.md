@@ -73,11 +73,34 @@ error[E1001]: Type 'string' is not assignable to type 'number'
 - `E2004`: Duplicate parameter name
 - `E2005`: Invalid assignment target
 
+### Name Resolution Errors (E3xxx)
+- `E3001`: Undefined variable or reference
+- `E3002`: Duplicate declaration in same scope
+- `E3003`: Cannot access before initialization (TDZ)
+- `E3004`: Module not found
+- `E3005`: Export not found in module
+
 ### Sandbox Errors (E4xxx)
 - `E4001`: Effect not permitted by sandbox policy
 - `E4002`: API call not permitted
 - `E4003`: Resource limit exceeded (compile-time provable)
 - `E4004`: Dynamic effect detected (cannot statically verify)
+
+### Import/Module Errors (E5xxx)
+- `E5001`: Module not found
+- `E5002`: Circular dependency detected
+- `E5003`: Invalid module specifier
+- `E5004`: Package not installed
+
+### Runtime Errors (E6xxx)
+- `E6001`: Uncaught exception
+- `E6002`: Stack overflow
+- `E6003`: Out of memory
+
+### Memory/Ownership Errors (E7xxx)
+- `E7001`: Value used after move
+- `E7002`: Cannot prove lifetime safety (escaping reference)
+- `E7003`: Potential reference cycle detected (info/suggestion)
 
 ### Performance Warnings (W3xxx)
 - `W3001`: Dynamic object access forces hash map representation

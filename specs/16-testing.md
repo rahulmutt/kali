@@ -21,7 +21,7 @@ End-to-end tests in `tests/`:
 ### Conformance Test Suites
 
 #### ECMAScript (test262)
-Run against the [test262](https://github.com/nicelhc13/test262) suite:
+Run against the [test262](https://github.com/nicelhc13/test262) conformance suite:
 - Track pass/fail/skip counts
 - Known failures documented and triaged
 - CI blocks regressions (new failures)
@@ -107,3 +107,13 @@ Kali's own test runner for `.test.ts` / `_test.ts` files, supporting:
 - `tests/snapshots/` — IR/output snapshots
 - `tests/conformance/` — test262 and tsc-derived tests
 - `tests/sandbox/` — sandbox policy + program pairs
+- `tests/effects/` — effect inference test cases
+- `tests/memory/` — ownership and allocation decision test cases
+
+### Runtime Execution Tests
+In addition to compiler tests, run compiled WASM programs and verify:
+- stdout/stderr output matches expectations
+- Exit codes are correct
+- Resource limits are enforced (sandbox tests)
+- Async operations complete correctly
+- API compatibility with Deno/Node behavior

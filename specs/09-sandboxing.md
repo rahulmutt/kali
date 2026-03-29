@@ -90,7 +90,7 @@ kali build --sandbox sandbox.policy.ts program.ts
 ```
 
 ```
-error[E0401]: sandbox violation: FileSystem.Write not allowed
+error[E4001]: sandbox violation: FileSystem.Write not allowed
   --> program.ts:5:5
   |
 5 |     Deno.writeTextFileSync("out.txt", result);

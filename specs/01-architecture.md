@@ -3,17 +3,19 @@
 ## Compilation Pipeline
 
 ```
-Source (.ts/.js/.kali)
-  → Lexer          (specs/02-lexer-parser.md)
-  → Parser         (specs/02-lexer-parser.md)
-  → AST            (specs/03-ast.md)
-  → Type Checker   (specs/04-type-system.md)
+Source (.ts/.tsx/.js/.jsx/.mjs)
+  → Lexer            (specs/02-lexer-parser.md)
+  → Parser           (specs/02-lexer-parser.md)
+  → AST              (specs/03-ast.md)
+  → Name Resolution  (specs/03-ast.md — symbol table)
+  → Type Checker     (specs/04-type-system.md)
+  → Effect Inference  (specs/04-type-system.md, specs/09-sandboxing.md)
   → Typed AST
-  → HIR            (specs/05-ir.md) — High-level IR, close to source semantics
-  → MIR            (specs/05-ir.md) — Mid-level IR, explicit memory layouts
-  → LIR            (specs/05-ir.md) — Low-level IR, WASM-ready
-  → WASM Module    (specs/08-wasm-codegen.md)
-  → Execution      (specs/10-runtime.md)
+  → HIR              (specs/05-ir.md) — High-level IR, desugared
+  → MIR              (specs/05-ir.md) — Mid-level IR, memory layouts + ownership
+  → LIR              (specs/05-ir.md) — Low-level IR, WASM-ready
+  → WASM Module      (specs/08-wasm-codegen.md)
+  → Execution        (specs/10-runtime.md)
 ```
 
 ## Crate Structure
@@ -21,8 +23,10 @@ Source (.ts/.js/.kali)
 ```
 kali/
 ├── crates/
+│   ├── kali_common/       — Shared utilities, string interning, source maps, spans
+│   ├── kali_error/        — Diagnostic types and formatting
 │   ├── kali_lexer/        — Tokenization
-│   ├── kali_parser/       — Parsing to AST
+│   ├── kali_parser/       — Parsing to AST (including JSX)
 │   ├── kali_ast/          — AST node definitions
 │   ├── kali_types/        — Type system, inference engine, effect system
 │   ├── kali_hir/          — High-level IR: desugaring, name resolution
@@ -32,17 +36,16 @@ kali/
 │   ├── kali_optimize/     — Optimization passes (basic + advanced)
 │   ├── kali_specialize/   — Generic function specialization
 │   ├── kali_sandbox/      — Sandboxing policies, effect analysis
-│   ├── kali_runtime/      — Runtime support library (compiled to WASM)
-│   ├── kali_api_deno/     — Deno API compatibility
-│   ├── kali_api_node/     — Node.js API compatibility
-│   ├── kali_api_web/      — Browser/Web API compatibility
-│   ├── kali_cli/          — CLI binary
+│   ├── kali_runtime/      — Runtime support library (Rust, compiled to WASM)
+│   ├── kali_api_deno/     — Deno API compatibility (host functions)
+│   ├── kali_api_node/     — Node.js API compatibility (host functions)
+│   ├── kali_api_web/      — Browser/Web API compatibility (host functions)
+│   ├── kali_fmt/          — Code formatter
+│   ├── kali_lint/         — Linter
+│   ├── kali_cli/          — CLI binary (ties everything together)
 │   ├── kali_embed/        — Rust embedding API
 │   ├── kali_capi/         — C FFI API
-│   ├── kali_error/        — Error types and formatting
-│   ├── kali_npm/          — npm package resolution and loading
-│   └── kali_common/       — Shared utilities, string interning, source maps
-├── runtime/               — WASM runtime support (Rust, compiled to WASM)
+│   └── kali_npm/          — npm/JSR package resolution and loading
 ├── tests/                 — Integration and conformance tests
 ├── proofs/                — Lean 4 formal verification
 └── Cargo.toml             — Workspace manifest
@@ -51,7 +54,7 @@ kali/
 ## Key Design Decisions
 
 ### Pure Rust
-All components are implemented in Rust. No C/C++ dependencies are linked. External WASM execution uses `wasmtime` (pure Rust).
+All components are implemented in Rust. No C/C++ libraries are embedded or linked. External WASM execution uses `wasmtime` (pure Rust). The only external Rust crate dependencies allowed are pure-Rust crates (e.g., `wasmtime`, `rayon`, `regex-automata`).
 
 ### Query-Based Architecture
 Follow a demand-driven (query-based) compilation model similar to rustc and Salsa. This enables:

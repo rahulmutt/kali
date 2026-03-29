@@ -5,13 +5,14 @@ Kali is an ahead-of-time TypeScript/JavaScript compiler targeting WebAssembly, b
 ## Design Principles
 
 1. **AOT only** — No JIT. All compilation happens ahead of time.
-2. **No GC** — Ownership and lifetime analysis at compile time (stack vs heap, Rc when needed).
+2. **No GC** — Ownership and lifetime analysis at compile time (stack vs heap, Rc when needed). No runtime tracing collector.
 3. **Sandbox-first** — Static effect analysis and runtime resource constraints.
 4. **AI-native** — Token-efficient CLI output, machine-parseable errors, static effect JSON export.
 5. **Embeddable** — C API for integration from any language.
-6. **Pure Rust** — No C/C++ dependencies.
+6. **Pure Rust** — No C/C++ library dependencies are embedded or linked.
 7. **Spec-compliant** — Full ECMA-262 (16th edition) support including `eval`.
 8. **Fast** — Blazing-fast lexing, parsing, type-checking, and codegen with optional advanced optimizations.
+9. **Superset of TypeScript** — Kali extends TypeScript with effect types, algebraic effects, and advanced inference while remaining backwards-compatible with valid TypeScript.
 
 ## Specification Breakdown
 
@@ -35,10 +36,16 @@ Kali is an ahead-of-time TypeScript/JavaScript compiler targeting WebAssembly, b
 | 16 | [Testing](specs/16-testing.md) | Test suite inspired by tsc, conformance tests |
 | 17 | [Formal Verification](specs/17-verification.md) | Lean proofs for core implementation invariants |
 
+## File Extensions
+
+- `.ts`, `.tsx` — TypeScript (with optional JSX)
+- `.js`, `.jsx`, `.mjs` — JavaScript (with optional JSX)
+- All extensions are first-class and compiled through the same pipeline.
+
 ## Inspirations
 
-- **Engines**: V8, JavaScriptCore, SpiderMonkey, Boa, Hermes
-- **Compilers**: tsc, Porffor
-- **Runtimes**: Deno
+- **Engines**: [V8](https://github.com/v8/v8), JavaScriptCore, SpiderMonkey, [Boa](https://github.com/boa-dev/boa), [Hermes](https://github.com/facebook/hermes)
+- **Compilers**: [tsc](https://github.com/microsoft/Typescript), [Porffor](https://github.com/CanadaHonk/porffor)
+- **Runtimes**: [Deno](https://github.com/denoland/deno)
 - **Type theory**: Haskell, Idris, Agda, Lean
 - **Systems**: Rust (ownership model, ergonomics)

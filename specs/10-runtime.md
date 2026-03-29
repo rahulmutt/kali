@@ -8,7 +8,9 @@ Use `wasmtime` as the primary WASM execution engine:
 - Fuel-based metering for CPU limits
 - Configurable memory limits
 - Mature, well-maintained, WASI support
-- Cranelift backend (but Kali does AOT, so mainly used for loading + running pre-compiled WASM)
+- Uses Cranelift internally to compile WASM to native machine code at load time
+
+Note: Kali's AOT pipeline compiles TypeScript/JavaScript → WASM. The WASM runtime (wasmtime) then compiles WASM → native code for execution. These are two separate compilation stages.
 
 ### Alternative: wasmer
 Provide wasmer as an optional backend for cases where:
@@ -82,16 +84,23 @@ For async operations, Kali implements a single-threaded event loop:
 `eval` and `Function()` constructor are supported via a host callback:
 
 1. WASM calls `eval_compile(source)` host function
-2. Host invokes the Kali compiler on the source string
+2. Host invokes the Kali compiler on the source string (full pipeline: lex → parse → typecheck → codegen)
 3. New WASM module is produced and instantiated
-4. Shares memory with the parent module
-5. Executes and returns result
+4. New module is linked to share the parent module's linear memory and function table
+5. Eval'd code can access variables in scope via a shared scope descriptor passed to the host
+6. Result is returned to the calling WASM module
+
+Memory sharing details:
+- The parent module exports its `Memory` and `Table` objects
+- The eval'd module imports them, enabling direct access to the same linear memory
+- Scope variables are serialized to a known memory region before eval and deserialized after
 
 This is:
 - **Expensive** (full compilation per eval call)
-- **Blocked by default** in sandbox policies
-- **Flagged** in static effect analysis
+- **Blocked by default** in sandbox policies (effect: `Eval`)
+- **Flagged** in static effect analysis (see [specs/09-sandboxing.md](09-sandboxing.md))
 - **Correct** — maintains full language semantics
+- **Cacheable** — repeated eval of the same source string reuses compiled module
 
 ## Async/Await Runtime
 

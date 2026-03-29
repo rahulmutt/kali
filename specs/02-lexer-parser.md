@@ -20,7 +20,7 @@ struct Token {
 `TokenKind` covers:
 - All ECMAScript keywords, punctuators, literals
 - TypeScript keywords: `type`, `interface`, `as`, `is`, `keyof`, `infer`, `readonly`, etc.
-- Kali keywords: `effect`, `perform`, `handle`, `sandbox`
+- Kali contextual keywords: `effect`, `perform`, `handle`, `pure`
 - Template literal parts (head, middle, tail)
 - RegExp literals (context-sensitive — parser assists disambiguation)
 - Numeric literals (all formats: decimal, hex, octal, binary, bigint, separators)
@@ -55,7 +55,11 @@ struct Token {
   - `as`, `satisfies`, non-null assertion (`!`)
 - Kali extensions:
   - Effect type annotations: `function foo(): number ! IOException`
-  - Sandbox policy declarations: `@sandbox({ fs: "read-only" })`
+  - `effect` declarations, `perform` expressions, `handle` blocks
+  - `pure` function modifier
+- JSX/TSX grammar:
+  - JSX elements, fragments, expressions, spread attributes
+  - Disambiguated from TypeScript generics via context (same approach as tsc)
 
 ### Parser Architecture
 - Recursive descent (Pratt parsing for expressions)
@@ -78,3 +82,4 @@ struct Token {
 ### Source Preservation
 - All comments and whitespace positions are recoverable from spans (for formatting tool)
 - Parenthesization information preserved for correct re-emission
+- Trivia (comments, whitespace) attached to adjacent tokens for formatter use (see `kali_fmt`)

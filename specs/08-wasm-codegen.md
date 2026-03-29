@@ -89,10 +89,10 @@ Compiled into the WASM module from `kali_runtime`:
 ## WASM Binary Emission
 
 Direct binary emission without intermediate text format:
-- Custom WASM encoder in `kali_codegen` (no dependency on external WASM libraries for encoding)
+- Custom WASM encoder in `kali_codegen` for maximum control over output
 - Emit sections in order: type, import, function, table, memory, global, export, start, element, data count, code, data
 - LEB128 encoding for all integers
-- Validate output with `wasmparser` crate in debug builds
+- Validate output with `wasmparser` crate (pure Rust) in debug builds and via `--validate-ir` flag
 
 ## Output Artifacts
 
