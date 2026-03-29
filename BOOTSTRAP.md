@@ -13,7 +13,7 @@ Write a top-level SPEC.md that references specs/*.md to breakdown into logical u
  - [tsc](https://github.com/microsoft/Typescript)
  - [Porffor](https://github.com/CanadaHonk/porffor)
  - [Hermes](https://github.com/facebook/hermes)
-- No JIT compilation! This project is not designed for Just-In Time compilation at all and it should avoid doing any compilation at runtime as best as possible.
+- No JIT compilation! This project is not designed for Just-In Time compilation at all and it should AOT compile (Ahead of Time).
 - No Garbage Collection, must decide at compile-time whether to allocate to the heap, to the stack, similar to Rust. Should also decide whether to use shared references (like Rc<T>) in Rust all at compile-time.
 - Aggressively specialize generic functions - specialize both memory layouts of inputs / outputs - based on call-site usage.
 - Design intermediate representations to support a blazing fast runtime. The IR should be explicit about memory layouts and when the memory layout of a JS object is unknown / dynamic, resort to inefficient representation, and when it is known / consistent, optimize the memory layout as much as possible. When a dynamic feature is used, it should automatically turn off optimizations unless there's a way to reason about it. Perhaps also have the type system mark objects that are dynamic of this nature. If needed, define several IRs with transformations between them as needed.
