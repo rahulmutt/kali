@@ -223,6 +223,12 @@ Interpretation rules:
 
 This keeps raw URL support simple: source/import maps declare durable URL dependencies, the lock/cache materialize them, and `kali install` reconciles the two. An ad hoc `kali install https://...` is just a convenient way to pre-pin/materialize a URL that the project is expected to reference explicitly.
 
+Install-graph discovery rule for raw URLs:
+- because `kali install` normally runs without an explicit entrypoint, the install-time declaration graph for source-level raw URL imports is the set of project files selected by `kali.json` `include` / `exclude` (or the default project discovery rules when those fields are omitted)
+- `kali install` may discover these dependencies with a cheap lexical/module-specifier scan rather than a full typecheck/build
+- pruning of raw URL lock/cache state is judged against that install-time declaration graph plus `kali.json#imports`, not against arbitrary unopened files elsewhere in the repository
+- direct-entry commands such as `kali run path/to/file.ts` may still fail with `E5004` if that explicit entrypoint reaches a raw URL dependency that was not part of the last installed project graph; the fix remains to run `kali install` after adjusting the project's declared/discoverable sources
+
 This is the canonical simplification for dependency management across the CLI, package, and schema specs.
 
 ## Canonical Source-File Kinds

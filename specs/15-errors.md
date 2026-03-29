@@ -86,9 +86,10 @@ Terminology note:
 - `E5007`: Invalid input or entrypoint kind for the selected command
 
 Use `E5004` for dependency-state problems such as:
-- project dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports) have not been installed/materialized yet
+- project dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports from the install-time project discovery set) have not been installed/materialized yet
 - `kali.lock`, `node_modules/`, or `.kali/cache/urls/` is missing/stale for the dependency kinds the project uses
 - the current declared dependency graph, lockfile entries, and required materialized artifacts no longer agree
+- a direct-entry command reaches additional raw URL imports outside the last installed project discovery set
 - the resolver needs explicit dependency installation/synchronization instead of silently re-resolving during `check`, `build`, `run`, or `test`
 
 Clarification:

@@ -124,6 +124,12 @@ Argument semantics are intentionally simple:
 - if that URL is not actually referenced from source or `kali.json#imports`, it is only staged materialization and may disappear on the next plain `kali install`
 - plain `kali install` reconciles the current manifest + import graph with `kali.lock`, `node_modules/`, and `.kali/cache/urls/`, and may prune raw URL entries that are no longer reachable from that graph
 
+Install-graph discovery rule:
+- because `kali install` usually runs without an explicit entrypoint, source-level raw URL imports are discovered from the project's install-time file set rather than from one ad hoc command entrypoint
+- that install-time file set is defined by `kali.json` `include` / `exclude` when present, or by the default project discovery rules for the canonical source-file kinds when those fields are omitted
+- discovery may use a cheap lexical/module-specifier scan of those files plus `kali.json#imports`; it does not require a full check/build just to decide which raw URLs belong in the lock/cache state
+- pruning of raw URL lock/cache entries is judged against this install-time declaration graph, not against arbitrary unrelated files elsewhere in the repository
+
 Installation is **fetch-and-link by default**, not "execute package scripts" by default. To preserve sandbox-first behavior:
 - npm lifecycle scripts (`preinstall`, `install`, `postinstall`) are not executed unless the user explicitly opts in with `kali install --allow-scripts`
 - `--allow-scripts` applies only to that install invocation; it is not an ambient project default
@@ -197,13 +203,14 @@ Because package resolution can vary by API surface/profile (`deno`, browser-targ
 Practical consequence:
 - `kali install` does not take `--api` in early phases, and `compilerOptions.apiSurface` does not cause `install` to write a different lockfile for the same manifest/import graph.
 - changing `--api` between `deno` and browser-targeted build/check affects which already-installed package entry files are chosen at command time, not whether the project is considered installed.
+- if a direct-entry command later points at a file outside the last installed project discovery set and that file reaches additional raw URL imports, the command should fail with `E5004` and tell the user to rerun `kali install` after updating the project's discoverable sources or import map.
 
 ## Deterministic Install & Resolution Contract
 
 To keep package behavior predictable across `install`, `check`, `build`, `run`, and `test`, Kali uses one simple rule set:
 - `kali install` is the command that resolves dependency versions and writes `kali.lock`.
 - `kali check`, `build`, `run`, and `test` consume the existing lockfile/materialized dependency state; they must not silently re-resolve packages or mutate dependency state as a side effect.
-- If the project's declared dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports) require materialized state that is missing or stale, non-install commands fail with `E5004` and tell the user to run `kali install`.
+- If the project's declared dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports from the install-time project discovery set) require materialized state that is missing or stale, non-install commands fail with `E5004` and tell the user to run `kali install`.
 - Here, "stale" means the current declared dependency graph, the corresponding `kali.lock` entries, and the required materialized artifacts no longer agree. Non-install commands should not try to infer staleness from arbitrary mtimes or repair it opportunistically.
 - `node_modules/` is the materialized tree for registry packages (npm/JSR), while `.kali/cache/urls/` is the materialized cache for raw URL imports; `kali.lock` is the canonical reproducibility record for both.
 - When `kali.lock` and the required materialized dependency state disagree, `kali install` is responsible for reconciling them. Other commands should fail clearly rather than guessing which source of truth to trust.
