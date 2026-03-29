@@ -28,6 +28,23 @@ If another spec needs to mention one of these features, it should link here for 
 
 This table exists to keep the status labels operational: a label implies whether Kali should ship, gate, reject, or require an explicit opt-in.
 
+## Evidence-Backed Promotion Rule
+
+A maturity label is not only a design intention; it also constrains how Kali should talk about support publicly and across the spec set.
+
+Promotion rule:
+- a feature may be planned for a given phase before implementation exists
+- a feature should only be treated as **supported** for a command/profile/surface once the corresponding evidence exists in the canonical testing tracks from [specs/16-testing.md](16-testing.md)
+- the required evidence should match the claim being made:
+  - language/runtime semantics → conformance + integration coverage
+  - type-system behavior → checker/inference baselines
+  - package compatibility → curated package corpus results
+  - host/runtime APIs → integration + sandbox/resource-limit coverage
+  - CLI/JSON contracts → golden/snapshot/schema tests
+- isolated demos or one package anecdote do **not** by themselves justify raising a feature's maturity wording
+
+This keeps “Phase 1 MVP” and later status labels tied to measurable behavior rather than intent alone.
+
 ## Canonical Matrix
 
 | Feature | Status | Rationale |

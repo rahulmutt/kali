@@ -452,6 +452,20 @@ These rules should be followed whenever the specs evolve:
 - If a feature is parse-supported but not semantically implemented yet, say so explicitly
 - Prefer explicit rejection over undocumented emulation for unsupported behavior
 - Keep Phase 1 promises narrow, dependable, and testable
+- Do not mark a feature/profile as “supported” without naming the evidence track that proves it (see `specs/16-testing.md` for the canonical test evidence categories)
+
+## Canonical Evidence Rule for Compatibility Claims
+
+To keep the roadmap ambitious without turning status labels into marketing language, Kali treats maturity claims as **evidence-backed**:
+- a feature may be listed as a phase target before implementation exists
+- a feature should only be described as **supported** for a command/profile/surface once the matching tests exist and run in CI
+- the required evidence depends on the concern area: language semantics, typing, packages, host/runtime behavior, CLI/schema contracts, and proofs all use different evidence tracks
+- package anecdotes and one-off demos are useful, but they do **not** upgrade maturity status by themselves
+
+Cross-spec shorthand:
+- feature status lives in `specs/19-feature-maturity.md`
+- evidence expectations live in `specs/16-testing.md`
+- if a spec says a feature is supported, it should be clear which evidence track justifies that statement
 
 ## Canonical Representation-Downgrade Ladder
 

@@ -115,8 +115,10 @@ Compile-time policy handling is intentionally split to keep Phase 1 smaller and 
 Availability rule for policy validation:
 - a policy may always **deny** a capability, even if that capability's corresponding API/feature is later-phase
 - a policy must **not claim to allow** a capability that the selected command/profile/API surface/phase cannot actually provide
-- therefore validation should reject enabling unavailable capabilities such as `effects.fileSystem.read: true` under `--api browser`, `effects.eval: true` before Phase 4, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
+- therefore validation should reject any **non-deny** value for an unavailable capability, not just `true`; arrays/allowlists are equally invalid when the capability itself is unavailable
+- examples include `effects.fileSystem.read: true` or `effects.fileSystem.read: ["/tmp/**"]` under `--api browser`, `effects.eval: true` before Phase 4, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
 - under `--api browser`, this rejection applies only to capabilities outside the browser-targeted Phase 1 surface; the shared Web-baseline capabilities (`effects.network.fetch`, `effects.timer.*`, `effects.random`, `effects.console`) remain valid policy targets for browser-targeted `check` / `build --bundle`
+- browser ambient DOM APIs are still outside the schema-v1 capability model even when browser typings are visible during analysis/build; policy validation must not imply there is a per-DOM-call sandbox key just because `Window`/`Document` types are available
 - this avoids a misleading policy that appears more permissive than the runtime/compiler can really honor
 
 Phase-1 capability snapshot for supported surfaces:

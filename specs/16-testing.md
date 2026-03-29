@@ -22,6 +22,24 @@ End-to-end tests in `tests/`:
 
 The conformance strategy is intentionally split by concern area so language support, typing, packages, and sandbox behavior can advance at different rates without muddying pass/fail claims.
 
+### Canonical Evidence Matrix for Maturity Claims
+
+To keep phase labels and compatibility claims honest, each concern area needs its own evidence track before the project can call that area “supported” in a given command/profile/surface:
+
+| Concern area | Minimum evidence before claiming support |
+|---|---|
+| Language syntax/semantics | parser tests + integration coverage + the applicable test262/conformance subset |
+| Type checking / inference | checker baselines + inference golden tests + targeted regression cases |
+| Host APIs / runtime behavior | integration tests that execute the API path + sandbox/resource-limit tests where relevant |
+| Package compatibility | curated package corpus results recorded per command/profile (`check`, `build`, `test`, `run`) |
+| CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |
+| Proof-backed claims | passing Lean proof jobs for the currently modeled subset |
+
+Interpretation rule:
+- a feature can stay listed as a future phase target before these tests exist
+- but the spec set should only describe the feature as **supported** once the matching evidence track is in place and runs in CI
+- one passing demo or anecdotal package success is useful for exploration, but it is not enough to upgrade the canonical maturity wording
+
 #### ECMAScript (test262)
 Run against the [test262](https://github.com/tc39/test262) conformance suite:
 - Track pass/fail/skip counts
