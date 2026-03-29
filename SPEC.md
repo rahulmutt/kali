@@ -1,605 +1,376 @@
 # Kali Specification
 
-This document is the top-level index and canonical overview for the Kali project.
+This document is the top-level contract for the Kali spec set. It defines the canonical terminology and cross-cutting rules that other chapters reference instead of restating.
+
+Detailed subsystem design lives in [`specs/`](./specs).
+
+## Purpose
 
 Kali is an ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembly, designed for:
 - fast compilation and execution
-- strong static analysis
-- sandboxed execution
-- AI-friendly diagnostics and tooling
-- pure-Rust implementation and embedding
-
-It references the detailed specifications in `specs/*.md` and defines the canonical vocabulary used across them so the spec set stays consistent.
-
-## Product Summary
-
-Kali aims to:
-- compile TypeScript and JavaScript to WebAssembly ahead of time
-- use richer static analysis than traditional TypeScript where it remains predictable and fast
-- infer effects and support sandbox policies for untrusted or AI-generated code
-- avoid tracing GC by making compile-time ownership and allocation decisions where possible
-- aggressively specialize code and memory layouts when the program is analyzable
-- provide a clean CLI and embeddable Rust/C APIs, with reusable internal crates from the start and a stable public embedding contract in Phase 2
-- use WIT as the canonical interface description for exported library/embedding surfaces, with Component Model support layered on when it improves interoperability
-- support practical ecosystems: Deno-first runtime behavior, browser-targeted builds early, broader Node compatibility later
+- sandbox-first execution
+- strong static analysis, including effect analysis
+- AI-friendly CLI and diagnostics
+- pure-Rust implementation and embeddability
 
 ## Bootstrap Requirement Map
 
-This table turns the original bootstrap requirements into a compact cross-reference so the spec set is easier to audit and extend.
+This is the compact top-level breakdown of the bootstrap brief into canonical spec areas.
 
 | Bootstrap concern | Canonical handling |
 |---|---|
-| AOT-only TS/JS → WASM compiler | [01 — Architecture](specs/01-architecture.md), [08 — WebAssembly Code Generation](specs/08-wasm-codegen.md) |
-| Stronger-than-TS type inference while staying pragmatic | [04 — Type System](specs/04-type-system.md) |
-| No tracing GC; stack/heap/reference-count decisions at compile time | [06 — Memory Management](specs/06-memory.md) |
-| Aggressive specialization of code and layouts | [07 — Optimization & Specialization](specs/07-specialization.md) |
-| Sandboxing as a first-class concern | [09 — Sandboxing & Effects](specs/09-sandboxing.md), [10 — Runtime](specs/10-runtime.md) |
-| JSON effect reporting and policy alignment | [09 — Sandboxing & Effects](specs/09-sandboxing.md), [18 — Schemas](specs/18-schemas.md), [19 — Feature Maturity](specs/19-feature-maturity.md) |
-| Deno / browser / later Node host surfaces | [11 — Standard APIs](specs/11-standard-apis.md), [19 — Feature Maturity](specs/19-feature-maturity.md) |
-| npm / JSR / raw URL package workflows | [14 — Package Management](specs/14-packages.md) |
-| AI-friendly CLI and diagnostics | [12 — CLI](specs/12-cli.md), [15 — Error Reporting](specs/15-errors.md), [18 — Schemas](specs/18-schemas.md) |
-| Embeddable Rust API, C ABI, WIT, and Component Model interop | [13 — Embedding & C API](specs/13-embedding.md), [08 — WebAssembly Code Generation](specs/08-wasm-codegen.md), [18 — Schemas](specs/18-schemas.md) |
-| Lean-backed verification | [17 — Formal Verification](specs/17-verification.md) |
-| Phase-gated compatibility decisions | [19 — Feature Maturity](specs/19-feature-maturity.md) |
-
-## Bootstrap Clarifications and Intentional Reinterpretations
-
-The original bootstrap brief is intentionally ambitious. To keep the spec set implementable without watering down the long-term goal, these clarifications are now explicit:
-- **Effect reporting is mandatory for the product direction, but the stable CLI contract is Phase 2**. Phase 1 may use internal effect analysis to power sandbox/runtime behavior before `kali effects` becomes a stable public schema/command.
-- **Deno, browser, and Node are all targets, but not all at the same maturity tier**. Phase 1 is Deno-first for standalone execution, browser-targeted for `check` and `build --bundle`, and broader Node compatibility is Phase 3 work.
-- **Full dynamic compatibility remains a long-term target, not a Phase 1 promise**. Constructs such as `eval`, `Function()`, and non-literal dynamic loading are parse/analyze-aware early, but runtime support follows the maturity matrix instead of being implied by syntax acceptance.
-- **"Support the latest ECMA-262" means language-direction coverage first, not immediate host/runtime parity for every hard semantic corner**. Unsupported semantics must fail explicitly instead of degrading silently.
-- **Formal verification is required, but over the core modeled subset first**. Lean proofs focus on the security/correctness-critical core before expanding toward broader compatibility surfaces.
-
-These clarifications are meant to reduce ambiguity, not to lower ambition.
+| AOT-only TS/JS → WASM compiler | [01 — Architecture](./specs/01-architecture.md), [08 — WASM Codegen](./specs/08-wasm-codegen.md) |
+| Stronger-than-TS checking and inference | [04 — Type System](./specs/04-type-system.md) |
+| No tracing GC; compile-time ownership/allocation | [06 — Memory Management](./specs/06-memory.md) |
+| Aggressive specialization | [07 — Specialization](./specs/07-specialization.md) |
+| Sandboxing and effect-aware execution | [09 — Sandboxing](./specs/09-sandboxing.md), [10 — Runtime](./specs/10-runtime.md) |
+| JSON effect reporting and policy schemas | [18 — Schemas](./specs/18-schemas.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
+| Deno / browser / later Node API surfaces | [11 — Standard APIs](./specs/11-standard-apis.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
+| npm / JSR / raw URL package workflows | [14 — Package Management](./specs/14-packages.md) |
+| AI-friendly CLI and diagnostics | [12 — CLI](./specs/12-cli.md), [15 — Errors](./specs/15-errors.md), [18 — Schemas](./specs/18-schemas.md) |
+| Rust embedding, C ABI, WIT, Component Model | [13 — Embedding](./specs/13-embedding.md), [18 — Schemas](./specs/18-schemas.md) |
+| Lean-backed formal verification | [17 — Formal Verification](./specs/17-verification.md) |
 
 ## Hard Constraints
 
-These constraints are project-wide and should not be weakened in lower-level specs:
-- **AOT-only**: no language-level JIT compilation
+These constraints are global and should not be weakened by subsystem docs:
+- **AOT only**: no JIT compilation
 - **Pure Rust**: no embedded C/C++ libraries
-- **Sandbox-first**: runtime enforcement is a first-class requirement, not an afterthought
-- **No tracing/background GC**: Kali does not rely on a general tracing collector; ownership, stack/heap placement, and sharing strategy must be chosen statically where possible, with deterministic techniques such as reference counting allowed when needed
-- **No GC-exposed semantics in early phases**: any bounded internal cycle reclamation remains invisible implementation housekeeping, not a user-visible weak/finalization contract and not permission to weaken the no-tracing design
-- **Single linked WASM payload early**: Phase 1-3 builds target one linked WASM payload for the resolved static graph, even when a build also emits companion artifacts such as JS glue, WIT files, component wrappers, or C headers
-- **No silent semantic fallback**: unsupported or phase-gated features must fail explicitly rather than degrade invisibly
-- **AI-friendly machine contracts**: JSON output, diagnostics, and effect reports are stable, concise, and versioned
+- **No tracing/background GC**: deterministic ownership techniques only
+- **Single linked core WASM payload** for the resolved static graph in early phases
+- **No silent fallback** for unsupported semantics or unsupported host/profile combinations
+- **Stable machine-readable contracts** for JSON output, diagnostics, and effect reports
 
-## Long-Term Compatibility Targets vs Phase Promises
+## Long-Term Target vs Phase Promise
 
-A recurring source of confusion in a project like Kali is the difference between:
-- the **long-term language/runtime target**, and
-- the **features promised in a given implementation phase**
+Kali's long-term target is broad TypeScript/JavaScript compatibility, but phase promises are narrower.
 
-The canonical rule is:
-- Kali's **long-term target** is broad ECMAScript / TypeScript compatibility, including the latest ECMA-262 edition, difficult dynamic features such as `eval`, and practical host coverage across Deno, browser, and later broader Node compatibility.
-- Kali's **phase promises** remain intentionally narrower and are defined by this file plus `specs/19-feature-maturity.md`.
-- If a feature is part of the long-term target but not yet part of the current phase, the compiler/runtime must reject it explicitly with the canonical maturity path instead of pretending it already works.
+Canonical rule:
+- parser and analysis breadth may grow ahead of runtime support
+- unsupported semantics must fail explicitly rather than pretending they already work
+- feature maturity is defined by [specs/19-feature-maturity.md](./specs/19-feature-maturity.md), not by syntax acceptance alone
 
-This lets the spec stay ambitious without making Phase 1 commitments unrealistic.
+## Early-Phase Product Posture
 
-## Canonical Tension Resolutions
+These assumptions are intentionally explicit so the rest of the spec set does not drift:
+- **standalone execution is Deno-first**
+- **browser support is analysis/build first** in early phases (`check --api browser`, `build --bundle --api browser`)
+- **Node compatibility is a later ecosystem phase**, not an MVP promise
+- **all early builds target one linked core WASM payload** for the resolved static graph
+- **companion artifacts are allowed**, but they do not change the single-payload rule
+- **no tracing garbage collector** is introduced as a hidden fallback
+- **no JIT**; Kali is AOT-only
 
-Several bootstrap goals pull in different directions. These decisions are the spec-level resolutions and should remain stable unless there is a deliberate cross-spec rewrite.
+For phase labels and command/profile maturity, see [specs/19-feature-maturity.md](./specs/19-feature-maturity.md).
 
-| Tension | Canonical resolution |
-|---|---|
-| Broad ECMAScript compatibility vs implementable Phase 1 scope | Keep parser/front-end breadth high, but gate unsupported semantics through the feature-maturity matrix instead of overpromising runtime behavior |
-| Browser / Deno / Node support vs a small dependable MVP | Phase 1 is Deno-first for standalone execution, browser-targeted for `check` and `build --bundle`, and Node is a Phase 3 ecosystem target |
-| “Policy functions” flexibility vs auditable sandboxing | Project policies stay declarative JSON; programmable policy predicates, if added later, are embedding-only and explicitly opt-in |
-| No tracing GC vs JavaScript dynamism | Preserve the highest justified static/layout-aware representation first, then downgrade conservatively through the canonical representation ladder |
-| Support `eval` eventually vs keep AOT and sandboxing coherent | Parse and effect-track `eval`/`Function()` early, but keep runtime support behind the Phase 4 compatibility path |
-| AI-friendly output vs human usability | Default output stays terse and machine-stable; richer explanation lives behind `--verbose` and the structured JSON schemas |
+## Canonical Axes and Terms
 
-## Compatibility Tracks
+### API surface
+The selected host-facing API family:
+- `deno`
+- `node`
+- `browser`
 
-To avoid conflating very different kinds of “support”, Kali uses four compatibility tracks across the spec set:
+CLI spelling: `--api ...`
 
-1. **Language compatibility** — ECMAScript / TypeScript syntax and semantics
-2. **Host compatibility** — Deno, browser, and Node API surfaces
-3. **Tooling compatibility** — CLI behavior, machine-readable schemas, package/install workflows, embedding APIs
-4. **Proof compatibility** — the formally modeled subset covered by Lean proofs
+Config spelling: `compilerOptions.apiSurface`
 
-Interpretation rules:
-- “targets the latest ECMA-262 edition” is a **language-compatibility direction**, not a claim that every host/runtime or tooling feature ships in Phase 1
-- “supports browser code” may mean **browser-targeted analysis/build** before it means standalone browser-like execution
-- “formally verified” means proofs over the documented **core modeled subset** first, not an immediate proof of the whole JavaScript ecosystem surface
-- every lower-level spec should say which track it is talking about when ambiguity is likely
+### Build mode
+The optimization/compile-time tradeoff:
+- `fast`
+- `release`
+- `release-advanced`
 
-## Canonical Support-Tier Vocabulary
+CLI spelling: `--fast`, `--release`, `--release-advanced`
 
-A recurring simplification across the spec set is that a construct can be supported at different layers without implying full end-to-end support.
+Config spelling: `compilerOptions.buildMode`
 
-Use these meanings consistently:
-- **Parse support**: the lexer/parser/AST accept the syntax.
-- **Check/analyze support**: name resolution, typing, effect analysis, and diagnostics understand the construct well enough to reason about it.
-- **Lowering/codegen support**: the IR pipeline and WASM backend can compile it faithfully.
-- **Execution support**: the selected runtime/API surface/profile can actually run the lowered result.
+### Runtime profile
+Execution-capability switches that are separate from the API surface.
 
-Cross-spec rule:
-- parse support alone does **not** imply lowering or execution support
-- check/analyze support may exist mainly to produce correct diagnostics/effect summaries for a still-gated runtime feature
-- feature-maturity decisions should describe the highest supported tier for the current phase when that distinction matters
+Examples:
+- default single-threaded profile: `[]`
+- later threaded profile: `wasm-threads`
 
-This vocabulary keeps docs for `eval`, dynamic loading, browser modes, `Proxy`, and future compatibility work shorter and less ambiguous.
+CLI spelling: `--wasm-threads`
 
-## Canonical Vocabulary
+Config spelling: `compilerOptions.runtimeProfiles`
 
-To reduce drift across the spec set, these terms are canonical:
+### Compatibility feature
+An explicitly opted-in language/runtime compatibility escape hatch.
 
-- **API surface**: the host API family selected by CLI/config, e.g. `deno`, `node`, `browser`
-- **Effective API surface**: the final `apiSurface` after applying the canonical precedence rules (`CLI > kali.json > defaults`); browser-bundle rules and feature-maturity checks should key off this effective value rather than off one source of configuration in isolation
-- **Build mode**: optimization level, one of `fast`, `release`, `release-advanced`; these mode names are stable from Phase 1 onward, even though the amount of optimization each mode unlocks grows as later compiler phases land
-- **Runtime profile**: semantic runtime capability profile orthogonal to API surface, e.g. the default single-threaded baseline or later `wasm-threads`
-- **Browser API surface / browser-targeted context**: selecting `apiSurface = browser` for the commands that support it. In Phase 1 this is the early browser-targeted analysis/build path (`kali check --api browser` and `kali build --bundle --api browser`); later analysis commands such as `kali effects --api browser` may reuse the same ambient/package-selection context without implying a standalone browser runtime or DOM emulation promise
-- **Artifact mode**: the build output selector chosen by `kali build`, e.g. the default executable WASM artifact path, `--bundle`, `--lib`, `--capi`, or `--component`
-- **Feature maturity**: phase/status classification defined in `specs/19-feature-maturity.md`
-- **Compatibility feature**: an explicit later-phase escape hatch named in `compat.features` / `--compat`, for example `eval`
-- **Schema contract**: machine-readable JSON formats defined in `specs/18-schemas.md`
-- **Interface contract**: the exported host-facing ABI/IDL for a library artifact; in Kali this is described canonically by WIT once the public embedding surface stabilizes
-- **Linked artifact model**: compile the resolved static graph into one linked WASM payload rather than relying on runtime WASM module linking; companion artifacts such as JS glue, WIT files, component wrappers, or C headers do not change that single-payload rule
-- **Dependency source kind**: one of the early canonical dependency declaration/materialization channels: registry package or raw URL import
+Schema-v1 stable name:
+- `eval`
 
-If another spec needs to describe maturity, schemas, or command/profile gating, it should reference the canonical doc instead of redefining it.
+CLI spelling: `--compat eval`
 
-## Phase Roadmap
+Config spelling: `compat.features`
 
-The phase names below are canonical across the spec set.
+### Direct-entry command
+A command that requires explicit entrypoint arguments and must not guess a project default entry.
 
-### Phase 1 — Core compiler
-Deliver a practically useful compiler/runtime with:
-- lexer, parser, AST, name resolution
-- TypeScript-compatible checking and first-class JavaScript compilation with conservative inference plus a bounded HM-style local/return inference fragment
-- HIR and LIR, with direct `HIR -> LIR` lowering allowed
-- WASM emission and wasmtime-based execution
-- runtime sandbox enforcement and resource limits
-- Web baseline APIs plus Deno-first standalone runtime subset
-- browser-targeted `check --api browser` and `build --bundle --api browser`
-- core CLI workflows: `init`, `run`, `build`, `check`, `fmt`, `lint`, `test`, `install`
+Early-phase direct-entry commands:
+- `run`
+- `build`
+- `effects`
 
-### Phase 2 — Ownership, effects, embedding
-Add:
-- MIR as the canonical ownership/layout IR
-- escape analysis and deterministic memory management strategy
-- stable effect reports and compile/check-time policy validation
-- explicit `pure` and effect annotations for the built-in capability model
-- stable public Rust embedding API and C ABI
-- default WIT emission for public library/embedding interfaces, plus an initial WebAssembly Component Model packaging path where it meaningfully improves interop
+### Hybrid analysis command
+A command that accepts explicit files, or falls back to project discovery when invoked without them.
 
-### Phase 3 — Specialization and ecosystem breadth
-Add:
-- broader specialization and layout optimization
-- incremental compilation
-- broader Node compatibility
-- broader browser packaging/interoperability
-- broader npm compatibility beyond the early linked-artifact subset
-- broader process/network host capabilities such as mutable environment access, subprocesses, and server-side listening where the sandbox contract is already specified
+Early-phase hybrid analysis command:
+- `check`
 
-### Phase 4 — Advanced compatibility
-Add:
-- hard dynamic compatibility features such as `eval` / `Function()`
-- more difficult runtime/API compatibility surfaces
-- broader proof coverage for critical subsystems
-- continued convergence toward the long-term ECMAScript / TypeScript compatibility targets once the earlier host/runtime/tooling contracts are dependable
+### Project-oriented command
+A command whose no-argument behavior is defined in terms of canonical project discovery.
 
-The detailed maturity matrix lives in `specs/19-feature-maturity.md`.
+Early-phase project-oriented commands:
+- `check`
+- `fmt`
+- `lint`
+- `test`
+- `install`
 
-## Canonical Host Capability Table
+## Canonical Default Tuple
 
-This table is the compact cross-spec reference for what each host/API mode means in early phases.
-
-| Surface / mode | Shared Web baseline | Deno additions | Node additions | Browser-only deployment behavior |
-|---|---|---|---|---|
-| `--api deno` (default standalone) | Yes | Yes | No | No |
-| `--api node` | Yes | No by default; Node compatibility is its own surface | Phase 3 target subset only | No |
-| `--api browser` for `check` | Analysis target only, with browser ambient typings | No | No | No standalone runtime implied |
-| `build --bundle --api browser` | Yes, targeting the real browser host and browser ambient typings | No | No | Emit WASM + JS glue for deployment in a real browser |
-| `run/test --api browser` | Rejected by default in early phases | No | No | No embedded browser engine |
-
-Interpretation rules:
-- the **Web baseline** is the shared baseline across supported surfaces; `--api` selects additional globals/modules or a browser-targeted analysis/build context on top of that baseline
-- early standalone execution is **Deno-first**
-- Node compatibility is phase-gated and must not be implied by fallback shims
-- browser support is initially an **analysis/build context**, not a standalone runtime contract
-- browser-targeted analysis/build may expose browser ambient typings, but standalone execution still does not imply DOM emulation inside Kali
-
-## Canonical Default Execution Tuple
-
-Unless a command, config file, or later feature gate says otherwise, the default execution/build tuple is:
+Unless explicitly overridden by CLI or config, command examples use:
 - `apiSurface = deno`
 - `buildMode = fast`
 - `runtimeProfiles = []`
 - `compat.features = []`
 
-Interpretation rules:
-- `runtimeProfiles = []` means the default single-threaded baseline runtime
-- `compat.features = []` means no later-phase compatibility escape hatches are enabled
-- `kali run main.ts`, `kali test`, and `kali build main.ts` should be read as using this tuple unless flags/config override it
-- `kali check main.ts` and `kali effects main.ts` use the same default host/API selection (`apiSurface = deno`) even though build mode and runtime-profile switches are only meaningful for build/run-style commands
+This tuple is the default interpretation for examples such as:
+- `kali run main.ts`
+- `kali build main.ts`
+- `kali check main.ts`
+- `kali test`
+- later `kali effects main.ts`
 
-This tuple is the canonical simplification for examples across the CLI, embedding, runtime, and maturity specs.
+## Canonical Source-File Sets
 
-## Canonical Build Artifact-Mode Matrix
+### Executable/analyzable source set
+These files can be used as runtime/build/effect entrypoints:
+- `.ts`
+- `.tsx`
+- `.mts`
+- `.cts`
+- `.js`
+- `.jsx`
+- `.mjs`
+- `.cjs`
 
-To keep `build`, embedding, schemas, and feature-maturity docs aligned, Kali treats artifact selection as one small closed set in early phases:
+### Declaration-only source set
+These files are valid analysis/type-loading inputs, but not runtime/build/effect/test entrypoints:
+- `.d.ts`
+- `.d.mts`
+- `.d.cts`
 
-| Artifact mode | CLI selector | Early-phase status | Canonical output contract |
+### Canonical project file set
+The union of:
+- executable/analyzable source set
+- declaration-only source set
+
+Command intent narrows from this set:
+- runtime-bearing entrypoints use only the executable/analyzable source set
+- `check`, `fmt`, and `lint` may operate on the full canonical project file set
+- discovered test entrypoints use only the executable/analyzable source set
+
+## Canonical Project Root and Discovery
+
+### Project root
+The effective project root is:
+1. the directory containing the nearest `kali.json` found by searching the current working directory and then its ancestors, or
+2. the current working directory if no `kali.json` exists
+
+Relative paths in `kali.json` resolve relative to the directory containing that config.
+Ordinary CLI path arguments resolve relative to the current working directory.
+
+### Discovery walk
+When a command uses project discovery, it should:
+1. start at the effective project root
+2. recursively walk files in that tree
+3. stop recursion at nested child directories that contain their own `kali.json`, unless the user explicitly targeted files inside them
+4. collect files from the canonical project file set
+5. apply `include` / `exclude` filters from the effective `kali.json` when present
+
+### Default excluded managed/generated directories
+When discovery runs without an overriding `include` / `exclude` rule that explicitly brings them back, it should skip these directories by default:
+- `.git/`
+- `.jj/`
+- `.svn/`
+- `.hg/`
+- `node_modules/`
+- `.kali/`
+- `dist/`
+- `build/`
+- `target/`
+- `coverage/`
+
+This keeps project discovery stable and avoids accidentally treating generated or managed dependency state as source input.
+
+### Command-specific discovery narrowing
+From the canonical project-discovery result:
+- `check` uses the discovered file set directly
+- `fmt` and `lint` use the discovered file set directly
+- `test` matches `*.test.*` and `*_test.*` only across discovered executable/analyzable files
+- `install` may scan the discovered file set, including declaration-only files, for source-level raw URL imports
+
+## Canonical Command/Input Shape Rules
+
+### Direct-entry commands
+In early phases:
+- `run`, `build`, and `effects` each take **exactly one** explicit primary entrypoint
+- zero entrypoints is invalid usage (`E5008`)
+- more than one explicit entrypoint is invalid usage (`E5008`)
+
+### Input-kind rule
+- declaration-only files are valid direct inputs for `check`, `fmt`, and `lint`
+- declaration-only files are never valid entrypoints for `run`, `build`, `effects`, or `test`
+- passing a declaration-only file where an executable entrypoint is required is the canonical invalid-entrypoint diagnostic (`E5007`)
+
+### Package-argument rule
+In early phases:
+- `kali install [package]` accepts zero or one explicit package argument
+- `kali package-effects <package>` accepts exactly one explicit package argument
+- `kali package-audit [package]` accepts zero or one explicit package argument
+
+## Artifact-Mode Matrix
+
+`kali build` has one canonical early-phase artifact selector family:
+- omitted selector → **default executable mode**
+- `--bundle` → **browser bundle mode**
+- `--lib` → **library mode**
+- `--capi` → **public C embedding mode** *(Phase 2 target)*
+- `--component` → **Component Model packaging mode** *(Phase 2 target)*
+
+These selectors are mutually exclusive unless a later spec explicitly says otherwise.
+
+### Canonical artifact matrix
+
+| Build invocation shape | Artifact mode | Core artifact contract | Early-phase status |
 |---|---|---|---|
-| Executable | _(default)_ | Phase 1 MVP | One linked core `wasm-module` with role `primary-executable` |
-| Browser bundle | `--bundle --api browser` | Phase 1 MVP | One linked core `wasm-module` with role `primary-executable` plus browser `js-glue` with role `browser-glue` |
-| Library | `--lib` | Phase 1 MVP | Phase 1 emits one linked core `wasm-module` with role `primary-library`; Phase 2+ public-library builds also emit the canonical `wit` sidecar with role `interface-wit` by default |
-| C embedding package | `--capi` | Phase 2 target | Library-style core `wasm-module` with role `primary-library` + canonical `wit` sidecar with role `interface-wit` + generated `c-header` with role `embedding-header` + `cabi-metadata` with role `embedding-metadata` |
-| Component package | `--component` | Phase 2 target | Library-style core `wasm-module` with role `primary-library` + canonical `wit` sidecar with role `interface-wit` + `wasm-component` wrapper with role `primary-component` |
-
-Cross-spec rules:
-- these modes are mutually exclusive unless a later spec explicitly defines an implication
-- `--bundle` is the browser-targeted executable packaging mode only; in early phases it requires the **effective** `apiSurface` to be `browser` (from CLI or config) and does not mean “generic multi-file output”
-- `--lib` is the base non-browser library/export mode; `--capi` and `--component` are Phase 2 packaging layers over that same exported-library contract, not unrelated parallel semantics
-- because `--capi` and `--component` already select exported-library semantics, users should not combine them with `--lib` in early phases; these are separate artifact-mode selectors, not additive modifiers
-- `kali init --lib` changes the scaffold template only; it does not silently change the later default artifact mode of `kali build`
-- WIT is not a separate user-selected build mode; once the public library/export surface stabilizes, relevant library-oriented modes emit it by default
-- companion artifacts do not weaken the single linked-WASM-payload rule for the compiled static graph
-
-This matrix is the canonical simplification for artifact-mode wording across codegen, CLI, embedding, schemas, and feature maturity.
-
-## Canonical Dependency Declaration Model
-
-To keep install behavior, lockfiles, and configuration simple, Kali uses exactly two early dependency declaration channels:
-- **Registry packages** (`npm` / `jsr`) are declared in `kali.json` under `dependencies` or `devDependencies` and materialized into `node_modules/`.
-- **Raw URL imports** are declared in source code or in `kali.json#imports` and materialized into `.kali/cache/urls/`.
-
-Clarification:
-- path/local alias rewrites in `kali.json#imports` are a source-organization convenience, not a third external dependency source kind, because they do not introduce separate lock/materialization behavior.
-
-Canonical registry-package identifier grammar:
-- npm packages use the normal npm package-name grammar (for example `lodash` or `@types/node`)
-- JSR packages use an explicit `jsr:` prefix (for example `jsr:@std/path`)
-- this same identifier form should be used consistently in `kali.json`, CLI package arguments, diagnostics, and lockfile provenance so registry identity never depends on guesswork
+| `kali build main.ts` | default executable | one linked `wasm-module` with role `primary-executable` | Phase 1 MVP |
+| `kali build --bundle --api browser main.ts` | browser bundle | one linked `wasm-module` with role `primary-executable` plus browser JS glue with role `browser-glue` | Phase 1 MVP |
+| `kali build --lib lib.ts` | library | one linked `wasm-module` with role `primary-library`; later public-library outputs also emit WIT | Phase 1 MVP |
+| `kali build --capi lib.ts` | C embedding package | library core + WIT + generated C header + C-ABI metadata | Phase 2 target |
+| `kali build --component lib.ts` | Component package | library core + WIT + wrapped `wasm-component` | Phase 2 target |
 
 Interpretation rules:
-- schema v1 `kali.json#imports` is for **raw URL and path/local alias rewrites only**; it is not a second place to declare or alias registry packages
-- registry packages therefore remain owned by `dependencies` / `devDependencies`, while `imports` stays in the source/import-map lane
-- raw URL imports are **not** duplicated under `dependencies` / `devDependencies`
-- `kali.json#imports` follows one small import-map-style rule set in early phases: exact keys match whole specifiers, keys ending in `/` are prefix matches, the longest matching key wins, and local path targets are resolved relative to the directory containing that `kali.json`
-- import-map targets are limited to raw URLs and path/local rewrites; they are not regexes, glob patterns, or a second registry-alias mechanism
-- `kali.lock` records both source kinds even though they materialize into different on-disk locations
-- `kali install <registry-package>` mutates manifest + lock/materialized state for registry dependencies
-- because registry packages share one early-phase `node_modules/` tree, Kali must reject a dependency set that would map two distinct registries to the same on-disk package path rather than inventing shadow package trees or ambiguous lookup rules
-- `kali install https://...` pins/materializes that exact URL in the shared lock/materialization model but does **not** invent a second manifest section or silently rewrite source imports
-- ad hoc raw-URL installs are therefore a **staging/pin workflow**, not a second durable declaration channel; long-lived raw URL dependencies still belong in source imports or `kali.json#imports`
-- `--dev` applies only to **registry package** install arguments; pairing `--dev` with a raw URL is rejected explicitly instead of inventing a `devUrls`-style manifest concept
-- because raw URL pins are owned by the current source/import-map graph rather than a separate manifest table, a later plain `kali install` may prune lock/cache entries for raw URLs no longer referenced by the project
-- `kali install` is profile-agnostic in early phases: it locks/materializes dependency contents once for the current manifest/import graph, while `check` / `effects` / `build` / `run` / `test` choose `deno`/browser-targeted package branches from the installed package metadata at command time
-- `package-effects` and `package-audit` are **registry-package analysis commands**: when they take an explicit package argument, it must use the canonical registry-package identifier grammar, not a raw URL or local file path
+- `--bundle` is **browser-only** in early phases and requires the effective `apiSurface` to be `browser`
+- `--lib`, `--capi`, and `--component` are non-browser artifact modes in early phases
+- WIT is an output detail of public library/embedding/component modes, not a separate selector
+- companion artifacts do not weaken the single linked-payload rule for the compiled program graph itself
 
-This keeps raw URL support simple: source/import maps declare durable URL dependencies, the lock/cache materialize them, and `kali install` reconciles the two. An ad hoc `kali install https://...` is just a convenient way to pre-pin/materialize a URL that the project is expected to reference explicitly.
+## Canonical Host/API Summary
 
-Install-graph discovery rule for raw URLs:
-- because `kali install` normally runs without an explicit entrypoint, the install-time declaration graph for source-level raw URL imports is the canonical project-discovery result filtered by `kali.json` `include` / `exclude` (or by the default project-discovery rules when those fields are omitted)
-- `kali install` may discover these dependencies with a cheap lexical/module-specifier scan rather than a full typecheck/build
-- that scan may include declaration-only files too, because they can participate in the project's type/import graph
-- pruning of raw URL lock/cache state is judged against that install-time declaration graph plus `kali.json#imports`, not against arbitrary unopened files elsewhere in the repository
-- direct-entry commands such as `kali run path/to/file.ts` may still fail with `E5004` if that explicit entrypoint reaches a raw URL dependency that was not part of the last installed project graph; the fix remains to run `kali install` after adjusting the project's declared/discoverable sources
+### Shared Web baseline
+The early shared baseline available across supported surfaces is intentionally small and capability-oriented. It includes the documented Web-platform baseline from [specs/11-standard-apis.md](./specs/11-standard-apis.md), such as:
+- `fetch`
+- timers
+- `console`
+- `URL` / `URLSearchParams`
+- `TextEncoder` / `TextDecoder`
+- `AbortController` / `AbortSignal`
+- `EventTarget` / `Event` / `CustomEvent`
+- `structuredClone`
+- randomness via the small documented subset (`crypto.getRandomValues`)
 
-### Canonical Install-Script Boundary
+### Surface summary table
 
-To keep package tooling, sandboxing, and host-API promises from drifting together, Kali treats npm lifecycle scripts as a **separate install-time escape hatch**, not as part of the ordinary program-execution contract:
-- lifecycle scripts are enabled only by the explicit one-shot CLI opt-in `kali install --allow-scripts`
-- they are **registry-package install hooks**, not source-program entrypoints and not a second use of `kali run`
-- with an explicit package argument, `--allow-scripts` is valid only for **registry packages**; pairing it with a raw URL is invalid command usage
-- with no explicit package argument, `kali install --allow-scripts` is valid only when the effective install graph contains at least one registry package; on a URL-only/no-registry graph it should fail explicitly instead of silently behaving like plain `install`
-- enabling them does **not** imply `--api node` support, broader runtime host compatibility, or participation in the normal `kali effects` / sandbox-policy model
-- top-level project `sandbox` config is ignored by `install`, and schema-v1 `kali.policy.json` does not try to govern lifecycle-script behavior
-- package compatibility claims for ordinary `check` / `build` / `run` / `test` must therefore stay separate from the narrower opt-in claim that an install hook can be executed during dependency materialization
-
-This keeps the default dependency workflow deterministic and sandbox-first while still allowing an explicit, auditable escape hatch for packages that need install-time preprocessing.
-
-This is the canonical simplification for dependency management across the CLI, package, and schema specs.
-
-## Canonical Source-File Kinds
-
-To keep the frontend, package resolver, CLI, and test runner aligned, Kali uses one shared source-file classification:
-
-- **Executable/analyzable source files**: `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`
-- **Declaration-only type inputs**: `.d.ts`, `.d.mts`, `.d.cts`
+| API surface | Early standalone/runtime meaning | Early analysis/build meaning |
+|---|---|---|
+| `deno` | canonical supported standalone surface | canonical default analysis surface |
+| `browser` | not a standalone runtime promise in early phases | browser-targeted context for `check --api browser` and `build --bundle --api browser` |
+| `node` | phase-gated | phase-gated |
 
 Interpretation rules:
-- executable/analyzable source files may participate in parsing, checking, lowering, building, running, and test discovery according to the selected command/profile
-- declaration-only files participate in type checking, ambient library loading, and package type resolution, but they are never valid `run` / `effects` / `build` / `test` entrypoints by themselves
-- the **project file set** is the union of executable/analyzable files plus declaration-only files
-- project-oriented command discovery starts from that project file set, then narrows by command intent: runtime-bearing entrypoint discovery uses executable/analyzable files only; `fmt`/`lint`/type-oriented discovery may include declaration-only files too
-- test discovery is a narrower filter on top of executable/analyzable files only; declaration files are excluded even if they happen to match a naming convention like `*.test.d.ts`
+- browser-targeted analysis/build may expose real browser ambient typings, including DOM typings, without implying that Kali embeds a browser runtime
+- browser-targeted builds rely on emitted JS glue plus the real browser host
+- supported command/profile combinations should use the selected surface faithfully; unsupported ones fail explicitly rather than silently falling back
 
-### Canonical Module-Kind Classification
+## Single-Payload and Dynamic-Loading Boundary
 
-To keep parsing, package resolution, and runtime lowering aligned, Kali uses one shared early-phase module-kind rule set:
-- `.mjs` and `.mts` are always treated as **ESM**
-- `.cjs` and `.cts` are always treated as **CommonJS**
-- `.js`, `.jsx`, `.ts`, and `.tsx` follow the nearest applicable package/module metadata (for example `package.json#type`) when they are inside a package boundary
-- if those ambiguous extensions appear outside an applicable package boundary, Kali defaults them to **ESM** unless the documented resolver/classifier rules say a specific CommonJS interpretation is required
-- package/type resolution, checker assumptions, and lowering must use the same chosen module kind for a given resolved file rather than letting one subsystem treat a file as ESM while another treats it as CJS
+### Single-payload rule
+Early-phase Kali compiles the full static module graph into one linked core WASM payload per build artifact.
 
-This is the canonical simplification for avoiding "same file, different module kind" drift across the frontend, package resolver, and runtime specs.
+Companion artifacts may still exist:
+- browser JS glue
+- WIT files
+- C headers
+- C-ABI metadata
+- component wrappers
+- source maps
 
-### Canonical Project Discovery Rules
-
-When a command operates on the project rather than on explicit file arguments, use this shared discovery model:
-- the **effective project config** is the nearest `kali.json` found by searching the current working directory and then its ancestors; if none exists, commands run configless
-- when an effective project config exists, the **project root** is the directory containing that `kali.json`; otherwise the project root is the current working directory
-- `include` / `exclude` in `kali.json` filter the project file set relative to that project root
-- when `include` is omitted, discovery recursively includes the canonical project file set under the project root
-- when `exclude` is omitted, discovery still skips the default managed/generated directories: `.git/`, `.kali/`, `node_modules/`, `dist/`, `build/`, `target/`, and `coverage/`
-- recursive project discovery must also stop at nested child directories that contain their own `kali.json`; those are separate project roots unless the user explicitly targets files inside them
-- explicit CLI file arguments bypass project discovery for those named paths, but they do not relocate the already-chosen effective project config/root or change how transitive imports/dependencies are resolved
-- relative CLI file arguments are resolved against the current working directory, while config-owned relative paths/globs continue to resolve against the directory containing their `kali.json`
-- commands that need only a subset of discovered files (for example test files, runtime-bearing entrypoints, or install-time raw-URL scans) should narrow from this shared project-discovery result instead of redefining their own unrelated root walk
-
-This is the canonical simplification for file-extension handling and project discovery across architecture, CLI, packages, and testing.
-
-## Canonical Command Input Modes
-
-To keep CLI behavior predictable and avoid ad hoc "maybe this command scans the project, maybe it needs an entrypoint" rules, Kali uses one shared command-input split:
-- **Direct-entry commands**: `run`, `build`, and `effects` require an explicit executable/analyzable entrypoint argument in early phases; they do not guess `main.ts`, consult `package.json` scripts, or invent an implicit project default entry.
-- **Project-oriented commands**: `fmt`, `lint`, and `test` operate on the canonical project-discovery result when no explicit file arguments are supplied.
-- **Hybrid analysis command**: `check` may operate on explicit files or, when invoked without file arguments, on the canonical project-discovery result.
-- **Non-source-entrypoint commands**: `init`, `install`, `package-effects`, and `package-audit` do not consume source entrypoint arguments the way compiler/test commands do.
-
-### Canonical Early-Phase Entrypoint-Arity Rule
-
-To remove another recurring ambiguity, early phases also use one small arity rule:
-- `kali run <file>`, `kali build <file>`, and `kali effects <file>` each take **exactly one** primary source entrypoint in Phase 1-2.
-- Passing zero entrypoints should use the canonical invalid-usage diagnostic `E5008`.
-- Passing more than one explicit entrypoint to those commands should also use `E5008` unless a later spec explicitly adds a multi-entry build/report mode.
-- `kali check [files...]`, `kali fmt [files...]`, `kali lint [files...]`, and `kali test [files...]` may still accept multiple explicit file arguments because their contracts are set-oriented rather than single-artifact/single-program oriented.
-- These arity mistakes are distinct from the canonical invalid-entrypoint diagnostic (`E5007`): arity is a command-usage problem, while `E5007` is for an explicitly supplied path of the wrong input kind (for example a declaration-only file passed to `run`).
-
-Cross-spec rule:
-- if a command is defined as direct-entry, omitting the entrypoint should use `E5008` rather than permission to walk the project opportunistically
-- if a command is project-oriented, its no-argument behavior must narrow from the canonical project-discovery result instead of inventing command-local directory walks
-- explicit file arguments still bypass discovery for the named paths, subject to the canonical input-kind rules for that command
-- lower-level specs should not imply an undocumented multi-entry executable/build/effects mode just because some schemas use arrays for future extensibility
-
-This is the canonical simplification for CLI examples, help text, and command-schema behavior.
-
-### Canonical Package-Argument Arity Rule
-
-To keep dependency/tooling commands as simple as the direct-entry commands, early phases also use one small package-argument rule:
-- `kali install [package]` accepts **zero or one** explicit package argument in Phase 1-2.
-- `kali package-effects <package>` accepts **exactly one** explicit package argument.
-- `kali package-audit [package]` accepts **zero or one** explicit package argument.
-- passing more than the allowed number of explicit package arguments is invalid command usage (`E5008`) rather than permission to invent an undocumented batch mode.
-- option flags that conceptually modify an explicit package target (for example `kali install --dev`) require that target in early phases; using them without one is also `E5008`.
-
-Cross-spec rule:
-- package-argument arity is separate from package-identifier validity; wrong *number* of package arguments is `E5008`, while a malformed or unsupported package identifier still uses the ordinary package/import diagnostic path for that command
-- lower-level specs should not imply undocumented multi-package install/audit/effect-analysis modes just because future schemas may use arrays internally
-
-This is the canonical simplification for package-tooling examples, help text, and CLI validation.
-
-## Canonical ECMA-262 Interpretation
-
-To align the bootstrap goal of targeting the latest ECMA-262 edition with realistic phased delivery:
-- Kali should track the **latest published ECMA-262 edition** as the language-reference direction for lexer, parser, and core semantic coverage
-- broad syntax acceptance is desirable early, but syntax acceptance alone does **not** promise immediate lowering/runtime support for every costly or dynamic feature
-- web-legacy and other high-cost compatibility corners should be judged through the feature-maturity matrix rather than being implied automatically by the phrase "latest ECMA-262"
-- when Kali intentionally accepts syntax ahead of full support, the checker/runtime should fail with canonical diagnostics instead of silently changing semantics
-
-This keeps the language target ambitious while preserving a dependable, phase-based implementation plan.
-
-## Canonical Sandbox Policy Boundary
-
-To keep the bootstrap goals and the detailed sandbox specs aligned, Kali draws one explicit line between **declarative project policies** and **programmable embedding-time policy hooks**:
-
-- **Phase 1-2 project policies**: `kali.policy.json` is declarative data only
-- **Later compatibility**: programmable policy conditions may exist only as explicitly opt-in, host-registered pure predicates in embedding scenarios
-- project code must not be executed implicitly just to decide whether a sandboxed capability is allowed
-- policy evaluation must stay auditable, deterministic, and safe to perform before untrusted program execution begins
-
-Cross-spec rule:
-- sandbox policy files must not become a second scripting language
-- if richer conditional logic is needed, the extension point belongs to the embedding API, not to arbitrary project-local policy code by default
-- specs should describe this as an extension of the sandbox contract, not as permission to weaken the declarative-policy default
-
-This is the canonical simplification for reasoning about the original “policy function” idea without undermining auditability or startup-time safety.
-
-### Canonical No-Policy Behavior
-
-To keep sandbox-first design compatible with normal development workflows, Kali distinguishes between **intrinsic runtime safety** and an **attached declarative sandbox policy**:
-- if no `--sandbox` flag is supplied and `kali.json` omits top-level `sandbox`, the command runs with **no attached project policy file**
-- in that mode, Kali still enforces intrinsic guarantees such as API-surface gating, phase/feature gating, WASM memory safety, and any hard engine invariants required for correctness
-- however, capability allow/deny decisions and policy-defined resource ceilings come only from an attached policy file; without one, `check`/`build` perform no policy validation and `run`/`test` perform no policy-file-driven capability filtering
-- per-invocation resource flags such as `--max-memory` and `--max-cpu` may still be used without a policy file; when a policy is present they can only tighten it, and when no policy is present they become the direct invocation caps
-
-Cross-spec rule:
-- absence of a policy file is **not** the same thing as an explicit permissive `kali.policy.json`; tools should preserve that distinction instead of materializing a fake allow-all policy behind the scenes
-- diagnostics should say whether a failure came from API/phase availability, explicit sandbox policy, or direct invocation resource caps so tooling can react correctly
-
-## Canonical Sandbox Enforcement Domains
-
-To keep sandbox claims realistic across standalone execution, embedding, and browser-targeted builds, Kali uses one explicit enforcement split:
-
-- **Kali-hosted execution** — `kali run`, `kali test`, and embedding hosts that instantiate the Kali runtime can provide **runtime sandbox enforcement** because host calls flow through Kali-controlled policy checks and resource-limit machinery.
-- **Check/build workflows** — `kali check --sandbox ...` and `kali build --sandbox ...` provide **policy validation** in Phase 1 and **effect-vs-policy validation** in Phase 2+, but they do not by themselves execute the program.
-- **Effect reporting is observational, not policy-applying** — `kali effects` reports inferred effects, but sandbox-policy comparison stays on the `check/build --sandbox` path so the CLI does not grow two near-duplicate policy-validation workflows.
-- **Browser-targeted emitted artifacts** — `kali build --bundle --api browser` may be analyzed against a sandbox policy at build time, but once the emitted JS/WASM is deployed into a real browser host, Kali does **not** automatically control that browser's runtime permissions.
-
-Cross-spec rule:
-- early sandbox-first guarantees are strongest for **Kali-hosted standalone/embedded execution**
-- browser-targeted builds may carry policy metadata or fail analysis against a policy, but they must not claim automatic post-deployment runtime enforcement unless a later browser-specific host contract is specified
-- specs should distinguish **static policy compatibility** from **runtime host enforcement** whenever browser-targeted output is discussed
-
-This is the canonical simplification for preventing the phrase "sandboxed browser build" from implying a stronger runtime guarantee than Kali can actually provide in Phase 1.
-
-## Canonical Dynamic Loading and Code-Generation Boundary
-
-To keep the module, runtime, and sandbox specs aligned, Kali draws one explicit line between **static linking**, **dynamic loading**, and **dynamic code generation**:
-
-- **Phase 1 MVP**: static ESM graphs and statically resolvable CommonJS `require("literal")`
-- **Rejected by default in early phases**: dynamic CommonJS loading via `require(expr)`
-- **Phase 3 target**: literal-string `import("pkg")`, lowered against the already-linked graph rather than runtime WASM module linking
-- **Later compatibility**: non-literal `import(expr)`, treated as a dynamic effect boundary that requires host mediation
-- **Phase 4 compatibility**: dynamic code generation via `eval` / `Function()` behind the documented compatibility path
-
-Cross-spec rule:
-- Phase 1-3 keep the **single linked WASM payload** model; none of the later dynamic features may quietly reintroduce ad hoc runtime module linking
-- parser support for a construct does **not** imply runtime support for it
-- static analysis should distinguish **dynamic loading** (`require(expr)`, `import(expr)`) from **dynamic code generation** (`eval`, `Function()`), because they have different maturity paths and sandbox consequences
-- when these constructs are unsupported for the selected phase/profile, the compiler/runtime must reject them with the canonical feature-maturity diagnostic instead of inventing fallback behavior
-
-This is the canonical simplification for reasoning about `require`, `import()`, `eval`, and related dynamic features across architecture, packages, sandboxing, and runtime.
-
-## Canonical Browser-Ambient vs Sandbox Boundary
-
-To keep browser-targeted analysis/build support consistent with the sandbox-first story:
-- browser ambient typings such as `Window`, `Document`, and `HTMLElement` are part of the **browser-targeted context**, not proof that Kali itself mediates those APIs at runtime
-- schema-v1 sandbox policies and stable effect reports cover **Kali-mediated built-in capabilities** (filesystem, network, process, timers, random, console, eval), not every browser ambient object or DOM method
-- therefore a browser-targeted build may type-check against DOM APIs while still having no schema-v1 policy key for `document.createElement(...)`-style behavior
-- browser-targeted `check/build --sandbox` remains a static compatibility check over the documented Kali effect/capability model; once deployed into a real browser host, Kali does not automatically enforce per-DOM-call policy decisions unless a later browser-host contract explicitly adds them
-
-This boundary prevents a common false implication: “browser ambient support” is broader than “browser runtime sandbox mediation”.
-
-## Canonical Sources of Truth
-
-Use these files as the primary authority for each concern:
-
-- **Architecture and crate layout**: `specs/01-architecture.md`
-- **Lexing and parsing**: `specs/02-lexer-parser.md`
-- **AST and symbols**: `specs/03-ast.md`
-- **Type system and inference**: `specs/04-type-system.md`
-- **IR pipeline**: `specs/05-ir.md`
-- **Memory and ownership**: `specs/06-memory.md`
-- **Optimization and specialization**: `specs/07-specialization.md`
-- **WASM codegen**: `specs/08-wasm-codegen.md`
-- **Sandboxing and effects**: `specs/09-sandboxing.md`
-- **Runtime model**: `specs/10-runtime.md`
-- **Standard APIs / host surfaces**: `specs/11-standard-apis.md`
-- **CLI behavior**: `specs/12-cli.md`
-- **Embedding and C API**: `specs/13-embedding.md`
-- **Packages and resolution**: `specs/14-packages.md`
-- **Diagnostics**: `specs/15-errors.md`
-- **Testing strategy**: `specs/16-testing.md`
-- **Formal verification**: `specs/17-verification.md`
-- **JSON schemas**: `specs/18-schemas.md`
-- **Feature maturity matrix**: `specs/19-feature-maturity.md`
-
-## Cross-Spec Consistency Rules
-
-These rules should be followed whenever the specs evolve:
-- Do not restate a conflicting phase decision outside `specs/19-feature-maturity.md`
-- Do not redefine JSON shapes outside `specs/18-schemas.md`
-- Prefer one canonical term over near-synonyms (`apiSurface`, `buildMode`, `runtimeProfiles` in config)
-- Keep **API surface** and **runtime profile** orthogonal: `deno` / `node` / `browser` are API-surface choices, while threading or other execution-capability knobs belong to runtime profiles
-- Reserve the canonical feature-maturity diagnostic for real phase/profile/feature gating; missing globals inside an otherwise-supported ambient surface should remain ordinary name/type errors
-- If a feature is parse-supported but not semantically implemented yet, say so explicitly
-- Prefer explicit rejection over undocumented emulation for unsupported behavior
-- Keep Phase 1 promises narrow, dependable, and testable
-- Do not mark a feature/profile as “supported” without naming the evidence track that proves it (see `specs/16-testing.md` for the canonical test evidence categories)
-
-## Canonical Evidence Rule for Compatibility Claims
-
-To keep the roadmap ambitious without turning status labels into marketing language, Kali treats maturity claims as **evidence-backed**:
-- a feature may be listed as a phase target before implementation exists
-- a feature should only be described as **supported** for a command/profile/surface once the matching tests exist and run in CI
-- the required evidence depends on the concern area: language semantics, typing, packages, host/runtime behavior, CLI/schema contracts, and proofs all use different evidence tracks
-- package anecdotes and one-off demos are useful, but they do **not** upgrade maturity status by themselves
-
-Cross-spec shorthand:
-- feature status lives in `specs/19-feature-maturity.md`
-- evidence expectations live in `specs/16-testing.md`
-- if a spec says a feature is supported, it should be clear which evidence track justifies that statement
+### Dynamic-loading rule
+- static `import` / `export` are part of the core model
+- static CommonJS lowering is part of the core package-compatibility story
+- literal-string `import()` is a later lowering over the already-linked graph, not permission for runtime WASM module linking
+- non-literal `import(expr)` is a later compatibility path and a dynamic effect boundary
+- dynamic `require()` is rejected by default in early phases
 
 ## Canonical Representation-Downgrade Ladder
 
-When Kali cannot keep a value or object on the most optimized path, it should degrade representation in this order instead of jumping unpredictably between ad hoc fallbacks:
+Layout precision and ownership are separate axes.
+A value may move from stack to owned heap or shared heap without losing a precise static layout.
 
-1. **Static typed layout** — fixed object/aggregate layout, unboxed scalars where possible
-2. **Owned structured heap layout** — still typed and layout-aware, but heap allocated due to escape/lifetime needs
-3. **Shared structured heap layout** — typed layout preserved, but deterministic reference counting is introduced
-4. **Tagged dynamic value** — value-level type uncertainty requires boxing/tagging
-5. **Dynamic object layout** — partially known object shape with a dynamic side table / fallback slot
-6. **Fully dynamic hash-map/object mode** — dictionary-like behavior with most layout optimizations disabled
+When Kali must become more conservative about **representation/layout**, it should follow this ladder:
+1. **Scalar/unboxed** — primitives and tightly known machine values
+2. **Static structured layout** — fixed object/aggregate fields with known offsets
+3. **Partially dynamic layout** — known fields plus a dynamic side slot for unknown properties
+4. **Fully dynamic/hash-map layout** — dictionary-like or semantically open object representation
 
-Cross-spec rule:
-- type-system uncertainty should widen types conservatively before IR/layout chooses a more dynamic representation
-- IR lowering should preserve the highest representation rung still justified by the checker and analyses
-- memory-management rules describe the ownership consequences of a downgrade, not a separate downgrade policy
-- diagnostics may mention when a construct forces a lower rung if that materially impacts performance or sandbox reasoning
+Interpretation rules:
+- ownership changes alone do **not** force a layout downgrade
+- shared ownership does **not** automatically imply hash-map representation
+- crossing an `any`/dynamic boundary, computed property behavior, `delete`, `Proxy`, or other layout-destabilizing features may force a downgrade
+- when analysis can still prove a closed shape, Kali should keep the more precise representation
 
-This ladder is the canonical simplification for reasoning about "dynamic" behavior across the type system, IR, memory, and optimization specs.
+This ladder is the shared representation contract referenced by [specs/05-ir.md](./specs/05-ir.md) and [specs/06-memory.md](./specs/06-memory.md).
 
-## Phase 1 Success Definition
+## Sandbox-Domain Honesty Rule
 
-Phase 1 should be considered successful only when all of the following are true together:
-- TS and JS projects compile end-to-end into one linked WASM payload for the supported static graph
-- runtime sandbox enforcement and resource limits work for the documented Phase 1 host surface
-- `kali run`, `build`, `check`, `fmt`, `lint`, `test`, `init`, and `install` behave deterministically under the documented dependency and config model
-- browser-targeted `check --api browser` and `build --bundle --api browser` work without implying a standalone browser runtime
-- unsupported dynamic or phase-gated features fail with the canonical availability/maturity diagnostics rather than partial emulation
-- package compatibility is dependable for the documented pure JS/TS, statically linkable subset
+Kali must distinguish between:
+- **Kali-hosted execution enforcement** (`run`, `test`, and later embeddings under Kali-controlled hosts)
+- **browser-targeted build/analysis compatibility checks** (`check --api browser`, `build --bundle --api browser`)
 
-This section is intentionally short; the detailed phase exit criteria remain in [specs/19-feature-maturity.md](specs/19-feature-maturity.md).
+In early phases:
+- browser-targeted commands may validate policy shape and capability compatibility
+- they must **not** imply Kali-controlled post-deployment enforcement of CPU, memory, file, process, or thread budgets inside a real browser host
 
-## Explicit Early-Phase Non-Goals
+## Machine-Readable Contract Rule
 
-To keep the roadmap credible, the following are intentionally **not** Phase 1 goals even though they remain part of Kali's long-term direction:
-- full Node.js API parity
-- standalone browser runtime or DOM emulation
-- full dynamic-loading compatibility (`eval`, `Function()`, non-literal `import()`)
-- native addons, `node-gyp`, or any C/C++ dependency path
-- a fully general algebraic-effect language surface
-- broad formal verification of the full ECMAScript surface
+When Kali exposes machine-readable output:
+- JSON is the stable tooling contract
+- top-level machine-readable JSON documents carry `schemaVersion`
+- `kali effects` and `kali package-effects` may emit their native payloads directly by default
+- `--output json` wraps command results in the standard command envelope from [specs/18-schemas.md](./specs/18-schemas.md)
 
-Important clarification:
-- **Phase 1 npm/package compatibility does not imply `--api node` support.**
-- Early package support comes from static resolution, CommonJS lowering, browser/Deno condition handling, and the Phase 1 Web + Deno host surface.
-- Packages that truly require broader Node globals/core modules remain phase-gated with the rest of Node compatibility.
+## Cross-Spec Simplicity Rules
 
-These are deferred by design, not omitted accidentally. Where they matter to users, the compiler should reject them explicitly and point to feature maturity.
+When a new feature is added, prefer:
+- one canonical name per concept
+- one command path for a workflow rather than overlapping near-duplicates
+- explicit rejection over undocumented fallback
+- extending existing artifact/effect/policy schemas rather than inventing parallel formats
+- phase-gated honesty over partial compatibility claims
 
-## Spec Amendment Rules
+## Spec Map
 
-When extending the spec set:
-- new phase or status claims must update `specs/19-feature-maturity.md`
-- new machine-readable JSON fields or documents must update `specs/18-schemas.md`
-- new CLI flags, subcommands, or config entry points must update `specs/12-cli.md` and, when machine-readable, `specs/18-schemas.md`
-- new host API families or major API-surface promises must update `specs/11-standard-apis.md` and `specs/19-feature-maturity.md`
-- new runtime profiles must update this file, `specs/12-cli.md`, and `specs/19-feature-maturity.md`
-- if a change weakens an earlier simplification, the spec must explain why the extra complexity is worth it
-
-## Intentional Simplifications
-
-The spec intentionally makes a few simplifying choices to keep implementation tractable:
-- one primary execution engine first (`wasmtime` in early phases), while keeping room for later backend expansion if the same runtime contracts are preserved
-- one linked WASM payload per build in early phases, with optional companion artifacts such as JS glue, WIT files, component wrappers, or C headers when the selected artifact mode requires them
-- one canonical machine-readable JSON contract per output type, with command-specific payloads wrapped in one shared CLI envelope when JSON transport is requested
-- one primary standalone runtime surface early (`deno`), with browser as an analysis/build context first
-- one initial effect model centered on sandbox-relevant built-in capabilities
-
-These simplifications are design choices, not omissions. They keep the project coherent while still leaving room for later compatibility layers.
-
-WIT / Component Model clarification:
-- the core compiler pipeline still lowers Kali programs to one linked core WASM payload first
-- WIT and Component Model support are treated as **interface/export layers** over that payload, not as a replacement for the core linked-artifact model
-- executable builds stay centered on the core WASM payload, while public library/embedding outputs should prefer WIT-described interfaces once that Phase 2 surface stabilizes
-
-## Spec Index
-
-1. [01 — Architecture](specs/01-architecture.md)
-2. [02 — Lexer & Parser](specs/02-lexer-parser.md)
-3. [03 — AST](specs/03-ast.md)
-4. [04 — Type System](specs/04-type-system.md)
-5. [05 — Intermediate Representations](specs/05-ir.md)
-6. [06 — Memory Management](specs/06-memory.md)
-7. [07 — Optimization & Specialization](specs/07-specialization.md)
-8. [08 — WebAssembly Code Generation](specs/08-wasm-codegen.md)
-9. [09 — Sandboxing & Effects](specs/09-sandboxing.md)
-10. [10 — Runtime](specs/10-runtime.md)
-11. [11 — Standard APIs](specs/11-standard-apis.md)
-12. [12 — CLI](specs/12-cli.md)
-13. [13 — Embedding & C API](specs/13-embedding.md)
-14. [14 — Package Management](specs/14-packages.md)
-15. [15 — Error Reporting](specs/15-errors.md)
-16. [16 — Testing](specs/16-testing.md)
-17. [17 — Formal Verification](specs/17-verification.md)
-18. [18 — Schemas](specs/18-schemas.md)
-19. [19 — Feature Maturity](specs/19-feature-maturity.md)
+- [01 — Architecture](./specs/01-architecture.md)
+- [02 — Lexer & Parser](./specs/02-lexer-parser.md)
+- [03 — AST](./specs/03-ast.md)
+- [04 — Type System](./specs/04-type-system.md)
+- [05 — Intermediate Representations](./specs/05-ir.md)
+- [06 — Memory Management](./specs/06-memory.md)
+- [07 — Specialization](./specs/07-specialization.md)
+- [08 — WASM Codegen](./specs/08-wasm-codegen.md)
+- [09 — Sandboxing](./specs/09-sandboxing.md)
+- [10 — Runtime](./specs/10-runtime.md)
+- [11 — Standard APIs](./specs/11-standard-apis.md)
+- [12 — CLI](./specs/12-cli.md)
+- [13 — Embedding](./specs/13-embedding.md)
+- [14 — Package Management](./specs/14-packages.md)
+- [15 — Errors](./specs/15-errors.md)
+- [16 — Testing](./specs/16-testing.md)
+- [17 — Formal Verification](./specs/17-verification.md)
+- [18 — Schemas](./specs/18-schemas.md)
+- [19 — Feature Maturity](./specs/19-feature-maturity.md)
