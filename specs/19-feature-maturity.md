@@ -104,6 +104,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali test --sandbox kali.policy.json` | Phase 1 MVP | Runtime sandbox enforcement path for tests; policy schema/ranges must validate before execution starts |
 | `kali test --api node` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for test runs too |
 | `kali test --api browser` | Rejected by default | Early browser support is a check/build profile, not a standalone test-runtime profile |
+| `kali test --coverage` | Phase 2 target | Coverage needs a stable machine-readable report contract instead of ad hoc runner output |
 | `kali effects main.ts` | Phase 2 target | Before then: unavailable or explicitly experimental, never a partial bespoke report |
 | `kali package-effects lodash` | Phase 2 target | Depends on effect-report pipeline; reject/mark experimental before then |
 | `kali package-audit [pkg]` | Later compatibility | Tooling feature, not a Phase 1-2 compiler/runtime milestone |

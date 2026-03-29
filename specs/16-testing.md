@@ -93,10 +93,11 @@ Benchmark suite run on CI, regressions detected automatically.
 ```bash
 kali test                                   # Run all test files
 kali test --filter "type"                   # Filter by name
-kali test --coverage                        # With coverage report
+kali test --coverage                        # Phase 2 target: with coverage report once the stable contract lands
 ```
 
 Kali's own test runner for `.test.ts` / `_test.ts` files, supporting:
+- coverage reporting is a **Phase 2 target** so Phase 1 may reject `--coverage` or mark it experimental until the report contract is stabilized
 - `describe`, `it`, `test` blocks
 - `expect` assertions
 - `beforeEach`, `afterEach`, `beforeAll`, `afterAll`

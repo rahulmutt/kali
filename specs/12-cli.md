@@ -57,8 +57,9 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--pretty` | `effects` | Pretty-print the effect-report JSON without changing its schema |
 | `--check` | `fmt` | Report formatting drift without rewriting files |
 | `--filter <pattern>` | `test` | Run only matching tests |
-| `--coverage` | `test` | Emit test coverage data using the documented test-report contract once that output is stabilized |
+| `--coverage` | `test` | Emit test coverage data once the coverage report contract is stabilized; before then this flag is phase-gated or explicitly experimental |
 | `--dev` | `install` | Add the named registry dependency to `devDependencies` instead of `dependencies` |
+| `--allow-scripts` | `install` | Opt into npm lifecycle scripts for that install invocation only; still rejects native addons / `node-gyp` |
 
 Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
@@ -184,7 +185,7 @@ Run test files.
 kali test                                  # Run all *_test.ts / *.test.ts
 kali test --filter "math"                  # Filter by name
 kali test --sandbox kali.policy.json       # Run tests in sandbox
-kali test --coverage                       # With coverage report
+kali test --coverage                       # Phase 2 target: with coverage report once the stable contract lands
 kali test --api deno                       # Supported early standalone test profile
 kali test --api node                       # Phase 3 target
 kali test --api browser                    # Rejected in early phases; browser is a check/build profile first

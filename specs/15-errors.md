@@ -85,7 +85,7 @@ Terminology note:
 - `E5006`: Feature unavailable in current phase, API profile, or target configuration
 
 Use `E5004` for dependency-state problems such as:
-- `kali.json` references dependencies that have not been installed/materialized yet
+- project dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports) have not been installed/materialized yet
 - `kali.lock`, `node_modules/`, or `.kali/cache/urls/` is missing/stale for the dependency kinds the project uses
 - the resolver needs explicit dependency installation/synchronization instead of silently re-resolving during `check`, `build`, `run`, or `test`
 

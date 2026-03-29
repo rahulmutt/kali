@@ -126,30 +126,50 @@ node_modules/
 This simplifies interoperability with existing tools, package metadata, and source layouts.
 
 ### Lock File
-`kali.lock` — deterministic lockfile (project root, committed to version control). Uses a line-oriented TOML-based format for clean diffs and carries its own format version in the file header rather than a JSON `schemaVersion` field:
+`kali.lock` — deterministic lockfile (project root, committed to version control). Uses a line-oriented TOML-based format for clean diffs and carries its own format version in the file header rather than a JSON `schemaVersion` field.
+
+Canonical simplification for v1:
+- registry packages and raw URL imports share **one** lockfile
+- they use separate top-level entry kinds so tools do not have to infer source kind from ad hoc fields
+- the lockfile records reproducibility data only; materialization location still follows the documented split (`node_modules/` for registry packages, `.kali/cache/urls/` for raw URLs)
+
+Example:
 ```toml
 # kali.lock v1 — do not edit manually
 
 [[package]]
 name = "lodash"
 version = "4.17.21"
+registry = "npm"
 resolved = "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz"
 integrity = "sha256-..."
+dependencies = []
 
 [[package]]
-name = "zod"
-version = "3.22.0"
-resolved = "https://registry.npmjs.org/zod/-/zod-3.22.0.tgz"
+name = "@std/path"
+version = "1.0.8"
+registry = "jsr"
+resolved = "https://jsr.io/@std/path/1.0.8.tgz"
 integrity = "sha256-..."
 dependencies = []
+
+[[url]]
+specifier = "https://deno.land/std@0.220.0/path/mod.ts"
+resolved = "https://deno.land/std@0.220.0/path/mod.ts"
+integrity = "sha256-..."
 ```
+
+Interpretation rules:
+- `[[package]]` entries are for registry dependencies only and include the originating registry kind (`npm` or `jsr`)
+- `[[url]]` entries are for exact raw URL imports after import-map expansion/pinning
+- future lockfile revisions may add optional metadata fields, but they should preserve this top-level split instead of collapsing both source kinds into one ambiguous record shape
 
 ## Deterministic Install & Resolution Contract
 
 To keep package behavior predictable across `install`, `check`, `build`, `run`, and `test`, Kali uses one simple rule set:
 - `kali install` is the command that resolves dependency versions and writes `kali.lock`.
 - `kali check`, `build`, `run`, and `test` consume the existing lockfile/materialized dependency state; they must not silently re-resolve packages or mutate dependency state as a side effect.
-- If `kali.json` declares dependencies but the required materialized state for the active dependency source kinds is missing or stale, non-install commands fail with `E5004` and tell the user to run `kali install`.
+- If the project's declared dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports) require materialized state that is missing or stale, non-install commands fail with `E5004` and tell the user to run `kali install`.
 - `node_modules/` is the materialized tree for registry packages (npm/JSR), while `.kali/cache/urls/` is the materialized cache for raw URL imports; `kali.lock` is the canonical reproducibility record for both.
 - When `kali.lock` and the required materialized dependency state disagree, `kali install` is responsible for reconciling them. Other commands should fail clearly rather than guessing which source of truth to trust.
 - `--allow-scripts` affects install-time behavior only; it does not change later `check`/`build`/`run` semantics for an already-installed package graph.
