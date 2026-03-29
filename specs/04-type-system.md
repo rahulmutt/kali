@@ -29,6 +29,11 @@ Early-phase rules:
 
 This keeps JavaScript support aligned with the project goal: compile ordinary JS efficiently when the program is analyzable, and degrade conservatively when it is not.
 
+Module-boundary simplification rule:
+- within a module, Kali may use the full bounded-inference fragment to recover efficient layouts and call signatures
+- at exported/public boundaries, if a precise signature would require open-ended cross-module search, prefer an explicit annotation or a conservative exported type over a clever unstable inferred API
+- this keeps plain-JavaScript package compilation practical without letting inferred public APIs become phase-dependent guesswork
+
 ### Canonical JavaScript Fallback Contract
 
 To keep `.js` compilation predictable across the checker, IR, and codegen, Kali uses the following fallback ladder when precision is insufficient:

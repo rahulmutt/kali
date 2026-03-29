@@ -21,6 +21,7 @@ This is the compact top-level breakdown of the bootstrap brief into canonical sp
 |---|---|
 | AOT-only TS/JS → WASM compiler | [01 — Architecture](./specs/01-architecture.md), [08 — WASM Codegen](./specs/08-wasm-codegen.md) |
 | Latest ECMA-262 grammar coverage, broad syntax acceptance | [02 — Lexer & Parser](./specs/02-lexer-parser.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
+| First-class JavaScript compilation with conservative inference | [01 — Architecture](./specs/01-architecture.md), [04 — Type System](./specs/04-type-system.md), [19 — Feature Maturity](./specs/19-feature-maturity.md) |
 | Stronger-than-TS checking and inference | [04 — Type System](./specs/04-type-system.md) |
 | No tracing GC; compile-time ownership/allocation | [06 — Memory Management](./specs/06-memory.md) |
 | Aggressive specialization | [07 — Optimization & Specialization](./specs/07-specialization.md) |
@@ -313,6 +314,18 @@ This table is the cross-spec simplification rule for statements like “inherits
 Flag-family clarification:
 - in early phases, the CLI `--sandbox` flag belongs only to the canonical sandbox-aware commands (`run`, `test`, `check`, `build`)
 - commands that merely ignore top-level `kali.json#sandbox` do **not** thereby accept a CLI `--sandbox` flag; passing `--sandbox` to sandbox-agnostic or effect-reporting commands is invalid command usage (`E5008`) unless a later spec explicitly adds such a mode
+
+## Canonical Source-Language Posture
+
+Kali treats TypeScript and JavaScript as two first-class source-language modes over one shared compiler pipeline.
+
+Canonical rules:
+- `.ts` / `.tsx` / `.mts` / `.cts` and `.js` / `.jsx` / `.mjs` / `.cjs` all enter the same frontend pipeline
+- JavaScript support is **not** a transpile-only or editor-hint-only side mode; it participates in real inference, effect analysis, lowering, and optimization
+- when JavaScript code lacks enough information for a precise static conclusion, Kali falls back conservatively (`unknown`, unions, dynamic representations) instead of inventing fresh `any`
+- declaration-only files remain analysis/type-loading inputs rather than executable entrypoints
+
+This section exists to keep the bootstrap requirement of efficient JavaScript compilation visible at the top level instead of letting it disappear into type-checker details.
 
 ## Canonical Source-File Sets
 
