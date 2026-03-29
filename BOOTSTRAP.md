@@ -30,3 +30,6 @@ Write a top-level SPEC.md that references specs/*.md to breakdown into logical u
 - Should also formally verify implementation details with Lean while iterating on the Spec.
 - CLI usage should be clean and similar to deno - formatting, linting, typechecking, running, etc.
 - Do NOT embed any C / C++ libraries at all. Make everything implemented in Rust as much as possible.
+- It should have excellent error messages - AI agents should easily parse the error messages and be able to react easily.
+- Design the CLI output for AI agent consumption - don't be too verbose (add verbosity as a separate flag) on successes and for failures provide just enough detail to make AI loops token-efficient.
+- Take insipiration in langauge / type system design from languages Like Haskell, Idris, Adga, Lean. At the same time aim for a pragmatic and ergonomic language like Rust.
