@@ -12,7 +12,7 @@ Kali supports registry packages (npm/JSR) that:
 
 Phase simplification:
 - **Phase 1 MVP**: packages that do not depend on unsupported Node core modules and fit the linked-artifact model.
-- **Phase 3+**: broader compatibility for packages that expect the `node` API surface and additional Node built-ins.
+- **Phase 3 target**: broader compatibility for packages that expect the `node` API surface and additional Node built-ins.
 
 This keeps the early ecosystem promise realistic: utility libraries, validators, parsers, and many framework packages are in scope early, while Node-host-heavy packages follow the Node compatibility work.
 

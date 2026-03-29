@@ -68,16 +68,16 @@ Deno is the primary standalone-runtime API surface because it fits Kali's explic
 **Phase 1 MVP subset**
 - File APIs: `Deno.readTextFile`, `Deno.readTextFileSync`, `Deno.writeTextFile`, `Deno.writeTextFileSync`, `Deno.readFile`, `Deno.readFileSync`, `Deno.writeFile`, `Deno.writeFileSync`
 - Metadata APIs: `Deno.stat`, `Deno.statSync`, `Deno.readDir`, `Deno.readDirSync`
-- Process basics: `Deno.args`, `Deno.pid`
+- Invocation arguments: `Deno.args`
 - Environment access: `Deno.env.get`, `Deno.env.toObject` *(both expose only the sandbox-permitted environment view rather than the raw host environment)*
 - `Deno.permissions` as a read-only compatibility facade over Kali sandbox policy state; it reports granted/denied capabilities but does not perform interactive permission prompts, `request()`, or `revoke()`-style privilege escalation flows in Phase 1 (the canonical maturity decision for this facade lives in [specs/19-feature-maturity.md](19-feature-maturity.md))
 
 For host-capability maturity, the canonical source of truth is [specs/19-feature-maturity.md](19-feature-maturity.md). In particular:
 - read-only environment access is part of the Phase 1 standalone contract
 - mutable environment access, subprocess spawning, and socket/listener networking follow the Phase 3 maturity path
-- process termination and working-directory APIs remain a later-compatibility path until a future schema/policy revision gives them an auditable contract
+- process identity, termination, and working-directory APIs remain a later-compatibility path until a future schema/policy revision gives them an auditable contract
 
-Process termination (`Deno.exit`) and working-directory mutation/introspection (`Deno.cwd`, `Deno.chdir`) are therefore intentionally outside the Phase 1 MVP. They widen the embedding/sandbox contract but are not needed for the initial package-oriented baseline.
+Process identity (`Deno.pid`), process termination (`Deno.exit`), and working-directory mutation/introspection (`Deno.cwd`, `Deno.chdir`) are therefore intentionally outside the Phase 1 MVP. They widen the embedding/sandbox contract but are not needed for the initial package-oriented baseline.
 
 Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should expose the sync and async forms together unless there is a strong implementation reason not to. This avoids needless package-compatibility drift between `readFile` and `readFileSync`-style code paths.
 
@@ -89,13 +89,14 @@ Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should 
 - broader filesystem, networking, and subprocess coverage
 
 **Later compatibility expansion**
+- `Deno.pid`
 - `Deno.cwd`, `Deno.chdir`
 - `Deno.exit`
 
 Cross-spec consistency note:
 - subprocess, mutable-environment, and network/listener APIs fit schema-v1's policy vocabulary
-- process termination and working-directory APIs do **not** yet have dedicated schema-v1 policy/effect keys
-- therefore `Deno.exit`, `Deno.cwd`, and `Deno.chdir` remain later-compatibility features until a future schema/policy revision makes their sandbox contract explicit
+- process identity, termination, and working-directory APIs do **not** yet have dedicated schema-v1 policy/effect keys
+- therefore `Deno.pid`, `Deno.exit`, `Deno.cwd`, and `Deno.chdir` remain later-compatibility features until a future schema/policy revision makes their sandbox contract explicit
 
 This keeps the Phase 1 host surface small and auditable while still establishing Deno as the default API model.
 
@@ -114,7 +115,7 @@ Canonical gating rule:
 - `util` — utilities (promisify, inspect, etc.)
 - `url` — URL parsing
 - `assert` — assertions
-- `process` — process global subset needed by real packages first (`env`, `argv`, `pid`, selected control/query helpers); `exit` / `cwd` style process-control APIs stay on the later-compatibility path until the policy and embedding contract for them is specified
+- `process` — process global subset needed by real packages first (`env`, `argv`, selected control/query helpers); `pid`, `exit`, and `cwd`-style process-introspection/control APIs stay on the later-compatibility path until the policy and embedding contract for them is specified
 
 **Later compatibility expansion**
 - `os`
@@ -157,7 +158,7 @@ This resolves a common ambiguity: browser-targeted analysis may know about `docu
 This section turns the broad API story into a small implementation checklist so runtime, CLI, and testing do not drift:
 
 - **Web baseline must work end-to-end**: `console`, timers, `queueMicrotask`, `fetch`, `URL`, `TextEncoder`/`TextDecoder`, `AbortController`, `structuredClone`, `performance.now()`, and event primitives are available in `run` and covered by integration tests.
-- **Deno baseline must work end-to-end**: file read/write, metadata/read-dir, args/pid basics, and read-only env access all execute through the host ABI and obey sandbox policy.
+- **Deno baseline must work end-to-end**: file read/write, metadata/read-dir, invocation arguments, and read-only env access all execute through the host ABI and obey the documented sandbox/execution contract.
 - **Every Phase 1 host call is policy-aware**: the runtime may not expose an unchecked host backdoor just because the API itself is part of the MVP.
 - **Node mode is not partially implied**: `--api node` remains phase-gated across `check` / `build` / `run` / `test` until its documented subset is implemented; package compatibility must not depend on undocumented fallback behavior.
 - **Browser mode stays profile-oriented**: browser-targeted analysis/build can expose browser ambient typings, but standalone runtime does not pretend to provide DOM APIs; browser-specific behavior comes from bundle/glue output and the real browser host.

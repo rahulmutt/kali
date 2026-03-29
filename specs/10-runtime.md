@@ -43,7 +43,6 @@ mod host {
     fn env_get(key_ptr: i32, key_len: i32, val_ptr: i32) -> i32;
     fn env_list(out_ptr: i32) -> i32; // policy-filtered snapshot, not raw host environment
     fn process_args(buf_ptr: i32) -> i32;
-    fn process_pid() -> i32;
 
     // Shared timers
     fn timer_set(callback_id: i32, delay_ms: i32, repeat: i32) -> i32;
@@ -57,7 +56,8 @@ mod host {
 
 Interpretation rules:
 - `console`, timers, `fetch`, time, and randomness belong to the Phase 1 Web baseline and may exist across supported API surfaces.
-- `fs_read`, `fs_write`, `fs_stat`, `fs_read_dir`, `env_get`, `env_list`, `process_args`, and `process_pid` belong to the Deno-oriented standalone host surface in Phase 1, not to the shared Web baseline; later Node compatibility may reuse similar host abstractions, but browser-targeted builds must not assume these imports exist.
+- `fs_read`, `fs_write`, `fs_stat`, `fs_read_dir`, `env_get`, `env_list`, and `process_args` belong to the Deno-oriented standalone host surface in Phase 1, not to the shared Web baseline; later Node compatibility may reuse similar host abstractions, but browser-targeted builds must not assume these imports exist.
+- `process_args` exposes only the invocation's caller-supplied argument vector; in schema v1 this is treated as execution-context input rather than a separately policy-gated host capability.
 - `env_get` / `env_list` expose only the sandbox-permitted environment view; they must not leak the raw host environment and then rely on guest-side filtering.
 - The Phase 1 runtime does not provide interactive permission-prompt imports; permission state is an already-resolved sandbox contract, not a request-at-runtime workflow.
 - Every registered host import is policy-aware; enabling an API surface does not bypass sandbox checks.
@@ -69,6 +69,7 @@ Later compatibility/embedding imports extend this set when the corresponding API
 - `process_spawn(...)` for the Phase 3 subprocess-support path
 - `env_set(...)` for the Phase 3 mutable-environment path once `effects.process.envWrite` is part of the enabled host surface
 - socket/listener networking imports for the Phase 3 `Network.Connect` / `Network.Listen` / `Deno.serve` path
+- `process_pid()` only on the later-compatibility process-identity path once a schema/policy revision defines its sandbox contract
 - `process_exit(code)` only on the later-compatibility process-control path once a schema/policy revision defines its sandbox contract; this does **not** imply that `Deno.exit` is part of the Phase 1 API surface
 - `cwd_get(...)` / `cwd_set(...)` only on the later-compatibility working-directory path once a documented policy/effect contract exists
 - `eval_compile(...)` only for the Phase 4 `--compat eval` path
