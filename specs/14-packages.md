@@ -388,6 +388,7 @@ Argument-kind simplification:
 - `kali package-effects <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - `kali package-audit <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - explicit package arguments for those commands must use canonical **registry-package identifiers** (`lodash`, `@scope/name`, `jsr:@std/path`)
+- early schema-v1 package-analysis commands take a **package identity only**, not an inline version/range selector; they resolve one concrete published package version for analysis/audit work and report that resolved version as result metadata when applicable
 - raw URLs and local file paths are rejected for these commands instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
 - raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
 
@@ -401,6 +402,7 @@ Isolation rule:
 Canonical output simplification:
 - `kali package-effects <pkg>` should reuse the same effect vocabulary and `dynamicReasons` contract as `kali effects`
 - the native payload adds only package-specific metadata (see [specs/18-schemas.md](18-schemas.md)) instead of inventing a second unrelated effect schema
+- the nested `report.entryPoints` field should identify the package-analysis root with the same canonical registry identifier spelling the user targeted (`lodash`, `jsr:@std/path`) rather than an opaque tarball URL, extracted cache path, or internal package ID
 - the nested shared effect report includes `analysisContext` so the chosen `apiSurface`, `runtimeProfiles`, and `compatFeatures` travel with the report instead of living only in ambient CLI/config state
 - in early phases, that package-analysis context is inherited from the effective `kali.json` / built-in defaults rather than from a second package-analysis-only `--api` or `--compat` flag family
 - because of that design, `kali package-effects` does **not** take `--api`, `--compat`, or `--sandbox` in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds those flags

@@ -422,11 +422,13 @@ Required fields:
 
 Interpretation rules:
 - `PackageCoordinate` is for **registry packages only**; schema v1 package-effect payloads do not use this shape for raw URLs or local paths
+- `package.version` is the concrete resolved version actually analyzed. The CLI package argument may be versionless in schema v1, but the emitted payload must record the exact resolved version so caches, diffs, and audit trails stay reproducible.
 - the nested `report` is the same canonical effect-report payload shape documented above; tools should not expect a package-specific effect vocabulary
 - inside that nested report, `analysisContext` records which API surface / runtime-profile / compatibility-feature selection the package was analyzed under
 - in early phases, `kali package-effects` inherits that analysis context from the effective config/defaults rather than introducing a second package-analysis-only flag family; the schema records the chosen context, regardless of how it was selected
 - the recorded context reflects the command's successfully selected analysis mode; it does **not** relax feature-maturity rules, so an unsupported inherited context (for example `apiSurface = node`, `runtimeProfiles = ["wasm-threads"]`, or `compatFeatures = ["eval"]` before those package-analysis modes exist) still causes `E5006` instead of producing a report under a fallback surface
 - `entryPoints` names the package-analysis roots (for example the canonical package root specifier) and the summarized effects still cover the full statically reachable graph selected for that package analysis, not only the top-level `package.json` metadata file
+- for schema-v1 CLI package analysis, that root label should use the same canonical registry identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than a tarball URL, cache path, or opaque internal package handle
 - `schemaVersion` at the outer package-effect layer versions the package-analysis payload; the nested `report.schemaVersion` continues to version the shared effect-report schema independently
 - by default, `kali package-effects` may emit this payload directly; with `--output json`, it is wrapped in the standard CLI command envelope with this object under `payload`
 
