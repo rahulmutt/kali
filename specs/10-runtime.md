@@ -23,6 +23,16 @@ An engine abstraction may be added later to support backends such as `wasmer` wh
 
 ## Host-Guest Interface
 
+### Host Adapter Modes
+Kali keeps one guest-facing host ABI, but early phases allow more than one **host adapter** to implement it:
+- **Kali-hosted execution** (`kali run`, `kali test`, embedding) uses native Rust/wasmtime host functions.
+- **Browser bundle output** (`kali build --bundle --api browser`) uses generated JS glue to adapt the same guest-facing capability model onto the real browser host.
+
+Cross-spec consistency rule:
+- the guest module should target one coherent Kali host ABI/capability model rather than a totally different imported-API shape per deployment mode
+- browser glue may implement that ABI differently from the native Rust runtime, but it must not silently widen the documented browser-targeted contract
+- unsupported capabilities for the selected artifact/profile are still rejected during analysis/build rather than left to fail later through missing imports
+
 ### Host Functions
 The WASM module imports host functions for operations that can't be done in pure WASM.
 
@@ -58,13 +68,14 @@ mod host {
 
 Interpretation rules:
 - `console`, timers, `fetch`, time, and randomness belong to the Phase 1 Web baseline and may exist across supported API surfaces.
+- in Kali-hosted standalone/embedded execution, these are normally satisfied by native Rust host functions; in browser-targeted bundle output, the generated JS glue is responsible for wiring the equivalent behavior onto the real browser host
 - `fs_read`, `fs_write`, `fs_stat`, `fs_read_dir`, `env_get`, `env_list`, and `process_args` belong to the Deno-oriented standalone host surface in Phase 1, not to the shared Web baseline; later Node compatibility may reuse similar host abstractions, but browser-targeted builds must not assume these imports exist.
 - `process_args` exposes only the invocation's caller-supplied argument vector; in schema v1 this is treated as execution-context input rather than a separately policy-gated host capability.
 - `env_get` / `env_list` expose only the sandbox-permitted environment view; they must not leak the raw host environment and then rely on guest-side filtering.
 - The read-only `Deno.permissions` facade is derived from already-resolved runtime/policy state and normally does not need a dedicated host import; Kali should not model it as an interactive permission-prompt channel.
 - The Phase 1 runtime does not provide interactive permission-prompt imports; permission state is an already-resolved sandbox contract, not a request-at-runtime workflow.
 - Every registered host import is policy-aware; enabling an API surface does not bypass sandbox checks.
-- This host-import enforcement model applies only when code executes inside a Kali-controlled runtime or embedding host. Browser-targeted emitted artifacts run against the real browser host instead of these Kali host imports unless a later browser-specific host contract says otherwise.
+- This native host-import enforcement model applies directly only when code executes inside a Kali-controlled runtime or embedding host. Browser-targeted emitted artifacts instead rely on the generated JS glue/browser host adapter, which must preserve the documented browser-targeted capability contract without being described as Kali-controlled post-deployment sandbox enforcement unless a later browser-specific host contract says otherwise.
 - Unsupported imports for the current command/profile are not stubbed silently.
 - If lowering/runtime setup requires a capability that is phase-gated or profile-gated, fail with the canonical feature-maturity diagnostic.
 - If source code merely references a global that is absent from the selected ambient surface in an otherwise-supported mode, that should normally already have been reported as an ordinary name/type error before runtime setup.

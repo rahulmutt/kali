@@ -2,7 +2,7 @@
 
 ## Strategy
 
-Implement APIs as host functions provided by the runtime. Each API surface is a separate crate that registers its host functions with the WASM runtime.
+Implement APIs through one shared guest-facing capability model. In Kali-hosted execution this is realized as native host functions provided by the runtime; in browser-targeted bundle output the same capability model is adapted through generated JS glue onto the real browser host. Each API surface is still organized as a separate crate that defines the relevant bindings/registration logic for that surface.
 
 Compatibility is delivered in layers:
 1. **Baseline**: Web platform primitives needed by modern JS libraries.
@@ -177,6 +177,10 @@ This intentionally keeps the Phase 1 promise small: one dependable Web baseline 
 
 ## Implementation Architecture
 
+Kali uses one guest-facing capability model, but the host adapter depends on the deployment mode.
+
+### Kali-hosted execution / embedding
+
 ```
 User Code (WASM)
     │
@@ -194,9 +198,28 @@ User Code (WASM)
         └── RegExp engine
 ```
 
+### Browser-targeted bundle output
+
+```
+User Code (WASM)
+    │
+    ├── Direct calls → Generated JS glue / browser host adapter
+    │                      │
+    │                      ├── Maps guest ABI calls onto real browser APIs
+    │                      ├── Preserves the documented browser-targeted contract
+    │                      └── Does not imply Kali-controlled post-deployment sandbox enforcement
+    │
+    └── Pure APIs (in WASM runtime)
+        ├── Math operations
+        ├── String operations
+        ├── Array methods
+        ├── JSON parse/stringify
+        └── RegExp engine
+```
+
 ### Pure vs Host APIs
-- **Pure**: Implemented in Rust, compiled to WASM, runs inside the sandbox (Math, String, Array, JSON, RegExp)
-- **Host**: Implemented as wasmtime host functions, run outside WASM (I/O, network, process, crypto)
+- **Pure**: Implemented in Rust, compiled to WASM, runs inside the guest/runtime artifact (Math, String, Array, JSON, RegExp)
+- **Host**: Implemented outside the guest WASM artifact through the selected host adapter — native Rust/wasmtime host functions for Kali-hosted execution, or generated JS glue for browser-targeted bundles (I/O, network, process, crypto)
 
 ### Built-in Objects (WASM Runtime)
 Implemented in `kali_runtime` (compiled to WASM), in phases:
