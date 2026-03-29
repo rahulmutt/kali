@@ -322,11 +322,14 @@ This is the canonical simplification for avoiding "same file, different module k
 ### Canonical Project Discovery Rules
 
 When a command operates on the project rather than on explicit file arguments, use this shared discovery model:
-- the **project root** is the directory containing `kali.json`; if no `kali.json` exists, project-oriented commands default to the current working directory
+- the **effective project config** is the nearest `kali.json` found by searching the current working directory and then its ancestors; if none exists, commands run configless
+- when an effective project config exists, the **project root** is the directory containing that `kali.json`; otherwise the project root is the current working directory
 - `include` / `exclude` in `kali.json` filter the project file set relative to that project root
 - when `include` is omitted, discovery recursively includes the canonical project file set under the project root
 - when `exclude` is omitted, discovery still skips the default managed/generated directories: `.git/`, `.kali/`, `node_modules/`, `dist/`, `build/`, `target/`, and `coverage/`
-- explicit CLI file arguments bypass project discovery for those named paths, but they do not change how transitive imports/dependencies are resolved
+- recursive project discovery must also stop at nested child directories that contain their own `kali.json`; those are separate project roots unless the user explicitly targets files inside them
+- explicit CLI file arguments bypass project discovery for those named paths, but they do not relocate the already-chosen effective project config/root or change how transitive imports/dependencies are resolved
+- relative CLI file arguments are resolved against the current working directory, while config-owned relative paths/globs continue to resolve against the directory containing their `kali.json`
 - commands that need only a subset of discovered files (for example test files, runtime-bearing entrypoints, or install-time raw-URL scans) should narrow from this shared project-discovery result instead of redefining their own unrelated root walk
 
 This is the canonical simplification for file-extension handling and project discovery across architecture, CLI, packages, and testing.

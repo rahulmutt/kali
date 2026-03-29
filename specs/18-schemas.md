@@ -536,8 +536,11 @@ Interpretation rules:
 - non-sandbox-aware commands (`init`, `fmt`, `lint`, `install`, `effects`, `package-effects`, `package-audit`) ignore top-level `sandbox` rather than treating it as an error or as an implicit request to perform policy validation
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
 - when set-like arrays such as `compilerOptions.runtimeProfiles` or `compat.features` are normalized by tooling, normalization should preserve semantics without inventing duplicates; preserving first-seen order for display/diff stability is preferred even though the arrays are semantically unordered
+- the effective project config is the nearest `kali.json` found by searching the current working directory and then its ancestors; if none exists, commands run configless from the current working directory
 - `include` / `exclude` define globs over the canonical project-discovery result for project-oriented commands and editor/tooling integrations; they do not reinterpret an explicit CLI file argument as a different entry point
+- relative `include` / `exclude` globs are resolved relative to the directory containing the owning `kali.json`
 - when omitted, project-oriented discovery falls back to the default project-root walk and default excluded managed/generated directories defined in [SPEC.md](../SPEC.md)
+- recursive project discovery also stops at nested child directories that contain their own `kali.json` unless the user explicitly targets files inside them
 - `include` / `exclude` filter only the project's own discoverable files; they do not suppress transitive imports that are reached from an accepted entrypoint, and they do not act as a second package-resolution filter
 - for `kali install`, this same project-discovery result is also the install-time scan set used to discover source-level raw URL imports when no explicit entrypoint is provided
 - project-oriented discovery starts from the canonical project file set from [SPEC.md](../SPEC.md): executable/analyzable files plus declaration-only files, then narrows by command intent (runtime-bearing entrypoint discovery uses executable/analyzable files only)
@@ -547,6 +550,7 @@ Interpretation rules:
 - when multiple import-map keys match, the longest matching key wins
 - a prefix key ending in `/` must map to a target ending in `/` so the unmatched suffix is appended deterministically
 - local path-like import-map targets are resolved relative to the directory containing that `kali.json`
+- the effective lock/cache/materialization root for that config is the same project root as the owning `kali.json`; invoking a command from a subdirectory of the same project must not create a second implicit dependency state beside that subdirectory
 - schema v1 import maps do not support wildcard/glob/regex keys or targets; exact and prefix rewrites are the complete stable contract
 - `dependencies` and `devDependencies` are top-level package manifests for **registry packages** owned by `kali install`; they are not nested under `compilerOptions`
 - dependency keys use the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names

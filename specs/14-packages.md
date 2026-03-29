@@ -162,7 +162,9 @@ Argument semantics are intentionally simple:
 
 Install-graph discovery rule:
 - because `kali install` usually runs without an explicit entrypoint, source-level raw URL imports are discovered from the canonical project-discovery result rather than from one ad hoc command entrypoint
+- the effective project config/root for that scan is the nearest `kali.json` found by searching the current working directory and then its ancestors; if none exists, install uses the current working directory as the project root
 - that install-time scan set is filtered by `kali.json` `include` / `exclude` when present, or by the default project-discovery rules from [SPEC.md](../SPEC.md) when those fields are omitted
+- recursive install-time discovery must stop at nested child directories that contain their own `kali.json`; those are separate projects unless the user later targets files inside them explicitly
 - discovery may use a cheap lexical/module-specifier scan of those files plus `kali.json#imports`; it does not require a full check/build just to decide which raw URLs belong in the lock/cache state
 - the install-time scan may include declaration-only files too, because they can own type-only imports that still belong to the project's declared dependency graph
 - pruning of raw URL lock/cache entries is judged against this install-time declaration graph, not against arbitrary unrelated files elsewhere in the repository
@@ -197,7 +199,7 @@ node_modules/
 This simplifies interoperability with existing tools, package metadata, and source layouts.
 
 ### Lock File
-`kali.lock` — deterministic lockfile (project root, committed to version control). Uses a line-oriented TOML-based format for clean diffs and carries its own format version in the file header rather than a JSON `schemaVersion` field.
+`kali.lock` — deterministic lockfile stored at the effective project root (that is, beside the effective discovered `kali.json` when one exists, otherwise in the current working directory) and committed to version control. Uses a line-oriented TOML-based format for clean diffs and carries its own format version in the file header rather than a JSON `schemaVersion` field.
 
 Canonical simplification for v1:
 - registry packages and raw URL imports share **one** lockfile
@@ -248,6 +250,7 @@ Because package resolution can vary by API surface/profile (`deno`, browser-targ
 Practical consequence:
 - `kali install` does not take `--api` in early phases, and `compilerOptions.apiSurface` does not cause `install` to write a different lockfile for the same manifest/import graph.
 - changing `--api` between `deno` and browser-targeted build/check affects which already-installed package entry files are chosen at command time, not whether the project is considered installed.
+- lockfile/cache state belongs to the effective discovered project root; invoking commands from a subdirectory of the same project should still use that one shared `kali.lock`, `node_modules/`, and `.kali/` state rather than inventing nested installs.
 - if a direct-entry command later points at a file outside the last installed project discovery set and that file reaches additional raw URL imports, the command should fail with `E5004` and tell the user to rerun `kali install` after updating the project's discoverable sources or import map.
 
 ## Deterministic Install & Resolution Contract

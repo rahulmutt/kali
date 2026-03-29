@@ -42,6 +42,12 @@ Naming rule:
 - `kali.json` keeps the canonical leaf keys under `compilerOptions`: `apiSurface`, `buildMode`, and `runtimeProfiles`
 - new docs, generated config, and machine-readable examples should use only these canonical config names
 
+Canonical config-discovery rule:
+- unless a later spec adds an explicit `--config` override, commands discover the effective project config by searching the current working directory and then its ancestors for the nearest `kali.json`
+- if none exists, the command runs configless with the current working directory as the effective project root
+- explicit CLI file arguments do **not** relocate that chosen config/root; they resolve relative to the current working directory, while config-owned relative paths continue to resolve relative to the directory containing the discovered `kali.json`
+- recursive project discovery for no-argument `check` / `fmt` / `lint` / `test` and for `install` graph scanning must stop at nested child directories that contain their own `kali.json` unless the user explicitly names files inside them
+
 | Flag | Scope | Description |
 |------|-------|-------------|
 | `--verbose` | all commands | Detailed output: timing per phase, optimization decisions |
@@ -108,15 +114,15 @@ Config-array normalization rule:
 - unknown entries are diagnosed instead of ignored
 
 Configuration precedence is intentionally simple:
-1. CLI flags override `kali.json`
-2. `kali.json` overrides built-in defaults
+1. CLI flags override the effective discovered `kali.json`
+2. the effective discovered `kali.json` overrides built-in defaults
 3. Sandbox policy caps, when a policy is attached, remain upper bounds for runtime capabilities and resource limits
 
 That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy. If no policy is attached, those direct invocation flags simply become the effective cap for the current command instead of being compared against an implicit allow-all policy.
 
 Canonical path-resolution rule:
-- a `--sandbox <path>` argument is resolved relative to the current working directory
-- top-level `kali.json#sandbox` is resolved relative to the directory containing that `kali.json`
+- ordinary CLI path arguments (entry files, explicit file lists, and `--sandbox <path>`) are resolved relative to the current working directory
+- top-level `kali.json#sandbox` and other config-owned relative paths/globs are resolved relative to the directory containing that `kali.json`
 - after resolution, commands should preserve one normalized absolute/canonical path internally so diagnostics and caching do not depend on the caller's original spelling
 
 Canonical resource-literal rule:
