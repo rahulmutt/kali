@@ -1,8 +1,8 @@
 # RALPH
 
-- Iteration: 10 of 10
+- Iteration: 38 of 50
 - Prompt file: /workspace/prompts/iterate-spec.md
-- Updated: 2026-03-29T17:21:22.385Z
+- Updated: 2026-03-29T19:13:41.555Z
 
 ## Last emitted message
 
@@ -12,23 +12,21 @@ Done.
 Updated:
 - `SPEC.md`
 - `specs/09-sandboxing.md`
-- `specs/11-standard-apis.md`
-- `specs/14-packages.md`
+- `specs/12-cli.md`
+- `specs/18-schemas.md`
+- `specs/19-feature-maturity.md`
 
-Main improvements:
-- Added a canonical **dynamic loading vs dynamic code-generation boundary** in `SPEC.md`
-- Clarified that **Phase 1 sandboxing** may use internal effect bookkeeping, but the **stable user-facing effect report** starts in Phase 2
-- Simplified and standardized the meaning of **browser-targeted profile** in `specs/11-standard-apis.md`
-- Fixed wording drift in `specs/14-packages.md` so dynamic import support matches the maturity matrix:
-  - literal-string `import()` = **Phase 3 target**
-  - non-literal `import(expr)` = **later compatibility**
+What I improved:
+- clarified the sandbox model so `kali effects` is a pure reporting command, not a second policy-validation path
+- made the policy-validation workflow canonical: use `check/build --sandbox`, not `effects --sandbox`
+- tightened config/schema wording so top-level `sandbox` applies only to sandbox-aware commands: `run`, `test`, `check`, `build`
+- added an explicit maturity-matrix entry for rejecting `kali effects --sandbox ...`
+- simplified the docs to avoid overlapping semantics around effect reporting vs policy enforcement
 
-Commit:
-- `48fdef5` — `docs: tighten spec phase boundaries`
-
-Push:
-- pushed successfully to `origin/dev`
+Git:
+- committed as: `38217a3` — **Clarify sandbox policy validation workflow**
+- pushed to: `origin/dev`
 
 Note:
-- `RALPH.md` already had unrelated local modifications and was left uncommitted.
+- `RALPH.md` had pre-existing local modifications and I left it untouched.
 ```
