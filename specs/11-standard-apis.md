@@ -89,6 +89,11 @@ Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should 
 - `Deno.serve` (HTTP server / listen path)
 - broader filesystem, networking, and subprocess coverage
 
+Cross-spec consistency note:
+- subprocess, mutable-environment, and network/listener APIs fit schema-v1's policy vocabulary
+- process termination and working-directory APIs do **not** yet have dedicated schema-v1 policy/effect keys
+- therefore `Deno.exit`, `Deno.cwd`, and `Deno.chdir` remain phase-gated not just on implementation work, but also on a future schema/policy revision that makes their sandbox contract explicit
+
 This keeps the Phase 1 host surface small and auditable while still establishing Deno as the default API model.
 
 ### Node.js API (`--api node`)

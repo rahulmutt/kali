@@ -372,6 +372,7 @@ Configuration simplification rules:
 - top-level `sandbox` is an optional default policy-file path equivalent to supplying `--sandbox <path>` for commands that honor sandboxing; an explicit CLI `--sandbox` overrides it
 - `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans
 - `include` / `exclude` constrain project file discovery for project-oriented commands; direct file arguments still name the primary entry explicitly
+- `include` / `exclude` filter only the project's own discoverable files; they do not suppress transitive imports/dependencies reached from an accepted entrypoint and they are not a second package-resolution mechanism
 - generated config from `kali init` should prefer these canonical names and should not duplicate them as parallel top-level keys
 - `kali init` should not emit `sandbox`, `compat`, `dependencies`, or other optional sections unless the chosen template or user request actually needs them
 - precedence is `CLI > kali.json > defaults`, except sandbox-policy restrictions still bound the effective runtime behavior

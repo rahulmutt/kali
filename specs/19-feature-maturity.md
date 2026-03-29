@@ -47,7 +47,7 @@ This table exists to keep the status labels operational: a label implies whether
 | Mutable environment access (`Deno.env.set`, `process.env = ...`-style host mutation) | Phase 3 target | Widens the host contract and must remain policy-controlled |
 | Subprocess spawning (`Deno.Command`, host `process_spawn`) | Phase 3 target | Requires explicit sandbox/process-budget integration |
 | Socket/listener networking (`Network.Connect`, `Network.Listen`, `Deno.serve`) | Phase 3 target | Requires explicit network policy and concurrency controls |
-| Process-control APIs (`Deno.exit`, cwd/chdir-style process environment mutation) | Phase 3 target | Changes embedding/runtime control flow and should follow the documented policy model |
+| Process-control and working-directory APIs (`Deno.exit`, `Deno.cwd`, `Deno.chdir`) | Phase 3 target | Changes embedding/runtime control flow and still requires a future schema/policy contract before it can become part of the supported host surface |
 | Built-in effect inference / `kali effects` | Phase 2 target | Required for sandbox-first analysis and policy checking |
 | Explicit effect annotations / `pure` | Phase 2 target | Initially scoped to the built-in sandbox capability model |
 | User-defined/custom effect kinds in stable reports or policy checking | Later compatibility | Keep Phase 1-2 machine contracts limited to built-in sandbox-relevant effects |

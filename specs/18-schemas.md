@@ -409,8 +409,8 @@ Canonical filename: `kali.json`
     "features": []
   },
   "sandbox": "./kali.policy.json",
-  "include": ["src/**/*.ts"],
-  "exclude": ["**/*.test.ts"],
+  "include": ["src/**/*"],
+  "exclude": ["dist/**"],
   "imports": {
     "std/": "https://deno.land/std@0.220.0/",
     "~/": "./src/"
@@ -465,6 +465,7 @@ Interpretation rules:
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
 - when set-like arrays such as `compilerOptions.runtimeProfiles` or `compat.features` are normalized by tooling, normalization should preserve semantics without inventing duplicates; preserving first-seen order for display/diff stability is preferred even though the arrays are semantically unordered
 - `include` / `exclude` define project file discovery globs for project-oriented commands and editor/tooling integrations; they do not reinterpret an explicit CLI file argument as a different entry point
+- `include` / `exclude` filter only the project's own discoverable files; they do not suppress transitive imports that are reached from an accepted entrypoint, and they do not act as a second package-resolution filter
 - project-oriented discovery should use the canonical source-file-kind split from [SPEC.md](../SPEC.md): executable/analyzable files for runtime-bearing entrypoint discovery, plus declaration-only files where the command is specifically type/format/lint oriented
 - `imports` is the canonical alias/import-map section for URL and path-like rewrites; it is not a second registry-dependency manifest
 - `dependencies` and `devDependencies` are top-level package manifests for **registry packages** owned by `kali install`; they are not nested under `compilerOptions`
@@ -524,6 +525,7 @@ Canonical filename: `kali.policy.json`
 - `resources.maxOpenFiles` caps concurrently opened host file handles, including internal opens performed for higher-level file helpers
 - `resources.maxSpawnedProcesses` caps concurrently active spawned processes once subprocess APIs exist; before then, validation should reject values greater than `0` instead of accepting a non-functional budget for an unavailable capability
 - `resources.maxThreads` is reserved for the later threaded runtime profile; before that profile exists, validation should reject values greater than `0` instead of silently accepting them
+- schema v1 intentionally has no stable policy keys for process termination or working-directory introspection/mutation (`Deno.exit`, `Deno.cwd`, `Deno.chdir`); those APIs therefore remain unavailable until a future schema/effect-model revision adds an auditable policy contract for them
 - Policy validation should reject non-deny values for capability fields whose corresponding feature/API surface is unavailable in the selected command/profile/api surface/phase. For example: `effects.fileSystem.read: true` under `--api browser`, `effects.eval: true` before the eval compatibility path exists, `effects.process.spawn: true` before subprocess APIs exist, `effects.process.envWrite: true` before mutable environment APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess APIs exist, and `resources.maxThreads > 0` before the threaded runtime profile exists.
 - Per-invocation CLI resource overrides may only tighten these policy limits; they must not widen them
 - Policy keys use the canonical built-in effect naming table above rather than redefining a separate namespace here
