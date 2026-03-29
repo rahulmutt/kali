@@ -176,8 +176,9 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali package-effects lodash` under inherited `apiSurface=browser` | Phase 2 target | Reuses the same browser-targeted analysis/package-selection context as `kali check --api browser` once package-effect analysis exists, without introducing package-analysis-specific `--api` flags |
 | `kali package-effects --api browser lodash` | Rejected by default | Early package analysis inherits context from config/defaults instead of taking its own `--api` / `--compat` flag family, so this is invalid command usage (`E5008`) unless a later spec adds those flags |
 | `kali package-effects https://...` | Rejected by default | `package-effects` analyzes registry packages only; raw URLs belong to the project/import-graph workflow instead |
-| `kali package-audit [pkg]` | Later compatibility | Tooling feature, not a Phase 1-2 compiler/runtime milestone |
-| `kali package-audit lodash react` | Rejected by default | Early phases accept at most one explicit package argument for `package-audit`; multi-package audit requires a later explicit mode, so this is invalid command usage (`E5008`) |
+| `kali package-audit` with no explicit package | Rejected by default | `package-audit` is a single-package registry-analysis command in early phases; omitting the package is invalid command usage (`E5008`) rather than an implicit whole-project audit mode |
+| `kali package-audit lodash` | Later compatibility | Tooling feature, not a Phase 1-2 compiler/runtime milestone |
+| `kali package-audit lodash react` | Rejected by default | Early phases accept exactly one explicit package argument for `package-audit`; multi-package audit requires a later explicit mode, so this is invalid command usage (`E5008`) |
 | `kali package-audit https://...` | Rejected by default | `package-audit` is registry-package-oriented rather than a second raw-URL analysis path |
 | `kali install --allow-scripts <pkg>` | Opt-in only | Explicit one-shot escape hatch for packages that need lifecycle scripts; still reject native addons / `node-gyp`, and do not treat this as implied Node-runtime or project-sandbox support |
 | `--compat eval` | Phase 4 compatibility | Before runtime support exists, reject with `E5006` rather than parsing and silently ignoring the flag |

@@ -23,7 +23,8 @@ Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - `check` is a **hybrid analysis command**: it accepts explicit file arguments, or falls back to the canonical project-discovery result when no files are provided
 - `fmt`, `lint`, and `test` are **project-oriented commands** when invoked without explicit file arguments
 - `install` is the canonical **dependency-graph command**: with no explicit package argument it reconciles the discovered project dependency graph, including raw URL imports found through project discovery
-- `init`, `package-effects`, and `package-audit` are not source-entrypoint commands
+- `package-effects` and `package-audit` are the canonical **registry-analysis commands**: each takes one explicit registry package identifier and does not invent a no-argument whole-project analysis mode in early phases
+- `init` is not a source-entrypoint command
 
 Canonical early-phase entrypoint-arity rule:
 - `run`, `build`, and `effects` each take **exactly one** explicit primary entrypoint in early phases
@@ -33,9 +34,10 @@ Canonical early-phase entrypoint-arity rule:
 
 Canonical package-argument arity rule:
 - `kali install [package]` accepts **zero or one** explicit package argument in early phases
-- `kali package-effects <package>` accepts **exactly one** explicit package argument
-- `kali package-audit [package]` accepts **zero or one** explicit package argument
+- `kali package-effects <package>` accepts **exactly one** explicit registry-package argument
+- `kali package-audit <package>` accepts **exactly one** explicit registry-package argument
 - passing more than the allowed number of explicit package arguments is `E5008` rather than permission to invent an undocumented batch mode
+- omitting the required explicit package argument for a registry-analysis command is also `E5008`
 - flags that conceptually modify an explicit package target (for example `kali install --dev`) require that target in early phases; using them without one is also `E5008`
 
 Canonical input-kind rule:
@@ -406,21 +408,19 @@ Analysis scope rule:
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
 - the nested `report.entryPoints` field names those package-analysis roots using the shared effect-report schema
 
-### `kali package-audit [package]`
-Security audit for dependencies.
+### `kali package-audit <package>`
+Security audit for one registry package.
 
 Argument-kind rule:
-- `kali package-audit [package]` accepts zero or one explicit package argument in early phases; more than one package is invalid command usage (`E5008`)
-- when a package argument is supplied, it uses the canonical registry-package identifier grammar (normal npm package name or `jsr:`-prefixed JSR name)
+- `kali package-audit <package>` accepts exactly one explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
+- the package argument uses the canonical registry-package identifier grammar (normal npm package name or `jsr:`-prefixed JSR name)
 - raw URLs and local file paths are rejected for `package-audit`; package-audit is registry-package-oriented rather than a second raw-URL analysis path
-- with no explicit package argument, `kali package-audit` audits the currently installed registry-package dependency set rather than inventing a separate audit meaning for raw URL cache entries
 
 Project-state rule:
 - like `package-effects`, audit may use temporary fetched metadata but must not silently install or materialize dependencies into the project's managed state
 
 Status: later tooling feature. It should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
 ```bash
-kali package-audit                         # Audit all installed dependencies
 kali package-audit lodash                  # Audit specific npm package
 kali package-audit jsr:@std/path           # Audit specific JSR package
 ```

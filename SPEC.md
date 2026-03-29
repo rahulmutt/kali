@@ -134,11 +134,19 @@ A command whose no-argument behavior is defined in terms of the discovered proje
 Early-phase dependency-graph command:
 - `install`
 
+### Registry-analysis command
+A command that analyzes one explicit registry package identifier rather than discovered source files or the whole project graph.
+
+Early-phase registry-analysis commands:
+- `package-effects`
+- `package-audit`
+
 Note:
 - `check` is still the canonical **hybrid analysis command**
 - when invoked without explicit files, `check` also uses canonical project discovery
 - `install` also uses canonical project discovery when it needs to scan source files for raw URL imports
-- this keeps `check` and `install` in one primary category each while preserving their shared discovery behavior
+- `package-effects` and `package-audit` stay single-package registry-analysis commands in early phases rather than growing an implicit whole-project mode
+- this keeps each command in one primary category and avoids overlapping near-duplicate workflows
 
 ## Canonical Default Tuple
 
@@ -240,8 +248,8 @@ In early phases:
 ### Package-argument rule
 In early phases:
 - `kali install [package]` accepts zero or one explicit package argument
-- `kali package-effects <package>` accepts exactly one explicit package argument
-- `kali package-audit [package]` accepts zero or one explicit package argument
+- `kali package-effects <package>` accepts exactly one explicit registry-package argument
+- `kali package-audit <package>` accepts exactly one explicit registry-package argument
 
 ## Artifact-Mode Matrix
 

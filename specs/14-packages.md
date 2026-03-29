@@ -369,7 +369,7 @@ kali package-audit lodash                   # Security audit
 
 Argument-kind simplification:
 - `kali package-effects <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
-- `kali package-audit [pkg]` takes **zero or one** explicit registry-package argument in early phases; passing more than one package is invalid command usage (`E5008`)
+- `kali package-audit <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - explicit package arguments for those commands must use canonical **registry-package identifiers** (`lodash`, `@scope/name`, `jsr:@std/path`)
 - raw URLs and local file paths are rejected for these commands instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
 - raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
@@ -392,6 +392,6 @@ Canonical output simplification:
 - the nested shared effect report still summarizes the full statically reachable package graph selected for analysis under that recorded context; it is not just a manifest-level metadata report
 - `--output json` wraps that payload in the standard CLI command envelope; it does not create a third package-effects-only outer format
 
-`kali package-audit` is a later tooling feature rather than a core compiler/runtime milestone. If unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee.
+`kali package-audit` is a later tooling feature rather than a core compiler/runtime milestone. Keeping it single-package in early phases avoids an ambiguous no-argument "audit the whole project" mode that would otherwise overlap with future dependency-health workflows. If unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee.
 
 This integrates with the effect system — know what a dependency does before you use it.

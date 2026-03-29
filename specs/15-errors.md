@@ -194,6 +194,7 @@ Use `E5008` for cases such as:
 - `kali package-effects`
 - `kali package-effects lodash react`
 - `kali package-effects --api browser lodash`
+- `kali package-audit` with no package argument
 - `kali package-audit lodash react`
 - `kali build --bundle --api node main.ts`
 - conflicting artifact-mode selectors such as `--bundle --lib`, `--bundle --capi`, or `--lib --component`
