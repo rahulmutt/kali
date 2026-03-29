@@ -80,7 +80,7 @@ This table exists to keep the status labels operational: a label implies whether
 
 ## Interpretation Rules
 
-1. **Single-payload rule**: Phase 1-3 builds target one linked WASM payload for the resolved static graph. Output modes may still add companion artifacts such as JS glue, WIT files, component wrappers, or C headers, but they must not reintroduce runtime WASM module linking.
+1. **Single-payload rule**: Phase 1-3 builds target one linked WASM payload for the resolved static graph. Artifact modes may still add companion artifacts such as JS glue, WIT files, component wrappers, or C headers, but they must not reintroduce runtime WASM module linking.
 2. **Parse vs support**: accepted syntax does not imply full runtime support; unsupported dynamic features should be diagnosed explicitly.
 3. **Effect boundaries**: features marked as dynamic compatibility paths should be reflected in static effect analysis.
 4. **No silent fallback**: if a feature cannot be implemented faithfully under the current phase constraints, Kali should reject or gate it rather than emulate it loosely.
@@ -112,9 +112,10 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali check main.ts` | Phase 1 MVP | Type-check with the canonical default API surface (`apiSurface=deno`) |
 | `kali check types.d.ts` | Phase 1 MVP | Declaration-only files are valid direct inputs for `check`, even though they are not valid runtime/build/test entrypoints |
 | `kali check --sandbox kali.policy.json` | Phase 1 MVP | Reuse the same project-discovery behavior as plain `kali check`; Phase 1 validates policy schema/config for the discovered project graph, and Phase 2+ also checks inferred effects against the policy |
-| `kali check --sandbox kali.policy.json main.ts` | Phase 1 MVP | Same validation path, but scoped to the explicit file/input set rather than the discovered project graph |
+| `kali check --sandbox kali.policy.json main.ts` | Phase 1 MVP | Same validation path, but scoped to the explicit file set rather than the discovered project graph |
 | `kali check --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node typing/global subset exists |
 | `kali check --api browser main.ts` | Phase 1 MVP | Supported browser-targeted analysis/profile |
+| `kali check --sandbox kali.policy.json a.ts b.ts` | Phase 1 MVP | `check` keeps its set-oriented explicit-file behavior under `--sandbox`; this validates the supplied file set rather than inventing a single-entry mode |
 | `kali build` with no explicit entrypoint | Rejected by default | `build` is a direct-entry command in early phases; omitting the entrypoint is a CLI-usage/config error, not permission to guess `main.ts` or scan the project |
 | `kali build a.ts b.ts` | Rejected by default | Early phases accept exactly one primary build entrypoint; multi-entry artifact modes require a later explicit spec |
 | `kali build main.ts` | Phase 1 MVP | Produce one linked WASM payload with the canonical default tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]`) and the default executable artifact mode |

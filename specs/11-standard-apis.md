@@ -169,7 +169,7 @@ This section turns the broad API story into a small implementation checklist so 
 
 - **Web baseline must work end-to-end**: `console`, timers, `queueMicrotask`, `fetch`, `URL`, `TextEncoder`/`TextDecoder`, `AbortController`, `structuredClone`, `performance.now()`, the MVP randomness subset (`crypto.getRandomValues`), and event primitives are available in `run` and covered by integration tests.
 - **Deno baseline must work end-to-end**: file read/write, metadata/read-dir, invocation arguments, and read-only env access all execute through the host ABI and obey the documented sandbox/execution contract.
-- **Every Phase 1 host call is policy-aware**: the runtime may not expose an unchecked host backdoor just because the API itself is part of the MVP.
+- **Every Phase 1 host call is sandbox-contract-aware**: the runtime may not expose an unchecked host backdoor just because the API itself is part of the MVP. When a policy file is attached, host calls must consult it; when no policy file is attached, the same host-call path must still honor intrinsic phase/API gating plus any direct invocation resource caps instead of bypassing the sandbox machinery entirely.
 - **Node mode is not partially implied**: `--api node` remains phase-gated across `check` / `effects` / `build` / `run` / `test` until its documented subset is implemented; package compatibility must not depend on undocumented fallback behavior.
 - **Browser mode stays profile-oriented**: browser-targeted analysis/build can expose browser ambient typings, but standalone runtime does not pretend to provide DOM APIs; browser-specific behavior comes from bundle/glue output and the real browser host.
 

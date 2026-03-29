@@ -193,14 +193,16 @@ Type-check without compiling.
 ```bash
 kali check                                 # Type-check the canonical project-discovery result
 kali check main.ts                         # Type check executable/analyzable source
+kali check src/a.ts src/b.ts               # Type check an explicit file set
 kali check types.d.ts                      # Validate a declaration-only file directly
 kali check --api browser main.ts           # Browser-targeted analysis/profile (no standalone DOM runtime implied)
 kali check --api node main.ts              # Phase 3 target: Node API surface is phase-gated for checking too
 kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation; Phase 2+: effect-policy validation over the discovered project graph
-kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file/input set
+kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
+kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-entry command
 kali check --fix main.ts                   # Apply only safe, compiler-provided suggested fixes
 ```
-`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. The same rule applies when `--sandbox` is present: `kali check --sandbox <policy>` without file arguments validates the discovered project graph rather than becoming a separate command mode. Declaration-only files are valid direct inputs for `check`; `run`, `build`, `effects`, and `test` entrypoints may not be declaration-only.
+`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. The same rule applies when `--sandbox` is present: `kali check --sandbox <policy>` without file arguments validates the discovered project graph rather than becoming a separate command mode, and `kali check --sandbox <policy> [files...]` keeps the same set-oriented explicit-file behavior as plain `check`. Declaration-only files are valid direct inputs for `check`; `run`, `build`, `effects`, and `test` entrypoints may not be declaration-only.
 
 `--fix` is intentionally conservative: it is limited to unambiguous structured edits attached to diagnostics, not arbitrary refactors or speculative type rewrites.
 
