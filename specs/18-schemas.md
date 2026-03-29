@@ -232,6 +232,7 @@ Required fields:
 {
   "path": "main.wasm",
   "kind": "wasm-module",
+  "role": "primary-executable",
   "bytes": 145408
 }
 ```
@@ -242,7 +243,20 @@ Required fields:
 - `bytes: number`
 
 Optional fields:
-- `role: string` — command-specific role such as `primary`, `glue`, or `debug`
+- `role: string` — canonical artifact role when the same `kind` can appear in multiple build modes
+
+Canonical schema-v1 `role` values:
+- `primary-executable` — the main executable-style artifact from `kali build foo.ts`
+- `primary-library` — the main library-style artifact from `kali build --lib foo.ts`
+- `browser-glue` — browser-targeted JS glue emitted alongside a browser bundle
+- `embedding-header` — generated program-specific C exports header from `kali build --capi`
+- `embedding-metadata` — generated C-ABI/embedding metadata from `kali build --capi`
+- `debug-source-map` — source-map/debug companion artifact
+
+Interpretation rules:
+- `kind` stays the primary cross-command type discriminator (`wasm-module`, `js-glue`, `c-header`, `cabi-metadata`, `source-map`)
+- `role` exists so tools do not have to infer semantic intent from filenames alone when multiple artifact modes reuse the same `kind`
+- adding a new stable `role` value is a schema-contract change and should get the same review discipline as new artifact `kind` values
 
 ## Effect Report Schema
 
@@ -622,10 +636,12 @@ Canonical schema-v1 `kind` values:
 
 Interpretation rule:
 - `source-map` is a valid artifact kind when debug/source-map output is emitted, but ordinary Phase 1 builds do not need to produce source maps by default
+- when a command emits artifact metadata, it should include `role` whenever that makes the artifact mode clearer (for example distinguishing the default executable `wasm-module` from a `--lib` `wasm-module`)
 
 Simplification rule:
 - build-like commands should use these canonical artifact kinds instead of inventing near-synonyms such as `wasm`, `header`, or `metadata-json`
-- adding a new stable artifact `kind` value is a schema-contract change and should get the same review discipline as other enum-like machine strings in this file
+- they should also prefer the canonical `role` values above instead of per-command ad hoc labels
+- adding a new stable artifact `kind` or `role` value is a schema-contract change and should get the same review discipline as other enum-like machine strings in this file
 
 ## Simplification Rule
 

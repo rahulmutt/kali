@@ -142,16 +142,16 @@ Sandbox clarification:
 - `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config, and in Phase 2+ it also performs effect-vs-policy validation.
 - For `kali build --bundle --api browser --sandbox ...`, this remains a **build-time** compatibility check only. It must not be described as automatic runtime sandbox enforcement once the emitted browser bundle is deployed into a real browser host.
 ```bash
-kali build main.ts                         # → main.wasm (--fast mode, default; artifact kind: wasm-module)
+kali build main.ts                         # → main.wasm (--fast mode, default; artifact: kind=wasm-module, role=primary-executable)
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
-kali build --bundle --api browser main.ts  # main.wasm + main.js (artifact kinds: wasm-module + js-glue)
+kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue)
 kali build --bundle main.ts               # Rejected in early phases; --bundle is reserved for browser-targeted output and requires --api browser
 kali build --api browser main.ts           # Rejected in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
-kali build --lib lib.ts                    # Library module (exports, no start)
+kali build --lib lib.ts                    # Library module (exports, no start; artifact: kind=wasm-module, role=primary-library)
 kali build --lib --api browser lib.ts      # Rejected in early phases; browser mode is a bundle/check profile, not a library artifact profile
-kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.exports.h + metadata (artifact kinds: wasm-module + c-header + cabi-metadata; see specs/13-embedding.md)
+kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.exports.h + metadata (artifacts: wasm-module + c-header + cabi-metadata; roles typically primary-library + embedding-header + embedding-metadata; see specs/13-embedding.md)
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Build-time policy compatibility only; no automatic browser-runtime enforcement is implied after deployment
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
@@ -366,6 +366,7 @@ Rules:
 - diagnostics reuse the shared diagnostic schema
 - command-specific structured data goes in `payload`
 - common optional top-level fields include `artifacts`, `stdout`, `timings`, and `exitCode`
+- build-like commands should populate artifact `role` whenever it helps distinguish artifact mode without forcing tools to guess from filenames (for example default executable vs `--lib` `wasm-module`)
 
 Exception: `kali effects` and `kali package-effects` already emit JSON as their native outputs, so `--output json` wraps those payloads in the envelope instead of changing their underlying schemas.
 

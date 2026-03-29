@@ -90,13 +90,16 @@ proofs/
 ## CI Integration
 
 ```bash
-# Build and check all Lean proofs
+# Build and check all Lean proofs for the currently modeled subset
 cd proofs && lake build
 
-# Run in CI — proof failure blocks merge
+# In CI, run this job whenever the proof tree or a covered subsystem changes
 ```
 
-Proofs are checked on every PR that modifies type system, effect system, or memory management code.
+CI consistency rules:
+- proof failure blocks merge **for the currently modeled subset**; this is not a claim that all of Kali is already formalized
+- the proof job should trigger whenever a PR changes `proofs/` or changes a Rust/spec subsystem that the Lean model explicitly covers (initially the core type/effect/memory/sandbox fragments)
+- subsystems outside the current proof boundary may evolve without a mandatory proof job, but they must remain outside the documented proof claims until the model is extended
 
 ## Non-Goals
 

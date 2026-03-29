@@ -117,8 +117,13 @@ Kali's own test runner for discovered test files, supporting:
 6. TypeScript test suite
 7. Fuzz testing (time-limited)
 8. Benchmarks (compare to baseline)
-9. Lean proof verification
+9. Conditional Lean proof verification for the currently modeled subset
 ```
+
+Proof-job consistency rule:
+- Lean verification is **not** an all-or-nothing claim that the whole language/runtime is already modeled.
+- CI should run the proof job whenever changes touch the proof tree itself or a Rust/spec subsystem that the current Lean model claims to cover (for example the modeled type, effect, memory, or sandbox core).
+- Changes outside that modeled subset do not need to block on unrelated proof jobs, but they still must not weaken the documented proof boundary accidentally.
 
 ### Test Data
 - `tests/fixtures/` — source files for integration tests
@@ -127,6 +132,7 @@ Kali's own test runner for discovered test files, supporting:
 - `tests/sandbox/` — sandbox policy + program pairs
 - `tests/effects/` — effect inference test cases
 - `tests/memory/` — ownership and allocation decision test cases
+- `proofs/` — Lean models and proofs for the currently verified core subset
 
 ### Runtime Execution Tests
 In addition to compiler tests, run compiled WASM programs and verify:

@@ -118,12 +118,12 @@ Early-phase artifact-mode rule:
 
 | Command | Output |
 |---------|--------|
-| `kali build foo.ts` | `foo.wasm` — Kali-hosted WASM module (`kind: wasm-module`) |
-| `kali build --bundle --api browser foo.ts` | `foo.wasm` + `foo.js` — WASM + JS glue for browsers (`kind: wasm-module`, `kind: js-glue`) |
+| `kali build foo.ts` | `foo.wasm` — Kali-hosted WASM module (`kind: wasm-module`, `role: primary-executable`) |
+| `kali build --bundle --api browser foo.ts` | `foo.wasm` + `foo.js` — WASM + JS glue for browsers (`foo.wasm`: `kind: wasm-module`, `role: primary-executable`; `foo.js`: `kind: js-glue`, `role: browser-glue`) |
 | `kali build --bundle foo.ts` | Rejected in early phases; `--bundle` is reserved for browser-targeted output and requires `--api browser` |
-| `kali build --lib foo.ts` | `foo.wasm` — library module (exports, no automatic start; `kind: wasm-module`) |
+| `kali build --lib foo.ts` | `foo.wasm` — library module (exports, no automatic start; `kind: wasm-module`, `role: primary-library`) |
 | `kali build --lib --api browser foo.ts` | Rejected in early phases; browser mode is a bundle/check profile, not a library-artifact profile |
-| `kali build --capi foo.ts` | Phase 2 target: `foo.wasm` + generated embedding header/metadata for use with the host-side `kali_capi` library (`kind: wasm-module`, `kind: c-header`, `kind: cabi-metadata`) |
+| `kali build --capi foo.ts` | Phase 2 target: `foo.wasm` + generated embedding header/metadata for use with the host-side `kali_capi` library (`foo.wasm`: `kind: wasm-module`, typically `role: primary-library`; header: `kind: c-header`, `role: embedding-header`; metadata: `kind: cabi-metadata`, `role: embedding-metadata`) |
 
 ## Source Maps
 
@@ -131,4 +131,4 @@ When debug/source-map output is requested, Kali may emit WASM source maps (DWARF
 
 Clarification:
 - source maps are optional companion debug artifacts, not part of the minimal Phase 1 default artifact contract
-- when emitted, they use artifact kind `source-map`
+- when emitted, they use artifact kind `source-map` and should normally carry role `debug-source-map`
