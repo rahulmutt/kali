@@ -43,6 +43,12 @@ Each specialization uses the most compact possible layout for its concrete type.
 
 ## Optimization Passes
 
+Build-mode clarification:
+- `fast`, `release`, and `release-advanced` are user-visible from Phase 1.
+- What changes across phases is **how much optimizer/compiler machinery exists behind those stable mode names**, not whether the flags themselves exist.
+- Therefore early `--release` / `--release-advanced` builds may start with a modest subset of the long-term optimizations described below and grow stronger as MIR, specialization, and later LIR passes mature.
+
+
 ### Phase 1: HIR Optimizations (always applied)
 - **Constant folding**: `1 + 2` → `3`, `"a" + "b"` → `"ab"`
 - **Dead code elimination**: Unreachable branches, unused variables
@@ -66,7 +72,7 @@ Each specialization uses the most compact possible layout for its concrete type.
 - **WASM-specific peephole**: Combine instruction sequences, optimize local usage
 - **Linear memory layout optimization**: Place frequently co-accessed data adjacently
 - **LTO (Link-Time Optimization)**: Cross-module inlining and dead code elimination
-- **Optional external post-pass**: If users install `wasm-opt`, Kali may invoke it as a separate tool, but Kali's core optimization pipeline must remain fully implemented in Rust and must not depend on Binaryen
+- **Optional external post-pass**: If users install `wasm-opt`, Kali may invoke it as a separate user-provided tool, but Kali's core optimization pipeline must remain fully implemented in Rust and must not depend on Binaryen
 
 ## Dynamic Fallback
 

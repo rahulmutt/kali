@@ -126,7 +126,7 @@ This vocabulary keeps docs for `eval`, dynamic loading, browser modes, `Proxy`, 
 To reduce drift across the spec set, these terms are canonical:
 
 - **API surface**: the host API family selected by CLI/config, e.g. `deno`, `node`, `browser`
-- **Build mode**: optimization level, one of `fast`, `release`, `release-advanced`
+- **Build mode**: optimization level, one of `fast`, `release`, `release-advanced`; these mode names are stable from Phase 1 onward, even though the amount of optimization each mode unlocks grows as later compiler phases land
 - **Runtime profile**: semantic runtime capability profile orthogonal to API surface, e.g. the default single-threaded baseline or later `wasm-threads`
 - **Browser-targeted profile**: the early supported browser paths only — `kali check --api browser` and `kali build --bundle --api browser` — not a standalone browser runtime or DOM emulation promise
 - **Artifact mode**: the build output selector chosen by `kali build`, e.g. the default executable WASM artifact path, `--bundle`, `--lib`, `--capi`, or `--component`
@@ -513,7 +513,7 @@ When extending the spec set:
 ## Intentional Simplifications
 
 The spec intentionally makes a few simplifying choices to keep implementation tractable:
-- one primary execution engine (`wasmtime`) first
+- one primary execution engine first (`wasmtime` in early phases), while keeping room for later backend expansion if the same runtime contracts are preserved
 - one linked WASM payload per build in early phases, with optional companion artifacts such as JS glue, WIT files, component wrappers, or C headers when the selected output mode requires them
 - one canonical machine-readable JSON contract per output type, with command-specific payloads wrapped in one shared CLI envelope when JSON transport is requested
 - one primary standalone runtime surface early (`deno`), with browser as a check/build profile first

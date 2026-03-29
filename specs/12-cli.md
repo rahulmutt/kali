@@ -62,6 +62,10 @@ Naming rule:
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
 
+Build-mode continuity rule:
+- these three build-mode names are stable from Phase 1 onward
+- later phases deepen what `release` and `release-advanced` actually do, but they should not force users to learn a second generation of optimization-mode names just because MIR/LIR passes became more capable
+
 ## Command-Specific Flags
 
 To keep the shared-flag table small and avoid implying that every convenience flag is globally meaningful, command-local switches are listed here.

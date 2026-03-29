@@ -3,12 +3,14 @@
 ## WASM Execution Engine
 
 ### Engine Choice: wasmtime
-**Phase 1-3 mandate:** use `wasmtime` as the execution engine.
+**Early-phase default:** standardize the runtime on `wasmtime` first.
 - Pure Rust implementation
 - Fuel-based metering for CPU limits
 - Configurable memory limits
 - Mature, well-maintained, WASI support
 - Supports serialized/precompiled artifacts for production embedding
+
+This is a deliberate simplification for Phase 1-3, not a forever-exclusive backend promise. The rest of the spec assumes wasmtime semantics first so the runtime, sandboxing, and embedding contracts stay coherent while the product is still maturing.
 
 **Important consistency rule**: Kali itself is AOT-only and performs no language-level JIT compilation. A host runtime may still validate, translate, or precompile the emitted WASM as an execution detail, but Kali must not depend on speculative/adaptive JIT behavior for correctness or performance.
 
@@ -17,7 +19,7 @@ Preferred execution modes:
 - **Production/embedding**: use wasmtime's precompiled/serialized module support where available to avoid per-launch recompilation costs
 
 ### Optional Alternative Backend (Later Phase)
-An engine abstraction may be added later to support backends such as `wasmer` when there is a demonstrated embedding or platform need. This must not complicate the initial runtime design; all core specs assume wasmtime semantics first.
+An engine abstraction may be added later to support backends such as `wasmer` when there is a demonstrated embedding or platform need. This must not complicate the initial runtime design, and any added backend must preserve the same externally visible sandbox/resource/diagnostic contracts rather than introducing backend-specific semantics into user-facing behavior.
 
 ## Host-Guest Interface
 

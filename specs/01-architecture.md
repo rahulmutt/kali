@@ -73,7 +73,7 @@ Every crate should expose a stable internal boundary even if its initial impleme
 ## Key Design Decisions
 
 ### Pure Rust
-All components are implemented in Rust. No C/C++ libraries are embedded or linked. External WASM execution uses `wasmtime` (pure Rust). The only external Rust crate dependencies allowed are pure-Rust crates (e.g., `wasmtime`, `rayon`, `regex-automata`).
+All components are implemented in Rust. No C/C++ libraries are embedded or linked. Early-phase external WASM execution is standardized on `wasmtime` (pure Rust), but that is an implementation default rather than a forever-exclusive backend choice. The only external Rust crate dependencies allowed are pure-Rust crates (e.g., `wasmtime`, `rayon`, `regex-automata`).
 
 ### Query-Based Architecture
 Follow a demand-driven (query-based) compilation model similar to rustc and Salsa. This enables:
@@ -130,7 +130,7 @@ This section uses the canonical term **build mode** to match [SPEC.md](../SPEC.m
 |------|-------------|
 | `fast` | Minimal optimization, fastest compile time (default; selected by `--fast`) |
 | `release` | Standard optimizations: inlining, dead code elimination, layout optimization (selected by `--release`) |
-| `release-advanced` | Aggressive optimization: expanded specialization budget, optional external WASM post-pass, LTO (selected by `--release-advanced`) |
+| `release-advanced` | Aggressive optimization: expanded specialization budget, optional separate-tool WASM post-pass, LTO (selected by `--release-advanced`) |
 
 ### Error Strategy
 Compilation is resilient — continue after errors to report as many issues as possible in one pass. Use a `Diagnostics` collector that accumulates errors/warnings without aborting. See [specs/15-errors.md](15-errors.md).
@@ -139,6 +139,6 @@ Compilation is resilient — continue after errors to report as many issues as p
 Early phases target a single canonical execution profile:
 - `wasm32` linear memory
 - one linked module graph per build artifact
-- the Kali host ABI implemented on top of wasmtime
+- the Kali host ABI implemented first on top of wasmtime
 
-This keeps pointer layout, tagged-value representation, allocator design, and host import conventions consistent across the rest of the spec. Later phases may add additional targets or backends, but they should be layered on top of this baseline rather than weakening it.
+This keeps pointer layout, tagged-value representation, allocator design, and host import conventions consistent across the rest of the spec. Later phases may add additional targets or execution backends, but they should be layered on top of this baseline rather than weakening it.
