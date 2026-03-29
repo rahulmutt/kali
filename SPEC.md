@@ -65,6 +65,17 @@ Canonical rule:
 - unsupported semantics must fail explicitly rather than pretending they already work
 - feature maturity is defined by [specs/19-feature-maturity.md](./specs/19-feature-maturity.md), not by syntax acceptance alone
 
+## Bootstrap Resolution Notes
+
+The bootstrap brief intentionally mixes end-state goals with near-term implementation constraints. To keep the spec set honest and simpler to read, Kali resolves the biggest tensions this way:
+- **"Support the latest ECMA-262 standard"** means grammar tracking is immediate, while semantic support claims stay feature-by-feature and evidence-backed.
+- **"Support Deno, Node.js, and browser APIs"** means those are the canonical API-surface names from the start, but command/profile availability is phased rather than implied all at once.
+- **"Support all features, including `eval`"** means dynamic compatibility paths are part of the long-term contract, but they stay explicitly gated until Kali can preserve semantics and sandbox honesty.
+- **"Programmable sandbox conditions"** are satisfied by later host-registered predicates for trusted embeddings, while project policy files stay declarative data in schema v1.
+- **"WIT / Component Model / C embedding"** are part of the canonical public-library and embedding story, but they are layered on top of the core linked-WASM artifact rather than becoming separate compilation models.
+
+This section exists to keep the bootstrap goals and the phase matrix aligned without repeating the same clarification in every subsystem chapter.
+
 ## Compatibility Staging Model
 
 To keep the bootstrap goals, feature-maturity matrix, and subsystem docs aligned, Kali treats compatibility as three separate questions:
