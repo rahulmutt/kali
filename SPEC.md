@@ -204,6 +204,27 @@ Interpretation rules:
 
 This tuple is the canonical simplification for examples across the CLI, embedding, runtime, and maturity specs.
 
+## Canonical Build Artifact-Mode Matrix
+
+To keep `build`, embedding, schemas, and feature-maturity docs aligned, Kali treats artifact selection as one small closed set in early phases:
+
+| Artifact mode | CLI selector | Early-phase status | Canonical output contract |
+|---|---|---|---|
+| Executable | _(default)_ | Phase 1 MVP | One linked core `wasm-module` with role `primary-executable` |
+| Browser bundle | `--bundle --api browser` | Phase 1 MVP | One linked core `wasm-module` with role `primary-executable` plus browser `js-glue` with role `browser-glue` |
+| Library | `--lib` | Phase 1 MVP | Phase 1 emits one linked core `wasm-module` with role `primary-library`; Phase 2+ public-library builds also emit the canonical `wit` sidecar with role `interface-wit` by default |
+| C embedding package | `--capi` | Phase 2 target | Library-style core `wasm-module` + canonical `wit` sidecar + generated `c-header` + `cabi-metadata` |
+| Component package | `--component` | Phase 2 target | Library-style core `wasm-module` + canonical `wit` sidecar + `wasm-component` wrapper |
+
+Cross-spec rules:
+- these modes are mutually exclusive unless a later spec explicitly defines an implication
+- `--bundle` is the browser-targeted executable packaging mode only; it does not mean “generic multi-file output”
+- `--lib` is the base non-browser library/export mode; `--capi` and `--component` are Phase 2 packaging layers over that same exported-library contract, not unrelated parallel semantics
+- WIT is not a separate user-selected build mode; once the public library/export surface stabilizes, relevant library-oriented modes emit it by default
+- companion artifacts do not weaken the single linked-WASM-payload rule for the compiled static graph
+
+This matrix is the canonical simplification for artifact-mode wording across codegen, CLI, embedding, schemas, and feature maturity.
+
 ## Canonical Dependency Declaration Model
 
 To keep install behavior, lockfiles, and configuration simple, Kali uses exactly two early dependency declaration channels:

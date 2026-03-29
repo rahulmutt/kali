@@ -79,10 +79,11 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
 - documenting a command-specific flag here does **not** imply it needs a separate feature-maturity row unless it changes a phase promise or machine-readable contract
-- build artifact-mode flags should not silently combine into ambiguous artifact contracts; in early phases `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive selectors unless a later spec explicitly says one implies another
+- build artifact-mode flags follow the canonical matrix in [SPEC.md](../SPEC.md): in early phases `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive selectors unless a later spec explicitly says one implies another
 - in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires `--api browser`, and `kali build --bundle` under `--api deno` or `--api node` must fail explicitly instead of inventing a second bundle contract
 - in early phases, `--lib`, `--capi`, and `--component` are non-browser artifact modes; `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` must fail explicitly rather than pretending browser bundle rules also apply to library/embedding builds
-- WIT sidecars are not a separate artifact-mode selector: once the public embedding/library surface stabilizes, they are emitted by the relevant artifact modes by default so callers do not have to choose between "C ABI" and "component metadata" paths
+- `--lib` is the base exported-library mode; `--capi` and `--component` are later packaging layers over that same exported-library contract rather than unrelated semantics
+- WIT sidecars are not a separate artifact-mode selector: Phase 1 plain `--lib` emits the core library `wasm-module`, and once the public library/embedding surface stabilizes in Phase 2+, the relevant library-oriented modes emit WIT by default so callers do not have to choose between "C ABI" and "component metadata" paths
 
 Config-array normalization rule:
 - `compilerOptions.runtimeProfiles` and `compat.features` are set-like lists, not ordered pipelines
@@ -146,6 +147,7 @@ AOT compile to a WASM module or linked artifact set.
 
 Canonical artifact-mode rule:
 - `kali build` is a direct-entry command in early phases: it requires an explicit executable/analyzable source entrypoint and does not guess a project default such as `main.ts`
+- artifact selection follows the canonical matrix in [SPEC.md](../SPEC.md)
 - omitting `--bundle`, `--lib`, `--capi`, and `--component` selects the default executable artifact mode
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive artifact-mode selectors unless a later spec explicitly defines one as an implication of another
 - `kali init --lib` chooses a project template only; it does not change the later default artifact mode of `kali build`
@@ -164,7 +166,7 @@ kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: mai
 kali build --bundle main.ts               # Rejected in early phases; --bundle is reserved for browser-targeted output and requires --api browser
 kali build --api browser main.ts           # Rejected in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
-kali build --lib lib.ts                    # Library module (exports, no start; artifact: kind=wasm-module, role=primary-library)
+kali build --lib lib.ts                    # Library module (exports, no start; Phase 1 artifact: kind=wasm-module, role=primary-library; Phase 2+ adds kind=wit, role=interface-wit by default)
 kali build --lib --api browser lib.ts      # Rejected in early phases; browser mode is a bundle/check profile, not a library artifact profile
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + metadata (artifacts: wasm-module + wit + c-header + cabi-metadata; roles typically primary-library + interface-wit + embedding-header + embedding-metadata; see specs/13-embedding.md)
 kali build --component lib.ts              # Phase 2 target: library-style build with a component wrapper once the component flow lands

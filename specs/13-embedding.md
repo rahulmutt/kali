@@ -173,6 +173,8 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 - Error includes the stable string diagnostic code, message, and JSON representation so embedders see the same canonical machine contract as the CLI
 
 ### Building
+Artifact selection follows the canonical build matrix in [SPEC.md](../SPEC.md): plain `--lib` is the base exported-library mode, and `kali build --capi` / `kali build --component` are **Phase 2** packaging layers over that same exported-library contract rather than unrelated semantics.
+
 `kali build --capi` and `kali build --component` are **Phase 2 targets** and are artifact-generation modes for embedded programs, not requests to turn user TypeScript directly into a native shared library.
 
 ```bash
@@ -183,7 +185,7 @@ kali build --component lib.ts              # Produces lib.wasm + lib.wit + lib.c
 Important distinction:
 - `kali_capi` ships the stable host ABI header: `kali.h`
 - `kali build --capi foo.ts` emits a **program-specific** exports header such as `foo.exports.h` plus metadata
-- public library/component-oriented outputs should emit a WIT sidecar by default once the interface contract stabilizes, so C bindings and Component Model wrappers derive from the same canonical exported interface description
+- Phase 1 plain `kali build --lib foo.ts` emits the base library `wasm-module` only; once the public interface contract stabilizes in Phase 2+, library/component-oriented outputs emit a WIT sidecar by default so C bindings and Component Model wrappers derive from the same canonical exported interface description
 - In CLI JSON/artifact manifests, these outputs use the canonical artifact kinds `wasm-module`, `wit`, `wasm-component`, `c-header`, and `cabi-metadata`
 
 This avoids overloading the name `kali.h` for two different purposes and keeps C ABI generation aligned with the Component Model path.

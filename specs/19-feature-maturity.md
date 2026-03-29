@@ -119,7 +119,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 | `kali build --bundle --api browser main.ts` | Phase 1 MVP | Supported browser artifact path (`kind: wasm-module` + `kind: js-glue`) |
 | `kali build --bundle main.ts` | Rejected by default | In early phases `--bundle` is reserved for browser-targeted output and therefore requires `--api browser` |
 | `kali build --api browser main.ts` | Rejected by default | In early phases browser mode is a bundle/check profile, not a standalone non-bundled artifact mode |
-| `kali build --lib lib.ts` | Phase 1 MVP | Produce one linked library-style WASM artifact without automatic program start |
+| `kali build --lib lib.ts` | Phase 1 MVP | Produce one linked library-style WASM artifact without automatic program start; Phase 1 emits the base `wasm-module` (`role: primary-library`), and Phase 2+ public-library builds add the default `wit` sidecar (`role: interface-wit`) |
 | `kali build --lib --api browser lib.ts` | Rejected by default | Early browser support is a bundle/check profile, not a browser-library artifact mode |
 | `kali build --capi lib.ts` | Phase 2 target | Public embedding artifact generation should stay gated until the embedding contract is stable; when enabled it emits `kind: wasm-module` + `kind: wit` + `kind: c-header` + `kind: cabi-metadata` |
 | `kali build --component lib.ts` | Phase 2 target | Component-oriented library packaging path; when enabled it emits `kind: wasm-module` + `kind: wit` + `kind: wasm-component` |
