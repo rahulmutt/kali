@@ -140,6 +140,10 @@ Canonical artifact-mode rule:
 - `kali init --lib` chooses a project template only; it does not change the later default artifact mode of `kali build`
 
 `--capi` and other public embedding-oriented outputs follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): the compiler is library-first internally in Phase 1, but stable public embedding artifacts are a Phase 2 target.
+
+Sandbox clarification:
+- `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config, and in Phase 2+ it also performs effect-vs-policy validation.
+- For `kali build --bundle --api browser --sandbox ...`, this remains a **build-time** compatibility check only. It must not be described as automatic runtime sandbox enforcement once the emitted browser bundle is deployed into a real browser host.
 ```bash
 kali build main.ts                         # → main.wasm (--fast mode, default; artifact kind: wasm-module)
 kali build --release main.ts               # Optimized build
@@ -152,6 +156,7 @@ kali build --lib lib.ts                    # Library module (exports, no start)
 kali build --lib --api browser lib.ts      # Rejected in early phases; browser mode is a bundle/check profile, not a library artifact profile
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.exports.h + metadata (artifact kinds: wasm-module + c-header + cabi-metadata; see specs/13-embedding.md)
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
+kali build --bundle --api browser --sandbox kali.policy.json main.ts # Build-time policy compatibility only; no automatic browser-runtime enforcement is implied after deployment
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
 ```

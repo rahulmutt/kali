@@ -132,6 +132,17 @@ For dynamic effects that can't be checked at compile time:
 - All API calls check the same canonical path/URL/address/env matching rules described in [specs/18-schemas.md](18-schemas.md)
 - Runtime enforcement only applies to capabilities that are actually registered for the selected API surface/profile; sandbox policy does not conjure unavailable APIs into existence
 
+### Enforcement Domains
+To keep the sandbox story precise across commands and deployment targets:
+- **Kali-hosted runtime enforcement** applies to `kali run`, `kali test`, and embedding hosts that instantiate Kali-controlled host imports.
+- **`check` / `build` with `--sandbox`** provide static validation only: policy-schema/config validation in Phase 1, plus effect-vs-policy validation in Phase 2+.
+- **Browser-targeted builds** (`kali build --bundle --api browser`) may be checked against a policy at build time, but the emitted artifact running inside a real browser does not automatically inherit Kali runtime enforcement after deployment.
+
+Interpretation rule:
+- a successful browser-targeted build under `--sandbox` means the source graph is compatible with the supplied policy under Kali's static model
+- it does **not** mean Kali can mediate every later browser-host capability once the bundle is deployed outside a Kali-controlled runtime
+- specs and diagnostics should therefore avoid wording that suggests browser deployment has the same runtime-enforcement guarantee as `kali run` / `kali test`
+
 ## Runtime Resource Limits
 
 Enforced by the WASM host (wasmtime in initial phases).

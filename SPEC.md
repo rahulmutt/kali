@@ -272,6 +272,21 @@ Cross-spec rule:
 
 This is the canonical simplification for reasoning about the original “policy function” idea without undermining auditability or startup-time safety.
 
+## Canonical Sandbox Enforcement Domains
+
+To keep sandbox claims realistic across standalone execution, embedding, and browser-targeted builds, Kali uses one explicit enforcement split:
+
+- **Kali-hosted execution** — `kali run`, `kali test`, and embedding hosts that instantiate the Kali runtime can provide **runtime sandbox enforcement** because host calls flow through Kali-controlled policy checks and resource-limit machinery.
+- **Check/build workflows** — `kali check --sandbox ...` and `kali build --sandbox ...` provide **policy validation** in Phase 1 and **effect-vs-policy validation** in Phase 2+, but they do not by themselves execute the program.
+- **Browser-targeted emitted artifacts** — `kali build --bundle --api browser` may be analyzed against a sandbox policy at build time, but once the emitted JS/WASM is deployed into a real browser host, Kali does **not** automatically control that browser's runtime permissions.
+
+Cross-spec rule:
+- early sandbox-first guarantees are strongest for **Kali-hosted standalone/embedded execution**
+- browser-targeted builds may carry policy metadata or fail analysis against a policy, but they must not claim automatic post-deployment runtime enforcement unless a later browser-specific host contract is specified
+- specs should distinguish **static policy compatibility** from **runtime host enforcement** whenever browser-targeted output is discussed
+
+This is the canonical simplification for preventing the phrase "sandboxed browser build" from implying a stronger runtime guarantee than Kali can actually provide in Phase 1.
+
 ## Canonical Dynamic Loading and Code-Generation Boundary
 
 To keep the module, runtime, and sandbox specs aligned, Kali draws one explicit line between **static linking**, **dynamic loading**, and **dynamic code generation**:
