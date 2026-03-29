@@ -21,7 +21,8 @@ For every value, the compiler determines:
 ```
 Value Created
   ├─ Primitive (number, boolean, null, undefined)
-  │   → Always stack (WASM locals/operand stack)
+  │   → Prefer unboxed WASM locals/operand-stack representation while they stay local
+  │   → Box/store only when crossing a boundary that requires heap/object representation
   │
   ├─ Small fixed-size struct (known layout, no escaping)
   │   → Stack allocation (alloca-like in linear memory stack)
@@ -51,6 +52,7 @@ Closures capture variables. For each capture:
 - If the variable is only read and the closure doesn't outlive the variable → borrow
 - If the variable is mutated or the closure escapes → lower to a shared heap cell with deterministic reference counting and interior mutability semantics
 - If only one closure captures it and ownership can transfer → move
+- Captured primitives may therefore stop being purely local/unboxed values once closure or aggregate boundaries require boxing/shared storage; the earlier “prefer unboxed locals” rule is only for non-escaping use sites
 
 ## Reference Counting
 

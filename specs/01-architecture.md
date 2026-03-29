@@ -59,11 +59,9 @@ Interpretation rule:
 The architecture is intentionally staged so the compiler can become useful early. The phase names and scope here are canonicalized to match [SPEC.md](../SPEC.md):
 
 1. **Phase 1 — Core compiler**: lexer, parser, AST, name resolution, TypeScript-compatible checking, first-class JavaScript compilation with conservative inference, HIR/LIR, simple WASM emission, a minimal Web/Deno host surface, browser-targeted `check --api browser` and `build --bundle --api browser`, the core CLI workflow, and a library-first internal architecture so the CLI is built on reusable compiler/runtime crates.
-
-Source-kind clarification:
-- `.mts` and `.cts` are part of the canonical TypeScript source set alongside `.ts` / `.tsx`
-- `.mjs` / `.cjs` and package `type` metadata still control runtime module-kind interpretation where applicable
-- file-extension support should not drift between the frontend, package resolver, CLI file discovery, and type-resolution rules
+   - Source-kind clarification: `.mts` and `.cts` are part of the canonical TypeScript source set alongside `.ts` / `.tsx`.
+   - `.mjs` / `.cjs` and package `type` metadata still control runtime module-kind interpretation where applicable.
+   - File-extension support should not drift between the frontend, package resolver, CLI file discovery, and type-resolution rules.
 2. **Phase 2 — Ownership + effects**: MIR, ownership/escape analysis, deterministic memory management, effect summaries, compile-time sandbox policy validation, and the first stable embedding surfaces.
 3. **Phase 3 — Specialization + ecosystem**: specialization, advanced layout selection, broader npm package compatibility beyond the Phase 1 CJS/literal-`require` baseline, broader Node compatibility, broader browser packaging/interoperability beyond the Phase 1 bundle baseline, incremental compilation, and stronger optimization.
 4. **Phase 4 — Advanced compatibility**: hardest dynamic features (`eval`, `Function()`, non-literal dynamic loading), deeper API coverage, and broader formal verification.
@@ -79,14 +77,18 @@ All components are implemented in Rust. No C/C++ libraries are embedded or linke
 Follow a demand-driven (query-based) compilation model similar to rustc and Salsa. This enables:
 - Incremental compilation
 - Parallel type checking
-- Lazy evaluation of unused modules
+- Lazy evaluation and caching of derived compiler queries/results
 - Clean separation between source resolution, semantic analysis, and final whole-program linking
+
+Important semantic guardrail:
+- this is about lazily computing compiler data, **not** about skipping semantically required modules
+- statically imported modules with side effects still participate in the resolved program graph and instantiation order even if their exported values are barely used
 
 ### Interning
 All identifiers, string literals, and type representations are interned for fast comparison and low memory usage. Use a global `Interner` backed by a concurrent hash map.
 
 ### Source Spans
-Every AST/IR node carries a compact internal `Span` (byte offset range + file ID) for error reporting. Spans are compact (8 bytes) and cheaply copyable.
+Every AST/IR node carries a compact internal `Span` (byte offset range + file ID) for error reporting. Spans should stay compact and cheaply copyable; the exact in-memory layout is an implementation detail rather than a frozen spec promise.
 
 When Kali emits JSON diagnostics/effect reports, this internal span is translated into the schema-level `SourceSpan` / `SourceLocation` shapes defined in [specs/18-schemas.md](18-schemas.md). This keeps the implementation fast without forcing byte offsets into the external tooling contract.
 

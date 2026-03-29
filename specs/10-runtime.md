@@ -182,7 +182,8 @@ This deliberately avoids depending on the WebAssembly module-linking proposal in
 
 ### JavaScript Exceptions
 - `throw` → set error state + unwind
-- `try/catch/finally` → WASM exception handling proposal (when available) or manual unwind via return codes
+- **Phase 1 baseline**: `try/catch/finally` is implemented with explicit runtime-managed unwind/state machinery rather than depending on the WASM exception-handling proposal
+- **Later optimization path**: if WASM exception handling is enabled for a supported target/runtime profile, Kali may lower compatible regions to native WASM exceptions without changing language-visible behavior
 - Unhandled exceptions → host catches and formats error
 
 ### Stack Traces
