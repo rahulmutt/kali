@@ -81,6 +81,7 @@ Effective-context validation rule:
 | `--sandbox <policy>` | `run`, `test`, `check`, `build` | Attach and validate `kali.policy.json`; in Phase 1 this enforces at runtime for `run`/`test` and validates policy/config for `check`/`build` |
 | `--max-memory <size>` | execution commands | Override the invocation memory cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-cpu <duration>` | execution commands | Override the invocation CPU cap; may only tighten the effective limit relative to config/policy, never widen it |
+| `--max-open-files N` | execution commands | Override the invocation open-file-handle cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-threads N` | execution commands | Override the invocation thread cap for the threaded runtime profile; may only tighten the effective limit and is rejected unless threading is supported and enabled |
 | `--wasm-threads` | `build`, `run`, `test` | Opt into the later threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; before that profile exists, or on unsupported targets, the command must fail with `E5006` |
 
@@ -138,7 +139,7 @@ Configuration precedence is intentionally simple:
 2. the effective discovered `kali.json` overrides built-in defaults
 3. Sandbox policy caps, when a policy is attached, remain upper bounds for runtime capabilities and resource limits
 
-That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy. If no policy is attached, those direct invocation flags simply become the effective cap for the current command instead of being compared against an implicit allow-all policy.
+That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy. If no policy is attached, those direct invocation flags simply become the effective cap for the current command instead of being compared against an implicit allow-all policy. In Phase 1 this tightening path applies to `--max-memory`, `--max-cpu`, and `--max-open-files`; later resource flags should follow the same rule.
 
 Interpretation rule:
 - the resulting merged values are the command's one **effective context** for validation, lowering, and reporting
@@ -152,8 +153,9 @@ Canonical path-resolution rule:
 Canonical resource-literal rule:
 - `--max-memory` accepts either a plain byte count or a size literal with one of: `kb`, `mb`, `gb`, `kib`, `mib`, `gib`
 - `--max-cpu` accepts either a plain millisecond count or a duration literal with one of: `ms`, `s`, `m`
-- CLI parsing normalizes these to bytes and milliseconds before comparing them with sandbox-policy limits
-- schema v1 policy files keep the simpler integer fields `resources.maxMemoryMB` and `resources.maxCpuTimeMs`; CLI literals are a convenience syntax over that same effective-limit model rather than a second resource schema
+- `--max-open-files` accepts a plain non-negative integer count
+- CLI parsing normalizes these to bytes, milliseconds, and integer counts before comparing them with sandbox-policy limits
+- schema v1 policy files keep the simpler integer fields `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles`; CLI literals are a convenience syntax over that same effective-limit model rather than a second resource schema
 
 Canonical default tuple:
 - `apiSurface = deno`
@@ -172,6 +174,7 @@ kali run main.ts                           # Run with default settings
 kali run --sandbox kali.policy.json main.ts # Run with sandbox
 kali run --max-memory 256mb main.ts        # Resource limit
 kali run --max-cpu 10s main.ts             # CPU time limit
+kali run --max-open-files 32 main.ts       # Open-file-handle limit
 kali run --api node main.ts                # Use Node.js API surface (Phase 3 target)
 kali run --api deno main.ts                # Use Deno API surface (default)
 kali run --api browser main.ts             # Rejected in early standalone phases; browser is a browser-targeted context first
@@ -328,7 +331,8 @@ kali test --api browser                    # Rejected in early phases; browser i
 Canonical discovery rule:
 - default test discovery starts from the canonical project-discovery result, then matches `*.test.*` / `*_test.*` only across the shared executable/analyzable source set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
 - declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`) are never test entrypoints even if they match the naming pattern
-- if explicit file arguments are supplied to `kali test`, each file must still belong to the executable/analyzable set; passing a declaration-only file is an invalid-entrypoint error, not a silent skip
+- if explicit file arguments are supplied to `kali test`, those paths bypass the naming-pattern discovery filter and are treated as direct test-module inputs instead
+- each explicit `kali test` file must still belong to the executable/analyzable set; passing a declaration-only file is an invalid-entrypoint error, not a silent skip
 
 Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run`, and analysis/build commands (`kali check`, `kali effects`, `kali build`) follow the same API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
 

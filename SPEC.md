@@ -263,6 +263,7 @@ Interpretation rules:
 - Kali must not silently rewrite the effective context just to make a command succeed
 - if the effective context requests a real but unavailable feature/profile, fail with `E5006`
 - if the effective context creates a contradictory command shape, fail with `E5008`
+- a command may still document that some context axes are intentionally **non-semantic** for it in early phases; for example early `package-audit` still uses ordinary project/config discovery for generic CLI behavior, but it intentionally ignores host-analysis knobs such as `apiSurface`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
 
 Canonical examples:
 - if `kali.json` sets `compilerOptions.apiSurface = "node"`, then plain `kali run main.ts` still hits the same Node phase gate as `kali run --api node main.ts`
@@ -336,6 +337,7 @@ From the canonical project-discovery result:
 - `check` uses the discovered file set directly
 - `fmt` and `lint` use the discovered file set directly
 - `test` matches `*.test.*` and `*_test.*` only across discovered executable/analyzable files
+- explicit `kali test [files...]` arguments bypass that naming-pattern discovery filter and are treated as direct test-module inputs, but they must still come from the executable/analyzable source set
 - `install` may scan the discovered file set, including declaration-only files, for source-level raw URL imports as part of dependency-graph reconciliation
 
 ## Canonical Command/Input Shape Rules

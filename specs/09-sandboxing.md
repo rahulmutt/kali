@@ -79,7 +79,7 @@ Canonical behavior when no policy is attached:
 - in that mode, Kali still enforces intrinsic guarantees such as API-surface/feature gating, WASM/runtime safety, and any direct invocation resource caps explicitly supplied on the CLI
 - `kali check` / `kali build` simply skip policy validation when no policy is attached
 - `kali run` / `kali test` skip policy-file-driven capability filtering when no policy is attached
-- `--max-memory`, `--max-cpu`, and later direct invocation resource-cap flags may still be used without a policy file; without a policy they become the effective cap directly
+- `--max-memory`, `--max-cpu`, `--max-open-files`, and later direct invocation resource-cap flags may still be used without a policy file; without a policy they become the effective cap directly
 
 Important distinction:
 - absence of a policy is **not** modeled as an implicit synthesized allow-all `kali.policy.json`
@@ -195,9 +195,10 @@ Cross-contract simplification:
 
 Effective-limit rule:
 - when a sandbox policy is attached, its values are the maximum capability/resource envelope for the run
-- per-invocation CLI overrides such as `--max-memory` and `--max-cpu` may further tighten that envelope
+- per-invocation CLI overrides such as `--max-memory`, `--max-cpu`, and `--max-open-files` may further tighten that envelope
 - `--max-memory` literals normalize to bytes internally, while schema-v1 policy values are stored as `resources.maxMemoryMB`; comparison therefore happens after canonical unit conversion rather than by string matching
 - `--max-cpu` literals normalize to milliseconds internally, while schema-v1 policy values are stored as `resources.maxCpuTimeMs`
+- `--max-open-files` normalizes to an integer handle count and compares against `resources.maxOpenFiles`
 - when no sandbox policy is attached, direct invocation caps become the effective envelope for the resource dimensions they cover
 - CLI/config must not silently widen a stricter sandbox policy at runtime
 
@@ -309,5 +310,5 @@ kali run --sandbox kali.policy.json program.ts
 kali test --sandbox kali.policy.json
 
 # Run with resource limits only (no effect policy)
-kali run --max-memory 256mb --max-cpu 10s program.ts
+kali run --max-memory 256mb --max-cpu 10s --max-open-files 32 program.ts
 ```
