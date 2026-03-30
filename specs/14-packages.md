@@ -38,7 +38,7 @@ Early registry-package compatibility needs one explicit simplification so packag
 Concretely, a package can be supported in Phase 1 when:
 - its code can be resolved statically into the shared **linked-artifact model**,
 - its module format can be handled by Kali's ESM/CJS pipeline,
-- and its runtime needs are satisfied by either the documented Web baseline plus Deno-oriented standalone surface, or the shared **Phase-1 browser-targeted command set** (`check --api browser`, `build --bundle --api browser`).
+- and its runtime needs are satisfied by either the documented Web baseline plus Deno-oriented standalone surface, or the shared **Phase-1 browser-targeted command set** (`check --api browser`, `build --bundle --api browser`, including equivalent inherited-config forms once effective-context resolution selects `apiSurface = browser`).
 
 A package is **not** automatically in scope just because it lives in npm or JSR. If it depends on broader Node globals/core modules or falls into the **native/binary/bootstrap-heavy package contract**, it stays phase-gated or rejected with the rest of that compatibility work.
 
@@ -327,7 +327,7 @@ Scope note:
 
 - `kali install` is **context-agnostic** in Phases 1-3. It locks package versions, fetches/materializes package contents, and records reproducibility data, but it does **not** pre-resolve one permanent `exports`/`browser`/`deno` branch for every future command.
 - `check`, `effects`, `build`, `run`, and `test` perform the final **command-time package edge selection** from the already-installed package metadata using the active analysis/runtime context.
-- therefore one `kali.lock` and one materialized package tree can serve both the default Deno-oriented standalone path and the supported browser-targeted analysis/build paths (`check --api browser`, `build --bundle --api browser`) without requiring separate per-context installs.
+- therefore one `kali.lock` and one materialized package tree can serve both the default Deno-oriented standalone path and the supported browser-targeted analysis/build paths (`check --api browser`, `build --bundle --api browser`, plus equivalent inherited-config forms) without requiring separate per-context installs.
 - this is possible because early-phase context differences choose between files that are already present inside the installed package contents; they do not require separate version solves for each supported context.
 - if a later feature truly requires context-specific solving or materially different dependency graphs, that complexity must be introduced explicitly in a future lockfile/versioning revision rather than being implied accidentally by Phase 1 package wording.
 

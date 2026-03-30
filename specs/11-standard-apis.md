@@ -38,7 +38,7 @@ This prevents a common source of drift: host-runtime implementation convenience 
 
 Canonical terminology simplification:
 - use the cross-spec term **browser-targeted context** from [SPEC.md](../SPEC.md) for command contexts whose effective `apiSurface` is `browser`
-- in Phase 1, that means the shared **Phase-1 browser-targeted command set**: `kali check --api browser` and `kali build --bundle --api browser`
+- in Phase 1, that means the shared **Phase-1 browser-targeted command set**: `kali check --api browser` and `kali build --bundle --api browser`, plus their equivalent inherited-config forms once effective-context resolution selects `apiSurface = browser`
 - later analysis commands may reuse that same ambient typing layer and **package-resolution context** once their own maturity rows allow it
 - it does **not** mean a standalone embedded browser runtime, DOM emulation layer, or permission to expose non-browser globals during analysis/build
 

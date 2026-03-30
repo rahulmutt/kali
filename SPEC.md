@@ -328,7 +328,7 @@ Rule:
 ### Browser-targeted context
 A command context whose effective `apiSurface` is `browser`.
 
-In Phase 1, this context is user-visible only through the shared **Phase-1 browser-targeted command set**:
+In Phase 1, this context is user-visible only through the shared **Phase-1 browser-targeted command set** (including equivalent inherited-config forms once the effective `apiSurface` resolves to `browser`):
 - `kali check --api browser`
 - `kali build --bundle --api browser`
 
@@ -340,12 +340,13 @@ It does **not** mean:
 - permission to expose Deno/Node globals during browser-targeted analysis/build.
 
 ### Phase-1 browser-targeted command set
-The exact Phase-1 command shapes that expose the browser-targeted context:
+The exact Phase-1 command shapes that expose the browser-targeted context after effective-context resolution:
 - `kali check --api browser`
 - `kali build --bundle --api browser`
 
 Rules:
 - this term exists to stop a common ambiguity: Phase-1 "browser analysis/build support" does **not** mean every command that performs analysis is browser-enabled in Phase 1
+- explicit CLI spellings and equivalent inherited-config forms count as the same command set once effective-context resolution chooses `apiSurface = browser`; for example, discovered `compilerOptions.apiSurface = browser` makes `kali build --bundle main.ts` part of this same Phase-1 set rather than a third browser mode
 - later commands such as `kali effects --api browser` or inherited browser-context `kali package-effects` reuse the same browser-targeted context only when their own maturity rows explicitly say so
 - chapters should prefer this term when they mean the exact early browser-enabled command set, instead of saying only "supported browser analysis/build commands" and forcing readers to infer which commands are already in scope
 
