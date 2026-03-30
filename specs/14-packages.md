@@ -207,7 +207,7 @@ Argument semantics are intentionally simple:
 - because install is intentionally profile-agnostic in early phases, `kali install` does **not** take `--api`; passing `--api ...` is invalid command usage (`E5008`), not a request for a second install graph
 
 Install-graph discovery rule:
-- because `kali install` usually runs without an explicit primary source input, source-level raw URL imports are discovered from the canonical project-discovery result rather than from one ad hoc command-local source root
+- because `kali install` usually runs without an explicit primary source input, source-level raw URL imports are discovered from the canonical project-discovery result rather than from one ad hoc command-local source root; together with manifest/import-map declarations, this forms the project's **install-time declaration graph** from [SPEC.md](../SPEC.md)
 - the effective project config/root for that scan is the nearest `kali.json` found by searching the current working directory and then its ancestors; if none exists, install uses the current working directory as the project root
 - that install-time scan set is filtered by `kali.json` `include` / `exclude` when present, or by the default project-discovery rules from [SPEC.md](../SPEC.md) when those fields are omitted
 - recursive install-time discovery must stop at nested child directories that contain their own `kali.json`; those child roots are separate projects in schema v1
@@ -318,8 +318,8 @@ Practical consequence:
 - `kali install` does not take `--api` in early phases, and `compilerOptions.apiSurface` does not cause `install` to write a different lockfile for the same manifest/import graph.
 - changing `--api` between `deno` and a supported browser-targeted analysis/build context affects which already-installed package entry files are chosen at command time, not whether the project is considered installed.
 - lockfile/cache state belongs to the effective discovered project root; invoking commands from a subdirectory of the same project should still use that one shared `kali.lock`, `node_modules/`, and `.kali/` state rather than inventing nested installs.
-- if a later file-accepting non-install command (`check`, `effects`, `build`, `run`, or `test`) points at explicit files outside the last installed project discovery set and those files reach additional raw URL imports, the command should fail with `E5004` and tell the user to rerun `kali install` after updating the project's discoverable sources or import map.
-- this is intentional: explicit file targets bypass discovery filtering for command input selection, but they do not retroactively redefine the install-time declaration graph that owns raw URL lock/cache state.
+- if a later file-accepting non-install command (`check`, `effects`, `build`, `run`, or `test`) points at explicit files outside the current **install-time declaration graph** from [SPEC.md](../SPEC.md) and those files reach additional raw URL imports, the command should fail with `E5004` and tell the user to rerun `kali install` after updating the project's discoverable sources or import map.
+- this is intentional: explicit file targets bypass discovery filtering for command input selection, but they do not retroactively redefine that **install-time declaration graph**, which owns raw URL lock/cache state.
 
 ## Deterministic Install & Resolution Contract
 
@@ -328,7 +328,7 @@ This chapter follows the top-level [canonical dependency-management mutability r
 To keep package behavior predictable across `install`, `check`, `effects`, `build`, `run`, and `test`, Kali uses one simple rule set:
 - `kali install` is the command that updates dependency-owning manifest fields in `kali.json` when needed, resolves dependency versions, writes `kali.lock`, and refreshes materialized dependency stores.
 - `kali check`, `effects`, `build`, `run`, and `test` consume the existing declaration + lock + materialized dependency state; they must not silently re-resolve packages or mutate project-managed dependency state as a side effect.
-- If the project's declared dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports from the install-time project discovery set) require materialized state that is missing or stale, non-install commands fail with `E5004` and tell the user to run `kali install`.
+- If the project's current **install-time declaration graph** from [SPEC.md](../SPEC.md) requires materialized state that is missing or stale, non-install commands fail with `E5004` and tell the user to run `kali install`.
 - Here, "stale" means the current declared dependency graph, the corresponding `kali.lock` entries, and the required materialized artifacts no longer agree. Non-install commands should not try to infer staleness from arbitrary mtimes or repair it opportunistically.
 - `node_modules/` is the materialized tree for registry packages (npm/JSR), while `.kali/cache/urls/` is the materialized cache for raw URL imports; `kali.lock` is the canonical reproducibility record for both.
 - When declaration inputs, `kali.lock`, and the required materialized dependency state disagree, `kali install` is responsible for reconciling them. Other commands should fail clearly rather than guessing which source of truth to trust.

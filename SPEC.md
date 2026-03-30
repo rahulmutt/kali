@@ -117,9 +117,11 @@ Use this checklist:
 - diagnostic-code meaning and error-boundary rules belong to [`specs/15-errors.md`](./specs/15-errors.md)
 - JSON field names, payload schemas, and artifact kinds/roles belong to [`specs/18-schemas.md`](./specs/18-schemas.md)
 - phase availability belongs to [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
+- install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
 - library/export-oriented build wording should reuse the **embedding-stability split**, **library-oriented instantiation rule**, and **statically known export surface** terms
 - single-package registry-analysis wording should reuse the **registry-analysis context split**, **registry-analysis project-independence rule**, and **stable-release selection rule (schema v1)**
+- project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
 
 Practical rule:
 - if a chapter needs more than a short paragraph to restate one of those shared rules, add or reuse a canonical term here instead of creating another near-duplicate explanation.
@@ -746,6 +748,22 @@ Consequences:
 - one `kali.lock` plus one materialized package tree serves both the default Deno-oriented standalone path and the supported browser-targeted analysis/build paths in Phase 1,
 - changing `apiSurface` between `deno` and a supported browser-targeted context changes package entry selection, not whether the project is considered installed,
 - separate per-surface installs/lockfiles must not be implied unless a later lockfile revision explicitly introduces that complexity.
+
+## Install-Time Declaration Graph
+
+The dependency-owning declaration set that `kali install` reconciles for one effective project root.
+
+It includes:
+- registry dependencies declared in `kali.json` (`dependencies` / `devDependencies`),
+- import-map declarations from `kali.json#imports`, with only raw-URL rewrites contributing external materialization state,
+- source-level raw URL imports discovered from the project's canonical discovery result for that root.
+
+Rules:
+- plain `kali install` reconciles this graph into the shared project-managed dependency state (`kali.lock`, `node_modules/`, and `.kali/cache/urls/` as applicable),
+- explicit file targets passed to non-install commands do **not** retroactively widen this graph,
+- if explicit non-install command targets reach additional raw URL dependency state outside the currently installed graph, the command fails with the canonical dependency-state path (`E5004`) until the project's discoverable declaration set is updated and `kali install` is rerun.
+
+This term exists so CLI, package-management, config-discovery, and dependency-state diagnostics can all refer to the same install-owned boundary without re-explaining it differently.
 
 ## Identity-Only Registry Target
 

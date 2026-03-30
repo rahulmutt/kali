@@ -615,7 +615,7 @@ Interpretation rules:
 - when omitted, project-oriented discovery, the dependency-graph install scan, and hybrid no-argument discovery fall back to the default project-root walk and default excluded managed/generated directories defined in [SPEC.md](../SPEC.md)
 - recursive project discovery also stops at nested child directories that contain their own `kali.json`; those child roots are separate projects in schema v1
 - `include` / `exclude` filter only the project's own discoverable files; they do not suppress transitive imports that are reached from an accepted entrypoint, and they do not act as a second package-resolution filter
-- for `kali install`, this same project-discovery result is also the install-time scan set used to discover source-level raw URL imports when no explicit primary source input is provided
+- for `kali install`, this same project-discovery result contributes the source-discovery portion of the **install-time declaration graph** from [SPEC.md](../SPEC.md) and is used to discover source-level raw URL imports when no explicit primary source input is provided
 - project-oriented discovery starts from the canonical project file set from [SPEC.md](../SPEC.md): executable/analyzable files plus declaration-only files, then narrows by command intent (runtime-bearing entrypoint discovery uses executable/analyzable files only)
 - `imports` is the canonical alias/import-map section for URL and path-like rewrites; it is not a second registry-dependency manifest
 - schema v1 import-map targets are limited to raw URLs and path/local rewrites; rewrites to bare package specifiers or canonical registry identifiers such as `jsr:@std/path` are rejected explicitly so registry ownership stays in one place
