@@ -50,7 +50,7 @@ Install-time clarification:
 - read package support through the shared **published-artifact-first package reading** from [SPEC.md](../SPEC.md): judge the package by the published version/tarball Kali actually installs plus the selected entry files for the active context, not by whatever build pipeline the upstream repository used before publishing
 - packages whose normal install/runtime path falls into the **native/binary/bootstrap-heavy package contract** stay outside the Phase 1 compatibility promise even if most of their published sources are JS/TS
 - conversely, a package is not excluded merely because its repository used bundling/codegen/native tooling before publish if the published artifact Kali installs already contains the ordinary JS/TS files it needs
-- `--allow-scripts` may permit the hook to run for analysis/installation workflows, but it must not be misread as a promise that Kali supports that excluded package contract end-to-end
+- `--allow-scripts` may permit the hook to run for installation workflows, but it must not be misread as a promise that Kali supports that excluded package contract end-to-end
 
 Bootstrap-alignment rule:
 - the bootstrap brief's “support non node-gyp packages from npm” goal is normalized through the shared **pure JS/TS package contract**, not through a narrower “anything without `node-gyp` must work” reading
@@ -533,7 +533,7 @@ Registry-analysis summary:
 | Command | Availability | Context model | JSON success shape |
 |---|---|---|---|
 | `package-effects` | Phase 2 target | The analysis-context-aware half of the shared **registry-analysis command split**: inherits the shared **inherited analysis context** | Schema-v1 **native-JSON command**; standard command envelope with `--output json` |
-| `package-audit` | Later compatibility | The context-free half of the shared **registry-analysis command split**: follows **context-free registry analysis (schema v1)** | Schema-v1 **envelope-only JSON command**; audit findings flow through ordinary diagnostics and the envelope keeps canonical `payload: null` rather than a dedicated success payload; see [specs/18-schemas.md](18-schemas.md)'s **Package Audit JSON Output (schema v1)** section |
+| `package-audit` | Later compatibility | The context-free half of the shared **registry-analysis command split**: follows **context-free registry analysis (schema v1)** | Schema-v1 **envelope-only JSON command**; audit findings flow through ordinary diagnostics and the envelope keeps canonical `payload: null` rather than a dedicated success payload. `--pretty` remains meaningful only together with `--output json`; see [specs/18-schemas.md](18-schemas.md)'s **Package Audit JSON Output (schema v1)** section |
 
 Shared target-selection rule:
 - both commands follow the bundled **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md)
@@ -567,7 +567,7 @@ Package-audit rule:
 - early `package-audit` therefore does **not** take package-analysis-specific `--api`, runtime-profile, `--compat`, or `--sandbox` flags
 - early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md): whether the command runs under discovered config or in configless project mode, inherited host-analysis/runtime config does not gate or rewrite its semantics
 - if unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee
-- schema v1 intentionally keeps `package-audit` on the simpler **envelope-only JSON command** path; `package-audit --output json` follows the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md)
+- schema v1 intentionally keeps `package-audit` on the simpler **envelope-only JSON command** path; `package-audit --output json` follows the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md), and plain `package-audit --pretty <pkg>` remains invalid usage because `--pretty` does not enable JSON mode by itself
 - under that rule, later audit findings are reported via standard diagnostics (`errors` / `warnings`) rather than a second audit-result payload shape, which keeps registry audit aligned with the normal CLI machine contract
 - if a later phase adds richer machine-readable audit details, they should still remain inside that same standard command-envelope path rather than creating a second native bare-JSON audit mode
 

@@ -645,7 +645,7 @@ kali package-audit --pretty --output json lodash # Pretty-print that envelope; p
 
 Base-gate clarification:
 - follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-audit lodash` or `kali package-audit --output json lodash` reaches the command's own availability gate (`E5006`) until this later command exists
-- practical simplification: schema-v1 `package-audit` keeps a very small **semantic/context flag surface**: the package selector only. Its command-local presentation/output knobs are the envelope-oriented **JSON-mode selectors** (`--output json`, optionally `--pretty`). Ordinary shared presentation/control flags still follow the shared-flag rules, but package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of growing a second context model
+- practical simplification: schema-v1 `package-audit` keeps a very small **semantic/context flag surface**: the package selector only. Its command-local presentation/output knobs are the envelope-oriented **JSON-mode selectors** (`--output json`, plus `--pretty` only when JSON mode is already active). Ordinary shared presentation/control flags still follow the shared-flag rules, but package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of growing a second context model
 - output-format flags do not create a second availability path for the command itself
 
 Audit rule:
