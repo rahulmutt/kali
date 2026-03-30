@@ -101,7 +101,7 @@ Effective-context validation rule:
 | `--quiet` | all commands | Suppress non-error status/progress output; for data-producing commands such as `effects` and `package-effects`, it must not suppress the primary payload itself |
 | `--max-errors N` | diagnostic-producing commands | Cap reported errors (default: 50) |
 | `--color auto\|always\|never` | text-output commands | Color output control |
-| `--api deno\|node\|browser` | `check`, `effects`, `build`, `run`, `test` | Select the effective API surface. On analysis/build commands, this chooses ambient typing, package-resolution, and policy/effect-modeling context; on executable commands, it also chooses the runtime host surface. Unsupported surfaces for the current **availability context** must error explicitly (for example, early browser builds require `--bundle`) |
+| `--api deno\|node\|browser` | `check`, `effects`, `build`, `run`, `test` | Select the effective API surface. On analysis/build commands, this chooses ambient typing, package-resolution, and policy/effect-modeling context; on executable commands, it also chooses the runtime host surface. Unsupported command/profile surfaces must error explicitly, and contradictory surface/artifact combinations must stay invalid usage instead of being misreported as pure availability gating (for example, early `build --api browser` without `--bundle` is the canonical browser-build-shape contradiction) |
 | `--compat <feature[,feature...]>` | `check`, `effects`, `build`, `run`, `test` | Enable documented compatibility features such as `eval` only when that feature is implemented for the selected **availability context**; in schema v1, `eval` also covers the `Function()` constructor path |
 | `--fast` | `build`, `run`, `test` | Fastest compile time, minimal optimization (default build mode) |
 | `--release` | `build`, `run`, `test` | Standard optimization profile |
@@ -147,9 +147,9 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | Flag | Scope | Description |
 |------|-------|-------------|
 | `--bundle` | `build` | In Phase 1, selects the browser-targeted artifact path and therefore requires the **effective** `apiSurface` to be `browser` (from CLI or config); it is not a generic "multi-artifact output" switch, and any future extension must be specified explicitly |
-| `--lib` | `build`, `init` | For `build`: select the base library/export artifact mode, following the shared **library-oriented instantiation rule** from [SPEC.md](../SPEC.md). For `init`: scaffold a library-oriented project template only |
-| `--capi` | `build` | Emit the Phase-2 public C-embedding artifact set (`wasm-module` + `wit` + `c-header` + `cabi-metadata`) |
-| `--component` | `build` | Emit a WebAssembly Component Model wrapper for a library/export-oriented build once that packaging path exists; phase-gated until the component flow is implemented |
+| `--lib` | `build`, `init` | For `build`: select the library-oriented artifact mode. In Phase 1 this is the **base library artifact** path, and from the Phase 2 target onward the same selector becomes the stable public **WIT-first** library contract. For `init`: scaffold a library-oriented project template only |
+| `--capi` | `build` | Select the later public C-embedding artifact flow over the same exported-library contract; once that Phase-2 flow exists, it emits `wasm-module` + `wit` + `c-header` + `cabi-metadata` |
+| `--component` | `build` | Select the later Component Model packaging flow over the same exported-library contract; once that Phase-2 flow exists, it emits the linked library core plus the outer `wasm-component` wrapper |
 | `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
 | `--max-specializations N` | `build`, `run`, `test` | Override the specialization fan-out cap upper bound for a single invocation; this is an upper bound, not a promise that the current build mode will spend the full budget, and `--fast` may still skip most user-authored generic specialization entirely |
 | `--fix` | `lint` | Apply only structured, tool-generated safe fixes for lint diagnostics in the selected file/project set |
