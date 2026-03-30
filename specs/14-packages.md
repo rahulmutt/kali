@@ -19,8 +19,8 @@ Phase-1 source-kind clarification:
 - registry-package compatibility and raw-URL compatibility should therefore be read as two dependency-source lanes under one shared install/lock discipline, not as “packages are supported but raw URLs are merely ad hoc”
 
 Phase simplification:
-- **Phase 1 MVP**: packages that fit that contract, do not depend on unsupported Node core modules, fit the shared **linked-artifact model**, and whose runtime assumptions match either the Deno-oriented standalone surface or the shared **Phase-1 browser-targeted command set**.
-- **Phase 3 target**: broader compatibility for packages that expect the `node` API surface and additional Node built-ins.
+- **Phase 1 MVP**: packages that fit that contract, fit the shared **linked-artifact model**, and whose host/API assumptions fit either the Deno-oriented standalone surface or the shared **Phase-1 browser-targeted command set**.
+- **Phase 3 target**: broader compatibility for packages that still expect the `node` API surface and additional Node built-ins.
 
 This keeps the early ecosystem promise realistic: utility libraries, validators, parsers, and many framework packages are in scope early, while Node-host-heavy packages and the excluded **native/binary/bootstrap-heavy package contract** follow later compatibility work.
 
@@ -37,15 +37,15 @@ Bootstrap-alignment rule:
 
 ## Canonical Phase-1 Package-Compatibility Interpretation
 
-Early registry-package compatibility needs one explicit simplification so package support and host-mode support do not get conflated:
+Early registry-package compatibility follows the shared **package-support decision order** from [SPEC.md](../SPEC.md), so package shape, host/API fit, and command maturity do not get conflated:
 - **Phase 1 package compatibility is broader than "only Deno-authored packages"**.
 - **Phase 1 package compatibility is narrower than "Node mode works"**.
-- **Phase 1 package compatibility is also not synonymous with "Deno standalone only"**: supported browser-targeted analysis/build contexts are already part of the early package story for packages whose host assumptions fit that context.
+- **Phase 1 package compatibility is also not synonymous with "Deno standalone only"**: supported browser-targeted analysis/build contexts are already part of the early package story for packages whose host/API assumptions fit that context.
 
 Concretely, a package can be supported in Phase 1 when:
 - its code can be resolved statically into the shared **linked-artifact model**,
 - its module format can be handled by Kali's ESM/CJS pipeline,
-- and its runtime needs are satisfied by either the documented Web baseline plus Deno-oriented standalone surface, or the shared **Phase-1 browser-targeted command set** (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including supported `--sandbox` variants and equivalent inherited-config forms).
+- and its host/API assumptions are satisfied by either the documented Web baseline plus Deno-oriented standalone surface, or the shared **Phase-1 browser-targeted command set** (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including supported `--sandbox` variants and equivalent inherited-config forms).
 
 A package is **not** automatically in scope just because it lives in npm or JSR. If it depends on broader Node globals/core modules or falls into the **native/binary/bootstrap-heavy package contract**, it stays phase-gated or rejected with the rest of that compatibility work.
 
@@ -53,8 +53,8 @@ Compact bootstrap-normalization table:
 
 | Package shape | Early handling | Why |
 |---|---|---|
-| Pure JS/TS package whose runtime needs fit the Phase 1 Web baseline + Deno-oriented standalone surface | **Phase 1 MVP in scope** | This is the core standalone half of the **pure JS/TS package contract** target |
-| Pure JS/TS package whose runtime needs fit the shared **Phase-1 browser-targeted command set** | **Phase 1 MVP in scope for those browser-targeted commands** | Package shape is acceptable and the selected Phase-1 browser-targeted command context can analyze/build it without implying standalone browser execution |
+| Pure JS/TS package whose host/API assumptions fit the Phase 1 Web baseline + Deno-oriented standalone surface | **Phase 1 MVP in scope** | This is the core standalone half of the **pure JS/TS package contract** target |
+| Pure JS/TS package whose host/API assumptions fit the shared **Phase-1 browser-targeted command set** | **Phase 1 MVP in scope for those browser-targeted commands** | Package shape is acceptable and the selected Phase-1 browser-targeted command context can analyze/build it without implying standalone browser execution |
 | Pure JS/TS package that still expects broader Node globals/core modules | **Phase 3 target** | Package shape is acceptable, but host/API requirements exceed the Phase 1 surface |
 | Package that needs native addons, N-API bindings, prebuilt binaries, or postinstall-downloaded executables in the published package Kali installs | **Rejected by default** | Falls into the **native/binary/bootstrap-heavy package contract** under the shared **published-artifact-first package reading** |
 | Package whose repository used heavy prepublish tooling, but whose published package already contains ordinary JS/TS artifacts that fit Kali's selected resolution path | **Triaged by the normal pure JS/TS rows above** | Upstream build tooling alone is not a support veto if the installed package artifact is already ordinary JS/TS |
@@ -63,11 +63,8 @@ Compact bootstrap-normalization table:
 This table is intentionally about **package-shape triage**. The active `apiSurface`, runtime profile, and feature-maturity gates still determine whether a given project command can actually analyze, build, or run that package in the selected context.
 
 Support-decision order simplification:
-1. **Package shape** — first ask whether the package stays inside the **pure JS/TS package contract** or falls into the excluded **native/binary/bootstrap-heavy package contract**.
-2. **Host/API needs** — if the package shape is acceptable, then ask whether its runtime assumptions fit the currently selected API surface (`deno`, browser-targeted context, or later `node`).
-3. **Command/maturity gate** — only then ask whether the selected command/profile is actually available in the current phase.
-4. **Published artifact first** — evaluate those first three steps against the published package artifact/version Kali actually installs, not against the package repository's development toolchain.
-5. **Install-time hooks** — `--allow-scripts` can affect installation of npm packages, but it does not skip steps 1-4 and never upgrades an unsupported package into a supported project-command/runtime contract.
+- use the shared **package-support decision order** from [SPEC.md](../SPEC.md): package shape, then host/API fit, then command/profile maturity, all under the shared **published-artifact-first package reading**.
+- `--allow-scripts` can affect installation of npm packages, but it does not skip that decision order and never upgrades an unsupported package into a supported project-command/runtime contract.
 
 This keeps three often-confused questions separate: “can Kali materialize this package?”, “can Kali understand its source shape?”, and “can the selected command/context actually support the host APIs it expects?”.
 

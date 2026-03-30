@@ -12,7 +12,7 @@ Bootstrap-normalized headline assumptions:
 - embedding is phased: Phase 1 ships a useful but unstable `kali build --lib` **base library artifact**; the stable public Rust/WIT/C ABI and Component Model surface is Phase 2
 - effects are phased too: Phase 1 may use internal effect bookkeeping for sandboxing, but stable `kali effects` / `kali package-effects` are Phase 2 and `kali package-audit` is later compatibility
 - verification is **proof-ready** before it is **proof-backed**: an empty published proof boundary is acceptable early, but releases must not market formal verification as shipped until that boundary names real modeled subsystems and theorem claims
-- package installation stays context-agnostic in Phase 1, while package compatibility stays context-sensitive and limited to the shared **pure JS/TS package contract** under the **published-artifact-first package reading**
+- package installation stays context-agnostic in Phase 1, while package support claims use the shared **package-support decision order**: package shape first, then host/API fit for the active context, then command maturity, all under the **published-artifact-first package reading**
 
 Quick Phase-1 non-goals:
 - no general `--api node` command support yet across `check` / `effects` / `build` / `run` / `test`
@@ -35,8 +35,9 @@ See the normative cross-spec version in [SPEC.md#recommended-phase-1-implementat
 Quick support-reading checklist:
 1. **What command shape is being asked for?** `build --bundle --api browser` and `run --api browser` are different requests.
 2. **What rung of support is meant?** Use the shared **compatibility delivery ladder** in [SPEC.md](./SPEC.md): parser-accepted, checkable, buildable, executable, deployable-through-host, or policy/effect-modeled.
-3. **What effective context is selected?** Read `apiSurface`, `runtimeProfiles`, `compat.features`, and any attached sandbox policy together.
-4. **Which chapter owns the answer?** Command shape lives in `12-cli`, availability in `19-feature-maturity`, JSON shape in `18-schemas`, diagnostics in `15-errors`.
+3. **If this is about packages, which layer is being asked about?** Use the shared **package-support decision order** in [SPEC.md](./SPEC.md): package shape, then host/API fit, then command maturity.
+4. **What effective context is selected?** Read `apiSurface`, `runtimeProfiles`, `compat.features`, and any attached sandbox policy together.
+5. **Which chapter owns the answer?** Command shape lives in `12-cli`, availability in `19-feature-maturity`, JSON shape in `18-schemas`, diagnostics in `15-errors`.
 
 Use that order before treating any broad bootstrap aspiration as shipped support.
 

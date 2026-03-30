@@ -213,6 +213,7 @@ To keep the spec set implementable and reduce drift between chapters, Kali inten
 - **one linked-artifact model**, with one linked core payload per build/analysis root and any companion artifacts such as JS glue, WIT, headers, or component wrappers layered on top rather than becoming separate runtime-linked guest graphs;
 - **one browser-targeted context model** reused across supported browser analysis/build commands, with later browser-context `package-effects` inheriting that context from config/defaults instead of growing a package-analysis-specific `--api` flag family;
 - **one install/lock state** shared across the default Deno-oriented standalone path and supported browser-targeted analysis/build paths in schema v1;
+- **one package-support decision order**: decide package shape first, then host/API fit for the active context, then command/profile maturity, all under the same published-artifact reading;
 - **one compatibility-feature name** (`eval`) for both direct `eval` and `Function()`;
 - **one sandbox/effect vocabulary** for the Kali-mediated capability subset, rather than per-DOM/per-host-API policy keys.
 - **one published-standard boundary**: latest **published** ECMA-262 grammar in Phase 1, current-edition non-Annex-B semantics for the features Kali marks as supported, and explicit gating for Annex B corners or draft/proposal features instead of letting “latest ECMA-262” mean “everything now”.
@@ -259,7 +260,7 @@ Use this checklist:
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
 - explicit raw-URL install wording should reuse the **raw-URL install staging/pin workflow** term instead of re-explaining “lock/cache yes, durable declaration no” in each package/install section
 - package-loading and whole-graph-linking wording should reuse the **linked-artifact model** term instead of restating slightly different “single linked payload”, “already-linked graph”, or “no runtime-linked WASM modules” prose
-- package-compatibility wording should reuse the **published-artifact-first package reading**, **pure JS/TS package contract**, and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different repo-build-pipeline caveats or native-addon / downloaded-binary exclusion lists
+- package-compatibility wording should reuse the **package-support decision order**, **published-artifact-first package reading**, **pure JS/TS package contract**, and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different repo-build-pipeline caveats or native-addon / downloaded-binary exclusion lists
 - source-file-kind wording should reuse **canonical source-file classes**, **executable/analyzable source-file class**, and **canonical project file set** instead of repeating long extension lists in every command chapter
 - early stronger-than-`tsc` inference wording should reuse the **bounded inference contract** and the **annotation-required inference boundary** instead of creating near-duplicate “HM-like but still fast” descriptions in architecture, checker, and maturity chapters
 - checker-config wording for `compilerOptions.strict` should reuse the **strictness bundle** term instead of restating slightly different “strict mode but not many booleans” prose in each chapter
@@ -521,6 +522,20 @@ Rules:
 - opting into npm lifecycle hooks through the **install-time npm-package hook path** does **not** promote these packages into the supported set.
 - the mere presence of optional or unused lifecycle-script metadata does not by itself move a package into this contract; what matters is whether Kali must rely on that script/binary/bootstrap path for the selected published artifact to work.
 - docs should reuse this term instead of repeating slightly different lists such as “native/N-API/prebuilt modules”, “binary/bootstrap-heavy packages”, or “native addon / downloaded executable packages” when the same exclusion boundary is meant.
+
+### Package-support decision order
+The shared reading order for broad package-support claims such as “Kali supports this package”.
+
+Canonical order:
+1. **package shape** — does the published package stay inside the **pure JS/TS package contract**, or does it fall into the **native/binary/bootstrap-heavy package contract**?
+2. **host/API fit** — if the package shape is acceptable, do its host/API assumptions fit the active context (`deno`, the browser-targeted context, or later `node`)?
+3. **command/profile maturity** — even if the package and host fit, is the selected command/profile actually available in the current phase?
+4. **published artifact first** — evaluate all three steps against the published package/version Kali actually installs, not the repository's development pipeline.
+
+Rules:
+- package-shape compatibility alone does **not** imply the package is runnable in every command or API surface.
+- browser-targeted package support in Phase 1 still means support inside the shared browser-targeted analysis/build context, not standalone browser execution in Kali itself.
+- docs should reuse this term instead of collapsing package-shape support, host/API support, and command availability into one ambiguous “package support” claim.
 
 ### Kali-mediated capability subset
 The stable schema-v1 capability vocabulary shared across effects and sandbox policy:
