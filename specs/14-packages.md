@@ -111,9 +111,9 @@ Canonical early-phase code-resolution ladder:
    - use the canonical condition order table below
    - unsupported or unmatched conditional branches are skipped; Kali should not guess a fallback branch that the package did not publish
 6. If `exports` does not resolve the entry, fall back to legacy entry fields using the same API-surface intent **and still respecting edge kind**:
-   - browser-targeted context (Phase 1: `kali check --api browser` and `kali build --bundle --api browser`; later supported browser-targeted analysis commands such as `kali effects --api browser` and browser-context `kali package-effects` reuse this same rule): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
-   - Deno-oriented standalone profile (`--api deno`, Phase 1 default): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
-   - later Node profile may add `node`-specific behavior before the generic fallback ladder when explicitly documented
+   - Phase-1 simplification: the supported `browser` and `deno` contexts share the same legacy fallback order, so keep one rule instead of near-duplicate per-surface ladders
+   - supported browser-targeted context (Phase 1: `kali check --api browser` and `kali build --bundle --api browser`; later supported browser-targeted analysis commands such as `kali effects --api browser` and browser-context `kali package-effects`) and the Deno-oriented standalone API surface (`--api deno`, Phase 1 default): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
+   - later Node API surface may add `node`-specific behavior before that shared fallback ladder when explicitly documented
 7. In browser-targeted contexts, after `exports` or the legacy fallback picks a package-published target, apply any `package.json#browser` replacement-map rewrite that covers that selected package-local path:
    - this rewrite layer is part of the one shared browser package-selection rule for `check --api browser`, `build --bundle --api browser`, and later browser-context analysis commands such as `effects --api browser` and inherited browser-context `package-effects`
    - if the browser map rewrites the selected path to another package-local file, continue resolution from that rewritten target
@@ -129,11 +129,11 @@ Canonical early-phase code-resolution ladder:
 
 Canonical `exports` condition order:
 
-| API surface / profile | Condition order |
+| Analysis/runtime context | Condition order |
 |---|---|
-| Deno-oriented standalone (`--api deno`, Phase 1 default) | `deno`, then edge kind (`import` or `require`), then `default` |
+| Deno-oriented standalone API surface (`--api deno`, Phase 1 default) | `deno`, then edge kind (`import` or `require`), then `default` |
 | browser-targeted context *(Phase 1: `check --api browser`, `build --bundle --api browser`; later supported browser-targeted analysis commands reuse the same order)* | `browser`, then edge kind, then `default` |
-| later Node profile | `node`, then edge kind, then `default` |
+| later Node API surface | `node`, then edge kind, then `default` |
 
 Phase-1 simplification:
 - only the canonical conditions above plus `default` are part of the early stable resolution contract
@@ -290,18 +290,18 @@ Interpretation rules:
 
 ## Install-Time vs Command-Time Resolution Boundary
 
-Because package resolution can vary by API surface/profile (`deno`, browser-targeted analysis/build contexts, and later `node`), Kali needs one explicit boundary so `install`, lockfiles, and ordinary commands do not drift.
+Because package resolution can vary by analysis/runtime context (`--api deno`, browser-targeted analysis/build contexts, and later `--api node`), Kali needs one explicit boundary so `install`, lockfiles, and ordinary commands do not drift.
 
 Scope note:
 - this boundary is about **project commands** that consume project-managed dependency state (`check`, `effects`, `build`, `run`, `test`)
 - single-package registry-analysis commands such as later `package-effects` / `package-audit` stay project-independent for version selection and do not consult the current project's installed dependency state
 
 
-- `kali install` is **profile-agnostic** in Phases 1-3. It locks package versions, fetches/materializes package contents, and records reproducibility data, but it does **not** pre-resolve one permanent `exports`/`browser`/`deno` branch for every future command.
-- `check`, `effects`, `build`, `run`, and `test` perform the final **command-time package edge selection** from the already-installed package metadata using the active API surface/profile.
-- therefore one `kali.lock` and one materialized package tree can serve both the default Deno-oriented standalone path and the supported browser-targeted analysis/build paths (`check --api browser`, `build --bundle --api browser`) without requiring separate per-profile installs.
-- this is possible because early-phase profile differences choose between files that are already present inside the installed package contents; they do not require separate version solves for each supported profile.
-- if a later feature truly requires profile-specific solving or materially different dependency graphs, that complexity must be introduced explicitly in a future lockfile/versioning revision rather than being implied accidentally by Phase 1 package wording.
+- `kali install` is **context-agnostic** in Phases 1-3. It locks package versions, fetches/materializes package contents, and records reproducibility data, but it does **not** pre-resolve one permanent `exports`/`browser`/`deno` branch for every future command.
+- `check`, `effects`, `build`, `run`, and `test` perform the final **command-time package edge selection** from the already-installed package metadata using the active analysis/runtime context.
+- therefore one `kali.lock` and one materialized package tree can serve both the default Deno-oriented standalone path and the supported browser-targeted analysis/build paths (`check --api browser`, `build --bundle --api browser`) without requiring separate per-context installs.
+- this is possible because early-phase context differences choose between files that are already present inside the installed package contents; they do not require separate version solves for each supported context.
+- if a later feature truly requires context-specific solving or materially different dependency graphs, that complexity must be introduced explicitly in a future lockfile/versioning revision rather than being implied accidentally by Phase 1 package wording.
 
 Practical consequence:
 - `kali install` does not take `--api` in early phases, and `compilerOptions.apiSurface` does not cause `install` to write a different lockfile for the same manifest/import graph.
@@ -464,6 +464,7 @@ Canonical output simplification:
 - the native payload adds only package-specific metadata (see [specs/18-schemas.md](18-schemas.md)) instead of inventing a second unrelated effect schema
 - the nested `report.entryPoints` field should identify the package-analysis logical root with the same canonical registry identifier spelling the user targeted (`lodash`, `jsr:@std/path`) rather than an opaque tarball URL, extracted cache path, or internal package ID
 - the nested shared effect report includes `analysisContext` so the chosen `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md)) travel with the report instead of living only in ambient CLI/config state
+- that nested `analysisContext` uses the schema field names `apiSurface`, `runtimeProfiles`, and `compatFeatures`, so downstream tools do not have to translate from ambient config terminology
 - in early phases, that package-analysis context is inherited from the effective `kali.json` / built-in defaults rather than from a second package-analysis-only analysis-context flag family (`--api`, runtime-profile flags, or `--compat`)
 - in configless project mode, that inherited context is therefore just the schema-v1 defaults (`apiSurface = deno`, `runtimeProfiles = []`, `compat.features = []`); choosing a non-default package-analysis context requires real config, not package-analysis-specific CLI escape hatches
 - because of that design, `kali package-effects` does **not** take package-analysis-specific analysis-context flags (`--api`, runtime-profile flags such as `--wasm-threads`, or `--compat`) or `--sandbox` in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds those flags
