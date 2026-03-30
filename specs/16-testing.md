@@ -185,5 +185,5 @@ In addition to compiler tests, run compiled WASM programs and verify:
 - Resource limits are enforced (sandbox tests)
 - Async operations complete correctly
 - API compatibility with the documented Phase 1 Web + Deno baseline
-- browser-targeted bundle smoke tests execute through the real browser host + generated glue path rather than only through mocked DOM/unit harnesses
+- browser-targeted bundle smoke tests execute through the real browser host via the browser host adapter rather than only through mocked DOM/unit harnesses
 - phase-gated features produce the canonical `E5006` diagnostic instead of silent fallback
