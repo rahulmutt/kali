@@ -143,12 +143,18 @@ JavaScript's semantics assume GC. Key cases:
 | Global objects | Static lifetime, no counting |
 
 ### `eval` and Dynamic Features
-When `eval` or `Function()` is used:
-- All local variables in scope are conservatively heap-allocated
-- Ownership defaults to shared-heap representation with deterministic reference counting
-- This is flagged as a performance warning by the compiler
-- The sandbox system can prohibit `eval` entirely
-- Full runtime `eval` semantics are only required in Phase 4 (see [specs/10-runtime.md](10-runtime.md))
+`eval` and `Function()` are part of the later `--compat eval` path, not an early-phase execution feature.
+
+Interpretation rule:
+- **Phases 1-3**: Kali may parse and effect-track these forms, but normal execution still rejects them through the canonical availability path.
+- **Phase 4 compatibility path**: once `--compat eval` exists and is enabled, the surrounding region becomes a conservative deoptimization/ownership barrier.
+
+For that later compatibility path:
+- all directly reachable locals in scope are conservatively heap-allocated/boxed
+- ownership defaults to shared-heap representation with deterministic reference counting
+- this is flagged as a performance warning by the compiler
+- the sandbox system can still prohibit `eval` entirely
+- full runtime `eval` semantics are only required in Phase 4 (see [specs/10-runtime.md](10-runtime.md))
 
 ## Memory Safety
 
