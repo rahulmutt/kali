@@ -95,12 +95,12 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | Packages whose normal install/runtime path depends on native addons, compiled native code, postinstall-downloaded executables, or other platform-specific binary/bootstrap artifacts | Rejected by default | Violates the pure-Rust/no-native-addon goal, weakens deterministic install expectations, and should not be implied by `--allow-scripts` |
 | Native addons / `node-gyp` packages | Rejected by default | Violates the pure-Rust/no-native-addon constraints |
 | npm packages that require unsupported Node core modules | Phase 3 target | Depends on broader `--api node` compatibility work |
-| Base export-oriented library artifact (`kali build --lib`) | Phase 1 MVP | Phase 1 ships the core library/export artifact early so projects can build non-executable modules without waiting for the later public embedding ABI to freeze |
-| Stable public Rust embedding API | Phase 2 target | Phase 1 stays library-first internally, but the public embedding contract is stabilized later |
-| Stable public library/WIT contract for `kali build --lib` | Phase 2 target | The same `--lib` selector is promoted from the Phase-1 base artifact into the stable public library contract and emits WIT by default once that interface surface is frozen |
-| Stable public C ABI / `kali build --capi` flow | Phase 2 target | Depends on the same public embedding stabilization work |
-| WIT emission for public library/embedding interfaces | Phase 2 target | Gives Rust/C/component consumers one canonical exported interface description instead of parallel ad hoc metadata |
-| WebAssembly Component Model packaging (`kali build --component`) | Phase 2 target | Layered on top of the linked core WASM payload for host interop; executable builds still center on the core module path |
+| Phase-1 **base library artifact** (`kali build --lib`) | Phase 1 MVP | This is the Phase-1 side of the shared **embedding-stability split**: projects can build non-executable exported modules early without waiting for the later public embedding contract to freeze |
+| Stable public Rust embedding API | Phase 2 target | Part of the Phase-2 **public embedding outputs** side of that same split |
+| Stable public library/WIT contract for `kali build --lib` | Phase 2 target | The same `--lib` selector is promoted from the Phase-1 **base library artifact** into the stable public library contract and emits WIT by default once that interface surface is frozen |
+| Stable public C ABI / `kali build --capi` flow | Phase 2 target | Part of the same Phase-2 **public embedding outputs** stabilization work |
+| WIT emission for public library/embedding interfaces | Phase 2 target | Gives the Phase-2 **public embedding outputs** one canonical exported interface description instead of parallel ad hoc metadata |
+| WebAssembly Component Model packaging (`kali build --component`) | Phase 2 target | Part of the same Phase-2 **public embedding outputs** set, layered on top of the linked core WASM payload for host interop; executable builds still center on the core module path |
 | Host ABI versioning for `kali_capi` | Phase 2 target | Stable embedding requires explicit load-time compatibility checks |
 | DOM APIs in standalone runtime | Rejected by default | Kali does not embed a browser engine |
 
@@ -247,7 +247,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - One linked-WASM-payload compile/run pipeline works end-to-end for TS and JS inputs, with companion artifacts only where an artifact mode explicitly requires them.
 - Repeated builds with the same pinned inputs and toolchain produce stable artifact bytes and stable machine-readable output ordering by default.
 - `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
-- The Phase-1 base export-oriented library artifact (`kali build --lib`) works end-to-end as an intentionally pre-stable public-contract-light mode.
+- The Phase-1 **base library artifact** (`kali build --lib`) works end-to-end as the Phase-1 half of the shared **embedding-stability split**.
 - The checker ships the bounded HM-style inference fragment promised for Phase 1 for locals, obvious unannotated parameters, and analyzable return types, while still falling back conservatively instead of doing open-ended whole-program search.
 - Browser-targeted `check --api browser` and `build --bundle --api browser` work against the real browser ambient surface without implying DOM runtime support in Kali itself.
 - That browser-targeted claim is backed by dedicated browser-targeted tests, including emitted-bundle smoke runs in a real browser harness rather than only mock DOM/unit tests.

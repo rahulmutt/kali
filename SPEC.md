@@ -307,6 +307,15 @@ Non-browser, export-oriented build modes:
 - `--capi`
 - `--component`
 
+### Embedding-stability split
+Kali uses one shared stability split for library-oriented outputs:
+- **base library artifact** — the Phase-1 `kali build --lib` output shape: export-oriented and useful immediately, but still pre-stable as a public embedding contract
+- **public embedding outputs** — the Phase-2 stabilized public embedding surface built on that same exported-library contract: stable public `--lib` + WIT, `--capi`, and `--component`
+
+Rule:
+- docs should reference this split instead of rephrasing it as “usable but not yet stable”, “library-first internally”, or “WIT/C ABI/component packaging lands later” in slightly different ways
+- Phase 1 shipping the **base library artifact** does **not** by itself imply a stable public Rust API, stable WIT contract, stable C ABI, or component packaging
+
 ### Library-oriented instantiation rule
 For library-oriented artifact modes:
 - Kali omits any **synthetic executable entry invocation**,
@@ -343,7 +352,7 @@ To keep the normalized bootstrap scope easy to scan, Phase 1 does **not** imply:
 - standalone browser runtime or browser-hosted `run` / `test`,
 - `eval` / `Function()` support,
 - threaded runtime profiles / `SharedArrayBuffer` / `Atomics`,
-- stable public Rust embedding, stable C ABI, or default WIT sidecars for plain `--lib`.
+- the Phase-2 **public embedding outputs**: stable public Rust embedding, stable C ABI, or default WIT sidecars for plain `--lib`.
 
 These are all tracked elsewhere in the owning chapters and the maturity matrix; this snapshot exists only to make the early boundary obvious in one place.
 
@@ -419,15 +428,15 @@ Early documented build artifact modes form one small canonical matrix:
 |---|---|
 | `kali build foo.ts` | default executable-oriented artifact flow |
 | `kali build --bundle --api browser foo.ts` | browser-targeted bundle output |
-| `kali build --lib lib.ts` | Phase-1 base exported-library artifact |
-| `kali build --capi lib.ts` | Phase-2 C-embedding packaging layer over the library artifact |
-| `kali build --component lib.ts` | Phase-2 Component Model packaging layer over the library artifact |
+| `kali build --lib lib.ts` | Phase-1 **base library artifact** |
+| `kali build --capi lib.ts` | Phase-2 **public embedding output** for C embedding |
+| `kali build --component lib.ts` | Phase-2 **public embedding output** for Component Model packaging |
 
 Rules:
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive unless a later chapter explicitly says otherwise,
 - `--bundle` is browser-only and requires effective `apiSurface = browser`,
 - library-oriented artifact modes are non-browser in early phases,
-- Phase 1 plain `--lib` is the base export-oriented artifact shape, but the stable public embedding contract for that mode is still Phase 2 work,
+- Phase 1 plain `--lib` is the **base library artifact**, while the stable/public embedding contract for that same exported-library path is part of the later **public embedding outputs** phase,
 - companion artifacts such as JS glue, WIT, C headers, or component wrappers do not weaken the single linked core payload rule.
 
 ## Chapter Ownership
