@@ -1492,14 +1492,22 @@ Rules:
 - docs should reference this convention instead of repeating the two filenames ad hoc in multiple chapters
 
 ## Minimal canonical scaffold contract
-In schema v1, `kali init` should emit the smallest project scaffold that still establishes one valid project root and one obvious starting source file.
+In schema v1, `kali init` should emit the smallest project scaffold that still establishes one valid project root and one obvious starter source file.
 
 Default scaffold shape:
 - create `kali.json` containing only `{ "schemaVersion": 1 }` unless the selected built-in template explicitly needs more
 - use the **canonical scaffold filename convention** for the starter source file (`main.ts` for the default app template, `lib.ts` for the library template)
 - do **not** create `kali.lock`, `node_modules/`, `.kali/cache/`, or placeholder dependency/sandbox/compat sections
 
+Schema-v1 built-in scaffold outputs:
+
+| Command | Files created by default | Files/directories intentionally not created by default |
+|---|---|---|
+| `kali init` | `kali.json`, `main.ts` | no `src/`, no `test/`, no `kali.lock`, no dependency state |
+| `kali init --lib` | `kali.json`, `lib.ts` | no `src/`, no `test/`, no `kali.lock`, no dependency state |
+
 Rules:
+- the scaffold contract is about file presence/minimality first; the exact starter-file contents may evolve, but they should stay minimal and valid for the selected built-in template rather than growing extra boilerplate by default
 - `kali init` is current-directory-scoped: it scaffolds the current working directory rather than retargeting itself to an ancestor-discovered project root
 - if the current working directory already contains `kali.json`, `kali init` fails instead of overwriting the existing project root
 - if only an ancestor contains `kali.json`, `kali init` may still create a nested child project rooted at the current working directory

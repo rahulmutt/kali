@@ -98,9 +98,16 @@ Because Phase 1 already promises the export-oriented base `kali build --lib` mod
 - assert deterministic artifact metadata/output ordering across repeated `--lib` builds of the same pinned input
 - keep this lane separate from the Phase 2 stable embedding/C ABI/Component Model evidence so Phase 1 does not accidentally overclaim public ABI stability
 
+#### Init-Scaffold Evidence Track
+Because schema v1 now treats the built-in `kali init` templates as exact minimal scaffolds rather than vague starter layouts, that contract needs direct tests too:
+- assert that `kali init` creates exactly `kali.json` + `main.ts` by default, and `kali init --lib` creates exactly `kali.json` + `lib.ts`
+- assert that neither scaffold writes `kali.lock`, `node_modules/`, `.kali/cache/`, `src/`, or `test/` by default
+- include negative tests for `kali init` in a directory that already contains `kali.json` so the command fails with `E5008` instead of partially overwriting an existing project root
+- keep this lane separate from later richer template work so Phase 1 does not accidentally drift from the shared **minimal canonical scaffold contract**
+
 #### Kali-Specific Tests
 - **Effect inference tests**: Source → expected effects JSON for the full statically reachable graph from the chosen analysis/logical root *(Phase 2 target; under the shared **effect-surface split**, Phase 1 may instead test internal effect-bookkeeping units without claiming the stable CLI/JSON surface)*
-- **JSON-mode coverage for effect commands**: once `kali effects` / `kali package-effects` exist, assert both the native bare-payload mode and the `--output json` envelope mode so the CLI/output-model split from [SPEC.md](../SPEC.md) and [specs/18-schemas.md](18-schemas.md) cannot drift
+- **JSON-mode coverage for registry/effect reporting commands**: once `kali effects` / `kali package-effects` exist, assert both the native bare-payload mode and the `--output json` envelope mode; once `kali package-audit` exists, assert its envelope-only `--output json` behavior and the invalid `--pretty`-without-`--output json` path so the CLI/output-model split from [SPEC.md](../SPEC.md) and [specs/18-schemas.md](18-schemas.md) cannot drift
 - **Sandbox tests**: Source + policy → expected pass/fail, including explicit checks for Phase 1 runtime enforcement vs Phase 2 compile/check-time effect-vs-policy rejection, and for policy checks over transitive imports/dependencies rather than just the root file
 - **Memory tests**: Source → expected allocation strategy (stack/owned-heap/shared-heap)
 - **Specialization tests**: Generic source → expected number of specializations

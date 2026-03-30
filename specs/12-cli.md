@@ -456,7 +456,7 @@ Inherited execution-context shorthand:
 ### `kali init`
 Initialize a new project scaffold.
 ```bash
-kali init                                  # Create the minimal project scaffold in the current dir (kali.json + smallest entry file)
+kali init                                  # Create the minimal project scaffold in the current dir (kali.json + smallest starter source file)
 kali init --lib                            # Library project template
 ```
 
@@ -465,9 +465,17 @@ Scaffold simplification rules:
 - if the current working directory already contains `kali.json`, `kali init` fails with `E5008` instead of overwriting the existing project config.
 - if an ancestor directory contains `kali.json` but the current working directory does not, `kali init` may still create a nested child project rooted at the current working directory; later project discovery then treats that child as a separate project boundary.
 - follow the shared **minimal canonical scaffold contract** from [SPEC.md](../SPEC.md): emit only the smallest valid schema-v1 scaffold for the selected template rather than extra example files, lockfiles, dependency state, or placeholder optional sections.
-- `kali init --lib` may add library-oriented source/layout hints, but it should still reuse the same canonical config naming (`apiSurface`, `buildMode`, `runtimeProfiles`) instead of inventing template-specific aliases.
 - reuse the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): `kali init --lib` selects a project template only and does not imply later `kali build --lib`
 - follow the **canonical scaffold filename convention** from [SPEC.md](../SPEC.md): `main.ts` for the default app template and `lib.ts` for the library template, unless a later template spec explicitly opts into a different filename.
+- schema-v1 built-in scaffolds are intentionally tiny:
+
+| Command | Files created by default | Files/directories intentionally not created by default |
+|---|---|---|
+| `kali init` | `kali.json`, `main.ts` | no `src/`, no `test/`, no `kali.lock`, no dependency state |
+| `kali init --lib` | `kali.json`, `lib.ts` | no `src/`, no `test/`, no `kali.lock`, no dependency state |
+
+- this scaffold contract is about exact minimal file presence first; starter-file contents may evolve, but they should stay minimal and valid for the selected template instead of growing extra boilerplate by default.
+- both templates should keep the same canonical config vocabulary (`apiSurface`, `buildMode`, `runtimeProfiles`) instead of inventing template-specific aliases.
 
 ### `kali install [target]`
 Install or materialize project dependencies.
@@ -623,6 +631,14 @@ Adds: timing per phase, IR dumps, optimization decisions, memory layout choices.
 
 ### JSON Output (`--output json`)
 Machine-parseable output for commands that normally print human-oriented text. The canonical command-envelope schema lives in [specs/18-schemas.md](18-schemas.md).
+
+Schema-v1 JSON-mode quick matrix:
+
+| Command family | Default success mode | `--output json` behavior | Plain `--pretty` without `--output json` |
+|---|---|---|---|
+| `effects`, `package-effects` | native JSON payload | wrap that payload in the standard command envelope | valid once the command exists, because success output is already JSON |
+| `package-audit` | non-JSON text/human mode | emit the standard command envelope only (**envelope-only JSON**) | invalid usage (`E5008`) |
+| all other commands with JSON support | non-JSON text/human mode | emit the standard command envelope | invalid usage (`E5008`) |
 
 Quiet-mode interaction rule:
 - `--quiet` suppresses extra success/status text, not the command's primary payload
