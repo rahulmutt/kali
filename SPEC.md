@@ -230,8 +230,13 @@ Interpretation rule:
 - prose may refer to the semantic axis as **compatibility features** or `compat.features`
 - when a chapter is describing the exact emitted JSON field name, it should say `compatFeatures`
 
-### Direct-entry command
-A command that requires explicit entrypoint arguments and must not guess a project default entry.
+### Direct-input command
+A command that requires exactly one explicit primary source input and must not guess a project default file.
+
+Interpretation rule:
+- for `run`, that source input is an executable entrypoint
+- for `build`, that source input is one explicit primary module input whose artifact role depends on the selected artifact mode
+- for `effects`, that source input is one explicit analysis root
 
 Current CLI-vocabulary members of this family:
 - `run`
@@ -245,7 +250,7 @@ Current CLI-vocabulary members of this family:
 - `check`
 
 ### Project-oriented command
-A command whose primary no-argument behavior is defined in terms of canonical project discovery over source files rather than a required explicit entrypoint.
+A command whose primary no-argument behavior is defined in terms of canonical project discovery over source files rather than a required explicit source input.
 
 Current CLI-vocabulary members of this family:
 - `fmt`
@@ -253,7 +258,7 @@ Current CLI-vocabulary members of this family:
 - `test`
 
 ### Dependency-graph command
-A command whose no-argument behavior is defined in terms of the discovered project dependency graph rather than a required explicit source entrypoint.
+A command whose no-argument behavior is defined in terms of the discovered project dependency graph rather than a required explicit source input.
 
 Current CLI-vocabulary members of this family:
 - `install`
@@ -372,14 +377,14 @@ Canonical rules:
 - `.ts` / `.tsx` / `.mts` / `.cts` and `.js` / `.jsx` / `.mjs` / `.cjs` all enter the same frontend pipeline
 - JavaScript support is **not** a transpile-only or editor-hint-only side mode; it participates in real inference, effect analysis, lowering, and optimization
 - when JavaScript code lacks enough information for a precise static conclusion, Kali falls back conservatively (`unknown`, unions, dynamic representations) instead of inventing fresh `any`
-- declaration-only files remain analysis/type-loading inputs rather than executable entrypoints
+- declaration-only files remain analysis/type-loading inputs rather than executable runtime entrypoints or build/effect primary inputs
 
 This section exists to keep the bootstrap requirement of efficient JavaScript compilation visible at the top level instead of letting it disappear into type-checker details.
 
 ## Canonical Source-File Sets
 
 ### Executable/analyzable source set
-These files can be used as runtime/build/effect entrypoints:
+These files can be used as runtime entrypoints and as build/effect primary source inputs:
 - `.ts`
 - `.tsx`
 - `.mts`
@@ -390,7 +395,7 @@ These files can be used as runtime/build/effect entrypoints:
 - `.cjs`
 
 ### Declaration-only source set
-These files are valid analysis/type-loading inputs, but not runtime/build/effect/test entrypoints:
+These files are valid analysis/type-loading inputs, but not runtime entrypoints, build/effect primary inputs, or test entrypoints:
 - `.d.ts`
 - `.d.mts`
 - `.d.cts`
@@ -402,6 +407,7 @@ The union of:
 
 Command intent narrows from this set:
 - runtime-bearing entrypoints use only the executable/analyzable source set
+- build/effect direct inputs use only the executable/analyzable source set
 - `check`, `fmt`, and `lint` may operate on the full canonical project file set
 - discovered test entrypoints use only the executable/analyzable source set
 
@@ -458,16 +464,21 @@ From the canonical project-discovery result:
 
 ## Canonical Command/Input Shape Rules
 
-### Direct-entry commands
+### Direct-input commands
 In early phases:
-- `run`, `build`, and `effects` each take **exactly one** explicit primary entrypoint
-- zero entrypoints is invalid usage (`E5008`)
-- more than one explicit entrypoint is invalid usage (`E5008`)
+- `run`, `build`, and `effects` each take **exactly one** explicit primary source input
+- zero explicit source inputs is invalid usage (`E5008`)
+- more than one explicit source input is invalid usage (`E5008`)
+
+Interpretation rule:
+- for `run`, that source input is the executable entrypoint
+- for `build`, it is the primary module input for the selected artifact mode
+- for `effects`, it is the primary analysis root
 
 ### Input-kind rule
 - declaration-only files are valid direct inputs for `check`, `fmt`, and `lint`
-- declaration-only files are never valid entrypoints for `run`, `build`, `effects`, or `test`
-- passing a declaration-only file where an executable entrypoint is required is the canonical invalid-entrypoint diagnostic (`E5007`)
+- declaration-only files are never valid direct inputs for `run`, `build`, `effects`, or `test`
+- passing a declaration-only file where an executable entrypoint or build/effect primary input is required is the canonical invalid-entrypoint diagnostic (`E5007`)
 
 ### Package-argument rule
 In early phases:
@@ -498,7 +509,7 @@ These commands report effect information, but do not become alternate policy-val
 Interpretation rules:
 - they do **not** accept `--sandbox` in early phases; passing it is invalid command usage (`E5008`)
 - top-level `kali.json#sandbox` is ignored for them rather than being treated as an error
-- `effects` reports over one explicit source entrypoint; `package-effects` reports over one explicit registry package
+- `effects` reports over one explicit source input/analysis root; `package-effects` reports over one explicit registry package
 - `package-effects` still inherits the effective analysis context
 
 ### Sandbox-agnostic commands

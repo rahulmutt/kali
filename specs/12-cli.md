@@ -22,17 +22,20 @@ Command-family terminology used in this chapter:
 - **diagnostic-producing commands**: `check`, `build`, `run`, `test`, `fmt --check`, and `lint`
 
 Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
-- `run`, `build`, and `effects` are **direct-entry commands** in early phases: they require explicit executable/analyzable entrypoint arguments and do not guess `main.ts` or invent a project-default entrypoint
+- `run`, `build`, and `effects` are **direct-input commands** in early phases: they require exactly one explicit primary source input and do not guess `main.ts` or invent a project-default file
+- for `run`, that source input is an executable/analyzable entrypoint
+- for `build`, that source input is one explicit primary module input whose artifact role depends on the selected artifact mode
+- for `effects`, that source input is one explicit analysis root
 - `check` is a **hybrid analysis command**: it accepts explicit file arguments, or falls back to the canonical project-discovery result when no files are provided
 - `fmt`, `lint`, and `test` are **project-oriented commands** when invoked without explicit file arguments
 - `install` is the canonical **dependency-graph command**: with no explicit package argument it reconciles the discovered project dependency graph, including raw URL imports found through project discovery
 - `package-effects` and `package-audit`, when available, are the canonical **registry-analysis commands**: each takes one explicit registry package identifier and does not invent a no-argument whole-project analysis mode in early phases
-- `init` is not a source-entrypoint command
+- `init` is not a direct-input source command
 
-Canonical early-phase entrypoint-arity rule:
-- `run`, `build`, and `effects` each take **exactly one** explicit primary entrypoint in early phases
-- zero entrypoints for those commands is the canonical invalid-usage diagnostic `E5008`
-- more than one explicit entrypoint for those commands is also `E5008` unless a later spec introduces a documented multi-entry mode
+Canonical early-phase direct-input arity rule:
+- `run`, `build`, and `effects` each take **exactly one** explicit primary source input in early phases
+- zero explicit source inputs for those commands is the canonical invalid-usage diagnostic `E5008`
+- more than one explicit source input for those commands is also `E5008` unless a later spec introduces a documented multi-input mode
 - `check`, `fmt`, `lint`, and `test` may still accept multiple explicit file arguments because their contracts are set-oriented rather than single-program oriented
 
 Canonical package-argument arity rule:
@@ -44,10 +47,10 @@ Canonical package-argument arity rule:
 - flags that conceptually modify an explicit package target (for example `kali install --dev`) require that target in early phases; using them without one is also `E5008`
 
 Canonical input-kind rule:
-- `run`, `build`, `effects`, and discovered `test` entrypoints accept only the shared executable/analyzable source-file set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
+- `run`, `build`, `effects`, and discovered `test` entrypoints/primary inputs accept only the shared executable/analyzable source-file set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
 - `check`, `fmt`, and `lint` accept that same executable/analyzable set **plus** declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`)
 - declaration-only files may therefore be checked/formatted/linted directly and may also participate in ambient type loading and package type resolution
-- declaration-only files are never valid runtime-bearing entrypoints; passing one where an executable entrypoint is required should fail explicitly with the canonical invalid-entrypoint diagnostic described in [specs/15-errors.md](15-errors.md) rather than being treated as an empty program or silently ignored
+- declaration-only files are never valid runtime-bearing entrypoints or build/effect primary inputs; passing one where an executable entrypoint or build/effect primary input is required should fail explicitly with the canonical invalid-entrypoint diagnostic described in [specs/15-errors.md](15-errors.md) rather than being treated as an empty program or silently ignored
 - when a command runs without explicit file arguments, it should discover files using the canonical project-discovery rules from [SPEC.md](../SPEC.md) rather than inventing a command-local root walk
 
 Naming rule:
@@ -193,7 +196,7 @@ kali run --api browser main.ts             # Rejected in early standalone phases
 kali run --wasm-threads main.ts            # Enable WASM threads (SharedArrayBuffer, Atomics; opt-in only)
 ```
 
-`kali run` is a direct-entry command in early phases: it requires exactly one explicit executable/analyzable source entrypoint and does not guess a project default such as `main.ts`.
+`kali run` is a direct-input command in early phases: it requires exactly one explicit executable/analyzable source entrypoint and does not guess a project default such as `main.ts`.
 
 Initial implementations use wasmtime; alternative runtime backends are a later-phase feature. Feature flags and subcommands that depend on later phases should be hidden or clearly diagnosed when unavailable rather than exposed as silently nonfunctional options.
 
@@ -223,7 +226,8 @@ Sandbox flag behavior is intentionally phase-gated:
 AOT compile to a WASM module or linked artifact set.
 
 Canonical artifact-mode rule:
-- `kali build` is a direct-entry command in early phases: it requires exactly one explicit executable/analyzable source entrypoint and does not guess a project default such as `main.ts`
+- `kali build` is a direct-input command in early phases: it requires exactly one explicit executable/analyzable primary source input and does not guess a project default such as `main.ts`
+- in executable artifact mode that source input behaves as the program entrypoint; in library-oriented artifact modes it is the primary module input whose exports define the host-facing surface
 - artifact selection follows the canonical matrix in [SPEC.md](../SPEC.md)
 - omitting `--bundle`, `--lib`, `--capi`, and `--component` selects the default executable artifact mode
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive artifact-mode selectors unless a later spec explicitly defines one as an implication of another
@@ -273,10 +277,10 @@ kali check --api browser main.ts           # Browser-targeted analysis context (
 kali check --api node main.ts              # Phase 3 target: Node API surface is phase-gated for checking too
 kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation; Phase 2+: effect-policy validation over the discovered project graph
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
-kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-entry command
+kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
 kali check --fix main.ts                   # Apply only safe, compiler-provided suggested fixes
 ```
-`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. The same rule applies when `--sandbox` is present: `kali check --sandbox <policy>` without file arguments validates the discovered project graph rather than becoming a separate command mode, and `kali check --sandbox <policy> [files...]` keeps the same set-oriented explicit-file behavior as plain `check`. Declaration-only files are valid direct inputs for `check`; `run`, `build`, `effects`, and `test` entrypoints may not be declaration-only, and that input-kind mismatch should use the canonical invalid-entrypoint diagnostic (`E5007`).
+`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. The same rule applies when `--sandbox` is present: `kali check --sandbox <policy>` without file arguments validates the discovered project graph rather than becoming a separate command mode, and `kali check --sandbox <policy> [files...]` keeps the same set-oriented explicit-file behavior as plain `check`. Declaration-only files are valid direct inputs for `check`; `run`, `build`, `effects`, and `test` primary inputs may not be declaration-only, and that input-kind mismatch should use the canonical invalid-entrypoint diagnostic (`E5007`).
 
 `--fix` is intentionally conservative: it is limited to unambiguous structured edits attached to diagnostics, not arbitrary refactors or speculative type rewrites.
 
@@ -295,7 +299,7 @@ By default, `kali effects` prints the effect report payload directly because JSO
 
 Analysis scope rule:
 - the emitted payload includes `analysisContext`, which records `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md))
-- `kali effects <file>` summarizes effects for the full statically reachable graph rooted at that entrypoint under the selected API surface/profile; it is not limited to syntax that appears textually in the one named file
+- `kali effects <file>` summarizes effects for the full statically reachable graph rooted at that analysis input under the selected API surface/profile; it is not limited to syntax that appears textually in the one named file
 - `entryPoints` in the emitted payload identifies the analysis root(s), while `effects` summarizes the reachable program/dependency graph from those roots
 
 Sandbox-interaction rule:
@@ -305,8 +309,8 @@ Sandbox-interaction rule:
 - that rejection is `E5008`, not a feature-maturity error: the command intentionally has no sandbox-comparison mode
 
 Input-kind and host-selection rules:
-- `kali effects` is a direct-entry command in early phases: it requires exactly one explicit executable/analyzable source-file entrypoint and does not fall back to project-wide discovery
-- `kali effects` accepts only executable/analyzable source files; declaration-only files are type inputs, not effect-report entrypoints
+- `kali effects` is a direct-input command in early phases: it requires exactly one explicit executable/analyzable source-file analysis root and does not fall back to project-wide discovery
+- `kali effects` accepts only executable/analyzable source files; declaration-only files are type inputs, not effect-report primary inputs
 - unless overridden by CLI/config, `kali effects` uses the same default API-surface selection as `kali check` (`apiSurface = deno`)
 - `--api browser` follows the same browser API-surface analysis context as `kali check --api browser`; in Phase 2 this extends browser-targeted analysis to `effects` without implying standalone browser execution
 - `--api node` remains phase-gated until the documented Node surface exists
@@ -419,7 +423,7 @@ Determinism rules:
 - `kali check`, `effects`, `build`, `run`, and `test` consume existing dependency state; they must not silently modify `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/` as a side effect. Missing URL-cache materialization is treated the same as missing `node_modules/`: fail with `E5004` and point the user to `kali install`.
 - For `E5004`, "stale" means the current manifest/import graph, lockfile entries, and required materialized artifacts no longer match for the dependency kinds the project actually uses. It does **not** require ad hoc timestamp-based guessing by non-install commands.
 - If dependency state is missing or stale for the dependency source kinds the project actually uses, those non-install commands fail with the canonical `E5004` path and point the user to `kali install`.
-- If a direct-entry command names a file outside the last installed project discovery set and that file reaches additional raw URL imports, the command still fails with `E5004`; non-install commands must not auto-install or mutate the dependency graph opportunistically.
+- If a direct-input command names a file outside the last installed project discovery set and that file reaches additional raw URL imports, the command still fails with `E5004`; non-install commands must not auto-install or mutate the dependency graph opportunistically.
 - `--allow-scripts` is install-scoped only; it does not loosen later execution/build sandbox rules.
 - lifecycle scripts enabled through `--allow-scripts` are outside the normal source-program sandbox/effect-report contract; they are install-time package hooks, not guest-program entrypoints.
 - Registry packages (npm/JSR) are materialized into `node_modules/`; raw URL imports are materialized under `.kali/cache/urls/`. Non-install commands consume whichever of those stores are relevant to the current project instead of assuming every project must have both.
@@ -601,8 +605,8 @@ Interpretation rule:
 - malformed/invalid policy files stay on the `5` path; only semantically valid policy files that hit documented feature/profile gating move onto the ordinary diagnostic `1` path
 
 Command-input/entrypoint-usage mistakes include:
-- missing required direct-entry arguments for `run`, `build`, or `effects`
-- too many explicit direct-entry arguments for those same commands in early phases
+- missing required direct-input arguments for `run`, `build`, or `effects`
+- too many explicit direct-input arguments for those same commands in early phases
 - conflicting artifact-mode selectors for `build` (for example `--bundle --lib` or `--lib --capi`)
 - `E5007` invalid-entrypoint/input-kind cases such as passing a declaration-only file to `run`, `build`, `effects`, or `test`
 

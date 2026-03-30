@@ -93,7 +93,7 @@ Use `E5004` for dependency-state problems such as:
 - project dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports from the install-time project discovery set) have not been installed/materialized yet
 - `kali.lock`, `node_modules/`, or `.kali/cache/urls/` is missing/stale for the dependency kinds the project uses
 - the current declared dependency graph, lockfile entries, and required materialized artifacts no longer agree
-- a direct-entry command reaches additional raw URL imports outside the last installed project discovery set
+- a direct-input command reaches additional raw URL imports outside the last installed project discovery set
 - the resolver needs explicit dependency installation/synchronization instead of silently re-resolving during `check`, `effects`, `build`, `run`, or `test`
 
 Clarification:
@@ -150,8 +150,8 @@ Clarification:
 Use `E5007` when the user passes a file/input kind that the selected command fundamentally cannot treat as an entrypoint, even though the file itself may still be meaningful elsewhere in the toolchain.
 
 Boundary rule:
-- `E5007` is for **input-kind mismatch** (for example a declaration-only file passed where an executable/analyzable entrypoint is required)
-- missing required entrypoints, too many explicit direct-entry arguments, conflicting build artifact-mode selectors (for example `--bundle --lib`), or other command-usage/arity mistakes should use the canonical CLI-usage diagnostic `E5008` instead of overloading `E5007`
+- `E5007` is for **input-kind mismatch** (for example a declaration-only file passed where an executable/analyzable entrypoint or build/effect primary input is required)
+- missing required inputs, too many explicit direct-input arguments, conflicting build artifact-mode selectors (for example `--bundle --lib`), or other command-usage/arity mistakes should use the canonical CLI-usage diagnostic `E5008` instead of overloading `E5007`
 - in the CLI exit-code model, those command-usage cases and `E5007` both typically exit with code `5`, even though `E5007` remains the structured diagnostic for the input-kind mismatch case
 
 Example:

@@ -333,8 +333,8 @@ Produced by `kali effects`.
 - `dynamicReasons: string[]` — canonical reason codes explaining why the report is conservative/incomplete; empty when `dynamicEffects` is `false`
 
 Early-phase interpretation rule:
-- for the Phase 2 CLI command `kali effects <file>`, `entryPoints` normally contains exactly one element because the command takes one explicit primary entrypoint in early phases
-- for direct CLI entrypoints, the canonical label should be the normalized user-facing entry path (preferably project-root-relative when that root is known) rather than an implementation-specific symbol ID or opaque internal module handle
+- for the Phase 2 CLI command `kali effects <file>`, `entryPoints` normally contains exactly one element because the command takes one explicit primary analysis root in early phases
+- for direct CLI analysis inputs, the canonical label should be the normalized user-facing entry path (preferably project-root-relative when that root is known) rather than an implementation-specific symbol ID or opaque internal module handle
 - `analysisContext` records the semantic knobs that materially affect the report: selected `apiSurface`, enabled `runtimeProfiles`, and enabled `compatFeatures`
 - the report covers the full statically reachable program/dependency graph rooted at those entry points under that recorded analysis context; it is not a file-local AST scan of only the named source file
 - the field stays an array so the same schema can later cover package-wide, test-runner, or embedding-oriented reports without inventing a second effect-report shape
