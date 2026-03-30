@@ -424,7 +424,7 @@ Argument-kind simplification:
 - early schema-v1 package-analysis commands take the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
 - to keep registry analysis deterministic and independent from ambient project state in schema v1, they use the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1) and report the resolved version as result metadata when applicable
 - they therefore do **not** consult the current project's manifest or lockfile to choose a different version in early phases; any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly
-- raw URLs and local file paths are rejected for these commands instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
+- any non-registry target is rejected for these commands in early phases, including raw URLs and local file paths, instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
 - raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
 
 Isolation rule:

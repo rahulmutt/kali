@@ -235,6 +235,8 @@ Use `E5008` for cases such as:
 - `kali install --dev https://example.com/mod.ts`
 - `kali package-effects`
 - `kali package-effects lodash react`
+- `kali package-effects https://example.com/mod.ts`
+- `kali package-effects ./local.ts`
 - `kali package-effects --api browser lodash`
 - `kali package-effects --wasm-threads lodash`
 - `kali package-effects --compat eval lodash`
@@ -246,6 +248,7 @@ Use `E5008` for cases such as:
 - `kali package-audit` with no package argument
 - `kali package-audit lodash react`
 - `kali package-audit https://example.com/mod.ts`
+- `kali package-audit ./local.ts`
 - `kali build --bundle --api node main.ts`
 - `kali install --sandbox kali.policy.json`
 - `kali fmt --sandbox kali.policy.json`

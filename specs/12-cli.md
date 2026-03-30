@@ -433,7 +433,7 @@ Argument-kind rule:
 - early schema-v1 package analysis takes the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
 - to keep registry analysis deterministic and project-independent in schema v1, the command uses the shared stable-release rule from [specs/14-packages.md](14-packages.md) and records the resolved version in the output payload
 - `package-effects` therefore does **not** consult the current project's manifest or lockfile to choose a different version in early phases; a later explicit version/range or lock-aware mode would need its own documented selector
-- raw URLs and local file paths are rejected for `package-effects`; this command analyzes registry packages, while raw URL dependencies remain part of the project/import-graph workflow handled by `kali install` + `kali effects`
+- any non-registry target is rejected for `package-effects` in early phases, including raw URLs and local file paths; this command analyzes registry packages only, while raw URL dependencies remain part of the project/import-graph workflow handled by `kali install` + `kali effects`
 
 Project-state rule:
 - `kali package-effects <package>` may fetch package metadata/tarballs into an ephemeral analysis cache, but it must **not** mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
@@ -467,7 +467,7 @@ Argument-kind rule:
 - the package argument uses the canonical registry-package identifier grammar (normal npm package name or `jsr:`-prefixed JSR name)
 - early schema-v1 package audit likewise takes the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
 - to keep audit behavior aligned with `package-effects` and avoid hidden project-state coupling, the command uses the shared stable-release rule from [specs/14-packages.md](14-packages.md) and, when it reports machine-readable/package metadata, includes that resolved version as result metadata rather than as part of the required input spelling
-- raw URLs and local file paths are rejected for `package-audit`; package-audit is registry-package-oriented rather than a second raw-URL analysis path
+- any non-registry target is rejected for `package-audit` in early phases, including raw URLs and local file paths; package-audit is registry-package-oriented rather than a second raw-URL/local-path analysis path
 
 Project-state rule:
 - like `package-effects`, audit may use temporary fetched metadata but must not silently install or materialize dependencies into the project's managed state
