@@ -300,6 +300,10 @@ Use `E5008` for cases such as:
 - `kali package-audit ./local.ts`
 - `kali check ../shared/main.ts` when that path escapes the effective project root
 - `kali check packages/child/main.ts` from a parent project when `packages/child/` has its own `kali.json`
+- `kali build --api browser main.ts`
+- `kali build --lib --api browser lib.ts`
+- `kali build --capi --api browser lib.ts`
+- `kali build --component --api browser lib.ts`
 - `kali build --bundle --api node main.ts`
 - `kali install --sandbox kali.policy.json`
 - `kali fmt --sandbox kali.policy.json`

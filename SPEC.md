@@ -489,6 +489,8 @@ Use this rule everywhere:
 Examples:
 - `kali build --api browser main.ts` → `E5008` (wrong build shape; browser builds are bundle-only early)
 - `kali build --lib --api browser lib.ts` → `E5008`
+- `kali build --capi --api browser lib.ts` → `E5008`
+- `kali build --component --api browser lib.ts` → `E5008`
 - `kali build --bundle --api node main.ts` → `E5008`
 - `kali run --api browser main.ts` → `E5006`
 - `kali test --api browser` → `E5006`
