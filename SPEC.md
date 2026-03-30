@@ -70,6 +70,7 @@ Canonical examples of that normalization:
 - **“Use wasmtime or wasmer”** → standardize on `wasmtime` first; alternative engines are later implementation extensions.
 - **“Support WIT / Component Model”** → Phase 1 keeps a base exported-library artifact; stable WIT-first public embedding and component packaging are Phase 2 targets.
 - **“Must be embeddable / expose a C API / be easy to use as a Rust library”** → Phase 1 is library-first internally and already includes the base `kali build --lib` artifact, but the stable public Rust embedding API, stable WIT contract, host-side C ABI, and component/C-embedding packaging are Phase 2 targets.
+- **“Take inspiration from Boa / V8 / JavaScriptCore / SpiderMonkey / Deno / tsc / Porffor / Hermes / Bun”** → treat these as design references and benchmarking/comparison inputs, not as promises to copy their architecture wholesale, match their extension surfaces, or inherit their implementation dependencies; Kali still resolves trade-offs through its own AOT-only, sandbox-first, and pure-Rust constraints.
 - **“No GC”** → no tracing/background GC is allowed; deterministic ownership/reference-counted strategies are acceptable where the owning chapters permit them.
 
 ## Bootstrap Traceability Matrix
@@ -157,6 +158,7 @@ Use this checklist:
 - diagnostic-code meaning and error-boundary rules belong to [`specs/15-errors.md`](./specs/15-errors.md)
 - JSON field names, payload schemas, artifact kinds/roles, and generated metadata-file shapes such as C ABI embedding metadata belong to [`specs/18-schemas.md`](./specs/18-schemas.md)
 - phase availability belongs to [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
+- bootstrap inspiration wording should keep the “**design references, not compatibility targets**” reading from this file instead of turning the upstream project list into an implied architecture-copy or dependency requirement
 - shared cross-spec tables/rules such as the **Command-context axis participation table**, the **canonical browser-targeted budget compatibility rule**, and the artifact-mode matrix should have exactly one normative copy in this file; other chapters should point here instead of restating a second near-duplicate table
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - host/API-layering wording should reuse the **host-support staircase**
@@ -1495,6 +1497,17 @@ Examples:
 - CLI overrides `--max-memory`, `--max-cpu`, and `--max-open-files` follow the same positive-only rule after unit normalization,
 - `resources.maxSpawnedProcesses`, `resources.maxThreads`, `--max-spawned-processes`, and `--max-threads` may use `0` as an explicit deny/tightening value,
 - non-zero values for later-gated capabilities/profiles remain unavailable until those capabilities/profiles exist.
+
+## Design References, Not Compatibility Targets
+
+The bootstrap brief names projects such as Boa, V8, JavaScriptCore, SpiderMonkey, Deno, `tsc`, Porffor, Hermes, and Bun as inspiration sources.
+
+Normalization rule:
+- treat those projects as reference points for implementation techniques, test strategy, performance investigation, packaging ergonomics, and compatibility prioritization;
+- do **not** read that list as a promise to mirror any one engine's architecture, extension surface, embedding story, dependency stack, or release cadence;
+- when two inspiration sources suggest different designs, Kali still follows its own goal precedence and hard invariants first: semantic correctness, sandbox honesty, determinism, predictable compilation cost, AOT-only execution, and the **Pure-Rust implementation contract**.
+
+This keeps the inspiration list useful without letting it silently override the rest of the spec.
 
 ## Published-Standard Boundary
 

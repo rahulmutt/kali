@@ -181,7 +181,7 @@ Canonical path-resolution rule:
 Canonical resource-literal rule:
 - `--max-memory` accepts either a plain byte count or a size literal with one of: `kb`, `mb`, `gb`, `kib`, `mib`, `gib`
 - `--max-cpu` accepts either a plain millisecond count or a duration literal with one of: `ms`, `s`, `m`
-- `--max-open-files` accepts a plain non-negative integer count and mirrors `resources.maxOpenFiles`: it caps concurrently opened host file handles, including internal opens performed for higher-level file helpers
+- `--max-open-files` accepts a plain positive integer count and mirrors `resources.maxOpenFiles`: it caps concurrently opened host file handles, including internal opens performed for higher-level file helpers
 - `--max-spawned-processes` accepts a plain non-negative integer count
 - `--max-threads` accepts a plain non-negative integer count
 - CLI parsing normalizes these to bytes, milliseconds, and integer counts before comparing them with sandbox-policy limits
