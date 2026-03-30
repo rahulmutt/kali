@@ -768,6 +768,7 @@ In schema v1 this subset is the built-in capability namespace represented by:
 - `eval`
 
 Interpretation rules:
+- observation-only compatibility facades over already-resolved Kali state (for example Phase-1 `Deno.permissions.query`) do **not** create a second sandbox/effect namespace of their own; they stay derived views over the existing capability model
 - this subset is narrower than the full browser ambient surface and narrower than “all globals visible during type checking”
 - browser-targeted analysis/build may expose real browser ambient typings such as DOM globals without implying that every DOM operation has its own stable effect key or sandbox-policy knob
 - browser-targeted policy validation and effect reporting therefore speak only about this **Kali-mediated capability subset**, not arbitrary ambient browser behavior outside the schema-v1 model

@@ -80,6 +80,11 @@ Deno is the primary standalone-runtime API surface because it fits Kali's explic
 - Environment access: `Deno.env.get`, `Deno.env.toObject` *(both expose only the sandbox-permitted environment view rather than the raw host environment)*
 - `Deno.permissions` as a read-only compatibility facade over Kali sandbox policy state; in Phase 1 this is a **query-only** surface that reports granted/denied capability state and does not provide interactive permission prompts or `request()` / `revoke()`-style privilege escalation flows (the canonical maturity decision for this facade lives in [specs/19-feature-maturity.md](19-feature-maturity.md))
 
+Effect/sandbox mapping simplification:
+- `Deno.stat*` and `Deno.readDir*` stay under the existing `effects.fileSystem.read` capability rather than introducing separate metadata-directory effect keys in schema v1
+- `Deno.env.get` and `Deno.env.toObject` stay under `effects.process.envRead`
+- query-only `Deno.permissions` observation is derived from already-resolved Kali sandbox/runtime state and is therefore **effect-free** in schema v1; it does not add a second `permissions.query` effect/policy key
+
 Implementation simplification:
 - this read-only `Deno.permissions` facade should normally be derived from Kali's already-resolved runtime/policy state rather than from a separate permission-prompt host API
 - that keeps the Deno compatibility story aligned with the sandbox-first model: permission status is observed, not negotiated interactively at runtime

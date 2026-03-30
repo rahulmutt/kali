@@ -148,8 +148,8 @@ Phase-1 capability snapshot for supported surfaces:
 
 | Policy capability | Early availability | Notes |
 |---|---|---|
-| `effects.fileSystem.read` / `write` | Available with `--api deno` | Enforced for the documented Deno file APIs |
-| `effects.process.envRead` | Available with `--api deno` | Read-only environment view only |
+| `effects.fileSystem.read` / `write` | Available with `--api deno` | Enforced for the documented Deno file APIs; schema v1 also treats metadata/read-dir APIs such as `Deno.stat*` and `Deno.readDir*` as part of `fileSystem.read` rather than separate metadata keys |
+| `effects.process.envRead` | Available with `--api deno` | Read-only environment view only; covers both `Deno.env.get` and `Deno.env.toObject` |
 | `effects.network.fetch` | Available in the Web baseline | Shared across supported surfaces |
 | `effects.timer.*` | Available in the Web baseline | Covers timers, not CPU-limit enforcement itself |
 | `effects.random` | Available in the Web baseline | Maps to the documented random-byte capability family |
@@ -187,6 +187,7 @@ For dynamic effects that can't be checked at compile time:
 - By default, sandbox violations are treated as fatal runtime errors for the top-level execution unless the embedding host explicitly opts into catchable host exceptions
 - All API calls check the same canonical path/URL/address/env matching rules described in [specs/18-schemas.md](18-schemas.md)
 - Runtime enforcement only applies to capabilities that are actually registered for the selected API surface/profile; sandbox policy does not conjure unavailable APIs into existence
+- query-only observation facades over already-resolved sandbox/runtime state (for example Phase-1 `Deno.permissions.query`) are effect-free in schema v1 and therefore do not require a separate policy key
 
 ### Enforcement Domains
 To keep the sandbox story precise across commands and deployment targets:
