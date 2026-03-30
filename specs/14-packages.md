@@ -111,11 +111,16 @@ Canonical early-phase code-resolution ladder:
    - use the canonical condition order table below
    - unsupported or unmatched conditional branches are skipped; Kali should not guess a fallback branch that the package did not publish
 6. If `exports` does not resolve the entry, fall back to legacy entry fields using the same API-surface intent **and still respecting edge kind**:
-   - browser-targeted analysis/build context (Phase 1: `kali check --api browser` and `kali build --bundle --api browser`; later supported browser-targeted analysis commands such as `kali effects --api browser` and browser-context `kali package-effects` must reuse this same rule rather than inventing a second browser package-resolution ladder): apply `browser` replacement map semantics first where applicable; then for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
+   - browser-targeted analysis/build context (Phase 1: `kali check --api browser` and `kali build --bundle --api browser`; later supported browser-targeted analysis commands such as `kali effects --api browser` and browser-context `kali package-effects` must reuse this same rule rather than inventing a second browser package-resolution ladder): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
    - Deno-oriented standalone profile (`--api deno`, Phase 1 default): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
    - later Node profile may add `node`-specific behavior before the generic fallback ladder when explicitly documented
-7. Resolve relative/file entries with extension probing (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`).
-8. Classify the resolved file as ESM or CJS using the canonical early-phase rule set:
+7. In browser-targeted contexts, after `exports` or the legacy fallback picks a package-published target, apply any `package.json#browser` replacement-map rewrite that covers that selected package-local path:
+   - this rewrite layer is part of the one shared browser package-selection rule for `check --api browser`, `build --bundle --api browser`, and later browser-context analysis commands such as `effects --api browser` and inherited browser-context `package-effects`
+   - if the browser map rewrites the selected path to another package-local file, continue resolution from that rewritten target
+   - if the browser map marks the selected path as unavailable (`false`), reject that edge instead of probing alternate non-browser files heuristically
+   - this browser-map stage refines the already chosen browser-targeted package edge; it does not restart package resolution under a second ad hoc condition-order algorithm
+8. Resolve relative/file entries with extension probing (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`).
+9. Classify the resolved file as ESM or CJS using the canonical early-phase rule set:
    - `.mts` / `.mjs` → always ESM
    - `.cts` / `.cjs` → always CommonJS
    - `.ts` / `.tsx` / `.js` / `.jsx` inside a package boundary follow the nearest applicable `package.json#type`
@@ -138,7 +143,7 @@ Important separation rules:
 - runtime/code resolution must not treat `types` as a normal execution condition
 - the Deno-oriented standalone surface should honor a package's explicit `deno` condition when present instead of behaving like an unspecified generic bundler
 - `--api node` package resolution is part of the same Phase 3 Node-compatibility gate as the rest of the Node API surface; early phases should not resolve packages as though Node mode were already implemented for `check` or `build`
-- the browser-targeted analysis/build context should honor a package's explicit `browser` mapping/condition consistently across every supported browser-targeted command so analysis and emitted artifacts do not resolve different files by accident
+- the browser-targeted analysis/build context should honor a package's explicit `browser` condition and any applicable `package.json#browser` replacement-map rewrite consistently across every supported browser-targeted command so analysis and emitted artifacts do not resolve different files by accident
 - `package.json#module` is treated only as a legacy bundler-compatibility fallback when `exports` is absent; it must not override an explicit `exports` map, and it should not outrank `main` on a legacy CJS `require` edge
 - when a package explicitly marks a path as unavailable for the active profile (for example `browser: false`), Kali must respect that instead of probing alternate files heuristically
 - declaration/type lookup follows the separate ladder in [Type Resolution](#type-resolution)

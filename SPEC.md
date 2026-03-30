@@ -198,6 +198,7 @@ Interpretation rules:
 - in Phase 1, the supported browser-targeted commands are `kali check --api browser` and `kali build --bundle --api browser`
 - for `kali check --api browser`, this support covers both explicit-file invocations and the normal no-argument project-discovery form; browser targeting changes the analysis context, not the hybrid-input nature of `check`
 - later analysis commands such as `kali effects --api browser` and inherited browser-context `kali package-effects` may reuse that same ambient/package-selection context once their own maturity rows allow it
+- browser-targeted package resolution follows one shared rule across those commands: use the browser-specific `exports` condition order first, and when a package also publishes a `package.json#browser` replacement map, apply that same browser rewrite layer consistently instead of letting each command invent its own browser package-selection ladder
 - this term names an **analysis/build context**, not a promise that Kali embeds a standalone browser runtime or DOM engine
 - `run --api browser` and `test --api browser` therefore remain rejected until a later spec adds an explicit browser-runtime contract
 
