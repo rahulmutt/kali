@@ -36,10 +36,11 @@ Each specialization uses the most compact possible layout for its concrete type.
 ### Specialization Limits
 - Cap specializations per function (default: 16) to prevent code size explosion
 - Beyond the cap, fall back to a "generic" version using boxed/tagged representation
-- User-configurable via `--max-specializations N`
+- User-configurable via `--max-specializations N` / `compilerOptions.maxSpecializations`
 - `--max-specializations` is an **upper bound**, not a promise that every build mode spends that budget
 - In `--fast` mode (the default), skip most user-authored generic specialization entirely (effectively treating the user-authored generic budget as `0` unless a later documented heuristic says otherwise)
-- In `--release` and `--release-advanced`, the configured cap becomes active for the generic/layout-driven specialization pipeline
+- In `--release` and `--release-advanced`, the configured cap becomes the main user-visible ceiling for the generic/layout-driven specialization pipeline
+- `--release-advanced` may use more of that configured budget more aggressively than `--release`, but it must still respect the explicit user/configured cap rather than silently removing it
 
 ## Optimization Passes
 
@@ -47,15 +48,15 @@ Build-mode clarification:
 - `fast`, `release`, and `release-advanced` are user-visible from Phase 1.
 - What changes across phases is **how much optimizer/compiler machinery exists behind those stable mode names**, not whether the flags themselves exist.
 - Therefore early `--release` / `--release-advanced` builds may start with a modest subset of the long-term optimizations described below and grow stronger as MIR, specialization, and later LIR passes mature.
+- The phase-labeled sections below describe when major optimization families become available; they do **not** mean the corresponding build-mode flag first appears in that phase.
 
-
-### Phase 1: HIR Optimizations (always applied)
+### Phase 1 floor: HIR Optimizations (always applied)
 - **Constant folding**: `1 + 2` → `3`, `"a" + "b"` → `"ab"`
 - **Dead code elimination**: Unreachable branches, unused variables
 - **Inlining** (small functions): Functions ≤ 20 HIR nodes inlined at call site
 - **Constant propagation**: Track known values through assignments
 
-### Phase 2: MIR Optimizations (--release)
+### Phase 2 additions: MIR Optimizations (primarily strengthen `--release` and above)
 - **Escape analysis refinement**: Promote heap → stack where possible
 - **Shared-refcount elision**: Remove unnecessary reference count operations
 - **Copy propagation**: Eliminate redundant copies/moves
@@ -65,7 +66,7 @@ Build-mode clarification:
 - **String interning**: Deduplicate constant strings at compile time
 - **Bounds check elimination**: Prove array accesses are in bounds, remove checks
 
-### Phase 3: LIR/WASM Optimizations (--release-advanced)
+### Phase 3 additions: LIR/WASM Optimizations (primarily strengthen `--release-advanced`)
 - **Expanded specialization budget**: Specialize far more generic instantiations than `--release`, potentially approaching whole-program monomorphization for hot code, while still retaining an emergency fallback for pathological code-size growth
 - **Aggressive inlining**: Higher threshold, inline across module boundaries
 - **Tail call optimization**: WASM tail-call proposal when available
@@ -83,7 +84,7 @@ Clarification:
 - monomorphic code, concrete object layouts, and straightforward scalar optimizations should still use the best representation already justified by the checker and IR pipeline
 - the fallback applies specifically at specialization boundaries where extra compile-time work or code-size growth would otherwise be required
 
-In `--fast` mode, user-authored generics normally use the `Tagged` representation (no additional specialization regardless of the configured cap). In `--release`, generics are specialized up to the configured cap, with remaining call sites using `Tagged`. In `--release-advanced`, the compiler may remove or greatly raise the cap, but should still retain an emergency fallback to avoid pathological code-size explosions.
+In `--fast` mode, user-authored generics normally use the `Tagged` representation (no additional specialization regardless of the configured cap). In `--release`, generics are specialized up to the configured cap, with remaining call sites using `Tagged`. In `--release-advanced`, the compiler may spend that configured cap more aggressively and use stronger profitability heuristics, but it must still respect the explicit user/configured cap and retain an emergency fallback for pathological code-size growth.
 
 ## Profile-Guided Optimization (Future)
 
