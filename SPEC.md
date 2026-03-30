@@ -260,6 +260,14 @@ Rules:
 - config-derived values trigger the same gating and contradiction checks as explicit flags,
 - commands must not silently fall back from an unsupported effective value just because the user omitted the matching flag.
 
+### Command-shape taxonomy vs availability
+The command-shape terms in this section classify how a command behaves **when that command exists** in schema v1.
+
+Rules:
+- these terms describe arity, discovery, and context inheritance, not whether the command is already Phase 1 available,
+- phase availability still comes from the owning chapter plus [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md),
+- docs should avoid rephrasing a command-shape term as an availability promise.
+
 ### Direct-input command
 A command that requires exactly one explicit primary source input in early phases:
 - `run`
