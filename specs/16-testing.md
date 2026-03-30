@@ -53,7 +53,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | Host APIs / runtime behavior | integration tests that execute the API path + sandbox/resource-limit tests where relevant |
 | The **Phase-1 browser-targeted command set** | browser-targeted `check` tests + browser-targeted `build --bundle` tests + emitted-bundle smoke runs in a real browser harness |
 | Base library/export artifact support (`kali build --lib`) | library-build integration tests + artifact-manifest/schema assertions + deterministic rebuild checks |
-| Package compatibility | curated package corpus results recorded per shipped source-graph command/context (for example standalone `check` / `build` / `run` / `test`, plus browser-targeted `check` / `build --bundle` when those package claims are made) |
+| Package compatibility | curated package corpus results recorded per shipped source-graph command/context **and per claimed rung of the shared package-support ladder** from [SPEC.md](../SPEC.md) (for example standalone `check` / `build` / `run` / `test`, plus browser-targeted `check` / `build --bundle` when those package claims are made) |
 | CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |
 | Artifact reproducibility | repeated-build tests over pinned inputs/toolchains + normalized artifact-byte comparisons + stable emitted-metadata assertions |
 | Proof-backed claims | passing Lean proof jobs for the currently modeled subset, scoped by the published **proof-boundary manifest** and the shared **proof state split**; Phase 1 may be merely **proof-ready** earlier, but proof-backed release claims require a non-placeholder modeled subset |
@@ -94,7 +94,7 @@ let x: number = "hello";
 #### Package Compatibility Suites
 Because Kali aims to support real npm/JS ecosystems, package compatibility needs its own evidence track rather than anecdotal one-off testing:
 - maintain a curated corpus of representative packages (validators, parsers, utility libraries, browser-targeted libs, selected Node-host-heavy packages once Phase 3 begins)
-- record whether each package is expected to work for each shipped **source-graph command/context** claim rather than only by broad package label — for example standalone `check` / `build` / `run` / `test`, plus browser-targeted `check` / `build --bundle` when those package claims are made
+- record whether each package is expected to work for each shipped **source-graph command/context** claim and for each claimed rung of the shared **package-support ladder** from [SPEC.md](../SPEC.md), rather than only by broad package label — for example standalone `check` / `build` / `run` / `test`, plus browser-targeted `check` / `build --bundle` when those package claims are made
 - keep this corpus aligned with the shared package-workflow split from [14 — Package Management](14-packages.md): Phase-1 package compatibility evidence is primarily about ordinary source-graph commands, not about the later registry-analysis commands `package-effects` / `package-audit`
 - treat package suites as phase-scoped contracts: Phase 1 corpus targets packages inside the shared **pure JS/TS package contract** that fit the linked-artifact model; later corpora can add harder Node/browser packages
 - keep packages in the excluded **native/binary/bootstrap-heavy package contract** in a clearly separate exclusion/negative track so `--allow-scripts` evidence does not get misreported as general support for that contract

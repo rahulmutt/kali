@@ -71,13 +71,12 @@ This table is intentionally about **package-shape triage**. The active `apiSurfa
 
 Support-decision order simplification:
 - use the shared **package-support decision order** from [SPEC.md](../SPEC.md): package shape, then host/API fit, then command/profile maturity, all under the shared **published-artifact-first package reading**.
+- use the shared **package-support ladder** from [SPEC.md](../SPEC.md) whenever a section needs to say whether a package is merely installable/materializable, analyzable/checkable, buildable, executable, or deployable-through-host.
 - `--allow-scripts` can affect installation of npm packages, but it does not skip that decision order and never upgrades an unsupported package into a supported project-command/runtime contract.
 
-Installability vs support shortcut:
-- **installable** means Kali can deterministically resolve/materialize the dependency under the install/lock rules
-- **analyzable/buildable** means Kali can parse, resolve, and lower the published JS/TS package shape under the selected context
-- **runnable** means the selected command/profile/API surface can also satisfy the package's host assumptions at execution time
-- package discussions should keep those three steps separate instead of using one broad word such as “supported” for all of them at once
+Practical shorthand:
+- a package may be **installable/materializable** without being **analyzable/checkable**, **buildable**, **executable**, or **deployable-through-host** for the selected command/context.
+- package discussions should therefore name the rung they mean instead of using one broad word such as “supported”.
 
 This keeps three often-confused questions separate: “can Kali materialize this package?”, “can Kali understand its source shape?”, and “can the selected command/context actually support the host APIs it expects?”.
 

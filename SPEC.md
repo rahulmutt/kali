@@ -293,7 +293,7 @@ Use this checklist:
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
 - explicit raw-URL install wording should reuse the **raw-URL install staging/pin workflow** term instead of re-explaining “lock/cache yes, durable declaration no” in each package/install section
 - package-loading and whole-graph-linking wording should reuse the **linked-artifact model** term instead of restating slightly different “single linked payload”, “already-linked graph”, or “no runtime-linked WASM modules” prose
-- package-compatibility wording should reuse the **package-support decision order**, **published-artifact-first package reading**, **pure JS/TS package contract**, and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different repo-build-pipeline caveats or native-addon / downloaded-binary exclusion lists
+- package-compatibility wording should reuse the **package-support decision order**, the **package-support ladder**, the **published-artifact-first package reading**, **pure JS/TS package contract**, and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different repo-build-pipeline caveats or native-addon / downloaded-binary exclusion lists
 - source-file-kind wording should reuse **canonical source-file classes**, **executable/analyzable source-file class**, and **canonical project file set** instead of repeating long extension lists in every command chapter
 - first-class `.js` support wording should reuse the **first-class JavaScript compilation** term instead of alternating between near-duplicate phrases such as “plain JavaScript mode”, “JS-first compilation”, or “JavaScript compatibility lane”
 - early stronger-than-`tsc` inference wording should reuse the **bounded inference contract** and the **annotation-required inference boundary** instead of creating near-duplicate “HM-like but still fast” descriptions in architecture, checker, and maturity chapters
@@ -606,6 +606,22 @@ Rules:
 - package-shape compatibility alone does **not** imply the package is runnable in every command or API surface.
 - browser-targeted package support in Phase 1 still means support inside the shared **Phase-1 browser-targeted command set**, not standalone browser execution in Kali itself.
 - docs should reuse this term instead of collapsing package-shape support, host/API support, and command availability into one ambiguous “package support” claim.
+
+### Package-support ladder
+The shared shorthand for the question “supported in what sense?” once a package has already been read through the **package-support decision order**.
+
+Canonical rungs:
+1. **installable/materializable** — Kali can deterministically resolve, lock, fetch, and materialize the dependency under the documented install rules.
+2. **analyzable/checkable** — Kali can parse, resolve, and type-check the published JS/TS package shape under the selected context.
+3. **buildable** — Kali can lower that package successfully through the selected build path and artifact mode.
+4. **executable** — Kali can execute it inside a Kali-hosted runtime for the selected command/context.
+5. **deployable-through-host** — Kali can produce the documented non-Kali-hosted deployment artifact for it, such as the browser-targeted bundle path in the shared **Phase-1 browser-targeted command set**.
+
+Rules:
+- later rungs imply the earlier ones for the same package/context, but not the reverse.
+- being **installable/materializable** does **not** by itself imply analyzable, buildable, executable, or deployable-through-host.
+- package discussions should name the rung they mean instead of using one broad word such as “supported” for all of them at once.
+- package corpus claims, release notes, and roadmap prose should record support per rung and per command/context rather than promoting a package from “installs” to “works everywhere”.
 
 ### Kali-mediated capability subset
 The stable schema-v1 capability vocabulary shared across effects and sandbox policy:
