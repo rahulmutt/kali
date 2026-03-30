@@ -263,6 +263,7 @@ Install-graph discovery rule:
 Installation is **fetch-and-link by default**, not "execute package scripts" by default.
 
 Canonical terms:
+- follow the shared **workflow-owner split** from [SPEC.md](../SPEC.md): `kali install --allow-scripts` stays an install-time hook workflow only and does not become a second effect/policy/runtime compatibility path
 - follow **effective npm-scriptable install work** from [SPEC.md](../SPEC.md): the invocation-scoped npm package work the current `kali install` actually reconciles in a lifecycle-hook-relevant way
 - follow **install-time npm-package hook path** from [SPEC.md](../SPEC.md): the schema-v1 boundary for what `--allow-scripts` does and does not mean
 
@@ -482,7 +483,7 @@ To keep schema v1 small and avoid undocumented config surface area, early-phase 
 Independently of project install state, Kali can analyze a registry package through the **registry-analysis commands**.
 
 Simplification rule:
-- follow the shared **registry-analysis command split** from [SPEC.md](../SPEC.md) instead of growing a fuzzy “package inspection” surface
+- follow the shared **registry-analysis command split** and **workflow-owner split** from [SPEC.md](../SPEC.md) instead of growing a fuzzy “package inspection” surface that mixes effect reporting, policy validation, install behavior, and security audit semantics
 - command spelling/examples stay owned by [12 — CLI](12-cli.md); this section focuses on package semantics, version selection, and context behavior
 
 Registry-analysis summary:
@@ -520,7 +521,7 @@ Package-effects rule:
 
 Package-audit rule:
 - keep `kali package-audit` **single-package** in early phases so it does not overlap with a future whole-project dependency-health workflow
-- as the context-free half of the shared **registry-analysis command split**, it is a registry-metadata / security-audit workflow rather than a second host-context-sensitive execution/effect-analysis command
+- following the shared **workflow-owner split** and the context-free half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md), it is a registry-metadata / security-audit workflow rather than a second host-context-sensitive execution, effect-reporting, or policy-validation command
 - early `package-audit` therefore does **not** take package-analysis-specific `--api`, runtime-profile, `--compat`, or `--sandbox` flags
 - early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md): whether the command runs under discovered config or in configless project mode, inherited host-analysis/runtime config does not gate or rewrite its semantics
 - if unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee

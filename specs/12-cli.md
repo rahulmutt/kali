@@ -115,7 +115,8 @@ Package-analysis flag/context simplification:
 - examples later in this chapter describe the canonical command shape/output contract for these registry-analysis commands, not an unconditional promise that they are already available in Phase 1
 
 Sandbox-flag clarification:
-- the CLI `--sandbox <policy>` flag is reserved for the canonical sandbox-aware commands: `run`, `test`, `check`, and `build`
+- follow the shared **workflow-owner split** from [SPEC.md](../SPEC.md): in schema v1, `--sandbox <policy>` belongs only to the runtime-enforcement and static-policy-validation owners, not to reporting, install, formatting, linting, init, or registry-audit owners
+- the CLI `--sandbox <policy>` flag is therefore reserved for the canonical sandbox-aware commands: `run`, `test`, `check`, and `build`
 - the canonical default policy filename is `kali.policy.json`, but the flag accepts any explicit policy-file path; relative CLI paths resolve from the current working directory, while top-level `kali.json#sandbox` remains config-relative
 - commands that merely ignore top-level `kali.json#sandbox` still do **not** accept a CLI `--sandbox` flag in early phases
 - therefore `kali effects --sandbox ...`, `kali package-effects --sandbox ...`, `kali package-audit --sandbox ...`, `kali install --sandbox ...`, `kali fmt --sandbox ...`, `kali lint --sandbox ...`, and `kali init --sandbox ...` are all invalid command usage (`E5008`) unless a later spec explicitly adds such a mode
@@ -474,6 +475,7 @@ Install or materialize project dependencies.
 Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that fall into the shared **native/binary/bootstrap-heavy package contract** from [SPEC.md](../SPEC.md) remain unsupported even when scripts are enabled.
 
 Boundary rule:
+- follow the shared **workflow-owner split** from [SPEC.md](../SPEC.md): `kali install --allow-scripts` stays an install-time hook path only and does not become a second runtime/effect/policy workflow
 - read package support through the shared **published-artifact-first package reading** from [SPEC.md](../SPEC.md): the presence of a repository build pipeline or optional lifecycle metadata does not by itself make a package unsupported if the published artifact Kali installs already contains the ordinary JS/TS files it needs
 - `--allow-scripts` selects the schema-v1 **install-time npm-package hook path** from [SPEC.md](../SPEC.md), not a runtime/API-surface feature
 - plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; an explicit npm target such as `kali install --allow-scripts lodash` is the canonical valid shape, while a URL-only, JSR-only, clean already-synchronized, or otherwise no-npm-scriptable install graph should fail with `E5008` instead of silently degenerating into plain `install`
@@ -578,6 +580,7 @@ Base-gate clarification:
 - output-format flags such as `--output json` or `--pretty` do not create a second availability path for the command itself
 
 Audit rule:
+- following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command is the context-free registry-metadata/security-audit path rather than a second host-context-aware effect/policy command
 - this command is the `package-audit` half of the shared **registry-analysis command split**: early `package-audit` follows **context-free registry analysis (schema v1)** and does not inherit the shared **effective inherited analysis context**
 - early `package-audit` therefore does **not** take package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
 - in schema v1 it is an **envelope-only JSON command**, not a **native-JSON command**

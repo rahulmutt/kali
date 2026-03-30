@@ -126,10 +126,10 @@ proofs/
 
 ## Proof-Backed Support Boundary
 
-Lean proofs are evidence for the **currently modeled subset**, not a blanket support claim for all of Kali.
+Lean proofs are evidence for the behavior named by the published **proof-boundary manifest**, not a blanket support claim for all of Kali.
 
 Canonical rule:
-- a proof may justify stronger confidence for the modeled core fragment
+- a proof may justify stronger confidence for the core fragment currently named by that manifest
 - it does **not** by itself promote a feature's maturity label or replace the command/profile-specific evidence tracks from [specs/16-testing.md](16-testing.md)
 - public support wording should therefore require both: the proof claim staying inside the published **proof-boundary manifest** **and** the matching implementation/testing evidence for the command/profile being claimed
 - when the implementation grows beyond the currently published proof boundary, the unsupported remainder must stay explicitly outside that manifest rather than being described as informally "covered enough"
@@ -161,14 +161,14 @@ This keeps the bootstrap's Lean-verification ambition aligned with the rest of t
 ## CI Integration
 
 ```bash
-# Build and check all Lean proofs for the currently modeled subset
+# Build and check all Lean proofs for the current published proof boundary
 cd proofs && lake build
 
 # In CI, run this job whenever the proof tree or a covered subsystem changes
 ```
 
 CI consistency rules:
-- proof failure blocks merge **for the currently modeled subset**; this is not a claim that all of Kali is already formalized
+- proof failure blocks merge for the subsystem set currently named by the published **proof-boundary manifest**; this is not a claim that all of Kali is already formalized
 - the proof job should always trigger when a PR changes `proofs/`
 - once the published **proof-boundary manifest** names covered Rust/spec subsystems, the proof job should also trigger when a PR changes one of those covered areas
 - subsystems outside the current proof boundary may evolve without a mandatory proof job, but they must remain outside the documented proof claims until the model is extended

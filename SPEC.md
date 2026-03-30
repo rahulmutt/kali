@@ -255,6 +255,7 @@ Use this checklist:
 - package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
 - Phase-1 internal effect machinery versus Phase-2 stable effect-report-command wording should reuse the **effect-surface split** instead of creating new near-duplicate “effects exist internally but not publicly yet” prose in each chapter
+- command-purpose wording that distinguishes reporting, policy validation, runtime enforcement, install-time hooks, and registry audit should reuse the **workflow-owner split** instead of creating overlapping “analysis”, “sandbox”, or “inspection” narratives for the same command families
 - verification-boundary wording should reuse the **proof-boundary manifest** term instead of scattering slightly different “modeled subset”, “proof kernel”, or “published proof scope” prose across verification, testing, and maturity chapters
 - `kali init` scaffold wording should reuse the **minimal canonical scaffold contract**, the **canonical scaffold filename convention**, and the **template selection vs build artifact mode split** instead of reintroducing duplicate `main.ts` / `lib.ts` defaults or near-duplicate “library template does not imply later `build --lib`” prose in multiple chapters
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
@@ -568,6 +569,21 @@ Rules:
 - Phase 1 may rely on **internal effect bookkeeping** without implying that effect JSON, command availability, or machine-readable report fields are already stable
 - docs should use this split when they need to explain why sandbox-first implementation can start before the stable report commands land
 - chapters should avoid phrasing that makes the absence of the **public effect-report surface** sound like the total absence of effect infrastructure
+
+### Workflow-owner split
+Kali keeps one canonical owner for each of the easy-to-confuse analysis/policy/install/audit workflows instead of letting multiple commands grow near-duplicate semantics.
+
+In schema v1 this means:
+- `kali effects` and `kali package-effects` are **observational reporting** commands only: they report inferred effects and do not accept `--sandbox`
+- `kali check --sandbox ...` and `kali build --sandbox ...` are the **static policy-validation/comparison** path: Phase 1 validates policy/schema/config, and Phase 2+ adds inferred-effect-vs-policy validation
+- `kali run --sandbox ...` and `kali test --sandbox ...` are the **runtime enforcement** path for **Kali-hosted execution**
+- `kali install --allow-scripts` is the **install-time npm-package hook path** only and stays outside the normal source-program sandbox/effect-report contract
+- `kali package-audit` is the **context-free registry-analysis/security-audit** path and does not become a second host-context-aware effect/policy command
+
+Rules:
+- adding JSON output, pretty-printing, or inherited analysis context must not change which workflow owner a command belongs to
+- docs should reuse this split instead of describing the same command family as partly “reporting”, partly “validation”, and partly “runtime sandboxing” depending on chapter prose
+- later phases may deepen a workflow owner's capabilities, but should not create a second near-duplicate command path unless the maturity matrix opens it explicitly
 
 ### Proof-boundary manifest
 The checked-in declaration of what Kali's current formal-verification claims actually cover.

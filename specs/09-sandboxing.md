@@ -7,6 +7,10 @@ Sandboxing is a first-class concern in Kali. The system combines:
 2. **Sandbox policies** — declarative rules for what's allowed
 3. **Runtime limits** — cross-cutting resource budgets (CPU, memory, open files, processes, threads) plus selected capability-local caps such as the `timer` family and network-connection limits
 
+Cross-spec workflow rule:
+- follow the shared **workflow-owner split** from [SPEC.md](../SPEC.md)
+- this chapter therefore treats `effects` / `package-effects` as reporting-only surfaces, `check/build --sandbox` as the static policy-validation path, and `run/test --sandbox` as the runtime-enforcement path instead of letting those workflows blur together
+
 Command-behavior simplification:
 
 | Command family | `--sandbox` meaning in schema v1 | Runtime enforcement after command returns? |
@@ -62,7 +66,7 @@ Scope rule:
 Commands that directly emit the shared effect-report payload (for example `kali effects --output json`) should place that report under the CLI envelope's `payload` field instead of redefining it. Commands that wrap the same effect data with extra package metadata (for example `kali package-effects`) should still reuse the canonical nested report shape from [specs/18-schemas.md](18-schemas.md) rather than inventing a second effect vocabulary.
 
 CLI simplification rule:
-- `kali effects` is an observational reporting command, not a second policy-validation command
+- following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), `kali effects` is an observational reporting command, not a second policy-validation command
 - therefore `kali effects --sandbox ...` is rejected rather than inventing a second place to compare effects against policy
 - policy compatibility checks belong to `kali check --sandbox ...` and `kali build --sandbox ...`, which already own the pass/fail contract
 
