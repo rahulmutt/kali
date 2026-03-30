@@ -137,6 +137,12 @@ Availability rule:
 The C declarations below describe the intended stable ABI surface for Phase 2+.
 They come from the host-side `kali_capi` library itself.
 
+Shape simplification rules:
+- keep the same compiled-module vs instantiated-instance split as the Rust API in this chapter
+- compilation produces a `KaliModule`
+- library/export calls go through an instantiated `KaliInstance`, not directly through the compiled module handle
+- executable-style convenience entrypoints may still compile-and-run in one step, but that must not blur the library-oriented instantiation contract
+
 ```c
 #ifndef KALI_H
 #define KALI_H
@@ -147,6 +153,7 @@ They come from the host-side `kali_capi` library itself.
 typedef struct KaliRuntime KaliRuntime;
 typedef struct KaliConfig KaliConfig;
 typedef struct KaliModule KaliModule;
+typedef struct KaliInstance KaliInstance;
 typedef struct KaliValue KaliValue;
 typedef struct KaliError KaliError;
 
@@ -173,11 +180,13 @@ KaliModule* kali_compile_string(KaliRuntime* runtime, const char* filename, cons
 KaliModule* kali_compile_file(KaliRuntime* runtime, const char* path);
 void kali_module_free(KaliModule* module);
 
-// Execution
+// Instantiation / execution
+KaliInstance* kali_instantiate(KaliRuntime* runtime, KaliModule* module);
+void kali_instance_free(KaliInstance* instance);
 KaliValue* kali_run(KaliRuntime* runtime, KaliModule* module);
 KaliValue* kali_run_string(KaliRuntime* runtime, const char* filename, const char* source);
-KaliValue* kali_call(KaliRuntime* runtime, KaliModule* module,
-                     const char* fn_name, KaliValue** args, uint32_t argc);
+KaliValue* kali_call(KaliInstance* instance, const char* fn_name,
+                     KaliValue** args, uint32_t argc);
 
 // Values
 int kali_value_type(const KaliValue* value);
@@ -205,14 +214,15 @@ void kali_free_string(const char* s);
 
 // Host function registration
 typedef KaliValue* (*KaliHostFn)(KaliValue** args, uint32_t argc, void* userdata);
-void kali_register_host_function(KaliRuntime* runtime, const char* module,
-                                  const char* name, KaliHostFn fn, void* userdata);
+bool kali_register_host_function(KaliRuntime* runtime, const char* module,
+                                 const char* name, KaliHostFn fn, void* userdata);
 
 #endif // KALI_H
 ```
 
 ### Memory Management
 - All `kali_*_new` / `kali_*_free` pairs — caller manages lifetime
+- `KaliModule*` and `KaliInstance*` are distinct owned handles: freeing a compiled module does not implicitly free an instantiated instance unless a later ABI revision documents that ownership transfer explicitly
 - Strings returned by Kali must be freed with `kali_free_string`
 - because the public C ABI itself is a **Phase 2 target**, pre-Phase-2 internal prototypes are free to omit unstable helpers such as the effect-analysis entrypoints instead of pretending they already exist as a stable callable contract
 - Thread safety: one `KaliRuntime` per thread in the initial implementation
@@ -221,7 +231,8 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 - Exposing a C ABI does **not** imply linking any C/C++ implementation into Kali itself; the runtime and compiler remain Rust-only internally
 
 ### Error Handling Convention
-- Functions that can fail return `NULL` on error
+- Pointer-returning functions that can fail return `NULL` on error
+- Boolean-returning registration/configuration helpers return `false` on error
 - Call `kali_last_error()` for runtime-bound failures, or `kali_global_last_error()` for failures that happen before a `KaliRuntime` exists (for example `kali_runtime_new` returning `NULL`)
 - Error includes the stable string diagnostic code, message, and JSON representation so embedders see the same canonical machine contract as the CLI
 
