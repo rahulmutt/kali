@@ -513,7 +513,7 @@ The machine-readable contract is therefore the standard CLI command envelope onl
 
 Interpretation rule:
 - this is an **output-format rule**, not a separate availability path
-- if `package-audit` is unavailable in the current phase, `--output json` still fails on the ordinary command-availability gate after any earlier command-shape checks
+- if `package-audit` is unavailable in the current phase, `--output json` and the combined `--pretty --output json` form still fail on the ordinary command-availability gate after any earlier command-shape checks
 
 This section exists so CLI, package-management, and maturity docs can all point to one schema-level rule instead of restating slightly different versions of the same envelope-only contract.
 

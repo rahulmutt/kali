@@ -399,7 +399,7 @@ Checker diagnostics may still carry structured `SuggestedFix` metadata for edito
 ### `kali effects <file>`
 Output static effect analysis as JSON.
 
-Status: Phase 2 target. This section documents a **defined command family** in schema v1; in Phase 1 the command may still be unavailable or explicitly marked experimental while the internal effect infrastructure stabilizes. JSON-formatting selectors do not create an earlier path: before the command itself ships, `kali effects --pretty ...` and `kali effects --output json ...` stay on the same base command gate as plain `kali effects ...`.
+Status: Phase 2 target. This section documents a **defined command family** in schema v1; in Phase 1 the command may still be unavailable or explicitly marked experimental while the internal effect infrastructure stabilizes. JSON-formatting selectors do not create an earlier path: before the command itself ships, `kali effects --pretty ...`, `kali effects --output json ...`, and `kali effects --pretty --output json ...` stay on the same base command gate as plain `kali effects ...`.
 ```bash
 kali effects main.ts                       # Compact effect report JSON to stdout (default API surface: deno)
 kali effects --api browser main.ts         # Browser-targeted effect analysis once the Phase 2 command exists
@@ -407,6 +407,7 @@ kali effects --api node main.ts            # Phase 3 target: Node API surface re
 kali effects --compat eval main.ts         # Phase 4 compatibility: dynamic-eval path reflected in effect analysis too
 kali effects --pretty main.ts              # Pretty-printed effect report JSON
 kali effects --output json main.ts         # Command envelope + effect payload
+kali effects --pretty --output json main.ts # Pretty-printed command envelope + effect payload
 ```
 `kali effects` is a schema-v1 **native-JSON command** once it is available: by default it prints the effect-report payload directly, and with `--output json` it wraps that same payload in the standard command envelope. The payload is a conservative upper-bound report for the selected analysis root/graph, and schema-owned fields such as `dynamicEffects` / `dynamicReasons` explain when that report had to stay conservative or incomplete. See [specs/18-schemas.md](18-schemas.md) for the canonical payload schema.
 
@@ -602,8 +603,8 @@ Quick comparison:
 
 | Command | Availability | Context model | JSON success mode | Canonical early diagnostic boundary |
 |---|---|---|---|---|
-| `package-effects` | Phase 2 target | inherits the shared **inherited analysis context** | schema-v1 **native-JSON command** | malformed target / package-analysis-specific semantic flags / `--sandbox` → `E5008`; well-formed base invocation (including `--pretty` / `--output json`) before Phase 2 → `E5006` |
-| `package-audit` | Later compatibility | **context-free registry analysis (schema v1)** | schema-v1 **envelope-only JSON command** | malformed target or `--pretty` without `--output json` → `E5008`; well-formed base invocation such as `kali package-audit lodash` or `kali package-audit --output json lodash` before the command exists → `E5006` |
+| `package-effects` | Phase 2 target | inherits the shared **inherited analysis context** | schema-v1 **native-JSON command** | malformed target / package-analysis-specific semantic flags / `--sandbox` → `E5008`; well-formed base invocation (including `--pretty`, `--output json`, or both) before Phase 2 → `E5006` |
+| `package-audit` | Later compatibility | **context-free registry analysis (schema v1)** | schema-v1 **envelope-only JSON command** | malformed target or `--pretty` without `--output json` → `E5008`; well-formed base invocation such as `kali package-audit lodash`, `kali package-audit --output json lodash`, or `kali package-audit --pretty --output json lodash` before the command exists → `E5006` |
 
 ### `kali package-effects <package>`
 Analyze effects of one registry package under the canonical schema-v1 registry-analysis rules.
@@ -614,10 +615,11 @@ kali package-effects lodash                # Analyze npm package
 kali package-effects jsr:@std/path         # Analyze JSR package
 kali package-effects --pretty lodash       # Pretty-printed package-effect report JSON
 kali package-effects --output json lodash  # Command envelope + package-effect payload
+kali package-effects --pretty --output json lodash # Pretty-printed command envelope + package-effect payload
 ```
 
 Base-gate clarification:
-- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-effects lodash` reaches the command's own availability gate (`E5006`) until Phase 2 opens
+- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-effects lodash`, `kali package-effects --output json lodash`, or `kali package-effects --pretty --output json lodash` reaches the command's own availability gate (`E5006`) until Phase 2 opens
 - once the base command exists, inherited-context gating follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) rather than a package-analysis-specific shadow matrix
 - practical simplification: schema-v1 `package-effects` keeps a very small **semantic/context flag surface**: the package selector only. Its command-local presentation/output knobs are the usual **JSON-mode selectors** (`--output json`, optionally `--pretty`). Ordinary shared presentation/control flags still follow the shared-flag rules, but package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of forming a second CLI vocabulary
 
@@ -649,7 +651,7 @@ kali package-audit --pretty --output json lodash # Pretty-print that envelope; p
 ```
 
 Base-gate clarification:
-- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-audit lodash` or `kali package-audit --output json lodash` reaches the command's own availability gate (`E5006`) until this later command exists
+- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-audit lodash`, `kali package-audit --output json lodash`, or `kali package-audit --pretty --output json lodash` reaches the command's own availability gate (`E5006`) until this later command exists
 - practical simplification: schema-v1 `package-audit` keeps a very small **semantic/context flag surface**: the package selector only. Its command-local presentation/output knobs are the envelope-oriented **JSON-mode selectors** (`--output json`, plus `--pretty` only when JSON mode is already active). Ordinary shared presentation/control flags still follow the shared-flag rules, but package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of growing a second context model
 - output-format flags do not create a second availability path for the command itself
 

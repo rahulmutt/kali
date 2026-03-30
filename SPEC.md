@@ -316,6 +316,7 @@ To keep spec edits small and still prevent drift, apply this minimum update set 
 - **CLI shape/flag/arity/output change** → update [`specs/12-cli.md`](./specs/12-cli.md), then sync any affected diagnostics in [`specs/15-errors.md`](./specs/15-errors.md) and any affected JSON/schema contracts in [`specs/18-schemas.md`](./specs/18-schemas.md)
 - **sandbox/effect workflow change** → update [`specs/09-sandboxing.md`](./specs/09-sandboxing.md), then sync the corresponding command, diagnostic, schema, and maturity owners (`12`, `15`, `18`, `19`)
 - **embedding/artifact change** → update [`specs/13-embedding.md`](./specs/13-embedding.md) plus any affected artifact/schema/CLI owners (`08`, `12`, `18`, `19`)
+- **host/API-surface change** → update [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), then sync any affected command/package/sandbox/schema/availability owners (`09`, `12`, `14`, `18`, `19`)
 - **verification-claim change** → update [`specs/17-verification.md`](./specs/17-verification.md) and [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) together
 - **package workflow / registry-analysis change** → update [`specs/14-packages.md`](./specs/14-packages.md), then sync any affected command/output/error/availability owners (`12`, `15`, `18`, `19`)
 
