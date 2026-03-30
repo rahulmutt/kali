@@ -195,7 +195,12 @@ Interpretation rule:
 | `kali check types.d.ts` | Phase 1 MVP | Declaration-only files are valid explicit file inputs for `check`, even though they are not valid runtime entrypoints, build/effect primary inputs, or test entrypoints |
 | `kali check --sandbox kali.policy.json` | Phase 1 MVP | Reuse the same project-discovery behavior as plain `kali check`; Phase 1 validates policy schema/config for the discovered project graph, and Phase 2+ also checks inferred effects against the policy |
 | `kali check --sandbox kali.policy.json main.ts` | Phase 1 MVP | Same validation path, but scoped to the explicit file set rather than the discovered project graph |
-| `kali check --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node typing/global subset exists |
+| `kali check --api node` | Phase 3 target | Reject with `E5006` until the documented Node typing/global subset exists; `check` keeps its project-discovery no-file form here too rather than inventing a node-specific direct-input requirement |
+| plain `kali check` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali check --api node`; inherited config must not silently fall back to `deno` for checking |
+| `kali check --api node main.ts` | Phase 3 target | Same Node analysis gate for an explicit file set |
+| plain `kali check main.ts` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali check --api node main.ts`; inherited config must not silently fall back to `deno` for explicit-file checking |
+| `kali check --api node --sandbox kali.policy.json` | Phase 3 target | Same Node availability gate for the project-discovery policy-validation form; attaching `--sandbox` does not bypass the gated API surface |
+| plain `kali check --sandbox kali.policy.json` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali check --api node --sandbox kali.policy.json`; inherited config must not silently fall back to `deno` when `--sandbox` is present |
 | `kali check --api browser` | Phase 1 MVP | Supported browser-targeted analysis context over the canonical project-discovery result; browser targeting changes the analysis context, not the hybrid-input nature of `check` |
 | plain `kali check` under an inherited browser API surface | Phase 1 MVP | Same supported browser-targeted project-discovery request as explicit `kali check --api browser`; this row makes the inherited-config equivalence explicit instead of leaving it only in matrix prose |
 | `kali check --api browser main.ts` | Phase 1 MVP | Supported browser-targeted analysis context for an explicit file set |

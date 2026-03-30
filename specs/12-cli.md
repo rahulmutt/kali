@@ -331,14 +331,15 @@ kali check types.d.ts                      # Validate a declaration-only file di
 kali check --api browser                   # Browser-targeted project-discovery analysis context
 kali check --api browser main.ts           # Browser-targeted analysis context for an explicit file set (no standalone DOM runtime implied)
 kali check --api browser src/a.ts src/b.ts # Same browser-targeted analysis context over an explicit multi-file set
-kali check --api node main.ts              # Phase 3 target: Node API surface is phase-gated for checking too
+kali check --api node                      # Phase 3 target: Node API surface is phase-gated for project-discovery checking too
+kali check --api node main.ts              # Phase 3 target: same Node analysis gate for an explicit file set
 kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation; Phase 2+: effect-vs-policy validation over the discovered project graph
 kali check --api browser --sandbox kali.policy.json # Same browser-targeted validation path over the discovered project graph
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
 kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
 kali check --api browser --sandbox kali.policy.json src/a.ts src/b.ts # Same browser-targeted validation path over an explicit multi-file set
 ```
-`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser` and under `--sandbox`: browser targeting changes the analysis context, not the command's file-arity model, and attaching a policy still does not turn `check` into a direct-input command.
+`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`, `--api node`, and `--sandbox`: API-surface selection changes only the analysis context, not the command's file-arity model, and attaching a policy still does not turn `check` into a direct-input command.
 
 Inherited browser-context shorthand:
 

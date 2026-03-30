@@ -141,13 +141,14 @@ error[E5006]: feature unavailable in current phase: --api node
 ```
 
 Use `E5006` for cases such as:
-- `--api node` before the documented Node subset is implemented
+- `--api node` before the documented Node subset is implemented, including `kali check --api node` and `kali check --api node main.ts`
 - `eval` / `Function()` without `--compat eval`
 - dynamic `require()` in early phases
 - **recognized-but-unavailable compatibility members** from [SPEC.md](../SPEC.md), such as Phase-1 `Deno.permissions.request()` / `revoke()` (these stay on the compatibility-member path, not the ordinary missing-property/type-error path)
 - `Deno.permissions.query(...)` asked to evaluate a descriptor kind that Kali intentionally does not support in the current phase/API surface (for example an early-phase `ffi`/`sys`-style permission descriptor)
 - `run --api browser` in early phases where browser support is limited to the shared **Phase-1 browser-targeted command set** and there is still no standalone browser runtime contract
 - plain `kali run main.ts` or `kali run --sandbox kali.policy.json main.ts` under an inherited `compilerOptions.apiSurface = browser` or `compilerOptions.apiSurface = node`, because effective-context inheritance must not silently fall back to `deno`
+- plain `kali check`, `kali check main.ts`, or `kali check --sandbox kali.policy.json` under an inherited `compilerOptions.apiSurface = node`, because inherited checking contexts must hit the same Node availability gate as explicit `--api node` forms instead of silently falling back to `deno`
 - plain `kali test` or `kali test --sandbox kali.policy.json` under an inherited `compilerOptions.apiSurface = browser` or `compilerOptions.apiSurface = node`, for the same reason
 - plain `kali build main.ts` or `kali build --sandbox kali.policy.json main.ts` under an inherited `compilerOptions.apiSurface = node`, because inherited build contexts must not silently fall back to `deno`
 - plain `kali build --lib lib.ts`, `kali build --capi lib.ts`, or `kali build --component lib.ts` under an inherited `compilerOptions.apiSurface = node`, once those artifact modes exist, for the same inherited-context reason
