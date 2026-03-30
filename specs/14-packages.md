@@ -480,7 +480,12 @@ To keep schema v1 small and avoid undocumented config surface area, early-phase 
 
 ## Package Analysis
 
-Independently of project install state, Kali can analyze a registry package through the **registry-analysis commands**.
+Independently of project install state for **package identity/version selection**, Kali can analyze a registry package through the **registry-analysis commands**.
+
+Clarification:
+- this project-independence rule is about which package/version gets analyzed and about not mutating project-managed dependency state
+- it does **not** forbid the later `package-effects` command from inheriting semantic analysis context (`apiSurface`, `runtimeProfiles`, `compat.features`) from discovered config/defaults once that command exists
+- that inherited context still changes analysis semantics only; it must not rewrite target package selection or make the command depend on the current project's lock/install state
 
 Simplification rule:
 - follow the shared **registry-analysis command split** and **workflow-owner split** from [SPEC.md](../SPEC.md) instead of growing a fuzzy “package inspection” surface that mixes effect reporting, policy validation, install behavior, and security audit semantics
@@ -500,6 +505,7 @@ Shared target-selection rule:
 - version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md); any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly
 - if that identity-only package lookup finds the package but no acceptable non-yanked stable release exists, the canonical failure path is `E5001`
 - both commands follow the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md): current project manifest/lock/install state does not pick a different version, and promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
+- later `package-effects` may still inherit the shared **effective inherited analysis context**, but that inherited context is semantic-analysis input only and must not blur the target-selection/project-independence rule above
 - raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
 
 Registry-analysis cache rule:

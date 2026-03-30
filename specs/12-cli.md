@@ -100,8 +100,8 @@ Effective-context validation rule:
 | `--max-memory <size>` | execution commands | Override the invocation memory cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-cpu <duration>` | execution commands | Override the invocation CPU cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-open-files N` | execution commands | Override the invocation open-file-handle cap; may only tighten the effective limit relative to config/policy, never widen it |
-| `--max-spawned-processes N` | execution commands | Override the invocation child-process cap; may only tighten the effective limit. Follows the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md) |
-| `--max-threads N` | execution commands | Override the invocation thread cap for the threaded runtime profile; may only tighten the effective limit. Follows the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md) |
+| `--max-spawned-processes N` | execution commands | Override the invocation child-process cap; may only tighten the effective limit. Follows the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): `0` is a valid explicit deny/tightening value in Phase 1, while positive values stay availability-gated until subprocess support exists. |
+| `--max-threads N` | execution commands | Override the invocation thread cap for the threaded runtime profile; may only tighten the effective limit. Follows the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): `0` is a valid explicit deny/tightening value in Phase 1, while positive values stay availability-gated until the threaded profile exists. |
 | `--wasm-threads` | `check`, `effects`, `build`, `run`, `test` | Opt into the later threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; before that profile exists, or on unsupported targets, the command must fail with `E5006` |
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
@@ -532,6 +532,7 @@ These commands follow the shared **registry-analysis command split** from [SPEC.
 - the package argument uses the shared **identity-only registry target** form from [SPEC.md](../SPEC.md): `lodash`, `@types/node`, or `jsr:@std/path`, with no inline version/range selector
 - version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md); if the package identity exists but no acceptable non-yanked stable release exists, the command fails with `E5001`
 - both commands follow the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md): current-project `kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/` do not change which package version is analyzed, and the commands do not mutate project-managed dependency state
+- `package-effects` may still inherit semantic analysis context from discovered config/defaults once that command exists, but that inherited context affects analysis semantics only; it must not rewrite package identity/version selection or blur the project-independence rule
 - turning an analyzed package into a project dependency remains the job of `kali install`
 
 ### `kali package-effects <package>`
@@ -557,7 +558,7 @@ Machine-output rule:
 
 Analysis rule:
 - `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
-- it inherits its semantic analysis context through the shared **effective inherited analysis context** from [SPEC.md](../SPEC.md) rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox` in schema v1
+- it inherits its semantic analysis context through the shared **effective inherited analysis context** from [SPEC.md](../SPEC.md) rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox` in schema v1; that inherited context changes analysis semantics only and does not alter which package/version was selected
 - in configless mode, that inherited context is just the schema-v1 defaults (`apiSurface = deno`, `runtimeProfiles = []`, `compat.features = []`)
 - if discovered config later makes that inherited context resolve to `apiSurface = browser`, plain `kali package-effects <pkg>` reuses the same browser-targeted analysis context once the command itself exists; this later inherited-context reuse does **not** widen the exact **Phase-1 browser-targeted command set**
 - inherited-context availability follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is unavailable, the command fails with `E5006` rather than silently falling back to some smaller context

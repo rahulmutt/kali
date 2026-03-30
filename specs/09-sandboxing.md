@@ -94,7 +94,8 @@ Canonical behavior when no policy is attached:
 - `kali check` / `kali build` simply skip policy validation when no policy is attached
 - `kali run` / `kali test` skip policy-file-driven capability filtering when no policy is attached
 - `--max-memory`, `--max-cpu`, `--max-open-files`, and later profile-specific caps such as `--max-spawned-processes` and `--max-threads` may still be used without a policy file; without a policy they become the effective cap directly
-- for later-gated capability-specific caps, `0` remains a valid explicit deny/tightening value even before the underlying capability exists, while non-zero values are still rejected until that capability/profile is actually supported
+- follow the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): for the later-gated execution-budget fields, `0` remains a valid explicit deny/tightening value even before the underlying capability exists, while positive values are still rejected until that capability/profile is actually supported
+- by contrast, the always-runtime-budget fields (`maxMemory`, `maxCpu`, `maxOpenFiles` on the CLI; `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, `resources.maxOpenFiles` in policy/config) remain positive-only constraints rather than alternate deny channels
 
 Important distinction:
 - absence of a policy is **not** modeled as an implicit synthesized allow-all `kali.policy.json`
