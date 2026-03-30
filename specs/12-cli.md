@@ -222,7 +222,7 @@ Sandbox flag behavior is intentionally phase-gated:
 - `kali check/build --sandbox ...` validate the policy file/config in Phase 1.
 - Full inferred-effect-vs-policy validation is a Phase 2 feature.
 - Policy validation must also reject policies that try to enable capabilities unavailable in the selected command/profile/phase (for example `effects.eval: true` before the eval compatibility path exists, `effects.eval: true` without effective `--compat eval`, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists).
-- For browser-targeted `check --api browser --sandbox ...` and `build --bundle --api browser --sandbox ...`, non-deny `resources.*` policy budgets are rejected explicitly: those cross-cutting CPU/memory/file/process/thread budgets belong to Kali-hosted execution, not to the early browser deployment contract.
+- For browser-targeted `check --api browser --sandbox ...` and `build --bundle --api browser --sandbox ...`, cross-cutting `resources.*` policy budgets that would imply post-deployment enforcement are rejected explicitly: `maxMemoryMB`, `maxCpuTimeMs`, and `maxOpenFiles` are rejected whenever present, while `maxSpawnedProcesses` and `maxThreads` are rejected when set to positive values. Those budgets belong to Kali-hosted execution, not to the early browser deployment contract.
 - Policy files remain declarative; any later host-registered sandbox policy predicates are an embedding-oriented extension, not a second inline policy language.
 - If neither CLI nor config attaches a policy, the command runs with **no project policy file**; direct resource flags such as `--max-memory` and later supported caps such as `--max-spawned-processes` still apply, but there is no hidden synthesized policy document behind the scenes.
 
@@ -247,7 +247,7 @@ Canonical artifact-mode rule:
 Sandbox clarification:
 - `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config, and in Phase 2+ it also performs effect-vs-policy validation.
 - For `kali build --bundle --api browser --sandbox ...`, this remains a **build-time** compatibility check only. It must not be described as automatic runtime sandbox enforcement once the emitted browser bundle is deployed into a real browser host.
-- In that browser-targeted analysis/build context, cross-cutting `resources.*` budgets are not part of the supported contract and should be rejected when non-deny values are provided in the attached policy file.
+- In that browser-targeted analysis/build context, cross-cutting `resources.*` budgets are not part of the supported contract and should be rejected whenever they would imply post-deployment enforcement in the attached policy file.
 ```bash
 kali build main.ts                         # → main.wasm (--fast mode, default; artifact: kind=wasm-module, role=primary-executable)
 kali build --release main.ts               # Optimized build
@@ -617,7 +617,7 @@ Configuration simplification rules:
 
 Interpretation rule:
 - compile/check/build diagnostics over otherwise valid command inputs, including `E5004` dependency-state failures, `E5006` feature gating, and Phase 2+ compile-time sandbox/effect violations, exit with **1**
-- this same `1` path also covers a **well-formed but context-incompatible** attached policy whose enabled capability/profile is unavailable for the effective command context (for example `effects.eval: true` before `--compat eval` exists, or non-deny `resources.*` budgets on early browser-targeted `check` / `build --bundle`)
+- this same `1` path also covers a **well-formed but context-incompatible** attached policy whose enabled capability/profile is unavailable for the effective command context (for example `effects.eval: true` before `--compat eval` exists, or browser-targeted `check` / `build --bundle` policies that request cross-cutting `resources.*` enforcement Kali cannot promise post-deployment)
 - `fmt --check` and lint-style contract failures that report ordinary command diagnostics also exit with **1**
 - runtime sandbox enforcement failures exit with **3**
 - runtime resource exhaustion/fuel/memory-limit failures exit with **4**

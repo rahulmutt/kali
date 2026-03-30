@@ -345,6 +345,7 @@ Note:
 - in early phases, registry-analysis commands also avoid a second per-command **analysis-context flag family**: `package-effects` reuses the inherited analysis context instead of taking package-analysis-specific `--api`, runtime-profile flags, or `--compat` switches, while `package-audit` stays **context-free** (registry/package metadata focused) rather than becoming a second host-mode selector
 - config-selected `apiSurface`, `runtimeProfiles`, and `compat.features` therefore influence `package-effects`, but they do not change the semantics of early `package-audit`
 - unsupported inherited analysis-context values for `package-effects` fail with the same canonical availability path (`E5006`) used by direct analysis commands; Kali must not silently drop an inherited `node`, `wasm-threads`, or later compatibility feature just because `package-effects` has no parallel flag family of its own
+- registry-analysis commands may still use ordinary project/config discovery for generic CLI behavior, but that discovery does **not** change the schema-v1 stable-release version-selection rule and does **not** permit mutation of project-managed dependency state
 - for clarity, early `package-audit` still uses ordinary project/config discovery plus generic CLI behavior (for example project root selection, `--output`, and `--quiet`), but it intentionally ignores host-analysis/runtime knobs such as `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
 - this keeps each command in one primary category and avoids overlapping near-duplicate workflows
 
@@ -769,7 +770,7 @@ This is the compact cross-spec meaning of attaching a sandbox policy.
 |---|---|
 | `kali run ...` / `kali test ...` | Validate the policy, then enforce it at runtime inside the Kali-hosted execution environment |
 | `kali check ...` / `kali build ...` | Phase 1: validate policy schema/config only. Phase 2+: also validate inferred effects against the policy |
-| `kali check --api browser ...` / `kali build --bundle --api browser ...` | Static compatibility only; must not be described as Kali-controlled post-deployment browser enforcement, and non-deny `resources.*` budgets are rejected |
+| `kali check --api browser ...` / `kali build --bundle --api browser ...` | Static compatibility only; must not be described as Kali-controlled post-deployment browser enforcement, and browser-targeted policy attachment rejects any cross-cutting `resources.*` budget that would imply such enforcement (`maxMemoryMB`, `maxCpuTimeMs`, `maxOpenFiles` when present, and positive `maxSpawnedProcesses` / `maxThreads`) |
 | `kali effects ...` / `kali package-effects ...` | Reporting only; they do not take `--sandbox` in early phases |
 | embedding with a Kali-controlled host | Same enforcement model as `run`/`test`, plus later embedding-only host-predicate extensions when that feature exists |
 
