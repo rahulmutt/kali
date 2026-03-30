@@ -316,13 +316,26 @@ kali check src/a.ts src/b.ts               # Type check an explicit file set
 kali check types.d.ts                      # Validate a declaration-only file directly
 kali check --api browser                   # Browser-targeted project-discovery analysis context
 kali check --api browser main.ts           # Browser-targeted analysis context for an explicit file set (no standalone DOM runtime implied)
+kali check --api browser src/a.ts src/b.ts # Same browser-targeted analysis context over an explicit multi-file set
 kali check --api node main.ts              # Phase 3 target: Node API surface is phase-gated for checking too
 kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation; Phase 2+: effect-vs-policy validation over the discovered project graph
 kali check --api browser --sandbox kali.policy.json # Same browser-targeted validation path over the discovered project graph
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
 kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
+kali check --api browser --sandbox kali.policy.json src/a.ts src/b.ts # Same browser-targeted validation path over an explicit multi-file set
 ```
-`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`: browser targeting changes the analysis context, not the command's hybrid input behavior. The same effective-context rule also applies when browser mode is inherited from config rather than spelled on the CLI, so plain `kali check` / `kali check main.ts` are the same browser-targeted requests once `compilerOptions.apiSurface = browser` is already in effect. The same rule applies when `--sandbox` is present: `kali check --sandbox <policy>` without file arguments validates the discovered project graph rather than becoming a separate command mode, and `kali check --sandbox <policy> [files...]` keeps the same **set-oriented explicit-file command** behavior as plain `check`. Browser-targeted policy validation follows the same discovery-vs-explicit-file split: `kali check --api browser --sandbox <policy>` without file arguments validates the discovered project graph under the browser-targeted analysis context, while explicit files keep that same **set-oriented explicit-file command** behavior. Declaration-only files are valid explicit file inputs for `check`; `run`, `build`, `effects`, and `test` primary inputs may not be declaration-only, and that input-kind mismatch should use the canonical invalid-entrypoint diagnostic (`E5007`).
+`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser` and under `--sandbox`: browser targeting changes the analysis context, not the command's file-arity model, and attaching a policy still does not turn `check` into a direct-input command.
+
+Inherited browser-context shorthand:
+
+| Effective `apiSurface` | Command spelling | Result |
+|---|---|---|
+| non-browser (`deno` / `node`) | `kali check [files...]` | Ordinary standalone/default analysis context |
+| `browser` | `kali check [files...]` | Same browser-targeted request as explicit `kali check --api browser [files...]` |
+| non-browser (`deno` / `node`) | `kali check --sandbox kali.policy.json [files...]` | Ordinary standalone/default policy-validation request |
+| `browser` | `kali check --sandbox kali.policy.json [files...]` | Same browser-targeted static policy-validation request as explicit `kali check --api browser --sandbox kali.policy.json [files...]` |
+
+Declaration-only files are valid explicit file inputs for `check`; `run`, `build`, `effects`, and `test` primary inputs may not be declaration-only, and that input-kind mismatch should use the canonical invalid-entrypoint diagnostic (`E5007`).
 
 Checker diagnostics may still carry structured `SuggestedFix` metadata for editors, embedders, and JSON consumers, but schema v1 keeps CLI autofix simpler: `--fix` is lint-only until the checker rewrite contract is mature enough to stabilize across project graphs, config-discovery mode, and overlapping multi-diagnostic edits.
 
