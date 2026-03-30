@@ -450,6 +450,16 @@ kali package-audit lodash                   # Security audit (later compatibilit
 kali package-audit --output json lodash     # Standard command envelope only until a dedicated audit payload schema exists
 ```
 
+Registry-analysis context summary:
+
+| Command | Availability | Context model | JSON success shape |
+|---|---|---|---|
+| `package-effects` | Phase 2 target | Inherits semantic analysis context from defaults/discovered config only: `apiSurface`, `runtimeProfiles`, `compat.features` | Native JSON payload by default; standard command envelope with `--output json` |
+| `package-audit` | Later compatibility | Context-free in early phases: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change semantics | Standard command envelope only in schema v1 (`payload` omitted or `null` until a dedicated audit payload exists) |
+
+Shared rule:
+- neither command takes package-analysis-specific `--api`, runtime-profile, `--compat`, or `--sandbox` flags in schema v1; `package-effects` inherits context and `package-audit` intentionally does not
+
 Argument-kind simplification:
 - `kali package-effects <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - `kali package-audit <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
@@ -470,8 +480,7 @@ Registry-analysis cache simplification:
 - `package-effects` and `package-audit` may use the shared **registry-analysis cache** from [SPEC.md](../SPEC.md) for fetched metadata/tarballs
 - that cache is outside project-managed dependency state and must not mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
 - cache identity is keyed by at least the canonical registry identifier plus the resolved concrete version
-- for `package-effects`, the inherited effective analysis context is also part of that cache identity so `deno` / `browser` / later `node`, runtime-profile, and compatibility-feature analyses cannot collide accidentally
-- for early context-free `package-audit`, host-analysis/runtime/sandbox selections do not participate in the cache key because they do not change command semantics
+- cache context then follows the table above: `package-effects` also keys on the inherited effective analysis context so `deno` / `browser` / later `node`, runtime-profile, and compatibility-feature analyses cannot collide accidentally, while early context-free `package-audit` does not add host-analysis/runtime/sandbox context to the cache key
 
 Because `kali package-effects` is a Phase 2 target and depends on the shared effect-report pipeline, it should stay clearly unavailable or explicitly experimental until that pipeline lands rather than returning a partial bespoke format.
 
@@ -482,7 +491,7 @@ Canonical output simplification:
 - the nested `report.entryPoints` field should identify the package-analysis logical root with the same canonical registry identifier spelling the user targeted (`lodash`, `jsr:@std/path`) rather than an opaque tarball URL, extracted cache path, or internal package ID
 - the nested shared effect report includes `analysisContext` so the chosen `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md)) travel with the report instead of living only in ambient CLI/config state
 - that nested `analysisContext` uses the schema field names `apiSurface`, `runtimeProfiles`, and `compatFeatures`, so downstream tools do not have to translate from ambient config terminology
-- follow the shared **registry-analysis context split** from [SPEC.md](../SPEC.md): in early phases, `package-effects` inherits its semantic analysis context from defaults/discovered config rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
+- follow the shared **registry-analysis context split** from [SPEC.md](../SPEC.md) and the summary table above: in early phases, `package-effects` inherits its semantic analysis context from defaults/discovered config rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
 - in configless project mode, that inherited context is therefore just the schema-v1 defaults (`apiSurface = deno`, `runtimeProfiles = []`, `compat.features = []`)
 - practical consequence: choosing a non-default package-analysis context currently requires real config/defaults rather than package-analysis-specific CLI escape hatches; schema v1 keeps the command surface smaller on purpose
 - inherited analysis context follows the same axis-specific maturity gates as the rest of effect analysis rather than a package-only shadow rule set: browser inherits the browser-targeted analysis path, Node inherits the Node analysis gate, `wasm-threads` inherits the threaded-profile gate, and compat features such as `eval` inherit their own compatibility gate
@@ -495,8 +504,8 @@ Canonical output simplification:
 
 Simplification rules:
 - keep it **single-package** in early phases so it does not overlap with a future whole-project dependency-health workflow
-- follow the shared **registry-analysis context split** from [SPEC.md](../SPEC.md): like `package-effects`, early `package-audit` does **not** take package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
-- unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics, whether the command runs under discovered config or in configless project mode
+- follow the shared **registry-analysis context split** from [SPEC.md](../SPEC.md) and the summary table above: like `package-effects`, early `package-audit` does **not** take package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
+- unlike `package-effects`, early `package-audit` is intentionally **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics, whether the command runs under discovered config or in configless project mode
 - in schema v1, its package target is selected by the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md) rather than from any ambient project lockfile selection
 - if unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee
 - until a dedicated audit payload schema exists, `package-audit --output json` uses the standard command envelope alone and must not smuggle package/version metadata through ad hoc payload fields or by repurposing `stdout` / `stderr` as hidden result channels

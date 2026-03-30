@@ -86,8 +86,8 @@ Effective-context validation rule:
 | Flag | Scope | Description |
 |------|-------|-------------|
 | `--verbose` | all commands | Detailed output: timing per phase, optimization decisions |
-| `--output json` | all commands | Machine-parseable JSON output |
-| `--pretty` | JSON-producing mode | Pretty-print the active JSON document without changing its schema; meaningful only for native-JSON reporting commands or when `--output json` is active |
+| `--output json` | all commands | Request the standard machine-readable JSON output mode for that command: wrap native-JSON payloads in the command envelope, or emit the envelope itself for envelope-only JSON commands |
+| `--pretty` | JSON-producing mode | Pretty-print the active JSON document without changing its schema; meaningful only for native-JSON reporting commands or when `--output json` is active (including envelope-only JSON commands) |
 | `--quiet` | all commands | Suppress non-error status/progress output; for data-producing commands such as `effects` and `package-effects`, it must not suppress the primary payload itself |
 | `--max-errors N` | diagnostic-producing commands | Cap reported errors (default: 50) |
 | `--color auto\|always\|never` | text-output commands | Color output control |
@@ -429,7 +429,7 @@ Boundary rule:
 kali install lodash                        # Add/install registry dependency from npm
 kali install jsr:@std/path                 # Add/install registry dependency from JSR
 kali install                               # Materialize all declared dependencies for the project
-kali install --allow-scripts               # Permit lifecycle hooks for the invocation's effective npm-scriptable install work
+kali install --allow-scripts               # Permit lifecycle hooks only when this invocation actually has effective npm-scriptable install work; otherwise invalid usage (E5008)
 kali install --dev vitest                  # Add/install dev dependency
 kali install --allow-scripts lodash        # Opt into lifecycle scripts for one npm package install; invalid for explicit `jsr:` or raw-URL targets; still not a promise that binary/bootstrap-heavy packages are supported
 kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency

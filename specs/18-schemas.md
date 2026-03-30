@@ -554,6 +554,7 @@ Canonical filename: `kali.json`
 
 ### Rules
 - The JSON block above is a **full illustrative example**, not the minimal scaffold that `kali init` should emit by default
+- its dependency versions are illustrative manifest contents, not an alternate CLI input form: schema-v1 `kali install <pkg>` and registry-analysis commands still use the identity-only registry target workflow, then record/resolve versions through the package rules elsewhere in the spec set
 - `schemaVersion: number` is required on `kali.json` like every other top-level machine-readable Kali JSON document
 - `$schema: string` is an optional, recognized top-level metadata field for editor/tooling integration; it is not treated as an unknown extension field
 
