@@ -124,6 +124,16 @@ Interpretation rules:
 - semantic support for a feature still follows the phase/status matrix in [specs/19-feature-maturity.md](./specs/19-feature-maturity.md)
 - support wording in docs should follow the evidence rules in [specs/16-testing.md](./specs/16-testing.md) rather than one-off demos or anecdotal package wins
 
+### Published-standard boundary
+
+The bootstrap goal “support the latest ECMA-262 standard” is scoped to the **latest published edition** of ECMA-262.
+
+Interpretation rules:
+- that goal does **not** automatically include in-flight TC39 proposals or draft text beyond the latest published edition
+- proposal support, when Kali chooses to experiment with it, must be called out explicitly in the feature-maturity matrix or behind a documented experimental flag
+- docs should avoid wording that makes “tracks the latest standard” sound like “implements every Stage-3+ proposal by default”
+- once a proposal is incorporated into a published ECMA-262 edition, it moves back under the normal grammar/semantic/evidence claim model above
+
 ## Early-Phase Product Posture
 
 These assumptions are intentionally explicit so the rest of the spec set does not drift:

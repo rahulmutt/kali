@@ -5,7 +5,7 @@
 ### Requirements
 - Full lexical grammar support for the latest published ECMA-262 edition
 - TypeScript syntax extensions (type annotations, generics, enums, etc.)
-- Stage-3+/draft JavaScript proposals are out of scope unless the feature-maturity matrix or an explicit experimental flag says otherwise
+- Stage-3+/draft JavaScript proposals are out of scope unless the feature-maturity matrix or an explicit experimental flag says otherwise; see the published-standard boundary in [SPEC.md](../SPEC.md)
 - Kali-specific syntax extensions, kept intentionally small in early phases (effect annotations first; advanced effect syntax behind an experimental flag)
 - Zero-copy where possible — tokens reference source via spans
 - Streaming/lazy tokenization — parser pulls tokens on demand

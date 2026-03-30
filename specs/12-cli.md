@@ -369,7 +369,7 @@ Canonical host/profile rule: `kali test` follows the same early-phase API-surfac
 ### `kali init`
 Initialize a new project scaffold.
 ```bash
-kali init                                  # Create kali.json in current dir
+kali init                                  # Create the minimal project scaffold in the current dir (kali.json + smallest entry file)
 kali init --lib                            # Library project template
 ```
 
