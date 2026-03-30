@@ -137,7 +137,7 @@ For async operations, Kali implements a single-threaded event loop:
 `eval` and `Function()` are **Phase 4 compatibility features**.
 
 Implementation strategy:
-1. **Phases 1-3**: parse them, report the `Eval` effect, and reject them by default.
+1. **Phases 1-3**: parse them, conservatively mark the internal `Eval` effect/effect boundary, and reject them by default. This is intentionally compatible with the shared **effect-surface split**: Phase 1 may keep that information internal for sandbox/runtime integration, while the stable public reporting path arrives only with the Phase-2 effect-report surface.
 2. **Phase 4**: support a host-mediated dynamic execution path (`eval_execute`) with conservative deoptimization of the surrounding scope, enabled via `--compat eval`.
 
 Clarification:

@@ -15,11 +15,21 @@ Each crate has its own unit tests (Rust `#[cfg(test)]` modules):
 End-to-end tests in `tests/`:
 - Source file → compile → execute → check output
 - Source file → compile → check errors
-- Source file → effects analysis → check effect-report JSON output *(Phase 2 target; this is part of the shared **public effect-report surface** from [SPEC.md](../SPEC.md), so earlier phases should assert that the command is unavailable or explicitly experimental even if internal effect bookkeeping tests already exist)*
+- Source file → effects analysis → check effect-report JSON output *(Phase 2 target; this belongs to the shared **public effect-report surface** from [SPEC.md](../SPEC.md), so earlier phases should assert that the command is unavailable or explicitly experimental even if internal effect bookkeeping tests already exist)*
 - Source file + policy → sandbox validation → check result *(Phase 1 MVP for runtime enforcement + policy-file/config validation; Phase 2 target for inferred effect-vs-policy validation too)*
 - Library source → `kali build --lib` → export-oriented **base library artifact** + deterministic artifact metadata *(Phase 1 MVP for the base library artifact; the stable public embedding surface remains a Phase 2 target)*
 - Browser-targeted source → the shared **Phase-1 browser-targeted command set** → expected diagnostics/type success for `check` and emitted artifact + smoke execution in a real browser harness for `build --bundle`, including equivalent inherited-config forms and supported `--sandbox` variants where applicable
 - Repeated build of the same pinned input/context → byte-stable artifacts and stable machine-readable metadata by default
+
+### Phase-Correct Testing Rule
+To keep tests from accidentally widening support claims, the repository should treat each workflow family according to its phase owner:
+- **Phase 1-shipped workflows** must have positive integration coverage for their supported command/context combinations.
+- **Later documented workflows** may already have schemas, CLI spellings, fixtures, or experimental plumbing, but CI should assert unavailability/gating until their maturity rows open.
+- **Internal-only machinery** (for example Phase-1 effect bookkeeping) should be tested through unit/integration helpers without being mislabeled as the stable public CLI/API surface.
+
+Practical shortcut:
+- `run` / `test` sandbox enforcement, `check` / `build --sandbox` policy validation, the **Phase-1 browser-targeted command set**, and `build --lib` need positive Phase-1 coverage.
+- `kali effects` / `kali package-effects`, inferred-effect-vs-policy rejection, stable public embedding flows (`--capi`, `--component`, stable public `--lib` + WIT), and proof-backed release claims stay negative/gated until their owning phase opens.
 
 ### Conformance Test Suites
 
@@ -182,7 +192,7 @@ Proof-job consistency rule:
 - `tests/snapshots/` — IR/output snapshots
 - `tests/conformance/` — test262 and tsc-derived tests
 - `tests/sandbox/` — sandbox policy + program pairs
-- `tests/effects/` — effect inference test cases
+- `tests/effects/` — effect-analysis cases; in Phase 1 these may target internal bookkeeping/helpers, while Phase 2+ additionally uses them for the stable public effect-report surface
 - `tests/memory/` — ownership and allocation decision test cases
 - `proofs/` — Lean models and proofs for the currently verified core subset
 
