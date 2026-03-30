@@ -104,6 +104,8 @@ To keep the spec set implementable and reduce drift between chapters, Kali inten
 - **one compatibility-feature name** (`eval`) for both direct `eval` and `Function()`;
 - **one sandbox/effect vocabulary** for the Kali-mediated capability subset, rather than per-DOM/per-host-API policy keys.
 
+- **one specialization key model** based on observable layout/representation fingerprints plus the small set of semantic distinctions that still affect correctness, rather than blindly keying every specialization on the full inferred source-level type.
+
 These are deliberate simplifications, not accidental omissions. Later phases may add capability, but should not fork the core vocabulary or workflow without a clear need.
 
 ## Canonical Terminology
@@ -238,6 +240,22 @@ The semantic context that materially affects static analysis results:
 - `apiSurface`
 - `runtimeProfiles`
 - `compatFeatures`
+
+### Layout/representation fingerprint
+A canonical specialization key fragment describing the parts of a value that materially affect generated code shape.
+
+It is based on things like:
+- concrete scalar representation (`f64`, `i32` fast path, tagged)
+- object/aggregate layout class and field-offset shape
+- ownership/indirection facts only when they change calling convention, lifetime handling, or runtime operations
+- dynamic/boxed fallbacks when layout is not statically stable
+
+It is intentionally **not** the full source-level type identity. Distinct source types may share one fingerprint when they lower to the same observable code shape.
+
+Rule:
+- layout-driven specialization should key primarily on these fingerprints plus any remaining semantic distinctions that still affect correctness
+- chapters should not require a separate codegen instantiation merely because two source-level types have different names while lowering to the same layout/behavioral contract
+- the owning details live in [`specs/05-ir.md`](./specs/05-ir.md) and [`specs/07-specialization.md`](./specs/07-specialization.md)
 
 Build mode affects compile effort and optimization behavior, but for early effect/package-analysis contracts the main semantic analysis context is the trio above unless an owning chapter says otherwise.
 

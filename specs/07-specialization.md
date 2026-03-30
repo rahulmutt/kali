@@ -5,20 +5,36 @@ Optimization and specialization passes are implemented in the `kali_optimize` cr
 ## Generic Specialization
 
 ### Strategy
-Aggressively specialize generic functions at each call site based on concrete types. This produces distinct WASM functions with optimized memory layouts for each type combination.
+Aggressively specialize generic functions at each call site, but key those specializations by the canonical **layout/representation fingerprint** plus any remaining semantic distinctions that still affect correctness. This produces distinct WASM functions when code shape or observable behavior materially differs, without cloning code merely because two source-level types have different names.
+
+Simplification rule:
+- specialization keys are **layout-first**, not source-type-name-first
+- if two instantiations lower to the same parameter/result fingerprints and require the same guards/runtime operations, they should share one specialization
+- if two instantiations differ only in source-level typing detail that disappears before MIR/LIR/codegen, they should not force separate emitted WASM functions
 
 ### What Gets Specialized
 - **Generic functions**: `function map<T, U>(arr: T[], fn: (t: T) => U): U[]`
-- **Generic classes**: Each instantiation gets its own vtable and memory layout
-- **Polymorphic call sites**: If a function is called with 3 different type combinations, 3 specialized versions are emitted
-- **Closures**: Specialized for their capture set's concrete types
+- **Generic classes**: each materially distinct layout/dispatch shape gets its own vtable and layout instance
+- **Polymorphic call sites**: if a function is called with 3 materially different fingerprint combinations, 3 specialized versions are emitted
+- **Closures**: specialized for materially different capture-layout fingerprints rather than for cosmetic source-type differences alone
 
 ### Specialization Process
 1. Collect all call sites for each generic function
-2. Group by unique type argument tuples
-3. For each unique tuple, instantiate the function body with concrete types
-4. Lower to the canonical layout-aware IR for the active phase: MIR in Phase 2+, or directly to LIR in Phase 1 while MIR is still being introduced
-5. Apply type-specific optimizations (e.g., integer arithmetic for `number`)
+2. Lower each candidate call into a provisional specialization key built from parameter/result **layout/representation fingerprints** plus any remaining semantic distinctions that still affect correctness
+3. Group by that canonical key rather than by raw type-argument spelling alone
+4. For each unique key, instantiate the function body with the corresponding concrete lowering assumptions
+5. Lower to the canonical layout-aware IR for the active phase: MIR in Phase 2+, or directly to LIR in Phase 1 while MIR is still being introduced
+6. Apply type-/layout-specific optimizations (for example integer fast paths for eligible `number` flows)
+
+Examples of distinctions that may still keep separate specializations even when layouts look similar:
+- runtime checks needed to preserve JavaScript-visible numeric behavior
+- different drop/refcount paths caused by ownership/escape differences that survive lowering
+- calling-convention differences at ABI boundaries
+
+Examples of distinctions that should normally **not** force separate specializations by themselves:
+- alias names
+- generic parameter names
+- source-level types that collapse to the same tagged fallback representation
 
 ### Memory Layout Specialization
 ```typescript
@@ -31,7 +47,11 @@ first(["a", "b"]);          // T = string → ptr[] layout, pointer load
 first([{x: 1}, {x: 2}]);   // T = {x: number} → struct[] layout, 8-byte stride
 ```
 
-Each specialization uses the most compact possible layout for its concrete type.
+Each specialization uses the most compact possible layout for its concrete lowering.
+
+Important simplification:
+- if two source-level instantiations produce the same array/object layout fingerprint and the same surrounding runtime obligations, they should reuse one specialization instead of emitting duplicate code
+- this is how Kali stays faithful to the bootstrap's “specialize memory layouts aggressively” goal without equating that goal with “clone on every nominal type difference”
 
 ### Specialization Limits
 - Cap specializations per function (default: 16) to prevent code size explosion
