@@ -78,7 +78,7 @@ Canonical config-discovery rule:
 Effective-context validation rule:
 - command validation always runs against the fully merged **effective command context** (built-in defaults, then discovered config, then CLI flags)
 - therefore config-selected values trigger the same maturity/usage checks as explicit flags for the axes that actually participate in that command's semantics; the CLI must not silently "fix up" an inherited participating context by falling back to some other API surface/profile
-- non-participating axes are ignored rather than gated: for example `check` ignores inherited `buildMode`, and early `package-audit` ignores inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
+- non-participating axes are ignored rather than gated: for example `check` ignores inherited `buildMode`, and early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md)
 - examples: config-selected `apiSurface = node` still causes plain `kali run main.ts` or `kali test` to hit the Node phase gate (`E5006`), and config-selected `apiSurface = browser` still makes plain `kali build main.ts` invalid early-phase usage (`E5008`) until `--bundle` is selected
 - config-selected `apiSurface = browser` also keeps plain `kali run main.ts` and plain `kali test` on the same browser-runtime/test gate as their explicit `--api browser` forms (`E5006`); omitting the flag does not cause a silent fallback to `deno`
 - follow the canonical validation-order rule from [SPEC.md](../SPEC.md): command-shape/arity first, then base command availability, then finer inherited-context/profile gates inside that command
@@ -110,7 +110,7 @@ Package-analysis flag/context simplification:
 - follow the canonical command-context axis participation table, `analysis context` term, and **registry-analysis context split** in [SPEC.md](../SPEC.md)
 - `kali package-effects` is a **Phase 2 target** and, once available, inherits only the semantic analysis axes (`apiSurface`, `runtimeProfiles`, `compat.features`) through the shared **effective inherited analysis context** from [SPEC.md](../SPEC.md); it records that context in `report.analysisContext` using the emitted field names `apiSurface`, `runtimeProfiles`, and `compatFeatures` instead of growing package-analysis-specific `--api` / runtime-profile / `--compat` flags
 - `buildMode` and `sandbox` remain non-semantic for `package-effects` in early phases
-- `kali package-audit` is a **Later compatibility** single-package registry tool and, once available, stays context-free in early phases; inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and `sandbox` do not change its semantics
+- `kali package-audit` is a **Later compatibility** single-package registry tool and, once available, follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md)
 - examples later in this chapter describe the canonical command shape/output contract for these registry-analysis commands, not an unconditional promise that they are already available in Phase 1
 
 Sandbox-flag clarification:
@@ -516,7 +516,7 @@ Argument-kind rule:
 
 Project-state rule:
 - follow the same **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md)
-- unlike `package-effects`, early `package-audit` does not inherit the shared **effective inherited analysis context**; it stays context-free in schema v1
+- unlike `package-effects`, early `package-audit` does not inherit the shared **effective inherited analysis context**; it instead follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md)
 
 Status: **Later compatibility**. It should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
 ```bash
@@ -527,7 +527,7 @@ kali package-audit --pretty --output json lodash # Pretty-print that envelope; p
 ```
 Additional flag-surface rule:
 - follow the shared **registry-analysis context split** from [SPEC.md](../SPEC.md): like `package-effects`, early `package-audit` does **not** take package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
-- unlike `package-effects`, early `package-audit` remains **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do **not** change its semantics
+- unlike `package-effects`, early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md)
 - therefore config-selected host-analysis/runtime values such as `apiSurface = node`, `apiSurface = browser`, `runtimeProfiles = ["wasm-threads"]`, or `compat.features = ["eval"]` do **not** by themselves gate or rewrite `package-audit`; the command either remains unavailable by its own maturity row or runs with the same context-free semantics once implemented
 
 Output simplification rule:

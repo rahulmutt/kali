@@ -126,6 +126,7 @@ Use this checklist:
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
 - registry-package CLI/manifest spelling versus structured JSON package metadata should reuse the **registry package identifier vs package coordinate** term instead of re-explaining the `jsr:` prefix split in slightly different ways
+- package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
 
 Practical rule:
 - if a chapter needs more than a short paragraph to restate one of those shared rules, add or reuse a canonical term here instead of creating another near-duplicate explanation.
@@ -431,7 +432,7 @@ To keep single-package tooling predictable and avoid a second near-duplicate fla
 - `package-effects`, once that command exists, is **analysis-context-aware**: it inherits `apiSurface`, `runtimeProfiles`, and the effective compatibility-feature selection from config/defaults, then records that context in JSON using the emitted field name `compatFeatures` instead of taking package-analysis-specific `--api` / runtime-profile / `--compat` flags.
 - because schema v1 intentionally omits package-analysis-specific context flags, non-default `package-effects` contexts come only from defaults or discovered config; in configless mode the command therefore uses the schema-v1 defaults unless/until a later spec adds explicit package-analysis context flags.
 - `package-effects` follows the maturity of the inherited analysis axis instead of inventing its own separate gate table: inherited browser context lines up with browser-targeted effect analysis, inherited Node context lines up with the Node analysis gate, inherited `wasm-threads` lines up with the threaded-profile gate, and inherited compat features such as `eval` line up with their own compatibility-phase gates.
-- `package-audit`, once that command exists, is **context-free** in early phases: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics.
+- `package-audit`, once that command exists, follows **context-free registry analysis (schema v1)**.
 - both commands still follow the shared **registry-analysis project-independence rule** as well as the identity-only registry-target rule.
 
 ### Effective inherited analysis context
@@ -447,6 +448,21 @@ Rules:
 - in configless mode, this context is therefore just the schema-v1 defaults,
 - top-level `sandbox` and `buildMode` are outside this term in early phases,
 - if a later spec adds package-analysis-specific CLI context flags, that later spec can extend this term explicitly instead of forcing every chapter to restate the whole inheritance rule.
+
+### Context-free registry analysis (schema v1)
+The early schema-v1 rule for registry-analysis commands whose semantics intentionally do not depend on inherited host-analysis/runtime configuration.
+
+In schema v1 this means:
+- inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change the command's semantics,
+- the command still follows its own maturity row and command-shape rules,
+- output-format selectors such as `--output json` still change only formatting/envelope behavior, not semantic analysis context.
+
+Canonical early example:
+- `package-audit`
+
+Rule:
+- use this term instead of restating the full ignored-axis list each time a chapter means this exact schema-v1 behavior
+- this term is about semantic context participation only; it does not by itself imply anything about package version selection, cache identity, or project mutability
 
 ### Registry-analysis project-independence rule
 Single-package registry-analysis commands intentionally analyze a registry package as a standalone target, not as "whatever version this project currently has installed."

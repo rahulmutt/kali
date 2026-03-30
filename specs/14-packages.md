@@ -456,7 +456,7 @@ Registry-analysis context summary:
 | Command | Availability | Context model | JSON success shape |
 |---|---|---|---|
 | `package-effects` | Phase 2 target | Inherits only the semantic analysis axes from the shared **effective inherited analysis context**: `apiSurface`, `runtimeProfiles`, `compat.features` | Native JSON payload by default; standard command envelope with `--output json` |
-| `package-audit` | Later compatibility | Context-free in early phases: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change semantics | Standard command envelope only in schema v1 (`payload` omitted or `null` until a dedicated audit payload exists) |
+| `package-audit` | Later compatibility | Follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md) | Standard command envelope only in schema v1 (`payload` omitted or `null` until a dedicated audit payload exists) |
 
 Shared rule:
 - neither command takes package-analysis-specific `--api`, runtime-profile, `--compat`, or `--sandbox` flags in schema v1; `package-effects` inherits context and `package-audit` intentionally does not
@@ -502,7 +502,7 @@ Canonical output simplification:
 Simplification rules:
 - keep it **single-package** in early phases so it does not overlap with a future whole-project dependency-health workflow
 - follow the shared **registry-analysis context split** from [SPEC.md](../SPEC.md) and the summary table above: like `package-effects`, early `package-audit` does **not** take package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
-- unlike `package-effects`, early `package-audit` is intentionally **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics, whether the command runs under discovered config or in configless project mode
+- unlike `package-effects`, early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md), whether the command runs under discovered config or in configless project mode
 - in schema v1, its package target is selected by the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md) rather than from any ambient project lockfile selection
 - if unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee
 - until a dedicated audit payload schema exists, `package-audit --output json` follows the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md) instead of re-specifying a parallel package-audit-only output contract here
