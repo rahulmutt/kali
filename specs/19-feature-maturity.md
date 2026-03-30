@@ -90,7 +90,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | Internal sandbox-oriented effect bookkeeping | Phase 1 MVP | Follows the shared **effect-surface split** from [SPEC.md](../SPEC.md): Phase 1 may already maintain conservative built-in effect facts internally for sandbox-first implementation and later integration work without claiming a stable CLI/JSON reporting surface |
 | Stable public built-in effect reporting / `kali effects` / `kali package-effects` | Phase 2 target | This is the Phase-2 **public effect-report surface** side of that same split: stable user-facing effect JSON, reporting commands, and compile/check-time inferred-effect-vs-policy validation |
 | Explicit effect annotations / `pure` | Phase 2 target | Initially scoped to the built-in sandbox capability model |
-| User-defined/custom effect kinds in stable reports or policy checking | Later compatibility | Keep Phase 1-2 machine contracts limited to built-in sandbox-relevant effects |
+| User-defined/custom effect kinds in stable reports or policy validation/comparison | Later compatibility | Keep Phase 1-2 machine contracts limited to built-in sandbox-relevant effects |
 | Algebraic effect declarations / handlers | Later compatibility | Experimental and must not block delivery of the core capability/effect system |
 | Executable project-local sandbox policy code (`kali.policy.json` hooks / inline predicates) | Rejected by default | Project policy files stay declarative data; Kali should not execute project code just to decide whether a capability is allowed |
 | Host-registered sandbox policy predicates | Later compatibility | This is the long-term programmable-policy path: initial policies stay declarative, and a later embedding-only extension may add pure host-registered predicates without turning policy files into executable project code. These predicates are narrowing-only: they may reject operations the declarative policy would otherwise allow, but they must not widen declarative denies or bypass command/profile maturity gates. |
@@ -376,9 +376,9 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | TypeScript-compatible checking and flow narrowing | Phase 1 MVP | Compatibility first |
 | Stronger JS inference and conservative fallback to `unknown` / dynamic representations | Phase 1 MVP | Needed for plain JS compilation |
 | Shared bounded inference contract for locals, obvious parameters, and analyzable returns | Phase 1 MVP | Early inference should improve materially on plain `tsc` local inference while staying inside the shared **bounded inference contract** and using the shared **annotation-required inference boundary** when cost or API stability would otherwise become unpredictable |
-| Stable built-in capability-effect reporting | Phase 2 target | `kali effects` and policy checking |
+| Stable built-in capability-effect reporting | Phase 2 target | Reuses the earlier canonical **public effect-report surface** row above: stable `kali effects` / `kali package-effects` output plus compile/check-time inferred-effect-vs-policy validation |
 | Explicit `pure` / effect annotations | Phase 2 target | Built-in sandbox capability model first |
-| Stable user-defined/custom effects in machine contracts | Later compatibility | Keep early schemas/policies simple |
+| Stable user-defined/custom effects in machine contracts | Later compatibility | Keep Phase 1-2 schemas, reports, and policy validation/comparison scoped to the built-in sandbox-relevant effect family |
 
 ### Host and Runtime Profiles
 

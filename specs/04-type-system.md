@@ -207,7 +207,7 @@ Normalization rule:
 - Effects are inferred bottom-up: leaf functions determine effects, callers accumulate
 - **Phase 2 target**: explicit effect annotations (`! Effect`) and `pure` modifiers are checked against inferred effects for the built-in sandbox-relevant capability set
 - **Later compatibility**: effect polymorphism and user-defined/custom effect syntax may be added once the built-in capability model is stable
-- Until that later phase lands, policy checking, diagnostics, and machine-readable effect reports are defined only for the built-in sandbox-relevant effect family
+- Until that later phase lands, policy validation/comparison, diagnostics, and machine-readable effect reports are defined only for the built-in sandbox-relevant effect family
 - `pure` functions have an empty effect set — enforced by the checker when the explicit effect-annotation surface is enabled
 
 ### Relationship to Sandboxing

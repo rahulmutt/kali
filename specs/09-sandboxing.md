@@ -326,7 +326,7 @@ If policy predicates are added, they must:
 
 ## Algebraic Effect Handlers (Advanced, Experimental)
 
-Algebraic effects are a later-phase feature. They are explicitly optional for the initial implementation and should not block delivery of capability summaries, policy checking, or runtime enforcement.
+Algebraic effects are a later-phase feature. They are explicitly optional for the initial implementation and should not block delivery of capability summaries, policy validation/comparison, or runtime enforcement.
 
 Illustrative syntax:
 
