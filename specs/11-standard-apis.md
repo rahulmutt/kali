@@ -161,13 +161,13 @@ Canonical rule:
 This resolves a common ambiguity: browser-targeted analysis may know about `document`/`window`, while standalone execution still rejects browser-runtime assumptions because Kali does not embed a browser engine.
 
 **Canonical early-phase rule**:
+- follow the **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md)
 - `kali check --api browser ...` is allowed for browser-targeted analysis
 - `kali build --bundle ...` is allowed for browser-targeted artifacts when the **effective API surface** is `browser`
-- `kali build` with an effective API surface of `browser` but without `--bundle` is invalid command usage (`E5008`) in early phases to keep browser mode tied to a real browser-host deployment path
-- `kali run --api browser ...` is rejected by default until a later runtime profile explicitly supports it
-- `kali test --api browser ...` is also rejected by default in early phases for the same reason; browser support is not yet a standalone execution/test-runtime contract
+- browser-targetable build shapes requested with the wrong artifact combination use `E5008` rather than `E5006`; examples include `kali build --api browser ...`, `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...`
+- `kali run --api browser ...` and `kali test --api browser ...` use `E5006` in early phases because Kali does not yet define a standalone browser runtime/test contract
 
-**Note**: For supported command/profile combinations, the Phase 1 baseline Web Platform APIs are available regardless of `--api` mode. The `--api` flag controls which *additional* platform-specific APIs are loaded. Early unsupported command/surface combinations should either use the canonical feature-maturity diagnostic (`E5006`) or, when the user asked for a contradictory command shape such as a non-bundled browser build, the canonical invalid-usage diagnostic (`E5008`) rather than silently falling back.
+**Note**: For supported command/profile combinations, the Phase 1 baseline Web Platform APIs are available regardless of `--api` mode. The `--api` flag controls which *additional* platform-specific APIs are loaded. Early unsupported command/surface combinations should follow that same split rather than silently falling back.
 
 ## Phase 1 Host API Exit Criteria
 

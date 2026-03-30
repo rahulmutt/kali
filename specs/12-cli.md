@@ -207,7 +207,7 @@ When a command or flag is rejected due to phase/profile maturity, the CLI should
 
 Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
-- browser mode is valid early for `check` and for `build` only when the selected artifact mode is the browser bundle path. In practice that means the **effective API surface** may be `browser` for `check`, and for `build` only together with `--bundle`; standalone `run` still rejects browser mode, and `build` with an effective API surface of `browser` but without `--bundle` is treated as invalid command usage (`E5008`) until a later runtime profile/output contract explicitly supports that mode.
+- follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): supported early browser shapes are `check --api browser` and `build --bundle --api browser`; wrong browser build shapes use `E5008`, while browser execution/test requests use `E5006` until Kali defines a standalone browser runtime/test contract.
 - `--api node` is phase-gated consistently across `check`, `effects`, `build`, `run`, and `test`; early phases reject it with `E5006` rather than exposing a partial Node surface.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
 - in schema v1, `--compat eval` is the only stable compatibility-feature spelling and it gates both direct `eval` and `Function()`; the CLI should not invent a separate `--compat function-constructor` alias.

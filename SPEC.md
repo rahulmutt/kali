@@ -171,6 +171,17 @@ Interpretation rules:
 - this term names an **analysis/build context**, not a promise that Kali embeds a standalone browser runtime or DOM engine
 - `run --api browser` and `test --api browser` therefore remain rejected until a later spec adds an explicit browser-runtime contract
 
+### Canonical browser-surface rejection split
+To keep browser-targeted support honest and machine-readable diagnostics consistent, Kali uses one cross-spec rule for early `--api browser` handling:
+- `kali check --api browser ...` and `kali build --bundle --api browser ...` are the canonical supported early browser-targeted command shapes
+- if the command shape is **browser-targetable in principle** but the user selected an impossible early combination, the failure is **invalid command usage** (`E5008`); examples: plain `kali build --api browser main.ts`, `kali build --lib --api browser lib.ts`, `kali build --capi --api browser lib.ts`, `kali build --component --api browser lib.ts`
+- if the user selected `--api browser` for a command that would require a standalone browser-runtime or test-runtime contract Kali does not yet define, the failure is **feature/profile unavailable** (`E5006`); examples: `kali run --api browser main.ts`, `kali test --api browser`
+- commands must not silently fall back from an effective browser selection to `deno`
+
+This keeps the browser story simple:
+- **browser analysis/build contexts that exist but were requested with the wrong artifact shape** → `E5008`
+- **browser execution/runtime contracts that do not exist yet** → `E5006`
+
 ### Build mode
 The optimization/compile-time tradeoff:
 - `fast`

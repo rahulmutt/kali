@@ -119,6 +119,7 @@ Interpretation rule:
 - matrix rows are evaluated against the fully merged **effective command context** (built-in defaults, then discovered config, then CLI flags)
 - examples written with explicit flags also apply when the same value was inherited from `kali.json`
 - Kali must not silently fall back from an inherited unsupported/contradictory context to a different API surface/profile just because the user omitted the matching CLI flag
+- browser rows follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): wrong browser build shapes are `E5008`, while unsupported browser execution/test/runtime contracts are `E5006`
 
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
