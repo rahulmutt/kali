@@ -73,7 +73,7 @@ It is intentionally narrower than the full command/profile matrix below:
 
 | Area | Phase 1 shipped surface | Not yet shipped in Phase 1 |
 |---|---|---|
-| Project workflow | `kali init`, `kali install`, `kali fmt`, `kali lint`, `kali check [files...]` *(including the project-discovery no-file form and explicit file sets)* | no automatic dependency repair outside `kali install` |
+| Project workflow | `kali init`, `kali init --lib`, `kali install`, `kali fmt`, `kali lint`, `kali check [files...]` *(including the project-discovery no-file form and explicit file sets)* | no automatic dependency repair outside `kali install` |
 | Execution | `kali run <file>` and `kali test [files...]` in the default/inherited Deno-oriented standalone context, with supported `--sandbox` runtime enforcement | no standalone browser runtime/test contract; no Node execution path yet |
 | Executable build | `kali build <file>` in the shared **Deno-oriented build context (schema v1)**, with shipped static policy validation on the supported `kali build --sandbox <policy> <file>` path | no non-bundle browser build mode; no Node executable build path yet |
 | Export-oriented build / embedding | Phase-1 **base library artifact** via `kali build --lib <file>` in the shared **Deno-oriented build context (schema v1)** for exact-version/internal consumers, only when Kali can determine a **statically known export surface**; shipped static policy validation also covers `kali build --lib --sandbox <policy> <file>` | no stable public Rust embedding API; no stable public WIT sidecar for plain `--lib`; no stable public C ABI or Component Model flow; no cross-version host-loading guarantee yet |
