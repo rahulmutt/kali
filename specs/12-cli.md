@@ -439,11 +439,10 @@ kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL depend
 
 Argument-kind rules:
 - `kali install [target]` accepts at most one explicit install target in early phases; multiple install targets are invalid command usage (`E5008`)
-- a **registry install target** uses the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names (for example `jsr:@std/path`)
-- in schema v1, that explicit registry install target is a **package identity only**, not an inline version/range selector
-- adding a registry package through this identity-only CLI form uses the shared stable-release rule from [specs/14-packages.md](14-packages.md): resolve the latest non-yanked stable published version, write `kali.lock` with that concrete version, and record the manifest dependency as that exact version string
+- an explicit registry install target uses the shared **identity-only registry target** form from [SPEC.md](../SPEC.md): the user supplies one **registry package identifier** such as `lodash`, `@types/node`, or `jsr:@std/path`, not an inline version/range selector
+- adding a registry package through that identity-only form follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md): resolve the latest non-yanked stable published version, write `kali.lock` with that concrete version, and record the manifest dependency as that exact version string
 - if that identity-only lookup finds the package but no acceptable non-yanked stable release, the command fails with `E5001` instead of silently selecting a prerelease or pretending the package was installable under the schema-v1 input form
-- a **registry install target** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
+- an explicit registry install target updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
 - in the canonical configless project mode, an explicit registry-package add (`kali install <pkg>` or `kali install --dev <pkg>`) first creates the minimal canonical manifest `{ "schemaVersion": 1 }` at the effective project root, then records the dependency there; this keeps package adds on one manifest path instead of inventing a configless side channel
 - `kali install` does **not** take `--api` in early phases; install is profile-agnostic, so passing `--api ...` is invalid command usage (`E5008`) rather than a request for a second install graph
 - `--dev` is valid only with a **registry install target**; using `--dev` without an explicit registry target or pairing it with a raw URL (`kali install --dev https://...`) is rejected explicitly rather than inventing a second URL-specific manifest bucket
@@ -473,8 +472,7 @@ Analyze effects of a registry package under the canonical schema-v1 registry-ana
 
 Argument-kind rule:
 - `kali package-effects <package>` takes exactly one explicit package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
-- `<package>` uses the canonical **registry package identifier** spelling from [SPEC.md](../SPEC.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names
-- early schema-v1 package analysis takes the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
+- `<package>` uses the shared **identity-only registry target** form from [SPEC.md](../SPEC.md): one **registry package identifier** such as `lodash`, `@types/node`, or `jsr:@std/path`, with no inline version/range selector
 - version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md), and the resolved version is recorded in the output payload
 - if that identity-only package lookup finds the package but no acceptable non-yanked stable release, the command fails with `E5001`
 - any non-registry target is rejected for `package-effects` in early phases, including raw URLs and local file paths; this command analyzes registry packages only, while raw URL dependencies remain part of the project/import-graph workflow handled by `kali install` + `kali effects`
@@ -508,8 +506,7 @@ Security audit for one registry package under the canonical schema-v1 registry-a
 
 Argument-kind rule:
 - `kali package-audit <package>` accepts exactly one explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
-- the package argument uses the canonical **registry package identifier** spelling from [SPEC.md](../SPEC.md)
-- early schema-v1 package audit likewise takes the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
+- the package argument uses the shared **identity-only registry target** form from [SPEC.md](../SPEC.md): one **registry package identifier** such as `lodash`, `@types/node`, or `jsr:@std/path`, with no inline version/range selector
 - version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md); once Kali defines a dedicated audit payload schema, that payload should record the resolved version as result metadata rather than forcing it into the required input spelling
 - if that identity-only package lookup finds the package but no acceptable non-yanked stable release, the command fails with `E5001`
 - any non-registry target is rejected for `package-audit` in early phases, including raw URLs and local file paths; package-audit is registry-package-oriented rather than a second raw-URL/local-path analysis path

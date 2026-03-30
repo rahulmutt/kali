@@ -85,8 +85,8 @@ Registry-collision simplification rule:
 
 ### Canonical stable-release selection rule (schema v1)
 
-Several early schema-v1 workflows intentionally accept the **identity-only registry target** form from [SPEC.md](../SPEC.md) instead of an inline version/range selector. To keep those workflows deterministic, they share one resolution rule:
-- **latest non-yanked stable published version** means the highest published SemVer version for that package identity that has **no prerelease identifier** and is not yanked
+Several early schema-v1 workflows intentionally accept the shared **identity-only registry target** form from [SPEC.md](../SPEC.md) instead of an inline version/range selector. To keep those workflows deterministic, they share one resolution rule:
+- **latest non-yanked stable published version** means the highest published SemVer version for that targeted **registry package identifier** that has **no prerelease identifier** and is not yanked
 - those identity-only workflows must fail explicitly rather than silently selecting a prerelease when no non-yanked stable version exists
 - the canonical failure path for that case is `E5001`: the package identity resolved, but no acceptable stable release existed for the schema-v1 identity-only workflow
 
@@ -95,7 +95,7 @@ Schema-v1 uses this rule for:
 - explicit registry-package adds via `kali install <pkg>` and `kali install --dev <pkg>`
 
 Install simplification:
-- when `kali install <pkg>` or `kali install --dev <pkg>` adds a new manifest entry from a package-identity-only argument, it resolves that latest non-yanked stable published version, writes the lockfile using that concrete resolved version, and records the dependency in `kali.json` as the exact resolved version string
+- when `kali install <pkg>` or `kali install --dev <pkg>` adds a new manifest entry from that **identity-only registry target** form, it resolves the latest non-yanked stable published version, writes the lockfile using that concrete resolved version, and records the dependency in `kali.json` as the exact resolved version string
 - schema v1 intentionally keeps the manifest-written path exact-version-first so manifest intent, lockfile state, and AI-authored edits stay easy to reason about; wider SemVer range syntax may be added later, but only as a separately documented manifest/CLI contract rather than being implied by the identity-only install form
 
 ### Package Resolution
@@ -465,7 +465,7 @@ Argument-kind simplification:
 - `kali package-effects <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - `kali package-audit <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - explicit package arguments for those commands must use the canonical **registry package identifier** spelling from [SPEC.md](../SPEC.md) (`lodash`, `@scope/name`, `jsr:@std/path`)
-- early schema-v1 package-analysis commands take the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
+- early schema-v1 package-analysis commands take the shared **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
 - version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md)
 - `kali package-effects` records the resolved version in its machine-readable payload, while early `package-audit` follows the same version-selection rule but does **not** promise command-specific machine-readable version metadata until a dedicated audit payload schema exists
 - any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly

@@ -575,7 +575,7 @@ Canonical filename: `kali.json`
 
 ### Rules
 - The JSON block above is a **full illustrative example**, not the minimal scaffold that `kali init` should emit by default
-- its dependency versions are illustrative manifest contents, not an alternate CLI input form: schema-v1 `kali install <pkg>` and registry-analysis commands still use the identity-only registry target workflow, then record/resolve versions through the package rules elsewhere in the spec set
+- its dependency versions are illustrative manifest contents, not an alternate CLI input form: schema-v1 `kali install <pkg>` and registry-analysis commands still use the shared **identity-only registry target** workflow from [SPEC.md](../SPEC.md), then record/resolve versions through the package rules elsewhere in the spec set
 - for schema-v1 registry manifests, the canonical recorded value is the exact resolved version string; wider version-range manifest syntax is intentionally deferred so manifest intent and lockfile state stay tightly aligned
 - `schemaVersion: number` is required on `kali.json` like every other top-level machine-readable Kali JSON document
 - `$schema: string` is an optional, recognized top-level metadata field for editor/tooling integration; it is not treated as an unknown extension field
@@ -651,7 +651,7 @@ Interpretation rules:
 - dependency keys use the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names
 - in schema v1, dependency values for those registry keys are exact resolved version strings rather than broad SemVer ranges
 - range spellings such as `^1.2.3`, `~1.2.3`, or `>=1.2.3` are therefore invalid config in schema v1 instead of hidden alternate resolution modes
-- when `kali install <pkg>` or `kali install --dev <pkg>` adds a new registry dependency from the schema-v1 identity-only CLI form, it uses the shared stable-release rule from [specs/14-packages.md](14-packages.md): resolve the latest non-yanked stable published version, write `kali.lock` with that concrete version, and record the manifest entry as that exact version string
+- when `kali install <pkg>` or `kali install --dev <pkg>` adds a new registry dependency from the shared **identity-only registry target** form, it uses the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md): resolve the latest non-yanked stable published version, write `kali.lock` with that concrete version, and record the manifest entry as that exact version string
 - in the canonical configless project mode from [SPEC.md](../SPEC.md), an explicit registry-package add first creates the minimal canonical manifest `{ "schemaVersion": 1 }` at the effective project root, then records the dependency there; schema v1 intentionally keeps registry-package ownership in one manifest file rather than inventing a configless dependency sidecar
 - because schema v1 registry dependencies materialize into one early-phase `node_modules/` tree, install must reject a manifest that would require two distinct registry identities to occupy the same on-disk package path
 - raw URL dependencies are declared in source/import maps and tracked via `kali.lock`; schema v1 intentionally does **not** add a second manifest section for them
