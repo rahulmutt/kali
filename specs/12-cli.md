@@ -204,6 +204,8 @@ It is the default interpretation of examples such as `kali run main.ts`, `kali t
 
 Reading rule for the examples below:
 - command examples in this chapter define **shape, flags, and output contracts** first
+- unless an example comment explicitly says otherwise, bare command spellings should be read under the command's canonical default effective context rather than as secretly assuming inherited config
+- inherited-context behavior is still documented, but it is summarized in the dedicated shorthand tables so identical bare spellings do not acquire two different meanings inside one example block
 - examples that mention later-phase commands or contexts (for example `effects`, `package-effects`, `package-audit`, `--capi`, `--component`, `--api node`, or standalone browser `run` / `test`) do **not** override the availability owner in [19 — Feature Maturity](19-feature-maturity.md)
 - when an example is both well-formed and phase-gated, read it as "this is the stable command spelling once that maturity row opens" rather than as an implied Phase-1 promise
 
@@ -303,7 +305,6 @@ kali build main.ts                         # → main.wasm (--fast mode, default
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue)
-kali build --bundle main.ts                # Same browser-bundle request once discovered config already makes the effective apiSurface `browser`
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
 kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early for builds either
@@ -321,7 +322,9 @@ kali build --component --api node lib.ts   # Phase 3 target: still gated by the 
 kali build --component --api browser lib.ts # Invalid usage (E5008) in early phases; browser mode remains the bundle-only browser-targeted path rather than a component artifact mode
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; from the Phase 2 target onward also validate inferred effects
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Build-time policy compatibility only; no automatic browser-runtime enforcement is implied after deployment
-kali build --bundle --sandbox kali.policy.json main.ts # Same browser-targeted static-policy-validation request once discovered config already makes the effective apiSurface `browser`
+# With inherited compilerOptions.apiSurface = "browser":
+kali build --bundle main.ts                # Same supported request as explicit `kali build --bundle --api browser main.ts`
+kali build --bundle --sandbox kali.policy.json main.ts # Same supported request as explicit `kali build --bundle --api browser --sandbox ...`
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
 ```
@@ -352,16 +355,17 @@ kali check types.d.ts                      # Validate a declaration-only file di
 kali check --api browser                   # Browser-targeted project-discovery analysis context
 kali check --api browser main.ts           # Browser-targeted analysis context for an explicit file set (no standalone DOM runtime implied)
 kali check --api browser src/a.ts src/b.ts # Same browser-targeted analysis context over an explicit multi-file set
-kali check                                 # Under inherited browser config, this is the same supported request as explicit `kali check --api browser`
-kali check main.ts                         # Under inherited browser config, this is the same supported request as explicit `kali check --api browser main.ts`
 kali check --api node                      # Phase 3 target: Node API surface is phase-gated for project-discovery checking too
 kali check --api node main.ts              # Phase 3 target: same Node analysis gate for an explicit file set
 kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation; from the Phase 2 target onward, effect-vs-policy validation over the discovered project graph
 kali check --api browser --sandbox kali.policy.json # Same browser-targeted validation path over the discovered project graph
-kali check --sandbox kali.policy.json      # Under inherited browser config, the same browser-targeted static policy-validation request as explicit `kali check --api browser --sandbox ...`
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
 kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
 kali check --api browser --sandbox kali.policy.json src/a.ts src/b.ts # Same browser-targeted validation path over an explicit multi-file set
+# With inherited compilerOptions.apiSurface = "browser":
+kali check                                 # Same supported request as explicit `kali check --api browser`
+kali check main.ts                         # Same supported request as explicit `kali check --api browser main.ts`
+kali check --sandbox kali.policy.json      # Same supported request as explicit `kali check --api browser --sandbox ...`
 ```
 `kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`, `--api node`, and `--sandbox`: API-surface selection changes only the analysis context, not the command's file-arity model, and attaching a policy still does not turn `check` into a direct-input command.
 
