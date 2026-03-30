@@ -162,13 +162,14 @@ Kali's own test runner for discovered test files, supporting:
 6. TypeScript test suite
 7. Fuzz testing (time-limited)
 8. Benchmarks (compare to baseline)
-9. Conditional Lean proof verification for the currently modeled subset
+9. Lean proof verification per `proofs/BOUNDARY.md` activation rule
 ```
 
 Proof-job consistency rule:
 - Lean verification is **not** an all-or-nothing claim that the whole language/runtime is already modeled.
-- CI should run the proof job whenever changes touch the proof tree itself or a Rust/spec subsystem that `proofs/BOUNDARY.md` claims to cover (for example the modeled type, effect, memory, or sandbox core).
+- CI should follow the activation state published in `proofs/BOUNDARY.md`: while the boundary is empty, proof CI is required for changes under `proofs/`; once the manifest names covered Rust/spec subsystems, the proof job also runs for changes to those covered areas.
 - Changes outside that modeled subset do not need to block on unrelated proof jobs, but they still must not weaken the documented proof boundary accidentally.
+- A release should not treat a placeholder/empty proof boundary as evidence of shipped proof coverage; proof-backed release claims require a non-placeholder modeled subset and theorem inventory.
 
 ### Test Data
 - `tests/fixtures/` — source files for integration tests

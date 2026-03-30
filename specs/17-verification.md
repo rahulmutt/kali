@@ -16,7 +16,7 @@ To keep the bootstrap's Lean requirement aligned with the rest of the phased spe
 
 | Phase | Verification focus |
 |---|---|
-| Phase 1 MVP | Core typed calculus, parser/checker model boundaries, declarative sandbox-policy decision procedure, and the trusted-model boundary for AOT/no-tracing-GC invariants |
+| Phase 1 MVP | Published proof boundary plus at least one concrete modeled theorem family over the core typed calculus / sandbox-policy core before any Phase-1 release that advertises formal verification; during earlier spec iteration the manifest may remain empty, but only if Kali avoids proof-backed support claims |
 | Phase 2 target | Built-in effect inference conservativity, ownership/escape/reference-counting model, and selected lowering-preservation lemmas |
 | Phase 3 target | Specialization/layout-preservation lemmas for the proved fragment, plus stronger package/runtime-model correspondence where the host contract is already stable |
 | Phase 4 compatibility | Late dynamic compatibility paths only after their semantics are frozen enough to model honestly; `eval`/dynamic loading remain outside the currently published proof boundary until then |
@@ -37,6 +37,11 @@ That manifest should enumerate, at minimum:
 - and the CI trigger rule for when the proof job must run.
 
 Before the first proofs land, the manifest may truthfully publish an **empty current proof boundary**. That is still preferable to omitting the file, because it prevents the rest of the spec from accidentally implying proof coverage that does not yet exist.
+
+Release-gate clarification:
+- an empty manifest is acceptable during spec-first iteration and early implementation bootstrapping
+- it is **not** enough for a release to market Kali as already formally verified in Phase 1
+- any Phase-1 release note or support claim that leans on formal verification should first replace the empty boundary with at least one concrete modeled subsystem plus named theorem/property claims
 
 Activation rule:
 - while the published proof boundary is empty, proof CI is required only for changes under `proofs/`

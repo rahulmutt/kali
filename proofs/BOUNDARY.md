@@ -2,6 +2,10 @@
 
 Status: placeholder for the initial published proof boundary. The repository currently claims **no mechanized proof coverage yet**, so this file documents the absence of proof claims rather than satisfying the future Phase-1 proof milestone by itself.
 
+Release note:
+- this placeholder is acceptable while the project is still iterating on the spec/implementation without making proof-backed support claims
+- before any release markets formal verification as a shipped Kali capability, this manifest should be replaced with at least one concrete modeled subsystem plus named theorem/property claims
+
 This file is the canonical repository location for the **proof-boundary manifest** referenced by:
 - `SPEC.md`
 - `specs/17-verification.md`
