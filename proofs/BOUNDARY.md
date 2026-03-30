@@ -33,12 +33,17 @@ Until Lean proofs land, this file should be kept explicit rather than omitted so
 - No subsystem is yet claimed as mechanically proved in this repository.
 - Recommended first non-placeholder scope once proofs start: reuse [specs/17-verification.md](../specs/17-verification.md)'s **First proof-backed milestone** section as the canonical scope description rather than restating a second near-duplicate checklist here.
 
-## Current proof-CI trigger policy
+## Proof-CI trigger policy
 - The current proof boundary is **empty**.
 - Therefore proof CI is required only for changes under `proofs/`.
 - If this manifest later names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas.
 - Until concrete CI workflow files exist, this section is the repository's normative proof-CI trigger policy rather than evidence that hosted proof automation is already configured.
 - Until that happens, no release note, README text, or phase summary should imply mechanized coverage for any implementation subsystem.
+- Operational rule: run proof CI when either condition becomes true:
+  1. files under `proofs/` change, or
+  2. a change touches a subsystem explicitly listed in **Covered implementation/spec paths** as inside the modeled boundary.
+- Until a non-empty modeled boundary is published, only condition (1) is active.
+- The absence of broader proof jobs must not be described as proof coverage.
 
 ## Claimed theorems/properties
 - None yet.
@@ -62,9 +67,3 @@ Until Lean proofs land, this file should be kept explicit rather than omitted so
 - None yet beyond keeping this file honest.
 - Once covered paths exist, this section should summarize the specific implementation/spec correspondence obligations for those paths rather than relying on implicit reviewer memory.
 
-## CI trigger rule
-Run proof CI when either condition becomes true:
-1. files under `proofs/` change, or
-2. a change touches a subsystem explicitly listed in **Covered implementation/spec paths** as inside the modeled boundary.
-
-Until a non-empty modeled boundary is published, only condition (1) is active. The absence of broader proof jobs must not be described as proof coverage.

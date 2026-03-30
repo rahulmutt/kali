@@ -287,6 +287,7 @@ Use this checklist:
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
 - Phase-1 internal effect machinery versus Phase-2 stable effect-report-command wording should reuse the **effect-surface split** instead of creating new near-duplicate “effects exist internally but not publicly yet” prose in each chapter
 - command-purpose wording that distinguishes reporting, policy validation, runtime enforcement, install-time hooks, and registry audit should reuse the **workflow-owner split** instead of creating overlapping “analysis”, “sandbox”, or “inspection” narratives for the same command families
+- `--sandbox` behavior across `check` / `build` / `run` / `test` should reuse the **sandbox-attachment orthogonality** rule instead of re-explaining in each chapter that sandbox attachment does not change command family, file arity, compile intent, artifact mode, or API-surface gating
 - verification-boundary wording should reuse the **proof-boundary manifest** term instead of scattering slightly different “modeled subset”, “proof kernel”, or “published proof scope” prose across verification, testing, and maturity chapters
 - `kali init` scaffold wording should reuse the **minimal canonical scaffold contract**, the **canonical scaffold filename convention**, and the **template selection vs build artifact mode split** instead of reintroducing duplicate `main.ts` / `lib.ts` defaults or near-duplicate “library template does not imply later `build --lib`” prose in multiple chapters
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
@@ -655,6 +656,20 @@ Rules:
 - adding JSON output, pretty-printing, or inherited analysis context must not change which workflow owner a command belongs to
 - docs should reuse this split instead of describing the same command family as partly “reporting”, partly “validation”, and partly “runtime sandboxing” depending on chapter prose
 - later phases may deepen a workflow owner's capabilities, but should not create a second near-duplicate command path unless the maturity matrix opens it explicitly
+
+### Sandbox-attachment orthogonality
+Attaching `--sandbox <policy>` never changes the base command family or its existing input/artifact semantics.
+
+In schema v1 this means:
+- on `run` / `test`, `--sandbox` adds runtime policy enforcement for the same executable command/profile request,
+- on `check` / `build`, `--sandbox` adds the static policy-validation/comparison workflow step owned by those commands,
+- it does **not** change `check` from a hybrid/set-oriented command into a single-entry command,
+- it does **not** change `build` compile intent, artifact selection, or browser-vs-non-browser build-shape rules,
+- it does **not** bypass API-surface or feature-maturity gates, whether the participating context came from CLI flags or inherited config.
+
+Rules:
+- if the underlying command/context combination is contradictory or unavailable, attaching `--sandbox` keeps the same contradiction/availability outcome and merely adds the sandbox-validation layer when that owner is otherwise valid
+- chapters should reuse this term instead of re-explaining in slightly different prose that sandbox attachment is “orthogonal to artifact mode”, “does not change file arity”, or “does not create a second availability path”
 
 ### Proof-boundary manifest
 The checked-in declaration of what Kali's current formal-verification claims actually cover.

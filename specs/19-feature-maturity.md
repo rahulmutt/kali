@@ -178,6 +178,7 @@ Interpretation rule:
 - only the axes that participate for the selected command are maturity-relevant; non-participating inherited axes are ignored rather than becoming hidden gates or contradictions
 - Kali must not silently fall back from an inherited unsupported/contradictory participating context to a different API surface/profile just because the user omitted the matching CLI flag
 - browser rows follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): wrong browser build shapes are `E5008`, while unsupported browser execution/test/runtime contracts are `E5006`
+- `--sandbox` rows follow the shared **sandbox-attachment orthogonality** rule from [SPEC.md](../SPEC.md): sandbox attachment never creates a second command family, browser build shape, library mode, or inherited-context fallback path
 - follow the canonical validation-order rule from [SPEC.md](../SPEC.md): **command shape/arity first**, then the command's own phase availability, then finer-grained inherited-context/profile gates inside that command
 - output-format selectors such as `--output json` and `--pretty` never create a second availability path: after any earlier command-shape error, they inherit the same base maturity row as the underlying command/context combination and change presentation only
 - matrix-row status names the **earliest phase where the full command/context combination can be supported**, not necessarily the first diagnostic a pre-support implementation should report when more than one independent gate is still closed
