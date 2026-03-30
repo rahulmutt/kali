@@ -42,12 +42,17 @@ Until Lean proofs land, this file should be kept explicit rather than omitted so
 - Browser/Node compatibility layers beyond the future modeled core
 - Full lowering/codegen correctness end to end
 
+## Covered implementation/spec paths
+- None yet.
+- Once the manifest becomes non-empty, list the exact Rust crate/spec chapter/path set whose behavior is being claimed against the Lean model so CI wiring and release wording can reference one canonical path inventory.
+
 ## Required implementation/spec alignment scope
 - None yet beyond keeping this file honest.
+- Once covered paths exist, this section should summarize the specific implementation/spec correspondence obligations for those paths rather than relying on implicit reviewer memory.
 
 ## CI trigger rule
 Run proof CI when either condition becomes true:
 1. files under `proofs/` change, or
-2. a change touches a subsystem explicitly listed here as inside the modeled boundary.
+2. a change touches a subsystem explicitly listed in **Covered implementation/spec paths** as inside the modeled boundary.
 
 Until a non-empty modeled boundary is published, only condition (1) is active. The absence of broader proof jobs must not be described as proof coverage.

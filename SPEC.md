@@ -69,6 +69,18 @@ Rule:
 - Phase-1 examples may still mention these later command/profile shapes to define stable CLI/schema vocabulary,
 - but Phase-1 support summaries, release notes, and tests must not imply they are already shipped.
 
+## Phase-1 Guardrail Splits
+
+Several later chapters reuse the same four distinctions because they are the easiest places for broad bootstrap goals to blur into accidental Phase-1 overclaims:
+- **browser-targeted context** ≠ **standalone browser runtime/test contract**
+- **base library artifact** ≠ **public embedding surface**
+- **internal effect bookkeeping** ≠ **public effect-report surface**
+- **proof-ready state** ≠ **proof-backed support state**
+
+Reading rule:
+- when a support claim feels ambiguous, check whether it accidentally crossed one of those four boundaries before assuming the broader reading
+- later chapters should prefer reusing these canonical split names instead of re-explaining them in new prose each time
+
 ## Recommended Phase-1 Implementation Order
 
 To keep the bootstrap brief actionable and avoid trying to build every aspiration at once, Phase 1 should be implemented in this order:
