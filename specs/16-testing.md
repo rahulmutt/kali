@@ -36,7 +36,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | Runtime semantic support claim | command/profile-specific integration tests + the applicable conformance subset for the claimed feature family |
 | Type checking / inference | checker baselines + inference golden tests + targeted regression cases |
 | Host APIs / runtime behavior | integration tests that execute the API path + sandbox/resource-limit tests where relevant |
-| Browser-targeted analysis/build support | browser-targeted check/build tests + emitted-bundle smoke runs in a real browser harness |
+| The **Phase-1 browser-targeted command set** | browser-targeted `check` tests + browser-targeted `build --bundle` tests + emitted-bundle smoke runs in a real browser harness |
 | Base library/export artifact support (`kali build --lib`) | library-build integration tests + artifact-manifest/schema assertions + deterministic rebuild checks |
 | Package compatibility | curated package corpus results recorded per command/profile (`check`, `build`, `test`, `run`) |
 | CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |

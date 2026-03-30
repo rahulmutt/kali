@@ -434,7 +434,7 @@ kali test --sandbox kali.policy.json       # Run tests in sandbox
 kali test --coverage                       # Phase 2 target: with coverage report once the stable contract lands
 kali test --api deno                       # Supported early standalone test profile
 kali test --api node                       # Phase 3 target
-kali test --api browser                    # Later compatibility; unavailable in early phases because browser is an analysis/build context first
+kali test --api browser                    # Later compatibility; unavailable in early phases because browser support is limited to the shared Phase-1 browser-targeted command set first
 ```
 
 Canonical discovery rule:

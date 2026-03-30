@@ -79,7 +79,7 @@ Interpretation rule:
 
 When `true`, the static analysis is incomplete.
 - for **Kali-hosted execution** (`run`, `test`, embedding), runtime sandbox enforcement remains the authoritative backstop for any operations the static report could not fully classify
-- for browser-targeted analysis/build contexts, this flag is still valuable as a static warning signal, but it does **not** imply that deployed browser bundles automatically inherit Kali runtime enforcement after deployment
+- for the shared **Phase-1 browser-targeted command set** and later browser-context analysis commands that explicitly reuse that same context, this flag is still valuable as a static warning signal, but it does **not** imply that deployed browser bundles automatically inherit Kali runtime enforcement after deployment
 
 ## Sandbox Policies
 
@@ -116,7 +116,7 @@ The canonical policy schema is defined in [specs/18-schemas.md](18-schemas.md). 
 Cross-spec consistency rule:
 - schema v1 string allowlists use the canonical matching rules from [specs/18-schemas.md](18-schemas.md)
 - validation, compile-time effect-vs-policy checks, and runtime enforcement must all apply those same normalization/matching rules rather than inventing subsystem-specific pattern semantics
-- schema v1 covers only the **Kali-mediated capability subset** from [SPEC.md](../SPEC.md), not every ambient browser/DOM API that may be visible during browser-targeted analysis/build
+- schema v1 covers only the **Kali-mediated capability subset** from [SPEC.md](../SPEC.md), not every ambient browser/DOM API that may be visible during the shared **Phase-1 browser-targeted command set** or later browser-context analysis commands that explicitly reuse that same browser-targeted context
 
 For process environment access, the policy model distinguishes `effects.process.envRead` from `effects.process.envWrite` so read-only inspection and mutation can be granted independently.
 

@@ -50,7 +50,7 @@ Promotion rule:
   - type-system behavior → checker/inference baselines
   - package compatibility → curated package corpus results
   - host/runtime APIs → integration + sandbox/resource-limit coverage
-  - browser-targeted analysis/build support → browser-targeted check/build tests + emitted-bundle smoke runs in a real browser harness
+  - the shared **Phase-1 browser-targeted command set** → browser-targeted `check` tests + browser-targeted `build --bundle` tests + emitted-bundle smoke runs in a real browser harness
   - CLI/JSON contracts → golden/snapshot/schema tests
 - isolated demos or one package anecdote do **not** by themselves justify raising a feature's maturity wording
 
@@ -186,7 +186,7 @@ Interpretation rule:
 | `kali run --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands |
 | plain `kali run main.ts` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali run --api node main.ts`; inherited config must not silently fall back to `deno` for execution |
 | plain `kali run --sandbox kali.policy.json main.ts` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali run --api node --sandbox kali.policy.json main.ts`; attaching `--sandbox` does not bypass the Node execution gate |
-| `kali run --api browser main.ts` | Later compatibility | Reject with `E5006` until a real browser-execution contract exists; browser is an analysis/build context first |
+| `kali run --api browser main.ts` | Later compatibility | Reject with `E5006` until a real browser-execution contract exists; Phase 1 browser support is limited to the shared **Phase-1 browser-targeted command set** first |
 | plain `kali run main.ts` under an inherited browser API surface | Later compatibility | Same effective request as explicit `kali run --api browser main.ts`; inherited config must not silently fall back to `deno` for execution |
 | plain `kali run --sandbox kali.policy.json main.ts` under an inherited browser API surface | Later compatibility | Same browser-execution gate as explicit `kali run --api browser --sandbox kali.policy.json main.ts`; attaching `--sandbox` does not turn browser into an early standalone runtime |
 | `kali check` | Phase 1 MVP | Type-check the canonical project-discovery result with the default API surface (`apiSurface=deno`) |
@@ -232,7 +232,7 @@ Interpretation rule:
 | library-oriented build with a **statically known export surface** after frontend lowering | Phase 1 MVP | Uses the shared definition from [SPEC.md](../SPEC.md): ESM exports are direct, while CommonJS participates only when static lowering can determine one fixed export set |
 | library-oriented build without a statically known export surface | Rejected by default | Fail with `E5011` instead of inventing reflection-based exports for `--lib` / `--capi` / `--component` |
 | `kali build --lib --api node lib.ts` | Phase 3 target | Library-oriented build modes still obey the same Node build gate as ordinary `kali build --api node ...`; they do not create a separate early Node surface |
-| `kali build --lib --api browser lib.ts` | Rejected by default | Early browser support is an analysis/build context tied to `check` and `build --bundle`, not a browser-library artifact mode |
+| `kali build --lib --api browser lib.ts` | Rejected by default | Early browser support is limited to the shared **Phase-1 browser-targeted command set** (`check` and `build --bundle`), not a browser-library artifact mode |
 | plain `kali build --lib lib.ts` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali build --lib --api node lib.ts`; inherited config must not silently fall back to a non-Node library build |
 | plain `kali build --lib lib.ts` under an inherited browser API surface | Rejected by default | Same effective request as explicit `kali build --lib --api browser lib.ts`; inherited browser context must not silently fall back to a non-browser library build |
 | `kali build --capi lib.ts` | Phase 2 target | Public embedding artifact generation should stay gated until the embedding contract is stable; when enabled it emits `kind: wasm-module` (`role: primary-library`) + `kind: wit` (`role: interface-wit`) + `kind: c-header` (`role: embedding-header`) + `kind: cabi-metadata` (`role: embedding-metadata`) |
@@ -244,8 +244,8 @@ Interpretation rule:
 | plain `kali build --component lib.ts` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali build --component --api node lib.ts`; once `--component` exists, inherited config must not silently fall back to a non-Node component build |
 | plain `kali build --component lib.ts` under an inherited browser API surface | Rejected by default | Same effective request as explicit `kali build --component --api browser lib.ts`; inherited browser context does not create a browser-component artifact mode |
 | `kali build` with more than one explicit artifact-mode selector from `--bundle` / `--lib` / `--capi` / `--component` | Rejected by default | Artifact mode is a one-of selector in early phases; conflicting combinations such as `--bundle --lib`, `--bundle --capi`, `--bundle --component`, `--lib --capi`, `--lib --component`, or `--capi --component` should fail with `E5008` rather than a feature-maturity diagnostic |
-| `kali build --capi --api browser lib.ts` | Rejected by default | Early browser support is an analysis/build context tied to `check` and `build --bundle`, not a browser-embedding artifact mode |
-| `kali build --component --api browser lib.ts` | Rejected by default | Early browser support is an analysis/build context tied to `check` and `build --bundle`, not a browser-component artifact mode |
+| `kali build --capi --api browser lib.ts` | Rejected by default | Early browser support is limited to the shared **Phase-1 browser-targeted command set** (`check` and `build --bundle`), not a browser-embedding artifact mode |
+| `kali build --component --api browser lib.ts` | Rejected by default | Early browser support is limited to the shared **Phase-1 browser-targeted command set** (`check` and `build --bundle`), not a browser-component artifact mode |
 | `kali test` / `kali test --api deno` | Phase 1 MVP | Compile and run tests with the default standalone tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]`) unless overridden |
 | `kali test a.test.ts b.test.ts` | Phase 1 MVP | Explicit test files bypass naming-pattern discovery and are treated as one explicit test-module set, provided every file is from the executable/analyzable source set |
 | declaration-only file passed to `run` / `effects` / `build` / `test` as a primary input | Rejected by default | Declaration files are analysis/type inputs, not executable entrypoints or build/effect primary inputs; use the canonical invalid-entrypoint diagnostic (`E5007`) rather than treating this as general CLI misuse |
@@ -253,7 +253,7 @@ Interpretation rule:
 | `kali test --api node` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for test runs too |
 | plain `kali test` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali test --api node`; inherited config must not silently fall back to `deno` for test execution |
 | plain `kali test --sandbox kali.policy.json` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali test --api node --sandbox kali.policy.json`; attaching `--sandbox` does not bypass the Node test-runtime gate |
-| `kali test --api browser` | Later compatibility | Reject with `E5006` until a real browser-test contract exists; early browser support is an analysis/build context, not a standalone test-runtime profile |
+| `kali test --api browser` | Later compatibility | Reject with `E5006` until a real browser-test contract exists; early browser support is limited to the shared **Phase-1 browser-targeted command set**, not a standalone test-runtime profile |
 | plain `kali test` under an inherited browser API surface | Later compatibility | Same effective request as explicit `kali test --api browser`; inherited config must not silently fall back to `deno` for test execution |
 | plain `kali test --sandbox kali.policy.json` under an inherited browser API surface | Later compatibility | Same browser-test gate as explicit `kali test --api browser --sandbox kali.policy.json`; attaching `--sandbox` does not turn browser into an early test-runtime profile |
 | `kali test --coverage` | Phase 2 target | Coverage needs a stable machine-readable report contract instead of ad hoc runner output |
@@ -338,7 +338,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 
 When a later-phase command or profile becomes user-visible, it inherits the same already-established axis splits unless this matrix explicitly overrides them:
 - analysis-oriented commands default to `apiSurface = deno`
-- browser support remains browser-targeted analysis/build first unless a standalone browser-runtime contract is added explicitly
+- browser support remains anchored to the shared **Phase-1 browser-targeted command set** first unless a standalone browser-runtime contract is added explicitly
 - Node support remains phase-gated uniformly across `check` / `effects` / `build` / `run` / `test` until the documented Node subset exists
 - adding a new command should reuse existing artifact/effect/policy contracts instead of inventing a near-duplicate workflow
 
@@ -393,7 +393,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 
 | Concern | Early canonical status | Notes |
 |---|---|---|
-| Pure JS/TS npm packages within the linked-artifact model | Phase 1 MVP | Restricted to the shared **pure JS/TS package contract** and still context-sensitive: early support covers the Deno-oriented standalone surface plus the supported browser-targeted analysis/build context, not broad Node-host-heavy assumptions |
+| Pure JS/TS npm packages within the linked-artifact model | Phase 1 MVP | Restricted to the shared **pure JS/TS package contract** and still context-sensitive: early support covers the Deno-oriented standalone surface plus the shared **Phase-1 browser-targeted command set**, not broad Node-host-heavy assumptions |
 | Pure JS/TS JSR packages within the linked-artifact model | Phase 1 MVP | Registry-style install/lock/materialization path just like npm in early phases, with the same Deno-first standalone or **Phase-1 browser-targeted command set** boundary |
 | Raw URL imports in the shared lock/materialization model | Phase 1 MVP | Pin in `kali.lock`, materialize under `.kali/cache/urls/`, and keep ordinary commands deterministic |
 | Deno-condition package resolution in the default standalone surface | Phase 1 MVP | Honor `exports` condition `deno` when `--api deno` is selected |
