@@ -260,7 +260,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - Repeated builds with the same pinned inputs and toolchain produce stable artifact bytes and stable machine-readable output ordering by default.
 - `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
 - The Phase-1 **base library artifact** (`kali build --lib`) works end-to-end as the Phase-1 half of the shared **embedding-stability split**.
-- The checker ships the bounded HM-style inference fragment promised for Phase 1 for locals, obvious unannotated parameters, and analyzable return types, while still falling back conservatively instead of doing open-ended whole-program search.
+- The checker ships the shared **bounded inference contract** promised for Phase 1 for locals, obvious unannotated parameters, and analyzable return types, while still falling back conservatively instead of doing open-ended whole-program search.
 - Browser-targeted `check --api browser` and `build --bundle --api browser` work against the real browser ambient surface without implying DOM runtime support in Kali itself.
 - That browser-targeted claim is backed by dedicated browser-targeted tests, including emitted-bundle smoke runs in a real browser harness rather than only mock DOM/unit tests.
 - `kali check` / `build` / `run` / `test` all use the same early-phase API-surface maturity rules: Deno-supported, Node phase-gated, browser supported only for the documented browser-targeted check/bundle paths.
@@ -323,7 +323,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 |---|---|---|
 | TypeScript-compatible checking and flow narrowing | Phase 1 MVP | Compatibility first |
 | Stronger JS inference and conservative fallback to `unknown` / dynamic representations | Phase 1 MVP | Needed for plain JS compilation |
-| Bounded HM-style inference for locals, obvious parameters, and analyzable returns | Phase 1 MVP | Early inference should improve materially on plain `tsc` local inference while staying inside the shared **bounded inference contract** and using the shared **annotation-required inference boundary** when cost or API stability would otherwise become unpredictable |
+| Shared bounded inference contract for locals, obvious parameters, and analyzable returns | Phase 1 MVP | Early inference should improve materially on plain `tsc` local inference while staying inside the shared **bounded inference contract** and using the shared **annotation-required inference boundary** when cost or API stability would otherwise become unpredictable |
 | Stable built-in capability-effect reporting | Phase 2 target | `kali effects` and policy checking |
 | Explicit `pure` / effect annotations | Phase 2 target | Built-in sandbox capability model first |
 | Stable user-defined/custom effects in machine contracts | Later compatibility | Keep early schemas/policies simple |

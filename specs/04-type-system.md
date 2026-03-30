@@ -4,12 +4,12 @@
 
 Kali's type system is a superset of TypeScript's, combining:
 1. **Flow-sensitive typing** (like tsc) — narrowing through control flow
-2. **Hindley-Milner-style inference** — inference for unannotated code where it improves on TypeScript without sacrificing predictable compile times
+2. **Bounded inference beyond plain TypeScript** — inference for unannotated code where it improves on TypeScript without sacrificing predictable compile times
 3. **Effect summaries** — tracking side effects for sandboxing
 4. **Constraint solving** — for advanced generic inference
 
 Implementation order matters:
-- **Phase 1**: preserve TypeScript compatibility, support `.js` inputs as first-class programs, and ship **bounded HM-style inference** for locals, unannotated parameters where the call/context makes them obvious, and function return types when the body stays within the cheap local-inference fragment.
+- **Phase 1**: preserve TypeScript compatibility, support `.js` inputs as first-class programs, and ship the shared **bounded inference contract** for locals, unannotated parameters where the call/context makes them obvious, and function return types when the body stays within the cheap local-inference fragment.
 - **Phase 2**: extend that inference more confidently across module boundaries, stabilize the built-in capability-effect model, and expose the user-facing effect-report/effect-annotation surface.
 - **Phase 3 target**: expand bounded advanced constraints where compile-time cost stays predictable.
 - **Later compatibility**: effect polymorphism and other higher-complexity type-system extensions land only after the built-in capability/effect contract is stable.
@@ -117,13 +117,13 @@ For the type checker, that means:
 - the fallback remains the canonical JavaScript/TypeScript-safe set: explicit annotation requirement, `unknown`, unions, or a dynamic/layout-conservative representation
 - the checker must not invent fresh `any` merely to keep inference moving
 
-This is the main simplification that keeps “HM-style inference” compatible with blazing-fast compilation: Kali supports a strong bounded fragment early and grows outward only where cost remains measurable and testable.
+This is the main simplification that keeps stronger-than-`tsc` inference compatible with blazing-fast compilation: Kali supports a strong bounded fragment early and grows outward only where cost remains measurable and testable.
 
 ## Hindley-Milner Integration
 
 ### Unification
 - Unification variables (`TypeVariable`) are generated for unannotated parameters and locals
-- In practice, Kali uses a **hybrid inference engine**: TypeScript-style contextual typing and flow analysis first, HM-style unification second where it is unambiguous and cheap.
+- In practice, Kali uses a **hybrid inference engine**: TypeScript-style contextual typing and flow analysis first, then bounded unification where it is unambiguous and cheap.
 - Unification is extended for:
   - Row polymorphism (object types with unknown fields)
   - Structural subtyping where it does not break principal inference

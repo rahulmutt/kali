@@ -9,7 +9,7 @@ Source (.ts/.tsx/.mts/.cts/.js/.jsx/.mjs/.cjs)
   → AST                (03-ast.md)
   → Type Checker       (04-type-system.md)
     ├─ Name Resolution (symbol table, scopes)
-    ├─ Type Inference  (TS-compatible checking + flow narrowing early; broader HM-style inference grows in later phases)
+    ├─ Type Inference  (TS-compatible checking + flow narrowing early; the shared bounded inference contract in Phase 1, with broader inference only in later phases)
     └─ Effect Inference (09-sandboxing.md; internal analysis may exist before stable user-facing reports)
   → Typed AST
   → HIR                (05-ir.md) — High-level IR, desugared

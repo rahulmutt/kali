@@ -141,11 +141,11 @@ Canonical early-phase code-resolution ladder:
    | Context | ESM `import` edge | CJS `require` edge |
    |---|---|---|
    | Deno-oriented standalone (`--api deno`, Phase 1 default) | `module`, then `main` | `main`, then `module` |
-   | browser-targeted context *(Phase 1: `check --api browser`, `build --bundle --api browser`; later supported browser-targeted analysis commands reuse the same order)* | `module`, then `main` | `main`, then `module` |
+   | browser-targeted context | `module`, then `main` | `main`, then `module` |
    | later Node API surface | later Node-specific rule when explicitly documented; until then, do not guess | later Node-specific rule when explicitly documented; until then, do not guess |
 
-7. In browser-targeted contexts, after `exports` or that legacy fallback table picks a package-published target, apply any `package.json#browser` replacement-map rewrite that covers that selected package-local path:
-   - this rewrite layer is part of the one shared browser package-resolution context for `check --api browser`, `build --bundle --api browser`, and later browser-context analysis commands such as `effects --api browser` and inherited browser-context `package-effects`
+7. In the shared **browser-targeted context**, after `exports` or that legacy fallback table picks a package-published target, apply any `package.json#browser` replacement-map rewrite that covers that selected package-local path:
+   - this rewrite layer is part of the one shared browser package-resolution context reused by `check --api browser`, `build --bundle --api browser`, and later browser-context analysis commands such as `effects --api browser` and inherited browser-context `package-effects`
    - if the browser map rewrites the selected path to another package-local file, continue resolution from that rewritten target
    - if the browser map marks the selected path as unavailable (`false`), reject that edge instead of probing alternate non-browser files heuristically
    - this browser-map stage refines the already chosen browser-targeted package edge; it does not restart package resolution under a second ad hoc condition-order algorithm
@@ -162,7 +162,7 @@ Canonical `exports` condition order:
 | Analysis/runtime context | Condition order |
 |---|---|
 | Deno-oriented standalone API surface (`--api deno`, Phase 1 default) | `deno`, then edge kind (`import` or `require`), then `default` |
-| browser-targeted context *(Phase 1: `check --api browser`, `build --bundle --api browser`; later supported browser-targeted analysis commands reuse the same order)* | `browser`, then edge kind, then `default` |
+| browser-targeted context | `browser`, then edge kind, then `default` |
 | later Node API surface | `node`, then edge kind, then `default` |
 
 Phase-1 simplification:
