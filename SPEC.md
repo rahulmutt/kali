@@ -29,10 +29,10 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 |---|---|
 | Language/frontend | Latest published ECMA-262 grammar, TypeScript compatibility where implemented, and first-class `.js` compilation with bounded conservative inference |
 | Runtime model | AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
-| Host support | `--api deno` for Kali-hosted execution; `--api browser` only for browser-targeted `check` and `build --bundle`; `--api node` remains gated |
+| Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set** (`check --api browser`, `build --bundle --api browser`); `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema validation for `check`/`build`, no project-executed policy code |
 | Effects | Internal effect bookkeeping may exist, but stable `kali effects` / `package-effects` reporting waits for Phase 2 |
-| Packaging | One lock/install state, registry support first for the **pure JS/TS package contract** across the Deno-first standalone path and supported browser-targeted analysis/build contexts, and rejection by default for the **native/binary/bootstrap-heavy package contract** |
+| Packaging | One lock/install state, registry support first for the **pure JS/TS package contract** across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set**, and rejection by default for the **native/binary/bootstrap-heavy package contract** |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib`; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging |
 | Tooling | Deno-like CLI, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports |
 
@@ -63,7 +63,7 @@ Normalization rules:
 - when the bootstrap lists competing goals, preserve the stronger safety/determinism constraint first.
 
 Canonical examples of that normalization:
-- **“Support Node, Deno, and browser APIs”** → Phase 1 is Deno-first plus browser-targeted analysis/build; broad Node compatibility is Phase 3.
+- **“Support Node, Deno, and browser APIs”** → Phase 1 is Deno-first plus the shared **Phase-1 browser-targeted command set**; broad Node compatibility is Phase 3.
 - **“Support all features including eval”** → `eval`/`Function()` are part of the long-term compatibility contract, but Phase 4-gated behind the single schema-v1 compatibility switch `eval`, and that later compatibility path must still preserve Kali's no-language-level-JIT invariant.
 - **“Latest ECMA-262”** → latest **published** ECMA-262 grammar is Phase 1; draft/Stage-3+ proposal support is experimental rather than implied.
 - **“Programmable sandbox policy conditions”** → project policy files stay declarative in early phases; later programmable narrowing is via host-registered predicates, not executable project policy code.
@@ -83,8 +83,8 @@ This table is the compact “where did each bootstrap ask land?” view.
 | AOT only / no JIT | Kali is language-level AOT only; runtime engine internals must not become part of the language contract | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/10-runtime.md`](./specs/10-runtime.md) |
 | No tracing GC / explicit memory decisions | No tracing/background GC; deterministic ownership, escape analysis, and layout decisions are the core memory story | [`specs/06-memory.md`](./specs/06-memory.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Aggressive specialization + layout-aware IR | Optimization is staged: explicit layout-aware IR plus specialization deepen over Phases 2-3 without weakening auditability | [`specs/05-ir.md`](./specs/05-ir.md), [`specs/07-specialization.md`](./specs/07-specialization.md) |
-| Deno, Node, and browser support | Phase 1 is Deno-first with browser-targeted analysis/build; Node is phase-gated until Phase 3 | [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
-| npm / JSR / raw-URL package access | Early package support is broad for packages inside the **pure JS/TS package contract** that fit the linked-artifact model and one supported Phase-1 command context (Deno-first standalone or browser-targeted analysis/build), but narrow for the excluded **native/binary/bootstrap-heavy package contract** | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| Deno, Node, and browser support | Phase 1 is Deno-first with the shared **Phase-1 browser-targeted command set**; Node is phase-gated until Phase 3 | [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| npm / JSR / raw-URL package access | Early package support is broad for packages inside the **pure JS/TS package contract** that fit the linked-artifact model and one supported Phase-1 command context (Deno-first standalone or the shared **Phase-1 browser-targeted command set**), but narrow for the excluded **native/binary/bootstrap-heavy package contract** | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Embeddability, C ABI, WIT, Component Model | Phase 1 ships the base `--lib` artifact; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and component packaging | [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Latest published ECMA-262 boundary | Kali tracks the latest **published** ECMA-262 edition; draft or proposal semantics stay explicitly experimental rather than implied | [`specs/02-lexer-parser.md`](./specs/02-lexer-parser.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Pure Rust implementation / no embedded C or C++ | Implementation choices must preserve the pure-Rust host/runtime/toolchain contract rather than smuggling in embedded C/C++ dependencies | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/10-runtime.md`](./specs/10-runtime.md) |
@@ -159,6 +159,7 @@ Use this checklist:
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - host/API-layering wording should reuse the **host-support staircase**
 - broad “support” wording across syntax/check/build/run/bundle/policy claims should reuse the **compatibility delivery ladder** instead of implying one undifferentiated notion of support
+- early browser-command availability wording should reuse the **Phase-1 browser-targeted command set** when a chapter means exactly `check --api browser` plus `build --bundle --api browser`
 - browser ambient-typing versus sandbox/effect wording should reuse the **Browser ambient typing vs mediated capability split**
 - browser command-shape versus browser-runtime availability wording should reuse the **canonical browser-surface rejection split**
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
@@ -317,18 +318,30 @@ Rule:
 ### Browser-targeted context
 A command context whose effective `apiSurface` is `browser`.
 
-In Phase 1, this means:
+In Phase 1, this context is user-visible only through the shared **Phase-1 browser-targeted command set**:
 - `kali check --api browser`
 - `kali build --bundle --api browser`
+
+Later commands may reuse the same browser-targeted context only when their own maturity rows explicitly open that path.
 
 It does **not** mean:
 - a standalone Kali-hosted browser runtime,
 - DOM emulation inside `kali run`/`kali test`,
 - permission to expose Deno/Node globals during browser-targeted analysis/build.
 
+### Phase-1 browser-targeted command set
+The exact Phase-1 command shapes that expose the browser-targeted context:
+- `kali check --api browser`
+- `kali build --bundle --api browser`
+
+Rules:
+- this term exists to stop a common ambiguity: Phase-1 "browser analysis/build support" does **not** mean every command that performs analysis is browser-enabled in Phase 1
+- later commands such as `kali effects --api browser` or inherited browser-context `kali package-effects` reuse the same browser-targeted context only when their own maturity rows explicitly say so
+- chapters should prefer this term when they mean the exact early browser-enabled command set, instead of saying only "supported browser analysis/build commands" and forcing readers to infer which commands are already in scope
+
 ### Browser ambient typing vs mediated capability split
 Kali keeps one explicit boundary between two browser-related layers that are easy to blur together:
-- **browser ambient typing surface** — the globals/types visible during supported browser-targeted analysis/build (`Window`, `Document`, DOM types, `fetch`, `URL`, and similar browser-host types)
+- **browser ambient typing surface** — the globals/types visible during the supported browser-targeted command set (`Window`, `Document`, DOM types, `fetch`, `URL`, and similar browser-host types)
 - **Kali-mediated capability subset** — the smaller stable sandbox/effect vocabulary used by policy validation and effect reporting
 
 Rules:
