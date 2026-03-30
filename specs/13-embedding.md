@@ -1,7 +1,7 @@
 # 13 — Embedding & C API
 
 Public embedding is intentionally phased and follows the shared **embedding-stability split** from [SPEC.md](../SPEC.md):
-- **Phase 1**: reusable internal crates exist so the CLI is built library-first, and `kali build --lib` already produces the **base library artifact**, but that output is still pre-stable as a public embedding contract. In particular, Phase 1 does not yet promise a stable Rust API, a stable C ABI, or default WIT sidecars for plain `--lib`.
+- **Phase 1**: reusable internal crates exist so the CLI is built library-first, and `kali build --lib` already produces the **base library artifact**, but that output is still pre-stable as a public embedding contract. It is intentionally useful for exported-module workflows immediately, yet callers should treat its ABI and sidecar expectations as unstable until Phase 2. In particular, Phase 1 does not yet promise a stable Rust API, a stable C ABI, or default WIT sidecars for plain `--lib`.
 - **Phase 2 target**: the **public embedding outputs** arrive — the Rust embedding API, the stable public `kali build --lib` + WIT contract, the C ABI, and `kali build --capi` / `kali build --component` artifact flows.
 
 ## Rust Library API (`kali_embed`)

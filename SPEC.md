@@ -17,7 +17,7 @@ Kali is an ahead-of-time TypeScript/JavaScript compiler and runtime targeting We
 - deterministic machine-readable tooling,
 - explicit memory/ownership decisions rather than tracing/background GC,
 - aggressive but auditable specialization,
-- embeddability through Rust-first APIs with later stable C ABI and WIT/component packaging.
+- embeddability through a Phase-1 base library artifact, with Phase-2 public embedding outputs for the stable Rust API, WIT, C ABI, and Component Model packaging.
 
 Kali aims for broad JavaScript/TypeScript compatibility over time, but the spec deliberately phases hard features instead of implying that every aspiration is part of the MVP.
 
@@ -33,7 +33,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema validation for `check`/`build`, no project-executed policy code |
 | Effects | Internal effect bookkeeping may exist, but stable `kali effects` / `package-effects` reporting waits for Phase 2 |
 | Packaging | One lock/install state, pure JS/TS registry packages first, no native addons / `node-gyp` / binary bootstrap contracts |
-| Embedding | Phase-1 **base library artifact** via `kali build --lib`; stable public Rust API, WIT contract, C ABI, and components are later |
+| Embedding | Phase-1 **base library artifact** via `kali build --lib`; stable public Rust API, WIT contract, C ABI, and Component Model packaging are Phase 2 targets |
 | Tooling | Deno-like CLI, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports |
 
 Use this table as a reading aid only. Detailed behavior still belongs to the owning chapters and the maturity matrix.
@@ -71,6 +71,8 @@ This table is the compact “where did each bootstrap ask land?” view.
 | Deno, Node, and browser support | Phase 1 is Deno-first with browser-targeted analysis/build; Node is phase-gated until Phase 3 | [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | npm / JSR / raw-URL package access | Early package support is broad for pure JS/TS packages that fit the linked-artifact model, but narrow for native/binary/bootstrap-heavy contracts | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Embeddability, C API, WIT, Component Model | Phase 1 ships the base `--lib` artifact; the stable public Rust API, WIT contract, C ABI, and component packaging are Phase 2 targets | [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| Latest published ECMA-262 boundary | Kali tracks the latest **published** ECMA-262 edition; draft or proposal semantics stay explicitly experimental rather than implied | [`specs/02-lexer-parser.md`](./specs/02-lexer-parser.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| Pure Rust implementation / no embedded C or C++ | Implementation choices must preserve the pure-Rust host/runtime/toolchain contract rather than smuggling in embedded C/C++ dependencies | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/10-runtime.md`](./specs/10-runtime.md) |
 | AI-friendly CLI and diagnostics | Human output stays concise; JSON contracts, stable codes, and AI-friendly machine payloads are explicit product requirements | [`specs/12-cli.md`](./specs/12-cli.md), [`specs/15-errors.md`](./specs/15-errors.md), [`specs/18-schemas.md`](./specs/18-schemas.md) |
 | Lean-backed verification | Formal verification is phased and model-based rather than implied for the full implementation on day one | [`specs/17-verification.md`](./specs/17-verification.md) |
 
