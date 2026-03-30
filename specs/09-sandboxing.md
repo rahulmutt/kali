@@ -216,7 +216,7 @@ To keep the sandbox story precise across commands and deployment targets:
 - **Kali-hosted runtime enforcement** applies to `kali run`, `kali test`, and embedding hosts that instantiate Kali-controlled host imports.
 - For embedding, that same rule covers both executable-style helpers and library-oriented instantiation/calls: creating an instance from a `--lib`-style module and invoking its proved exports is still **Kali-hosted execution**, not a second unsandboxed host path.
 - **`check` / `build` with `--sandbox`** provide static validation only: policy-schema/config validation in Phase 1, plus effect-vs-policy validation in Phase 2+.
-- **Browser-targeted builds** (`kali build --bundle --api browser`) follow the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md): they may be checked against a policy at build time for the documented mediated subset, but the emitted artifact running inside a real browser does not automatically inherit Kali runtime enforcement after deployment.
+- **Browser-targeted builds** in the shared **Phase-1 browser-targeted command set** (that is, `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including inherited-config forms) follow the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md): they may be checked against a policy at build time for the documented mediated subset, but the emitted artifact running inside a real browser does not automatically inherit Kali runtime enforcement after deployment.
 
 Interpretation rule:
 - a successful browser-targeted build under `--sandbox` means the source graph is compatible with the supplied policy under Kali's static model for the **Kali-mediated capability subset**
@@ -226,8 +226,9 @@ Interpretation rule:
 - specs and diagnostics should therefore avoid wording that suggests browser deployment has the same runtime-enforcement guarantee as `kali run` / `kali test`
 
 Quick browser-targeted examples:
-- `kali check --api browser --sandbox web.policy.json` is a static compatibility verdict only
-- `kali build --bundle --api browser --sandbox web.policy.json app.ts` is a static compatibility verdict plus bundle generation only
+- `kali check --sandbox web.policy.json` under an effective browser API surface is a static compatibility verdict only
+- `kali build --bundle --sandbox web.policy.json app.ts` under an effective browser API surface is a static compatibility verdict plus bundle generation only
+- explicit `--api browser` spellings and equivalent inherited-config forms are the same browser-targeted static-policy-validation path once the effective `apiSurface` resolves to `browser`
 - a browser-targeted policy may constrain the documented browser-applicable capability-local keys such as `effects.network.maxConnections` or `effects.timer.maxActiveTimers`
 - the same browser-targeted policy must still satisfy the shared **canonical browser-targeted budget compatibility rule** from [SPEC.md](../SPEC.md)
 

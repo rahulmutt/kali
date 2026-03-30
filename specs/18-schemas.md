@@ -299,7 +299,7 @@ Optional fields:
 - `role: string` — canonical artifact role when the same `kind` can appear in multiple build modes
 
 Canonical schema-v1 `role` values:
-- `primary-executable` — the main executable-oriented core artifact for one build, used by both the default executable path (`kali build foo.ts`) and the browser-bundle path (`kali build --bundle --api browser foo.ts`)
+- `primary-executable` — the main executable-oriented core artifact for one build, used by both the default executable path (`kali build foo.ts`) and the browser-bundle path (`kali build --bundle foo.ts` when the effective `apiSurface` is `browser`)
 - `primary-library` — the main export-oriented core artifact for one library-oriented build, used by `kali build --lib foo.ts` and by the shared linked core inside later `--capi` / `--component` outputs, following the shared **library-oriented instantiation rule** and using the build's **statically known export surface** as defined in [SPEC.md](../SPEC.md)
 - `primary-component` — the main outer Component Model wrapper artifact from `kali build --component foo.ts`
 - `browser-glue` — browser-targeted JS glue emitted alongside a browser bundle; this is the browser host adapter companion to the bundle's `primary-executable` core module

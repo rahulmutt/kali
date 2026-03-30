@@ -31,7 +31,7 @@ Engine-choice simplification rule:
 ### Host Adapter Modes
 Using the canonical term from [SPEC.md](../SPEC.md), Kali keeps one guest-facing host ABI, but early phases allow more than one **host adapter** to implement it:
 - **native host adapter** — used for Kali-hosted execution (`kali run`, `kali test`, embedding) via native Rust/wasmtime host functions
-- **browser host adapter** — used by `kali build --bundle --api browser` via generated JS glue that maps the same guest-facing capability model onto the real browser host
+- **browser host adapter** — used by browser-targeted bundle output in the shared **Phase-1 browser-targeted command set** (`kali build --bundle <file>` when the effective `apiSurface` is `browser`) via generated JS glue that maps the same guest-facing capability model onto the real browser host
 
 Cross-spec consistency rule:
 - the guest module should target one coherent Kali host ABI/capability model rather than a totally different imported-API shape per deployment mode
