@@ -324,6 +324,22 @@ Rules:
 - config-derived values trigger the same gating and contradiction checks as explicit flags,
 - commands must not silently fall back from an unsupported effective value just because the user omitted the matching flag.
 
+### Availability context
+The normalized context used for maturity and availability checks **after** command-shape validation succeeds.
+
+It consists of:
+- the selected command,
+- any command-shape/artifact-mode choice that survived contradiction checks,
+- `apiSurface`,
+- `runtimeProfiles`,
+- `compatFeatures`,
+- the current implementation phase/maturity table.
+
+Rules:
+- use this term when a chapter means “the combination that determines whether Kali supports this request yet” rather than only the literal CLI spelling,
+- command-shape contradictions still fail first and therefore stay outside this term's responsibility,
+- docs should prefer this shared term over repetitive phrases such as “phase/profile/API-surface/compatibility gating” when the same idea is meant.
+
 ### Command-shape taxonomy vs availability
 The command-shape terms in this section classify how a command behaves **when that command exists** in schema v1.
 
@@ -661,6 +677,10 @@ Report the outermost failing gate first:
 2. base command availability,
 3. narrower inherited-context or profile gating,
 4. source-code diagnostics within the selected valid context.
+
+In other words:
+- `E5008` owns contradictory command shape,
+- `E5006` owns unavailable-but-real requests inside the chosen **availability context**.
 
 Consequences:
 - contradictory browser build shapes fail before any narrower feature gate,

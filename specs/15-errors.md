@@ -124,11 +124,12 @@ Use `E5005` for resolution ambiguity problems such as:
 
 ### Canonical Feature-Maturity Diagnostic
 
-Phase-gated or profile-gated features should share one primary diagnostic shape instead of inventing per-command or per-runtime wording.
+Availability-gated features should share one primary diagnostic shape instead of inventing per-command or per-runtime wording.
 
 Terminology rule:
 - prefer the canonical term **API surface** (`deno`, `node`, `browser`) from [SPEC.md](../SPEC.md)
-- use **profile** for command/runtime-profile gating such as browser build-only paths or later `--wasm-threads`
+- prefer the shared term **availability context** from [SPEC.md](../SPEC.md) when the gate depends on the command plus its selected API surface, runtime profile, compatibility switches, and current maturity phase
+- reserve **profile** for actual runtime-profile gating such as later `--wasm-threads`, not for contradictory browser build shapes that are already handled as command-shape errors
 
 Example:
 ```
@@ -146,23 +147,23 @@ Use `E5006` for cases such as:
 - recognized-but-unavailable compatibility members such as Phase-1 `Deno.permissions.request()` / `revoke()`
 - `run --api browser` in early phases where browser support exists only as an analysis/build context
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
-- `--max-spawned-processes N` with a non-zero value before subprocess support exists for the selected command/profile/API surface
-- an attached sandbox policy trying to enable a real capability/profile that exists in the spec set but is unavailable in the current phase/profile/api surface or effective compatibility context (for example `effects.eval: true` before the eval path exists, `effects.eval: true` without effective `--compat eval`, or browser-targeted `check` / `build --bundle` policies that set browser-incompatible resource budgets such as `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, `resources.maxOpenFiles`, or positive `resources.maxSpawnedProcesses` / `resources.maxThreads` values)
-- any parse-supported construct that is intentionally not semantically enabled in the current phase/profile
+- `--max-spawned-processes N` with a non-zero value before subprocess support exists for the selected command/runtime-profile/API-surface combination
+- an attached sandbox policy trying to enable a real capability that exists in the spec set but is unavailable in the current **availability context** (for example `effects.eval: true` before the eval path exists, `effects.eval: true` without effective `--compat eval`, or browser-targeted `check` / `build --bundle` policies that set browser-incompatible resource budgets such as `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, `resources.maxOpenFiles`, or positive `resources.maxSpawnedProcesses` / `resources.maxThreads` values)
+- any parse-supported construct that is intentionally not semantically enabled in the current availability context
 
 Boundary clarification:
-- use `E5006` when the requested feature/profile is real but unavailable in the current phase/profile
+- use `E5006` when the requested feature is real but unavailable in the current **availability context**
 - use `E5008` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it, or `kali build --api browser` without `--bundle` while browser builds are bundle-only)
 - follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): wrong browser build shape (`build --api browser` without the required artifact mode, or browser + library-oriented build modes) is `E5008`, while requesting a browser execution/test contract that does not exist yet (`run --api browser`, `test --api browser`) is `E5006`
 - follow the canonical validation-order rule from [SPEC.md](../SPEC.md): diagnostics report the outermost failing gate first — command-shape contradictions before maturity gates, and a command's own availability gate before narrower inherited-context/profile gates inside that command
 - maturity-matrix rows that name the *earliest fully supported phase* for a combined command/context shape do not override this precedence rule; for example, `kali build --capi --api node ...` may be summarized as a Phase 3 combination while still reporting the `--capi` gate first in Phase 1
-- a well-formed policy file that is semantically incompatible with the selected command/profile/api surface still falls on the `E5006` side of this boundary
+- a well-formed policy file that is semantically incompatible with the selected **availability context** still falls on the `E5006` side of this boundary
 - malformed project config should use `E5009`; malformed policy JSON, unknown policy fields, or invalid policy numeric/path/pattern shapes should use `E5010`; export-surface proof failures for library-oriented builds should use `E5011`
 - the same rule applies when the triggering value came from discovered config rather than a literal CLI flag; diagnostics should explain the effective value instead of pretending no selection was made
 - in JSON mode, prefer filling structured diagnostic `context` metadata (`origin`, `configPath`/`flag`, and `effectiveValue` when useful) in addition to any human-oriented prose notes
 
 Clarification:
-- use `E5006` for **documented feature/profile gating**
+- use `E5006` for **documented availability gating**
 - use ordinary type/name diagnostics instead when user code simply references a global that is not present in the selected ambient surface (for example `document` under `--api deno` should normally be a regular unresolved-name/type error, not a feature-maturity error)
 
 ### Canonical Invalid-Entrypoint Diagnostic
@@ -200,7 +201,7 @@ Use `E5009` when the discovered `kali.json` is malformed or semantically invalid
 
 Boundary rule:
 - `E5009` is for **project configuration shape/content errors**, not for CLI-usage mistakes and not for a well-formed config that merely selects a phase-gated feature
-- if the config is structurally valid but its effective value selects an unavailable documented feature/profile, use `E5006` instead
+- if the config is structurally valid but its effective value selects an unavailable documented feature in the resulting **availability context**, use `E5006` instead
 - if the config is valid but combines values into an impossible command shape for the selected invocation, use `E5008`
 
 Use `E5009` for cases such as:
@@ -254,7 +255,7 @@ Use `E5008` when the command line itself is malformed for the selected command, 
 
 Boundary rule:
 - `E5008` is for **CLI/config usage shape errors**, not language/runtime maturity gating and not malformed config/policy files
-- use `E5006` when the user asked for a documented feature/profile that exists in the spec set but is unavailable in the current phase/profile
+- use `E5006` when the user asked for a documented feature that exists in the spec set but is unavailable in the current **availability context**
 - use `E5007` when the problem is the supplied input kind rather than the overall command shape
 - use `E5009` / `E5010` for malformed config / policy files respectively, and `E5011` for library-export proof failures
 - config-derived contradictions count too: if discovered config makes the effective command shape impossible (for example `apiSurface = browser` for plain early-phase `kali build main.ts` without `--bundle`), the diagnostic is still `E5008`

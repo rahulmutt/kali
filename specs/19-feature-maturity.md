@@ -2,7 +2,7 @@
 
 This document is the canonical matrix for features that are easy to describe inconsistently across architecture, runtime, package, and CLI specs.
 
-If another spec needs to mention one of these features, it should link here for phase/status rather than restating a different maturity decision.
+If another spec needs to mention one of these features, it should link here for phase/status rather than restating a different maturity decision. When another chapter talks about whether a request is supported yet, it should prefer the shared **availability context** term from [SPEC.md](../SPEC.md) instead of re-explaining the whole command/API-surface/runtime-profile/compatibility combination each time.
 
 Status-label spelling rule:
 - docs should use the canonical labels from this chapter verbatim (`Phase 1 MVP`, `Phase 2 target`, `Phase 3 target`, `Phase 4 compatibility`, `Later compatibility`, `Opt-in only`, `Later compatibility (opt-in only)`, `Rejected by default`) rather than near-duplicates such as `later-compatibility`
@@ -117,7 +117,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 3. **Effect boundaries**: features marked as dynamic compatibility paths should be reflected in static effect analysis.
 4. **No silent fallback**: if a feature cannot be implemented faithfully under the current phase constraints, Kali should reject or gate it rather than emulate it loosely.
 5. **Policy alignment**: sandbox policy validation may always deny a capability, but it must reject policies that try to enable capabilities unavailable in the selected command/profile/phase.
-6. **Canonical gating diagnostic**: use the shared feature-maturity diagnostic contract (`E5006`) so CLI, checker, runtime, and package tooling report phase/profile gating consistently.
+6. **Canonical gating diagnostic**: use the shared feature-maturity diagnostic contract (`E5006`) so CLI, checker, runtime, and package tooling report availability gating consistently.
 7. **Do not overuse `E5006`**: selecting an unavailable command/profile/feature uses `E5006`, but ordinary references to names/globals that are simply absent from the selected supported ambient surface should use the normal name/type diagnostics instead.
 8. **Sandbox-domain honesty**: build-time policy compatibility for browser-targeted artifacts must not be described as equivalent to Kali-hosted runtime sandbox enforcement.
 

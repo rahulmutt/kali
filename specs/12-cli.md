@@ -11,11 +11,11 @@
 
 ## Shared Flags
 
-These flags are shared across the CLI, but some apply only to specific command families. For the canonical meaning of **API surface**, **build mode**, and **runtime profile**, see [SPEC.md](../SPEC.md). For command/profile gating, see [19 — Feature Maturity](19-feature-maturity.md).
+These flags are shared across the CLI, but some apply only to specific command families. For the canonical meaning of **API surface**, **build mode**, **runtime profile**, and **availability context**, see [SPEC.md](../SPEC.md). For maturity/availability rules, see [19 — Feature Maturity](19-feature-maturity.md).
 
 Ownership rule:
 - this chapter owns **CLI shape**: flags, arity, command-local behavior, output rules, and exit codes
-- [19 — Feature Maturity](19-feature-maturity.md) owns whether a documented command/profile/feature is actually available in a given phase
+- [19 — Feature Maturity](19-feature-maturity.md) owns whether a documented command/feature is actually available in a given **availability context**
 - [18 — Schemas](18-schemas.md) owns the machine-readable JSON shapes
 - when a rule is already defined in one of those owners, prefer a short cross-reference over repeating a second full version here
 
@@ -91,8 +91,8 @@ Effective-context validation rule:
 | `--quiet` | all commands | Suppress non-error status/progress output; for data-producing commands such as `effects` and `package-effects`, it must not suppress the primary payload itself |
 | `--max-errors N` | diagnostic-producing commands | Cap reported errors (default: 50) |
 | `--color auto\|always\|never` | text-output commands | Color output control |
-| `--api deno\|node\|browser` | `check`, `effects`, `build`, `run`, `test` | Select host API surface; unsupported surfaces for the current command/profile must error explicitly (for example, early browser builds require `--bundle`) |
-| `--compat <feature[,feature...]>` | `check`, `effects`, `build`, `run`, `test` | Enable documented compatibility features such as `eval` only when that feature is implemented for the selected phase/profile; in schema v1, `eval` also covers the `Function()` constructor path |
+| `--api deno\|node\|browser` | `check`, `effects`, `build`, `run`, `test` | Select host API surface; unsupported surfaces for the current **availability context** must error explicitly (for example, early browser builds require `--bundle`) |
+| `--compat <feature[,feature...]>` | `check`, `effects`, `build`, `run`, `test` | Enable documented compatibility features such as `eval` only when that feature is implemented for the selected **availability context**; in schema v1, `eval` also covers the `Function()` constructor path |
 | `--fast` | `build`, `run`, `test` | Fastest compile time, minimal optimization (default build mode) |
 | `--release` | `build`, `run`, `test` | Standard optimization profile |
 | `--release-advanced` | `build`, `run`, `test` | Aggressive optimization profile |
@@ -216,7 +216,7 @@ kali run --wasm-threads main.ts            # Enable WASM threads (SharedArrayBuf
 
 Initial implementations use wasmtime; alternative runtime backends are a later-phase feature. Feature flags and subcommands that depend on later phases should be hidden or clearly diagnosed when unavailable rather than exposed as silently nonfunctional options.
 
-When a command or flag is rejected due to phase/profile maturity, the CLI should use the canonical feature-maturity diagnostic shape from [specs/15-errors.md](15-errors.md) rather than ad hoc wording.
+When a command or flag is rejected due to maturity/availability gating, the CLI should use the canonical feature-maturity diagnostic shape from [specs/15-errors.md](15-errors.md) rather than ad hoc wording.
 
 Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
@@ -585,7 +585,7 @@ Pretty-print interaction rule:
 - `--pretty` changes formatting only; it must not change field names, ordering guarantees, or whether stderr/human diagnostics are emitted outside JSON mode
 - JSON-selection flags do **not** bypass command maturity or create a second command surface: if `kali effects`, `kali package-effects`, or `kali package-audit` is still unavailable in the current phase, invocations such as `--pretty` / `--output json` still fail on the command's normal availability gate after any earlier command-shape checks
 
-Feature gating is part of the machine contract too: phase/profile rejections should serialize the same stable diagnostic code and note structure as human output. When the failure depends on merged CLI/config state (for example a config-selected API surface or a contradictory artifact-mode combination), JSON diagnostics should also populate the optional structured `context` metadata from [specs/18-schemas.md](18-schemas.md) so tools can see the effective value without scraping prose.
+Feature gating is part of the machine contract too: availability-gate rejections should serialize the same stable diagnostic code and note structure as human output. When the failure depends on merged CLI/config state (for example a config-selected API surface or a contradictory artifact-mode combination), JSON diagnostics should also populate the optional structured `context` metadata from [specs/18-schemas.md](18-schemas.md) so tools can see the effective value without scraping prose.
 
 Rules:
 - top-level output uses the versioned command envelope

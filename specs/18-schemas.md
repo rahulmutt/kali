@@ -217,7 +217,7 @@ Optional fields:
 - `effectiveValue: object | array | string | number | boolean | null` — normalized effective value that the command actually validated against
 
 Interpretation rules:
-- this field exists primarily for AI/tooling-friendly diagnostics such as `E5006` and `E5008`, where the failure often depends on the merged command/config context rather than only the source span
+- this field exists primarily for AI/tooling-friendly diagnostics such as `E5006` and `E5008`, where the failure often depends on the merged command/config state or the resulting **availability context** rather than only the source span
 - populate it only when the command/config selection materially contributes to the diagnostic; ordinary type/syntax errors usually do not need it
 - when a discovered config value caused the failure, prefer `origin: "config"` plus `configPath` so tools do not have to scrape prose notes to learn that the user omitted the CLI flag but inherited the effective value
 - when an explicit CLI flag caused the failure, prefer `origin: "cli"` plus `flag`
