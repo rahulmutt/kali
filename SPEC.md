@@ -42,7 +42,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Axis | Phase 1 MVP contract |
 |---|---|
 | Language/frontend | Latest published ECMA-262 grammar, TypeScript compatibility where implemented, and first-class `.js` compilation with bounded conservative inference |
-| Runtime model | AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
+| Runtime model | guest-language AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
 | Host support | the Deno-oriented standalone/build context is the default non-browser context in Phase 1 (`--api deno` for Kali-hosted execution and the shared **Deno-oriented build context (schema v1)** for non-browser builds); `--api browser` is limited to the shared **Phase-1 browser-targeted command set**; `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema/config validation for the shared **Phase-1 static policy-validation surface**, no project-executed policy code |
 | Effects | Internal effect bookkeeping may exist in Phase 1; the Phase-2 stable **public effect-report surface** is intentionally split into a reporting half (`kali effects`, `kali package-effects`) and a policy-comparison half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`) |
@@ -201,6 +201,7 @@ Canonical examples of that normalization:
 - **“Statically run a command and get JSON output of all potential effects”** → Phase 1 may keep internal conservative effect bookkeeping for sandboxing/runtime integration, but the stable **public effect-report surface** is Phase 2 and is intentionally split in one place: the reporting half (`kali effects`, `kali package-effects`) and the policy-comparison half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`). This is intentionally an analysis/reporting workflow, not a second `run --dry` / `test --dry` command family. Schema v1 also keeps those reporting commands explicit in their roots: `kali effects` is a one-root source-graph command, while `kali package-effects` remains a one-package registry-analysis command rather than a hidden project-discovery or batch-analysis mode.
 - **“Latest ECMA-262”** → latest **published** ECMA-262 grammar is Phase 1; draft/Stage-3+ proposal support is experimental rather than implied.
 - **“Programmable sandbox policy conditions”** → project policy files stay declarative in early phases; later programmable narrowing is via host-registered predicates, not executable project policy code.
+- **“No JIT compilation!”** → Kali is **guest-language AOT-only**: it must finish TypeScript/JavaScript → WASM compilation before execution and must not rely on speculative/adaptive language-level JIT tiers for correctness or performance. A host engine may still validate, translate, or precompile the emitted WASM as an execution detail, but that is not a second Kali compilation tier; deployments that care about avoiding launch-time translation should prefer engine precompilation/caching.
 - **“Use wasmtime or wasmer”** → standardize on `wasmtime` first; alternative engines are later implementation extensions.
 - **“CLI usage should be clean and similar to deno - formatting, linting, typechecking, running, etc.”** → keep one Deno-inspired workflow vocabulary (`init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`) and concise defaults, but do **not** imply flag-for-flag Deno parity or that every Deno command shape automatically exists in the same phase.
 - **“Lexing/parsing/typechecking/codegen should be blazing fast, with stronger optimization modes available when users want them”** → keep one explicit build-mode vocabulary: `fast` is the bounded-cost default, while `release` and `release-advanced` are the only canonical compile-budget expansion modes; deeper optimizations should strengthen those modes instead of spawning new near-duplicate optimization tiers.
@@ -382,6 +383,7 @@ Use this checklist:
 - Phase-1 static sandbox-validation wording should reuse the **Phase-1 static policy-validation surface** instead of re-listing `kali check --sandbox` plus the build-side variants ad hoc
 - zero-versus-positive wording for `resources.maxSpawnedProcesses` / `resources.maxThreads` and their matching CLI caps should reuse the **feature-gated zero-capable execution budgets** term instead of restating the same `0`-is-valid / positive-is-gated rule in each chapter
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
+- runtime-engine / no-JIT wording should reuse the **guest AOT vs host-engine translation split** instead of re-explaining in each chapter whether engine-managed WASM translation counts as a Kali JIT
 - library/export-oriented build wording should reuse the **compile intent**, **Deno-oriented build context (schema v1)**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
 - source-command versus package-command wording should reuse the **source-graph command**, **dependency-graph command**, **discovery-driven command**, and **registry-analysis command** terms instead of re-listing the same command families ad hoc
 - single-package registry-analysis wording should reuse the **single-package registry-analysis command**, the bundled **registry-analysis target contract (schema v1)**, **registry-analysis availability boundary**, **registry-analysis context split**, and **registry-analysis command split** instead of re-listing command shape, version selection, and project-independence details ad hoc
@@ -1530,7 +1532,7 @@ Using the canonical **host-support staircase**:
 - **browser support** is analysis/build-first,
 - **Node compatibility** is a later ecosystem phase,
 - **wasmtime** is the standardized early runtime engine,
-- **AOT only**; no language-level JIT,
+- **guest-language AOT only**; no language-level JIT,
 - **pure Rust only**; no embedded C/C++ libraries,
 - **no tracing/background GC**,
 - one guest-facing host ABI is realized through different **host adapters** rather than through unrelated per-deployment guest contracts.
@@ -1542,6 +1544,18 @@ Shared API-loading rule:
 - for executable commands (`run`, `test`, embedding execution), that same selection also chooses the runtime host surface mediated by the relevant host adapter,
 - for browser-targeted bundle output, it selects deployment-host assumptions and browser package-resolution behavior; execution still comes from the real browser host after deployment rather than from a hidden Kali browser runtime,
 - unsupported globals/modules are absent rather than shimmed by default.
+
+### Guest AOT vs host-engine translation split
+
+To keep the bootstrap's "no JIT" requirement aligned with the wasmtime-based runtime plan, Kali uses one explicit split:
+- **guest-language AOT** — Kali's own TS/JS compilation pipeline finishes before execution and emits one linked WASM payload; Kali does not depend on speculative/adaptive language-level JIT behavior.
+- **host-engine translation** — validation, baseline translation, JIT compilation, or precompilation that a WASM engine may perform when loading/executing that already-emitted payload.
+
+Rules:
+- Kali's product/runtime contract is written in terms of **guest-language AOT**, not in terms of any particular engine's internal translation strategy.
+- Engine translation must not become a hidden second Kali optimization tier or a correctness dependency.
+- When a deployment requirement is really "avoid launch-time engine translation", the preferred answer is engine precompilation/caching over the already-emitted WASM payload rather than widening Kali's language/runtime model.
+- Chapters should reuse this split instead of re-explaining "AOT only, but wasmtime may still translate WASM" in slightly different prose.
 
 ## Compatibility Delivery Ladder
 

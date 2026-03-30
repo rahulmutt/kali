@@ -12,11 +12,11 @@
 
 This is a deliberate simplification for Phases 1-3, not a forever-exclusive backend promise. The rest of the spec assumes wasmtime semantics first so the runtime, sandboxing, and embedding contracts stay coherent while the product is still maturing.
 
-**Important consistency rule**: Kali itself is AOT-only and performs no language-level JIT compilation. A host runtime may still validate, translate, or precompile the emitted WASM as an execution detail, but Kali must not depend on speculative/adaptive JIT behavior for correctness or performance.
+**Important consistency rule**: follow the shared **guest AOT vs host-engine translation split** from [SPEC.md](../SPEC.md). Kali itself is **guest-language AOT-only** and performs no language-level JIT compilation. A host runtime may still validate, translate, JIT, or precompile the already-emitted WASM as an execution detail, but Kali must not depend on speculative/adaptive engine behavior for correctness or performance.
 
 Preferred execution modes:
-- **Development**: instantiate emitted WASM directly in wasmtime for fast iteration
-- **Production/embedding**: use wasmtime's precompiled/serialized module support where available to avoid per-launch recompilation costs, but treat those cached/precompiled blobs as an implementation/deployment optimization rather than as a stable Phase-1 public artifact contract; cross-version/public loading guarantees still belong to the later **public embedding surface**
+- **Development**: instantiate emitted WASM directly in wasmtime for fast iteration; any engine-managed translation here is part of the host-engine execution detail, not a second Kali compilation tier
+- **Production/embedding**: prefer wasmtime's precompiled/serialized module support where available when avoiding launch-time translation matters, but treat those cached/precompiled blobs as an implementation/deployment optimization rather than as a stable Phase-1 public artifact contract; cross-version/public loading guarantees still belong to the later **public embedding surface**
 
 ### Optional Alternative Backend (Later Phase)
 An engine abstraction may be added later to support backends such as `wasmer` when there is a demonstrated embedding or platform need. This must not complicate the initial runtime design, and any added backend must preserve the same externally visible sandbox/resource/diagnostic contracts rather than introducing backend-specific semantics into user-facing behavior.
@@ -145,7 +145,7 @@ Clarification:
 - it does **not** imply emitting fresh optimized WASM modules on the fly or introducing a second normal compilation pipeline beside Kali's AOT path
 
 AOT-consistency rule:
-- the Phase 4 compatibility path must preserve Kali's top-level **AOT-only / no language-level JIT** invariant
+- the Phase 4 compatibility path must preserve Kali's top-level **guest-language AOT / no language-level JIT** invariant
 - therefore `eval` support must not rely on speculative/adaptive JIT compilation of guest code at runtime
 - the later compatibility implementation may parse/check/lower eval'd source at runtime into an interpreter or other precompiled generic execution machinery, but it must not emit fresh optimized guest modules as a hidden second normal compilation pipeline
 - repeated eval payloads may be cached only as reuse of that already-approved generic machinery; caching must not become an implicit language-level JIT tier

@@ -102,7 +102,7 @@ Concretely:
 - Kali implementation crates and shipped dependencies remain Rust-only from the project/toolchain point of view.
 - ordinary platform runtime/system libraries reached through the Rust toolchain or OS bindings do not, by themselves, violate that contract.
 - bundling or requiring project-specific C/C++ implementation dependencies still violates it.
-- early-phase external WASM execution is standardized on `wasmtime` (pure Rust), but that is an implementation default rather than a forever-exclusive backend choice.
+- early-phase external WASM execution is standardized on `wasmtime` (pure Rust), but that is an implementation default rather than a forever-exclusive backend choice; follow the shared **guest AOT vs host-engine translation split** from [SPEC.md](../SPEC.md) when reasoning about the bootstrap's no-JIT requirement.
 - external crate dependencies should therefore stay in the pure-Rust lane (for example `wasmtime`, `rayon`, `regex-automata`).
 
 ### Query-Based Architecture
@@ -177,6 +177,6 @@ Compilation is resilient — continue after errors to report as many issues as p
 Early phases target a single canonical execution profile:
 - `wasm32` linear memory
 - one linked module graph per build artifact
-- the Kali host ABI implemented first on top of wasmtime
+- the Kali host ABI implemented first on top of wasmtime, without turning engine-managed WASM translation into a second language-level compilation tier
 
 This keeps pointer layout, tagged-value representation, allocator design, and host import conventions consistent across the rest of the spec. Later phases may add additional targets or execution backends, but they should be layered on top of this baseline rather than weakening it.

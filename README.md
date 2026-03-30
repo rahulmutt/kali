@@ -20,7 +20,7 @@ README scope note:
 
 ## Hard invariants
 These are fixed unless the top-level spec changes:
-- **AOT only** — no language-level JIT
+- **Guest-language AOT only** — no language-level JIT; host-engine WASM translation remains an execution detail rather than a second Kali compilation tier
 - **Pure-Rust implementation contract** — no embedded C/C++ implementation dependencies
 - **No tracing/background GC** — ownership/reference-counted strategies only where the owning chapters allow them
 - **Sandbox-first honesty** — no overclaiming what Kali can actually mediate
@@ -31,7 +31,7 @@ Phase 1 is intentionally narrow. For exact boundaries, read the **Phase-1 Shippe
 
 - **Language/frontend**: `.ts` and `.js` are first-class inputs; Phase 1 JavaScript support is the bounded-inference path, not a downgraded parse-only compatibility mode.
 - **Project workflow**: `kali init`, `kali init --lib`, `kali install`, `kali fmt`, `kali lint`, and `kali check [files...]` are the main authoring loop.
-- **Execution**: `kali run <file>` and `kali test [files...]` ship only in the default/inherited Deno-oriented standalone context, using wasmtime for Kali-hosted execution.
+- **Execution**: `kali run <file>` and `kali test [files...]` ship only in the default/inherited Deno-oriented standalone context, using wasmtime for Kali-hosted execution. Production/embedding flows should prefer engine precompilation where avoiding launch-time translation matters.
 - **Builds**: `kali build <file>` ships as the default executable build in the shared **Deno-oriented build context (schema v1)**; `kali build --lib <file>` ships as the Phase-1 **base library artifact** for **exact-version consumers** when Kali can determine a **statically known export surface**. Here, the Deno-oriented build context is the build/analysis default, not a claim that Phase-1 library outputs expose a Deno-specific public ABI.
 - **Browser support**: Phase 1 browser support is exactly the shared **Phase-1 browser-targeted command set** from [`SPEC.md`](./SPEC.md).
 - **Sandboxing/effects**: `run/test --sandbox` enforce at runtime; the shared **Phase-1 static policy-validation surface** from [`SPEC.md`](./SPEC.md) does static policy-schema/config validation only in Phase 1; later public effect reporting stays on the explicit `kali effects <file>` / `kali package-effects <package>` commands rather than a `run/test --dry` side path.
