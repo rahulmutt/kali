@@ -13,7 +13,7 @@ Practical simplification:
 
 Canonical library-artifact normalization table:
 
-| Selector | Earliest phase | Compile intent | Stable artifact summary |
+| Selector | Earliest phase | Compile intent | Artifact contract summary |
 |---|---|---|---|
 | `--lib` | Phase 1 MVP | library | Phase 1: `wasm-module` (`role: primary-library`) as the **base library artifact**. Until Phase 2 freezes the public interface contract, this output is export-oriented but not yet a stable public ABI/WIT promise. Phase 2+: the same selector becomes the stable public library/WIT contract and adds `wit` (`role: interface-wit`) by default. |
 | `--capi` | Phase 2 target | library | The same proved library surface as a `wasm-module` (`role: primary-library`), plus `wit`, a generated **program-specific exports header** (`kind: c-header`, distinct from the stable host ABI header `kali.h`), and `cabi-metadata`. |

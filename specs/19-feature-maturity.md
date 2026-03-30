@@ -92,6 +92,9 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | Algebraic effect declarations / handlers | Later compatibility | Experimental and must not block delivery of the core capability/effect system |
 | Executable project-local sandbox policy code (`kali.policy.json` hooks / inline predicates) | Rejected by default | Project policy files stay declarative data; Kali should not execute project code just to decide whether a capability is allowed |
 | Host-registered sandbox policy predicates | Later compatibility | This is the long-term programmable-policy path: initial policies stay declarative, and a later embedding-only extension may add pure host-registered predicates without turning policy files into executable project code. These predicates are narrowing-only: they may reject operations the declarative policy would otherwise allow, but they must not widen declarative denies or bypass command/profile maturity gates. |
+| Published Lean proof boundary + CI for the currently modeled subset | Phase 1 MVP | The bootstrap asks for formal verification while iterating on the spec, but early support claims must stay honest: Phase 1 therefore requires an explicit proof boundary plus CI over the subset already modeled in Lean rather than an implied full-language proof |
+| Broader proof coverage for ownership/effects/lowering beyond the initial proof kernel | Phase 2 target | Align verification expansion with the ownership/effects phase instead of letting proof claims drift ahead of the modeled semantics |
+| Full-language or full-host formal verification claims | Later compatibility | The project should not imply end-to-end proof coverage for the whole JS/TS surface, dynamic compatibility paths, or concrete host integrations until those semantics are modeled honestly |
 | Annex B / web-legacy compatibility corners | Later compatibility | Keep the MVP focused on dependable core semantics; add legacy web behaviors only when conformance value justifies the cost |
 | `Proxy` | Later compatibility | High semantic cost and optimization barriers |
 | `WeakMap` / `WeakSet` | Later compatibility | Deferred until weak-reference semantics fit the no-tracing-GC design |
@@ -269,6 +272,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
 - `check/build --sandbox` perform the documented Phase-1 policy-schema/config validation without overclaiming full inferred-effect-vs-policy checking yet.
 - The shared **effect-surface split** remains intact in Phase 1: internal effect bookkeeping may exist, but the stable **public effect-report surface** (`kali effects` / `kali package-effects` reporting and inferred-effect-vs-policy validation) is still correctly absent or explicitly experimental.
+- The Lean-backed verification story is phase-correct: the proof boundary is published, proof-backed claims stay scoped to the currently modeled subset, and CI enforces that modeled subset without implying full-language verification.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
 - Package support works for the documented pure JS/TS, statically linkable subset.
 - Non-install commands still fail with `E5004` on missing/stale dependency state instead of auto-installing or auto-repairing project-managed dependency state.
@@ -277,6 +281,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - MIR is the canonical ownership/layout IR.
 - The Phase-2 **public effect-report surface** is live: `kali effects` emits the documented stable JSON report, `kali package-effects` reuses that shared contract, and explicit effect annotations / `pure` checking are enabled for the built-in capability model.
 - Compile/check-time effect-vs-policy validation works against the declarative policy schema, extending the existing Phase-1 policy-file/config validation path rather than replacing it.
+- Proof coverage expands alongside the modeled ownership/effect/lowering core rather than remaining frozen at the initial Phase-1 proof kernel.
 - Stable public Rust embedding and C ABI surfaces are documented and shipped.
 - The Phase-1 base `kali build --lib` artifact is promoted into the stable public library/WIT contract, including default WIT emission.
 - Public library/component outputs emit the documented WIT interface contract, and the initial Component Model packaging path works end-to-end.
