@@ -106,11 +106,11 @@ This table is intentionally about **package-shape triage**. The active `apiSurfa
 
 Support-decision order simplification:
 - use the shared **package-support decision order** from [SPEC.md](../SPEC.md): package shape, then host/API fit, then command/profile maturity, all under the shared **published-artifact-first package reading**.
-- use the shared **package-support ladder** from [SPEC.md](../SPEC.md) whenever a section needs to say whether a package is merely installable/materializable, analyzable/checkable, buildable, executable, or deployable-through-host.
+- use the shared **package-support ladder** from [SPEC.md](../SPEC.md) whenever a section needs to say whether a package is merely installable/materializable, checkable, buildable, executable, or deployable-through-host.
 - `--allow-scripts` can affect installation of npm packages, but it does not skip that decision order and never upgrades an unsupported package into a supported project-command/runtime contract.
 
 Practical shorthand:
-- a package may be **installable/materializable** without being **analyzable/checkable**, **buildable**, **executable**, or **deployable-through-host** for the selected command/context.
+- a package may be **installable/materializable** without being **checkable**, **buildable**, **executable**, or **deployable-through-host** for the selected command/context.
 - package discussions should therefore name the rung they mean instead of using one broad word such as “supported”.
 - when browser-targeted package support is the topic, default to the narrower browser words first: **checkable** or **deployable-through-host**. Use **executable** only for Kali-hosted runtime/test contracts.
 - if the question is about `package-effects` or `package-audit`, answer it separately from those project-command rungs: those commands are registry-analysis workflows, not alternate ways to ask whether the current project graph is runnable.

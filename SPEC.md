@@ -725,14 +725,15 @@ The shared shorthand for the question “supported in what sense?” once a pack
 
 Canonical rungs:
 1. **installable/materializable** — Kali can deterministically resolve, lock, fetch, and materialize the dependency under the documented install rules.
-2. **analyzable/checkable** — Kali can parse, resolve, and type-check the published JS/TS package shape under the selected context.
+2. **checkable** — Kali can parse, resolve, and type-check the published JS/TS package shape under the selected context.
 3. **buildable** — Kali can lower that package successfully through the selected build path and artifact mode.
 4. **executable** — Kali can execute it inside a Kali-hosted runtime for the selected command/context.
 5. **deployable-through-host** — Kali can produce the documented non-Kali-hosted deployment artifact for it, such as the browser-targeted bundle path in the shared **Phase-1 browser-targeted command set**.
 
 Rules:
 - later rungs imply the earlier ones for the same package/context, but not the reverse.
-- being **installable/materializable** does **not** by itself imply analyzable, buildable, executable, or deployable-through-host.
+- being **installable/materializable** does **not** by itself imply checkable, buildable, executable, or deployable-through-host.
+- use **checkable** as the one canonical Phase-1 analysis rung for project-command package claims; later registry-analysis commands such as `package-effects` / `package-audit` are separate workflows rather than alternate names for the same rung.
 - package discussions should name the rung they mean instead of using one broad word such as “supported” for all of them at once.
 - package corpus claims, release notes, and roadmap prose should record support per rung and per command/context rather than promoting a package from “installs” to “works everywhere”.
 
