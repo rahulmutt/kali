@@ -100,6 +100,10 @@ Install simplification:
 ### Package Resolution
 Follow Node.js-style package resolution, but keep the early-phase rules explicit so browser, Deno, and package behavior do not drift.
 
+Terminology simplification:
+- use the cross-spec term **package-resolution context** from [SPEC.md](../SPEC.md) for the normalized package-selection inputs: `apiSurface` plus module edge kind (`import` vs `require`)
+- supported browser-targeted commands should therefore reuse one browser package-resolution context instead of describing near-duplicate browser condition ladders per command
+
 Canonical early-phase code-resolution ladder:
 1. Apply import-map rewrites from `kali.json#imports` before package resolution.
 2. Preserve any explicit registry qualifier on the package specifier (for example `jsr:@std/path`) so later resolution, lockfile lookup, and diagnostics keep the same package identity.
@@ -115,7 +119,7 @@ Canonical early-phase code-resolution ladder:
    - supported browser-targeted context (Phase 1: `kali check --api browser` and `kali build --bundle --api browser`; later supported browser-targeted analysis commands such as `kali effects --api browser` and browser-context `kali package-effects`) and the Deno-oriented standalone API surface (`--api deno`, Phase 1 default): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
    - later Node API surface may add `node`-specific behavior before that shared fallback ladder when explicitly documented
 7. In browser-targeted contexts, after `exports` or the legacy fallback picks a package-published target, apply any `package.json#browser` replacement-map rewrite that covers that selected package-local path:
-   - this rewrite layer is part of the one shared browser package-selection rule for `check --api browser`, `build --bundle --api browser`, and later browser-context analysis commands such as `effects --api browser` and inherited browser-context `package-effects`
+   - this rewrite layer is part of the one shared browser package-resolution context for `check --api browser`, `build --bundle --api browser`, and later browser-context analysis commands such as `effects --api browser` and inherited browser-context `package-effects`
    - if the browser map rewrites the selected path to another package-local file, continue resolution from that rewritten target
    - if the browser map marks the selected path as unavailable (`false`), reject that edge instead of probing alternate non-browser files heuristically
    - this browser-map stage refines the already chosen browser-targeted package edge; it does not restart package resolution under a second ad hoc condition-order algorithm
@@ -472,7 +476,7 @@ Canonical output simplification:
 - because of that design, `kali package-effects` does **not** take package-analysis-specific analysis-context flags (`--api`, runtime-profile flags such as `--wasm-threads`, or `--compat`) or `--sandbox` in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds those flags
 - inherited analysis context follows the same axis-specific maturity gates as the rest of effect analysis rather than a package-only shadow rule set: browser inherits the browser-targeted analysis path, Node inherits the Node analysis gate, `wasm-threads` inherits the threaded-profile gate, and compat features such as `eval` inherit their own compatibility gate
 - if inherited config/default analysis context selects a mode that is still unavailable for `package-effects`, the command should fail with `E5006` rather than silently analyzing under a smaller fallback context
-- inherited `apiSurface = browser` is the intended browser-targeted package-analysis mode once `kali package-effects` exists in Phase 2; it reuses the same browser package-selection context as `kali check --api browser` without adding a second package-analysis-only flag family
+- inherited `apiSurface = browser` is the intended browser-targeted package-analysis mode once `kali package-effects` exists in Phase 2; it reuses the same browser **package-resolution context** as `kali check --api browser` without adding a second package-analysis-only flag family
 - the nested shared effect report still summarizes the full statically reachable package graph selected for analysis under that recorded context; it is not just a manifest-level metadata report
 - `--output json` wraps that payload in the standard CLI command envelope; it does not create a third package-effects-only outer format
 

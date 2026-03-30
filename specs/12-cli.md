@@ -498,7 +498,7 @@ Analysis scope rule:
 - practical consequence: non-default `package-effects` contexts currently come from defaults or discovered config only. In configless mode, the command therefore stays on the schema-v1 defaults (`apiSurface = deno`, `runtimeProfiles = []`, `compat.features = []`) instead of offering package-analysis-only CLI escape hatches.
 - inherited analysis context follows the same axis-specific maturity gates as the rest of effect analysis rather than a package-only shadow rule set: browser inherits the browser-targeted analysis path, Node inherits the Node analysis gate, `wasm-threads` inherits the threaded-profile gate, and compat features such as `eval` inherit their own compatibility gate
 - if inherited config/default analysis context selects a mode that is still unavailable for this command, `kali package-effects` should fail with `E5006` rather than silently analyzing under some other context
-- inherited `apiSurface = browser` is the intended browser-targeted package-analysis path once `kali package-effects` exists in Phase 2; that keeps package analysis aligned with the same browser ambient/package-selection context used by `kali check --api browser`
+- inherited `apiSurface = browser` is the intended browser-targeted package-analysis path once `kali package-effects` exists in Phase 2; that keeps package analysis aligned with the same browser ambient typing layer and browser **package-resolution context** used by `kali check --api browser`
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
 
 ### `kali package-audit <package>`

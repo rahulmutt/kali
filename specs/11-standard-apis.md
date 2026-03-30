@@ -33,7 +33,7 @@ This prevents a common source of drift: host-runtime implementation convenience 
 Canonical terminology simplification:
 - use the cross-spec term **browser-targeted context** from [SPEC.md](../SPEC.md) for command contexts whose effective `apiSurface` is `browser`
 - in Phase 1, that means `kali check --api browser` and `kali build --bundle --api browser`
-- later analysis commands may reuse that same ambient/package-selection context once their own maturity rows allow it
+- later analysis commands may reuse that same ambient typing layer and **package-resolution context** once their own maturity rows allow it
 - it does **not** mean a standalone embedded browser runtime, DOM emulation layer, or permission to expose non-browser globals during analysis/build
 
 ## API Layers
@@ -157,6 +157,7 @@ Two layers matter here and should not be conflated:
 
 Canonical rule:
 - browser-targeted `check` and `build --bundle --api browser` should type-check against the real browser ambient surface, including DOM typings that are normally present in browser-focused TypeScript programs; the matching maturity claim lives in the single consolidated browser-analysis/build row in [19 — Feature Maturity](19-feature-maturity.md)
+- those supported browser-targeted commands also share the same browser **package-resolution context** from [SPEC.md](../SPEC.md) and [14 — Packages](14-packages.md) so ambient typing and package entry selection do not drift apart
 - this follows the top-level **Browser ambient typing vs mediated capability split** in [SPEC.md](../SPEC.md): browser ambient typing is broader than the stable sandbox/effect model
 - this does **not** mean Kali's standalone runtime implements or emulates those DOM APIs
 - when Kali emits browser-targeted artifacts, DOM/Web APIs are expected to come from the real browser host at deployment time

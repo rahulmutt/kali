@@ -180,6 +180,16 @@ The semantic context that materially affects static analysis results:
 
 Build mode affects compile effort and optimization behavior, but for early effect/package-analysis contracts the main semantic analysis context is the trio above unless an owning chapter says otherwise.
 
+### Package-resolution context
+The normalized context used when selecting package entry files/conditions:
+- `apiSurface`
+- module edge kind (`import` vs `require`)
+
+Rule:
+- supported browser-targeted commands share one browser package-resolution rule rather than inventing per-command ladders
+- in schema v1, that browser rule means the browser `exports` condition order plus any applicable `package.json#browser` rewrites, as owned by [`specs/14-packages.md`](./specs/14-packages.md)
+- later browser-targeted analysis commands should reuse that same package-resolution context once their own maturity rows allow them
+
 ### Effective command context
 The fully merged invocation context that a command validates and executes against:
 1. built-in defaults,
