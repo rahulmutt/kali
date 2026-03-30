@@ -404,7 +404,7 @@ Rules:
 - it is outside project-managed dependency state (`kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/`),
 - it may be discarded between invocations and must not be treated as an installed project dependency snapshot,
 - cache identity is keyed by at least the canonical registry identifier plus the resolved concrete version,
-- for analysis-context-aware registry analysis (`package-effects`), the effective analysis context is also part of the cache identity so browser/deno/profile/compat analyses cannot collide accidentally.
+- for analysis-context-aware registry analysis (`package-effects`), the inherited analysis context is also part of the cache identity so browser/deno/profile/compat analyses cannot collide accidentally.
 
 ### Library-oriented artifact modes
 Non-browser, export-oriented build modes:
@@ -414,14 +414,14 @@ Non-browser, export-oriented build modes:
 
 ### Embedding-stability split
 Kali uses one shared stability split for library-oriented outputs:
-- **base library artifact** — the Phase-1 `kali build --lib` output shape: export-oriented and useful immediately, but still pre-stable as a public embedding contract
-- **public embedding surface** — the Phase-2 stabilized public embedding story built on that same exported-library contract: the stable Rust embedding API plus the stable public library/export packaging contract
+- **base library artifact** — the Phase-1 `kali build --lib` output shape: export-oriented and useful immediately, but still the pre-stable Phase-1 half of the public embedding surface
+- **public embedding surface** — the Phase-2 stabilized public embedding story built on that same exported-library contract: the stable Rust embedding API plus the stable public library/WIT contract
 - **public embedding artifact flows** — the artifact-producing part of that Phase-2 public embedding surface: stable public `--lib` + WIT, `--capi`, and `--component`
 
 Rule:
-- docs should reference this split instead of rephrasing it as “usable but not yet stable”, “library-first internally”, or “WIT/C ABI/component packaging lands later” in slightly different ways
-- Phase 1 shipping the **base library artifact** does **not** by itself imply the Phase-2 **public embedding surface**: no stable public Rust API, stable WIT contract, stable C ABI, or component packaging yet
-- once Phase 2 promotes that path, plain public `--lib` is the canonical exported-library contract and emits WIT by default; `--capi` and `--component` are projections/wrappers over that same proved export surface rather than alternate export semantics
+- docs should reference this split instead of rephrasing it as “usable but not yet stable”, “public embedding contract”, “stable public library contract”, “library-first internally”, or “WIT/C ABI/component packaging lands later” in slightly different ways
+- Phase 1 shipping the **base library artifact** does **not** by itself imply the Phase-2 **public embedding surface**: no stable public Rust API, stable public library/WIT contract, stable C ABI, or component packaging yet
+- once Phase 2 promotes that path, plain public `--lib` is the canonical stable public library/WIT contract and emits WIT by default; `--capi` and `--component` are projections/wrappers over that same proved export surface rather than alternate export semantics
 
 ### Library-oriented instantiation rule
 For library-oriented artifact modes:
@@ -539,7 +539,7 @@ Early documented build artifact modes form one small canonical matrix:
 |---|---|
 | `kali build foo.ts` | default executable-oriented artifact flow |
 | `kali build --bundle --api browser foo.ts` | browser-targeted bundle output |
-| `kali build --lib lib.ts` | Phase-1 **base library artifact**; in Phase 2 the same selector becomes part of the stable public library contract and adds a default WIT sidecar |
+| `kali build --lib lib.ts` | Phase-1 **base library artifact**; in Phase 2 the same selector becomes part of the stable public library/WIT contract and adds a default WIT sidecar |
 | `kali build --capi lib.ts` | Phase-2 **public embedding artifact flow** for C embedding |
 | `kali build --component lib.ts` | Phase-2 **public embedding artifact flow** for Component Model packaging |
 

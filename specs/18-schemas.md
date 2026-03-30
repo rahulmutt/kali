@@ -622,7 +622,7 @@ Interpretation rules:
 - if `sandbox` is a relative path, it is resolved relative to the directory containing that `kali.json`
 - omitting top-level `sandbox` means no default project policy file is attached; schema v1 does **not** model that omission as an implicit serialized allow-all policy
 - the canonical effect-reporting and sandbox-agnostic command classes from [SPEC.md](../SPEC.md) ignore top-level `sandbox` rather than treating it as an error or as an implicit request to perform policy validation
-- in particular, `package-effects` still ignores `sandbox` even though it inherits the other semantic analysis axes, and `package-audit` ignores the entire host-analysis/runtime/sandbox context bundle in early phases
+- in particular, `package-effects` still ignores `sandbox` even though it inherits the other semantic analysis axes, and `package-audit` ignores all inherited host-analysis/runtime/sandbox axes in early phases
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
 - both `compilerOptions.runtimeProfiles` and `compat.features` follow the same schema-v1 validation rule: unknown entries and duplicate entries are config errors (`E5009`), not values tools silently ignore or deduplicate away
 - when **valid** set-like arrays such as `compilerOptions.runtimeProfiles` or `compat.features` are normalized in on-disk config, normalization should preserve semantics without reordering entries unnecessarily; preserving first-seen order for minimal user-file churn is preferred even though the arrays are semantically unordered

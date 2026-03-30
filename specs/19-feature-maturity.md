@@ -101,9 +101,9 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | Packages whose normal install/runtime path depends on native addons, compiled native code, postinstall-downloaded executables, or other platform-specific binary/bootstrap artifacts | Rejected by default | Violates the pure-Rust/no-native-addon goal, weakens deterministic install expectations, and should not be implied by `--allow-scripts` |
 | Native addons / `node-gyp` packages | Rejected by default | Violates the pure-Rust/no-native-addon constraints |
 | npm packages that require unsupported Node core modules | Phase 3 target | Depends on broader `--api node` compatibility work |
-| Phase-1 **base library artifact** (`kali build --lib`) | Phase 1 MVP | This is the Phase-1 side of the shared **embedding-stability split**: projects can build non-executable exported modules early without waiting for the later public embedding contract to freeze |
+| Phase-1 **base library artifact** (`kali build --lib`) | Phase 1 MVP | This is the Phase-1 side of the shared **embedding-stability split**: projects can build non-executable exported modules early without waiting for the later **public embedding surface** to freeze |
 | Stable public Rust embedding API | Phase 2 target | Part of the Phase-2 **public embedding surface** side of that same split |
-| Stable public library/WIT contract for `kali build --lib` | Phase 2 target | The same `--lib` selector is promoted from the Phase-1 **base library artifact** into the stable public library contract and emits WIT by default once that interface surface is frozen |
+| Stable public library/WIT contract for `kali build --lib` | Phase 2 target | The same `--lib` selector is promoted from the Phase-1 **base library artifact** into the stable public library/WIT contract and emits WIT by default once that interface surface is frozen |
 | Stable public C ABI / `kali build --capi` flow | Phase 2 target | Part of the same Phase-2 **public embedding surface** stabilization work |
 | WIT emission for public library/embedding interfaces | Phase 2 target | Gives the Phase-2 **public embedding surface** one canonical exported interface description instead of parallel ad hoc metadata |
 | WebAssembly Component Model packaging (`kali build --component`) | Phase 2 target | Part of the same Phase-2 **public embedding surface** set, layered on top of the linked core WASM payload for host interop; executable builds still center on the core module path |
@@ -275,7 +275,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - Explicit effect annotations and `pure` checking are enabled for the built-in capability model.
 - Compile/check-time effect-vs-policy validation works against the declarative policy schema, extending the existing Phase-1 policy-file/config validation path rather than replacing it.
 - Stable public Rust embedding and C ABI surfaces are documented and shipped.
-- The Phase-1 base `kali build --lib` artifact is promoted into the stable public library contract, including default WIT emission.
+- The Phase-1 base `kali build --lib` artifact is promoted into the stable public library/WIT contract, including default WIT emission.
 - Public library/component outputs emit the documented WIT interface contract, and the initial Component Model packaging path works end-to-end.
 
 ### Phase 3 exit criteria

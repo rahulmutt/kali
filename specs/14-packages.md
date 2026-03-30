@@ -480,7 +480,7 @@ Registry-analysis cache simplification:
 - `package-effects` and `package-audit` may use the shared **registry-analysis cache** from [SPEC.md](../SPEC.md) for fetched metadata/tarballs
 - that cache is outside project-managed dependency state and must not mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
 - cache identity is keyed by at least the canonical registry identifier plus the resolved concrete version
-- cache context then follows the table above: `package-effects` also keys on the inherited effective analysis context so `deno` / `browser` / later `node`, runtime-profile, and compatibility-feature analyses cannot collide accidentally, while early context-free `package-audit` does not add host-analysis/runtime/sandbox context to the cache key
+- cache context then follows the table above: `package-effects` also keys on the inherited analysis context so `deno` / `browser` / later `node`, runtime-profile, and compatibility-feature analyses cannot collide accidentally, while early context-free `package-audit` does not add those inherited axes to the cache key
 
 Because `kali package-effects` is a Phase 2 target and depends on the shared effect-report pipeline, it should stay clearly unavailable or explicitly experimental until that pipeline lands rather than returning a partial bespoke format.
 
