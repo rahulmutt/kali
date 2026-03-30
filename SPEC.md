@@ -91,7 +91,7 @@ To keep the bootstrap brief actionable and avoid trying to build every aspiratio
 2. **Deterministic package/install foundation** — `kali install`, shared lock/materialization rules, package resolution, and strict non-mutating behavior for non-install commands.
 3. **Kali-hosted execution foundation** — one AOT pipeline to one linked WASM payload, `run`/`test` on the Deno-oriented standalone surface, and the Phase-1 runtime/resource sandbox contract.
 4. **Build/artifact foundation** — default executable builds, the browser-bundle half of the shared **Phase-1 browser-targeted command set**, and the Phase-1 `build --lib` base library artifact.
-5. **Developer workflow foundation** — `check`, `fmt`, `lint`, AI-friendly diagnostics, and stable schema-v1 JSON envelopes/artifact metadata.
+5. **Developer workflow foundation** — `init`, `check`, `fmt`, `lint`, AI-friendly diagnostics, and stable schema-v1 JSON envelopes/artifact metadata.
 6. **Phase-1 evidence hardening** — conformance tests, package corpus coverage, browser-bundle smoke tests, and determinism checks required by the maturity matrix.
 
 Sequencing rule:

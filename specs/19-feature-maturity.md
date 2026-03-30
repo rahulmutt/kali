@@ -303,7 +303,8 @@ These checklists keep the phase labels operational rather than purely descriptiv
 ### Phase 1 exit criteria
 - One linked-WASM-payload compile/run pipeline works end-to-end for TS and JS inputs, with companion artifacts only where an artifact mode explicitly requires them.
 - Repeated builds with the same pinned inputs and toolchain produce stable artifact bytes and stable machine-readable output ordering by default.
-- `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
+- `kali init`, `install`, `run`, `build`, `check`, `fmt`, `lint`, and `test` exist with stable core behavior.
+- `kali init` keeps the shared **minimal canonical scaffold contract**: the scaffold stays intentionally small, does not materialize dependencies, and does not blur into `install` or later artifact-mode promises.
 - The Phase-1 **base library artifact** (`kali build --lib`) works end-to-end as the Phase-1 half of the shared **embedding-stability split**.
 - The checker ships the shared **bounded inference contract** promised for Phase 1 for locals, obvious unannotated parameters, and analyzable return types, while still falling back conservatively instead of doing open-ended whole-program search.
 - The shared **Phase-1 browser-targeted command set** works against the real browser ambient surface without implying DOM runtime support in Kali itself.
