@@ -38,7 +38,7 @@ A few bootstrap asks are intentionally narrower after normalization:
 - **“supports browser APIs”** means browser-targeted analysis/build first, not standalone browser `run`/`test`
 - **“supports npm packages”** means support is bounded by package shape, host/API fit, command maturity, and the exact support rung being claimed (`installable/materializable`, `checkable`, `buildable`, `executable`, or `deployable-through-host`) — not “everything without node-gyp works”
 - **“supports all features including eval”** means parser acceptance and later compatibility planning now, but executable `eval`/`Function()` only in the later gated compatibility path
-- **“static JSON effect reporting”** becomes two later public surfaces: reporting (`kali effects`, `kali package-effects`) and policy comparison (`check/build --sandbox`); when reporting ships, those reports are conservative upper bounds rather than exact execution traces
+- **“static JSON effect reporting”** becomes two later public surfaces: reporting (`kali effects <file>`, `kali package-effects <package>`) and policy comparison (`check/build --sandbox`); when reporting ships, those reports are conservative upper bounds rather than exact execution traces, and `kali effects` stays a one-root reporting command rather than a hidden project-discovery or `run --dry` mode
 - **“embeddable / C API / WIT / Component Model”** means a Phase-1 base `--lib` artifact first, then the stable public embedding surface later, with plain public `--lib` + WIT as the canonical contract and `--capi` / `--component` as explicit projections over that same export surface
 
 ## Defined shape vs shipped availability

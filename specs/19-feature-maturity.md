@@ -94,7 +94,7 @@ Release-note/support-claim shortcut:
 | “browser support ships in Phase 1” | “Phase 1 ships the shared **Phase-1 browser-targeted command set**: browser-targeted `check [files...]` plus browser-targeted `build --bundle <file>`, including supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`.” |
 | “packages work in browser mode” | “For the shared **Phase-1 browser-targeted command set**, package claims are usually **checkable** or **deployable-through-host**, not standalone-browser **executable** support.” |
 | “embedding ships in Phase 1” | “Phase 1 ships only the export-oriented **base library artifact** via `kali build --lib` for exact-version/internal consumers; the stable public embedding surface remains Phase 2.” |
-| “effects support ships in Phase 1” | “Phase 1 may use internal sandbox-oriented effect bookkeeping and ships policy validation/runtime enforcement where documented, but the stable public effect-report surface is still gated.” |
+| “effects support ships in Phase 1” | “Phase 1 may use internal sandbox-oriented effect bookkeeping and ships policy validation/runtime enforcement where documented, but the stable public effect-report surface is still gated; when it opens, reporting is through explicit commands (`kali effects <file>`, `kali package-effects <package>`), not a hidden project-discovery or `run --dry` workflow.” |
 | “formal verification ships in Phase 1” | “Kali is **proof-ready**, not **proof-backed**; read `proofs/BOUNDARY.md` for the current claim boundary.” |
 
 Browser-build simplification note:
