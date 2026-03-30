@@ -54,6 +54,11 @@ Promotion rule:
   - CLI/JSON contracts → golden/snapshot/schema tests
 - isolated demos or one package anecdote do **not** by themselves justify raising a feature's maturity wording
 
+Verification-baseline clarification:
+- the Phase-1 **proof-ready** baseline is intentionally a repository/process claim first, not automatically a claim that hosted proof automation already exists
+- before concrete proof workflow files land, the minimum evidence for that **proof-ready** row is the published `proofs/BOUNDARY.md` manifest plus its explicit proof-CI activation rule/policy
+- stronger **proof-backed** release/support claims still require actual modeled theorems plus the corresponding proof jobs/evidence for the covered subset
+
 This keeps “Phase 1 MVP” and later status labels tied to measurable behavior rather than intent alone.
 
 ## Phase-1 Shipped Surface Summary
@@ -74,7 +79,7 @@ It is intentionally narrower than the full command/profile matrix below:
 | Effects/sandbox | internal sandbox-oriented effect bookkeeping; policy-schema/config validation for `check --sandbox` / `build --sandbox`; runtime enforcement for `run --sandbox` / `test --sandbox` | no stable public `kali effects`; no stable public `kali package-effects`; no inferred-effect-vs-policy rejection yet |
 | Registry analysis | none shipped in Phase 1 | no stable public `kali package-audit`; no stable public registry-analysis workflow yet |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib` | no stable public Rust embedding API; no stable public WIT sidecar for plain `--lib`; no stable public C ABI or Component Model flow |
-| Verification | published **proof-boundary manifest**, matching proof-CI activation rule, and **proof-ready** repository state | no **proof-backed** release/support claims while the boundary is still empty |
+| Verification | published **proof-boundary manifest**, matching proof-CI activation rule/policy, and **proof-ready** repository state | no **proof-backed** release/support claims while the boundary is still empty |
 
 Use this summary to avoid broad bootstrap overreads, then drop to the canonical matrix below for exact command/context rows.
 
@@ -117,7 +122,7 @@ Use this summary to avoid broad bootstrap overreads, then drop to the canonical 
 | Algebraic effect declarations / handlers | Later compatibility | Experimental and must not block delivery of the core capability/effect system |
 | Executable project-local sandbox policy code (`kali.policy.json` hooks / inline predicates) | Rejected by default | Project policy files stay declarative data; Kali should not execute project code just to decide whether a capability is allowed |
 | Host-registered sandbox policy predicates | Later compatibility | This is the long-term programmable-policy path: initial policies stay declarative, and a later embedding-only extension may add pure host-registered predicates without turning policy files into executable project code. These predicates are narrowing-only: they may reject operations the declarative policy would otherwise allow, but they must not widen declarative denies or bypass command/profile maturity gates. |
-| Published Lean proof boundary + CI for the currently modeled subset | Phase 1 MVP | This is the Phase-1 **proof-ready** baseline: Kali needs an explicit proof boundary at `proofs/BOUNDARY.md` plus the matching proof-CI activation rule over whatever subset is already modeled in Lean. During pre-proof iteration that boundary may still be empty; in that state the practical requirement is the published boundary plus its honest activation rule |
+| Published Lean proof boundary + proof-CI activation rule for the currently modeled subset | Phase 1 MVP | This is the Phase-1 **proof-ready** baseline: Kali needs an explicit proof boundary at `proofs/BOUNDARY.md` plus the matching proof-CI activation rule over whatever subset is already modeled in Lean. During pre-proof iteration that boundary may still be empty; in that state the practical requirement is the published boundary plus its honest activation rule/policy rather than already-wired hosted proof automation |
 | Proof-backed release/support claims while the published proof boundary is empty | Rejected by default | The proof-ready baseline alone is not enough for proof-backed marketing. Until `proofs/BOUNDARY.md` names at least one concrete modeled subsystem plus theorem/property inventory, release notes, README summaries, and support claims must not present formal verification as a shipped Kali capability |
 | Broader proof coverage for ownership/effects/lowering beyond the initial published proof boundary | Phase 2 target | Align verification expansion with the ownership/effects phase instead of letting proof claims drift ahead of the modeled semantics |
 | Full-language or full-host formal verification claims | Later compatibility | The project should not imply end-to-end proof coverage for the whole JS/TS surface, dynamic compatibility paths, or concrete host integrations until those semantics are modeled honestly |
