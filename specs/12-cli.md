@@ -272,7 +272,7 @@ kali build --lib lib.ts                    # Phase-1 base library artifact follo
 kali build --lib --api node lib.ts         # Phase 3 target: Node API surface remains build-gated for library-oriented modes too
 kali build --lib --api browser lib.ts      # Invalid usage (E5008) in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library artifact mode
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + metadata (artifacts: wasm-module + wit + c-header + cabi-metadata; roles: primary-library + interface-wit + embedding-header + embedding-metadata; see specs/13-embedding.md)
-kali build --capi --api node lib.ts        # Phase 3 target: still gated by the Node build surface even after public embedding artifacts exist
+kali build --capi --api node lib.ts        # Phase 3 target: still gated by the Node build surface even after the public embedding artifact flow exists
 kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit + lib.component.wasm (artifacts: lib.wasm kind=wasm-module role=primary-library; lib.wit kind=wit role=interface-wit; lib.component.wasm kind=wasm-component role=primary-component)
 kali build --component --api node lib.ts   # Phase 3 target: still gated by the Node build surface even after component packaging exists
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects

@@ -518,15 +518,15 @@ Early documented build artifact modes form one small canonical matrix:
 |---|---|
 | `kali build foo.ts` | default executable-oriented artifact flow |
 | `kali build --bundle --api browser foo.ts` | browser-targeted bundle output |
-| `kali build --lib lib.ts` | Phase-1 **base library artifact** |
-| `kali build --capi lib.ts` | Phase-2 **public embedding output** for C embedding |
-| `kali build --component lib.ts` | Phase-2 **public embedding output** for Component Model packaging |
+| `kali build --lib lib.ts` | Phase-1 **base library artifact**; in Phase 2 the same selector becomes part of the stable public library contract and adds a default WIT sidecar |
+| `kali build --capi lib.ts` | Phase-2 **public embedding artifact flow** for C embedding |
+| `kali build --component lib.ts` | Phase-2 **public embedding artifact flow** for Component Model packaging |
 
 Rules:
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive unless a later chapter explicitly says otherwise,
 - `--bundle` is browser-only and requires effective `apiSurface = browser`,
 - library-oriented artifact modes are non-browser in early phases,
-- Phase 1 plain `--lib` is the **base library artifact**, while the stable/public embedding contract for that same exported-library path is part of the later **public embedding surface**,
+- Phase 1 plain `--lib` is the **base library artifact**, and in Phase 2 that same selector becomes part of the stable **public embedding surface** rather than introducing a second plain-library mode,
 - companion artifacts such as JS glue, WIT, C headers, or component wrappers do not weaken the single linked core payload rule.
 
 ## Chapter Ownership
