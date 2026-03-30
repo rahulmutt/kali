@@ -12,7 +12,7 @@
 ## Shared Flags
 
 Current repository-state note:
-- this repository is still spec-first; any crate names mentioned in this chapter (for example `kali_fmt` or `kali_lint`) describe the target implementation decomposition, not a claim that those crates already exist in the current repo today
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): any crate names mentioned in this chapter (for example `kali_fmt` or `kali_lint`) describe the target implementation decomposition, not a claim that those crates already exist in the current repo today
 - command shapes, flags, and JSON contracts in this chapter are still normative even when the corresponding implementation crates have not landed yet
 
 These flags are shared across the CLI, but some apply only to specific command families. For the canonical meaning of **API surface**, **build mode**, **runtime profile**, and **availability context**, see [SPEC.md](../SPEC.md). For maturity/availability rules, see [19 — Feature Maturity](19-feature-maturity.md).

@@ -5,7 +5,7 @@ Embedding is intentionally phased and follows the shared **embedding-stability s
 - **Phase 2 target**: the **public embedding surface** arrives — the Rust embedding API, the stable public library/WIT contract for `kali build --lib`, the C ABI, and `kali build --capi` / `kali build --component` artifact flows.
 
 Current repository-state note:
-- this repository is still spec-first; crate names such as `kali_embed` and `kali_capi` in this chapter describe the target implementation structure and intended public package names, not a claim that those crates already exist in the current repo today
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): crate names such as `kali_embed` and `kali_capi` in this chapter describe the target implementation structure and intended public package names, not a claim that those crates already exist in the current repo today
 - command examples, API sketches, and cargo commands in this chapter should therefore be read as target contracts/illustrative usage unless the repository actually grows the corresponding implementation artifacts
 
 Reading rule:

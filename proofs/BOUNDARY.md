@@ -3,7 +3,7 @@
 Status: placeholder for the initial published proof boundary. The repository currently claims **no mechanized proof coverage yet**, so this file documents the absence of proof claims explicitly.
 
 Current repository-state note:
-- there is not yet a checked-in Lean proof tree under `proofs/`; this manifest is currently the only required verification artifact
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): there is not yet a checked-in Lean proof tree under `proofs/`; this manifest is currently the only required verification artifact
 - the illustrative Lean project layout in [specs/17-verification.md](../specs/17-verification.md) is therefore a target layout for when proofs land, not a claim about the current repository contents
 
 Canonical verification state:

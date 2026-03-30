@@ -125,7 +125,7 @@ Prove specific high-value lowering passes preserve the modeled semantics:
 ## Lean 4 Project Structure
 
 Current-state clarification:
-- the repository does **not** yet contain this Lean project tree; today the only required verification artifact is the published `proofs/BOUNDARY.md` manifest
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the repository does **not** yet contain this Lean project tree; today the only required verification artifact is the published `proofs/BOUNDARY.md` manifest
 - treat the layout below as the **target proof-tree shape once mechanized proofs start landing**, not as a claim that those files already exist in the current repo state
 
 ```text
@@ -197,7 +197,7 @@ cd proofs && lake build
 ```
 
 Current-state rule:
-- until `proofs/` contains an actual Lean project (`lakefile.lean`, `lean-toolchain`, and proof sources), this command is illustrative rather than currently runnable
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): until `proofs/` contains an actual Lean project (`lakefile.lean`, `lean-toolchain`, and proof sources), this command is illustrative rather than currently runnable
 - the current repository obligation is the published proof-boundary manifest plus the trigger policy below
 
 CI consistency rules:
