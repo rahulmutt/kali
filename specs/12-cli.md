@@ -270,8 +270,6 @@ kali build main.ts                         # → main.wasm (--fast mode, default
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue)
-kali build --bundle main.ts                # Same supported browser-bundle build when compilerOptions.apiSurface=browser is already inherited from config
-kali build --bundle main.ts                # Invalid usage (E5008) under the default config; --bundle requires the effective API surface to be browser
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
 kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
@@ -289,6 +287,10 @@ kali build --bundle --api browser --sandbox kali.policy.json main.ts # Build-tim
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
 ```
+
+Inheritance note:
+- if `compilerOptions.apiSurface = browser` is already inherited from `kali.json`, plain `kali build --bundle main.ts` is the same supported browser-bundle request as the explicit `--api browser` form above
+- under the default/inherited non-browser API surface, that same plain `kali build --bundle main.ts` remains `E5008` because `--bundle` is browser-only in schema v1
 
 ### `kali check [files...]`
 Type-check without compiling.

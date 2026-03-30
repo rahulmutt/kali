@@ -50,7 +50,7 @@ let config = Config::builder()
     .build_mode(BuildMode::Fast)
     .runtime_profiles([])
     .compat_features([])
-    .max_memory_mb(256)
+    .max_memory_bytes(256 * 1024 * 1024)
     .max_cpu_time_ms(10_000)
     .max_open_files(32)
     .max_spawned_processes(0)
@@ -305,7 +305,7 @@ bool kali_register_host_function(KaliRuntime* runtime, const char* module,
 - The C config surface follows the same set-like semantics as `kali.json` and the Rust builder API: runtime profiles and compat features are unordered unique sets, not boolean toggle pairs
 - enum spellings such as `KaliApiSurface`, `KaliBuildMode`, `KaliRuntimeProfile`, and `KaliCompatFeature` are the typed C-ABI counterparts of the canonical config/CLI vocabularies `apiSurface`, `buildMode`, `runtimeProfiles`, and `compat.features`
 - the resource-limit setters `kali_config_set_max_memory`, `kali_config_set_max_cpu_time`, `kali_config_set_max_open_files`, `kali_config_set_max_spawned_processes`, and `kali_config_set_max_threads` mirror the shared execution-budget model from CLI/schema v1 instead of inventing C-only names
-- unit spelling stays implementation-friendly but semantically aligned: `kali_config_set_max_memory(..., bytes)` uses raw bytes for FFI friendliness, `kali_config_set_max_cpu_time(..., ms)` uses milliseconds, and the Rust builder / policy schema keep their higher-level `max_memory_mb` / `maxMemoryMB` naming over that same underlying limit model
+- unit spelling stays implementation-friendly but semantically aligned: `kali_config_set_max_memory(..., bytes)` uses raw bytes for FFI friendliness, `kali_config_set_max_cpu_time(..., ms)` uses milliseconds, and the Rust builder should prefer the same normalized byte/ms/count model (for example `max_memory_bytes(...)`) even though the policy schema still stores the memory cap as `maxMemoryMB`
 - for those setters, `max_memory`, `max_cpu_time`, and `max_open_files` keep the same positive-only semantics as CLI/schema v1, while `max_spawned_processes` and `max_threads` may use `0` as an explicit deny/tightening value
 - mutating config helpers return `bool` so validation/allocation/phase-gating failures all use one C-friendly convention instead of mixing `void` setters with out-of-band failure cases
 - C config/runtime setters for API surface, build mode, runtime profiles, compat features, and resource limits follow the same phase-gating rules as the CLI/config surface; unsupported requests fail with the canonical availability error instead of degrading silently
