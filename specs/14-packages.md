@@ -186,7 +186,7 @@ Practical classifier note:
 kali install lodash                         # Add/install single registry package from npm
 kali install jsr:@std/path                  # Add/install single registry package from JSR
 kali install                                # Materialize all declared dependencies for the project
-kali install --allow-scripts                # Permit lifecycle hooks only for the invocation's effective npm-scriptable install work
+kali install --allow-scripts lodash         # Opt into lifecycle hooks for one npm-targeted install; plain `kali install --allow-scripts` is valid only when the invocation actually has effective npm-scriptable install work
 kali install --dev vitest                   # Add/install dev dependency
 kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency
 ```

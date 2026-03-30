@@ -41,12 +41,12 @@ let mut runtime = Runtime::new(config)?;
 let result = runtime.run_string("inline.ts", "const x: number = 1 + 2; x")?;
 assert_eq!(result.as_number(), Some(3.0));
 
-// Compile a module graph into one linked WASM payload artifact
-let module = runtime.compile_file("main.ts")?;
+// Compile an executable-intent module graph into one linked WASM payload artifact
+let module = runtime.compile_executable_file("main.ts")?;
 let result = runtime.run_module(&module)?;
 
-// Call exported functions from a reusable compiled library module
-let module = runtime.compile_file("lib.ts")?;
+// Compile a library-intent module graph and call proved exports
+let module = runtime.compile_library_file("lib.ts")?;
 let instance = runtime.instantiate(&module)?;
 let result = instance.call("add", &[Value::Number(1.0), Value::Number(2.0)])?;
 
@@ -187,8 +187,10 @@ KaliRuntime* kali_runtime_new(const KaliConfig* config);
 void kali_runtime_free(KaliRuntime* runtime);
 
 // Compilation
-KaliModule* kali_compile_string(KaliRuntime* runtime, const char* filename, const char* source);
-KaliModule* kali_compile_file(KaliRuntime* runtime, const char* path);
+KaliModule* kali_compile_executable_string(KaliRuntime* runtime, const char* filename, const char* source);
+KaliModule* kali_compile_executable_file(KaliRuntime* runtime, const char* path);
+KaliModule* kali_compile_library_string(KaliRuntime* runtime, const char* filename, const char* source);
+KaliModule* kali_compile_library_file(KaliRuntime* runtime, const char* path);
 void kali_module_free(KaliModule* module);
 
 // Instantiation / execution
@@ -234,7 +236,7 @@ bool kali_register_host_function(KaliRuntime* runtime, const char* module,
 ### Memory Management
 - All `kali_*_new` / `kali_*_free` pairs — caller manages lifetime
 - `KaliConfig*` is a caller-owned builder object. `kali_runtime_new(const KaliConfig* config)` snapshots the effective config and does **not** consume ownership, so the caller may free the config immediately after runtime creation succeeds or fails.
-- `KaliModule*` and `KaliInstance*` are distinct owned handles: `kali_instantiate(..., const KaliModule* module)` and `kali_run(..., const KaliModule* module)` borrow the compiled module rather than consuming it, so one compiled module may back multiple instances or runs. Freeing a compiled module does not implicitly free any instantiated instance unless a later ABI revision documents that ownership transfer explicitly.
+- `KaliModule*` and `KaliInstance*` are distinct owned handles: `kali_instantiate(..., const KaliModule* module)` and `kali_run(..., const KaliModule* module)` borrow the compiled module rather than consuming it, so one compiled module may back multiple instances or repeated runs when that matches its explicit compile intent. Freeing a compiled module does not implicitly free any instantiated instance unless a later ABI revision documents that ownership transfer explicitly.
 - Strings returned by Kali must be freed with `kali_free_string`
 - because the public C ABI itself is a **Phase 2 target**, pre-Phase-2 internal prototypes are free to omit unstable helpers such as the effect-analysis entrypoints instead of pretending they already exist as a stable callable contract
 - Thread safety: one `KaliRuntime` per thread in the initial implementation
@@ -304,12 +306,12 @@ Compatibility policy:
 
 Typical embedding flow:
 1. Build or ship `kali_capi` as the native C ABI layer (including the stable `kali.h` host header).
-2. Compile Kali/TypeScript code to `foo.wasm` with `kali build --capi foo.ts` to obtain `foo.wasm` plus `foo.wit`, `foo.exports.h`, and metadata.
+2. Compile Kali/TypeScript library code to `foo.wasm` with `kali build --capi lib.ts` to obtain `foo.wasm` plus `foo.wit`, `foo.exports.h`, and metadata.
 3. Verify ABI compatibility between the emitted metadata and the available `kali_capi` host library.
 4. Load that artifact through the `kali_*` API from C or another FFI consumer.
 
 Typical component flow:
-1. Compile Kali/TypeScript code with `kali build --component foo.ts`.
+1. Compile Kali/TypeScript library code with `kali build --component lib.ts`.
 2. Use the emitted `foo.wit` as the canonical interface description for tooling/review.
 3. Load `foo.component.wasm` in a Component Model host that matches the documented runtime/profile constraints.
 
