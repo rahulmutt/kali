@@ -530,10 +530,9 @@ Additional flag-surface rule:
 
 Output simplification rule:
 - unlike `kali effects` and `kali package-effects`, `kali package-audit` does **not** define a native bare-JSON payload in schema v1
-- if `package-audit` supports `--output json` before a dedicated audit payload schema exists, it uses the canonical **envelope-only JSON support** model from [SPEC.md](../SPEC.md): the stable contract is the standard command envelope itself, with `payload` omitted or `null`
+- follow the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md): until a dedicated audit payload exists, `--output json` emits only the standard command envelope, with `payload` omitted or `null`, and `--pretty --output json` reformats that same outer envelope only
 - `--output json` and `--pretty --output json` are therefore only output-format variants of the same later-compatibility command; they do **not** create a separate availability path, separate payload schema, or separate context model
 - because of that envelope-only model, `kali package-audit --pretty <pkg>` without `--output json` is invalid command usage (`E5008`) rather than an implicit request for JSON mode
-- in that envelope-only phase, `package-audit` must not smuggle audit/package/version result metadata through `stdout`, `stderr`, or other prose-bearing envelope fields just because no dedicated payload exists yet
 - if/when a dedicated machine-readable audit payload is added later, it should still travel through the standard `--output json` command envelope instead of inventing a second ad hoc top-level format
 
 ## Output Design

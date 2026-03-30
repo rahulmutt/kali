@@ -488,6 +488,23 @@ Interpretation rules:
 - `schemaVersion` at the outer package-effect layer versions the package-analysis payload; the nested `report.schemaVersion` continues to version the shared effect-report schema independently
 - by default, `kali package-effects` may emit this payload directly; with `--output json`, it is wrapped in the standard CLI command envelope with this object under `payload`
 
+## Package Audit JSON Output (schema v1)
+
+`kali package-audit` intentionally has **no dedicated success-payload schema in schema v1**.
+
+Until a later schema revision defines one, the machine-readable contract is the standard CLI command envelope only:
+- `--output json` emits the normal envelope
+- `payload` should be omitted or `null`
+- package/version/audit result metadata must not be invented as ad hoc top-level fields outside `payload`
+- `stdout` / `stderr` remain captured text-stream fields only; they are not hidden structured-result channels
+- `--pretty --output json` reformats that outer envelope only and does not create a second audit payload shape
+
+Interpretation rule:
+- this is an **output-format rule**, not a separate availability path
+- if `package-audit` is unavailable in the current phase, `--output json` still fails on the ordinary command-availability gate after any earlier command-shape checks
+
+This section exists so CLI, package-management, and maturity docs can all point to one schema-level rule instead of restating slightly different versions of the same envelope-only contract.
+
 ## Canonical Built-in Effect Names
 
 To keep the checker, CLI, effect reports, and sandbox policy model aligned, built-in effect names use one canonical dotted namespace.

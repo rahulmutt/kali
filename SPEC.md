@@ -121,6 +121,7 @@ Use this checklist:
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
 - library/export-oriented build wording should reuse the **embedding-stability split**, **library-oriented instantiation rule**, and **statically known export surface** terms
 - single-package registry-analysis wording should reuse the **registry-analysis context split**, **registry-analysis project-independence rule**, and **stable-release selection rule (schema v1)**
+- schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
 
 Practical rule:
