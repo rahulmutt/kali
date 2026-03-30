@@ -112,6 +112,7 @@ Package-analysis flag/context simplification:
 - inherited-context maturity for `package-effects` follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md)
 - `buildMode` and `sandbox` remain non-semantic for `package-effects` in early phases
 - `kali package-audit` is a **Later compatibility** single-package registry tool and, once available, follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md)
+- practical shortcut: source-graph commands (`check`, `effects`, `build`, `run`, `test`) own the explicit `--api` / `--compat` / `--wasm-threads` flag family; registry-analysis commands do not. `package-effects` inherits its analysis context from config/defaults, and `package-audit` intentionally ignores that context in schema v1.
 - examples later in this chapter describe the canonical command shape/output contract for these registry-analysis commands, not an unconditional promise that they are already available in Phase 1
 
 Sandbox-flag clarification:
@@ -515,6 +516,7 @@ Audit rule:
 - early `package-audit` does **not** take package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
 - unlike `kali effects` and `kali package-effects`, `kali package-audit` is an **envelope-only JSON command** in schema v1 rather than a **native-JSON command**
 - follow the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md) for the exact envelope-only machine-output contract instead of restating it here
+- practical shortcut: `package-audit` has one package selector and one optional envelope-format selector (`--output json`, optionally `--pretty`); it does not grow a second family of host-analysis or sandbox flags in schema v1
 - because of that envelope-only model, `kali package-audit --pretty <pkg>` without `--output json` is invalid command usage (`E5008`) rather than an implicit request for JSON mode
 - output-format flags do **not** create a separate availability path or context model for `package-audit`
 
