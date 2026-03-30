@@ -580,7 +580,7 @@ Registry-analysis cache rule:
 `kali package-effects` remains clearly unavailable or explicitly experimental until the shared effect-report pipeline lands; it should not return a partial bespoke format before then.
 
 Package-effects rule:
-- `kali package-effects <pkg>` should reuse the same effect vocabulary and `dynamicReasons` contract as `kali effects`
+- `kali package-effects <pkg>` should reuse the same effect vocabulary, conservative-upper-bound interpretation, and `dynamicReasons` contract as `kali effects`
 - the native payload adds only package-specific metadata (see [specs/18-schemas.md](18-schemas.md)) instead of inventing a second unrelated effect schema
 - the nested `report.entryPoints` field should identify the package-analysis logical root with the same canonical registry identifier spelling the user targeted rather than an opaque tarball URL, extracted cache path, or internal package ID
 - the nested shared effect report includes `analysisContext` so the chosen `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` travel with the report instead of living only in ambient CLI/config state

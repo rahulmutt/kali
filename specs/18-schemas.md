@@ -364,6 +364,7 @@ Early-phase interpretation rule:
 - `analysisContext` records the semantic knobs that materially affect the report: selected `apiSurface`, enabled `runtimeProfiles`, and enabled `compatFeatures`
 - the report covers the command's full analysis graph under that recorded analysis context, not a file-local AST scan of only the named source file
 - for source-graph producers such as `kali effects`, that graph is the same **resolved source graph** defined in [SPEC.md](../SPEC.md)
+- the report is a conservative upper bound for that analyzed graph: it may over-approximate, but it must not omit already-known built-in sandbox-relevant effects just because some paths remained dynamic
 - the field stays an array so the same schema can later cover package-wide, test-runner, or other report producers without inventing a second effect-report shape
 
 ### `EffectAnalysisContext`
@@ -418,6 +419,7 @@ Simplification rule:
 
 ### Semantics
 - `dynamicEffects: true` means the report is conservative but incomplete
+- even when `dynamicEffects` is `true`, the `effects` array still represents the known conservative upper bound gathered so far; `dynamicReasons` explain the missing precision, not permission to under-report already-known effects
 - for **Kali-hosted execution** contexts, such a report means runtime sandbox enforcement must remain authoritative for the dynamic paths the static model could not fully classify
 - for the shared **Phase-1 browser-targeted command set** and later browser-context analysis commands that explicitly reuse that same context, the same flag is still a static warning signal but must **not** be read as a promise of automatic post-deployment Kali runtime enforcement inside the browser host
 - `dynamicReasons` uses canonical reason strings so tools do not have to infer *why* the report became conservative from free-form notes alone

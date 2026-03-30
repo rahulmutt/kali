@@ -75,6 +75,11 @@ kali effects program.ts
 
 The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md). This chapter treats that schema as the single source of truth for field names and payload shape.
 
+Conservative-report rule:
+- the public effect report is a conservative upper bound for the selected resolved source graph under the recorded analysis context
+- `dynamicEffects` / `dynamicReasons` explain where the analysis had to stay conservative or incomplete; they do **not** authorize omitting already-known possible effects from the reported `effects` set
+- the command/report may therefore over-approximate, but it must not under-report known built-in sandbox-relevant effects
+
 Scope rule:
 - `analysisContext` records the semantic knobs that materially affect the report: `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md))
 - schema v1 keeps the shared field name `entryPoints`, but it names the report's logical roots rather than promising runtime entrypoints in every producer
@@ -96,7 +101,7 @@ Interpretation rule:
 - distinct `eval` and `function-constructor` report reasons help tooling explain *which* dynamic path was seen, but they still map to the single schema-v1 compatibility feature name `eval`
 - this chapter intentionally does not restate the full reason-code list so schema-v1 machine strings stay owned in one place
 
-When `true`, the static analysis is incomplete.
+When `true`, the static analysis is incomplete, but the reported `effects` list still remains a conservative upper bound for the effects Kali could already classify.
 - for **Kali-hosted execution** (`run`, `test`, and host-side instantiation/calls of Kali-built library artifacts), runtime sandbox enforcement remains the authoritative backstop for any operations the static report could not fully classify
 - for the shared **Phase-1 browser-targeted command set** and later browser-context analysis commands that explicitly reuse that same context, this flag is still valuable as a static warning signal, but it does **not** imply that deployed browser bundles automatically inherit Kali runtime enforcement after deployment
 

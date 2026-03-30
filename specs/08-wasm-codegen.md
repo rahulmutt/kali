@@ -21,7 +21,8 @@ The emitted `.wasm` artifact is portable at the WASM layer, but its full executi
 
 Interface-layer rule:
 - core code generation still targets a linked core WASM module first
-- WIT descriptions and any later WebAssembly Component Model wrapper are derived from that core artifact and its exported ABI
+- plain public `--lib` + WIT is the canonical stable interface-layer contract once the Phase-2 public embedding surface lands
+- `--capi` headers/metadata and any later WebAssembly Component Model wrapper are projections/packaging flows over that same exported interface rather than separate guest semantics
 - these interface-layer artifacts improve embedding/interoperability but do not change the underlying single-linked-payload compilation model
 
 ## Artifact Reproducibility Contract
