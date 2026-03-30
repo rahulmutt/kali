@@ -301,7 +301,7 @@ kali build main.ts                         # → main.wasm (--fast mode, default
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue)
-kali build --bundle main.ts                # Same browser-bundle request once config/defaults already make the effective apiSurface `browser`
+kali build --bundle main.ts                # Same browser-bundle request once discovered config already makes the effective apiSurface `browser`
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
 kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early for builds either
@@ -316,7 +316,7 @@ kali build --component --api node lib.ts   # Phase 3 target: still gated by the 
 kali build --component --api browser lib.ts # Invalid usage (E5008) in early phases; browser mode remains the bundle-only browser-targeted path rather than a component artifact mode
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Build-time policy compatibility only; no automatic browser-runtime enforcement is implied after deployment
-kali build --bundle --sandbox kali.policy.json main.ts # Same browser-targeted static-policy-validation request once config/defaults already make the effective apiSurface `browser`
+kali build --bundle --sandbox kali.policy.json main.ts # Same browser-targeted static-policy-validation request once discovered config already makes the effective apiSurface `browser`
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
 ```
@@ -590,6 +590,7 @@ kali package-effects --output json lodash  # Command envelope + package-effect p
 Base-gate clarification:
 - follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-effects lodash` reaches the command's own availability gate (`E5006`) until Phase 2 opens
 - once the base command exists, inherited-context gating follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) rather than a package-analysis-specific shadow matrix
+- practical simplification: schema-v1 `package-effects` takes only the package selector plus JSON-formatting flags (`--output json`, optionally `--pretty`); package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of forming a second CLI vocabulary
 
 Machine-output rule:
 - this command is the `package-effects` half of the shared **registry-analysis command split**: once available, it is a schema-v1 **native-JSON command**
@@ -621,6 +622,7 @@ kali package-audit --pretty --output json lodash # Pretty-print that envelope; p
 Base-gate clarification:
 - follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-audit lodash` or `kali package-audit --output json lodash` reaches the command's own availability gate (`E5006`) until this later command exists
 - output-format flags such as `--output json` or `--pretty` do not create a second availability path for the command itself
+- practical simplification: schema-v1 `package-audit` takes only the package selector plus its envelope-format flags (`--output json`, optionally `--pretty`); package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of growing a second context model
 
 Audit rule:
 - following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command is the context-free registry-metadata/security-audit path rather than a second host-context-aware effect/policy command

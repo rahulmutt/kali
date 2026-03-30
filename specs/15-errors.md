@@ -286,6 +286,7 @@ Use `E5008` for cases such as:
 
 Registry-analysis shorthand:
 - any violation of the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md) is also `E5008`
+- schema-v1 registry-analysis commands also keep one intentionally small flag surface: `package-effects` and `package-audit` accept only their documented package selector plus output-format flags, so package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` are invalid usage unless a later spec adds them
 
 Examples:
 - `kali run` with no explicit entrypoint
@@ -305,14 +306,8 @@ Examples:
 - `kali package-effects lodash react`
 - `kali package-effects https://example.com/mod.ts`
 - `kali package-effects ./local.ts`
-- `kali package-effects --api browser lodash`
-- `kali package-effects --wasm-threads lodash`
-- `kali package-effects --compat eval lodash`
-- `kali package-effects --sandbox kali.policy.json lodash`
-- `kali package-audit --api browser lodash`
-- `kali package-audit --wasm-threads lodash`
-- `kali package-audit --compat eval lodash`
-- `kali package-audit --sandbox kali.policy.json lodash`
+- `kali package-effects --api browser lodash` *(representative of any package-analysis-specific `--api` / `--compat` / `--wasm-threads` flag or `--sandbox` on `package-effects` in schema v1)*
+- `kali package-audit --api browser lodash` *(representative of any package-analysis-specific `--api` / `--compat` / `--wasm-threads` flag or `--sandbox` on `package-audit` in schema v1)*
 - `kali package-audit` with no package argument
 - `kali check --fix`
 - `kali check --pretty` without `--output json`

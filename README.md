@@ -49,7 +49,7 @@ Quick support-reading checklist:
 Use that order before treating any broad bootstrap aspiration as shipped support.
 
 Common early-phase misreads worth rejecting quickly:
-- `kali build --bundle --api browser main.ts` is a supported Phase-1 browser-targeted build shape, and plain `kali build --bundle main.ts` is the same supported request once config/defaults already make the effective `apiSurface` `browser`; `kali run --api browser main.ts` is still later compatibility.
+- `kali build --bundle --api browser main.ts` is a supported Phase-1 browser-targeted build shape, and plain `kali build --bundle main.ts` is the same supported request once discovered config already makes the effective `apiSurface` `browser`; `kali run --api browser main.ts` is still later compatibility.
 - `kali check --api browser`, `kali check --api browser main.ts`, and the inherited-config equivalents of plain `kali check` / `kali check main.ts` under an effective browser API surface are all supported Phase-1 browser-targeted analysis shapes.
 - `kali build --lib lib.ts` is a supported Phase-1 **base library artifact**; `kali build --capi lib.ts` and `kali build --component lib.ts` are still Phase-2 embedding flows.
 - `kali check --sandbox ...` and `kali build --sandbox ...` are Phase-1 policy-schema/config validation paths; they do **not** yet imply the Phase-2 inferred-effect-vs-policy comparison workflow.
