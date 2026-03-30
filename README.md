@@ -9,6 +9,7 @@ Early-phase headline assumptions:
 - “latest ECMA-262” means the **latest published edition**; draft / Stage-3+ proposal support is explicit and experimental rather than implied
 - dynamic compatibility paths such as `eval` and `Function()` are part of the long-term contract, but remain explicitly phase-gated behind the single schema-v1 compatibility switch `eval`
 - runtime/embedding behavior is standardized on **wasmtime first**; alternative WASM engines are a later extension, not an equal Phase-1 contract
+- hard global constraints remain in force from the bootstrap brief: **AOT only**, **pure Rust**, and **no tracing/background GC**
 - build artifact modes follow one canonical matrix: default executable, browser bundle, a Phase-1 **base library** artifact, and later stable public C embedding / Component Model packages layered on that library contract
 
 ## Specification
@@ -16,6 +17,10 @@ Early-phase headline assumptions:
 - Bootstrap-brief normalization rule: [SPEC.md#bootstrap-normalization-rule](./SPEC.md#bootstrap-normalization-rule)
 - Detailed chapter set: [`specs/`](./specs)
 - Single source of truth for gated command/profile availability: [specs/19-feature-maturity.md](./specs/19-feature-maturity.md)
+
+Reading rule:
+- treat `BOOTSTRAP.md` as the input brief and the spec set as the normative source of truth after normalization
+- when a bootstrap aspiration and a phase-specific promise seem to differ, prefer `SPEC.md` plus the owning chapter and the feature-maturity matrix
 
 Quick navigation:
 - frontend and language design: [01 — Architecture](./specs/01-architecture.md), [02 — Lexer & Parser](./specs/02-lexer-parser.md), [03 — AST](./specs/03-ast.md), [04 — Type System](./specs/04-type-system.md)

@@ -697,7 +697,7 @@ These commands do not participate in sandbox-policy attachment in early phases:
 
 Interpretation rules:
 - top-level `kali.json#sandbox` is ignored for this set rather than being treated as an error
-- early `package-audit` remains context-free with respect to `apiSurface`, `buildMode`, `runtimeProfiles`, and `compat.features`
+- early `package-audit` remains context-free with respect to the host-analysis/runtime/sandbox context bundle: `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
 
 ## Canonical Dependency-Management Mutability Rule
 
