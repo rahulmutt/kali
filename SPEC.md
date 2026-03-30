@@ -104,6 +104,7 @@ To keep the spec set implementable and reduce drift between chapters, Kali inten
 - **one compatibility-feature name** (`eval`) for both direct `eval` and `Function()`;
 - **one sandbox/effect vocabulary** for the Kali-mediated capability subset, rather than per-DOM/per-host-API policy keys.
 - **one published-standard boundary**: latest **published** ECMA-262 grammar in Phase 1, current-edition non-Annex-B semantics for the features Kali marks as supported, and explicit gating for Annex B corners or draft/proposal features instead of letting “latest ECMA-262” mean “everything now”.
+- **one pure-Rust implementation contract**: Kali itself and its shipped dependencies remain Rust-only from the project/toolchain point of view; ordinary platform runtime/system libraries reached through Rust toolchains or OS bindings do not count as smuggling in embedded C/C++ libraries, but bundling or requiring project-specific C/C++ implementation dependencies still violates the contract.
 - **one specialization key model** based on observable layout/representation fingerprints plus the small set of semantic distinctions that still affect correctness, rather than blindly keying every specialization on the full inferred source-level type.
 
 These are deliberate simplifications, not accidental omissions. Later phases may add capability, but should not fork the core vocabulary or workflow without a clear need.
@@ -127,6 +128,7 @@ Use this checklist:
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
 - registry-package CLI/manifest spelling versus structured JSON package metadata should reuse the **registry package identifier vs package coordinate** term instead of re-explaining the `jsr:` prefix split in slightly different ways
 - package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
+- schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of repeating envelope-only wording locally
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
 - source-file-kind wording should reuse **canonical source-file classes**, **executable/analyzable source-file class**, and **canonical project file set** instead of repeating long extension lists in every command chapter
@@ -234,6 +236,15 @@ Rule:
 - Kali keeps one guest-facing host ABI and capability vocabulary across adapters
 - adapters may differ in implementation technique, but they must not silently widen the documented command/profile contract
 - browser-targeted analysis/build exposing browser ambient typings does not imply one adapter entry or one sandbox key per DOM API
+
+### Pure-Rust implementation contract
+The cross-spec interpretation of “implemented in Rust” / “no embedded C or C++ libraries”.
+
+Rules:
+- Kali's implementation crates and shipped dependency stack must remain Rust-only from the project/toolchain point of view; bundling or requiring project-specific C/C++ libraries violates the contract.
+- ordinary platform runtime/system libraries reached through the normal Rust toolchain, system call bindings, or OS-provided interfaces do **not** by themselves violate the contract.
+- exposing a C ABI for embedding does **not** weaken this rule; a Rust implementation may publish C-callable boundaries without embedding a C/C++ implementation.
+- docs should reuse this term instead of re-explaining the distinction as “pure Rust except libc”, “no C/C++ in-tree”, or “C ABI is okay because only the boundary is C”.
 
 ### Kali-mediated capability subset
 The stable schema-v1 capability vocabulary shared across effects and sandbox policy:

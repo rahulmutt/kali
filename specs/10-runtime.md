@@ -4,7 +4,7 @@
 
 ### Engine Choice: wasmtime
 **Early-phase default:** standardize the runtime on `wasmtime` first.
-- Pure Rust implementation
+- Follows the shared **Pure-Rust implementation contract** from [SPEC.md](../SPEC.md)
 - Fuel-based metering for CPU limits
 - Configurable memory limits
 - Mature, well-maintained, WASI support

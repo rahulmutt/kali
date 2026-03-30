@@ -510,7 +510,7 @@ Security audit for one registry package under the canonical schema-v1 registry-a
 Argument-kind rule:
 - `kali package-audit <package>` accepts exactly one explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - the package argument uses the shared **identity-only registry target** form from [SPEC.md](../SPEC.md): one **registry package identifier** such as `lodash`, `@types/node`, or `jsr:@std/path`, with no inline version/range selector
-- version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md); once Kali defines a dedicated audit payload schema, that payload should record the resolved version as result metadata rather than forcing it into the required input spelling
+- version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md); if a later schema revision adds dedicated audit result metadata, that payload should record the resolved version rather than forcing it into the required input spelling
 - if that identity-only package lookup finds the package but no acceptable non-yanked stable release, the command fails with `E5001`
 - any non-registry target is rejected for `package-audit` in early phases, including raw URLs and local file paths; package-audit is registry-package-oriented rather than a second raw-URL/local-path analysis path
 
@@ -522,7 +522,7 @@ Status: **Later compatibility**. It should not block Phase 1-2 compiler/runtime 
 ```bash
 kali package-audit lodash                  # Audit specific npm package
 kali package-audit jsr:@std/path           # Audit specific JSR package
-kali package-audit --output json lodash    # Standard command envelope only until a dedicated audit payload schema exists
+kali package-audit --output json lodash    # Schema-v1 envelope-only JSON output
 kali package-audit --pretty --output json lodash # Pretty-print that envelope; plain `--pretty` alone is invalid here because package-audit is not native JSON in schema v1
 ```
 Additional flag-surface rule:

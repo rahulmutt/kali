@@ -85,7 +85,14 @@ The canonical tie-breaker order from [SPEC.md](../SPEC.md) applies here too:
 Architecture, optimization, and embedding choices should be evaluated in that order rather than treating raw throughput as the only north star.
 
 ### Pure Rust
-All components are implemented in Rust. No C/C++ libraries are embedded or linked. Early-phase external WASM execution is standardized on `wasmtime` (pure Rust), but that is an implementation default rather than a forever-exclusive backend choice. The only external Rust crate dependencies allowed are pure-Rust crates (e.g., `wasmtime`, `rayon`, `regex-automata`).
+Follow the shared **Pure-Rust implementation contract** from [SPEC.md](../SPEC.md).
+
+Concretely:
+- Kali implementation crates and shipped dependencies remain Rust-only from the project/toolchain point of view.
+- ordinary platform runtime/system libraries reached through the Rust toolchain or OS bindings do not, by themselves, violate that contract.
+- bundling or requiring project-specific C/C++ implementation dependencies still violates it.
+- early-phase external WASM execution is standardized on `wasmtime` (pure Rust), but that is an implementation default rather than a forever-exclusive backend choice.
+- external crate dependencies should therefore stay in the pure-Rust lane (for example `wasmtime`, `rayon`, `regex-automata`).
 
 ### Query-Based Architecture
 Follow a demand-driven (query-based) compilation model similar to rustc and Salsa. This enables:

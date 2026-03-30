@@ -6,6 +6,8 @@ Kali emits several machine-consumed JSON formats:
 - CLI command envelopes
 - diagnostics
 - effect reports
+- package-effect reports
+- schema-v1 envelope-only package-audit output
 - project configuration (`kali.json`)
 - sandbox policies
 
@@ -66,7 +68,7 @@ Used by commands that opt into `--output json`.
 - `--pretty` follows the cross-spec **JSON-producing mode** rule from [SPEC.md](../SPEC.md): it is meaningful only when the command is actively emitting JSON, and then it reformats the active JSON document (native payload by default, outer envelope when `--output json` is selected) without changing any field names or schema semantics
 - `--pretty` does **not** by itself switch a command into JSON mode; envelope-only JSON commands still need `--output json` before `--pretty` becomes meaningful
 - when those commands fail without `--output json`, human-oriented diagnostics should go to stderr; callers that need machine-readable failure output must request `--output json`
-- commands that currently have only envelope-level JSON support in schema v1 (for example early `package-audit`, if implemented before a dedicated audit payload schema lands) may use standard envelope fields only for ordinary command metadata (such as generic diagnostics, captured text streams, timings, or exit code); they must not invent command-specific result objects outside `payload`, and they must not smuggle human prose through `payload`
+- commands that currently have only envelope-level JSON support in schema v1 (for example `package-audit`) may use standard envelope fields only for ordinary command metadata (such as generic diagnostics, captured text streams, timings, or exit code); they must not invent command-specific result objects outside `payload`, and they must not smuggle human prose through `payload`
 - envelope-only JSON support is not permission to repurpose `stdout` / `stderr` as hidden structured-result fields; those stream fields are for captured program/command text only
 - for execution-style commands in JSON mode, guest/program stdout and stderr belong in the envelope's `stdout` / `stderr` fields rather than being interleaved as raw text around the JSON payload
 - diagnostics inside the envelope may carry optional structured `context` metadata when a config/flag-derived effective command context materially caused the failure
@@ -496,7 +498,7 @@ Interpretation rules:
 
 `kali package-audit` intentionally has **no dedicated success-payload schema in schema v1**.
 
-Until a later schema revision defines one, the machine-readable contract is the standard CLI command envelope only:
+The machine-readable contract is therefore the standard CLI command envelope only:
 - `--output json` emits the normal envelope
 - `payload` should be omitted or `null`
 - package/version/audit result metadata must not be invented as ad hoc top-level fields outside `payload`

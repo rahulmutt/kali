@@ -443,7 +443,7 @@ Status boundary:
 ```bash
 kali package-effects lodash                 # Show effects used by package (Phase 2 target)
 kali package-audit lodash                   # Security audit (later compatibility)
-kali package-audit --output json lodash     # Standard command envelope only until a dedicated audit payload schema exists
+kali package-audit --output json lodash     # Schema-v1 envelope-only JSON output
 ```
 
 Registry-analysis context summary:
@@ -451,7 +451,7 @@ Registry-analysis context summary:
 | Command | Availability | Context model | JSON success shape |
 |---|---|---|---|
 | `package-effects` | Phase 2 target | Inherits only the semantic analysis axes from the shared **effective inherited analysis context**: `apiSurface`, `runtimeProfiles`, `compat.features` | Native JSON payload by default; standard command envelope with `--output json` |
-| `package-audit` | Later compatibility | Follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md) | Standard command envelope only in schema v1 (`payload` omitted or `null` until a dedicated audit payload exists) |
+| `package-audit` | Later compatibility | Follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md) | Follow [specs/18-schemas.md](18-schemas.md)'s **Package Audit JSON Output (schema v1)** section |
 
 Shared rule:
 - neither command takes package-analysis-specific `--api`, runtime-profile, `--compat`, or `--sandbox` flags in schema v1; `package-effects` inherits context and `package-audit` intentionally does not
@@ -462,7 +462,7 @@ Argument-kind simplification:
 - explicit package arguments for those commands must use the canonical **registry package identifier** spelling from [SPEC.md](../SPEC.md) (`lodash`, `@scope/name`, `jsr:@std/path`)
 - early schema-v1 package-analysis commands take the shared **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
 - version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md)
-- `kali package-effects` records the resolved version in its machine-readable payload, while early `package-audit` follows the same version-selection rule but does **not** promise command-specific machine-readable version metadata until a dedicated audit payload schema exists
+- `kali package-effects` records the resolved version in its machine-readable payload, while early `package-audit` follows the same version-selection rule but keeps schema-v1 machine output on the shared envelope-only path from [specs/18-schemas.md](18-schemas.md)
 - any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly
 - follow the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md): the **effective inherited analysis context** for `package-effects` affects analysis semantics only, not project/version selection, and promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
 - any non-registry target is rejected for these commands in early phases, including raw URLs and local file paths, instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
