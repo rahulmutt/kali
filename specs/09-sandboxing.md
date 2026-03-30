@@ -338,7 +338,7 @@ If implemented, this enables:
 ## Integration with CLI
 
 ```bash
-# Show inferred effects only (JSON; no policy comparison here)
+# Phase 2 target: show inferred effects only (JSON; no policy comparison here)
 kali effects program.ts
 
 # Check the discovered project against a policy (no execution)

@@ -319,7 +319,7 @@ Interpretation rules:
 
 ## Effect Report Schema
 
-Produced by `kali effects`.
+Produced by `kali effects` once that Phase-2 command is available; Phase 1 may still use compatible internal effect data without exposing this as a stable public CLI contract.
 
 ```json
 {
@@ -433,7 +433,7 @@ Simplification rule:
 
 ## Package Effect Report Schema
 
-Produced by `kali package-effects`.
+Produced by `kali package-effects` once that Phase-2 command is available; before then, this schema remains reserved rather than a promise of partial ad hoc output.
 
 ```json
 {

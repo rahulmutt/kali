@@ -110,7 +110,7 @@ Compiled into the WASM module from `kali_runtime`:
 - Error creation and stack trace capture
 - Iterator protocol support
 - Promise/async state machine support
-- `eval` handler hook (Phase 4 compatibility path; calls back to host for compilation when enabled)
+- `eval` handler hook (Phase 4 compatibility path; calls back to a host-mediated generic execution path when enabled, without implying a second runtime compilation/JIT pipeline)
 
 ## WASM Binary Emission
 
