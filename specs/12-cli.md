@@ -134,7 +134,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--component` | `build` | Emit a WebAssembly Component Model wrapper for a library/export-oriented build once that packaging path exists; phase-gated until the component flow is implemented |
 | `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
 | `--max-specializations N` | `build`, `run`, `test` | Override the specialization fan-out cap upper bound for a single invocation; this is an upper bound, not a promise that the current build mode will spend the full budget, and `--fast` may still skip most user-authored generic specialization entirely |
-| `--fix` | `check`, `lint` | Apply only structured, tool-generated safe fixes for the selected command |
+| `--fix` | `lint` | Apply only structured, tool-generated safe fixes for lint diagnostics in the selected file/project set |
 | `--check` | `fmt` | Report formatting drift without rewriting files |
 | `--filter <pattern>` | `test` | Run only matching tests |
 | `--coverage` | `test` | Emit test coverage data once the coverage report contract is stabilized; before then this flag is phase-gated or explicitly experimental |
@@ -294,11 +294,10 @@ kali check --sandbox kali.policy.json      # Phase 1: project-wide check + polic
 kali check --api browser --sandbox kali.policy.json # Same browser-targeted validation path over the discovered project graph
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
 kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
-kali check --fix main.ts                   # Apply only safe, compiler-provided suggested fixes
 ```
 `kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`: browser targeting changes the analysis context, not the command's hybrid input behavior. The same rule applies when `--sandbox` is present: `kali check --sandbox <policy>` without file arguments validates the discovered project graph rather than becoming a separate command mode, and `kali check --sandbox <policy> [files...]` keeps the same set-oriented explicit-file behavior as plain `check`. Browser-targeted policy validation follows the same discovery-vs-explicit-file split: `kali check --api browser --sandbox <policy>` without file arguments validates the discovered project graph under the browser-targeted analysis context, while explicit files keep the same set-oriented behavior. Declaration-only files are valid explicit file inputs for `check`; `run`, `build`, `effects`, and `test` primary inputs may not be declaration-only, and that input-kind mismatch should use the canonical invalid-entrypoint diagnostic (`E5007`).
 
-`--fix` is intentionally conservative: it is limited to unambiguous structured edits attached to diagnostics, not arbitrary refactors or speculative type rewrites.
+Checker diagnostics may still carry structured `SuggestedFix` metadata for editors, embedders, and JSON consumers, but schema v1 keeps CLI autofix simpler: `--fix` is lint-only until the checker rewrite contract is mature enough to stabilize across project graphs, config-discovery mode, and overlapping multi-diagnostic edits.
 
 ### `kali effects <file>`
 Output static effect analysis as JSON.
@@ -366,7 +365,8 @@ Canonical discovery rule:
 - `kali lint` is project-oriented with no files, but when explicit paths are supplied it follows the shared **set-oriented explicit-file command** rule from [SPEC.md](../SPEC.md)
 - project-oriented lint discovery starts from the canonical project file set and then keeps the same supported source-file set as `kali fmt`: executable/analyzable files plus declaration-only files (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.d.ts`, `.d.mts`, `.d.cts`)
 - when explicit file arguments are supplied, those paths are linted directly if they belong to that same supported set
-- `--fix` is intentionally conservative, like `check --fix`: it applies only structured tool-provided edits rather than speculative rewrites or stylistic churn outside the selected lint rules
+- `--fix` is intentionally conservative: it applies only structured tool-provided edits rather than speculative rewrites or stylistic churn outside the selected lint rules
+- when multiple lint fixes overlap, Kali must not partially apply a conflicting subset by guesswork; it should either choose one documented deterministic winner later or, in schema v1, leave the overlapping diagnostics unapplied and report them normally
 
 ### `kali test [files...]`
 Run test files.

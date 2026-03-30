@@ -258,6 +258,11 @@ Required fields:
 - `message: string`
 - `edits: TextEdit[]`
 
+Interpretation rules:
+- `SuggestedFix` is reusable machine-readable edit metadata; producers may attach it to diagnostics even when the CLI for that command does not expose an auto-apply mode
+- in schema v1, `kali lint --fix` is the canonical CLI autofix path, while checker diagnostics may still emit `SuggestedFix` metadata for editors, embedders, and JSON consumers without implying `kali check --fix`
+- edits inside one `SuggestedFix` must already be conflict-free; cross-diagnostic fix merging is a command/tool policy choice rather than an implicit schema guarantee
+
 ### `PhaseTiming`
 
 ```json

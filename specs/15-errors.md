@@ -292,6 +292,7 @@ Use `E5008` for cases such as:
 - `kali package-audit --compat eval lodash`
 - `kali package-audit --sandbox kali.policy.json lodash`
 - `kali package-audit` with no package argument
+- `kali check --fix`
 - `kali check --pretty` without `--output json`
 - `kali package-audit --pretty lodash` without `--output json`
 - `kali package-audit lodash react`
@@ -388,4 +389,4 @@ struct SuggestedFix {
 }
 ```
 
-`SuggestedFix` enables `kali check --fix` to auto-apply fixes for certain diagnostics.
+`SuggestedFix` carries structured edit metadata that tooling can consume without scraping prose. In schema v1, CLI autofix is intentionally lint-only (`kali lint --fix`); checker diagnostics may still emit `SuggestedFix` for editors, embedders, and later checker-autofix work.
