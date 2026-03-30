@@ -30,6 +30,11 @@ Promotion checklist from proof-ready to proof-backed:
 - name the covered implementation/spec paths that those proofs are intended to constrain
 - update CI wiring so proof jobs trigger for those covered paths in addition to `proofs/`
 
+Boundary-maintenance rule:
+- once **Covered implementation/spec paths** becomes non-empty, a change to any covered path must land with one of these outcomes in the same PR: (a) matching Lean/model/proof updates, or (b) an explicit narrowing of the published boundary before the implementation/spec change lands
+- widening the boundary also requires updating the named theorem/property inventory; new Lean files alone do not widen the claim surface
+- release/support wording must always follow this file's current boundary immediately after such a change
+
 Until Lean proofs land, this file should be kept explicit rather than omitted so Kali does not accidentally imply broader formal-verification coverage than it actually has.
 
 ## Modeled boundary

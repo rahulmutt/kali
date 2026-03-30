@@ -58,6 +58,17 @@ Promotion rule:
 - the repository becomes **proof-backed** only when that milestone (or another explicitly documented equivalent) is actually listed in `proofs/BOUNDARY.md` with named theorem/property claims
 - until then, verification language in summaries should keep saying **proof-ready** rather than implying shipped mechanized coverage
 
+### Covered-boundary edit discipline
+
+To keep “verify while iterating on the spec” honest, Kali uses one explicit maintenance rule once the published boundary becomes non-empty:
+- if a PR changes a spec chapter, Rust subsystem, or proof-facing invariant that is already named inside `proofs/BOUNDARY.md`'s **Covered implementation/spec paths**, the same PR should either update the matching Lean model/proofs or explicitly narrow the published boundary first
+- widening the published boundary requires naming the new covered paths plus theorem/property inventory in `proofs/BOUNDARY.md`; widening must not be inferred from roadmap prose or from the presence of new Lean files alone
+- shrinking the boundary is allowed as an honesty move during refactors, but release/support wording must immediately follow the narrower boundary rather than continuing to cite the old proof scope
+- this rule applies equally to spec-first edits: a proof-backed claim is about the currently published model/spec correspondence, not just about passing implementation tests
+
+Practical consequence:
+- proof coverage may lag future roadmap intent, but it must not lag the published manifest for any area that is still claimed as covered
+
 ## Phase-aligned proof scope
 
 | Phase | Verification focus |
