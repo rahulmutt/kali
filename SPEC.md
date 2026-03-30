@@ -389,11 +389,43 @@ It consists of:
 Rule:
 - chapters should reference this term instead of restating near-duplicate prose about “build-time-only browser sandboxing”, “static browser policy validation”, or “no automatic browser runtime enforcement”.
 
+### Canonical browser-targeted budget compatibility rule
+Because schema-v1 `resources.*` fields are **Kali-hosted execution budgets**, browser-targeted contexts treat them as a narrow validation boundary rather than as deployed-browser guarantees.
+
+In schema v1 this means:
+- `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles` are invalid whenever present in a browser-targeted policy/context,
+- `resources.maxSpawnedProcesses` and `resources.maxThreads` may be omitted or set to `0`, but positive values are invalid,
+- capability-local browser-applicable caps such as `effects.network.maxConnections`, `effects.timer.maxTimeoutMs`, and `effects.timer.maxActiveTimers` remain the right place for static browser-targeted limits inside the documented mediated subset.
+
+Rule:
+- use this term when a chapter means “browser-targeted validation may talk about browser-applicable capability caps, but not about Kali-hosted `resources.*` runtime budgets as though they carried over into deployed browser bundles”.
+
 ### Analysis context
 The semantic context that materially affects static analysis results:
 - `apiSurface`
 - `runtimeProfiles`
 - `compatFeatures`
+
+### Command-context axis participation table
+To keep effective-context validation consistent across commands, schema v1 uses one shared participation table for the main semantic axes:
+
+| Command family | `apiSurface` | `buildMode` | `runtimeProfiles` | `compat.features` | top-level `sandbox` |
+|---|---|---|---|---|---|
+| `run`, `test` | participates | participates | participates | participates | participates |
+| `build` | participates | participates | participates | participates | participates |
+| `check` | participates | ignored | participates | participates | participates |
+| `effects` | participates | ignored | participates | participates | ignored |
+| `package-effects` | inherited/participates | ignored | inherited/participates | inherited/participates | ignored |
+| `package-audit` | ignored | ignored | ignored | ignored | ignored |
+| `fmt`, `lint` | ignored | ignored | ignored | ignored | ignored |
+| `install` | ignored | ignored | ignored | ignored | ignored |
+| `init` | ignored | ignored | ignored | ignored | ignored |
+
+Rules:
+- “participates” means the effective value is part of validation and semantics for that command.
+- “ignored” means the command does not validate or semantically use that axis in schema v1.
+- “inherited/participates” means the command has no package-analysis-specific CLI flag for that axis in schema v1, but the effective inherited value from defaults/discovered config still materially affects semantics and gating.
+- this table is about command semantics only; project root/config discovery, explicit path rules, and output-format flags are separate concerns.
 
 ### Layout/representation fingerprint
 A canonical specialization key fragment describing the parts of a value that materially affect generated code shape.
@@ -907,6 +939,8 @@ Project discovery starts from the union of those two source-file classes.
 Runtime-bearing entrypoints and direct executable inputs still use only the **executable/analyzable source-file class**.
 
 ### Default project-discovery rule
+
+This is the canonical **default project-root walk**.
 
 If a command needs discovery and no explicit files are supplied:
 - start at the effective project root,
