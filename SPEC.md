@@ -1437,29 +1437,34 @@ Practical reading examples:
 
 When editing other chapters, prefer linking back to this reading order instead of re-explaining the same parse-vs-check-vs-build-vs-run distinction in new words.
 
-## Browser Ambient Typing vs Mediated Capability Split
+## Browser Support Reading Aid
 
-This is the most important cross-spec clarification for browser support.
+This section is a non-normative summary that points back to the earlier canonical browser terms instead of redefining them with duplicate headings.
 
-In browser-targeted contexts:
-- Kali should expose the real browser ambient typing layer needed for browser programs,
-- but stable schema-v1 effects and sandbox policy reason only about the **Kali-mediated capability subset**,
-- and runtime-capable browser artifact paths use the **browser host adapter** rather than a standalone Kali-hosted browser runtime,
-- therefore browser-targeted analysis/build may know about `window`, `document`, DOM types, and browser globals without implying that Kali individually mediates or sandbox-governs every browser API at runtime.
+### Reading aid: browser ambient typing vs mediated capability split
+
+The earlier canonical term **Browser ambient typing vs mediated capability split** remains normative.
+
+Practical reminder:
+- browser-targeted analysis/build may expose the real browser ambient typing layer (`window`, `document`, DOM types, browser globals),
+- while schema-v1 effects and sandbox policy still reason only about the documented **Kali-mediated capability subset**,
+- and deployed browser bundles still run through a real browser host rather than through a standalone Kali-hosted browser runtime.
 
 Consequences:
 - the shared **Phase-1 browser-targeted command set** type-checks against browser ambient types,
-- later browser-targeted analysis commands such as `effects --api browser` and inherited browser-context `package-effects` reuse that same ambient-typing/package-resolution split instead of defining a second browser-analysis model,
-- browser-targeted `--sandbox` is a static compatibility/build-time validation contract,
+- later browser-targeted analysis commands such as `effects --api browser` and inherited browser-context `package-effects` should reuse that same split instead of defining a second browser-analysis model,
+- browser-targeted `--sandbox` remains a static compatibility/build-time validation contract,
 - deployed browser bundles do not automatically inherit Kali-hosted runtime enforcement.
 
-## Canonical Browser-Surface Rejection Split
+### Reading aid: browser rejection split
 
-Use this rule everywhere:
-- if the user asks for a **supported browser concept with the wrong command shape**, reject with `E5008`;
-- if the user asks for a **browser execution/test/runtime contract that does not exist yet**, reject with `E5006`.
+The earlier canonical term **Canonical browser-surface rejection split** remains normative.
 
-Examples:
+Quick mnemonic:
+- wrong browser **build shape** → `E5008`
+- unavailable browser **runtime/test contract** → `E5006`
+
+Representative examples:
 - `kali build --api browser main.ts` → `E5008` (wrong build shape; browser builds are bundle-only early)
 - `kali build --lib --api browser lib.ts` → `E5008`
 - `kali build --capi --api browser lib.ts` → `E5008`
@@ -1468,17 +1473,19 @@ Examples:
 - `kali run --api browser main.ts` → `E5006`
 - `kali test --api browser` → `E5006`
 
-## Browser-Targeted Static Sandbox Contract
+### Reading aid: browser-targeted static sandbox contract
 
-For browser-targeted contexts, `--sandbox` follows one canonical static-sandbox rule:
-- it validates static compatibility against the documented **Kali-mediated capability subset**,
+The earlier canonical term **Browser-targeted static sandbox contract** remains normative.
+
+Practical reminder:
+- `--sandbox` in browser-targeted contexts validates static compatibility against the documented **Kali-mediated capability subset**,
 - it applies equally to explicit `--api browser` invocations and equivalent inherited-config browser contexts,
 - it does not promise Kali-controlled post-deployment sandbox enforcement inside an arbitrary real browser host,
-- cross-cutting `resources.*` budgets are interpreted as **Kali-hosted execution budgets** and therefore sit outside the early browser deployment guarantee.
+- and cross-cutting `resources.*` budgets are still interpreted as **Kali-hosted execution budgets**.
 
-### Canonical Browser-Targeted Budget Compatibility Rule
+#### Reading aid: browser-targeted budget compatibility
 
-The normative browser-targeted budget rule is the earlier canonical term of the same name in this file.
+The normative browser-targeted budget rule is the earlier canonical term **Canonical browser-targeted budget compatibility rule** in this file.
 
 Keep only these consequences in mind when reading other chapters:
 - browser-targeted `--sandbox` remains a static compatibility/build-time contract over the documented browser-applicable mediated subset
@@ -1832,7 +1839,9 @@ Rules:
 
 This keeps manifest edits deterministic and AI-friendly while avoiding a second hidden version-selection policy between `kali.json` and `kali.lock`.
 
-## Registry-Analysis Project-Independence Rule
+## Registry-Analysis Mutability/Version-Selection Reading Aid
+
+This is a non-normative reminder that points back to the earlier canonical **Registry-analysis project-independence rule** instead of redefining it with a second identical heading.
 
 For `package-effects` and `package-audit` in schema v1:
 - version selection follows the **stable-release selection rule (schema v1)**,
@@ -1840,7 +1849,7 @@ For `package-effects` and `package-audit` in schema v1:
 - commands may use the shared **registry-analysis cache**,
 - commands must not mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`.
 
-`package-effects` may still inherit its **inherited analysis context**; this rule is about dependency state and version selection, not about ambient analysis semantics.
+`package-effects` may still inherit its **inherited analysis context**; this reminder is about dependency state and version selection, not about ambient analysis semantics.
 
 ## Effective npm-Scriptable Install Work
 
