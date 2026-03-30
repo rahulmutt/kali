@@ -9,7 +9,7 @@ Sandboxing is a first-class concern in Kali. The system combines:
 
 Cross-spec workflow rule:
 - follow the shared **workflow-owner split** from [SPEC.md](../SPEC.md)
-- this chapter therefore treats `effects` / `package-effects` as reporting-only surfaces, `check/build --sandbox` as the static policy-validation path, and `run/test --sandbox` as the runtime-enforcement path instead of letting those workflows blur together
+- this chapter therefore treats `effects` / `package-effects` as reporting-only surfaces, `check/build --sandbox` as the static policy-validation path, `run/test --sandbox` as the runtime-enforcement path, and `package-audit` as the separate context-free registry-audit workflow instead of letting those workflows blur together
 
 Command-behavior simplification:
 
@@ -17,7 +17,8 @@ Command-behavior simplification:
 |---|---|---|
 | `run`, `test` | Attach policy, validate schema/ranges, and enforce it during **Kali-hosted execution** | Yes, for the documented Kali-hosted capability/resource contract |
 | `check`, `build` | Static validation only: Phase 1 validates policy/schema/config; starting in the Phase 2 target window, the same path also checks inferred effects against policy. If the effective `apiSurface` is `browser`, this same row is narrowed by the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) rather than becoming a separate sandbox workflow. | No |
-| `effects`, `package-effects`, `package-audit` | No sandbox-comparison mode; `--sandbox` is invalid usage (`E5008`) | N/A |
+| `effects`, `package-effects` | No sandbox-comparison mode; `--sandbox` is invalid usage (`E5008`) | N/A |
+| `package-audit` | No sandbox mode; `--sandbox` is invalid usage (`E5008`) because this remains the separate context-free registry-audit workflow | N/A |
 
 This table is a reading aid only. The normative command-shape and phase-gating rules still live in [specs/12-cli.md](12-cli.md), [specs/19-feature-maturity.md](19-feature-maturity.md), and the shared terminology in [SPEC.md](../SPEC.md).
 
