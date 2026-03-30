@@ -52,6 +52,14 @@ Compact bootstrap-normalization table:
 
 This table is intentionally about **package-shape triage**. The active `apiSurface`, runtime profile, and feature-maturity gates still determine whether a given project command can actually analyze, build, or run that package in the selected context.
 
+Support-decision order simplification:
+1. **Package shape** — first ask whether the package stays inside the **pure JS/TS package contract** or falls into the excluded **native/binary/bootstrap-heavy package contract**.
+2. **Host/API needs** — if the package shape is acceptable, then ask whether its runtime assumptions fit the currently selected API surface (`deno`, browser-targeted context, or later `node`).
+3. **Command/maturity gate** — only then ask whether the selected command/profile is actually available in the current phase.
+4. **Install-time hooks** — `--allow-scripts` can affect installation of npm packages, but it does not skip steps 1-3 and never upgrades an unsupported package into a supported project-command/runtime contract.
+
+This keeps three often-confused questions separate: “can Kali materialize this package?”, “can Kali understand its source shape?”, and “can the selected command/context actually support the host APIs it expects?”.
+
 ## Dependency Source Kinds
 
 To keep install, lock, and materialization rules simple, Kali distinguishes only these early source kinds:

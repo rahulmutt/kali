@@ -7,6 +7,7 @@ Public embedding is intentionally phased and follows the shared **embedding-stab
 Practical simplification:
 - there is one exported-library contract, not three unrelated embedding semantics
 - Phase 1 plain `--lib` establishes that contract as the **base library artifact**
+- in Phase 1, that base artifact is intentionally useful for internal/exact-toolchain workflows, but it is **not** yet a stable cross-version public ABI contract
 - Phase 2 promotes the same `--lib` path into the canonical stable public library/WIT contract and adds WIT by default
 - `--capi` and `--component` then project/package that same proved export surface for specific host interop workflows rather than redefining what the library exports mean
 
@@ -14,15 +15,20 @@ Canonical library-artifact normalization table:
 
 | Selector | Earliest phase | Compile intent | Stable artifact summary |
 |---|---|---|---|
-| `--lib` | Phase 1 MVP | library | Phase 1: `wasm-module` (`role: primary-library`) as the **base library artifact**. Phase 2+: same selector becomes the stable public library/WIT contract and adds `wit` (`role: interface-wit`) by default. |
-| `--capi` | Phase 2 target | library | The same proved library surface, plus `wit`, a generated **program-specific exports header** (`kind: c-header`, distinct from the stable host ABI header `kali.h`), and `cabi-metadata`. |
-| `--component` | Phase 2 target | library | The same proved library surface, plus `wit` and a `wasm-component` wrapper. |
+| `--lib` | Phase 1 MVP | library | Phase 1: `wasm-module` (`role: primary-library`) as the **base library artifact**. Until Phase 2 freezes the public interface contract, this output is export-oriented but not yet a stable public ABI/WIT promise. Phase 2+: the same selector becomes the stable public library/WIT contract and adds `wit` (`role: interface-wit`) by default. |
+| `--capi` | Phase 2 target | library | The same proved library surface as a `wasm-module` (`role: primary-library`), plus `wit`, a generated **program-specific exports header** (`kind: c-header`, distinct from the stable host ABI header `kali.h`), and `cabi-metadata`. |
+| `--component` | Phase 2 target | library | The same proved library surface as a `wasm-module` (`role: primary-library`), plus `wit` and a `wasm-component` wrapper. |
 
 This table is a summary only. The normative artifact kinds/roles still live in [SPEC.md](../SPEC.md), [18 — Schemas](./18-schemas.md), and [19 — Feature Maturity](./19-feature-maturity.md).
 
 Header-split simplification:
 - `kali build --capi` emits the generated **program-specific exports header** for one compiled library
 - it does **not** emit the stable host ABI header `kali.h`; that header ships with the host-side `kali_capi` library
+
+Phase-1 practical-use rule for `--lib`:
+- the Phase-1 **base library artifact** may be consumed by internal crates, exact-toolchain workflows, or explicitly unstable experiments
+- it must **not** be described as a stable cross-version/public embedding ABI until the Phase-2 public library/WIT contract is frozen
+- docs and tooling should therefore avoid implying that plain Phase-1 `--lib` output alone guarantees long-term host-call compatibility across Kali releases
 
 ## Phase 2 target — Rust Library API (`kali_embed`)
 
