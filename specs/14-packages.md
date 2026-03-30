@@ -22,6 +22,10 @@ Phase-1 shorthand answer:
 - **Not yet** for package support that depends on the broader `node` API surface.
 - **No by default** for packages whose normal published install/runtime path falls into the shared **native/binary/bootstrap-heavy package contract**.
 
+Support-rung clarification for that shorthand:
+- on the Deno-oriented standalone surface, early package claims may be **installable/materializable**, **checkable**, **buildable**, or **executable** depending on the command being discussed
+- on the shared **Phase-1 browser-targeted command set**, early package claims are normally **checkable** and sometimes **deployable-through-host** via `build --bundle`; they are not standalone-browser **executable** claims in Kali itself
+
 This shorthand is only a triage aid. The full answer still uses the shared order: package shape → host/API fit → command maturity → claimed support rung.
 
 Compact workflow comparison:
@@ -100,6 +104,7 @@ Support-decision order simplification:
 Practical shorthand:
 - a package may be **installable/materializable** without being **analyzable/checkable**, **buildable**, **executable**, or **deployable-through-host** for the selected command/context.
 - package discussions should therefore name the rung they mean instead of using one broad word such as “supported”.
+- when browser-targeted package support is the topic, default to the narrower browser words first: **checkable** or **deployable-through-host**. Use **executable** only for Kali-hosted runtime/test contracts.
 - if the question is about `package-effects` or `package-audit`, answer it separately from those project-command rungs: those commands are registry-analysis workflows, not alternate ways to ask whether the current project graph is runnable.
 
 Common support-claim examples:

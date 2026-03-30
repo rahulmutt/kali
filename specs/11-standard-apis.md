@@ -60,9 +60,15 @@ Phase-1 reading aid:
 
 Interpretation rules:
 - this is a command/API-surface snapshot only; the owning CLI shape still lives in [12 — CLI](12-cli.md), and exact phase labels still live in [19 — Feature Maturity](19-feature-maturity.md)
+- explicit CLI spellings and equivalent inherited-config forms mean the same effective request once `apiSurface` resolves to `deno`, `browser`, or `node`; inherited config must not silently widen or narrow support
 - `browser` in this table means **checkable** / **deployable-through-host** support where noted, not a hidden standalone DOM runtime promise
 - `node` stays gated across these command families until the documented Node subset exists; package-compatibility work must not imply an undocumented partial `--api node` mode earlier
 - registry-analysis commands are intentionally outside this snapshot: later `package-effects` may reuse the same inherited browser/Node analysis context and shared browser package-resolution rule once its own maturity row opens, while `package-audit` remains context-free in schema v1
+
+Support-claim phrasing shortcut:
+- when this chapter says a surface is available for a command family, read that through the shared **compatibility delivery ladder** from [SPEC.md](../SPEC.md) rather than as one broad yes/no promise
+- for early browser-facing claims, prefer wording such as **checkable** or **deployable-through-host** over vague “browser support” prose
+- reserve **executable** for Kali-hosted runtime/test contracts only
 
 ## API Layers
 
