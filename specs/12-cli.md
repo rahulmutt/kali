@@ -42,7 +42,7 @@ Canonical early-phase direct-input arity rule:
 - `run`, `build`, and `effects` each take **exactly one** explicit primary source input in early phases
 - zero explicit source inputs for those commands is the canonical invalid-usage diagnostic `E5008`
 - more than one explicit source input for those commands is also `E5008` unless a later spec introduces a documented multi-input mode
-- `check`, `fmt`, `lint`, and `test` may still accept multiple explicit file arguments because their contracts are set-oriented rather than single-program oriented
+- `check`, `fmt`, `lint`, and `test` are the canonical **set-oriented explicit-file commands** from [SPEC.md](../SPEC.md): when explicit files are supplied, those paths are treated as one file set rather than as separate single-entry invocations
 
 Canonical install-target and package-argument arity rule:
 - `kali install [target]` accepts **zero or one** explicit install target in early phases
@@ -342,18 +342,28 @@ Format source files (implemented in `kali_fmt`).
 kali fmt                                   # Format all supported JS/TS source + declaration files in project (.ts/.tsx/.mts/.cts/.js/.jsx/.mjs/.cjs/.d.ts/.d.mts/.d.cts)
 kali fmt --check                           # Check formatting (CI mode, exit code 1 if unformatted)
 kali fmt main.ts                           # Format specific file
+kali fmt src/a.ts src/b.ts                 # Format an explicit file set
 ```
+
+Canonical discovery rule:
+- `kali fmt` is project-oriented with no files, but when explicit paths are supplied it follows the shared **set-oriented explicit-file command** rule from [SPEC.md](../SPEC.md)
+- project-oriented format discovery starts from the canonical project file set and then keeps the formatter's supported source-file set: executable/analyzable files plus declaration-only files (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.d.ts`, `.d.mts`, `.d.cts`)
+- when explicit file arguments are supplied, those paths are formatted directly if they belong to that same supported set
+- `--check` changes rewrite behavior only; it does not change discovery, supported file kinds, or the set-oriented explicit-file contract
 
 ### `kali lint [files...]`
 Lint source files (implemented in `kali_lint`).
 ```bash
 kali lint                                  # Lint all supported JS/TS source + declaration files in project
 kali lint --fix                            # Auto-fix where possible
+kali lint src/a.ts src/b.ts                # Lint an explicit file set
 ```
 
 Canonical discovery rule:
+- `kali lint` is project-oriented with no files, but when explicit paths are supplied it follows the shared **set-oriented explicit-file command** rule from [SPEC.md](../SPEC.md)
 - project-oriented lint discovery starts from the canonical project file set and then keeps the same supported source-file set as `kali fmt`: executable/analyzable files plus declaration-only files (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.d.ts`, `.d.mts`, `.d.cts`)
 - when explicit file arguments are supplied, those paths are linted directly if they belong to that same supported set
+- `--fix` is intentionally conservative, like `check --fix`: it applies only structured tool-provided edits rather than speculative rewrites or stylistic churn outside the selected lint rules
 
 ### `kali test [files...]`
 Run test files.

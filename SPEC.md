@@ -166,6 +166,17 @@ A command that defaults to project discovery when no explicit files are given:
 - `test`
 - plain `install` for dependency-graph scanning
 
+### Set-oriented explicit-file command
+A command whose explicit file arguments, when present, are interpreted as a file set rather than as one primary source input:
+- `check`
+- `fmt`
+- `lint`
+- `test`
+
+This term is orthogonal to discovery mode:
+- `check` is still the canonical **hybrid analysis command**
+- `fmt`, `lint`, and `test` are still **project-oriented commands** when no explicit files are supplied
+
 ### Current-directory-scoped scaffold command
 A command whose target root is always the current working directory rather than the nearest discovered ancestor project:
 - `init`
