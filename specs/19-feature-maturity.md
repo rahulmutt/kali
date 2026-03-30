@@ -271,8 +271,10 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - `kali check` / `build` / `run` / `test` all use the same early-phase API-surface maturity rules: Deno-supported, Node phase-gated, browser supported only for the documented browser-targeted check/bundle paths.
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
 - `check/build --sandbox` perform the documented Phase-1 policy-schema/config validation without overclaiming full inferred-effect-vs-policy checking yet.
+- Stable user-facing `kali effects` / `kali package-effects` reporting is still correctly absent or explicitly experimental in Phase 1 rather than implied by internal sandbox/effect bookkeeping.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
 - Package support works for the documented pure JS/TS, statically linkable subset.
+- Non-install commands still fail with `E5004` on missing/stale dependency state instead of auto-installing or auto-repairing project-managed dependency state.
 
 ### Phase 2 exit criteria
 - MIR is the canonical ownership/layout IR.

@@ -754,6 +754,10 @@ To keep the normalized bootstrap scope easy to scan, Phase 1 does **not** imply:
 
 These are all tracked elsewhere in the owning chapters and the maturity matrix; this snapshot exists only to make the early boundary obvious in one place.
 
+Two additional bootstrap-driven scope clarifications belong here because they are easy to overread from the broad product brief:
+- Phase 1 does **not** imply stable user-facing `kali effects`, `kali package-effects`, or `kali package-audit` workflows just because Kali is sandbox-first and internally tracks effects.
+- Phase 1 does **not** imply automatic dependency installation/repair during `check` / `effects` / `build` / `run` / `test`; `kali install` remains the one project dependency mutator.
+
 ## Host/API Summary
 
 Using the canonical **host-support staircase**:

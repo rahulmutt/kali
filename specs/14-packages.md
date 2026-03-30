@@ -23,6 +23,11 @@ Install-time clarification:
 - packages whose normal install/runtime path falls into the **native/binary/bootstrap-heavy package contract** stay outside the Phase 1 compatibility promise even if most of their published sources are JS/TS
 - `--allow-scripts` may permit the hook to run for analysis/installation workflows, but it must not be misread as a promise that Kali supports that excluded package contract end-to-end
 
+Bootstrap-alignment rule:
+- the bootstrap brief's “support non node-gyp packages from npm” goal is normalized through the shared **pure JS/TS package contract**, not through a narrower “anything without `node-gyp` must work” reading
+- in practice, packages that depend on N-API/native bindings, prebuilt native modules, postinstall-downloaded executables, or other binary/bootstrap-heavy installation paths remain outside the early supported set even when `node-gyp` itself is absent
+- this keeps package compatibility defined by the package's normal source/install contract rather than by one specific native-addon tool name
+
 ## Canonical Phase-1 Package-Compatibility Interpretation
 
 Early registry-package compatibility needs one explicit simplification so package support and host-mode support do not get conflated:
