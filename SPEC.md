@@ -140,6 +140,7 @@ Use this checklist:
 - diagnostic-code meaning and error-boundary rules belong to [`specs/15-errors.md`](./specs/15-errors.md)
 - JSON field names, payload schemas, artifact kinds/roles, and generated metadata-file shapes such as C ABI embedding metadata belong to [`specs/18-schemas.md`](./specs/18-schemas.md)
 - phase availability belongs to [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
+- shared cross-spec tables/rules such as the **Command-context axis participation table**, the **canonical browser-targeted budget compatibility rule**, and the artifact-mode matrix should have exactly one normative copy in this file; other chapters should point here instead of restating a second near-duplicate table
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - host/API-layering wording should reuse the **host-support staircase**
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
@@ -777,16 +778,12 @@ For browser-targeted contexts, `--sandbox` follows the **browser-targeted static
 
 ### Canonical Browser-Targeted Budget Compatibility Rule
 
-Schema v1 uses one exact browser-targeted budget rule everywhere:
-- `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles` are rejected whenever present,
-- `resources.maxSpawnedProcesses` and `resources.maxThreads` reject positive values,
-- `resources.maxSpawnedProcesses: 0` and `resources.maxThreads: 0` remain valid as explicit deny/tightening values,
-- capability-local `effects.*` limits remain valid only within the documented **canonical browser-applicable mediated subset (schema v1)**.
+The normative browser-targeted budget rule is the earlier canonical term of the same name in this file.
 
-Short form:
-- **Kali-hosted execution** → runtime enforcement under the **effective execution envelope**
-- **browser-targeted analysis/build** → the **browser-targeted static sandbox contract** only
-- **Kali-hosted execution budgets** (`resources.*`) do not carry over to deployed browser bundles in early phases
+Keep only these consequences in mind when reading other chapters:
+- browser-targeted `--sandbox` remains a static compatibility/build-time contract over the documented browser-applicable mediated subset
+- cross-cutting `resources.*` fields are still **Kali-hosted execution budgets**, so they do not become post-deployment browser guarantees
+- if the browser-targeted budget rule changes in a future schema revision, update that one canonical definition and let the rest of the spec inherit it by reference
 
 ## Artifact-Mode Matrix
 
@@ -859,24 +856,12 @@ Rules:
 
 ## Command/Context Axis Participation Table
 
-This table exists so CLI, schemas, package analysis, diagnostics, and JSON-output rules use one shared model.
+The normative schema-v1 participation table is the earlier **Command-context axis participation table** in the canonical-terminology section of this file.
 
-| Command family | `apiSurface` | `buildMode` | `runtimeProfiles` | `compatFeatures` | `sandbox` |
-|---|---:|---:|---:|---:|---:|
-| `check` | yes | no semantic effect on checking contract | yes | yes | yes |
-| `effects` | yes | no | yes | yes | no |
-| `build` | yes | yes | yes | yes | yes |
-| `run` / `test` | yes | yes | yes | yes | yes |
-| `fmt` / `lint` | no | no | no | no | no |
-| `install` | no | no | no | no | no |
-| `package-effects` | inherited analysis context only | no | inherited analysis context only | inherited analysis context only | no |
-| `package-audit` | no in early phases | no | no | no | no |
-
-Interpretation:
-- “yes” means the axis materially participates in command semantics,
-- “no” means the axis is non-participating for that command in schema v1: inherited/default values on that axis do not by themselves trigger semantic gating or contradiction diagnostics for that command,
-- “inherited analysis context only” means the command does not take its own parallel flag family in early phases but still validates inherited config/default analysis context,
-- `sandbox` participation means the command is one of the canonical sandbox-aware commands.
+This section exists only to make the reuse rule explicit:
+- CLI, schemas, package-analysis docs, diagnostics, and examples should all reuse that one table instead of maintaining a second copy here or in an owning chapter
+- when prose needs the table, prefer saying that an axis **participates**, is **ignored**, or is **inherited/participates** using the canonical meanings already defined earlier in this file
+- if a future schema revision changes command-axis participation, update the canonical table once and have the rest of the spec set inherit that change by reference rather than by parallel edits
 
 ## Canonical Sandbox-Aware vs Sandbox-Agnostic Commands
 
