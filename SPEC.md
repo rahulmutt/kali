@@ -21,6 +21,23 @@ Kali is an ahead-of-time TypeScript/JavaScript compiler and runtime targeting We
 
 Kali aims for broad JavaScript/TypeScript compatibility over time, but the spec deliberately phases hard features instead of implying that every aspiration is part of the MVP.
 
+## MVP Cut at a Glance
+
+To keep the rest of the spec readable, the normalized Phase 1 MVP can be summarized in one page:
+
+| Axis | Phase 1 MVP contract |
+|---|---|
+| Language/frontend | Current published ECMA-262 grammar, TypeScript compatibility where implemented, and first-class `.js` compilation with bounded conservative inference |
+| Runtime model | AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
+| Host support | `--api deno` for Kali-hosted execution; `--api browser` only for browser-targeted `check` and `build --bundle`; `--api node` remains gated |
+| Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema validation for `check`/`build`, no project-executed policy code |
+| Effects | Internal effect bookkeeping may exist, but stable `kali effects` / `package-effects` reporting waits for Phase 2 |
+| Packaging | One lock/install state, pure JS/TS registry packages first, no native addons / `node-gyp` / binary bootstrap contracts |
+| Embedding | Phase-1 **base library artifact** via `kali build --lib`; stable public Rust API, WIT contract, C ABI, and components are later |
+| Tooling | Deno-like CLI, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports |
+
+Use this table as a reading aid only. Detailed behavior still belongs to the owning chapters and the maturity matrix.
+
 ## Bootstrap Normalization Rule
 
 `BOOTSTRAP.md` is the input brief. This spec set is the normative source of truth after normalization.
@@ -479,7 +496,7 @@ To keep CLI, schemas, and command docs aligned, schema v1 uses one small output-
 
 ### JSON-producing mode
 A command invocation is in **JSON-producing mode** when JSON is the primary success output, either because:
-- the command is a native-JSON reporting command, or
+- the command is one of schema v1's native-JSON reporting commands **once that command is available in the current phase**, or
 - `--output json` selected the standard command envelope.
 
 Rule:
@@ -489,7 +506,7 @@ Rule:
 - outside that mode, `--pretty` is invalid command usage (`E5008`) rather than a silent no-op
 
 ### Native-JSON reporting commands
-Commands whose primary successful output is already a dedicated JSON payload:
+Schema v1 reserves native-JSON success output for these commands once they are available in the current phase:
 - `effects`
 - `package-effects`
 

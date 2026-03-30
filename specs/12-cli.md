@@ -26,7 +26,7 @@ Command-family terminology used in this chapter:
 - **execution commands**: `run` and `test`
 - **build-like commands**: `build`, plus the compile step embedded inside `run` and `test`
 - **diagnostic-producing commands**: `check`, `effects`, `package-effects`, `build`, `run`, `test`, `fmt --check`, and `lint`
-- **JSON-producing mode**: a command invocation that emits JSON as its primary success output, either because the command is one of schema v1's native-JSON reporting commands (`effects`, `package-effects`) or because `--output json` selected the standard command envelope
+- **JSON-producing mode**: a command invocation that emits JSON as its primary success output, either because the command is one of schema v1's native-JSON reporting commands (`effects`, `package-effects`) **once that command is available in the current phase**, or because `--output json` selected the standard command envelope
 
 Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - `run`, `build`, and `effects` are **direct-input commands** in early phases: they require exactly one explicit primary source input and do not guess `main.ts` or invent a project-default file
