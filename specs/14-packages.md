@@ -2,7 +2,7 @@
 
 ## Registry Compatibility
 
-Package loading is compile-time first: Kali resolves and analyzes dependency graphs during `check` / `effects` / `build` / `run` / `test`, and it links them for artifact-producing/executing flows rather than pretending every command does the same work. Single-package registry-analysis commands (`package-effects`, `package-audit`) are separate later tools rather than hidden variants of the project-graph path. This chapter follows the shared **linked-artifact model** from [SPEC.md](../SPEC.md): for normal builds, application code and its statically resolvable dependencies lower into one linked core guest payload, and companion outputs such as JS glue do not change that rule.
+Package loading is compile-time first: Kali resolves and analyzes dependency graphs during `check` / `effects` / `build` / `run` / `test`, and it links them for artifact-producing/executing flows rather than pretending every command does the same work. Single-package registry-analysis commands (`package-effects`, `package-audit`) are separate later tools rather than hidden variants of the ordinary **source-graph command** path. This chapter follows the shared **linked-artifact model** from [SPEC.md](../SPEC.md): for normal builds, application code and its statically resolvable dependencies lower into one linked core guest payload, and companion outputs such as JS glue do not change that rule.
 
 Ownership rule:
 - this chapter owns package-resolution order, install mutability, lock/materialization behavior, and registry/raw-URL dependency rules
@@ -12,7 +12,7 @@ Ownership rule:
 
 Reading shortcut:
 - this chapter uses three package-workflow buckets on purpose, because the bootstrap brief's broad package goal is easy to overread if they blur together
-- **project-graph commands** (`check` / `effects` / `build` / `run` / `test`) analyze the current project's resolved dependency graph
+- **source-graph commands** (`check` / `effects` / `build` / `run` / `test`) analyze a local source/import graph plus its resolved dependencies under the selected command context
 - **install workflow** (`install`) is the only early command family allowed to mutate manifest/lock/materialized dependency state
 - **registry-analysis commands** (`package-effects` / `package-audit`) are later single-package workflows with documented command/schema shapes, but their actual availability still comes from [19 — Feature Maturity](19-feature-maturity.md)
 - use that split before reading any sentence that says a package is “supported”, so package-shape support, install behavior, and later registry-analysis tooling do not get conflated

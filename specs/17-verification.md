@@ -25,8 +25,8 @@ Practical rule:
 - Phase 1 should be **proof-ready** from the start
 - Phase-1 releases may only call verification a shipped capability once they are also **proof-backed**
 
-Current repository note:
-- in this repository revision, `proofs/BOUNDARY.md` is intentionally still the empty-boundary placeholder
+Current repository status:
+- `proofs/BOUNDARY.md` is intentionally still the empty-boundary placeholder
 - therefore the repository currently satisfies the **proof-ready** baseline but does **not** yet satisfy the **proof-backed** state
 - chapter summaries, release notes, and README copy should point to that manifest instead of implying concrete proof coverage from the existence of the Lean plan alone
 
