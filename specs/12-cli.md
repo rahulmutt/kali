@@ -273,6 +273,7 @@ Canonical artifact-mode rule:
 Sandbox clarification:
 - `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config, and in Phase 2+ it also performs effect-vs-policy validation.
 - `kali build --bundle --api browser --sandbox ...` follows the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md): it is a build-time compatibility check over the documented mediated subset, not automatic runtime sandbox enforcement once the emitted browser bundle is deployed into a real browser host.
+- the same effective-context rule applies to inherited browser config: plain `kali build --sandbox kali.policy.json main.ts` under an inherited browser API surface is still the same non-bundle browser-build contradiction as explicit `kali build --api browser --sandbox kali.policy.json main.ts`, so it stays `E5008` until a non-bundle browser build mode exists.
 ```bash
 kali build main.ts                         # → main.wasm (--fast mode, default; artifact: kind=wasm-module, role=primary-executable)
 kali build --release main.ts               # Optimized build
@@ -296,10 +297,12 @@ kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
 ```
 
-Inherited browser-bundle shortcut summary:
+Inherited browser-build shorthand summary:
 
 | Effective `apiSurface` | Plain command spelling | Result |
 |---|---|---|
+| `browser` | `kali build main.ts` | Invalid usage (`E5008`): same contradiction as explicit `kali build --api browser main.ts` until a non-bundle browser build mode exists |
+| `browser` | `kali build --sandbox kali.policy.json main.ts` | Invalid usage (`E5008`): same contradiction as explicit `kali build --api browser --sandbox kali.policy.json main.ts` |
 | non-browser (`deno` / `node`) | `kali build --bundle main.ts` | Invalid usage (`E5008`): `--bundle` is browser-only |
 | `browser` | `kali build --bundle main.ts` | Same supported request as explicit `kali build --bundle --api browser main.ts` |
 | non-browser (`deno` / `node`) | `kali build --bundle --sandbox kali.policy.json main.ts` | Invalid usage (`E5008`): `--sandbox` does not change the browser-only meaning of `--bundle` |

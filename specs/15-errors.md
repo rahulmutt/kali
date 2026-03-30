@@ -315,6 +315,8 @@ Examples:
 - `kali check ../shared/main.ts` when that path escapes the effective project root
 - `kali check packages/child/main.ts` from a parent project when `packages/child/` has its own `kali.json`
 - `kali build --api browser main.ts`
+- plain `kali build --sandbox kali.policy.json main.ts` under an inherited browser API surface
+- plain `kali build --lib lib.ts` under an inherited browser API surface
 - `kali build --bundle main.ts` under the default/inherited non-browser API surface
 - `kali build --bundle --sandbox kali.policy.json main.ts` under the default/inherited non-browser API surface
 - `kali build --lib --api browser lib.ts`
