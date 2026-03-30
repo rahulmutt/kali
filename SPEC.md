@@ -235,6 +235,31 @@ The schema-v1 cross-cutting `resources.*` limits used for Kali-controlled execut
 
 These budgets are part of the Kali-hosted runtime/embedding contract. They are not, by themselves, a promise that the same enforcement exists for deployed browser bundles.
 
+### Effective execution envelope
+The final runtime capability/resource ceiling for one Kali-hosted execution after all applicable limits are merged.
+
+It is derived from:
+1. intrinsic command/profile/phase/API-surface gating,
+2. any attached declarative sandbox policy,
+3. per-invocation tightening flags such as `--max-memory`, `--max-cpu`, `--max-open-files`, and later supported tightening caps.
+
+Rules:
+- CLI/runtime overrides may only tighten this envelope; they must not widen a stricter attached policy.
+- when no sandbox policy is attached, direct invocation caps still contribute to the envelope without implying a synthesized allow-all policy file.
+- this term applies to Kali-hosted execution (`run`, `test`, embedding), not to deployed browser bundles.
+
+### Browser-targeted static sandbox contract
+The canonical early-phase meaning of `--sandbox` in a browser-targeted context.
+
+It consists of:
+- static compatibility checking only,
+- validation against the documented browser-applicable portion of the **Kali-mediated capability subset**,
+- no promise of Kali-controlled post-deployment runtime enforcement inside a real browser host,
+- no carry-over of cross-cutting **Kali-hosted execution budgets** into deployed browser bundles.
+
+Rule:
+- chapters should reference this term instead of restating near-duplicate prose about “build-time-only browser sandboxing”, “static browser policy validation”, or “no automatic browser runtime enforcement”.
+
 ### Analysis context
 The semantic context that materially affects static analysis results:
 - `apiSurface`
@@ -448,8 +473,8 @@ Examples:
 
 ## Canonical Browser-Targeted Policy Boundary
 
-For browser-targeted contexts:
-- `--sandbox` validates static compatibility against the documented **Kali-mediated capability subset**,
+For browser-targeted contexts, `--sandbox` follows the **browser-targeted static sandbox contract**:
+- it validates static compatibility against the documented **Kali-mediated capability subset**,
 - it does not promise Kali-controlled post-deployment sandbox enforcement inside an arbitrary real browser host,
 - cross-cutting `resources.*` budgets are interpreted as **Kali-hosted execution budgets** and therefore sit outside the early browser deployment guarantee.
 
@@ -461,8 +486,8 @@ Schema v1 uses one exact browser-targeted budget rule everywhere:
 - capability-local `effects.*` limits remain valid only within the documented **canonical browser-applicable mediated subset (schema v1)**.
 
 Short form:
-- **Kali-hosted execution** → runtime enforcement
-- **browser-targeted analysis/build** → static compatibility only
+- **Kali-hosted execution** → runtime enforcement under the **effective execution envelope**
+- **browser-targeted analysis/build** → the **browser-targeted static sandbox contract** only
 - **Kali-hosted execution budgets** (`resources.*`) do not carry over to deployed browser bundles in early phases
 
 ## Artifact-Mode Matrix

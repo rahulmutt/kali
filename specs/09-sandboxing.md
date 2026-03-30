@@ -140,7 +140,7 @@ Availability rule for policy validation:
 - capability-local numeric limit fields are **constraints only**, not implicit enable switches; for example `effects.network.maxConnections` does not by itself allow network use, and `effects.timer.maxActiveTimers` does not by itself permit timers when `effects.timer.schedule` is `false`
 - in schema v1, `effects.timer.maxTimeoutMs`, `effects.timer.maxActiveTimers`, and `effects.network.maxConnections` must be positive integers when present; `0` is invalid for those fields rather than a second disable/deny form
 - examples include `effects.fileSystem.read: true` or `effects.fileSystem.read: ["/tmp/**"]` under an effective API surface of `browser`, `effects.eval: true` before Phase 4, `effects.eval: true` when the effective command context did not enable `--compat eval`, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
-- under an effective API surface of `browser`, follow the **canonical browser-targeted policy boundary**, the **canonical browser-targeted budget compatibility rule**, and the **canonical browser-applicable mediated subset (schema v1)** from [SPEC.md](../SPEC.md): browser-targeted `--sandbox` validation stays inside that documented browser-applicable subset, and schema-v1 `resources.*` fields are treated as Kali-hosted execution budgets rather than as post-deployment browser guarantees
+- under an effective API surface of `browser`, follow the **browser-targeted static sandbox contract**, the **canonical browser-targeted budget compatibility rule**, and the **canonical browser-applicable mediated subset (schema v1)** from [SPEC.md](../SPEC.md): browser-targeted `--sandbox` validation stays inside that documented browser-applicable subset, and schema-v1 `resources.*` fields are treated as Kali-hosted execution budgets rather than as post-deployment browser guarantees
 - in schema v1, the valid browser-targeted capability families are therefore `effects.network.fetch` plus its capability-local cap `effects.network.maxConnections`, `effects.timer.*`, `effects.random`, and `effects.console`, plus later `effects.eval` only when its separate compatibility path exists and is enabled
 - that subset is still a **global stable capability vocabulary** rather than a guarantee that every surface enables every member; browser-targeted validation admits only those browser-applicable members, while Deno/Node-only capability keys such as `effects.fileSystem.*`, `effects.process.*`, `effects.network.connect`, and `effects.network.listen` remain unavailable and must stay denied/omitted there
 - browser ambient DOM APIs are still outside that schema-v1 subset even when browser typings are visible during analysis/build; policy validation must not imply there is a per-DOM-call sandbox key just because `Window`/`Document` types are available
@@ -200,7 +200,7 @@ For dynamic effects that can't be checked at compile time:
 To keep the sandbox story precise across commands and deployment targets:
 - **Kali-hosted runtime enforcement** applies to `kali run`, `kali test`, and embedding hosts that instantiate Kali-controlled host imports.
 - **`check` / `build` with `--sandbox`** provide static validation only: policy-schema/config validation in Phase 1, plus effect-vs-policy validation in Phase 2+.
-- **Browser-targeted builds** (`kali build --bundle --api browser`) follow the **canonical browser-targeted policy boundary** from [SPEC.md](../SPEC.md): they may be checked against a policy at build time for the documented mediated subset, but the emitted artifact running inside a real browser does not automatically inherit Kali runtime enforcement after deployment.
+- **Browser-targeted builds** (`kali build --bundle --api browser`) follow the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md): they may be checked against a policy at build time for the documented mediated subset, but the emitted artifact running inside a real browser does not automatically inherit Kali runtime enforcement after deployment.
 
 Interpretation rule:
 - a successful browser-targeted build under `--sandbox` means the source graph is compatible with the supplied policy under Kali's static model for the **Kali-mediated capability subset**
@@ -217,10 +217,11 @@ Browser-targeted emitted artifacts do **not** automatically inherit Kali-hosted 
 
 Cross-contract simplification:
 - the schema-v1 `resources.*` block is a **Kali-hosted execution budget contract**
-- for browser-targeted `check` / `build --bundle`, follow the **canonical browser-targeted policy boundary** from [SPEC.md](../SPEC.md) instead of restating a second browser-budget rule here
+- for browser-targeted `check` / `build --bundle`, follow the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) instead of restating a second browser-budget rule here
 - capability-local policy keys under `effects.*` remain the place where browser-targeted static compatibility can still be described for the documented Kali-mediated built-ins
 
 Effective-limit rule:
+- for Kali-hosted execution, the final runtime ceiling is the **effective execution envelope** from [SPEC.md](../SPEC.md)
 - when a sandbox policy is attached, its values are the maximum capability/resource envelope for the run
 - per-invocation CLI overrides such as `--max-memory`, `--max-cpu`, `--max-open-files`, and later profile-specific caps such as `--max-spawned-processes` and `--max-threads` may further tighten that envelope
 - `--max-memory` literals normalize to bytes internally, while schema-v1 policy values are stored as `resources.maxMemoryMB`; comparison therefore happens after canonical unit conversion rather than by string matching
@@ -228,7 +229,7 @@ Effective-limit rule:
 - `--max-open-files` normalizes to an integer handle count and compares against `resources.maxOpenFiles`
 - `--max-spawned-processes` normalizes to an integer child-process count and compares against `resources.maxSpawnedProcesses`
 - `--max-threads` normalizes to an integer thread count and compares against `resources.maxThreads`
-- when no sandbox policy is attached, direct invocation caps become the effective envelope for the resource dimensions they cover
+- when no sandbox policy is attached, direct invocation caps still contribute to that effective envelope for the resource dimensions they cover
 - for later-gated capability-specific caps, `0` remains a valid explicit deny/tightening value, while non-zero values still require that the underlying capability/profile already be supported
 - CLI/config must not silently widen a stricter sandbox policy at runtime
 

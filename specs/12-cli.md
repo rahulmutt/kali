@@ -233,9 +233,9 @@ Sandbox flag behavior is intentionally phase-gated:
 - `kali check/build --sandbox ...` validate the policy file/config in Phase 1.
 - Full inferred-effect-vs-policy validation is a Phase 2 feature.
 - Policy validation must also reject policies that try to enable capabilities unavailable in the selected command/profile/phase (for example `effects.eval: true` before the eval compatibility path exists, `effects.eval: true` without effective `--compat eval`, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists).
-- For browser-targeted `check --api browser --sandbox ...` and `build --bundle --api browser --sandbox ...`, follow the **canonical browser-targeted policy boundary** and the **canonical browser-targeted budget compatibility rule** from [SPEC.md](../SPEC.md): browser-targeted sandboxing is a static compatibility check over the documented mediated subset, and schema-v1 `resources.*` fields are treated as Kali-hosted execution budgets rather than as post-deployment browser guarantees.
+- For browser-targeted `check --api browser --sandbox ...` and `build --bundle --api browser --sandbox ...`, follow the **browser-targeted static sandbox contract** and the **canonical browser-targeted budget compatibility rule** from [SPEC.md](../SPEC.md): browser-targeted sandboxing is a static compatibility check over the documented mediated subset, and schema-v1 `resources.*` fields are treated as Kali-hosted execution budgets rather than as post-deployment browser guarantees.
 - Policy files remain declarative; any later host-registered sandbox policy predicates are an embedding-oriented extension, not a second inline policy language.
-- If neither CLI nor config attaches a policy, the command runs with **no project policy file**; direct resource flags such as `--max-memory` and later supported caps such as `--max-spawned-processes` still apply, but there is no hidden synthesized policy document behind the scenes.
+- If neither CLI nor config attaches a policy, the command runs with **no project policy file**; direct resource flags such as `--max-memory` and later supported caps such as `--max-spawned-processes` still apply, but there is no hidden synthesized policy document behind the scenes. For `run`/`test`, those direct caps still contribute to the **effective execution envelope** from [SPEC.md](../SPEC.md).
 
 ### `kali build <file>`
 AOT compile to a WASM module or linked artifact set.
@@ -257,7 +257,7 @@ Canonical artifact-mode rule:
 
 Sandbox clarification:
 - `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config, and in Phase 2+ it also performs effect-vs-policy validation.
-- `kali build --bundle --api browser --sandbox ...` follows the **canonical browser-targeted policy boundary** from [SPEC.md](../SPEC.md): it is a build-time compatibility check over the documented mediated subset, not automatic runtime sandbox enforcement once the emitted browser bundle is deployed into a real browser host.
+- `kali build --bundle --api browser --sandbox ...` follows the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md): it is a build-time compatibility check over the documented mediated subset, not automatic runtime sandbox enforcement once the emitted browser bundle is deployed into a real browser host.
 ```bash
 kali build main.ts                         # → main.wasm (--fast mode, default; artifact: kind=wasm-module, role=primary-executable)
 kali build --release main.ts               # Optimized build
