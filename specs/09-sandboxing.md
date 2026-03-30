@@ -9,7 +9,7 @@ Sandboxing is a first-class concern in Kali. The system combines:
 
 Cross-spec workflow rule:
 - follow the shared **workflow-owner split** from [SPEC.md](../SPEC.md)
-- this chapter therefore treats `effects` / `package-effects` as reporting-only surfaces, `check/build --sandbox` as the static policy-validation path, `run/test --sandbox` as the runtime-enforcement path, and `package-audit` as the separate context-free registry-audit workflow instead of letting those workflows blur together
+- this chapter therefore treats `effects` / `package-effects` as reporting-only surfaces, `check/build --sandbox` as the static policy-validation path, `run/test --sandbox` as the runtime-enforcement path, and `package-audit` as the separate context-free registry-analysis/security-audit workflow instead of letting those workflows blur together
 
 Command-behavior simplification:
 - follow the shared **sandbox-attachment orthogonality** rule from [SPEC.md](../SPEC.md): `--sandbox` adds the owning sandbox workflow step without changing command family, file-arity behavior, compile intent, artifact mode, or API-surface gating
@@ -20,7 +20,7 @@ Command-behavior simplification:
 | `run`, `test` | Attach policy, validate schema/ranges, and enforce it during **Kali-hosted execution** | Yes, for the documented Kali-hosted capability/resource contract |
 | `check`, `build` | Static validation only: Phase 1 validates policy/schema/config; starting in the Phase 2 target window, the same path also checks inferred effects against policy. If the effective `apiSurface` is `browser`, this same row is narrowed by the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) rather than becoming a separate sandbox workflow. | No |
 | `effects`, `package-effects` | No sandbox-comparison mode; `--sandbox` is invalid usage (`E5008`) | N/A |
-| `package-audit` | No sandbox mode; `--sandbox` is invalid usage (`E5008`) because this remains the separate context-free registry-audit workflow | N/A |
+| `package-audit` | No sandbox mode; `--sandbox` is invalid usage (`E5008`) because this remains the separate context-free registry-analysis/security-audit workflow | N/A |
 
 This table is a reading aid only. The normative command-shape and phase-gating rules still live in [specs/12-cli.md](12-cli.md), [specs/19-feature-maturity.md](19-feature-maturity.md), and the shared terminology in [SPEC.md](../SPEC.md).
 
@@ -33,7 +33,7 @@ Bootstrap-reading shortcut:
 Practical reading rule:
 - Phase 1 ships only the first two owners (runtime enforcement plus static policy validation)
 - the reporting owner is part of the later Phase-2 **public effect-report surface**
-- `package-audit` remains outside all three because it is the separate context-free registry-audit workflow
+- `package-audit` remains outside all three because it is the separate context-free registry-analysis/security-audit workflow
 
 This keeps the bootstrap's sandbox/effect goals aligned with one small command split instead of encouraging parallel dry-run or audit-style command families.
 
@@ -43,7 +43,7 @@ The static effect system is intentionally scoped around **sandbox-relevant capab
 
 Phase simplification:
 - follow the shared **effect-surface split** from [SPEC.md](../SPEC.md)
-- **Phase 1**: **internal effect bookkeeping** may exist to support diagnostics/runtime integration, but the user-facing contract is runtime sandbox enforcement, policy-schema validation, and resource limits rather than the stable **public effect-report surface**
+- **Phase 1**: **internal effect bookkeeping** may exist to support diagnostics/runtime integration, but the user-facing contract is runtime sandbox enforcement, policy-schema/config validation, and resource limits rather than the stable **public effect-report surface**
 - **Phase 2 target**: that stable **public effect-report surface** opens in two explicit halves so reporting and pass/fail policy comparison do not get conflated:
   - **reporting half** — `kali effects`, `kali package-effects`, and the stable effect JSON contract
   - **policy-comparison half** — compile/check-time inferred-effect-vs-policy validation on `kali check --sandbox` / `kali build --sandbox`
