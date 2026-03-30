@@ -412,6 +412,7 @@ A command invocation is in **JSON-producing mode** when JSON is the primary succ
 
 Rule:
 - `--pretty` is meaningful only in JSON-producing mode
+- `--pretty` does **not** by itself switch a command into JSON-producing mode; for envelope-only JSON commands, `--output json` is still required
 - in that mode, it reformats the active JSON document only and does not change the schema
 - outside that mode, `--pretty` is invalid command usage (`E5008`) rather than a silent no-op
 

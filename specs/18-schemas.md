@@ -63,6 +63,7 @@ Used by commands that opt into `--output json`.
 - schema v1's native-JSON reporting commands are `kali effects` and `kali package-effects`; they may emit their native JSON payloads by default, but with `--output json` they must be wrapped in this envelope
 - for those native-JSON reporting commands, default success mode reserves stdout for the payload only; extra progress/status text must not be interleaved into stdout
 - `--pretty` follows the cross-spec **JSON-producing mode** rule from [SPEC.md](../SPEC.md): it is meaningful only when the command is actively emitting JSON, and then it reformats the active JSON document (native payload by default, outer envelope when `--output json` is selected) without changing any field names or schema semantics
+- `--pretty` does **not** by itself switch a command into JSON mode; envelope-only JSON commands still need `--output json` before `--pretty` becomes meaningful
 - when those commands fail without `--output json`, human-oriented diagnostics should go to stderr; callers that need machine-readable failure output must request `--output json`
 - commands that currently have only envelope-level JSON support in schema v1 (for example early `package-audit`, if implemented before a dedicated audit payload schema lands) should keep success metadata in standard envelope fields and must not smuggle human prose through `payload`
 - envelope-only JSON support is not permission to repurpose `stdout` / `stderr` as hidden structured-result fields; those stream fields are for captured program/command text only
