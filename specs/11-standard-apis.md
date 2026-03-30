@@ -160,7 +160,7 @@ Canonical rule:
 - this does **not** mean Kali's standalone runtime implements or emulates those DOM APIs
 - when Kali emits browser-targeted artifacts, DOM/Web APIs are expected to come from the real browser host at deployment time
 - the generated browser glue is for runtime bootstrap plus Kali-mediated capability wiring; it is **not** a claim that every browser ambient API is wrapped behind a Kali-specific shim or individually mediated by the schema-v1 sandbox model
-- schema-v1 sandbox policies and stable effect reports cover only the **Kali-mediated capability subset** from [SPEC.md](../SPEC.md): filesystem, network, timers, random, console, process, and eval. That names the global stable capability vocabulary, not a guarantee that browser-targeted modes enable every member of it; browser-targeted contexts keep only the browser-applicable members for static policy/effect reasoning, while Deno/Node-only keys remain unavailable there. They do **not** create one policy/effect key per DOM API just because DOM ambient typings are available during browser-targeted analysis/build
+- schema-v1 sandbox policies and stable effect reports cover only the **Kali-mediated capability subset** from [SPEC.md](../SPEC.md): filesystem, network, timers, random, console, process, and eval. That names the global stable capability vocabulary, not a guarantee that browser-targeted modes enable every member of it; browser-targeted contexts keep only the documented **canonical browser-applicable mediated subset (schema v1)** for static policy/effect reasoning, while Deno/Node-only keys remain unavailable there. They do **not** create one policy/effect key per DOM API just because DOM ambient typings are available during browser-targeted analysis/build
 - `--sandbox` on a browser-targeted build therefore constrains static analysis/build-time compatibility, not automatic post-deployment browser-permission enforcement by Kali itself
 - no Deno or Node globals are exposed in browser mode unless a later compatibility spec explicitly says so
 - any lightweight DOM test shim is a separate testing utility, not part of the core browser compatibility contract
@@ -237,7 +237,7 @@ Boundary clarification:
 
 ### Pure vs Host APIs
 - **Pure**: Implemented in Rust, compiled to WASM, runs inside the guest/runtime artifact (Math, String, Array, JSON, RegExp)
-- **Host**: Implemented outside the guest WASM artifact through the selected host adapter — native Rust/wasmtime host functions for Kali-hosted execution, or generated JS glue for browser-targeted bundles for the browser-applicable portion of the documented **Kali-mediated capability subset** (for example network, timers, random, console, and browser-hosted storage/I/O paths when explicitly modeled)
+- **Host**: Implemented outside the guest WASM artifact through the selected host adapter — native Rust/wasmtime host functions for Kali-hosted execution, or generated JS glue for browser-targeted bundles for the browser-applicable portion of the documented **Kali-mediated capability subset** (in schema v1: fetch, timers, random, console, and later eval only when that separate compatibility path exists)
 
 Clarification:
 - host-adapter examples are surface-specific, not one global bag of APIs

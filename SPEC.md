@@ -115,6 +115,22 @@ The stable schema-v1 capability vocabulary shared across effects and sandbox pol
 
 This is the stable capability vocabulary, **not** a claim that every command/profile/API surface enables every capability.
 
+### Canonical browser-applicable mediated subset (schema v1)
+When a chapter says browser-targeted policy/effect reasoning uses the browser-applicable part of the **Kali-mediated capability subset**, it means:
+- `effects.network.fetch`
+- `effects.timer.schedule`, `effects.timer.maxTimeoutMs`, `effects.timer.maxActiveTimers`
+- `effects.random`
+- `effects.console`
+- later `effects.eval` only when the separate `eval` compatibility path itself exists and is enabled
+
+It does **not** include early schema-v1 Deno/Node-oriented capability keys such as:
+- `effects.fileSystem.*`
+- `effects.process.*`
+- `effects.network.connect`
+- `effects.network.listen`
+
+This browser-applicable subset is a **static compatibility/build-time vocabulary** for browser-targeted contexts in early phases. It is not a promise that deployed browser bundles inherit Kali-hosted runtime enforcement, and it does not create one policy/effect key per DOM or browser API.
+
 ### Kali-hosted execution budgets
 The schema-v1 cross-cutting `resources.*` limits used for Kali-controlled execution environments, such as:
 - memory
@@ -248,7 +264,7 @@ For browser-targeted contexts:
 Schema v1 uses one exact browser-targeted budget rule everywhere:
 - `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles` are rejected whenever present,
 - `resources.maxSpawnedProcesses` and `resources.maxThreads` reject positive values,
-- capability-local `effects.*` limits remain valid only within the browser-applicable part of the documented **Kali-mediated capability subset**.
+- capability-local `effects.*` limits remain valid only within the documented **canonical browser-applicable mediated subset (schema v1)**.
 
 Short form:
 - **Kali-hosted execution** → runtime enforcement
