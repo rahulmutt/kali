@@ -9,6 +9,20 @@ It exists for three reasons:
 
 The detailed subsystem requirements live in [`specs/`](./specs). When this document and a detailed chapter both speak about the same topic, prefer this file for cross-cutting normalization and the owning chapter for the concrete subsystem contract.
 
+## Normative ownership
+
+To reduce drift, Kali uses one explicit ownership split for spec interpretation:
+- [`BOOTSTRAP.md`](./BOOTSTRAP.md) is the input brief only; it is not the post-normalization source of truth.
+- [`SPEC.md`](./SPEC.md) owns cross-spec normalization, shared vocabulary, and conflict-resolution rules.
+- the owning chapter in [`specs/`](./specs) owns the concrete subsystem contract.
+- [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) owns availability and phase status.
+- [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) owns the repository's current verification claim boundary and proof-state wording.
+
+Reading rule:
+- to answer **whether** something is supported, read `SPEC.md` → `19-feature-maturity` → the owning chapter;
+- to answer **how** a supported thing works, read the owning chapter first and use this file only for cross-spec normalization;
+- to answer what proof coverage is actually claimed **today**, read [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) rather than inferring from roadmap prose.
+
 ## Overview
 
 Kali is an ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembly, implemented in Rust, designed around:
@@ -162,7 +176,7 @@ Use this table when a command or artifact family is already documented but you s
 
 ## Bootstrap Normalization Rule
 
-`BOOTSTRAP.md` is the input brief. This spec set is the normative source of truth after normalization.
+`BOOTSTRAP.md` is the input brief. This spec set is the normative source of truth after normalization for product/design behavior, while [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) remains the source of truth for the repository's current verification claim boundary.
 
 Normalization rules:
 - treat broad product goals in `BOOTSTRAP.md` as **directional requirements**, then map them onto explicit phase promises in the spec chapters;

@@ -2,14 +2,16 @@
 An ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembly, designed for sandboxed execution, strong static analysis, and AI-friendly tooling.
 
 ## How to read this repository
-- [`BOOTSTRAP.md`](./BOOTSTRAP.md) is the input brief.
-- [`SPEC.md`](./SPEC.md) plus [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are the normative source of truth after normalization.
-- The detailed subsystem contracts live in [`specs/`](./specs).
+- [`BOOTSTRAP.md`](./BOOTSTRAP.md) is the input brief, not the final normalized contract.
+- [`SPEC.md`](./SPEC.md) owns cross-spec normalization, shared terminology, and conflict resolution.
+- The owning chapter in [`specs/`](./specs) owns each subsystem's concrete contract.
+- [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) owns availability and phase status.
+- [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) owns the current verification claim boundary and proof-state wording.
 
-Recommended reading order:
-1. [`SPEC.md`](./SPEC.md) for normalization, terminology, and cross-spec rules
-2. [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) for availability and phase status
-3. the owning chapter in [`specs/`](./specs) for subsystem details
+Recommended reading paths:
+- **To answer “is this supported yet?”** read [`SPEC.md`](./SPEC.md) → [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) → the owning chapter in [`specs/`](./specs)
+- **To answer “how does the supported thing work?”** read the owning chapter first, then fall back to [`SPEC.md`](./SPEC.md) for shared rules and [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) for phase gating
+- **To answer “what proof coverage is actually claimed today?”** read [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md)
 
 ## Hard invariants
 These stay fixed across phases unless the top-level spec is intentionally changed:
