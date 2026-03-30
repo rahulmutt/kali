@@ -63,7 +63,8 @@ Canonical config-discovery rule:
 - unless a later spec adds an explicit `--config` override, commands discover the effective project config by searching the current working directory and then its ancestors for the nearest `kali.json`
 - if none exists, the command runs in the canonical **configless project mode** from [SPEC.md](../SPEC.md), with the current working directory as the effective project root
 - explicit CLI file arguments do **not** relocate that chosen config/root; they resolve relative to the current working directory, while config-owned relative paths continue to resolve relative to the directory containing the discovered `kali.json`
-- recursive project discovery for no-argument `check` / `fmt` / `lint` / `test` and for no-package-argument `install` graph scanning must stop at nested child directories that contain their own `kali.json` unless the user explicitly names files inside them
+- in schema v1, explicit file/path targets for file-accepting source commands (`run`, `build`, `check`, `effects`, `fmt`, `lint`, `test`) must stay inside that effective project root and must not point into a nested child project that has its own `kali.json`; crossing into another project root is invalid command usage (`E5008`)
+- recursive project discovery for no-argument `check` / `fmt` / `lint` / `test` and for no-package-argument `install` graph scanning must stop at nested child directories that contain their own `kali.json`; those child roots are separate projects in schema v1
 
 Effective-context validation rule:
 - command validation always runs against the fully merged **effective command context** (built-in defaults, then discovered config, then CLI flags)
@@ -430,7 +431,7 @@ Determinism rules:
 - Registry packages (npm/JSR) are materialized into `node_modules/`; raw URL imports are materialized under `.kali/cache/urls/`. Non-install commands consume whichever of those stores are relevant to the current project instead of assuming every project must have both.
 
 ### `kali package-effects <package>`
-Analyze effects of an npm/JSR package independently of project install state.
+Analyze effects of a registry package without consulting or mutating project install state for version selection.
 
 Argument-kind rule:
 - `kali package-effects <package>` takes exactly one explicit package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
@@ -443,6 +444,7 @@ Argument-kind rule:
 Project-state rule:
 - `kali package-effects <package>` may fetch package metadata/tarballs into an ephemeral analysis cache, but it must **not** mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
 - that analysis cache is intentionally outside the project's managed dependency state: it may be discarded between invocations and is not a lockfile-backed installation target
+- the command is still allowed to inherit its **analysis context** from the effective config/defaults; only dependency-state mutation and version selection stay project-independent in schema v1
 - turning an analyzed package into a project dependency remains the job of `kali install`
 
 Status: **Phase 2 target**. Before then, if package-level analysis is unavailable, the CLI should report that clearly instead of returning partial ad hoc output.

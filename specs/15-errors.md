@@ -249,6 +249,7 @@ Use `E5008` for cases such as:
 - `kali package-audit lodash react`
 - `kali package-audit https://example.com/mod.ts`
 - `kali package-audit ./local.ts`
+- `kali check packages/child/main.ts` from a parent project when `packages/child/` has its own `kali.json`
 - `kali build --bundle --api node main.ts`
 - `kali install --sandbox kali.policy.json`
 - `kali fmt --sandbox kali.policy.json`

@@ -448,9 +448,19 @@ Interpretation rules:
 When a command uses project discovery, it should:
 1. start at the effective project root
 2. recursively walk files in that tree
-3. stop recursion at nested child directories that contain their own `kali.json`, unless the user explicitly targeted files inside them
+3. stop recursion at nested child directories that contain their own `kali.json`; those child roots are separate projects in schema v1
 4. collect files from the canonical project file set
 5. apply `include` / `exclude` filters from the effective `kali.json` when present
+
+### Explicit target boundary
+Explicit CLI file/path targets do **not** relocate the chosen config/root.
+
+Schema-v1 simplification:
+- explicit file/path targets for file-accepting source commands (`run`, `build`, `check`, `effects`, `fmt`, `lint`, `test`) must resolve inside the effective project root
+- they must **not** point into a nested child project that has its own `kali.json`
+- to operate on that child project, invoke Kali from that child project root (or one of its subdirectories) instead of reaching across project boundaries from the parent
+
+This keeps config selection, discovery, lockfile ownership, and diagnostics aligned around one project root per invocation.
 
 ### Default excluded managed/generated directories
 When discovery runs without an overriding `include` / `exclude` rule that explicitly brings them back, it should skip these directories by default:

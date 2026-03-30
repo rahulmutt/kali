@@ -189,7 +189,7 @@ Install-graph discovery rule:
 - because `kali install` usually runs without an explicit primary source input, source-level raw URL imports are discovered from the canonical project-discovery result rather than from one ad hoc command-local source root
 - the effective project config/root for that scan is the nearest `kali.json` found by searching the current working directory and then its ancestors; if none exists, install uses the current working directory as the project root
 - that install-time scan set is filtered by `kali.json` `include` / `exclude` when present, or by the default project-discovery rules from [SPEC.md](../SPEC.md) when those fields are omitted
-- recursive install-time discovery must stop at nested child directories that contain their own `kali.json`; those are separate projects unless the user later targets files inside them explicitly
+- recursive install-time discovery must stop at nested child directories that contain their own `kali.json`; those child roots are separate projects in schema v1
 - discovery may use a cheap lexical/module-specifier scan of those files plus `kali.json#imports`; it does not require a full check/build just to decide which raw URLs belong in the lock/cache state
 - the install-time scan may include declaration-only files too, because they can own type-only imports that still belong to the project's declared dependency graph
 - pruning of raw URL lock/cache entries is judged against this install-time declaration graph, not against arbitrary unrelated files elsewhere in the repository
@@ -423,8 +423,9 @@ Argument-kind simplification:
 - `kali package-audit <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - explicit package arguments for those commands must use canonical **registry-package identifiers** (`lodash`, `@scope/name`, `jsr:@std/path`)
 - early schema-v1 package-analysis commands take the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
-- to keep registry analysis deterministic and independent from ambient project state in schema v1, they use the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1) and report the resolved version as result metadata when applicable
+- to keep registry analysis deterministic and independent from **project dependency state** in schema v1, they use the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1) and report the resolved version as result metadata when applicable
 - they therefore do **not** consult the current project's manifest or lockfile to choose a different version in early phases; any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly
+- this project-independence is about dependency state and version selection; `package-effects` may still inherit its analysis context from the effective config/defaults as documented elsewhere
 - any non-registry target is rejected for these commands in early phases, including raw URLs and local file paths, instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
 - raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
 
