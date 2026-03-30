@@ -27,7 +27,14 @@ Support-rung clarification for that shorthand:
 - on the shared **Phase-1 browser-targeted command set** — including equivalent inherited-config forms whenever the effective `apiSurface` resolves to `browser` — early package claims are normally **checkable** and sometimes **deployable-through-host** via `build --bundle`; they are not standalone-browser **executable** claims in Kali itself
 - when package support wording is ambiguous, prefer naming the exact command/context and rung instead of saying only that a package is “supported in browser mode”
 
-This shorthand is only a triage aid. The full answer still uses the shared order: package shape → host/API fit → command maturity → claimed support rung.
+This shorthand is only a triage aid. The full answer still uses one fixed decision order:
+
+| Step | Question | Phase-1 shortcut |
+|---|---|---|
+| 1. package shape | Does the published package stay inside the **pure JS/TS package contract** and the shared **linked-artifact model**? | if **no**, it falls into the **native/binary/bootstrap-heavy package contract** and is rejected by default |
+| 2. host/API fit | Do its runtime assumptions fit the Deno-oriented standalone surface or the shared **Phase-1 browser-targeted command set**? | Deno/browser-targeted fits may proceed; broader Node assumptions stay phase-gated |
+| 3. command maturity | Is the requested command/context actually shipped for that host/API combination? | for example, browser-targeted `check` / `build --bundle` are in scope, but standalone browser `run` / `test` are not |
+| 4. claimed support rung | Are you claiming `installable/materializable`, `checkable`, `buildable`, `executable`, or `deployable-through-host`? | name the rung explicitly instead of saying only “supported” |
 
 Compact workflow comparison:
 
@@ -40,7 +47,7 @@ Compact workflow comparison:
 
 Bootstrap-reading shortcut:
 - the bootstrap's package goal should not be read as one yes/no answer to “does Kali support npm?”
-- package claims should name both the **decision order** (package shape → host/API fit → command maturity) and the **support rung** being claimed (`installable/materializable`, `checkable`, `buildable`, `executable`, or `deployable-through-host`)
+- package claims should name the full four-step reading: package shape → host/API fit → command maturity → claimed support rung
 - registry-analysis commands stay a separate question from project-command support: they are single-package workflows, and even `package-effects` does **not** use the current project's installed dependency state to pick a different package version
 - this keeps Phase-1 ecosystem claims honest: many pure JS/TS packages are already in scope early, while Node-host-heavy or native/binary/bootstrap-heavy packages remain clearly outside the same promise
 
