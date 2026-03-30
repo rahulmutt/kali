@@ -37,6 +37,7 @@ Canonical examples of that normalization:
 - **“Programmable sandbox policy conditions”** → project policy files stay declarative in early phases; later programmable narrowing is via host-registered predicates, not executable project policy code.
 - **“Use wasmtime or wasmer”** → standardize on `wasmtime` first; alternative engines are later implementation extensions.
 - **“Support WIT / Component Model”** → Phase 1 keeps a base exported-library artifact; stable WIT-first public embedding and component packaging are Phase 2 targets.
+- **“Must be embeddable / expose a C API / be easy to use as a Rust library”** → Phase 1 is library-first internally and already includes the base `kali build --lib` artifact, but the stable public Rust embedding API, stable WIT contract, C ABI, and component/C-embedding packaging are Phase 2 targets.
 - **“No GC”** → no tracing/background GC is allowed; deterministic ownership/reference-counted strategies are acceptable where the owning chapters permit them.
 
 If a bootstrap aspiration and a detailed chapter seem in tension, prefer:
@@ -270,6 +271,7 @@ Rules:
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive unless a later chapter explicitly says otherwise,
 - `--bundle` is browser-only and requires effective `apiSurface = browser`,
 - library-oriented artifact modes are non-browser in early phases,
+- Phase 1 plain `--lib` is the base export-oriented artifact shape, but the stable public embedding contract for that mode is still Phase 2 work,
 - companion artifacts such as JS glue, WIT, C headers, or component wrappers do not weaken the single linked core payload rule.
 
 ## Chapter Ownership

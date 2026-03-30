@@ -237,7 +237,11 @@ Boundary clarification:
 
 ### Pure vs Host APIs
 - **Pure**: Implemented in Rust, compiled to WASM, runs inside the guest/runtime artifact (Math, String, Array, JSON, RegExp)
-- **Host**: Implemented outside the guest WASM artifact through the selected host adapter — native Rust/wasmtime host functions for Kali-hosted execution, or generated JS glue for browser-targeted bundles (I/O, network, process, crypto)
+- **Host**: Implemented outside the guest WASM artifact through the selected host adapter — native Rust/wasmtime host functions for Kali-hosted execution, or generated JS glue for browser-targeted bundles for the browser-applicable portion of the documented **Kali-mediated capability subset** (for example network, timers, random, console, and browser-hosted storage/I/O paths when explicitly modeled)
+
+Clarification:
+- host-adapter examples are surface-specific, not one global bag of APIs
+- mentioning browser-targeted JS glue here must not be read as implying that browser bundles expose Deno/Node-only capabilities such as `process`
 
 ### Built-in Objects (WASM Runtime)
 Implemented in `kali_runtime` (compiled to WASM), in phases:

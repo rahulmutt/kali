@@ -1,7 +1,7 @@
 # 13 — Embedding & C API
 
 Public embedding is intentionally phased:
-- **Phase 1**: reusable internal crates exist so the CLI is built library-first, and `kali build --lib` already produces the base export-oriented library artifact, but the public embedding surface may still change freely.
+- **Phase 1**: reusable internal crates exist so the CLI is built library-first, and `kali build --lib` already produces the base export-oriented library artifact, but that output is still an **unstable base artifact** rather than a stable public embedding contract. In particular, Phase 1 does not yet promise a stable Rust API, a stable C ABI, or default WIT sidecars for plain `--lib`.
 - **Phase 2 target**: the Rust embedding API, the stable public `kali build --lib` + WIT contract, the C ABI, and `kali build --capi` / `kali build --component` artifact flows become the first stable public embedding contract.
 
 ## Rust Library API (`kali_embed`)
@@ -212,6 +212,10 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 
 ### Building
 Artifact selection follows the canonical build matrix in [SPEC.md](../SPEC.md): plain `--lib` is the Phase-1 **base exported-library** mode, and `kali build --capi` / `kali build --component` are **Phase 2** packaging layers over that same exported-library contract rather than unrelated semantics.
+
+Stability split:
+- Phase 1 plain `--lib` gives producers an export-oriented WASM artifact shape early, but it is still an unstable/public-contract-light mode
+- Phase 2 is when Kali freezes the public interface story around one canonical export description (WIT) plus the corresponding Rust/C/component projections
 
 `kali build --capi` and `kali build --component` are **Phase 2 targets** and are artifact-generation modes for embedded programs, not requests to turn user TypeScript directly into a native shared library.
 
