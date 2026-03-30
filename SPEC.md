@@ -397,6 +397,16 @@ If a command needs discovery and no explicit files are supplied:
 
 Discovery stops at nested child directories containing their own `kali.json`. Those are separate projects in schema v1.
 
+### Explicit path boundary rule
+
+For file-accepting source commands (`run`, `build`, `check`, `effects`, `fmt`, `lint`, `test`):
+- explicit file/path targets must stay inside the effective project root,
+- explicit file/path targets must not point into a nested child project that has its own `kali.json`,
+- crossing into another project root is invalid command usage (`E5008`),
+- once a target is explicit, `include` / `exclude` no longer filter it out.
+
+This keeps explicit inputs from silently redefining project boundaries while still letting users name concrete files directly.
+
 ## Config Discovery and Configless Project Mode
 
 Config discovery:

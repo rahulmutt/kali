@@ -70,8 +70,7 @@ Canonical config-discovery rule:
 - if none exists, the command runs in the canonical **configless project mode** from [SPEC.md](../SPEC.md), with the current working directory as the effective project root
 - `kali init` is the one early-phase exception: it is **current-directory scoped** and does **not** reuse an ancestor `kali.json` as its target root
 - explicit CLI file arguments do **not** relocate that chosen config/root; they resolve relative to the current working directory, while config-owned relative paths continue to resolve relative to the directory containing the discovered `kali.json`
-- in schema v1, explicit file/path targets for file-accepting source commands (`run`, `build`, `check`, `effects`, `fmt`, `lint`, `test`) must stay inside that effective project root and must not point into a nested child project that has its own `kali.json`; crossing into another project root is invalid command usage (`E5008`)
-- explicit file/path targets bypass `include` / `exclude` discovery filtering once the user names them directly; those filters constrain project discovery, not the meaning of an already-explicit target
+- follow the canonical **explicit path boundary rule** from [SPEC.md](../SPEC.md): file-accepting source-command targets must stay inside the effective project root, must not point into a nested child project that has its own `kali.json`, and bypass `include` / `exclude` only after they are explicitly named
 - recursive project discovery for no-argument `check` / `fmt` / `lint` / `test` and for no-package-argument `install` graph scanning must stop at nested child directories that contain their own `kali.json`; those child roots are separate projects in schema v1
 
 Effective-context validation rule:
