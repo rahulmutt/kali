@@ -322,12 +322,11 @@ kali build --component --api node lib.ts   # Phase 3 target: still gated by the 
 kali build --component --api browser lib.ts # Invalid usage (E5008) in early phases; browser mode remains the bundle-only browser-targeted path rather than a component artifact mode
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; from the Phase 2 target onward also validate inferred effects
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Build-time policy compatibility only; no automatic browser-runtime enforcement is implied after deployment
-# With inherited compilerOptions.apiSurface = "browser":
-kali build --bundle main.ts                # Same supported request as explicit `kali build --bundle --api browser main.ts`
-kali build --bundle --sandbox kali.policy.json main.ts # Same supported request as explicit `kali build --bundle --api browser --sandbox ...`
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
 ```
+
+Inherited browser-config equivalents are summarized in the shorthand table below so the same bare `kali build ...` spelling does not need to appear twice with two different contexts.
 
 Inherited build-context shorthand summary:
 
@@ -362,12 +361,8 @@ kali check --api browser --sandbox kali.policy.json # Same browser-targeted vali
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
 kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
 kali check --api browser --sandbox kali.policy.json src/a.ts src/b.ts # Same browser-targeted validation path over an explicit multi-file set
-# With inherited compilerOptions.apiSurface = "browser":
-kali check                                 # Same supported request as explicit `kali check --api browser`
-kali check main.ts                         # Same supported request as explicit `kali check --api browser main.ts`
-kali check --sandbox kali.policy.json      # Same supported request as explicit `kali check --api browser --sandbox ...`
 ```
-`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`, `--api node`, and `--sandbox`: API-surface selection changes only the analysis context, not the command's file-arity model, and attaching a policy still does not turn `check` into a direct-input command.
+`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`, `--api node`, and `--sandbox`: API-surface selection changes only the analysis context, not the command's file-arity model, and attaching a policy still does not turn `check` into a direct-input command. Inherited browser-config equivalents are summarized in the shorthand table below so the same bare `kali check ...` spelling does not need to appear twice with two different contexts.
 
 Inherited check-context shorthand:
 
