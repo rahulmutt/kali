@@ -181,6 +181,7 @@ Use this checklist:
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
 - Phase-1 internal effect machinery versus Phase-2 stable effect-report-command wording should reuse the **effect-surface split** instead of creating new near-duplicate “effects exist internally but not publicly yet” prose in each chapter
 - verification-boundary wording should reuse the **proof-boundary manifest** term instead of scattering slightly different “modeled subset”, “proof kernel”, or “published proof scope” prose across verification, testing, and maturity chapters
+- scaffold-template filename wording should reuse the **canonical scaffold filename convention** term instead of reintroducing a second duplicate section with the same `main.ts` / `lib.ts` defaults
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
 - package-loading and whole-graph-linking wording should reuse the **linked-artifact model** term instead of restating slightly different “single linked payload”, “already-linked graph”, or “no runtime-linked WASM modules” prose
 - package-compatibility wording should reuse the **pure JS/TS package contract** and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different native-addon / downloaded-binary exclusion lists
@@ -1511,12 +1512,6 @@ This applies to:
 - generated metadata sidecars,
 - JSON envelopes/reports,
 - diagnostics ordering where the producer naturally owns that order.
-
-## Scaffold Filename Convention
-
-Unless a later template spec says otherwise:
-- app scaffolds use `main.ts`
-- library scaffolds use `lib.ts`
 
 ## Chapter Navigation
 
