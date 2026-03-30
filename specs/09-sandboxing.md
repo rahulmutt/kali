@@ -221,6 +221,12 @@ Interpretation rule:
 - cross-cutting `resources.*` budgets are also outside the early browser-deployment guarantee; browser-targeted `check` / `build --bundle` may validate policy shape, but they must not imply post-deployment enforcement of CPU, memory, file-handle, process, or thread budgets in the real browser host
 - specs and diagnostics should therefore avoid wording that suggests browser deployment has the same runtime-enforcement guarantee as `kali run` / `kali test`
 
+Quick browser-targeted examples:
+- `kali check --api browser --sandbox web.policy.json` is a static compatibility verdict only
+- `kali build --bundle --api browser --sandbox web.policy.json app.ts` is a static compatibility verdict plus bundle generation only
+- a browser-targeted policy may constrain the documented browser-applicable capability-local keys such as `effects.network.maxConnections` or `effects.timer.maxActiveTimers`
+- the same browser-targeted policy must still reject Kali-hosted execution budgets such as `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles`, and must reject positive `resources.maxSpawnedProcesses` / `resources.maxThreads` values under the shared browser-targeted budget rule
+
 ## Runtime Resource Limits
 
 For **Kali-hosted execution** (`kali run`, `kali test`, and embedding), runtime resource limits are enforced by the execution host (wasmtime in early phases).

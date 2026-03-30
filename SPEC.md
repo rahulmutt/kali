@@ -158,6 +158,7 @@ Use this checklist:
 - shared cross-spec tables/rules such as the **Command-context axis participation table**, the **canonical browser-targeted budget compatibility rule**, and the artifact-mode matrix should have exactly one normative copy in this file; other chapters should point here instead of restating a second near-duplicate table
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - host/API-layering wording should reuse the **host-support staircase**
+- broad “support” wording across syntax/check/build/run/bundle/policy claims should reuse the **compatibility delivery ladder** instead of implying one undifferentiated notion of support
 - browser ambient-typing versus sandbox/effect wording should reuse the **Browser ambient typing vs mediated capability split**
 - browser command-shape versus browser-runtime availability wording should reuse the **canonical browser-surface rejection split**
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
@@ -867,6 +868,29 @@ Shared API-loading rule:
 - Web baseline APIs are the shared baseline across supported surfaces,
 - `--api deno|node|browser` selects which additional ambient APIs/modules exist beyond that baseline,
 - unsupported globals/modules are absent rather than shimmed by default.
+
+## Compatibility Delivery Ladder
+
+To keep broad bootstrap asks such as “support Node”, “support browser APIs”, or “support latest ECMA-262” from turning into accidental overclaims, Kali uses one shared compatibility-delivery ladder across the spec set.
+
+A feature may sit on different rungs at the same time depending on command/profile:
+
+| Ladder rung | Meaning |
+|---|---|
+| **accepted** | Kali parses/recognizes the syntax or surface name |
+| **checkable** | Kali can type-check/analyze code that uses it in the selected analysis context |
+| **buildable** | Kali can produce the documented artifact shape for it |
+| **executable** | Kali can execute it inside a Kali-hosted runtime/embedding context |
+| **deployable-through-host** | Kali can emit an artifact that expects the real host to provide the runtime surface (for example browser bundles) |
+| **policy/effect-modeled** | Kali's stable sandbox/effect contract can reason about the documented mediated subset of that surface |
+
+Interpretation rules:
+- higher rungs do not automatically imply lower or sibling rungs for every command/profile combination; the owning chapter plus the maturity matrix still decide availability
+- browser support is the clearest example: many browser APIs are **checkable** and browser bundles are **deployable-through-host** in Phase 1, while the same APIs are not yet **executable** in a standalone Kali-hosted browser runtime
+- syntax acceptance does not by itself imply runtime support; `eval`, `Function()`, and other dynamic surfaces may be **accepted** long before they are executable
+- policy/effect modeling is intentionally narrower than ambient API visibility; DOM/browser ambient typing may be broader than the stable schema-v1 mediated capability vocabulary
+
+Use this ladder when reading or editing any “support” claim in the spec set.
 
 ## Browser Ambient Typing vs Mediated Capability Split
 

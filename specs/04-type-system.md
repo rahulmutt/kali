@@ -167,6 +167,11 @@ Narrowing state is forked at branches and merged at join points (union of narrow
 
 ## Effect System
 
+Effect tracking follows the shared **effect-surface split** from [SPEC.md](../SPEC.md):
+- **Phase 1** may maintain conservative built-in effect facts internally for sandbox-first implementation, lowering, and diagnostics
+- the stable user-facing effect-report commands, explicit effect annotations, and policy-comparison workflow are Phase 2+
+- later experimental/user-defined effect syntax must not accidentally leak into the stable Phase-1/2 machine contract just because the compiler has an internal representation for it
+
 ### Effect Types
 
 Effect tracking is primarily a **capability summary system** for sandboxing. It is not required to expose full algebraic effects syntax in the initial implementation.
@@ -192,8 +197,13 @@ enum Effect {
 // FsAccess, NetAccess, ProcAccess, TimerAccess, RandomAccess, and ConsoleAccess
 // are sub-enums for finer-grained control and stable JSON names.
 // `Custom(...)` is reserved for the later experimental algebraic/user-defined effect surface;
-// it must not become part of the Phase 1-2 policy contract by accident.
+// it must not become part of the Phase 1-2 stable report/policy contract by accident.
 ```
+
+Normalization rule:
+- built-in effects are the only stable Phase-1/2 sandbox/report vocabulary
+- internal compiler data structures may still carry placeholders such as `Custom(...)` so later effect-system work does not require a second representation
+- machine-readable reports, schema-owned strings, and policy-checking semantics must continue to project that richer internal representation down to the documented built-in vocabulary until a later chapter explicitly broadens the contract
 
 ### Effect Inference
 - Effects are inferred bottom-up: leaf functions determine effects, callers accumulate

@@ -42,6 +42,24 @@ Canonical terminology simplification:
 - later analysis commands may reuse that same ambient typing layer and **package-resolution context** once their own maturity rows allow it
 - it does **not** mean a standalone embedded browser runtime, DOM emulation layer, or permission to expose non-browser globals during analysis/build
 
+## Command/API-Surface Snapshot
+
+This chapter describes API layering, but command availability still follows the shared **compatibility delivery ladder** from [SPEC.md](../SPEC.md) plus the maturity matrix.
+
+Phase-1 reading aid:
+
+| Command family | `deno` | `browser` | `node` |
+|---|---|---|---|
+| `check` | standalone/default analysis context | browser-targeted analysis context | gated |
+| `build` | standalone/default executable or base-library build | browser-targeted bundle only (`--bundle`) | gated |
+| `run`, `test` | standalone execution | not yet a standalone browser runtime/test contract | gated |
+| `effects` | Phase 2 reporting path once the command exists | same browser-targeted analysis context in Phase 2 | gated |
+
+Interpretation rules:
+- this is a command/API-surface snapshot only; the owning CLI shape still lives in [12 — CLI](12-cli.md), and exact phase labels still live in [19 — Feature Maturity](19-feature-maturity.md)
+- `browser` in this table means **checkable** / **deployable-through-host** support where noted, not a hidden standalone DOM runtime promise
+- `node` stays gated across these command families until the documented Node subset exists; package-compatibility work must not imply an undocumented partial `--api node` mode earlier
+
 ## API Layers
 
 ### Web baseline
