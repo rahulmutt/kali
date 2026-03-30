@@ -62,6 +62,7 @@ Naming rule:
 Canonical config-discovery rule:
 - unless a later spec adds an explicit `--config` override, commands discover the effective project config by searching the current working directory and then its ancestors for the nearest `kali.json`
 - if none exists, the command runs in the canonical **configless project mode** from [SPEC.md](../SPEC.md), with the current working directory as the effective project root
+- `kali init` is the one early-phase exception: it is **current-directory scoped** and does **not** reuse an ancestor `kali.json` as its target root
 - explicit CLI file arguments do **not** relocate that chosen config/root; they resolve relative to the current working directory, while config-owned relative paths continue to resolve relative to the directory containing the discovered `kali.json`
 - in schema v1, explicit file/path targets for file-accepting source commands (`run`, `build`, `check`, `effects`, `fmt`, `lint`, `test`) must stay inside that effective project root and must not point into a nested child project that has its own `kali.json`; crossing into another project root is invalid command usage (`E5008`)
 - explicit file/path targets bypass `include` / `exclude` discovery filtering once the user names them directly; those filters constrain project discovery, not the meaning of an already-explicit target
@@ -373,6 +374,9 @@ kali init --lib                            # Library project template
 ```
 
 Scaffold simplification rules:
+- `kali init` is **current-directory scoped** in schema v1: it scaffolds the current working directory and does not retarget itself to an ancestor project root discovered above it.
+- if the current working directory already contains `kali.json`, `kali init` fails with `E5008` instead of overwriting the existing project config.
+- if an ancestor directory contains `kali.json` but the current working directory does not, `kali init` may still create a nested child project rooted at the current working directory; later project discovery then treats that child as a separate project boundary.
 - `kali init` should generate the **minimal canonical** `kali.json` shape unless the selected template truly needs more.
 - For the default app template, that normally means a `kali.json` containing only `{ "schemaVersion": 1 }` plus the minimal entry source file.
 - The default scaffold should not pre-populate empty `dependencies`, `devDependencies`, `compat`, `sandbox`, or other placeholder sections just to advertise features.

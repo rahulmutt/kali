@@ -123,7 +123,9 @@ Interpretation rule:
 
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
-| `kali init` | Phase 1 MVP | Create the minimal canonical `kali.json` scaffold; for the default app template this should normally be just `{ "schemaVersion": 1 }` unless the chosen template needs more |
+| `kali init` | Phase 1 MVP | Create the minimal canonical `kali.json` scaffold **in the current working directory**; `init` is current-directory scoped and does not reuse an ancestor project's discovered root. For the default app template this should normally be just `{ "schemaVersion": 1 }` unless the chosen template needs more |
+| `kali init` when the current working directory already contains `kali.json` | Rejected by default | Fail with `E5008` instead of silently overwriting the existing project config |
+| `kali init` in a subdirectory whose ancestor already contains `kali.json` | Phase 1 MVP | Create a nested child project rooted at the current working directory when that directory itself does not already contain `kali.json`; later discovery treats that child root as a separate project boundary |
 | `kali init --sandbox kali.policy.json` | Rejected by default | `init` is sandbox-agnostic in early phases; scaffolding does not accept the runtime/build policy-attachment flag, so this is invalid usage (`E5008`) |
 | `kali init --lib` | Phase 1 MVP | Select a library-oriented project template only; it does not implicitly change the later `kali build` artifact mode |
 | `kali fmt` | Phase 1 MVP | Stable formatting command over the canonical project file set relevant to formatting, including declaration-only files |

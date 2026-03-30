@@ -464,6 +464,17 @@ The effective project root is:
 Relative paths in `kali.json` resolve relative to the directory containing that config.
 Ordinary CLI path arguments resolve relative to the current working directory.
 
+### `init` root-selection exception
+`kali init` is the one early-phase exception to ancestor-based config discovery.
+
+Interpretation rules:
+- `kali init` is **current-directory scoped**: it scaffolds a project rooted at the current working directory rather than reusing the nearest ancestor project's root
+- if the current working directory already contains `kali.json`, `kali init` fails with `E5008` instead of silently overwriting the existing project config
+- if an ancestor directory contains `kali.json` but the current working directory does not, `kali init` may create a **nested child project** rooted at the current working directory
+- once created, that child project follows the normal nested-project boundary rule from the discovery walk below
+
+This exception keeps project creation simple and avoids the surprising behavior where `kali init` invoked in a subdirectory would mutate an ancestor project.
+
 ### Configless project mode
 When no `kali.json` is discovered, Kali runs in a **configless project mode** rooted at the current working directory.
 

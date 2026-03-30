@@ -266,6 +266,7 @@ Use `E5008` for cases such as:
 - `kali fmt --sandbox kali.policy.json`
 - `kali lint --sandbox kali.policy.json`
 - `kali init --sandbox kali.policy.json`
+- `kali init` when the current working directory already contains `kali.json`
 - conflicting artifact-mode selectors such as `--bundle --lib`, `--bundle --capi`, or `--lib --component`
 - other command-local flag/arity combinations that the CLI contract rejects independently of feature maturity
 
