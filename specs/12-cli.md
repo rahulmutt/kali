@@ -652,7 +652,7 @@ Audit rule:
 - following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command follows the bundled **registry-analysis target contract (schema v1)** and is the context-free registry-metadata/security-audit path rather than a second host-context-aware effect/policy command
 - as the `package-audit` half of the shared **registry-analysis command split**, early `package-audit` follows **context-free registry analysis (schema v1)** and therefore does **not** inherit the shared **inherited analysis context** or accept package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
 - in schema v1 it is an **envelope-only JSON command**, not a **native-JSON command**; because of that envelope-only model, `kali package-audit --pretty <pkg>` without `--output json` is invalid command usage (`E5008`) rather than an implicit request for JSON mode
-- once available, audit findings are reported through the standard envelope `errors` / `warnings` arrays; a clean audit is therefore success with no findings rather than a separate payload object
+- once available, audit findings are reported through the standard envelope `errors` / `warnings` arrays; a clean audit is therefore `success: true` with `payload: null` and no findings rather than a separate payload object
 - follow the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md) for the exact envelope-only machine-output contract instead of restating it here
 
 ## Output Design
@@ -722,7 +722,7 @@ Rules:
 - top-level output uses the versioned command envelope
 - diagnostics reuse the shared diagnostic schema
 - command-specific structured data goes in `payload` when that command has a dedicated success-payload schema in schema v1
-- **envelope-only JSON commands** may still support `--output json` through the standard envelope alone; in that case `payload` should be omitted or `null` rather than filled with ad hoc prose/fields
+- **envelope-only JSON commands** may still support `--output json` through the standard envelope alone; in schema v1 they should emit `payload: null` rather than omitting the field or filling it with ad hoc prose/fields
 - the **envelope-only JSON command** model also does **not** permit commands to smuggle structured success metadata through `stdout` / `stderr`; those fields remain reserved for captured text streams
 - common optional top-level fields include `artifacts`, `stdout`, `stderr`, `timings`, and `exitCode`
 - for execution-style commands in JSON mode, guest/program stdout and stderr are captured into the envelope fields instead of being interleaved as raw terminal text

@@ -61,7 +61,7 @@ Used by commands that opt into `--output json`.
 ### Notes
 - `payload` holds command-specific structured data
 - `command` is intentionally an open-ended string so new CLI subcommands do not force a schema-version bump; stable built-in command names should mirror the CLI subcommand path in kebab-case (for example `check`, `build`, `package-effects`)
-- a command may support `--output json` with the canonical **envelope-only JSON command** model from [SPEC.md](../SPEC.md) even when schema v1 does **not** define a dedicated success-payload schema for it; in that case the envelope itself is the stable contract and `payload` should be omitted or `null` rather than populated with an ad hoc object
+- a command may support `--output json` with the canonical **envelope-only JSON command** model from [SPEC.md](../SPEC.md) even when schema v1 does **not** define a dedicated success-payload schema for it; in that case the envelope itself is the stable contract and schema-v1 producers should emit `payload: null` rather than omitting the field or populating it with an ad hoc object
 - envelope-only JSON command behavior is an output-format rule only; it does **not** promote a command to an earlier phase, create a second command surface, or bypass the command's ordinary maturity/context gates
 - schema v1's **native-JSON commands** are `kali effects` and `kali package-effects` once those commands are available in the current phase; they may emit their native JSON payloads by default, but with `--output json` they must be wrapped in this envelope
 - for those native-JSON commands, default success mode reserves stdout for the payload only; extra progress/status text must not be interleaved into stdout
@@ -501,10 +501,10 @@ As the context-free half of the shared **registry-analysis command split** from 
 
 The machine-readable contract is therefore the standard CLI command envelope only:
 - `--output json` emits the normal envelope
-- `payload` should be omitted or `null`
+- schema-v1 producers should emit `payload: null`
 - package/version/audit result metadata must not be invented as ad hoc top-level fields outside `payload`
 - audit findings, when the command later exists, are surfaced through the standard `errors` / `warnings` diagnostic arrays rather than through a second audit-specific payload object
-- a successful audit with no findings therefore appears as `success: true` with empty diagnostic arrays, not as a hidden result object in `payload`
+- a successful audit with no findings therefore appears as `success: true`, `payload: null`, and empty diagnostic arrays, not as a hidden result object in `payload`
 - `stdout` / `stderr` remain captured text-stream fields only; they are not hidden structured-result channels
 - `--pretty --output json` reformats that outer envelope only and does not create a second audit payload shape
 

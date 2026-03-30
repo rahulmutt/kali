@@ -1105,7 +1105,7 @@ Canonical schema-v1 example once that later command exists:
 
 Rules:
 - the stable machine-readable contract is the standard command envelope itself
-- `payload` should be omitted or `null` rather than populated with ad hoc command-specific objects
+- schema-v1 producers should emit `payload: null` for successful envelope-only JSON responses rather than omitting the field or populating it with ad hoc command-specific objects
 - `stdout` / `stderr` remain captured text-stream fields only, not hidden structured result channels
 - docs should reuse this term instead of restating a near-duplicate “envelope but no payload schema” rule per command
 
