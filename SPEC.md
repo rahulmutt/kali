@@ -40,6 +40,25 @@ Canonical examples of that normalization:
 - **“Must be embeddable / expose a C API / be easy to use as a Rust library”** → Phase 1 is library-first internally and already includes the base `kali build --lib` artifact, but the stable public Rust embedding API, stable WIT contract, C ABI, and component/C-embedding packaging are Phase 2 targets.
 - **“No GC”** → no tracing/background GC is allowed; deterministic ownership/reference-counted strategies are acceptable where the owning chapters permit them.
 
+## Bootstrap Traceability Matrix
+
+This table is the compact “where did each bootstrap ask land?” view.
+
+| Bootstrap theme | Normalized contract | Primary owner(s) |
+|---|---|---|
+| TypeScript + first-class JavaScript compilation | TS compatibility stays broad; `.js` is a first-class input with stronger bounded inference rather than a downgraded mode | [`specs/04-type-system.md`](./specs/04-type-system.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| Sandbox-first design + static effect reporting | Phase 1 ships runtime enforcement plus policy validation; stable `kali effects` and compile-time effect-vs-policy checks land in Phase 2 | [`specs/09-sandboxing.md`](./specs/09-sandboxing.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| AOT only / no JIT | Kali is language-level AOT only; runtime engine internals must not become part of the language contract | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/10-runtime.md`](./specs/10-runtime.md) |
+| No tracing GC / explicit memory decisions | No tracing/background GC; deterministic ownership, escape analysis, and layout decisions are the core memory story | [`specs/06-memory.md`](./specs/06-memory.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| Aggressive specialization + layout-aware IR | Optimization is staged: explicit layout-aware IR plus specialization deepen over Phases 2-3 without weakening auditability | [`specs/05-ir.md`](./specs/05-ir.md), [`specs/07-specialization.md`](./specs/07-specialization.md) |
+| Deno, Node, and browser support | Phase 1 is Deno-first with browser-targeted analysis/build; Node is phase-gated until Phase 3 | [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| npm / JSR / raw-URL package access | Early package support is broad for pure JS/TS packages that fit the linked-artifact model, but narrow for native/binary/bootstrap-heavy contracts | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| Embeddability, C API, WIT, Component Model | Phase 1 ships the base `--lib` artifact; the stable public Rust API, WIT contract, C ABI, and component packaging are Phase 2 targets | [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| AI-friendly CLI and diagnostics | Human output stays concise; JSON contracts, stable codes, and AI-friendly machine payloads are explicit product requirements | [`specs/12-cli.md`](./specs/12-cli.md), [`specs/15-errors.md`](./specs/15-errors.md), [`specs/18-schemas.md`](./specs/18-schemas.md) |
+| Lean-backed verification | Formal verification is phased and model-based rather than implied for the full implementation on day one | [`specs/17-verification.md`](./specs/17-verification.md) |
+
+Use this table as a navigation aid only. The owning chapters and the maturity matrix remain normative.
+
 If a bootstrap aspiration and a detailed chapter seem in tension, prefer:
 1. this normalization rule,
 2. the owning chapter,
@@ -445,7 +464,7 @@ Rules:
 - `payload` should be omitted or `null` rather than populated with ad hoc command-specific objects,
 - `stdout` / `stderr` fields are for captured text streams only, not hidden structured result channels.
 
-Canonical early example:
+Canonical schema-v1 example once that later command exists:
 - `package-audit --output json`
 
 Short form:

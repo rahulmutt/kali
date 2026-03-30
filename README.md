@@ -21,8 +21,9 @@ Quick Phase-1 non-goals:
 - no stable public embedding ABI or default WIT sidecars for plain `--lib` yet
 
 ## Specification
-- Top-level overview, canonical terminology, chapter ownership, chapter guide, artifact-mode matrix, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
+- Top-level overview, canonical terminology, chapter ownership, chapter guide, artifact-mode matrix, bootstrap traceability, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
 - Bootstrap-brief normalization rule: [SPEC.md#bootstrap-normalization-rule](./SPEC.md#bootstrap-normalization-rule)
+- Bootstrap traceability table: [SPEC.md#bootstrap-traceability-matrix](./SPEC.md#bootstrap-traceability-matrix)
 - Detailed chapter set: [`specs/`](./specs)
 - Single source of truth for gated command/profile availability: [specs/19-feature-maturity.md](./specs/19-feature-maturity.md)
 
