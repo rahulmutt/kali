@@ -709,19 +709,20 @@ Rules:
 
 ### Proof state split
 Kali keeps one explicit split between **being proof-ready** and **advertising proof-backed support**:
-- **proof-ready state** — `proofs/BOUNDARY.md` exists and truthfully declares the currently modeled proof boundary; during spec-first or pre-proof iteration this boundary may still be empty
+- **proof-ready state** — `proofs/BOUNDARY.md` exists and truthfully declares the currently modeled proof boundary
 - **proof-backed support state** — release notes or support claims actively rely on formal verification as shipped evidence for some Kali behavior
+- **placeholder proof-boundary manifest** — a published **proof-boundary manifest** whose modeled boundary is still empty; this is acceptable for the **proof-ready state**, but not for **proof-backed support state** claims
 
 Rules:
 - the repo should reach the **proof-ready state** early so it has one honest place to say “no mechanized coverage yet”
-- an empty published boundary is acceptable only while Kali is still avoiding proof-backed support claims
-- before a release or support summary advertises formal verification as a shipped capability, the boundary must be non-empty, name at least one concrete modeled subsystem, and list the claimed theorem/property inventory so the claim is genuinely proof-backed rather than merely proof-ready
-- proof CI follows the proof-CI trigger policy declared by the published boundary; when the boundary is empty, proof jobs are required only for `proofs/`, and once covered implementation/spec areas are named they also become proof-CI triggers
+- the **placeholder proof-boundary manifest** is acceptable only while Kali is still avoiding proof-backed support claims
+- before a release or support summary advertises formal verification as a shipped capability, the boundary must move beyond the **placeholder proof-boundary manifest**, name at least one concrete modeled subsystem, and list the claimed theorem/property inventory so the claim is genuinely proof-backed rather than merely proof-ready
+- proof CI follows the proof-CI trigger policy declared by the published boundary; while the manifest is still the **placeholder proof-boundary manifest**, proof jobs are required only for `proofs/`, and once covered implementation/spec areas are named they also become proof-CI triggers
 - that proof-CI trigger policy is normative even before concrete CI workflow files land; until automation is wired up, docs must describe it as policy rather than implying that proof jobs already run in hosted CI
-- chapters should reuse this term instead of re-explaining the same placeholder-versus-shipped-proof distinction in slightly different prose
+- chapters should reuse this term instead of re-explaining the same empty-boundary-versus-proof-backed distinction in slightly different prose
 
 Current repository note:
-- at the time of this spec revision, [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) still declares an empty modeled boundary, so the repository is **proof-ready** but not yet **proof-backed**
+- at the time of this spec revision, [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) is still the **placeholder proof-boundary manifest**, so the repository is **proof-ready** but not yet **proof-backed**
 - README summaries, release notes, and support tables should therefore link to that manifest instead of paraphrasing formal-verification status from memory
 
 ### Canonical browser-applicable mediated subset (schema v1)

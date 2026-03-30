@@ -1,9 +1,9 @@
 # Proof Boundary Manifest
 
-Status: placeholder for the initial published proof boundary. The repository currently claims **no mechanized proof coverage yet**, so this file documents the absence of proof claims explicitly.
+Status: **placeholder proof-boundary manifest** for the initial published proof boundary. The repository currently claims **no mechanized proof coverage yet**, so this file documents the absence of proof claims explicitly.
 
 Current repository-state note:
-- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): there is not yet a checked-in Lean proof tree under `proofs/`; this manifest is currently the only required verification artifact
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): there is not yet a checked-in Lean proof tree under `proofs/`; this **placeholder proof-boundary manifest** is currently the only required verification artifact
 - the illustrative Lean project layout in [specs/17-verification.md](../specs/17-verification.md) is therefore a target layout for when proofs land, not a claim about the current repository contents
 
 Canonical verification state (following the shared **proof state split** from [SPEC.md](../SPEC.md)):
@@ -11,8 +11,8 @@ Canonical verification state (following the shared **proof state split** from [S
 - **proof-backed**: no — the modeled boundary is still empty, so no release may market formal verification as a shipped Kali capability yet
 
 Release note:
-- this placeholder is acceptable while the project is still iterating on the spec/implementation because it satisfies the Phase-1 **proof-ready** baseline without overclaiming proof coverage
-- before any release markets formal verification as a shipped Kali capability, this manifest should be replaced with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed**
+- this **placeholder proof-boundary manifest** is acceptable while the project is still iterating on the spec/implementation because it satisfies the Phase-1 **proof-ready** baseline without overclaiming proof coverage
+- before any release markets formal verification as a shipped Kali capability, this manifest should move beyond the **placeholder proof-boundary manifest** state with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed**
 - the first non-placeholder scope should either mirror [specs/17-verification.md](../specs/17-verification.md)'s **First proof-backed milestone** section or point back to that section as the source of truth, so the chapter-level plan and this manifest do not drift apart
 
 Promotion checklist from proof-ready to proof-backed:

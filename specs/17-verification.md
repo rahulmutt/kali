@@ -27,7 +27,7 @@ Practical rule:
 - **proof-backed** is not itself a blanket Phase-1 requirement; it becomes required only for release/support wording that wants to market formal verification as shipped evidence rather than as future-facing process readiness
 
 Current repository status:
-- `proofs/BOUNDARY.md` is intentionally still the empty-boundary placeholder
+- `proofs/BOUNDARY.md` is intentionally still the shared **placeholder proof-boundary manifest** from [SPEC.md](../SPEC.md)
 - therefore the repository currently satisfies the **proof-ready** baseline but does **not** yet satisfy the **proof-backed** state
 - chapter summaries, release notes, and README copy should point to that manifest instead of implying concrete proof coverage from the existence of the Lean plan alone
 - [19 — Feature Maturity](19-feature-maturity.md) makes that current-state guardrail explicit too: proof-backed release/support claims while the published boundary is still empty are **Rejected by default**
@@ -74,17 +74,17 @@ That manifest should enumerate, at minimum:
 - which implementation/spec subsystems are expected to remain aligned with the model,
 - and the CI trigger rule for when the proof job must run.
 
-Before the first proofs land, the manifest may truthfully publish an **empty current proof boundary**. That is still preferable to omitting the file, because it prevents the rest of the spec from accidentally implying proof coverage that does not yet exist.
+Before the first proofs land, the manifest may truthfully stay in the shared **placeholder proof-boundary manifest** state from [SPEC.md](../SPEC.md). That is still preferable to omitting the file, because it prevents the rest of the spec from accidentally implying proof coverage that does not yet exist.
 
 Manifest simplification rule:
 - the manifest should state the current verification state explicitly using the same two-way split as this chapter: **proof-ready** vs **proof-backed**
 - release notes, README summaries, and maturity claims should cite that one manifest state instead of paraphrasing it differently in multiple places
 
 Follow the shared **proof state split** from [SPEC.md](../SPEC.md):
-- an empty manifest is acceptable during spec-first iteration and early implementation bootstrapping because it still preserves the **proof-ready** state
+- the **placeholder proof-boundary manifest** is acceptable during spec-first iteration and early implementation bootstrapping because it still preserves the **proof-ready** state
 - it is **not** enough for a release to market Kali as already formally verified in Phase 1
-- any Phase-1 release note or support claim that leans on formal verification should first replace the empty boundary with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed** rather than merely proof-ready
-- while the published proof boundary is empty, proof CI is required only for changes under `proofs/`; that still satisfies the Phase-1 **proof-ready** baseline because the proof-CI trigger policy is explicit and honest about the empty modeled subset
+- any Phase-1 release note or support claim that leans on formal verification should first replace the **placeholder proof-boundary manifest** with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed** rather than merely proof-ready
+- while the published proof boundary is still the **placeholder proof-boundary manifest**, proof CI is required only for changes under `proofs/`; that still satisfies the Phase-1 **proof-ready** baseline because the proof-CI trigger policy is explicit and honest about the empty modeled subset
 - once the manifest names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas
 - until concrete CI workflow files are actually present, that trigger rule is still the repository's normative proof-CI policy rather than evidence that hosted proof automation already exists
 - release notes and support wording should describe that proof state plainly instead of implying that a placeholder manifest already proves part of the implementation
