@@ -149,6 +149,17 @@ The semantic context that materially affects static analysis results:
 
 Build mode affects compile effort and optimization behavior, but for early effect/package-analysis contracts the main semantic analysis context is the trio above unless an owning chapter says otherwise.
 
+### Effective command context
+The fully merged invocation context that a command validates and executes against:
+1. built-in defaults,
+2. discovered `kali.json`,
+3. explicit CLI flags.
+
+Rules:
+- validation runs against this merged result rather than against only the literal CLI spelling,
+- config-derived values trigger the same gating and contradiction checks as explicit flags,
+- commands must not silently fall back from an unsupported effective value just because the user omitted the matching flag.
+
 ### Direct-input command
 A command that requires exactly one explicit primary source input in early phases:
 - `run`
@@ -504,6 +515,38 @@ Several early package workflows intentionally take only a registry **identity**,
 - `kali package-audit jsr:@std/path`
 
 The command then applies the package chapter's stable-release selection rules. This keeps early CLI/package flows deterministic and simple.
+
+## Registry Package Identifier
+
+The canonical schema-v1 spelling for a registry package target. Examples:
+- npm: `lodash`, `@types/node`
+- JSR: `jsr:@std/path`
+
+This term is used consistently across:
+- `kali install`
+- `kali package-effects`
+- `kali package-audit`
+- manifest keys under `dependencies` / `devDependencies`
+
+## Stable-Release Selection Rule (schema v1)
+
+When a schema-v1 workflow accepts an **identity-only registry target**, Kali resolves exactly one concrete version using this rule:
+- select the latest non-yanked stable published release for that registry package identifier,
+- do not silently choose a prerelease,
+- do not infer a different version from ambient project install state unless an owning chapter later adds an explicit lock-aware/version-aware mode,
+- if no acceptable stable release exists, fail with the canonical `E5001` path.
+
+This rule keeps early install and single-package analysis flows deterministic and project-independent.
+
+## Registry-Analysis Project-Independence Rule
+
+For `package-effects` and `package-audit` in schema v1:
+- version selection follows the **stable-release selection rule (schema v1)**,
+- current-project manifest/lock/install state does not pick a different version,
+- commands may use the shared **registry-analysis cache**,
+- commands must not mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`.
+
+`package-effects` may still inherit its **analysis context** from the effective command context; this rule is about dependency state and version selection, not about ambient analysis semantics.
 
 ## Effective npm-Scriptable Install Work
 

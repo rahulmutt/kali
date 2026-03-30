@@ -442,30 +442,29 @@ kali package-audit --output json lodash     # Standard command envelope only unt
 Argument-kind simplification:
 - `kali package-effects <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - `kali package-audit <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
-- explicit package arguments for those commands must use canonical **registry-package identifiers** (`lodash`, `@scope/name`, `jsr:@std/path`)
+- explicit package arguments for those commands must use the canonical **registry package identifier** spelling from [SPEC.md](../SPEC.md) (`lodash`, `@scope/name`, `jsr:@std/path`)
 - early schema-v1 package-analysis commands take the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
-- to keep registry analysis deterministic and independent from **project dependency state** in schema v1, they use the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1)
+- version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md)
 - `kali package-effects` records the resolved version in its machine-readable payload, while early `package-audit` follows the same version-selection rule but does **not** promise command-specific machine-readable version metadata until a dedicated audit payload schema exists
-- they therefore do **not** consult the current project's manifest or lockfile to choose a different version in early phases; any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly
-- this project-independence is about dependency state and version selection; `package-effects` may still inherit its analysis context from the effective config/defaults as documented elsewhere
+- any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly
+- this project-independence is about dependency state and version selection; `package-effects` may still inherit its analysis context from the **effective command context** as documented elsewhere
 - any non-registry target is rejected for these commands in early phases, including raw URLs and local file paths, instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
 - raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
 
 Isolation rule:
-- package-analysis commands may use the shared **registry-analysis cache** from [SPEC.md](../SPEC.md)
-- they must **not** mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
+- follow the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md)
 - promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
 
 Because `kali package-effects` is a Phase 2 target and depends on the shared effect-report pipeline, it should stay clearly unavailable or explicitly experimental until that pipeline lands rather than returning a partial bespoke format.
 
 Canonical output simplification:
 - `kali package-effects <pkg>` should reuse the same effect vocabulary and `dynamicReasons` contract as `kali effects`
-- in schema v1, the analyzed package root is selected by the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1), not from an ambient project-installed copy
+- in schema v1, the analyzed package root is selected by the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md), not from an ambient project-installed copy
 - the native payload adds only package-specific metadata (see [specs/18-schemas.md](18-schemas.md)) instead of inventing a second unrelated effect schema
 - the nested `report.entryPoints` field should identify the package-analysis logical root with the same canonical registry identifier spelling the user targeted (`lodash`, `jsr:@std/path`) rather than an opaque tarball URL, extracted cache path, or internal package ID
 - the nested shared effect report includes `analysisContext` so the chosen `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md)) travel with the report instead of living only in ambient CLI/config state
 - that nested `analysisContext` uses the schema field names `apiSurface`, `runtimeProfiles`, and `compatFeatures`, so downstream tools do not have to translate from ambient config terminology
-- in early phases, that package-analysis context is inherited from the effective `kali.json` / built-in defaults rather than from a second package-analysis-only analysis-context flag family (`--api`, runtime-profile flags, or `--compat`)
+- in early phases, that package-analysis context is inherited from the **effective command context** rather than from a second package-analysis-only analysis-context flag family (`--api`, runtime-profile flags, or `--compat`)
 - in configless project mode, that inherited context is therefore just the schema-v1 defaults (`apiSurface = deno`, `runtimeProfiles = []`, `compat.features = []`); choosing a non-default package-analysis context requires real config, not package-analysis-specific CLI escape hatches
 - because of that design, `kali package-effects` does **not** take package-analysis-specific analysis-context flags (`--api`, runtime-profile flags such as `--wasm-threads`, or `--compat`) or `--sandbox` in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds those flags
 - inherited analysis context follows the same axis-specific maturity gates as the rest of effect analysis rather than a package-only shadow rule set: browser inherits the browser-targeted analysis path, Node inherits the Node analysis gate, `wasm-threads` inherits the threaded-profile gate, and compat features such as `eval` inherit their own compatibility gate
@@ -480,7 +479,7 @@ Simplification rules:
 - keep it **single-package** in early phases so it does not overlap with a future whole-project dependency-health workflow
 - like `package-effects`, it does **not** take package-analysis-specific analysis-context flags (`--api`, runtime-profile flags such as `--wasm-threads`, or `--compat`) or `--sandbox` unless a later spec explicitly adds them
 - unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics, whether the command runs under discovered config or in configless project mode
-- in schema v1, its package target is selected by the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1) rather than from any ambient project lockfile selection
+- in schema v1, its package target is selected by the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md) rather than from any ambient project lockfile selection
 - if unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee
 - until a dedicated audit payload schema exists, `package-audit --output json` uses the standard command envelope alone and must not smuggle package/version metadata through ad hoc payload fields or by repurposing `stdout` / `stderr` as hidden result channels
 - once a dedicated machine-readable audit payload is added, it should still travel through the same standard `--output json` command envelope instead of inventing a second native bare-JSON format

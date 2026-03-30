@@ -462,21 +462,19 @@ Determinism rules:
 - Registry packages (npm/JSR) are materialized into `node_modules/`; raw URL imports are materialized under `.kali/cache/urls/`. Non-install commands consume whichever of those stores are relevant to the current project instead of assuming every project must have both.
 
 ### `kali package-effects <package>`
-Analyze effects of a registry package without consulting or mutating project install state for version selection.
+Analyze effects of a registry package under the canonical schema-v1 registry-analysis rules.
 
 Argument-kind rule:
 - `kali package-effects <package>` takes exactly one explicit package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
-- `<package>` uses the same canonical registry-package identifier grammar as `kali install`: normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names
+- `<package>` uses the canonical **registry package identifier** spelling from [SPEC.md](../SPEC.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names
 - early schema-v1 package analysis takes the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
-- to keep registry analysis deterministic and project-independent in schema v1, the command uses the shared stable-release rule from [specs/14-packages.md](14-packages.md) and records the resolved version in the output payload
-- if that identity-only package lookup finds the package but no acceptable non-yanked stable release, the command fails with `E5001` instead of silently selecting a prerelease or consulting ambient project dependency state
-- `package-effects` therefore does **not** consult the current project's manifest or lockfile to choose a different version in early phases; a later explicit version/range or lock-aware mode would need its own documented selector
+- version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md), and the resolved version is recorded in the output payload
+- if that identity-only package lookup finds the package but no acceptable non-yanked stable release, the command fails with `E5001`
 - any non-registry target is rejected for `package-effects` in early phases, including raw URLs and local file paths; this command analyzes registry packages only, while raw URL dependencies remain part of the project/import-graph workflow handled by `kali install` + `kali effects`
 
 Project-state rule:
-- `kali package-effects <package>` may use the shared **registry-analysis cache** from [SPEC.md](../SPEC.md) for fetched package metadata/tarballs
-- it must **not** mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
-- the command is still allowed to inherit its **analysis context** from the effective config/defaults; only dependency-state mutation and version selection stay project-independent in schema v1
+- follow the **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md)
+- `package-effects` may still inherit its analysis context from the **effective command context**
 - turning an analyzed package into a project dependency remains the job of `kali install`
 
 Status: **Phase 2 target**. Before then, if package-level analysis is unavailable, the CLI should report that clearly instead of returning partial ad hoc output.
@@ -490,9 +488,9 @@ By default, `kali package-effects` emits its native JSON payload directly, follo
 
 Analysis scope rule:
 - `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
-- in schema v1, that analysis starts from the package version selected by the shared stable-release rule from [specs/14-packages.md](14-packages.md) rather than from any already-installed project copy or lockfile entry
+- in schema v1, that analysis starts from the package version selected by the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md) rather than from any already-installed project copy or lockfile entry
 - the nested `report.entryPoints` field should name that package-analysis logical root using the same canonical registry identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than an opaque tarball URL or cache path
-- in early phases, that analysis context is inherited from the effective `kali.json` / default analysis settings rather than from package-specific `--api` / `--compat` flags
+- in early phases, that analysis context is inherited from the **effective command context** rather than from package-specific `--api` / `--compat` flags
 - because the command intentionally reuses inherited context instead of growing a second near-duplicate flag family, `kali package-effects` does **not** take package-analysis-specific analysis-context flags (`--api`, runtime-profile flags such as `--wasm-threads`, or `--compat`) or `--sandbox` in early phases; passing any of them is invalid command usage (`E5008`) unless a later spec explicitly adds that mode
 - inherited analysis context follows the same axis-specific maturity gates as the rest of effect analysis rather than a package-only shadow rule set: browser inherits the browser-targeted analysis path, Node inherits the Node analysis gate, `wasm-threads` inherits the threaded-profile gate, and compat features such as `eval` inherit their own compatibility gate
 - if inherited config/default analysis context selects a mode that is still unavailable for this command, `kali package-effects` should fail with `E5006` rather than silently analyzing under some other context
@@ -500,19 +498,19 @@ Analysis scope rule:
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
 
 ### `kali package-audit <package>`
-Security audit for one registry package.
+Security audit for one registry package under the canonical schema-v1 registry-analysis rules.
 
 Argument-kind rule:
 - `kali package-audit <package>` accepts exactly one explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
-- the package argument uses the canonical registry-package identifier grammar (normal npm package name or `jsr:`-prefixed JSR name)
+- the package argument uses the canonical **registry package identifier** spelling from [SPEC.md](../SPEC.md)
 - early schema-v1 package audit likewise takes the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
-- to keep audit behavior aligned with `package-effects` and avoid hidden project-state coupling, the command uses the shared stable-release rule from [specs/14-packages.md](14-packages.md); once Kali defines a dedicated audit payload schema, that payload should record the resolved version as result metadata rather than forcing it into the required input spelling
-- if that identity-only package lookup finds the package but no acceptable non-yanked stable release, the command fails with `E5001` instead of silently selecting a prerelease or inferring a version from ambient project state
+- version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md); once Kali defines a dedicated audit payload schema, that payload should record the resolved version as result metadata rather than forcing it into the required input spelling
+- if that identity-only package lookup finds the package but no acceptable non-yanked stable release, the command fails with `E5001`
 - any non-registry target is rejected for `package-audit` in early phases, including raw URLs and local file paths; package-audit is registry-package-oriented rather than a second raw-URL/local-path analysis path
 
 Project-state rule:
-- like `package-effects`, audit may use the shared **registry-analysis cache** from [SPEC.md](../SPEC.md) and must not silently install or materialize dependencies into the project's managed state
-- because schema-v1 package audit is registry-oriented rather than project-lock-oriented, it likewise resolves using the shared stable-release rule from [specs/14-packages.md](14-packages.md) instead of consulting the current project's manifest or lockfile by default
+- follow the same **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md)
+- unlike `package-effects`, early `package-audit` does not inherit semantic analysis context from the effective command context
 
 Status: **Later compatibility**. It should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
 ```bash

@@ -114,7 +114,7 @@ Clarification:
 
 Use `E5001` for module/package-not-found-or-no-selectable-stable-release problems such as:
 - a referenced module or package cannot be found under the documented resolution rules
-- an identity-only registry-target workflow (`kali install <pkg>`, `kali install --dev <pkg>`, `kali package-effects <pkg>`, `kali package-audit <pkg>`) found the package identity, but no non-yanked stable release exists to satisfy the schema-v1 stable-release selection rule
+- an identity-only registry-target workflow (`kali install <pkg>`, `kali install --dev <pkg>`, `kali package-effects <pkg>`, `kali package-audit <pkg>`) found the package identity, but no non-yanked stable release exists to satisfy the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md)
 
 Use `E5005` for resolution ambiguity problems such as:
 - two candidate package/module edges remaining equally valid after applying the documented resolution rules

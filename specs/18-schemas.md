@@ -465,8 +465,8 @@ Required fields:
 
 Interpretation rules:
 - `PackageCoordinate` is for **registry packages only**; schema v1 package-effect payloads do not use this shape for raw URLs or local paths
-- `package.version` is the concrete resolved version actually analyzed. The CLI package argument is versionless in schema v1; for `package-effects`, that resolved version follows the shared stable-release rule from [specs/14-packages.md](14-packages.md) unless a later spec adds an explicit version/range selector.
-- because schema-v1 registry analysis is intentionally project-independent, this resolved version is not inferred from the current project's manifest or lockfile.
+- `package.version` is the concrete resolved version actually analyzed. The CLI package argument is versionless in schema v1; for `package-effects`, that resolved version follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md) unless a later spec adds an explicit version/range selector.
+- because schema-v1 registry analysis follows the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md), this resolved version is not inferred from the current project's manifest or lockfile.
 - the emitted payload must still record the exact resolved version so caches, diffs, and audit trails stay reproducible.
 - the nested `report` is the same canonical effect-report payload shape documented above; tools should not expect a package-specific effect vocabulary
 - inside that nested report, `analysisContext` records which API surface / runtime-profile / compatibility-feature selection the package was analyzed under
