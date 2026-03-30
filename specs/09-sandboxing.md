@@ -261,9 +261,9 @@ Interpretation rule:
 - specs and diagnostics should therefore avoid wording that suggests browser deployment has the same runtime-enforcement guarantee as `kali run` / `kali test`
 
 Quick browser-targeted examples:
-- `kali check --sandbox web.policy.json` under an effective browser API surface is a static compatibility verdict only
-- `kali build --bundle --sandbox web.policy.json app.ts` under an effective browser API surface is a static compatibility verdict plus bundle generation only
-- explicit `--api browser` spellings and equivalent inherited-config forms are the same browser-targeted static-policy-validation path once the effective `apiSurface` resolves to `browser`
+- `kali check --api browser --sandbox web.policy.json` is a static compatibility verdict only
+- `kali build --bundle --api browser --sandbox web.policy.json app.ts` is a static compatibility verdict plus bundle generation only
+- equivalent inherited-config forms are the same browser-targeted static-policy-validation path once the effective `apiSurface` resolves to `browser`
 - a browser-targeted policy may constrain the documented browser-applicable capability-local keys such as `effects.network.maxConnections` or `effects.timer.maxActiveTimers`
 - the same browser-targeted policy must still satisfy the shared **canonical browser-targeted budget compatibility rule** from [SPEC.md](../SPEC.md)
 

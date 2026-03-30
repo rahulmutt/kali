@@ -41,6 +41,8 @@ A few bootstrap asks are intentionally narrower after normalization:
 - **“supports all features including eval”** means parser acceptance and later compatibility planning now, but executable `eval`/`Function()` only in the later gated compatibility path
 - **“static JSON effect reporting”** becomes two later public surfaces: reporting (`kali effects <file>`, `kali package-effects <package>`) and policy comparison (`check/build --sandbox`); when reporting ships, those reports are conservative upper bounds rather than exact execution traces, and `kali effects` stays a one-root reporting command rather than a hidden project-discovery or `run --dry` mode
 - **“embeddable / C API / WIT / Component Model”** means a Phase-1 base `--lib` artifact first, then the stable public embedding surface later, with plain public `--lib` + WIT as the canonical contract and `--capi` / `--component` as explicit projections over that same export surface
+- **“take inspiration from Boa / V8 / JavaScriptCore / SpiderMonkey / Deno / tsc / Porffor / Hermes / Bun”** means design references and benchmarking inputs, not architecture-copy promises, compatibility targets, or permission to pull in non-Rust implementation dependencies
+- **“latest ECMA-262 support”** means the latest **published** ECMA-262 edition for shipped parser/semantic support claims; draft or Stage-3+ proposal semantics stay explicitly gated instead of being implied by that headline
 
 ## Defined shape vs shipped availability
 Some command families and artifact flows are documented before they ship so names and JSON schemas do not drift.
