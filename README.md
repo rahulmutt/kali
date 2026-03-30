@@ -4,7 +4,7 @@ An ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembl
 Bootstrap-normalized headline assumptions:
 - `BOOTSTRAP.md` is the input brief; [SPEC.md](./SPEC.md) plus [specs/19-feature-maturity.md](./specs/19-feature-maturity.md) are the normative source of truth after normalization
 - hard invariants stay fixed across phases: **AOT only**, **pure Rust**, **no tracing/background GC**, **sandbox-first honesty**, and deterministic machine-readable contracts
-- Phase 1 is intentionally narrow: **Deno-first** standalone execution plus the exact **Phase-1 browser-targeted command set** (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including supported `--sandbox` variants); broader Node support comes later
+- Phase 1 is intentionally narrow: **Deno-first** standalone execution plus the exact **Phase-1 browser-targeted command set** (`kali check [files...]`, including the project-discovery no-file form and explicit-file-set forms, and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including supported `--sandbox` variants); broader Node support comes later
 - stronger-than-`tsc` inference is still bounded: Kali improves local/obvious inference, but keeps an explicit annotation-required boundary instead of open-ended whole-program search
 - latest ECMA-262 means the **latest published edition**; accepted grammar does not by itself imply same-phase runtime support for every feature
 - optimization vocabulary is intentionally small: `fast` is the bounded-cost default, while `release` and `release-advanced` are the canonical compile-budget expansion modes
@@ -46,7 +46,7 @@ Quick support-reading checklist:
 Use that order before treating any broad bootstrap aspiration as shipped support.
 
 Common early-phase misreads worth rejecting quickly:
-- `kali build --bundle --api browser main.ts` is a supported Phase-1 browser-targeted build shape; `kali run --api browser main.ts` is still later compatibility.
+- `kali build --bundle --api browser main.ts` is a supported Phase-1 browser-targeted build shape; `kali check --api browser` and `kali check --api browser main.ts` are both supported Phase-1 browser-targeted analysis shapes; `kali run --api browser main.ts` is still later compatibility.
 - `kali build --lib lib.ts` is a supported Phase-1 **base library artifact**; `kali build --capi lib.ts` and `kali build --component lib.ts` are still Phase-2 embedding flows.
 - `kali check --sandbox ...` and `kali build --sandbox ...` are Phase-1 policy-schema/config validation paths; they do **not** yet imply the Phase-2 inferred-effect-vs-policy comparison workflow.
 

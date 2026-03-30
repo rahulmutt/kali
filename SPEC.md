@@ -29,7 +29,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 |---|---|
 | Language/frontend | Latest published ECMA-262 grammar, TypeScript compatibility where implemented, and first-class `.js` compilation with bounded conservative inference |
 | Runtime model | AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
-| Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set** (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including their supported `--sandbox` variants); `--api node` remains gated |
+| Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set** (`kali check [files...]`, including the project-discovery no-file form and explicit-file-set forms, and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including their supported `--sandbox` variants); `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema validation for `check`/`build`, no project-executed policy code |
 | Effects | Internal effect bookkeeping may exist, but stable `kali effects` / `package-effects` reporting waits for Phase 2, and `package-audit` remains later compatibility |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
@@ -244,7 +244,7 @@ Use this checklist:
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - host/API-layering wording should reuse the **host-support staircase**
 - broad “support” wording across syntax/check/build/run/bundle/policy claims should reuse the **compatibility delivery ladder** and the **support-claim reading order** instead of implying one undifferentiated notion of support
-- early browser-command availability wording should reuse the **Phase-1 browser-targeted command set** when a chapter means `kali check [files...]` or `kali build --bundle <file>` under an effective browser API surface, including their supported `--sandbox` variants
+- early browser-command availability wording should reuse the **Phase-1 browser-targeted command set** when a chapter means `kali check [files...]` *(including the project-discovery no-file form and explicit-file-set forms)* or `kali build --bundle <file>` under an effective browser API surface, including their supported `--sandbox` variants
 - browser ambient-typing versus sandbox/effect wording should reuse the **Browser ambient typing vs mediated capability split**
 - browser command-shape versus browser-runtime availability wording should reuse the **canonical browser-surface rejection split**
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
@@ -381,6 +381,18 @@ An execution-capability profile orthogonal to API surface, for example:
 
 API surface and runtime profile must not be conflated.
 
+### Default standalone context (schema v1)
+The canonical no-overrides command context for early standalone-style commands:
+- `apiSurface = deno`
+- `buildMode = fast`
+- `runtimeProfiles = []`
+- `compat.features = []`
+
+Rules:
+- when docs show plain standalone-oriented examples such as `kali run main.ts`, `kali build main.ts`, or `kali test` without extra context, this is the implied starting point
+- only participating axes matter for a given command: for example `check` and Phase-2 `effects` still default their analysis context from this same baseline, but they do not suddenly become build-mode-sensitive just because `buildMode = fast` exists in the shared default tuple
+- inherited config or explicit CLI flags may still replace any participating axis; this term exists to avoid repeating the same four-field default tuple in multiple chapters
+
 ### Compile intent
 The host-visible meaning of one compilation request, orthogonal to API surface, build mode, and runtime profile:
 - **executable intent** — the compiled module/artifact is expected to have an executable entry contract
@@ -410,7 +422,7 @@ Rule:
 A command context whose effective `apiSurface` is `browser`.
 
 In Phase 1, this context is user-visible only through the shared **Phase-1 browser-targeted command set** (including equivalent inherited-config forms once the effective `apiSurface` resolves to `browser`):
-- `kali check [files...]` when the effective `apiSurface` is `browser`
+- `kali check [files...]` when the effective `apiSurface` is `browser` *(including both the project-discovery no-file form and explicit-file-set forms)*
 - `kali build --bundle <file>` when the effective `apiSurface` is `browser`
 
 Later commands may reuse the same browser-targeted context only when their own maturity rows explicitly open that path.
@@ -422,7 +434,7 @@ It does **not** mean:
 
 ### Phase-1 browser-targeted command set
 The exact Phase-1 command families that expose the browser-targeted context after effective-context resolution:
-- `kali check [files...]` when the effective `apiSurface` is `browser`
+- `kali check [files...]` when the effective `apiSurface` is `browser` *(including both the project-discovery no-file form and explicit-file-set forms)*
 - `kali build --bundle <file>` when the effective `apiSurface` is `browser`
 
 Included variants inside this same set:

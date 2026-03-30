@@ -190,13 +190,13 @@ Canonical resource-literal rule:
 - only `--max-spawned-processes` and `--max-threads` use the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): `0` is a valid explicit deny/tightening value for those counters because zero concurrent uses is meaningful there
 - schema v1 policy files keep the simpler integer fields `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, `resources.maxOpenFiles`, `resources.maxSpawnedProcesses`, and `resources.maxThreads`; CLI literals/counts are a convenience syntax over that same effective-limit model rather than a second resource schema
 
-Canonical default tuple:
+Default standalone context (schema v1):
 - `apiSurface = deno`
 - `buildMode = fast`
 - `runtimeProfiles = []`
 - `compat.features = []`
 
-This is the default interpretation of examples such as `kali run main.ts`, `kali test`, and `kali build main.ts` unless the example explicitly overrides a field. `kali check main.ts` and `kali effects main.ts` use the same default API surface selection.
+This reuses the canonical term from [SPEC.md](../SPEC.md). It is the default interpretation of examples such as `kali run main.ts`, `kali test`, and `kali build main.ts` unless the example explicitly overrides a field. `kali check main.ts` and `kali effects main.ts` reuse the same baseline only for the axes that actually participate in those commands.
 
 ## Commands
 
@@ -223,7 +223,7 @@ When a command or flag is rejected due to maturity/availability gating, the CLI 
 
 Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
-- follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): supported early browser shapes are the shared **Phase-1 browser-targeted command set** (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including their supported `--sandbox` variants); wrong browser build shapes use `E5008`, while browser execution/test requests use `E5006` until Kali defines a standalone browser runtime/test contract.
+- follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): supported early browser shapes are the shared **Phase-1 browser-targeted command set** (`kali check [files...]`, including both the project-discovery no-file form and explicit-file-set forms, and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including their supported `--sandbox` variants); wrong browser build shapes use `E5008`, while browser execution/test requests use `E5006` until Kali defines a standalone browser runtime/test contract.
 - `--api node` is phase-gated consistently across `check`, `effects`, `build`, `run`, and `test`; early phases reject it with `E5006` rather than exposing a partial Node surface.
 - explicit `--api ...` and inherited `compilerOptions.apiSurface = ...` are equivalent here too: plain `kali run main.ts` and plain `kali run --sandbox kali.policy.json main.ts` must validate against the same effective API surface and therefore hit the same Node/browser execution gates as their explicit `--api node` / `--api browser` forms instead of silently falling back to `deno`.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
