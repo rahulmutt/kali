@@ -13,6 +13,11 @@ Ownership rule:
 ### Supported Packages
 Kali supports registry packages (npm/JSR) that stay inside the shared **pure JS/TS package contract** from [SPEC.md](../SPEC.md).
 
+Phase-1 source-kind clarification:
+- supported **raw URL imports** are also first-class package/dependency inputs in Phase 1
+- they follow the same determinism goals (pinning, lockfile tracking, materialized cache state, and no hidden auto-repair by non-install commands) even though they are not registry packages
+- registry-package compatibility and raw-URL compatibility should therefore be read as two dependency-source lanes under one shared install/lock discipline, not as “packages are supported but raw URLs are merely ad hoc”
+
 Phase simplification:
 - **Phase 1 MVP**: packages that fit that contract, do not depend on unsupported Node core modules, fit the shared **linked-artifact model**, and whose runtime assumptions match either the Deno-oriented standalone surface or the shared **Phase-1 browser-targeted command set**.
 - **Phase 3 target**: broader compatibility for packages that expect the `node` API surface and additional Node built-ins.

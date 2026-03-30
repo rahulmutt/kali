@@ -10,6 +10,7 @@ Status-label spelling rule:
 Bootstrap-triage note:
 - this matrix classifies **phase contracts** and **phase-gated breadth targets** after the normalization rules in [SPEC.md](../SPEC.md)
 - it does **not** downgrade the top-level bootstrap **hard invariants** such as AOT-only compilation, the **Pure-Rust implementation contract**, no tracing/background GC, sandbox honesty, or deterministic machine contracts into optional toggles
+- it should also be read together with the top-level **Phase-1 Explicit Non-Goals** guardrail in [SPEC.md](../SPEC.md), so broad bootstrap aspirations do not get mistaken for shipped Phase-1 breadth
 - when a row about compatibility breadth appears to conflict with one of those hard invariants, the invariant wins and the breadth feature must be redesigned or remain gated
 
 ## Status Labels
@@ -277,8 +278,9 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - The Lean-backed verification story is phase-correct: one published **proof-boundary manifest** defines the currently modeled subset, proof-backed claims stay scoped to that manifest, and CI follows that manifest's activation rule without implying full-language verification.
 - If a Phase-1 release or support statement advertises formal verification as a shipped capability, the manifest must be non-placeholder and name at least one concrete modeled subsystem plus theorem/property inventory; an empty manifest is acceptable only while Kali is still avoiding proof-backed support claims.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
-- Package support works for the documented pure JS/TS, statically linkable subset.
+- Package support works for the documented pure JS/TS, statically linkable subset, and the same Phase-1 lock/materialization story also covers supported raw-URL dependency graphs.
 - Non-install commands still fail with `E5004` on missing/stale dependency state instead of auto-installing or auto-repairing project-managed dependency state.
+- Phase-1 support summaries and release notes stay honest about the top-level **Phase-1 Explicit Non-Goals** from [SPEC.md](../SPEC.md): no standalone browser runtime/test contract, no `--api node` support, no stable public effect-report commands yet, no stable public embedding ABI/WIT/C-ABI contract beyond the **base library artifact**, no runtime `eval` path, and no threaded runtime profile.
 
 ### Phase 2 exit criteria
 - MIR is the canonical ownership/layout IR.

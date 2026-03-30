@@ -32,11 +32,27 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set** (`check --api browser`, `build --bundle --api browser`, and their effective-context equivalents when `apiSurface = browser` is inherited from config); `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema validation for `check`/`build`, no project-executed policy code |
 | Effects | Internal effect bookkeeping may exist, but stable `kali effects` / `package-effects` reporting waits for Phase 2 |
-| Packaging | One lock/install state, registry support first for the **pure JS/TS package contract** across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
+| Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib`; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging |
+| Formal verification | Phase-1 published **proof-boundary manifest** plus proof-CI wiring over the currently modeled subset; no proof-backed support claims beyond that boundary |
 | Tooling | Deno-like CLI, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports |
 
 Use this table as a reading aid only. Detailed behavior still belongs to the owning chapters and the maturity matrix.
+
+## Phase-1 Explicit Non-Goals
+
+To keep the bootstrap brief ambitious without making the MVP blurry, Phase 1 should say these non-goals out loud:
+- no standalone `run --api browser` or `test --api browser` runtime contract yet;
+- no supported `--api node` command path yet;
+- no stable public `kali effects` / `kali package-effects` workflow yet;
+- no stable public embedding ABI/WIT/C-ABI contract yet beyond the Phase-1 **base library artifact**;
+- no executable project-local sandbox policy code;
+- no runtime `eval` / `Function()` compatibility path yet;
+- no threaded runtime profile yet.
+
+Rule:
+- Phase-1 examples may still mention these later command/profile shapes to define stable CLI/schema vocabulary,
+- but Phase-1 support summaries, release notes, and tests must not imply they are already shipped.
 
 ## Recommended Phase-1 Implementation Order
 
