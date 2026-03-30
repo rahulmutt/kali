@@ -21,7 +21,8 @@ End-to-end tests in `tests/`:
 - Source file → compile → check errors
 - Plain `.js` source → check/build/run across representative inference tiers → confirm the shared **first-class JavaScript compilation** contract: precise local inference when cheap, conservative `unknown`/union/dynamic fallbacks when needed, and no silent invention of fresh `any`
 - Source file → effects analysis → check effect-report JSON output and the one-root explicit-input contract for `kali effects <file>` *(Phase 2 target; this belongs to the shared **public effect-report surface** from [SPEC.md](../SPEC.md), so earlier phases should assert that the command is unavailable or explicitly experimental even if internal effect bookkeeping tests already exist)*
-- Source file + policy → sandbox validation → check result *(Phase 1 MVP for runtime enforcement + policy-file/config validation; Phase 2 target for inferred effect-vs-policy validation too)*
+- Source file + policy → `kali run --sandbox` / `kali test --sandbox` → check runtime enforcement result *(Phase 1 MVP runtime-enforcement owner)*
+- Source graph + policy → `kali check --sandbox` / shipped `kali build --sandbox` paths → check static policy-schema/config validation result *(Phase 1 MVP static-policy-validation owner; Phase 2 target adds inferred effect-vs-policy rejection on those same command paths rather than a second dry-run workflow)*
 - Test source set → `kali test [files...]` / `kali test --filter ...` → correct discovery-vs-explicit-file selection behavior, stable post-selection filtering, and expected invalid-entrypoint rejection for declaration-only test inputs
 - Library source → `kali build --lib` → export-oriented **base library artifact** + deterministic artifact metadata *(Phase 1 MVP for the base library artifact; the stable public embedding surface remains a Phase 2 target)*
 - Browser-targeted source → the shared **Phase-1 browser-targeted command set** → expected diagnostics/type success for `check` and emitted artifact + smoke execution in a real browser harness for `build --bundle`, including equivalent inherited-config forms and supported `--sandbox` variants where applicable
@@ -34,8 +35,8 @@ To keep tests from accidentally widening support claims, the repository should t
 - **Internal-only machinery** (for example Phase-1 effect bookkeeping) should be tested through unit/integration helpers without being mislabeled as the stable public CLI/API surface.
 
 Practical shortcut:
-- `run` / `test` sandbox enforcement, `check` / `build --sandbox` policy validation, the **Phase-1 browser-targeted command set**, and `build --lib` including `build --lib --sandbox` need positive Phase-1 coverage.
-- `kali effects` / `kali package-effects`, inferred-effect-vs-policy rejection, stable public embedding flows (`--capi`, `--component`, stable public `--lib` + WIT), and proof-backed release claims stay negative/gated until their owning phase opens.
+- `run` / `test` sandbox enforcement, `check` / shipped `build --sandbox` static policy validation, the **Phase-1 browser-targeted command set**, and `build --lib` including `build --lib --sandbox` need positive Phase-1 coverage.
+- `kali effects` / `kali package-effects`, inferred-effect-vs-policy rejection on `check/build --sandbox`, stable public embedding flows (`--capi`, `--component`, stable public `--lib` + WIT), and proof-backed release claims stay negative/gated until their owning phase opens.
 
 ### Conformance Test Suites
 

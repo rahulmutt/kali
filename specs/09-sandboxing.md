@@ -31,9 +31,9 @@ Bootstrap-reading shortcut:
 - `effects` / `package-effects`, **once those reporting commands exist**, are the **reporting** owner and therefore do **not** become policy-comparison commands just because they talk about effects
 
 Practical reading rule:
-- Phase 1 ships only the first two owners (runtime enforcement plus static policy validation)
-- for the static-validation owner, the shipped Phase-1 build paths are exactly: default executable build, `build --lib`, and browser-targeted `build --bundle`
-- the reporting owner is part of the later Phase-2 **public effect-report surface**
+- Phase 1 ships only the **runtime-enforcement** and **static policy-validation** owners
+- for the static-policy-validation owner, the shipped Phase-1 build paths are exactly: default executable build, `build --lib`, and browser-targeted `build --bundle`
+- the reporting owner stays part of the later Phase-2 **public effect-report surface** and remains an explicit `kali effects` / `kali package-effects` workflow rather than a dry-run variant of `run` or `test`
 - `package-audit` remains outside all three because it is the separate context-free registry-analysis/security-audit workflow
 
 This keeps the bootstrap's sandbox/effect goals aligned with one small command split instead of encouraging parallel dry-run or audit-style command families.
