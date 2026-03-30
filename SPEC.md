@@ -114,6 +114,16 @@ The stable schema-v1 capability vocabulary shared across effects and sandbox pol
 
 This is the stable capability vocabulary, **not** a claim that every command/profile/API surface enables every capability.
 
+### Kali-hosted execution budgets
+The schema-v1 cross-cutting `resources.*` limits used for Kali-controlled execution environments, such as:
+- memory
+- CPU time
+- open files
+- spawned processes
+- threads
+
+These budgets are part of the Kali-hosted runtime/embedding contract. They are not, by themselves, a promise that the same enforcement exists for deployed browser bundles.
+
 ### Analysis context
 The semantic context that materially affects static analysis results:
 - `apiSurface`
@@ -221,11 +231,19 @@ Examples:
 For browser-targeted contexts:
 - `--sandbox` validates static compatibility against the documented **Kali-mediated capability subset**,
 - it does not promise Kali-controlled post-deployment sandbox enforcement inside an arbitrary real browser host,
-- cross-cutting `resources.*` budgets that would imply post-deployment CPU/memory/file/process/thread enforcement are outside the early browser guarantee and must be rejected where the schema chapter says so.
+- cross-cutting `resources.*` budgets are interpreted as **Kali-hosted execution budgets** and therefore sit outside the early browser deployment guarantee.
+
+### Canonical Browser-Targeted Budget Compatibility Rule
+
+Schema v1 uses one exact browser-targeted budget rule everywhere:
+- `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles` are rejected whenever present,
+- `resources.maxSpawnedProcesses` and `resources.maxThreads` reject positive values,
+- capability-local `effects.*` limits remain valid only within the browser-applicable part of the documented **Kali-mediated capability subset**.
 
 Short form:
 - **Kali-hosted execution** → runtime enforcement
 - **browser-targeted analysis/build** → static compatibility only
+- **Kali-hosted execution budgets** (`resources.*`) do not carry over to deployed browser bundles in early phases
 
 ## Artifact-Mode Matrix
 
