@@ -84,6 +84,10 @@ It is intentionally narrower than the full command/profile matrix below:
 
 Use this summary to avoid broad bootstrap overreads, then drop to the canonical matrix below for exact command/context rows.
 
+Browser-build simplification note:
+- `--bundle` is the browser-only executable packaging path in schema v1, not a generic multi-artifact build switch
+- therefore `kali build --bundle --api node ...` stays an `E5008` command-shape contradiction rather than an early Node build lane, and `kali build --lib --api browser ...` stays an `E5008` browser-library contradiction rather than a hidden browser embedding path
+
 Phase-1 sandbox-behavior reading aid:
 
 | Command family | Phase 1 `--sandbox` meaning |

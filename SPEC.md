@@ -513,7 +513,9 @@ Quick reading-aid examples:
 | plain `kali check main.ts` under inherited `compilerOptions.apiSurface = browser` | same supported browser-targeted analysis |
 | `kali build --bundle --api browser main.ts` | supported browser-targeted bundle build |
 | plain `kali build --bundle main.ts` under inherited `compilerOptions.apiSurface = browser` | same supported browser-targeted bundle build |
+| `kali build --bundle --api node main.ts` | contradictory non-browser bundle shape (`E5008`); `--bundle` is the browser-only executable packaging path, not an early Node build mode |
 | `kali build --api browser main.ts` | wrong browser build shape (`E5008`) until a non-bundle browser build mode exists |
+| `kali build --lib --api browser lib.ts` | contradictory browser-library build shape (`E5008`); browser mode is Phase-1 `check` + `build --bundle`, not a library artifact mode |
 | `kali run --api browser main.ts` / `kali test --api browser` | unavailable browser runtime/test contract (`E5006`) |
 
 Rules:
