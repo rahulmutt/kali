@@ -382,11 +382,13 @@ Scaffold simplification rules:
 - if the current working directory already contains `kali.json`, `kali init` fails with `E5008` instead of overwriting the existing project config.
 - if an ancestor directory contains `kali.json` but the current working directory does not, `kali init` may still create a nested child project rooted at the current working directory; later project discovery then treats that child as a separate project boundary.
 - `kali init` should generate the **minimal canonical** `kali.json` shape unless the selected template truly needs more.
-- For the default app template, that normally means a `kali.json` containing only `{ "schemaVersion": 1 }` plus the minimal entry source file.
+- For the default app template, that normally means a `kali.json` containing only `{ "schemaVersion": 1 }` plus `main.ts`.
+- For the library template, that normally means the same minimal `kali.json` plus `lib.ts`.
 - The default scaffold should not pre-populate empty `dependencies`, `devDependencies`, `compat`, `sandbox`, or other placeholder sections just to advertise features.
 - `kali init --lib` may add library-oriented source/layout hints, but it should still reuse the same canonical config naming (`apiSurface`, `buildMode`, `runtimeProfiles`) instead of inventing template-specific aliases.
 - `kali init --lib` selects a **project template**, not an implicit default for the later `kali build --lib` artifact selector; template choice and build artifact mode remain separate knobs.
-- `kali init` should also create only the smallest source/layout skeleton needed for the chosen template (for example `main.ts` for the default app template or `mod.ts`/`lib.ts` for a library template) instead of emitting multiple unused example files.
+- `kali init` should also create only the smallest source/layout skeleton needed for the chosen template (for example `main.ts` for the default app template or `lib.ts` for the library template) instead of emitting multiple unused example files.
+- follow the canonical scaffold filename convention from [SPEC.md](../SPEC.md): `main.ts` for the default app template and `lib.ts` for the library template, unless a later template spec explicitly opts into a different filename.
 - Dependency state is still created by `kali install`, not by `kali init`.
 
 ### `kali install [target]`
@@ -586,7 +588,8 @@ Optional metadata field:
 
 Omission/default rule for minimal configs:
 - `kali init` should emit only the smallest canonical shape needed for the chosen template.
-- For the default app template, that usually means just `{"schemaVersion": 1}`.
+- For the default app template, that usually means just `{"schemaVersion": 1}` on disk plus `main.ts` in the source tree.
+- For the library template, that usually means the same minimal config plus `lib.ts`.
 - Omitted fields inherit documented schema/CLI defaults rather than creating placeholder sections.
 - In schema v1, omitted `compilerOptions` means all compiler-option defaults apply.
 - In schema v1, omitted `compilerOptions.strict` means the default strict-checking bundle is enabled; its canonical semantics are defined in [specs/04-type-system.md](04-type-system.md).

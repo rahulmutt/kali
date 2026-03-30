@@ -439,6 +439,16 @@ This section exists to keep the bootstrap requirement of efficient JavaScript co
 
 ## Canonical Source-File Sets
 
+### Canonical scaffold entry filenames
+To keep `kali init`, build examples, embedding examples, and docs aligned, schema v1 uses one small default filename convention for generated templates:
+- default app template entry file: `main.ts`
+- library template entry file: `lib.ts`
+
+Interpretation rules:
+- these are scaffold defaults, not magical filenames used for command inference
+- direct-input commands still require explicit inputs and must not guess `main.ts` or `lib.ts`
+- alternative filenames remain valid user choices after scaffolding; the convention only avoids template/documentation drift
+
 ### Executable/analyzable source set
 These files can be used as runtime entrypoints and as build/effect primary source inputs:
 - `.ts`
