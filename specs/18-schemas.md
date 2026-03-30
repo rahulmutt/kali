@@ -503,6 +503,8 @@ The machine-readable contract is therefore the standard CLI command envelope onl
 - `--output json` emits the normal envelope
 - `payload` should be omitted or `null`
 - package/version/audit result metadata must not be invented as ad hoc top-level fields outside `payload`
+- audit findings, when the command later exists, are surfaced through the standard `errors` / `warnings` diagnostic arrays rather than through a second audit-specific payload object
+- a successful audit with no findings therefore appears as `success: true` with empty diagnostic arrays, not as a hidden result object in `payload`
 - `stdout` / `stderr` remain captured text-stream fields only; they are not hidden structured-result channels
 - `--pretty --output json` reformats that outer envelope only and does not create a second audit payload shape
 
@@ -616,6 +618,7 @@ Interpretation rules:
 - `compilerOptions.apiSurface` is the canonical config name for the host API family; CLI uses `--api`
 - command/context participation follows the canonical table in [SPEC.md](../SPEC.md): `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `effects` / `build` / `run` / `test`, and the inherited analysis context used by `package-effects`, but schema v1 does **not** imply separate per-surface lockfiles or install trees for the same manifest/import graph
 - because early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md), inherited `compilerOptions.apiSurface`, `compilerOptions.buildMode`, `compilerOptions.runtimeProfiles`, `compat.features`, and top-level `sandbox` do **not** change its semantics
+- when `package-audit` later exists, schema v1 still reports findings through the standard envelope diagnostic arrays rather than through a dedicated success payload; config does not unlock a second audit-result object
 - `compilerOptions.buildMode` is one of `fast`, `release`, or `release-advanced`
 - `compilerOptions.runtimeProfiles` is an array of semantic runtime-profile names; in schema v1 it is usually empty because later profiles such as `wasm-threads` are still phase-gated
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates

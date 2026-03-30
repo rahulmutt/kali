@@ -533,7 +533,7 @@ Registry-analysis summary:
 | Command | Availability | Context model | JSON success shape |
 |---|---|---|---|
 | `package-effects` | Phase 2 target | The analysis-context-aware half of the shared **registry-analysis command split**: inherits the shared **inherited analysis context** | Schema-v1 **native-JSON command**; standard command envelope with `--output json` |
-| `package-audit` | Later compatibility | The context-free half of the shared **registry-analysis command split**: follows **context-free registry analysis (schema v1)** | Schema-v1 **envelope-only JSON command**; see [specs/18-schemas.md](18-schemas.md)'s **Package Audit JSON Output (schema v1)** section |
+| `package-audit` | Later compatibility | The context-free half of the shared **registry-analysis command split**: follows **context-free registry analysis (schema v1)** | Schema-v1 **envelope-only JSON command**; audit findings flow through ordinary diagnostics rather than a dedicated success payload; see [specs/18-schemas.md](18-schemas.md)'s **Package Audit JSON Output (schema v1)** section |
 
 Shared target-selection rule:
 - both commands follow the bundled **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md)
@@ -568,6 +568,7 @@ Package-audit rule:
 - early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md): whether the command runs under discovered config or in configless project mode, inherited host-analysis/runtime config does not gate or rewrite its semantics
 - if unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee
 - schema v1 intentionally keeps `package-audit` on the simpler **envelope-only JSON command** path; `package-audit --output json` follows the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md)
+- under that rule, later audit findings are reported via standard diagnostics (`errors` / `warnings`) rather than a second audit-result payload shape, which keeps registry audit aligned with the normal CLI machine contract
 - if a later phase adds richer machine-readable audit details, they should still remain inside that same standard command-envelope path rather than creating a second native bare-JSON audit mode
 
 This integrates with the effect system — know what a dependency does before you use it.

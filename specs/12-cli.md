@@ -652,6 +652,7 @@ Audit rule:
 - following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command follows the bundled **registry-analysis target contract (schema v1)** and is the context-free registry-metadata/security-audit path rather than a second host-context-aware effect/policy command
 - as the `package-audit` half of the shared **registry-analysis command split**, early `package-audit` follows **context-free registry analysis (schema v1)** and therefore does **not** inherit the shared **inherited analysis context** or accept package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
 - in schema v1 it is an **envelope-only JSON command**, not a **native-JSON command**; because of that envelope-only model, `kali package-audit --pretty <pkg>` without `--output json` is invalid command usage (`E5008`) rather than an implicit request for JSON mode
+- once available, audit findings are reported through the standard envelope `errors` / `warnings` arrays; a clean audit is therefore success with no findings rather than a separate payload object
 - follow the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md) for the exact envelope-only machine-output contract instead of restating it here
 
 ## Output Design
@@ -693,7 +694,7 @@ Schema-v1 JSON-mode quick matrix:
 | Command family | Default success mode | `--output json` behavior | Plain `--pretty` without `--output json` |
 |---|---|---|---|
 | `effects`, `package-effects` | native JSON payload | wrap that payload in the standard command envelope | valid once the command exists, because success output is already JSON |
-| `package-audit` | non-JSON text/human mode | emit the standard command envelope only (**envelope-only JSON**) | invalid usage (`E5008`) |
+| `package-audit` | non-JSON text/human mode; findings still map to ordinary diagnostics | emit the standard command envelope only (**envelope-only JSON**) | invalid usage (`E5008`) |
 | all other commands with JSON support | non-JSON text/human mode | emit the standard command envelope | invalid usage (`E5008`) |
 
 Quiet-mode interaction rule:
