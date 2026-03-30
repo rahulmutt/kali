@@ -832,6 +832,23 @@ When a new feature is added, prefer:
 - extending existing artifact/effect/policy schemas rather than inventing parallel formats
 - phase-gated honesty over partial compatibility claims
 
+## Cross-Spec Source-of-Truth Order
+
+To keep future spec edits simple and avoid near-duplicate rules drifting apart, Kali uses one ownership order for overlapping topics:
+1. **`SPEC.md`** owns shared terminology, global constraints, command-family vocabulary, and top-level tie-break rules.
+2. **[19 — Feature Maturity](./specs/19-feature-maturity.md)** owns phase/status promises and the canonical `E5006` gating boundary.
+3. **[18 — Schemas](./specs/18-schemas.md)** owns machine-readable JSON shapes and stable field names.
+4. **[12 — CLI](./specs/12-cli.md)** owns user-facing flag spelling, command syntax, and invocation examples.
+5. **Subsystem chapters** own implementation detail for their domain so long as they do not contradict the four layers above.
+
+Interpretation rules:
+- if two chapters appear to disagree about **when** a feature exists, the maturity matrix wins
+- if two chapters appear to disagree about a **JSON field name or payload shape**, the schemas chapter wins
+- if two chapters appear to disagree about a **flag/command spelling**, the CLI chapter wins
+- subsystem chapters should prefer linking back to these source-of-truth layers instead of restating large command/schema matrices in slightly different prose
+
+This ordering is a simplification rule for future edits as much as a reading guide for the current spec set.
+
 ## Spec Map
 
 - [01 — Architecture](./specs/01-architecture.md)

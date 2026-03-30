@@ -115,6 +115,12 @@ Policy-structure simplification rule:
 - schema v1 intentionally has **no** executable predicate/hook fields inside `kali.policy.json`; later programmable checks, if added, belong only to the embedding-oriented host-predicate extension described below
 - specs should not duplicate the same numeric limit in both places under different names
 
+Policy-decision layering rule:
+- declarative policy data is always the first gate
+- a later host-registered predicate may only make an already-allowed operation **more restrictive**, never widen a declarative deny into an allow
+- this keeps project-visible policy review simple: `kali.policy.json` remains the portable baseline contract, while host predicates are a trusted embedding-specific narrowing layer
+- CLI/config diagnostics should therefore continue to explain denials in terms of the declarative capability/resource model first, with predicate-specific detail as optional host-side context rather than as a replacement for the base policy model
+
 ### Policy Validation (Compile-Time)
 Compile-time policy handling is intentionally split to keep Phase 1 smaller and less ambiguous:
 
@@ -280,8 +286,10 @@ If policy predicates are added, they must:
 - Be registered by the embedding host rather than loaded from arbitrary project code by default
 - Be `pure` (no effects) and deterministic under the documented capability model
 - Run synchronously before the guarded operation
+- Be a **narrowing layer only**: they may reject an operation that the declarative policy would otherwise allow, but they must not authorize an operation that the declarative policy, command profile, or feature-maturity gate already rejected
 - Return `false` → `SandboxViolationError`
 - Receive a small canonical operation-context object rather than raw host handles, so policy checks stay auditable and portable
+- Use one canonical operation vocabulary aligned with the schema-v1 capability model (`effects.*` / `resources.*`) instead of inventing a second unrelated predicate namespace
 
 ## Algebraic Effect Handlers (Advanced, Experimental)
 

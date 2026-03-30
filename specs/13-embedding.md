@@ -83,6 +83,38 @@ while let Some(step) = runner.next_step()? {
 }
 ```
 
+## Host-Registered Sandbox Predicates (Later Compatibility)
+
+This section is the embedding-side counterpart to the later programmable-policy path described in [09 — Sandboxing & Effects](./09-sandboxing.md) and staged in [19 — Feature Maturity](./19-feature-maturity.md).
+
+Canonical contract:
+- project policy files stay declarative JSON data
+- any programmable policy logic is registered by a **trusted embedding host**, not loaded from project source code
+- predicates are a **narrowing layer only**: they may deny operations that the declarative policy would otherwise allow, but they must not widen a declarative deny, bypass a feature-maturity gate, or conjure an unavailable API surface/capability into existence
+- predicate inputs should use the same capability vocabulary as the schema-v1 sandbox/effect model so embedding logic does not invent a second policy language
+
+Illustrative Rust shape:
+```rust
+use kali_embed::{OperationContext, PredicateDecision};
+
+runtime.register_sandbox_predicate(
+    "effects.network.fetch",
+    |ctx: &OperationContext| -> PredicateDecision {
+        if ctx.resource == "https://api.internal.example" {
+            PredicateDecision::Allow
+        } else {
+            PredicateDecision::Deny("host policy rejected fetch target".into())
+        }
+    },
+)?;
+```
+
+Design rules:
+- predicates should be synchronous, deterministic, and side-effect free
+- they should receive normalized metadata such as the capability kind, target path/URL, and requested operation shape rather than raw host handles
+- denial reporting should preserve the canonical Kali diagnostic/error contract, with host-specific predicate detail attached as additional context rather than as an alternate error format
+- if this feature is unavailable in the current phase, embedding APIs should fail with the same canonical availability path (`E5006`) used elsewhere rather than silently registering dead callbacks
+
 ## C API (`kali_capi`)
 
 Exposes Kali functionality via a stable C ABI for embedding from any language.

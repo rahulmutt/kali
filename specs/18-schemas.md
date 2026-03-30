@@ -659,6 +659,7 @@ Canonical filename: `kali.policy.json`
 - `$schema: string` is an optional, recognized top-level metadata field for editor/tooling integration; it is not treated as an unknown extension field
 - Unknown fields are rejected at every documented nesting level to keep policy evaluation deterministic and auditable
 - schema v1 intentionally has no `predicates`, `hooks`, `script`, or other executable-policy fields; those names are rejected as unknown fields rather than treated as soft extensions
+- if later host-registered predicate support exists, it is an embedding-side runtime registration contract rather than an extension point inside `kali.policy.json`
 - Policy booleans mean fully allowed or fully denied for that capability
 - Pattern-bearing fields (`read`, `write`, `fetch`, `connect`, `listen`) are allowlists when they take arrays
 - Numeric limit fields inside `effects.*` constrain an otherwise-allowed capability locally; for example `timer.schedule: true` with `maxActiveTimers: 32` allows timers but caps timer concurrency
