@@ -54,7 +54,7 @@ Phase-1 reading aid:
 | Command family | `deno` | `browser` | `node` |
 |---|---|---|---|
 | `check` | standalone/default analysis context, including the supported static `--sandbox` validation variants and equivalent inherited-config forms | browser-targeted analysis context, including the supported static `--sandbox` validation variants and equivalent inherited-config forms | gated |
-| `build` | standalone/default executable build plus the supported static `--sandbox` validation variants, and the Phase-1 base-library build for exact-version/internal consumers in the shared **Deno-oriented build context (schema v1)** including `build --lib --sandbox` | browser-targeted bundle only (`--bundle`), with supported `--sandbox` variants and equivalent inherited-config forms remaining static validation only | gated |
+| `build` | standalone/default executable build plus the supported static `--sandbox` validation variants, and the Phase-1 base-library build for **exact-version consumers** in the shared **Deno-oriented build context (schema v1)** including `build --lib --sandbox` | browser-targeted bundle only (`--bundle`), with supported `--sandbox` variants and equivalent inherited-config forms remaining static validation only | gated |
 | `run`, `test` | standalone execution | not yet a standalone browser runtime/test contract | gated |
 | later analysis/reporting commands that participate in semantic analysis context (`effects`, inherited-context `package-effects`, and later browser-context analysis reuse) | later Deno-oriented analysis/reporting reuse once those commands exist | the same browser-targeted analysis context is reused later without widening the exact **Phase-1 browser-targeted command set** | gated |
 

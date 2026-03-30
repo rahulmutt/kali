@@ -136,6 +136,7 @@ To keep install, lock, and materialization rules simple, Kali distinguishes only
 Clarification:
 - path/local alias rewrites in `kali.json#imports` are not a third dependency source kind; they are source-organization rewrites that do not create separate external lock/materialization state.
 - schema v1 `kali.json#imports` stays in the URL/path-rewrite lane: it may target raw URLs or path/local rewrites, but it must not alias registry packages or canonical registry identifiers such as `jsr:@std/path`.
+- raw URL dependencies are first-class project dependency inputs, but they are **not** registry-analysis targets: schema-v1 `package-effects` / `package-audit` accept only canonical registry package identifiers, while raw-URL questions stay on the ordinary source-graph commands and the shared install/lock workflow.
 
 ### Canonical Registry Package Identifiers
 

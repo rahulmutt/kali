@@ -1,7 +1,7 @@
 # 13 — Embedding, WIT & C ABI
 
 Embedding is intentionally phased and follows the shared **embedding-stability split** from [SPEC.md](../SPEC.md):
-- **Phase 1 MVP**: Kali should have a reusable library-first internal decomposition, and `kali build --lib` is the early **base library artifact** shape. That artifact is intentionally useful for exported-module workflows immediately, but only for exact-version/internal consumers; it does **not** yet count as the stable **public embedding surface**. In particular, Phase 1 does not yet promise a stable Rust API, a stable public **WIT-first** library contract, a stable C ABI, a cross-version host-loading guarantee, or default WIT sidecars for plain `--lib`.
+- **Phase 1 MVP**: Kali should have a reusable library-first internal decomposition, and `kali build --lib` is the early **base library artifact** shape. That artifact is intentionally useful for exported-module workflows immediately, but only for **exact-version consumers** as defined in [SPEC.md](../SPEC.md); it does **not** yet count as the stable **public embedding surface**. In particular, Phase 1 does not yet promise a stable Rust API, a stable public **WIT-first** library contract, a stable C ABI, a cross-version host-loading guarantee, or default WIT sidecars for plain `--lib`.
 - **Phase 2 target**: the **public embedding surface** arrives — the Rust embedding API, the stable public **WIT-first** library contract for `kali build --lib`, the C ABI, and `kali build --capi` / `kali build --component` artifact flows.
 
 Current repository-state note:
@@ -16,7 +16,7 @@ Reading rule:
 Practical simplification:
 - there is one exported-library contract, not three unrelated embedding semantics
 - Phase 1 plain `--lib` establishes that contract as the **base library artifact**
-- in Phase 1, that base artifact is intentionally useful for internal/exact-toolchain workflows, but it is **not** yet a stable cross-version public ABI contract
+- in Phase 1, that base artifact is intentionally useful for **exact-version consumers**, but it is **not** yet a stable cross-version public ABI contract
 - Phase 2 promotes the same `--lib` path into the canonical stable **WIT-first** public library contract and adds WIT by default
 - `--capi` and `--component` then project/package that same **statically known export surface** for specific host interop workflows rather than redefining what the library exports mean
 - Component Model packaging remains an explicit `--component` choice rather than an implicit default for every public library build; the default stable public library path is plain `--lib` + WIT
@@ -36,8 +36,8 @@ What plain `kali build --lib` means in Phase 1:
 | Phase-1 property | Guaranteed? | Meaning |
 |---|---|---|
 | Export-oriented WASM output | Yes | Emit one linked `wasm-module` (`role: primary-library`) whose host-facing surface comes from the **statically known export surface** |
-| Useful for internal/exact-toolchain workflows | Yes | Internal crates, exact-version integrations, and unstable experiments may consume it immediately |
-| Stable cross-version host-loading contract | No | Phase 1 support stops at exact-version/internal consumers; cross-version/public loading belongs to the later **public embedding surface** |
+| Useful for **exact-version consumers** | Yes | Hosts/integrations that pin the exact producing Kali toolchain may consume it immediately |
+| Stable cross-version host-loading contract | No | Phase 1 support stops at **exact-version consumers**; cross-version/public loading belongs to the later **public embedding surface** |
 | Stable public Rust API | No | That is part of the later **public embedding surface** |
 | Stable public WIT contract / default WIT sidecar | No | Plain `--lib` adds default `wit` output only once the Phase-2 public library contract is frozen |
 | Stable C ABI / `--capi` flow | No | That is Phase 2 work |
@@ -58,7 +58,7 @@ Header-split simplification:
 - it does **not** emit the stable host ABI header `kali.h`; that header ships with the host-side `kali_capi` library
 
 Phase-1 practical-use rule for `--lib`:
-- the Phase-1 **base library artifact** may be consumed by internal crates, exact-toolchain workflows, or explicitly unstable experiments
+- the Phase-1 **base library artifact** may be consumed by **exact-version consumers** or explicitly unstable experiments
 - it must **not** be described as a stable cross-version/public embedding ABI until the Phase-2 public library/WIT contract is frozen
 - docs and tooling should therefore avoid implying that plain Phase-1 `--lib` output alone guarantees long-term host-call compatibility across Kali releases
 
@@ -75,7 +75,7 @@ Compact Phase-1 support-claim table for library-oriented builds:
 |---|---|
 | Can Kali build one export-oriented library artifact? | Yes: `kali build --lib <file>` emits the **base library artifact** when Kali can determine a **statically known export surface**. |
 | Can that same build take `--sandbox`? | Yes: `kali build --lib --sandbox <policy> <file>` stays the same library-oriented build plus static policy-schema/config validation. |
-| Does that make plain `--lib` a stable public embedding ABI? | No: Phase 1 support stops at exact-version/internal consumers. |
+| Does that make plain `--lib` a stable public embedding ABI? | No: Phase 1 support stops at **exact-version consumers**. |
 | Does plain `--lib` emit WIT by default? | No: default WIT emission belongs to the Phase-2 stable public **WIT-first** contract. |
 | Do browser or early Node library builds become supported through embedding wording? | No: browser/library combinations stay command-shape contradictions, and Node/library combinations stay on the ordinary Node maturity gate. |
 
