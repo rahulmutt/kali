@@ -252,7 +252,7 @@ Canonical artifact-mode rule:
 - `--bundle` preserves executable compile intent while changing the host adapter/output contract to the browser-targeted bundle path
 - explicit `--api browser` and inherited `compilerOptions.apiSurface = browser` are equivalent here: `kali build --bundle main.ts` is the supported browser-bundle shortcut when the effective API surface is already `browser`, and the same command is `E5008` only when the effective API surface is still non-browser
 - `--lib`, `--capi`, and `--component` switch the build to library compile intent
-- `kali init --lib` chooses a project template only; it does not change the later default artifact mode of `kali build`
+- reuse the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): `kali init --lib` chooses a project template only and does not change the later default artifact mode of `kali build`
 - WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag
 - these **library-oriented artifact modes** derive their host-facing surface from a **statically known export surface** as defined in [SPEC.md](../SPEC.md); they do not implicitly expose arbitrary internal declarations just because the source file was compiled in `--lib`/`--capi`/`--component` mode
 - if Kali cannot prove that export surface, the library-oriented build fails with `E5011` instead of synthesizing reflection-based exports
@@ -415,7 +415,7 @@ Scaffold simplification rules:
 - For the library template, that normally means the same minimal `kali.json` plus `lib.ts`.
 - The default scaffold should not pre-populate empty `dependencies`, `devDependencies`, `compat`, `sandbox`, or other placeholder sections just to advertise features.
 - `kali init --lib` may add library-oriented source/layout hints, but it should still reuse the same canonical config naming (`apiSurface`, `buildMode`, `runtimeProfiles`) instead of inventing template-specific aliases.
-- `kali init --lib` selects a **project template**, not an implicit default for the later `kali build --lib` artifact selector; template choice and build artifact mode remain separate knobs.
+- reuse the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): `kali init --lib` selects a project template only and does not imply later `kali build --lib`
 - `kali init` should also create only the smallest source/layout skeleton needed for the chosen template (for example `main.ts` for the default app template or `lib.ts` for the library template) instead of emitting multiple unused example files.
 - follow the canonical scaffold filename convention from [SPEC.md](../SPEC.md): `main.ts` for the default app template and `lib.ts` for the library template, unless a later template spec explicitly opts into a different filename.
 - Dependency state is still created by `kali install`, not by `kali init`.
@@ -456,7 +456,7 @@ Argument-kind rules:
 - `--dev` is valid only with a **registry install target**; using `--dev` without an explicit registry target or pairing it with a raw URL (`kali install --dev https://...`) is rejected explicitly rather than inventing a second URL-specific manifest bucket
 - a **raw URL install target** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
 - in that same **configless install split**, an explicit raw-URL install may still create `kali.lock` and `.kali/cache/urls/` state at the effective project root, but it must not create a placeholder `kali.json` by itself
-- an ad hoc raw-URL install is therefore a **staging/pin workflow**; if the project does not reference that URL from source or `kali.json#imports`, a later plain `kali install` may prune it again
+- explicit raw-URL installs follow the shared **raw-URL install staging/pin workflow** from [SPEC.md](../SPEC.md): they stage shared lock/cache state without creating a durable manifest entry, and a later plain `kali install` may prune that URL again if the project still does not reference it
 - plain `kali install` consumes the current manifest/import graph and reconciles lock + materialized state for the dependency source kinds actually used by the project
 - in that same **configless install split**, plain `kali install` is a no-op success when the effective project root contributes no manifest/import/source dependency inputs, and it must not create a placeholder `kali.json` just because the command ran
 - because `kali install` normally has no explicit primary source input, source-level raw URL imports are discovered from the canonical project-discovery result (filtered by `include` / `exclude` when present, otherwise by the default project-discovery rules from [SPEC.md](../SPEC.md))

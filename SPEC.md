@@ -182,7 +182,9 @@ Use this checklist:
 - Phase-1 internal effect machinery versus Phase-2 stable effect-report-command wording should reuse the **effect-surface split** instead of creating new near-duplicate “effects exist internally but not publicly yet” prose in each chapter
 - verification-boundary wording should reuse the **proof-boundary manifest** term instead of scattering slightly different “modeled subset”, “proof kernel”, or “published proof scope” prose across verification, testing, and maturity chapters
 - scaffold-template filename wording should reuse the **canonical scaffold filename convention** term instead of reintroducing a second duplicate section with the same `main.ts` / `lib.ts` defaults
+- `kali init --lib` wording should reuse the **template selection vs build artifact mode split** instead of restating “library template does not imply later `build --lib`” in multiple chapters
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
+- explicit raw-URL install wording should reuse the **raw-URL install staging/pin workflow** term instead of re-explaining “lock/cache yes, durable declaration no” in each package/install section
 - package-loading and whole-graph-linking wording should reuse the **linked-artifact model** term instead of restating slightly different “single linked payload”, “already-linked graph”, or “no runtime-linked WASM modules” prose
 - package-compatibility wording should reuse the **pure JS/TS package contract** and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different native-addon / downloaded-binary exclusion lists
 - source-file-kind wording should reuse **canonical source-file classes**, **executable/analyzable source-file class**, and **canonical project file set** instead of repeating long extension lists in every command chapter
@@ -1333,6 +1335,16 @@ Rules:
 - later template specs may introduce other filenames only explicitly; they should not silently redefine the schema-v1 defaults
 - docs should reference this convention instead of repeating the two filenames ad hoc in multiple chapters
 
+## Template selection vs build artifact mode split
+Kali keeps one explicit separation between **project scaffolding** and **later artifact selection**:
+- `kali init --lib` selects the library-oriented scaffold template only
+- later `kali build --lib` selects the library-oriented build artifact mode / compile intent
+
+Rules:
+- choosing the library template does **not** implicitly change the default artifact mode for later `kali build` invocations
+- docs should reuse this term instead of repeating near-duplicate prose such as “library template only”, “does not imply `build --lib`”, or “template choice and artifact mode remain separate knobs”
+- this split exists so scaffolding can stay minimal while build commands keep their own explicit artifact selection contract
+
 ## Canonical Dependency-Management Mutability Rule
 
 In early phases, `kali install` is the only command that mutates project-managed dependency state.
@@ -1354,6 +1366,19 @@ Consequences:
 - one `kali.lock` plus one materialized package tree serves both the default Deno-oriented standalone path and the supported browser-targeted analysis/build paths in Phase 1,
 - changing `apiSurface` between `deno` and a supported browser-targeted context changes package entry selection, not whether the project is considered installed,
 - separate per-surface installs/lockfiles must not be implied unless a later lockfile revision explicitly introduces that complexity.
+
+## Raw-URL install staging/pin workflow
+The canonical meaning of an explicit raw-URL install such as `kali install https://example.com/mod.ts`.
+
+It means:
+- pin/materialize that exact raw URL into the shared lock/cache state,
+- do **not** create a new manifest dependency section or durable manifest entry,
+- keep durable raw-URL ownership in source imports or `kali.json#imports`,
+- allow a later plain `kali install` to prune that staged URL again if the project's current declaration graph does not actually reference it.
+
+Rules:
+- docs should reuse this term instead of re-explaining “staging/pin convenience”, “lock/cache only”, or “not a second declaration channel” in each install/package chapter
+- this workflow is intentionally narrower than registry-package install: explicit registry-package adds mutate the manifest, while explicit raw-URL installs only stage shared lock/cache state
 
 ## Install-Time Declaration Graph
 

@@ -153,7 +153,7 @@ Interpretation rule:
 | `kali init` when the current working directory already contains `kali.json` | Rejected by default | Fail with `E5008` instead of silently overwriting the existing project config |
 | `kali init` in a subdirectory whose ancestor already contains `kali.json` | Phase 1 MVP | Create a nested child project rooted at the current working directory when that directory itself does not already contain `kali.json`; later discovery treats that child root as a separate project boundary |
 | `kali init --sandbox kali.policy.json` | Rejected by default | `init` is sandbox-agnostic in early phases; scaffolding does not accept the runtime/build policy-attachment flag, so this is invalid usage (`E5008`) |
-| `kali init --lib` | Phase 1 MVP | Select a library-oriented project template only; it does not implicitly change the later `kali build` artifact mode |
+| `kali init --lib` | Phase 1 MVP | Follows the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): selects a library-oriented scaffold template only and does not imply later `kali build --lib` |
 | `kali fmt` | Phase 1 MVP | Stable formatting command over the canonical project file set relevant to formatting, including declaration-only files |
 | `kali fmt --sandbox kali.policy.json` | Rejected by default | `fmt` is sandbox-agnostic in early phases; top-level config sandbox is ignored for it, and the CLI `--sandbox` flag is invalid usage (`E5008`) |
 | `kali lint` | Phase 1 MVP | Stable lint command with conservative autofix support over the canonical project file set, including declaration-only files |
