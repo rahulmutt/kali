@@ -80,10 +80,10 @@ To make the bootstrap brief easier to navigate, each detailed spec chapter owns 
 | [`02 — Lexer & Parser`](./specs/02-lexer-parser.md) | ECMAScript/TypeScript grammar acceptance and parser behavior | latest published ECMA-262 grammar, parse-vs-support boundary |
 | [`03 — AST`](./specs/03-ast.md) | source-level program representation and node ownership | frontend representation and analysis ergonomics |
 | [`04 — Type System`](./specs/04-type-system.md) | TS-superset typing, first-class JavaScript inference, effects, constraints | stronger-than-`tsc` typing, bounded HM-style inference, pragmatic Rust-like ergonomics |
-| [`05 — IR`](./specs/05-ir.md) | lowering stages and optimization-facing IR contracts | layout-aware IR design, explicit dynamic/deoptimized paths |
-| [`06 — Memory`](./specs/06-memory.md) | ownership classes, escape analysis, no-tracing-GC memory model | compile-time stack/heap/shared decisions, no GC |
-| [`07 — Specialization`](./specs/07-specialization.md) | generic/function/layout specialization rules and build-mode cost budgets | aggressive specialization with auditable compile-time cost |
-| [`08 — WASM Codegen`](./specs/08-wasm-codegen.md) | artifact shapes, code generation, host adapter outputs | fast AOT WebAssembly generation, bundle/lib/component artifact boundaries |
+| [`05 — Intermediate Representations`](./specs/05-ir.md) | lowering stages and optimization-facing IR contracts | layout-aware IR design, explicit dynamic/deoptimized paths |
+| [`06 — Memory Management`](./specs/06-memory.md) | ownership classes, escape analysis, no-tracing-GC memory model | compile-time stack/heap/shared decisions, no GC |
+| [`07 — Optimization & Specialization`](./specs/07-specialization.md) | generic/function/layout specialization rules and build-mode cost budgets | aggressive specialization with auditable compile-time cost |
+| [`08 — WebAssembly Code Generation`](./specs/08-wasm-codegen.md) | artifact shapes, code generation, host adapter outputs | fast AOT WebAssembly generation, bundle/lib/component artifact boundaries |
 | [`09 — Sandboxing & Effects`](./specs/09-sandboxing.md) | sandbox policy model, runtime enforcement, effect/policy workflow split | sandbox-first execution, static effect reporting roadmap, resource limits |
 | [`10 — Runtime`](./specs/10-runtime.md) | Kali-hosted runtime behavior and dynamic-compatibility execution boundaries | runtime model, engine choice, no language-level JIT, later `eval` execution path |
 | [`11 — Standard APIs`](./specs/11-standard-apis.md) | Deno/Web/Node API layering and host-surface delivery | Deno-first execution, browser-targeted analysis/build, later Node support |
