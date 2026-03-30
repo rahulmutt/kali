@@ -166,6 +166,7 @@ Use this checklist:
 - zero-versus-positive wording for `resources.maxSpawnedProcesses` / `resources.maxThreads` and their matching CLI caps should reuse the **feature-gated zero-capable execution budgets** term instead of restating the same `0`-is-valid / positive-is-gated rule in each chapter
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
 - library/export-oriented build wording should reuse the **compile intent**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
+- source-command versus package-command wording should reuse the **source-graph command** and **registry-analysis command** terms instead of re-listing the same command families ad hoc
 - single-package registry-analysis wording should reuse the **single-package registry-analysis command**, **registry-analysis context split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
 - JSON machine-output wording should reuse the canonical **native-JSON command**, **envelope-only JSON command**, and **JSON-producing mode** terms instead of restating near-duplicate output-mode rules
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
@@ -747,6 +748,22 @@ A command whose target root is always the current working directory rather than 
 - `init`
 
 In schema v1, `init` is the canonical exception to ordinary ancestor-based config discovery. It may create a nested child project inside an existing ancestor project as long as the current working directory itself does not already contain `kali.json`.
+
+### Source-graph command
+A command whose primary semantic input is a local source/import graph rooted in explicit source files or canonical project discovery.
+
+Canonical early examples:
+- `check`
+- `effects`
+- `build`
+- `run`
+- `test`
+
+Rules:
+- these commands own the explicit host/runtime-analysis flag family in schema v1 (`--api`, `--compat`, `--wasm-threads`),
+- they validate against the full **effective command context** for the axes that participate in that command,
+- they follow the project-root, explicit-path, and source-file-kind rules for ordinary source commands,
+- they are intentionally distinct from the package-oriented **registry-analysis commands**.
 
 ### Registry-analysis command
 A command that analyzes exactly one explicit registry package identity rather than a project graph in early phases:

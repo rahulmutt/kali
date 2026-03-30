@@ -111,7 +111,7 @@ Package-analysis flag/context simplification:
 - inherited-context maturity for `package-effects` follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md)
 - `buildMode` and `sandbox` remain non-semantic for `package-effects` in early phases
 - `kali package-audit` is a **Later compatibility** single-package registry tool and, once available, follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md)
-- practical shortcut: source-graph commands (`check`, `effects`, `build`, `run`, `test`) own the explicit `--api` / `--compat` / `--wasm-threads` flag family; registry-analysis commands do not. `package-effects` inherits its analysis context from config/defaults, and `package-audit` intentionally ignores that context in schema v1.
+- practical shortcut: the canonical **source-graph commands** from [SPEC.md](../SPEC.md) own the explicit `--api` / `--compat` / `--wasm-threads` flag family; registry-analysis commands do not. `package-effects` inherits its analysis context from config/defaults, and `package-audit` intentionally ignores that context in schema v1.
 - examples later in this chapter describe the canonical command shape/output contract for these registry-analysis commands, not an unconditional promise that they are already available in Phase 1
 
 Sandbox-flag clarification:
