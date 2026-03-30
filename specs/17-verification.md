@@ -30,6 +30,21 @@ Current repository note:
 - therefore the repository currently satisfies the **proof-ready** baseline but does **not** yet satisfy the **proof-backed** state
 - chapter summaries, release notes, and README copy should point to that manifest instead of implying concrete proof coverage from the existence of the Lean plan alone
 
+### First proof-backed milestone
+
+To keep the bootstrap's Lean requirement actionable instead of aspirational, the first non-placeholder proof boundary should be intentionally small and named up front.
+
+Recommended first proof-backed milestone:
+- one core typed/effectful calculus fragment with explicit syntax, typing, and small-step semantics;
+- progress + preservation for that fragment;
+- one conservative built-in effect-soundness theorem family over the sandbox-relevant capability subset;
+- one declarative sandbox-policy decision/enforcement theorem family for the same modeled capability subset;
+- one explicit covered-path inventory in `proofs/BOUNDARY.md` naming the Lean files plus the corresponding spec chapters / implementation areas those proofs are intended to constrain.
+
+Promotion rule:
+- the repository becomes **proof-backed** only when that milestone (or another explicitly documented equivalent) is actually listed in `proofs/BOUNDARY.md` with named theorem/property claims
+- until then, verification language in summaries should keep saying **proof-ready** rather than implying shipped mechanized coverage
+
 ## Phase-aligned proof scope
 
 | Phase | Verification focus |

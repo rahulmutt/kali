@@ -10,6 +10,12 @@ Release note:
 - this placeholder is acceptable while the project is still iterating on the spec/implementation because it satisfies the Phase-1 **proof-ready** baseline without overclaiming proof coverage
 - before any release markets formal verification as a shipped Kali capability, this manifest should be replaced with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed**
 
+Promotion checklist from proof-ready to proof-backed:
+- name at least one concrete modeled subsystem rather than leaving the boundary empty;
+- list the theorem/property inventory explicitly (for example progress, preservation, conservative effect soundness, sandbox-policy soundness);
+- name the covered implementation/spec paths that those proofs are intended to constrain;
+- update CI wiring so proof jobs trigger for those covered paths in addition to `proofs/`.
+
 This file is the canonical repository location for the **proof-boundary manifest** referenced by:
 - `SPEC.md`
 - `specs/17-verification.md`
@@ -20,7 +26,11 @@ Until Lean proofs land, this file should be kept explicit rather than omitted so
 
 ## Modeled boundary
 - No subsystem is yet claimed as mechanically proved in this repository.
-- Planned initial focus once proofs start: the core typed/effectful calculus plus the declarative sandbox-policy decision procedure.
+- Recommended first non-placeholder scope once proofs start:
+  - the core typed/effectful calculus fragment,
+  - progress + preservation for that fragment,
+  - conservative built-in effect-soundness theorems for the modeled capability subset,
+  - and the declarative sandbox-policy decision/enforcement theorem family for that same subset.
 
 ## Current activation state
 - The current proof boundary is **empty**.

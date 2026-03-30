@@ -296,6 +296,7 @@ kali build main.ts                         # → main.wasm (--fast mode, default
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue)
+kali build --bundle main.ts                # Same browser-bundle request once config/defaults already make the effective apiSurface `browser`
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
 kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early for builds either
@@ -310,6 +311,7 @@ kali build --component --api node lib.ts   # Phase 3 target: still gated by the 
 kali build --component --api browser lib.ts # Invalid usage (E5008) in early phases; browser mode remains the bundle-only browser-targeted path rather than a component artifact mode
 kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Build-time policy compatibility only; no automatic browser-runtime enforcement is implied after deployment
+kali build --bundle --sandbox kali.policy.json main.ts # Same browser-targeted static-policy-validation request once config/defaults already make the effective apiSurface `browser`
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
 ```
@@ -340,10 +342,13 @@ kali check types.d.ts                      # Validate a declaration-only file di
 kali check --api browser                   # Browser-targeted project-discovery analysis context
 kali check --api browser main.ts           # Browser-targeted analysis context for an explicit file set (no standalone DOM runtime implied)
 kali check --api browser src/a.ts src/b.ts # Same browser-targeted analysis context over an explicit multi-file set
+kali check                                 # Under inherited browser config, this is the same supported request as explicit `kali check --api browser`
+kali check main.ts                         # Under inherited browser config, this is the same supported request as explicit `kali check --api browser main.ts`
 kali check --api node                      # Phase 3 target: Node API surface is phase-gated for project-discovery checking too
 kali check --api node main.ts              # Phase 3 target: same Node analysis gate for an explicit file set
 kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation; Phase 2+: effect-vs-policy validation over the discovered project graph
 kali check --api browser --sandbox kali.policy.json # Same browser-targeted validation path over the discovered project graph
+kali check --sandbox kali.policy.json      # Under inherited browser config, the same browser-targeted static policy-validation request as explicit `kali check --api browser --sandbox ...`
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
 kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
 kali check --api browser --sandbox kali.policy.json src/a.ts src/b.ts # Same browser-targeted validation path over an explicit multi-file set
