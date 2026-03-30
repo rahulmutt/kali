@@ -17,7 +17,7 @@ Kali is an ahead-of-time TypeScript/JavaScript compiler and runtime targeting We
 - deterministic machine-readable tooling,
 - explicit memory/ownership decisions rather than tracing/background GC,
 - aggressive but auditable specialization,
-- embeddability through a Phase-1 base library artifact, with a Phase-2 public embedding surface: stable Rust embedding API plus stable public `--lib` + WIT, C ABI, and Component Model packaging.
+- embeddability through a Phase-1 base library artifact that is useful immediately for exact-version/internal consumers, with a Phase-2 public embedding surface: stable Rust embedding API plus stable public `--lib` + WIT, C ABI, and Component Model packaging.
 
 Kali aims for broad JavaScript/TypeScript compatibility over time, but the spec deliberately phases hard features instead of implying that every aspiration is part of the MVP.
 
@@ -34,7 +34,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Effects | Internal effect bookkeeping may exist in Phase 1; the Phase-2 stable public effect surface is intentionally split into a reporting half (`kali effects`, `kali package-effects`) and a policy-comparison half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`) |
 | Registry audit | `kali package-audit` is a separate context-free registry-analysis workflow and remains later compatibility |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
-| Embedding | Phase-1 **base library artifact** via `kali build --lib`; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging |
+| Embedding | Phase-1 **base library artifact** via `kali build --lib` for exact-version/internal consumers; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging |
 | Formal verification | Phase-1 **proof-ready** repository baseline: published **proof-boundary manifest** plus the matching proof-CI activation rule for the currently modeled subset; the modeled subset may still be empty while Kali is only **proof-ready**, and no proof-backed release/support claims may extend beyond the published boundary |
 | Tooling | Deno-inspired CLI workflow, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports |
 
@@ -1207,13 +1207,13 @@ Non-browser, export-oriented build modes:
 
 ### Embedding-stability split
 Kali uses one shared stability split for library-oriented outputs:
-- **base library artifact** — the Phase-1 `kali build --lib` output shape: export-oriented and useful immediately, but still the pre-stable Phase-1 half of the public embedding surface
+- **base library artifact** — the Phase-1 `kali build --lib` output shape: export-oriented and useful immediately for exact-version/internal consumers, but still the pre-stable Phase-1 half of the public embedding surface
 - **public embedding surface** — the Phase-2 stabilized public embedding story built on that same exported-library contract: the stable Rust embedding API plus the stable public library/WIT contract, stable C ABI, and Component Model packaging path
 - **public embedding artifact flows** — the artifact-producing part of that Phase-2 public embedding surface: stable public `--lib` + WIT, `--capi`, and `--component`
 
 Rule:
 - docs should reference this split instead of rephrasing it as “usable but not yet stable”, “public embedding contract”, “stable public library contract”, “library-first internally”, or “WIT/C ABI/component packaging lands later” in slightly different ways
-- Phase 1 shipping the **base library artifact** does **not** by itself imply the Phase-2 **public embedding surface**: no stable public Rust API, stable public library/WIT contract, stable C ABI, or component packaging yet
+- Phase 1 shipping the **base library artifact** does **not** by itself imply the Phase-2 **public embedding surface**: no stable public Rust API, stable public library/WIT contract, stable C ABI, cross-version host-loading guarantee, or component packaging yet
 - once Phase 2 promotes that path, plain public `--lib` is the canonical stable public library/WIT contract and emits WIT by default; `--capi` and `--component` are projections/wrappers over that same **statically known export surface** rather than alternate export semantics
 
 ### Host ABI header vs program-specific exports header

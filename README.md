@@ -13,7 +13,7 @@ Bootstrap-normalized headline assumptions:
 - the upstream project list in `BOOTSTRAP.md` is a **design-reference list**, not an architecture-copy or dependency promise
 - the language-inspiration list in `BOOTSTRAP.md` is also normalized: Haskell/Idris/Agda/Lean inform purity/effects/constraint design, but do not imply Phase-1 dependent types, totality checking, or proof-term workflows in ordinary Kali code
 - early runtime standardization is **wasmtime first**; alternative engines are later extensions
-- embedding is phased: Phase 1 ships a useful but unstable `kali build --lib` **base library artifact**; Phase 2 adds the stable **public embedding surface**: stable Rust embedding API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging
+- embedding is phased: Phase 1 ships a useful but unstable `kali build --lib` **base library artifact** for exact-version/internal consumers; Phase 2 adds the stable **public embedding surface**: stable Rust embedding API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging
 - effects are phased too: Phase 1 may use internal effect bookkeeping for sandboxing, while the stable Phase-2 public effect surface is split into a reporting half (`kali effects`, `kali package-effects`) and a policy-comparison half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`)
 - `kali package-audit` is intentionally separate from effect reporting: it is a later, context-free registry-analysis workflow rather than part of the sandbox/effect-report surface
 - verification has one explicit split: the Phase-1 baseline is a **proof-ready** repository state (published proof boundary + honest proof-CI activation rule), while **proof-backed** release/support claims are a stricter bar that require a non-empty boundary naming real modeled subsystems and theorem claims; until concrete CI workflow files land, that activation rule should be read as the repository's published proof-CI policy rather than as evidence that hosted proof automation already exists
@@ -33,7 +33,7 @@ Quick Phase-1 non-goals:
 - no stable user-facing `kali package-audit` workflow yet; that later command is intentionally separate from the effect-report surface
 - no `eval` / `Function()` support yet
 - no threaded runtime profile yet
-- no Phase-2 **public embedding surface** yet: no stable public Rust embedding API, no `--capi`, no `--component`, and no default WIT sidecars for plain `--lib`
+- no Phase-2 **public embedding surface** yet: no stable public Rust embedding API, no `--capi`, no `--component`, no default WIT sidecars for plain `--lib`, and no cross-version host-loading guarantee for the Phase-1 base library artifact
 
 Recommended Phase-1 implementation order:
 1. frontend + checking foundation
@@ -57,7 +57,7 @@ Use that order before treating any broad bootstrap aspiration as shipped support
 
 Common early-phase misreads worth rejecting quickly:
 - the whole **Phase-1 browser-targeted command set** is supported in Phase 1 — including explicit `--api browser` spellings, equivalent inherited-config forms, and the supported `--sandbox` variants — but `kali run --api browser main.ts` and `kali test --api browser` are still later compatibility.
-- `kali build --lib lib.ts` is a supported Phase-1 **base library artifact**; `kali build --lib --sandbox kali.policy.json lib.ts` is the same Phase-1 base-library build plus static policy validation, while `kali build --capi lib.ts` and `kali build --component lib.ts` are still Phase-2 embedding flows.
+- `kali build --lib lib.ts` is a supported Phase-1 **base library artifact** for exact-version/internal consumers; `kali build --lib --sandbox kali.policy.json lib.ts` is the same Phase-1 base-library build plus static policy validation, while `kali build --capi lib.ts` and `kali build --component lib.ts` are still Phase-2 embedding flows.
 - `kali check --sandbox ...` and `kali build --sandbox ...` are Phase-1 policy-schema/config validation paths only; on both commands, that sandbox attachment does **not** yet imply the Phase-2 compile/check-time inferred-effect-vs-policy validation workflow, and on `build` it is still orthogonal to artifact mode.
 - Phase-1 verification wording is about repository/process hygiene first: one published boundary, one activation rule, and no proof-backed marketing beyond that boundary.
 
