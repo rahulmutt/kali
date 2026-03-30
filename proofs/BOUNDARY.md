@@ -13,6 +13,7 @@ Canonical verification state (following the shared **proof state split** from [S
 - **proof-ready**: yes — this manifest exists and truthfully declares the current claim boundary
 - **proof-backed**: no — the modeled boundary is still empty, so no release may market formal verification as a shipped Kali capability yet
 - repository claim: **no mechanized proof coverage is claimed yet**
+- canonical short summary for README/release text: **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
 
 Release rule:
 - this **placeholder proof-boundary manifest** is acceptable while the project is still iterating on the spec/implementation because it satisfies the Phase-1 **proof-ready** baseline without overclaiming proof coverage

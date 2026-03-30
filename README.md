@@ -17,9 +17,9 @@ Recommended reading paths:
 These stay fixed across phases unless the top-level spec is intentionally changed:
 - **AOT only** — no language-level JIT
 - **Pure-Rust implementation contract** — no embedded C/C++ implementation dependencies
-- **no tracing/background GC**
-- **sandbox-first honesty** — no overclaiming what Kali can actually mediate
-- deterministic machine-readable contracts for CLI output, diagnostics, and artifacts
+- **No tracing/background GC** — deterministic ownership/reference-counted strategies only where the owning chapters allow them
+- **Sandbox-first honesty** — no overclaiming what Kali can actually mediate
+- **Deterministic machine-readable contracts** for CLI output, diagnostics, and artifacts
 
 ## Phase 1 snapshot
 Phase 1 is intentionally narrow and should be read through the same shipped-surface boundaries as [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md):
@@ -31,7 +31,7 @@ Phase 1 is intentionally narrow and should be read through the same shipped-surf
 - **Sandbox/effects split**: `run/test --sandbox` enforce at runtime, while `check/build --sandbox` do policy-schema/config validation only in Phase 1; internal effect bookkeeping may exist, but the stable public effect-report surface opens later and stays explicitly split into a **reporting** half (`kali effects`, `kali package-effects`) and a **policy-comparison** half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`)
 - **Packages**: Phase 1 package support is broad only inside the shared **pure JS/TS package contract**; pure JS/TS npm/JSR packages plus raw URL dependency workflows are in scope when their host assumptions fit either the default Deno-oriented standalone surface or the shared browser-targeted command set, while native/binary/bootstrap-heavy packages stay out of scope by default
 - **Registry analysis**: no stable public `kali package-audit` workflow yet
-- **Verification**: Phase 1 is **proof-ready**, not automatically **proof-backed**; the current published boundary remains the placeholder/no-mechanized-coverage state described in [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md)
+- **Verification**: reuse the canonical summary from [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md): **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
 
 For the compact shipped/not-shipped answer, use the **Phase-1 Shipped Surface Summary** in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) as the canonical quick reference.
 
@@ -53,6 +53,7 @@ Use these shortcuts before interpreting any broad bootstrap aspiration as shippe
 Useful normalized reminders:
 - “supports browser APIs” does **not** mean standalone browser `run`/`test`
 - package support should be read through the shared **package-support decision order** and **package-support ladder** in [`SPEC.md`](./SPEC.md): package shape first, then host/API fit, then command maturity
+- browser-targeted package/build claims are usually **deployable-through-host**, not standalone-browser **executable** support
 - the CLI is Deno-inspired at the workflow level, not a promise of flag-for-flag Deno parity
 - documented command shape and shipped availability are separate; availability always comes from the maturity matrix
 
@@ -69,5 +70,3 @@ This repository is currently spec-first:
 - Runtime, sandboxing, APIs, embedding: [`09 — Sandboxing & Effects`](./specs/09-sandboxing.md), [`10 — Runtime`](./specs/10-runtime.md), [`11 — Standard APIs`](./specs/11-standard-apis.md), [`13 — Embedding, WIT & C ABI`](./specs/13-embedding.md)
 - Tooling and evidence: [`12 — CLI`](./specs/12-cli.md), [`14 — Package Management`](./specs/14-packages.md), [`15 — Errors`](./specs/15-errors.md), [`16 — Testing`](./specs/16-testing.md), [`17 — Formal Verification`](./specs/17-verification.md), [`18 — Schemas`](./specs/18-schemas.md), [`19 — Feature Maturity`](./specs/19-feature-maturity.md)
 
-## Related project
-- [Kai](https://github.com/rahulmutt/kai), an AI-based coding assistant

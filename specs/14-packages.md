@@ -102,7 +102,17 @@ Practical shorthand:
 - package discussions should therefore name the rung they mean instead of using one broad word such as “supported”.
 - if the question is about `package-effects` or `package-audit`, answer it separately from those project-command rungs: those commands are registry-analysis workflows, not alternate ways to ask whether the current project graph is runnable.
 
-This keeps four often-confused questions separate: “can Kali materialize this package?”, “can Kali understand its source shape?”, “can the selected command/context actually support the host APIs it expects?”, and “what would a later single-package registry-analysis workflow report about it?”.
+Common support-claim examples:
+
+| Claim wording | What it should mean |
+|---|---|
+| “this npm package works in Phase 1” | Name the rung: for example **checkable/buildable/executable** on the Deno-oriented standalone surface, or **checkable/deployable-through-host** in the shared **Phase-1 browser-targeted command set** |
+| “this browser package is supported” | Usually **checkable** and potentially **deployable-through-host** via `build --bundle`; not standalone browser-runtime **executable** support in Kali itself |
+| “this package installs” | Only **installable/materializable**; this does not by itself promise that `check`, `build`, `run`, or browser deployment will succeed |
+| “this package needs Node” | Package shape may still be fine, but the claim is blocked on host/API fit and therefore stays on the Phase 3 Node path rather than becoming an early package-compatibility success |
+| “this package can be audited/analyzed” | Answer the registry-analysis question separately: that refers to later `package-effects` / `package-audit` workflows, not to ordinary project-command support |
+
+This keeps five often-confused questions separate: “can Kali materialize this package?”, “can Kali understand its source shape?”, “can the selected command/context actually support the host APIs it expects?”, “can Kali deploy it through a non-Kali host such as the browser bundle path?”, and “what would a later single-package registry-analysis workflow report about it?”.
 
 ## Dependency Source Kinds
 
