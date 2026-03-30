@@ -594,6 +594,13 @@ Practical consequences:
 - `package-effects` may still inherit semantic analysis context from discovered config/defaults once that command exists, but that inherited context changes analysis semantics only; it does not rewrite package identity/version selection
 - turning an analyzed package into a project dependency remains the job of `kali install`
 
+Quick comparison:
+
+| Command | Availability | Context model | JSON success mode | Canonical early diagnostic boundary |
+|---|---|---|---|---|
+| `package-effects` | Phase 2 target | inherits the shared **inherited analysis context** | schema-v1 **native-JSON command** | malformed target / package-analysis-specific semantic flags / `--sandbox` → `E5008`; well-formed base invocation (including `--pretty` / `--output json`) before Phase 2 → `E5006` |
+| `package-audit` | Later compatibility | **context-free registry analysis (schema v1)** | schema-v1 **envelope-only JSON command** | malformed target or `--pretty` without `--output json` → `E5008`; well-formed base invocation such as `kali package-audit lodash` or `kali package-audit --output json lodash` before the command exists → `E5006` |
+
 ### `kali package-effects <package>`
 Analyze effects of one registry package under the canonical schema-v1 registry-analysis rules.
 

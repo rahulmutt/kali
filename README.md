@@ -96,6 +96,15 @@ Reading rule:
 - that inherited `package-effects` context still keeps the same maturity gates as ordinary analysis/effect commands: inherited browser context reuses the browser-targeted analysis gate, inherited Node context reuses the Node gate, inherited `runtimeProfiles = ["wasm-threads"]` reuses the threaded-profile gate, and inherited `compat.features = ["eval"]` reuses the `eval` gate instead of being silently dropped
 - if the inherited `package-effects` context later resolves to `apiSurface = browser`, it reuses the same browser-targeted analysis context as other browser analysis commands, but only once `package-effects` itself exists; this still does **not** make it part of the exact Phase-1 browser-targeted command set
 
+Registry-analysis quick split:
+
+| Command | Availability | Context model | JSON success mode | First invalid/blocked examples |
+|---|---|---|---|---|
+| `kali package-effects <pkg>` | Phase 2 target | inherits `apiSurface` / `runtimeProfiles` / `compat.features` from config/defaults only | **native JSON** by default; standard envelope with `--output json` | `kali package-effects` → `E5008`; `kali package-effects --pretty lodash` before Phase 2 → `E5006`; `kali package-effects --api browser lodash` → `E5008` |
+| `kali package-audit <pkg>` | Later compatibility | context-free in schema v1 | **envelope-only JSON**; `--pretty` requires `--output json` | `kali package-audit --pretty lodash` → `E5008`; `kali package-audit --output json lodash` before the command exists → `E5006` |
+
+This split is intentional: `package-effects` is the analysis-context-aware effect-report path, while `package-audit` is the context-free registry-metadata/security path. Both still use one explicit registry-package target and neither mutates project-managed dependency state.
+
 Quick navigation:
 - frontend and language design: [01 — Architecture](./specs/01-architecture.md), [02 — Lexer & Parser](./specs/02-lexer-parser.md), [03 — AST](./specs/03-ast.md), [04 — Type System](./specs/04-type-system.md)
 - lowering, memory, optimization, and code generation: [05 — IR](./specs/05-ir.md), [06 — Memory Management](./specs/06-memory.md), [07 — Optimization & Specialization](./specs/07-specialization.md), [08 — WASM Codegen](./specs/08-wasm-codegen.md)
