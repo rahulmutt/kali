@@ -1292,7 +1292,10 @@ Using the canonical **host-support staircase**:
 
 Shared API-loading rule:
 - Web baseline APIs are the shared baseline across supported surfaces,
-- `--api deno|node|browser` selects which additional ambient APIs/modules exist beyond that baseline,
+- `--api deno|node|browser` selects the additional API surface beyond that baseline,
+- for analysis-oriented commands (`check`, later `effects`) and build-time selection work, that means ambient typing, package-resolution, and policy/effect-modeling context rather than a promise that a runtime host is already instantiated,
+- for executable commands (`run`, `test`, embedding execution), that same selection also chooses the runtime host surface mediated by the relevant host adapter,
+- for browser-targeted bundle output, it selects deployment-host assumptions and browser package-resolution behavior; execution still comes from the real browser host after deployment rather than from a hidden Kali browser runtime,
 - unsupported globals/modules are absent rather than shimmed by default.
 
 ## Compatibility Delivery Ladder

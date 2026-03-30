@@ -95,7 +95,7 @@ Effective-context validation rule:
 | `--quiet` | all commands | Suppress non-error status/progress output; for data-producing commands such as `effects` and `package-effects`, it must not suppress the primary payload itself |
 | `--max-errors N` | diagnostic-producing commands | Cap reported errors (default: 50) |
 | `--color auto\|always\|never` | text-output commands | Color output control |
-| `--api deno\|node\|browser` | `check`, `effects`, `build`, `run`, `test` | Select host API surface; unsupported surfaces for the current **availability context** must error explicitly (for example, early browser builds require `--bundle`) |
+| `--api deno\|node\|browser` | `check`, `effects`, `build`, `run`, `test` | Select the effective API surface. On analysis/build commands, this chooses ambient typing, package-resolution, and policy/effect-modeling context; on executable commands, it also chooses the runtime host surface. Unsupported surfaces for the current **availability context** must error explicitly (for example, early browser builds require `--bundle`) |
 | `--compat <feature[,feature...]>` | `check`, `effects`, `build`, `run`, `test` | Enable documented compatibility features such as `eval` only when that feature is implemented for the selected **availability context**; in schema v1, `eval` also covers the `Function()` constructor path |
 | `--fast` | `build`, `run`, `test` | Fastest compile time, minimal optimization (default build mode) |
 | `--release` | `build`, `run`, `test` | Standard optimization profile |
