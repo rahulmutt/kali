@@ -196,7 +196,7 @@ Current spec-first repo baseline:
 
 Proof-job consistency rule:
 - Lean verification is **not** an all-or-nothing claim that the whole language/runtime is already modeled.
-- CI should follow the activation state published in `proofs/BOUNDARY.md`: while the boundary is empty, proof CI is required for changes under `proofs/`; once the manifest names covered Rust/spec subsystems, the proof job also runs for changes to those covered areas.
+- CI should follow the published proof state in `proofs/BOUNDARY.md`: while the boundary is empty, proof CI is required for changes under `proofs/`; once the manifest names covered Rust/spec subsystems, the proof job also runs for changes to those covered areas.
 - Changes outside that modeled subset do not need to block on unrelated proof jobs, but they still must not weaken the documented proof boundary accidentally.
 - A release should not treat a placeholder/empty proof boundary as evidence of shipped proof coverage; proof-backed release claims require a non-placeholder modeled subset and theorem inventory.
 

@@ -673,8 +673,8 @@ Rules:
 - this manifest scopes confidence claims; it does **not** by itself promote maturity or replace command/profile evidence from [`specs/16-testing.md`](./specs/16-testing.md)
 - when the implementation grows beyond the currently published proof boundary, the unsupported remainder must stay outside the manifest rather than being described as informally covered
 
-### Proof activation split
-Kali keeps one explicit split between **publishing the proof boundary** and **advertising proof-backed support**:
+### Proof state split
+Kali keeps one explicit split between **being proof-ready** and **advertising proof-backed support**:
 - **proof-ready state** — `proofs/BOUNDARY.md` exists and truthfully declares the currently modeled proof boundary; during spec-first or pre-proof iteration this boundary may still be empty
 - **proof-backed support state** — release notes or support claims actively rely on formal verification as shipped evidence for some Kali behavior
 

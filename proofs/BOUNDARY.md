@@ -7,7 +7,7 @@ Current repository-state note:
 - the illustrative Lean project layout in [specs/17-verification.md](../specs/17-verification.md) is therefore a target layout for when proofs land, not a claim about the current repository contents
 
 Canonical verification state:
-- **proof-ready**: yes — this published manifest exists and defines the current activation/claim boundary
+- **proof-ready**: yes — this published manifest exists and defines the current proof state and claim boundary
 - **proof-backed**: no — the modeled boundary is still empty, so no release may market formal verification as a shipped Kali capability yet
 
 Release note:
