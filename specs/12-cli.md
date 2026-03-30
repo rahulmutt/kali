@@ -96,7 +96,7 @@ Effective-context validation rule:
 | `--fast` | `build`, `run`, `test` | Fastest compile time, minimal optimization (default build mode) |
 | `--release` | `build`, `run`, `test` | Standard optimization profile |
 | `--release-advanced` | `build`, `run`, `test` | Aggressive optimization profile |
-| `--sandbox <policy>` | sandbox-aware commands | Attach and validate a sandbox policy file (canonical default filename: `kali.policy.json`, but any explicit path is allowed); in Phase 1 this enforces at runtime for `run`/`test` and validates policy/config for `check`/`build` |
+| `--sandbox <policy>` | `check`, `build`, `run`, `test` | Attach and validate a sandbox policy file (canonical default filename: `kali.policy.json`, but any explicit path is allowed); in Phase 1 this enforces at runtime for `run`/`test` and validates policy/config for `check`/`build` |
 | `--max-memory <size>` | execution commands | Override the invocation memory cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-cpu <duration>` | execution commands | Override the invocation CPU cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-open-files N` | execution commands | Override the invocation open-file-handle cap; may only tighten the effective limit relative to config/policy, never widen it |
@@ -302,7 +302,7 @@ kali check --api browser --sandbox kali.policy.json # Same browser-targeted vali
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
 kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
 ```
-`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`: browser targeting changes the analysis context, not the command's hybrid input behavior. The same rule applies when `--sandbox` is present: `kali check --sandbox <policy>` without file arguments validates the discovered project graph rather than becoming a separate command mode, and `kali check --sandbox <policy> [files...]` keeps the same set-oriented explicit-file behavior as plain `check`. Browser-targeted policy validation follows the same discovery-vs-explicit-file split: `kali check --api browser --sandbox <policy>` without file arguments validates the discovered project graph under the browser-targeted analysis context, while explicit files keep the same set-oriented behavior. Declaration-only files are valid explicit file inputs for `check`; `run`, `build`, `effects`, and `test` primary inputs may not be declaration-only, and that input-kind mismatch should use the canonical invalid-entrypoint diagnostic (`E5007`).
+`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`: browser targeting changes the analysis context, not the command's hybrid input behavior. The same rule applies when `--sandbox` is present: `kali check --sandbox <policy>` without file arguments validates the discovered project graph rather than becoming a separate command mode, and `kali check --sandbox <policy> [files...]` keeps the same **set-oriented explicit-file command** behavior as plain `check`. Browser-targeted policy validation follows the same discovery-vs-explicit-file split: `kali check --api browser --sandbox <policy>` without file arguments validates the discovered project graph under the browser-targeted analysis context, while explicit files keep that same **set-oriented explicit-file command** behavior. Declaration-only files are valid explicit file inputs for `check`; `run`, `build`, `effects`, and `test` primary inputs may not be declaration-only, and that input-kind mismatch should use the canonical invalid-entrypoint diagnostic (`E5007`).
 
 Checker diagnostics may still carry structured `SuggestedFix` metadata for editors, embedders, and JSON consumers, but schema v1 keeps CLI autofix simpler: `--fix` is lint-only until the checker rewrite contract is mature enough to stabilize across project graphs, config-discovery mode, and overlapping multi-diagnostic edits.
 
@@ -358,7 +358,7 @@ Canonical discovery rule:
 - `kali fmt` is project-oriented with no files, but when explicit paths are supplied it follows the shared **set-oriented explicit-file command** rule from [SPEC.md](../SPEC.md)
 - project-oriented format discovery starts from the shared **canonical project file set** from [SPEC.md](../SPEC.md), which already covers executable/analyzable files plus declaration-only files
 - when explicit file arguments are supplied, those paths are formatted directly if they belong to that same supported set
-- `--check` changes rewrite behavior only; it does not change discovery, supported file kinds, or the set-oriented explicit-file contract
+- `--check` changes rewrite behavior only; it does not change discovery, supported file kinds, or the **set-oriented explicit-file command** contract
 
 ### `kali lint [files...]`
 Lint source files (implemented in `kali_lint`).

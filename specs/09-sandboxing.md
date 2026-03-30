@@ -53,15 +53,9 @@ CLI simplification rule:
 ### `dynamicEffects` Flag
 Set to `true` when the report has one or more canonical `dynamicReasons` from [specs/18-schemas.md](18-schemas.md). That schema file is the single source of truth for the stable machine-readable reason codes.
 
-In schema v1, these reasons use the canonical machine-readable codes from [specs/18-schemas.md](18-schemas.md):
-- `eval`
-- `function-constructor`
-- `dynamic-import`
-- `proxy-traps`
-- `computed-host-access`
-
 Interpretation rule:
 - distinct `eval` and `function-constructor` report reasons help tooling explain *which* dynamic path was seen, but they still map to the single schema-v1 compatibility feature name `eval`
+- this chapter intentionally does not restate the full reason-code list so schema-v1 machine strings stay owned in one place
 
 When `true`, the static analysis is incomplete.
 - for **Kali-hosted execution** (`run`, `test`, embedding), runtime sandbox enforcement remains the authoritative backstop for any operations the static report could not fully classify
@@ -128,7 +122,7 @@ Compile-time policy handling is intentionally split to keep Phase 1 smaller and 
 - **Phase 1**: `--sandbox` validates the policy file itself (schema, patterns, resource-limit ranges, unsupported fields) and attaches it to the build/run configuration, but does **not** promise a complete static proof that all effects fit the policy.
 - **Phase 2+**: inferred effects are checked against the allowed policy capabilities.
 - For the hybrid `kali check` command, `kali check --sandbox <policy>` without explicit file arguments still uses the canonical project-discovery result; `--sandbox` adds policy validation, not a new input-selection mode.
-- With explicit `check` file arguments, `--sandbox` keeps the same set-oriented semantics as plain `kali check`: it validates the supplied file set, and it does not collapse `check` into a one-entrypoint command just because a policy was attached.
+- With explicit `check` file arguments, `--sandbox` keeps the same **set-oriented explicit-file command** behavior as plain `kali check`: it validates the supplied file set, and it does not collapse `check` into a one-entrypoint command just because a policy was attached.
 
 Availability rule for policy validation:
 - a policy may always **deny** a capability, even if that capability's corresponding API/feature is later-phase
