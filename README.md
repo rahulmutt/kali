@@ -27,12 +27,22 @@ Phase 1 is intentionally narrow. Treat the bullets below as a quick overview onl
 - **Language/frontend**: `.ts` and `.js` are both first-class inputs in Phase 1. JavaScript goes through the same core pipeline with bounded conservative inference rather than a transpile-only compatibility lane.
 - **Project workflow**: `kali init`, `kali install`, `kali fmt`, `kali lint`, and `kali check [files...]` ship as the main Phase-1 authoring loop.
 - **Execution**: standalone `kali run <file>` and `kali test [files...]` ship only in the default/inherited Deno-oriented standalone context.
-- **Build**: `kali build <file>` ships in the Deno-oriented build context, and `kali build --lib <file>` also ships there as the Phase-1 **base library artifact** for exact-version/internal consumers when Kali can determine a **statically known export surface**.
+- **Build (standalone + base library)**: `kali build <file>` ships in the Deno-oriented build context, and `kali build --lib <file>` also ships there as the Phase-1 **base library artifact** for exact-version/internal consumers when Kali can determine a **statically known export surface**.
 - **Browser-targeted support**: browser support in Phase 1 is exactly the shared **Phase-1 browser-targeted command set** — browser-targeted `check [files...]` plus browser-targeted `build --bundle <file>`, including supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`. This is **checkable** / **deployable-through-host** support, not a standalone browser `run`/`test` contract.
 - **Sandboxing and effects**: `run/test --sandbox` enforce at runtime. Supported `check/build --sandbox` paths perform policy-schema/config validation only in Phase 1, including the default executable build path, the Phase-1 `build --lib` path, and browser-targeted `build --bundle`. Internal effect bookkeeping may exist, but there is no stable public effect-report command yet (`kali effects` or `kali package-effects`).
 - **Packages and registry analysis**: Phase-1 package support is broad only inside the shared **pure JS/TS package contract**, plus the documented raw URL lock/cache workflow, and those claims should be read through the support ladder from `SPEC.md`: early Deno-oriented claims may be **checkable/buildable/executable**, while early browser-targeted claims are usually **checkable** or **deployable-through-host**. The separate single-package registry-analysis surface is still gated, so `kali package-effects` and `kali package-audit` are not shipped in Phase 1.
 - **Node boundary**: broader `--api node` command paths remain gated beyond Phase 1.
 - **Verification**: reuse the canonical summary from [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md): **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
+
+### Defined vs shipped surfaces
+Some command families and artifact flows are documented before they ship so names, JSON schemas, and CLI vocabulary do not drift. Documentation of shape is **not** the same thing as Phase-1 availability.
+
+Examples:
+- `kali effects` and `kali package-effects` are defined early so the public effect-report vocabulary is stable, but they are still Phase-2 surfaces.
+- `kali package-audit` is documented early as the separate registry-analysis/security-audit lane, but it is not a Phase-1 command.
+- `kali build --capi` and `kali build --component` are defined early so embedding vocabulary is stable, but Phase 1 ships only the **base library artifact** via plain `--lib`.
+
+When in doubt, read command/artifact **shape** from the owning chapter and **availability** from [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 
 ## Bootstrap normalization highlights
 A few broad bootstrap asks are intentionally normalized into smaller cross-spec contracts:

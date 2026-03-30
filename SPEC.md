@@ -163,7 +163,10 @@ Practical consequence:
 - `kali package-audit` should still be read as a later context-free registry-analysis workflow, not as part of the Phase-1/2 sandbox-first effect-report surface,
 - but Phase-1 support claims must still treat them as reserved or phase-gated until their maturity rows open.
 
-Compact reading aid:
+Defined early vs shipped later reading aid:
+- if a command family or artifact flow is documented below, that answers **what the stable shape is meant to be**, not **whether it already ships in Phase 1**.
+- always read actual availability from [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
+
 
 | Defined early in docs/schemas | Why define it before it ships? | Availability owner |
 |---|---|---|
