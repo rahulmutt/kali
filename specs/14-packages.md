@@ -2,7 +2,7 @@
 
 ## Registry Compatibility
 
-Package loading is compile-time first: Kali resolves, analyzes, and links dependency graphs during build/check/run. For normal builds, application code and its static dependencies are emitted as one linked WASM payload rather than a fleet of runtime-linked WASM modules. Output modes may still add companion artifacts such as JS glue, but they do not change the single linked-payload rule.
+Package loading is compile-time first: Kali resolves and analyzes dependency graphs during `check` / `build` / `run` / `test`, and it links them for artifact-producing/executing flows rather than pretending every command does the same work. For normal builds, application code and its static dependencies are emitted as one linked WASM payload rather than a fleet of runtime-linked WASM modules. Output modes may still add companion artifacts such as JS glue, but they do not change the single linked-payload rule.
 
 Ownership rule:
 - this chapter owns package-resolution order, install mutability, lock/materialization behavior, and registry/raw-URL dependency rules

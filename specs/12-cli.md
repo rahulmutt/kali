@@ -96,7 +96,7 @@ Effective-context validation rule:
 | `--fast` | `build`, `run`, `test` | Fastest compile time, minimal optimization (default build mode) |
 | `--release` | `build`, `run`, `test` | Standard optimization profile |
 | `--release-advanced` | `build`, `run`, `test` | Aggressive optimization profile |
-| `--sandbox <policy>` | sandbox-aware commands | Attach and validate `kali.policy.json`; in Phase 1 this enforces at runtime for `run`/`test` and validates policy/config for `check`/`build` |
+| `--sandbox <policy>` | sandbox-aware commands | Attach and validate a sandbox policy file (canonical default filename: `kali.policy.json`, but any explicit path is allowed); in Phase 1 this enforces at runtime for `run`/`test` and validates policy/config for `check`/`build` |
 | `--max-memory <size>` | execution commands | Override the invocation memory cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-cpu <duration>` | execution commands | Override the invocation CPU cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-open-files N` | execution commands | Override the invocation open-file-handle cap; may only tighten the effective limit relative to config/policy, never widen it |
@@ -115,6 +115,7 @@ Package-analysis flag/context simplification:
 
 Sandbox-flag clarification:
 - the CLI `--sandbox <policy>` flag is reserved for the canonical sandbox-aware commands: `run`, `test`, `check`, and `build`
+- the canonical default policy filename is `kali.policy.json`, but the flag accepts any explicit policy-file path; relative CLI paths resolve from the current working directory, while top-level `kali.json#sandbox` remains config-relative
 - commands that merely ignore top-level `kali.json#sandbox` still do **not** accept a CLI `--sandbox` flag in early phases
 - therefore `kali effects --sandbox ...`, `kali package-effects --sandbox ...`, `kali package-audit --sandbox ...`, `kali install --sandbox ...`, `kali fmt --sandbox ...`, `kali lint --sandbox ...`, and `kali init --sandbox ...` are all invalid command usage (`E5008`) unless a later spec explicitly adds such a mode
 

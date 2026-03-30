@@ -95,7 +95,12 @@ Important distinction:
 ### Policy Definition
 Sandbox policies are **declarative data files**, not arbitrary executable TypeScript. This keeps them auditable, easy to diff, and safe to evaluate before running untrusted code.
 
-Default format: `kali.policy.json`
+Canonical default filename: `kali.policy.json`.
+
+Clarification:
+- this is a filename convention, not a requirement that every policy path use that exact basename
+- `--sandbox <policy>` may point to any explicit policy-file path
+- JSON is still the canonical schema/interchange format for CLI tooling and AI agents in schema v1
 
 The canonical policy schema is defined in [specs/18-schemas.md](18-schemas.md). JSON is the canonical interchange format for CLI tooling and AI agents. An equivalent TOML format may be supported later, but it would be a convenience syntax layered on top of the JSON data model rather than a separate policy contract.
 
