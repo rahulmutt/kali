@@ -272,6 +272,7 @@ Use this checklist:
 - package-loading and whole-graph-linking wording should reuse the **linked-artifact model** term instead of restating slightly different “single linked payload”, “already-linked graph”, or “no runtime-linked WASM modules” prose
 - package-compatibility wording should reuse the **package-support decision order**, **published-artifact-first package reading**, **pure JS/TS package contract**, and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different repo-build-pipeline caveats or native-addon / downloaded-binary exclusion lists
 - source-file-kind wording should reuse **canonical source-file classes**, **executable/analyzable source-file class**, and **canonical project file set** instead of repeating long extension lists in every command chapter
+- first-class `.js` support wording should reuse the **first-class JavaScript compilation** term instead of alternating between near-duplicate phrases such as “plain JavaScript mode”, “JS-first compilation”, or “JavaScript compatibility lane”
 - early stronger-than-`tsc` inference wording should reuse the **bounded inference contract** and the **annotation-required inference boundary** instead of creating near-duplicate “HM-like but still fast” descriptions in architecture, checker, and maturity chapters
 - checker-config wording for `compilerOptions.strict` should reuse the **strictness bundle** term instead of restating slightly different “strict mode but not many booleans” prose in each chapter
 
@@ -329,6 +330,16 @@ The compilation-cost/performance dial:
 - `fast`
 - `release`
 - `release-advanced`
+
+### First-class JavaScript compilation
+The shared cross-spec meaning of Kali treating `.js` as a real compiled input, not a downgraded compatibility lane.
+
+Rules:
+- `.js` sources go through the same parser, resolver, checker, lowering pipeline, artifact modes, and optimization vocabulary as TypeScript sources
+- the difference is primarily the amount of explicit type information available to the checker, not a separate "transpile-only" product mode
+- early precision for `.js` follows the shared **bounded inference contract** and the **annotation-required inference boundary** rather than open-ended whole-program guessing
+- when the checker cannot cheaply prove a precise `.js` type/layout fact, it must fall back conservatively (`unknown`, unions, dynamic/tagged layouts, or explicit annotation requirements) instead of inventing implicit `any` or a speculative public API
+- chapters should reuse this term instead of alternating between near-duplicate phrases such as "plain JavaScript support", "JS-first compilation", or "JavaScript compatibility mode" when they mean the same product promise
 
 ### Bounded inference contract
 The shared cross-spec meaning of Kali's Phase-1 “stronger than plain `tsc`, but still predictably fast” inference promise.

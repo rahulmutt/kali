@@ -13,7 +13,7 @@ Bootstrap-normalization note:
 - in practice, early Kali should borrow principled ideas about inference, purity, effects, and constraints while still behaving like a pragmatic TypeScript superset with explicit annotation boundaries and predictable compile costs
 
 Implementation order matters:
-- **Phase 1**: preserve TypeScript compatibility, support `.js` inputs as first-class programs, and ship the shared **bounded inference contract** for locals, unannotated parameters where the call/context makes them obvious, and function return types when the body stays within the cheap local-inference fragment.
+- **Phase 1**: preserve TypeScript compatibility, ship **first-class JavaScript compilation** from [SPEC.md](../SPEC.md), and apply the shared **bounded inference contract** to locals, unannotated parameters where the call/context makes them obvious, and function return types when the body stays within the cheap local-inference fragment.
 - **Phase 2**: extend that inference more confidently across module boundaries, stabilize the built-in capability-effect model, and expose the user-facing effect-report/effect-annotation surface.
 - **Phase 3 target**: expand bounded advanced constraints where compile-time cost stays predictable.
 - **Later compatibility**: effect polymorphism and other higher-complexity type-system extensions land only after the built-in capability/effect contract is stable.
@@ -22,7 +22,7 @@ The type checker operates on the raw AST and produces a `TypedAST` (AST with res
 
 ## JavaScript-First Inference Rules
 
-Plain JavaScript input is a first-class compilation target, not a second-class compatibility mode.
+Kali's **first-class JavaScript compilation** contract means plain JavaScript input is a real compilation target, not a second-class compatibility mode.
 
 Early-phase rules:
 - the shared **executable/analyzable source-file class** from [SPEC.md](../SPEC.md) goes through one parser, resolver, and checker pipeline, with module-kind interpretation following the canonical resolver/runtime rules instead of ad hoc extension-specific shortcuts

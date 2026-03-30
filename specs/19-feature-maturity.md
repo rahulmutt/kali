@@ -64,7 +64,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | Stage-3+/draft TC39 proposals beyond the latest published ECMA-262 edition | Rejected by default | Keep the “latest ECMA-262” promise scoped to published editions; proposal support needs an explicit experimental flag or its own maturity row instead of being implied by grammar tracking |
 | Current-edition non-Annex-B semantics for features Kali marks as supported in a given command/profile | Phase 1 MVP | "Latest standard support" is not parser-only: once Kali claims a feature is supported for a command/profile, the supported path should aim at faithful current-edition semantics and be backed by the matching evidence track rather than by syntax acceptance alone |
 | Static ESM `import` / `export` | Phase 1 MVP | Core module system |
-| First-class JavaScript compilation with inference | Phase 1 MVP | Required so `.js` projects are not forced to migrate to TypeScript before benefiting from Kali; the early guarantee follows the shared **bounded inference contract** rather than open-ended whole-program search |
+| First-class JavaScript compilation with bounded inference | Phase 1 MVP | Required so `.js` projects are not forced to migrate to TypeScript before benefiting from Kali; this uses the shared **first-class JavaScript compilation** contract plus the shared **bounded inference contract** rather than open-ended whole-program search |
 | CommonJS module lowering | Phase 1 MVP | Needed for early npm package compatibility within the linked-artifact model |
 | `require("literal")` | Phase 1 MVP | Rewritten during compilation when statically resolvable |
 | Dynamic `require()` | Rejected by default | Conflicts with the early **linked-artifact model** |
@@ -148,7 +148,7 @@ Interpretation rule:
 - matrix-row status names the **earliest phase where the full command/context combination can be supported**, not necessarily the first diagnostic a pre-support implementation should report when more than one independent gate is still closed
 - for `build` rows, the selected artifact mode also fixes the shared **compile intent** from [SPEC.md](../SPEC.md): default/no selector and `--bundle` are executable compile-intent paths, while `--lib` / `--capi` / `--component` are library compile-intent paths
 - in this command/profile matrix, the status label is a planning/maturity summary, not by itself the diagnostic choice: rows marked **Rejected by default** may still fail as `E5008` invalid usage or `E5006` unavailable-feature gating depending on the canonical handling column and the shared validation-order rules
-- for example, `kali build --capi --api node lib.ts` is listed as a **Phase 3 target** because that full combination cannot work before both the Phase-2 **public embedding artifact flow** and the Node surface exist, but an early implementation should still report the outermost failing gate first (`--capi` itself in Phase 1, then `--api node` once `--capi` exists but Node remains gated)
+- for example, `kali build --capi --api node lib.ts` is listed as a **Phase 3 target** because that full combination cannot work before both the Phase-2 **public embedding surface** and the Node surface exist, but an early implementation should still report the outermost failing gate first (`--capi` itself in Phase 1, then `--api node` once `--capi` exists but Node remains gated)
 - this keeps diagnostics stable for commands such as `package-effects`: before Phase 2, plain `kali package-effects lodash` should fail on the command's base maturity row; once the command exists, inherited-context maturity follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) instead of a package-analysis-specific shadow matrix
 
 | Command / profile | Early-phase status | Canonical handling |
@@ -359,7 +359,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 |---|---|---|
 | Core ECMAScript syntax and static ESM graph | Phase 1 MVP | Parser stays broad and should track the latest published standard grammar; unsupported semantics are gated separately |
 | Annex B / web-legacy semantics | Later compatibility | Broad syntax support does not imply immediate support for every legacy browser semantic corner |
-| Plain JavaScript compilation with inference | Phase 1 MVP | `.js` is a first-class input, not a degraded compatibility mode |
+| First-class JavaScript compilation with bounded inference | Phase 1 MVP | `.js` is a first-class input under the shared **first-class JavaScript compilation** contract, with early precision bounded by the shared **bounded inference contract** |
 | CommonJS lowering with statically resolvable `require("...")` | Phase 1 MVP | Compile-time transform inside the linked-artifact model |
 | Literal-string `import()` | Phase 3 target | Lower to the already-linked graph rather than runtime WASM module linking |
 | Non-literal dynamic loading | Later compatibility | Host-mediated path with dynamic effect boundary |

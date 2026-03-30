@@ -50,8 +50,8 @@ Phase-1 reading aid:
 
 | Command family | `deno` | `browser` | `node` |
 |---|---|---|---|
-| `check` | standalone/default analysis context | browser-targeted analysis context | gated |
-| `build` | standalone/default executable or base-library build | browser-targeted bundle only (`--bundle`) | gated |
+| `check` | standalone/default analysis context | browser-targeted analysis context, including the supported static `--sandbox` validation variants | gated |
+| `build` | standalone/default executable or base-library build | browser-targeted bundle only (`--bundle`), with supported `--sandbox` variants remaining static validation only | gated |
 | `run`, `test` | standalone execution | not yet a standalone browser runtime/test contract | gated |
 | `effects` | Phase 2 reporting path once the command exists | same browser-targeted analysis context in Phase 2 | gated |
 
