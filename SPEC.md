@@ -115,7 +115,7 @@ When editing or extending the spec set, prefer referencing the owning chapter/te
 Use this checklist:
 - command shape, flags, arity, `--output json`, and exit behavior belong to [`specs/12-cli.md`](./specs/12-cli.md)
 - diagnostic-code meaning and error-boundary rules belong to [`specs/15-errors.md`](./specs/15-errors.md)
-- JSON field names, payload schemas, and artifact kinds/roles belong to [`specs/18-schemas.md`](./specs/18-schemas.md)
+- JSON field names, payload schemas, artifact kinds/roles, and generated metadata-file shapes such as C ABI embedding metadata belong to [`specs/18-schemas.md`](./specs/18-schemas.md)
 - phase availability belongs to [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**

@@ -828,6 +828,44 @@ Simplification rule:
 - they should also prefer the canonical `role` values above instead of per-command ad hoc labels
 - adding a new stable artifact `kind` or `role` value is a schema-contract change and should get the same review discipline as other enum-like machine strings in this file
 
+## C ABI Metadata Schema (schema v1)
+
+Produced as the contents of the `cabi-metadata` artifact emitted by `kali build --capi`.
+
+This metadata exists to answer one narrow question deterministically: **can this generated library artifact be loaded by the available host-side `kali_capi` ABI layer?** It should not duplicate the WIT surface, the generated program-specific exports header, or the CLI artifact manifest.
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "cabi-metadata",
+  "hostAbiVersion": 2,
+  "minHostAbiVersion": 2,
+  "artifacts": {
+    "wasmModule": "lib.wasm",
+    "wit": "lib.wit",
+    "exportsHeader": "lib.exports.h"
+  }
+}
+```
+
+### Required fields
+- `schemaVersion: number`
+- `kind: "cabi-metadata"`
+- `hostAbiVersion: number` — the exact host ABI version expected by the generated embedding artifact set
+- `artifacts.wasmModule: string` — path or artifact-relative filename for the core linked library module
+- `artifacts.wit: string` — path or artifact-relative filename for the canonical WIT interface description
+- `artifacts.exportsHeader: string` — path or artifact-relative filename for the generated **program-specific exports header**
+
+### Optional fields
+- `minHostAbiVersion: number` — lowest compatible host ABI version when the compatibility policy allows a version window; if omitted, consumers should treat `hostAbiVersion` as the exact required version
+
+Interpretation rules:
+- this metadata is the canonical load-time compatibility record for `kali build --capi`; loaders should check it before instantiating the library artifact through `kali_capi`
+- `hostAbiVersion` / `minHostAbiVersion` describe compatibility with the stable **host ABI header** / host-side `kali_capi` library, not the user program's exported function set
+- exported-function shape belongs to WIT plus the generated **program-specific exports header**; this metadata should not duplicate that interface in a second ad hoc schema
+- artifact references should point at the sibling outputs of the same `kali build --capi` invocation rather than at ambient global install locations
+- schema v1 intentionally keeps this file small: enough for deterministic ABI/version checks and artifact association, but not a second full build manifest
+
 ## Simplification Rule
 
 If a schema needs more than one example across the spec set, the canonical structure belongs in this file and other specs should link here instead of duplicating the full object shape.

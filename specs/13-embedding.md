@@ -70,6 +70,7 @@ Canonical embedding-alignment rule:
 - build-oriented embedding calls obey the same API-surface gates as the CLI/spec matrix: for example, `ApiSurface::Node` remains Phase 3-gated for compile/build flows, while browser-targeted build output is still the `--bundle`-style path rather than a generic library/export mode
 - compiled modules are reusable immutable artifacts: `instantiate(&module)` borrows the compiled module instead of consuming it, and hosts may create multiple instances from one compiled module when that matches the host lifecycle
 - executable-style helpers such as `run_module(...)` are for modules with an executable entry contract; export-oriented/library flows use `instantiate(...).call(...)` and must not rely on a synthetic executable entry being invented for them
+- export-oriented embedding calls require the same **statically known export surface** as the CLI's library-oriented artifact modes; if Kali cannot prove one fixed host-callable export set after frontend lowering, embedding-facing compile/instantiate flows must fail with the same canonical `E5011` path rather than exposing reflection-based export discovery
 - if a CLI/config/runtime feature is phase-gated (for example `ApiSurface::Node`, `RuntimeProfile::WasmThreads`, or `CompatFeature::Eval`), the embedding API should surface the same canonical `E5006`-style availability failure rather than silently ignoring the request
 
 ### Custom Host Functions
@@ -290,7 +291,7 @@ To keep embedding stable and machine-checkable, the C ABI needs one explicit com
   - `KALI_CAPI_ABI_VERSION`
   - `KALI_CAPI_ABI_MIN_COMPAT_VERSION` *(optional if compatible windowing is needed)*
 - the runtime exports `uint32_t kali_runtime_abi_version(void);`
-- `kali build --capi foo.ts` embeds the expected host ABI version in emitted metadata so loaders can reject incompatible host/program combinations before instantiation
+- `kali build --capi foo.ts` embeds the expected host ABI version in emitted metadata so loaders can reject incompatible host/program combinations before instantiation; the canonical metadata-file shape belongs to [specs/18-schemas.md](18-schemas.md)'s **C ABI Metadata Schema (schema v1)** section rather than to ad hoc per-chapter prose
 - incompatible ABI versions are a hard load-time error; they must not silently proceed on a best-effort basis
 
 Compatibility policy:
