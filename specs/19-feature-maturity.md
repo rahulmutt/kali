@@ -331,7 +331,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Pure JS/TS JSR packages within the linked-artifact model | Phase 1 MVP | Registry-style install/lock/materialization path just like npm in early phases |
 | Raw URL imports in the shared lock/materialization model | Phase 1 MVP | Pin in `kali.lock`, materialize under `.kali/cache/urls/`, and keep ordinary commands deterministic |
 | Deno-condition package resolution in the default standalone surface | Phase 1 MVP | Honor `exports` condition `deno` when `--api deno` is selected |
-| Browser-condition package resolution in browser bundle mode | Phase 1 MVP | `browser` field / `exports` browser condition |
+| Browser-condition package resolution in supported browser-targeted analysis/build contexts | Phase 1 MVP | Shared browser package-selection rule for `check --api browser` and `build --bundle --api browser`: honor `exports` condition `browser` plus applicable `package.json#browser` replacement maps consistently |
 | npm lifecycle scripts | Opt-in only | `kali install --allow-scripts`; install-time package hooks stay outside the normal runtime API-surface and project-policy contracts |
 | Native/binary/bootstrap-dependent packages | Rejected by default | `--allow-scripts` must not silently broaden support to packages that need native code or platform-specific downloaded executables |
 | Native addons / `node-gyp` | Rejected by default | Violates pure-Rust/no-native-addon constraints |

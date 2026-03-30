@@ -290,17 +290,22 @@ Interpretation rules:
 
 ## Install-Time vs Command-Time Resolution Boundary
 
-Because package resolution can vary by API surface/profile (`deno`, browser-targeted bundle mode, and later `node`), Kali needs one explicit boundary so `install`, lockfiles, and ordinary commands do not drift:
+Because package resolution can vary by API surface/profile (`deno`, browser-targeted analysis/build contexts, and later `node`), Kali needs one explicit boundary so `install`, lockfiles, and ordinary commands do not drift.
+
+Scope note:
+- this boundary is about **project commands** that consume project-managed dependency state (`check`, `effects`, `build`, `run`, `test`)
+- single-package registry-analysis commands such as later `package-effects` / `package-audit` stay project-independent for version selection and do not consult the current project's installed dependency state
+
 
 - `kali install` is **profile-agnostic** in Phases 1-3. It locks package versions, fetches/materializes package contents, and records reproducibility data, but it does **not** pre-resolve one permanent `exports`/`browser`/`deno` branch for every future command.
 - `check`, `effects`, `build`, `run`, and `test` perform the final **command-time package edge selection** from the already-installed package metadata using the active API surface/profile.
-- therefore one `kali.lock` and one materialized package tree can serve both the default Deno-oriented standalone path and the browser-targeted `check` / `build --bundle` path without requiring separate per-profile installs.
+- therefore one `kali.lock` and one materialized package tree can serve both the default Deno-oriented standalone path and the supported browser-targeted analysis/build paths (`check --api browser`, `build --bundle --api browser`) without requiring separate per-profile installs.
 - this is possible because early-phase profile differences choose between files that are already present inside the installed package contents; they do not require separate version solves for each supported profile.
 - if a later feature truly requires profile-specific solving or materially different dependency graphs, that complexity must be introduced explicitly in a future lockfile/versioning revision rather than being implied accidentally by Phase 1 package wording.
 
 Practical consequence:
 - `kali install` does not take `--api` in early phases, and `compilerOptions.apiSurface` does not cause `install` to write a different lockfile for the same manifest/import graph.
-- changing `--api` between `deno` and browser-targeted build/check affects which already-installed package entry files are chosen at command time, not whether the project is considered installed.
+- changing `--api` between `deno` and a supported browser-targeted analysis/build context affects which already-installed package entry files are chosen at command time, not whether the project is considered installed.
 - lockfile/cache state belongs to the effective discovered project root; invoking commands from a subdirectory of the same project should still use that one shared `kali.lock`, `node_modules/`, and `.kali/` state rather than inventing nested installs.
 - if a later file-accepting non-install command (`check`, `effects`, `build`, `run`, or `test`) points at explicit files outside the last installed project discovery set and those files reach additional raw URL imports, the command should fail with `E5004` and tell the user to rerun `kali install` after updating the project's discoverable sources or import map.
 - this is intentional: explicit file targets bypass discovery filtering for command input selection, but they do not retroactively redefine the install-time declaration graph that owns raw URL lock/cache state.
