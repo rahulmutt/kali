@@ -10,6 +10,21 @@ Focus verification on the highest-value areas where bugs have the most impact.
 
 Important simplification rule: Lean proofs target a **core Kali calculus**, not the full surface language all at once. Early proof work should model the statically analyzable subset that excludes late-compatibility features such as `eval`, dynamic module loading, weak/finalization semantics, and browser/OS host details. Those outer features are handled by explicit phase gates in the implementation and only enter the proof story once their semantics stabilize.
 
+## Phase-aligned proof scope
+
+To keep the bootstrap's Lean requirement aligned with the rest of the phased spec, proof work follows the same staged story rather than implying full-language verification from day one.
+
+| Phase | Verification focus |
+|---|---|
+| Phase 1 MVP | Core typed calculus, parser/checker model boundaries, declarative sandbox-policy decision procedure, and the trusted-model boundary for AOT/no-tracing-GC invariants |
+| Phase 2 target | Built-in effect inference conservativity, ownership/escape/reference-counting model, and selected lowering-preservation lemmas |
+| Phase 3 target | Specialization/layout-preservation lemmas for the proved fragment, plus stronger package/runtime-model correspondence where the host contract is already stable |
+| Phase 4 compatibility | Late dynamic compatibility paths only after their semantics are frozen enough to model honestly; `eval`/dynamic loading remain outside the proof kernel until then |
+
+Rule:
+- a phase can ship with partial proof coverage as long as support claims stay inside the documented proof boundary and the matching implementation/testing evidence still exists
+- verification should deepen the same hard invariants the bootstrap cares about most: AOT-only execution, sandbox honesty, deterministic machine contracts, and memory safety without tracing GC
+
 ### Type System Soundness
 Prove soundness for the **core typed fragment** first:
 - **Progress**: well-typed core terms either are values, can step, or are blocked only at an explicitly modeled effect boundary / host boundary

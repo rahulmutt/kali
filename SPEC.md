@@ -247,6 +247,24 @@ It does **not** mean:
 - DOM emulation inside `kali run`/`kali test`,
 - permission to expose Deno/Node globals during browser-targeted analysis/build.
 
+### Browser ambient typing vs mediated capability split
+Kali keeps one explicit boundary between two browser-related layers that are easy to blur together:
+- **browser ambient typing surface** — the globals/types visible during supported browser-targeted analysis/build (`Window`, `Document`, DOM types, `fetch`, `URL`, and similar browser-host types)
+- **Kali-mediated capability subset** — the smaller stable sandbox/effect vocabulary used by policy validation and effect reporting
+
+Rules:
+- supported browser-targeted analysis/build commands may expose the broader browser ambient typing surface without implying that every such ambient API is individually modeled by Kali's sandbox/effect system
+- schema-v1 sandbox/effect contracts remain scoped to the documented browser-applicable part of the **Kali-mediated capability subset**, not one policy/effect key per DOM API
+- docs should reuse this term when explaining why browser-targeted `check`/`build --bundle` can understand DOM/browser programs while browser-targeted `--sandbox` still validates only the documented mediated subset
+
+### Canonical browser-surface rejection split
+Kali uses one shared rejection boundary for browser-related command shapes in early phases:
+- use **`E5008` invalid command usage** when the user selected a contradictory browser build shape for a mode that otherwise exists (for example `kali build --api browser main.ts` without `--bundle`, or pairing `--api browser` with `--lib` / `--capi` / `--component`)
+- use **`E5006` unavailable feature** when the user requested a browser runtime/test contract that Kali does not yet define (for example `kali run --api browser main.ts` or `kali test --api browser`)
+
+Rule:
+- chapters should reuse this split instead of restating near-duplicate prose about browser bundle/build availability versus missing browser runtime/test support
+
 ### Kali-hosted execution
 Execution where Kali or an embedding host owns the runtime/import boundary, including:
 - `kali run`
@@ -923,7 +941,7 @@ These are reporting commands, not alternate policy-validation entrypoints.
 
 Top-level `kali.json#sandbox` is ignored by effect-reporting and sandbox-agnostic commands.
 
-## Validation-Order Rule
+## Canonical Validation-Order Rule
 
 Report the outermost failing gate first:
 1. command shape / arity / contradictory flag combination,
@@ -1005,7 +1023,17 @@ Configless project mode rules follow one shared **configless install split**:
 - explicit registry-package add (`kali install <pkg>` / `kali install --dev <pkg>`) creates the minimal manifest `{ "schemaVersion": 1 }` first,
 - explicit raw-URL install may create lock/cache state but must not create a placeholder manifest by itself.
 
-## Dependency-Management Mutability Rule
+## Canonical scaffold filename convention
+In schema v1, `kali init` uses one minimal filename convention for the built-in templates:
+- default app template → `main.ts`
+- library template (`kali init --lib`) → `lib.ts`
+
+Rules:
+- these filenames are part of the default scaffold contract, not guesses made later by `run` or `build`
+- later template specs may introduce other filenames only explicitly; they should not silently redefine the schema-v1 defaults
+- docs should reference this convention instead of repeating the two filenames ad hoc in multiple chapters
+
+## Canonical Dependency-Management Mutability Rule
 
 In early phases, `kali install` is the only command that mutates project-managed dependency state.
 
@@ -1130,7 +1158,7 @@ Rules:
 - it does **not** imply Node runtime support, project sandbox participation for install hooks, or participation in normal `kali effects` / sandbox-policy contracts;
 - it does **not** make the excluded **native/binary/bootstrap-heavy package contract** supported.
 
-## Numeric-Limit Semantics
+## Canonical Numeric-Limit Semantics
 
 Kali uses one cross-spec numeric-limit rule:
 - positive-budget dimensions use omission as the “unspecified” state and reject `0`,
