@@ -484,6 +484,7 @@ For browser-targeted contexts, `--sandbox` follows the **browser-targeted static
 Schema v1 uses one exact browser-targeted budget rule everywhere:
 - `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles` are rejected whenever present,
 - `resources.maxSpawnedProcesses` and `resources.maxThreads` reject positive values,
+- `resources.maxSpawnedProcesses: 0` and `resources.maxThreads: 0` remain valid as explicit deny/tightening values,
 - capability-local `effects.*` limits remain valid only within the documented **canonical browser-applicable mediated subset (schema v1)**.
 
 Short form:

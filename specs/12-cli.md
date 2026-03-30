@@ -658,7 +658,7 @@ Configuration simplification rules:
 
 Interpretation rule:
 - ordinary compile/check/build diagnostics over otherwise valid command inputs exit with **1**; this includes syntax/type/name errors, import/module/resolution failures, dependency-state failures (`E5001`-`E5006` as applicable), library-export proof failures (`E5011`), and Phase 2+ compile-time sandbox/effect violations
-- this same `1` path also covers a **well-formed but context-incompatible** attached policy whose enabled capability/profile is unavailable for the effective command context (for example `effects.eval: true` before `--compat eval` exists, or browser-targeted `check` / `build --bundle` policies that request cross-cutting `resources.*` enforcement Kali cannot promise post-deployment)
+- this same `1` path also covers a **well-formed but context-incompatible** attached policy whose enabled capability/profile is unavailable for the effective command context (for example `effects.eval: true` before `--compat eval` exists, or browser-targeted `check` / `build --bundle` policies that violate the canonical browser-targeted budget rule by setting `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, or `resources.maxOpenFiles`, or by setting positive `resources.maxSpawnedProcesses` / `resources.maxThreads` values)
 - `fmt --check` and lint-style contract failures that report ordinary command diagnostics also exit with **1**
 - runtime sandbox enforcement failures exit with **3**
 - runtime resource exhaustion/fuel/memory-limit failures exit with **4**
@@ -676,7 +676,7 @@ This keeps exit codes simple: command-time failures are separated from runtime e
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Ordinary compile/check/build diagnostic failure (for example syntax, type, name, module/resolution, dependency-state, feature-gating, or library-export-proof failures such as `E5001`-`E5006` and `E5011`, plus build-time sandbox/effect violations, semantically valid but context-incompatible policy enablement, `fmt --check`, and lint contract failures) |
+| 1 | Ordinary compile/check/build diagnostic failure (for example syntax, type, name, module/resolution, dependency-state, feature-gating, or library-export-proof failures such as `E5001`-`E5006` and `E5011`, plus build-time sandbox/effect violations, semantically valid but context-incompatible policy enablement such as browser-targeted budget incompatibilities, `fmt --check`, and lint contract failures) |
 | 2 | Runtime error (uncaught exception) |
 | 3 | Runtime sandbox violation |
 | 4 | Runtime resource limit exceeded |
