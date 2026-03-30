@@ -55,8 +55,8 @@ Canonical install-target and package-argument arity rule:
 - flags that conceptually modify an explicit registry-package target (for example `kali install --dev`) require that registry target in early phases; using them without one is also `E5008`
 
 Canonical input-kind rule:
-- `run`, `build`, `effects`, and discovered `test` entrypoints/primary inputs accept only the shared executable/analyzable source-file set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
-- `check`, `fmt`, and `lint` accept that same executable/analyzable set **plus** declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`)
+- `run`, `build`, `effects`, and discovered `test` entrypoints/primary inputs accept only the shared **executable/analyzable source-file class** from [SPEC.md](../SPEC.md)
+- `check`, `fmt`, and `lint` accept that same class plus declaration-only files, per the shared **canonical source-file classes** rule in [SPEC.md](../SPEC.md)
 - declaration-only files may therefore be checked/formatted/linted directly and may also participate in ambient type loading and package type resolution
 - declaration-only files are never valid runtime-bearing entrypoints or build/effect primary inputs; passing one where an executable entrypoint or build/effect primary input is required should fail explicitly with the canonical invalid-entrypoint diagnostic described in [specs/15-errors.md](15-errors.md) rather than being treated as an empty program or silently ignored
 - when a command runs without explicit file arguments, it should discover files using the canonical project-discovery rules from [SPEC.md](../SPEC.md) rather than inventing a command-local root walk
@@ -333,7 +333,7 @@ Sandbox-interaction rule:
 
 Input-kind and host-selection rules:
 - `kali effects` is a direct-input command in early phases: it requires exactly one explicit executable/analyzable source-file analysis root and does not fall back to project-wide discovery
-- `kali effects` accepts only executable/analyzable source files; declaration-only files are type inputs, not effect-report primary inputs
+- `kali effects` accepts only the shared **executable/analyzable source-file class** from [SPEC.md](../SPEC.md); declaration-only files are type inputs, not effect-report primary inputs
 - unless overridden by CLI/config, `kali effects` uses the same default API-surface selection as `kali check` (`apiSurface = deno`)
 - `--api browser` follows the same browser API-surface analysis context as `kali check --api browser`; in Phase 2 this extends browser-targeted analysis to `effects` without implying standalone browser execution
 - `--api node` remains phase-gated until the documented Node surface exists
@@ -348,7 +348,7 @@ Compatibility rule:
 ### `kali fmt [files...]`
 Format source files (implemented in `kali_fmt`).
 ```bash
-kali fmt                                   # Format all supported JS/TS source + declaration files in project (.ts/.tsx/.mts/.cts/.js/.jsx/.mjs/.cjs/.d.ts/.d.mts/.d.cts)
+kali fmt                                   # Format the canonical project file set relevant to formatting (executable/analyzable sources plus declaration-only files)
 kali fmt --check                           # Check formatting (CI mode, exit code 1 if unformatted)
 kali fmt main.ts                           # Format specific file
 kali fmt src/a.ts src/b.ts                 # Format an explicit file set
@@ -356,7 +356,7 @@ kali fmt src/a.ts src/b.ts                 # Format an explicit file set
 
 Canonical discovery rule:
 - `kali fmt` is project-oriented with no files, but when explicit paths are supplied it follows the shared **set-oriented explicit-file command** rule from [SPEC.md](../SPEC.md)
-- project-oriented format discovery starts from the canonical project file set and then keeps the formatter's supported source-file set: executable/analyzable files plus declaration-only files (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.d.ts`, `.d.mts`, `.d.cts`)
+- project-oriented format discovery starts from the shared **canonical project file set** from [SPEC.md](../SPEC.md), which already covers executable/analyzable files plus declaration-only files
 - when explicit file arguments are supplied, those paths are formatted directly if they belong to that same supported set
 - `--check` changes rewrite behavior only; it does not change discovery, supported file kinds, or the set-oriented explicit-file contract
 
@@ -370,7 +370,7 @@ kali lint src/a.ts src/b.ts                # Lint an explicit file set
 
 Canonical discovery rule:
 - `kali lint` is project-oriented with no files, but when explicit paths are supplied it follows the shared **set-oriented explicit-file command** rule from [SPEC.md](../SPEC.md)
-- project-oriented lint discovery starts from the canonical project file set and then keeps the same supported source-file set as `kali fmt`: executable/analyzable files plus declaration-only files (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.d.ts`, `.d.mts`, `.d.cts`)
+- project-oriented lint discovery starts from the shared **canonical project file set** from [SPEC.md](../SPEC.md), matching the same source-file coverage as `kali fmt`
 - when explicit file arguments are supplied, those paths are linted directly if they belong to that same supported set
 - `--fix` is intentionally conservative: it applies only structured tool-provided edits rather than speculative rewrites or stylistic churn outside the selected lint rules
 - when multiple lint fixes overlap, Kali must not partially apply a conflicting subset by guesswork; it should either choose one documented deterministic winner later or, in schema v1, leave the overlapping diagnostics unapplied and report them normally
@@ -388,10 +388,10 @@ kali test --api browser                    # Later compatibility; unavailable in
 ```
 
 Canonical discovery rule:
-- default test discovery starts from the canonical project-discovery result, then matches `*.test.*` / `*_test.*` only across the shared executable/analyzable source set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
-- declaration-only files (`.d.ts`, `.d.mts`, `.d.cts`) are never test entrypoints even if they match the naming pattern
+- default test discovery starts from the canonical project-discovery result, then matches `*.test.*` / `*_test.*` only across the shared **executable/analyzable source-file class** from [SPEC.md](../SPEC.md)
+- declaration-only files are never test entrypoints even if they match the naming pattern
 - if explicit file arguments are supplied to `kali test`, those paths bypass the naming-pattern discovery filter and are treated as direct test-module inputs instead
-- each explicit `kali test` file must still belong to the executable/analyzable set; passing a declaration-only file is the canonical invalid-entrypoint error (`E5007`), not a silent skip
+- each explicit `kali test` file must still belong to the shared **executable/analyzable source-file class**; passing a declaration-only file is the canonical invalid-entrypoint error (`E5007`), not a silent skip
 
 Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run`, and analysis/build commands (`kali check`, `kali effects`, `kali build`) follow the same API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
 

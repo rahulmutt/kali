@@ -129,6 +129,7 @@ Use this checklist:
 - package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
+- source-file-kind wording should reuse **canonical source-file classes**, **executable/analyzable source-file class**, and **canonical project file set** instead of repeating long extension lists in every command chapter
 
 Practical rule:
 - if a chapter needs more than a short paragraph to restate one of those shared rules, add or reuse a canonical term here instead of creating another near-duplicate explanation.
@@ -802,11 +803,11 @@ Consequences:
 ### Canonical source-file classes
 
 Kali uses one cross-spec split for source-file kinds:
-- executable/analyzable source files: `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`
+- **executable/analyzable source-file class**: `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`
 - declaration-only side inputs: `.d.ts`, `.d.mts`, `.d.cts`
 
 Command-facing rule:
-- runtime-bearing entrypoints and other primary program inputs use only the executable/analyzable set,
+- runtime-bearing entrypoints and other primary program inputs use only the **executable/analyzable source-file class**,
 - declaration-only files may still participate as type-loading side inputs,
 - `check`, `fmt`, and `lint` may accept declaration-only files explicitly,
 - passing a declaration-only file where a command requires an executable/analyzable primary input is the canonical input-kind mismatch path (`E5007`), not general CLI misuse.
@@ -815,7 +816,7 @@ Command-facing rule:
 
 Project discovery starts from the union of those two source-file classes.
 
-Runtime-bearing entrypoints and direct executable inputs still use only the executable/analyzable set.
+Runtime-bearing entrypoints and direct executable inputs still use only the **executable/analyzable source-file class**.
 
 ### Default project-discovery rule
 
