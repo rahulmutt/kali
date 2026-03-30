@@ -514,7 +514,7 @@ Scaffold simplification rules:
 - if the current working directory already contains `kali.json`, `kali init` fails with `E5008` instead of overwriting the existing project config.
 - if an ancestor directory contains `kali.json` but the current working directory does not, `kali init` may still create a nested child project rooted at the current working directory; later project discovery then treats that child as a separate project boundary.
 - follow the shared **minimal canonical scaffold contract** from [SPEC.md](../SPEC.md): emit only the smallest valid schema-v1 scaffold for the selected template rather than extra example files, lockfiles, dependency state, or placeholder optional sections.
-- reuse the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): `kali init --lib` selects a project template only and does not imply later `kali build --lib`
+- reuse the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): `kali init --lib` selects a project template only and does not switch later plain `kali build` invocations into library mode
 - follow the **canonical scaffold filename convention** from [SPEC.md](../SPEC.md): `main.ts` for the default app template and `lib.ts` for the library template, unless a later template spec explicitly opts into a different filename.
 - schema-v1 built-in scaffolds are intentionally tiny:
 

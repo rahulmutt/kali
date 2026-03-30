@@ -293,7 +293,7 @@ Use this checklist:
 - command-purpose wording that distinguishes reporting, policy validation, runtime enforcement, install-time hooks, and registry audit should reuse the **workflow-owner split** instead of creating overlapping “analysis”, “sandbox”, or “inspection” narratives for the same command families
 - `--sandbox` behavior across `check` / `build` / `run` / `test` should reuse the **sandbox-attachment orthogonality** rule instead of re-explaining in each chapter that sandbox attachment does not change command family, file arity, compile intent, artifact mode, or API-surface gating
 - verification-boundary wording should reuse the **proof-boundary manifest** term instead of scattering slightly different “modeled subset”, “proof kernel”, or “published proof scope” prose across verification, testing, and maturity chapters
-- `kali init` scaffold wording should reuse the **minimal canonical scaffold contract**, the **canonical scaffold filename convention**, and the **template selection vs build artifact mode split** instead of reintroducing duplicate `main.ts` / `lib.ts` defaults or near-duplicate “library template does not imply later `build --lib`” prose in multiple chapters
+- `kali init` scaffold wording should reuse the **minimal canonical scaffold contract**, the **canonical scaffold filename convention**, and the **template selection vs build artifact mode split** instead of reintroducing duplicate `main.ts` / `lib.ts` defaults or near-duplicate prose about the library template not implicitly switching later `kali build` invocations into library mode
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
 - explicit raw-URL install wording should reuse the **raw-URL install staging/pin workflow** term instead of re-explaining “lock/cache yes, durable declaration no” in each package/install section
 - package-loading and whole-graph-linking wording should reuse the **linked-artifact model** term instead of restating slightly different “single linked payload”, “already-linked graph”, or “no runtime-linked WASM modules” prose
@@ -1692,8 +1692,8 @@ Kali keeps one explicit separation between **project scaffolding** and **later a
 - later `kali build --lib` selects the library-oriented build artifact mode / compile intent
 
 Rules:
-- choosing the library template does **not** implicitly change the default artifact mode for later `kali build` invocations
-- docs should reuse this term instead of repeating near-duplicate prose such as “library template only”, “does not imply `build --lib`”, or “template choice and artifact mode remain separate knobs”
+- choosing the library template does **not** implicitly change the default artifact mode for later `kali build` invocations or auto-select `--lib`
+- docs should reuse this term instead of repeating near-duplicate prose such as “library template only”, “library scaffold does not switch later builds into library mode”, or “template choice and artifact mode remain separate knobs”
 - this split exists so scaffolding can stay minimal while build commands keep their own explicit artifact selection contract
 
 ## Canonical Dependency-Management Mutability Rule
