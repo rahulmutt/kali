@@ -653,7 +653,7 @@ Configuration simplification rules:
 ## Exit Codes
 
 Interpretation rule:
-- compile/check/build diagnostics over otherwise valid command inputs, including `E5004` dependency-state failures, `E5006` feature gating, and Phase 2+ compile-time sandbox/effect violations, exit with **1**
+- ordinary compile/check/build diagnostics over otherwise valid command inputs exit with **1**; this includes syntax/type/name errors, import/module/resolution failures, dependency-state failures (`E5001`-`E5006` as applicable), library-export proof failures (`E5011`), and Phase 2+ compile-time sandbox/effect violations
 - this same `1` path also covers a **well-formed but context-incompatible** attached policy whose enabled capability/profile is unavailable for the effective command context (for example `effects.eval: true` before `--compat eval` exists, or browser-targeted `check` / `build --bundle` policies that request cross-cutting `resources.*` enforcement Kali cannot promise post-deployment)
 - `fmt --check` and lint-style contract failures that report ordinary command diagnostics also exit with **1**
 - runtime sandbox enforcement failures exit with **3**
@@ -672,7 +672,7 @@ This keeps exit codes simple: command-time failures are separated from runtime e
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Compilation/check-style diagnostic failure (`E5004` dependency state, syntax, type, name resolution, build-time sandbox/effect violation, unsupported feature reported during compile/check, semantically valid but context-incompatible policy enablement such as `E5006`, `fmt --check`, lint contract failures) |
+| 1 | Ordinary compile/check/build diagnostic failure (for example syntax, type, name, module/resolution, dependency-state, feature-gating, or library-export-proof failures such as `E5001`-`E5006` and `E5011`, plus build-time sandbox/effect violations, semantically valid but context-incompatible policy enablement, `fmt --check`, and lint contract failures) |
 | 2 | Runtime error (uncaught exception) |
 | 3 | Runtime sandbox violation |
 | 4 | Runtime resource limit exceeded |
