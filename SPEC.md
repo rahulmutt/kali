@@ -265,6 +265,29 @@ Current CLI-vocabulary members of this family:
 - `package-effects`
 - `package-audit`
 
+### Identity-only registry target
+An explicit registry package argument that names a package identity but not an inline version/range selector.
+
+Schema-v1 workflows using this form:
+- `kali install <pkg>`
+- `kali install --dev <pkg>`
+- `kali package-effects <pkg>`
+- `kali package-audit <pkg>`
+
+Interpretation rules:
+- this form uses the shared stable-release selection rule from [14 — Package Management](./specs/14-packages.md)
+- it resolves from registry/package metadata rather than from an ambient project lockfile choice unless a later spec adds an explicit lock-aware or version-selecting mode
+- adding explicit version/range selectors later must be a separate documented input mode rather than inferred from the identity-only form
+
+### Effective npm-scriptable install work
+The subset of one `kali install` invocation that targets npm registry packages and could therefore expose npm lifecycle hooks.
+
+Interpretation rules:
+- this subset may be smaller than the invocation's total install work; JSR packages, raw URLs, and no-op/project-reconciliation work outside npm stay outside it in schema v1
+- `kali install --allow-scripts` affects only this subset
+- mixed graphs are valid: when one install touches both npm and non-npm work, lifecycle scripts may run only for the npm subset while the non-npm subset remains on the normal script-free path
+- if the subset is empty, `--allow-scripts` is invalid usage (`E5008`) rather than a silent no-op
+
 Note:
 - `check` is still the canonical **hybrid analysis command**
 - when invoked without explicit files, `check` also uses canonical project discovery
@@ -451,6 +474,7 @@ In early phases:
 - `kali install [package]` accepts zero or one explicit package argument
 - `kali package-effects <package>` accepts exactly one explicit registry-package argument
 - `kali package-audit <package>` accepts exactly one explicit registry-package argument
+- those explicit registry-package arguments use the schema-v1 **identity-only registry target** form unless a later spec adds a separate version/range selector mode
 
 ## Canonical Command Participation Classes
 

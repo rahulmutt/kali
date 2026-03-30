@@ -122,7 +122,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--filter <pattern>` | `test` | Run only matching tests |
 | `--coverage` | `test` | Emit test coverage data once the coverage report contract is stabilized; before then this flag is phase-gated or explicitly experimental |
 | `--dev` | `install` | Add the named registry dependency to `devDependencies` instead of `dependencies` |
-| `--allow-scripts` | `install` | Opt into npm lifecycle scripts for that install invocation only; meaningful only when the invocation has non-empty **effective npm-scriptable install work** (the npm-registry subset of the install work), and still rejects native addons, `node-gyp`, and install-time binary/bootstrap package contracts |
+| `--allow-scripts` | `install` | Opt into npm lifecycle scripts for that install invocation only; meaningful only when the invocation has non-empty **effective npm-scriptable install work** from [SPEC.md](../SPEC.md), and still rejects native addons, `node-gyp`, and install-time binary/bootstrap package contracts |
 
 Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
@@ -383,6 +383,7 @@ Boundary rule:
 - pairing `--allow-scripts` with an explicit raw URL argument is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
 - pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
 - plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; on a URL-only, JSR-only, or otherwise no-npm-scriptable install graph it should fail with `E5008` instead of silently degenerating into plain `install`
+- mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm subset while the non-npm subset stays on the normal script-free path
 - package-compatibility claims for normal `check` / `build` / `run` / `test` remain separate from this narrower opt-in install behavior
 ```bash
 kali install lodash                        # Add/install registry dependency from npm
@@ -428,7 +429,7 @@ Analyze effects of an npm/JSR package independently of project install state.
 Argument-kind rule:
 - `kali package-effects <package>` takes exactly one explicit package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - `<package>` uses the same canonical registry-package identifier grammar as `kali install`: normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names
-- early schema-v1 package analysis takes a **package identity only**, not an inline version/range selector
+- early schema-v1 package analysis takes the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
 - to keep registry analysis deterministic and project-independent in schema v1, the command uses the shared stable-release rule from [specs/14-packages.md](14-packages.md) and records the resolved version in the output payload
 - `package-effects` therefore does **not** consult the current project's manifest or lockfile to choose a different version in early phases; a later explicit version/range or lock-aware mode would need its own documented selector
 - raw URLs and local file paths are rejected for `package-effects`; this command analyzes registry packages, while raw URL dependencies remain part of the project/import-graph workflow handled by `kali install` + `kali effects`
@@ -464,7 +465,7 @@ Security audit for one registry package.
 Argument-kind rule:
 - `kali package-audit <package>` accepts exactly one explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - the package argument uses the canonical registry-package identifier grammar (normal npm package name or `jsr:`-prefixed JSR name)
-- early schema-v1 package audit likewise takes a **package identity only**, not an inline version/range selector
+- early schema-v1 package audit likewise takes the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
 - to keep audit behavior aligned with `package-effects` and avoid hidden project-state coupling, the command uses the shared stable-release rule from [specs/14-packages.md](14-packages.md) and, when it reports machine-readable/package metadata, includes that resolved version as result metadata rather than as part of the required input spelling
 - raw URLs and local file paths are rejected for `package-audit`; package-audit is registry-package-oriented rather than a second raw-URL analysis path
 

@@ -78,7 +78,7 @@ Registry-collision simplification rule:
 
 ### Canonical stable-release selection rule (schema v1)
 
-Several early schema-v1 workflows intentionally accept a **package identity only** instead of an inline version/range selector. To keep those workflows deterministic, they share one resolution rule:
+Several early schema-v1 workflows intentionally accept the **identity-only registry target** form from [SPEC.md](../SPEC.md) instead of an inline version/range selector. To keep those workflows deterministic, they share one resolution rule:
 - **latest non-yanked stable published version** means the highest published SemVer version for that package identity that has **no prerelease identifier** and is not yanked
 - those identity-only workflows must fail explicitly rather than silently selecting a prerelease when no non-yanked stable version exists
 
@@ -205,6 +205,7 @@ To preserve sandbox-first behavior:
 - pairing `--allow-scripts` with an explicit raw URL install argument is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
 - pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
 - with **no explicit package argument**, `kali install --allow-scripts` applies only to the invocation's **effective npm-scriptable install work**; if that subset is empty, the command should fail with `E5008` instead of silently acting like plain `install`
+- mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm subset while the non-npm subset stays on the normal script-free path
 - packages requiring native build steps, postinstall-downloaded executables, or other platform-specific binary/bootstrap artifacts are rejected as unsupported even when lifecycle scripts are enabled
 - package metadata and tarballs can still be analyzed before linking
 
@@ -414,7 +415,7 @@ Argument-kind simplification:
 - `kali package-effects <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - `kali package-audit <pkg>` takes **exactly one** explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - explicit package arguments for those commands must use canonical **registry-package identifiers** (`lodash`, `@scope/name`, `jsr:@std/path`)
-- early schema-v1 package-analysis commands take a **package identity only**, not an inline version/range selector
+- early schema-v1 package-analysis commands take the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
 - to keep registry analysis deterministic and independent from ambient project state in schema v1, they use the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1) and report the resolved version as result metadata when applicable
 - they therefore do **not** consult the current project's manifest or lockfile to choose a different version in early phases; any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly
 - raw URLs and local file paths are rejected for these commands instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
