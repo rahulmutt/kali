@@ -71,7 +71,8 @@ Practical non-promises for plain Phase-1 `--lib`:
 
 API-surface gating simplification for library-oriented embedding builds:
 - `--lib`, `--capi`, and `--component` all reuse the same exported-library contract rather than defining separate host families
-- effective `apiSurface = browser` remains a command-shape contradiction for those library-oriented modes in early phases rather than a second browser embedding profile
+- the Phase-1 **base library artifact** is supported only in the shared **Deno-oriented build context (schema v1)** from [SPEC.md](../SPEC.md); browser/library combinations stay command-shape contradictions and Node/library combinations stay on the ordinary Node maturity gate
+- effective `apiSurface = browser` therefore remains a command-shape contradiction for those library-oriented modes in early phases rather than a second browser embedding profile
 - effective `apiSurface = node` follows the ordinary Node build gate; embedding-oriented selectors do not create an earlier Node availability path
 - attaching `--sandbox` is orthogonal to those artifact modes: once the underlying library-oriented build shape is otherwise valid, `--sandbox` adds the same static sandbox-policy step without changing API-surface gating or compile intent
 

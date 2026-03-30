@@ -34,7 +34,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Effects | Internal effect bookkeeping may exist in Phase 1; the Phase-2 stable **public effect-report surface** is intentionally split into a reporting half (`kali effects`, `kali package-effects`) and a policy-comparison half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`) |
 | Registry audit | `kali package-audit` is a separate context-free registry-analysis workflow and remains later compatibility |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
-| Embedding | Phase-1 **base library artifact** via `kali build --lib` for exact-version/internal consumers in the default/inherited Deno-oriented build context (that is, the effective `apiSurface` still resolves to `deno`); the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public **WIT-first** `--lib` contract, with `--capi` and `--component` as explicit projections/packaging flows over that same export surface |
+| Embedding | Phase-1 **base library artifact** via `kali build --lib` for exact-version/internal consumers in the shared **Deno-oriented build context (schema v1)**; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public **WIT-first** `--lib` contract, with `--capi` and `--component` as explicit projections/packaging flows over that same export surface |
 | Formal verification | Phase-1 **proof-ready** repository baseline: published **proof-boundary manifest** plus the proof-CI trigger policy for the currently modeled subset; the modeled subset may still be empty while Kali is only **proof-ready**, and no proof-backed release/support claims may extend beyond the published boundary |
 | Tooling | Deno-inspired CLI workflow, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports |
 
@@ -324,7 +324,7 @@ Use this checklist:
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
 - zero-versus-positive wording for `resources.maxSpawnedProcesses` / `resources.maxThreads` and their matching CLI caps should reuse the **feature-gated zero-capable execution budgets** term instead of restating the same `0`-is-valid / positive-is-gated rule in each chapter
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
-- library/export-oriented build wording should reuse the **compile intent**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
+- library/export-oriented build wording should reuse the **compile intent**, **Deno-oriented build context (schema v1)**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
 - source-command versus package-command wording should reuse the **source-graph command**, **dependency-graph command**, **discovery-driven command**, and **registry-analysis command** terms instead of re-listing the same command families ad hoc
 - single-package registry-analysis wording should reuse the **single-package registry-analysis command**, the bundled **registry-analysis target contract (schema v1)**, **registry-analysis availability boundary**, **registry-analysis context split**, and **registry-analysis command split** instead of re-listing command shape, version selection, and project-independence details ad hoc
 - shared-flag wording should reuse the **shared flag buckets**, **semantic/context flag surface**, and **JSON-mode selectors** terms instead of letting command-local prose accidentally treat output-format controls as semantic context or vice versa
@@ -494,6 +494,20 @@ Rules:
 - use this term when a chapter means the configless/default inherited analysis knobs specifically, rather than the full command context for `run`/`build`/`test`
 - this term intentionally excludes `buildMode` and `sandbox`, because they do not participate in schema-v1 inherited package analysis
 - its purpose is to prevent drift between chapters that would otherwise restate only part of the broader default tuple in slightly different words
+
+### Deno-oriented build context (schema v1)
+The canonical early-phase build context for non-browser `build` flows, including the Phase-1 **base library artifact** path.
+
+It is the build-oriented reading of the **Default standalone context (schema v1)**:
+- `apiSurface = deno`
+- `buildMode = fast`
+- `runtimeProfiles = []`
+- `compat.features = []`
+
+Rules:
+- use this term when a chapter means the default/inherited build context in which plain `kali build <file>` and Phase-1 `kali build --lib <file>` are actually supported
+- this term exists to stop a common overread: Phase-1 support for the **base library artifact** belongs only to the Deno-oriented build context and does **not** imply a browser library mode or an early Node build lane
+- inherited config and explicit CLI flags may still move a build out of this context; once they do, the ordinary command-shape and maturity rules still apply
 
 ### Compile intent
 The host-visible meaning of one compilation request, orthogonal to API surface, build mode, and runtime profile:
