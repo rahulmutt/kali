@@ -391,7 +391,8 @@ kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit 
 ```
 
 Example-filename rule:
-- build examples in this chapter derive companion filenames from the entry basename (`lib.ts` → `lib.wasm`, `lib.wit`, `lib.exports.h`, `lib.component.wasm`) so artifact examples stay consistent with the canonical artifact/metadata schemas
+- build examples in this chapter use basename-derived filenames (`lib.ts` → `lib.wasm`, `lib.wit`, `lib.exports.h`, `lib.component.wasm`) as illustrative examples only
+- the normative machine contract is the emitted artifact list's `kind` + `role` metadata plus the availability/gating rules in [specs/12-cli.md](12-cli.md), [specs/18-schemas.md](18-schemas.md), and [specs/19-feature-maturity.md](19-feature-maturity.md)
 
 Artifact-role clarification:
 - `kali build --lib` is the base exported-library path in Phase 1 and the canonical stable public **WIT-first** library path from the Phase 2 target onward; once stabilized, that plain public `--lib` output emits `wit` (`role: interface-wit`) by default alongside the core `wasm-module` (`role: primary-library`)
@@ -436,14 +437,14 @@ Compatibility policy:
 
 Typical embedding flow:
 1. Build or ship `kali_capi` as the native C ABI layer (including the stable `kali.h` host header).
-2. Compile Kali/TypeScript library code with `kali build --capi lib.ts` to obtain `lib.wasm`, `lib.wit`, `lib.exports.h`, and metadata.
+2. Compile Kali/TypeScript library code with `kali build --capi lib.ts` to obtain the C-embedding artifact set — illustratively named files such as `lib.wasm`, `lib.wit`, `lib.exports.h`, and generated metadata.
 3. Verify ABI compatibility between the emitted metadata and the available `kali_capi` host library.
 4. Load that artifact through the `kali_*` API from C or another FFI consumer.
 
 Typical component flow:
 1. Compile Kali/TypeScript library code with `kali build --component lib.ts`.
-2. Use the emitted `lib.wit` as the canonical interface description for tooling/review.
-3. Load `lib.component.wasm` in a Component Model host that matches the documented runtime/profile constraints.
+2. Use the emitted WIT sidecar — illustratively `lib.wit` — as the canonical interface description for tooling/review.
+3. Load the emitted component wrapper — illustratively `lib.component.wasm` — in a Component Model host that matches the documented runtime/profile constraints.
 
 The shared library exports only `kali_*` symbols. All Rust internals are hidden.
 
