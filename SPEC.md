@@ -29,7 +29,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 |---|---|
 | Language/frontend | Latest published ECMA-262 grammar, TypeScript compatibility where implemented, and first-class `.js` compilation with bounded conservative inference |
 | Runtime model | AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
-| Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set** (`check --api browser`, `build --bundle --api browser`, and their effective-context equivalents when `apiSurface = browser` is inherited from config); `--api node` remains gated |
+| Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set** (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including their supported `--sandbox` variants); `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema validation for `check`/`build`, no project-executed policy code |
 | Effects | Internal effect bookkeeping may exist, but stable `kali effects` / `package-effects` reporting waits for Phase 2 |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
@@ -232,7 +232,7 @@ Use this checklist:
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - host/API-layering wording should reuse the **host-support staircase**
 - broad “support” wording across syntax/check/build/run/bundle/policy claims should reuse the **compatibility delivery ladder** and the **support-claim reading order** instead of implying one undifferentiated notion of support
-- early browser-command availability wording should reuse the **Phase-1 browser-targeted command set** when a chapter means exactly `check --api browser` plus `build --bundle --api browser`
+- early browser-command availability wording should reuse the **Phase-1 browser-targeted command set** when a chapter means `kali check [files...]` or `kali build --bundle <file>` under an effective browser API surface, including their supported `--sandbox` variants
 - browser ambient-typing versus sandbox/effect wording should reuse the **Browser ambient typing vs mediated capability split**
 - browser command-shape versus browser-runtime availability wording should reuse the **canonical browser-surface rejection split**
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
@@ -408,13 +408,17 @@ It does **not** mean:
 - permission to expose Deno/Node globals during browser-targeted analysis/build.
 
 ### Phase-1 browser-targeted command set
-The exact Phase-1 command shapes that expose the browser-targeted context after effective-context resolution:
-- `kali check --api browser`
-- `kali build --bundle --api browser`
+The exact Phase-1 command families that expose the browser-targeted context after effective-context resolution:
+- `kali check [files...]` when the effective `apiSurface` is `browser`
+- `kali build --bundle <file>` when the effective `apiSurface` is `browser`
+
+Included variants inside this same set:
+- explicit `--api browser` spellings and equivalent inherited-config forms
+- the supported browser-targeted `--sandbox` attachments for those same command families
 
 Rules:
 - this term exists to stop a common ambiguity: Phase-1 "browser analysis/build support" does **not** mean every command that performs analysis is browser-enabled in Phase 1
-- explicit CLI spellings and equivalent inherited-config forms count as the same command set once effective-context resolution chooses `apiSurface = browser`; for example, discovered `compilerOptions.apiSurface = browser` makes `kali build --bundle main.ts` part of this same Phase-1 set rather than a third browser mode
+- explicit CLI spellings, inherited-config forms, and the supported `--sandbox` attachments above all count as the same command set once effective-context resolution chooses `apiSurface = browser`; for example, discovered `compilerOptions.apiSurface = browser` makes plain `kali check --sandbox kali.policy.json` and `kali build --bundle main.ts` part of this same Phase-1 set rather than creating extra browser modes
 - later commands such as `kali effects --api browser` or inherited browser-context `kali package-effects` reuse the same browser-targeted context only when their own maturity rows explicitly say so
 - chapters should prefer this term when they mean the exact early browser-enabled command set, instead of saying only "supported browser analysis/build commands" and forcing readers to infer which commands are already in scope
 

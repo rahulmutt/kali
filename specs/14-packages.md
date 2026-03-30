@@ -45,7 +45,7 @@ Early registry-package compatibility needs one explicit simplification so packag
 Concretely, a package can be supported in Phase 1 when:
 - its code can be resolved statically into the shared **linked-artifact model**,
 - its module format can be handled by Kali's ESM/CJS pipeline,
-- and its runtime needs are satisfied by either the documented Web baseline plus Deno-oriented standalone surface, or the shared **Phase-1 browser-targeted command set** (`check --api browser`, `build --bundle --api browser`, including equivalent inherited-config forms once effective-context resolution selects `apiSurface = browser`).
+- and its runtime needs are satisfied by either the documented Web baseline plus Deno-oriented standalone surface, or the shared **Phase-1 browser-targeted command set** (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including supported `--sandbox` variants and equivalent inherited-config forms).
 
 A package is **not** automatically in scope just because it lives in npm or JSR. If it depends on broader Node globals/core modules or falls into the **native/binary/bootstrap-heavy package contract**, it stays phase-gated or rejected with the rest of that compatibility work.
 

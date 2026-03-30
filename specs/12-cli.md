@@ -222,7 +222,7 @@ When a command or flag is rejected due to maturity/availability gating, the CLI 
 
 Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
-- follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): supported early browser shapes are `check --api browser` and `build --bundle --api browser`; wrong browser build shapes use `E5008`, while browser execution/test requests use `E5006` until Kali defines a standalone browser runtime/test contract.
+- follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): supported early browser shapes are the shared **Phase-1 browser-targeted command set** (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including their supported `--sandbox` variants); wrong browser build shapes use `E5008`, while browser execution/test requests use `E5006` until Kali defines a standalone browser runtime/test contract.
 - `--api node` is phase-gated consistently across `check`, `effects`, `build`, `run`, and `test`; early phases reject it with `E5006` rather than exposing a partial Node surface.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
 - in schema v1, `--compat eval` is the only stable compatibility-feature spelling and it gates both direct `eval` and `Function()`; the CLI should not invent a separate `--compat function-constructor` alias.
@@ -288,8 +288,9 @@ kali build --max-specializations 32 main.ts # Override specialization cap
 
 Inheritance note:
 - if `compilerOptions.apiSurface = browser` is already inherited from `kali.json`, plain `kali build --bundle main.ts` is the same supported browser-bundle request as the explicit `--api browser` form above
-- if the effective API surface remains the default/inherited non-browser value, that same plain spelling is still invalid usage (`E5008`) because `--bundle` is browser-only in schema v1
-- the maturity matrix now lists those two outcomes as separate rows so the supported inherited-browser shortcut is no longer hidden inside a rejection-only row
+- the same inherited-context rule applies when `--sandbox` is attached: plain `kali build --bundle --sandbox kali.policy.json main.ts` is the same supported browser-targeted static policy-validation request as the explicit `--api browser` form
+- if the effective API surface remains the default/inherited non-browser value, those same plain spellings are still invalid usage (`E5008`) because `--bundle` is browser-only in schema v1
+- the maturity matrix now lists those inherited-browser outcomes explicitly so the supported shortcuts are no longer hidden inside rejection-only rows
 
 ### `kali check [files...]`
 Type-check without compiling.

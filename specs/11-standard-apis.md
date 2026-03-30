@@ -15,7 +15,7 @@ The spec goal is broad compatibility, but the implementation should prefer a sma
 A key simplification rule applies throughout this section: Phase 1 should target the smallest API set that unlocks real-world package execution, and every later API addition should be justified by package compatibility or standards pressure.
 
 Consistency note:
-- browser work in Phase 1 is analysis/build-first (`check --api browser`, `build --bundle --api browser`), not a hidden promise of standalone DOM runtime parity
+- browser work in Phase 1 is analysis/build-first (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including their supported `--sandbox` variants), not a hidden promise of standalone DOM runtime parity
 - Node work is a later compatibility surface, not a second Phase-1 standalone host peer
 - references to browser support in this chapter should therefore prefer the cross-spec **browser-targeted context** wording instead of implying one broad "browser runtime" milestone
 
@@ -38,7 +38,7 @@ This prevents a common source of drift: host-runtime implementation convenience 
 
 Canonical terminology simplification:
 - use the cross-spec term **browser-targeted context** from [SPEC.md](../SPEC.md) for command contexts whose effective `apiSurface` is `browser`
-- in Phase 1, that means the shared **Phase-1 browser-targeted command set**: `kali check --api browser` and `kali build --bundle --api browser`, plus their equivalent inherited-config forms once effective-context resolution selects `apiSurface = browser`
+- in Phase 1, that means the shared **Phase-1 browser-targeted command set**: `kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including their supported `--sandbox` variants and equivalent inherited-config forms
 - later analysis commands may reuse that same ambient typing layer and **package-resolution context** once their own maturity rows allow it
 - it does **not** mean a standalone embedded browser runtime, DOM emulation layer, or permission to expose non-browser globals during analysis/build
 
