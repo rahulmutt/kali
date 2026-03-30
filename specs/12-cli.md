@@ -552,6 +552,13 @@ Rules:
 
 Exception: `kali effects` and `kali package-effects` already emit JSON as their native outputs, so `--output json` wraps those payloads in the envelope instead of changing their underlying schemas.
 
+Native-JSON command-stream rule:
+- in default native-payload mode, stdout is reserved for the success payload only
+- extra progress/status text must not be interleaved into stdout for `kali effects` or `kali package-effects`
+- when those commands fail **without** `--output json`, they should emit the normal human-oriented diagnostics to stderr rather than corrupting stdout with mixed text/JSON output
+- when callers need machine-readable failure results for those commands too, `--output json` is the canonical request path; both success and failure then use the standard command envelope
+- `--pretty` changes formatting of the success payload or outer envelope only; it does not turn stderr diagnostics into JSON
+
 This is an intentional simplification: Kali keeps one canonical effect-report payload family, and the command envelope is an outer transport wrapper rather than a second competing effect schema for every effect-analysis command.
 
 ## Configuration (`kali.json`)

@@ -23,6 +23,11 @@ error[E1001]: Type 'string' is not assignable to type 'number'
 ### JSON (`--output json`)
 Diagnostics are emitted inside the CLI's versioned command envelope. The canonical JSON schemas for both the envelope and individual diagnostics live in [specs/18-schemas.md](18-schemas.md).
 
+Native-JSON command clarification:
+- `kali effects` and `kali package-effects` emit raw JSON payloads on stdout by default on success
+- when they fail **without** `--output json`, their diagnostics stay human-oriented and should go to stderr so stdout does not become mixed text+JSON
+- callers that need machine-readable failure diagnostics for those commands must request `--output json`
+
 Terminology note:
 - the compiler's internal `Span` is a byte-offset range used by the parser/AST/IR
 - the JSON diagnostic `span` is a `SourceSpan` with `file`/`line`/`column` fields derived from that internal span

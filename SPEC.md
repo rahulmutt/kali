@@ -767,7 +767,9 @@ When Kali exposes machine-readable output:
 - JSON is the stable tooling contract
 - top-level machine-readable JSON documents carry `schemaVersion`
 - `kali effects` and `kali package-effects` may emit their native payloads directly by default
+- in that native-payload mode, **stdout is reserved for the success payload only**; extra status/progress text must not be interleaved into stdout, and default human diagnostics on failure should go to stderr instead
 - `--output json` wraps command results in the standard command envelope from [specs/18-schemas.md](./specs/18-schemas.md)
+- `--output json` is also the canonical way to request a machine-readable **failure** result for native-JSON commands, so tools do not have to parse human stderr diagnostics
 - machine-emitted arrays should use deterministic canonical ordering wherever the producer owns the order, so AI/tooling diffs do not depend on traversal or hash-map iteration order
 
 ## Cross-Spec Simplicity Rules

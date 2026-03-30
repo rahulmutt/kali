@@ -54,6 +54,8 @@ Used by commands that opt into `--output json`.
 - `payload` holds command-specific structured data
 - `command` is intentionally an open-ended string so new CLI subcommands do not force a schema-version bump; stable built-in command names should mirror the CLI subcommand path in kebab-case (for example `check`, `build`, `package-effects`)
 - `kali effects` and `kali package-effects` may emit their native JSON payloads by default, but with `--output json` they must be wrapped in this envelope
+- for those native-JSON commands, default success mode reserves stdout for the payload only; extra progress/status text must not be interleaved into stdout
+- when those commands fail without `--output json`, human-oriented diagnostics should go to stderr; callers that need machine-readable failure output must request `--output json`
 - for execution-style commands in JSON mode, guest/program stdout and stderr belong in the envelope's `stdout` / `stderr` fields rather than being interleaved as raw text around the JSON payload
 - diagnostics inside the envelope may carry optional structured `context` metadata when a config/flag-derived effective command context materially caused the failure
 - Commands should avoid inventing top-level ad hoc fields when `payload` is sufficient
