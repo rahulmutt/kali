@@ -262,6 +262,7 @@ Inherited execution-context shorthand:
 Sandbox flag behavior is intentionally phase-gated:
 - `kali run --sandbox ...` is a Phase 1 feature for runtime policy enforcement.
 - `kali check/build --sandbox ...` validate the policy file/config in Phase 1.
+- Graph-scope rule: on `check` and `build`, attaching `--sandbox` validates the same full statically reachable graph the command already analyzes/builds; it does not validate only the root file while ignoring transitive imports/dependencies.
 - Full inferred-effect-vs-policy validation is a Phase 2 feature.
 - Policy validation must also reject policies that try to enable capabilities unavailable in the selected command/profile/phase (for example `effects.eval: true` before the eval compatibility path exists, `effects.eval: true` without effective `--compat eval`, or positive values for the **feature-gated zero-capable execution budgets** from [SPEC.md](../SPEC.md) before subprocess/thread support exists).
 - For browser-targeted `check --api browser --sandbox ...` and `build --bundle --api browser --sandbox ...`, follow the **browser-targeted static sandbox contract** and the **canonical browser-targeted budget compatibility rule** from [SPEC.md](../SPEC.md): browser-targeted sandboxing is a static compatibility check over the documented mediated subset, and browser-policy validation should reference that one canonical `resources.*` rule instead of repeating a second list here.
@@ -306,7 +307,7 @@ Canonical artifact-mode rule:
 
 Sandbox clarification:
 - follow the shared **sandbox-attachment orthogonality** rule from [SPEC.md](../SPEC.md)
-- `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config, and starting in the Phase 2 target window it also performs effect-vs-policy validation
+- `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config over the same full linked graph rooted at the primary source input, and starting in the Phase 2 target window it also performs effect-vs-policy validation
 - therefore `kali build --lib --sandbox ...` is the same library-oriented build plus static policy validation, while later `--capi --sandbox ...` / `--component --sandbox ...` reuse that same rule once those artifact modes themselves exist
 - `kali build --bundle --api browser --sandbox ...` follows the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md): it is a build-time compatibility check over the documented mediated subset, not automatic runtime sandbox enforcement once the emitted browser bundle is deployed into a real browser host
 - inherited browser config follows the same orthogonality rule: plain `kali build --sandbox kali.policy.json main.ts` under an inherited browser API surface is still the same non-bundle browser-build contradiction as explicit `kali build --api browser --sandbox kali.policy.json main.ts`, and plain library-oriented forms such as `kali build --lib --sandbox ...`, `kali build --capi --sandbox ...`, or `kali build --component --sandbox ...` under an inherited browser API surface are still the same browser-library contradictions as their explicit `--api browser` counterparts, so they stay `E5008` until those browser build shapes exist
@@ -372,7 +373,7 @@ kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to t
 kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
 kali check --api browser --sandbox kali.policy.json src/a.ts src/b.ts # Same browser-targeted validation path over an explicit multi-file set
 ```
-`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`, `--api node`, and `--sandbox`: API-surface selection changes only the analysis context, and the shared **sandbox-attachment orthogonality** rule from [SPEC.md](../SPEC.md) keeps `check` from turning into a direct-input command. Inherited browser-config equivalents are summarized in the shorthand table below so the same bare `kali check ...` spelling does not need to appear twice with two different contexts.
+`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`, `--api node`, and `--sandbox`: API-surface selection changes only the analysis context, and the shared **sandbox-attachment orthogonality** rule from [SPEC.md](../SPEC.md) keeps `check` from turning into a direct-input command. When `--sandbox` is attached, validation still ranges over the same full statically reachable graph rooted at the discovered project or explicit file set; it is not a root-file-only check. Inherited browser-config equivalents are summarized in the shorthand table below so the same bare `kali check ...` spelling does not need to appear twice with two different contexts.
 
 Inherited check-context shorthand:
 

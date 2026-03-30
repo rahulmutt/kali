@@ -124,7 +124,7 @@ Because schema v1 now treats the built-in `kali init` templates as exact minimal
 #### Kali-Specific Tests
 - **Effect inference tests**: Source → expected effects JSON for the full statically reachable graph from the chosen analysis/logical root *(Phase 2 target; under the shared **effect-surface split**, Phase 1 may instead test internal effect-bookkeeping units without claiming the stable CLI/JSON surface)*
 - **JSON-mode coverage for registry/effect reporting commands**: once `kali effects` / `kali package-effects` exist, assert both the native bare-payload mode and the `--output json` envelope mode; once `kali package-audit` exists, assert its envelope-only `--output json` behavior and the invalid `--pretty`-without-`--output json` path so the CLI/output-model split from [SPEC.md](../SPEC.md) and [specs/18-schemas.md](18-schemas.md) cannot drift
-- **Sandbox tests**: Source + policy → expected pass/fail, including explicit checks for Phase 1 runtime enforcement vs Phase 2 compile/check-time effect-vs-policy rejection, and for policy checks over transitive imports/dependencies rather than just the root file
+- **Sandbox tests**: Source + policy → expected pass/fail, including explicit checks for Phase 1 runtime enforcement vs Phase 2 compile/check-time effect-vs-policy rejection, and for the rule that policy checks cover the full statically reachable graph (transitive imports/dependencies), not just the root file
 - **Memory tests**: Source → expected allocation strategy (stack/owned-heap/shared-heap)
 - **Specialization tests**: Generic source → expected number of specializations
 - **Optimization tests**: Source → check specific optimization was applied
