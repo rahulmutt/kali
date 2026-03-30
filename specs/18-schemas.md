@@ -868,6 +868,7 @@ This metadata exists to answer one narrow question deterministically: **can this
 
 Interpretation rules:
 - this metadata is the canonical load-time compatibility record for `kali build --capi`; loaders should check it before instantiating the library artifact through `kali_capi`
+- the intended host-side comparison point is the C-ABI helper `kali_host_abi_version()` described in [specs/13-embedding.md](13-embedding.md), whose naming intentionally matches `hostAbiVersion` / `minHostAbiVersion`
 - the conventional emitted filename is `<entry>.cabi.json` (for example `lib.cabi.json`), but the schema is keyed by contents and artifact role/kind rather than by one hard-coded basename
 - `hostAbiVersion` / `minHostAbiVersion` describe compatibility with the stable **host ABI header** / host-side `kali_capi` library, not the user program's exported function set
 - exported-function shape belongs to WIT plus the generated **program-specific exports header**; this metadata should not duplicate that interface in a second ad hoc schema

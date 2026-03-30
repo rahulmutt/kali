@@ -114,7 +114,7 @@ assert_eq!(result.as_number(), Some(3.0));
 
 // Compile an executable-intent module graph into one linked WASM payload artifact
 let module = runtime.compile_executable_file("main.ts")?;
-let result = runtime.run_module(&module)?;
+let result = runtime.run_executable_module(&module)?;
 
 // Compile a library-intent module graph and call statically known exports
 let module = runtime.compile_library_file("lib.ts")?;
@@ -140,9 +140,10 @@ Canonical embedding-alignment rule:
 - WIT is the canonical host-facing interface description for public library/component outputs; plain public `--lib` is therefore the default stable library artifact shape once Phase 2 lands, and Rust-typed helpers, generated program-specific exports headers, and later component wrappers are projections of that same exported interface contract rather than unrelated parallel ABI descriptions
 - embedding APIs may use idiomatic Rust enums/builders instead of the JSON field names, but they should not invent a second incompatible vocabulary for the same concepts
 - build-oriented embedding calls obey the same API-surface gates as the CLI/spec matrix: for example, `ApiSurface::Node` remains Phase 3-gated for compile/build flows, while browser-targeted build output is still the `--bundle`-style path rather than a generic library/export mode
-- embedding compilation must keep the shared **compile intent** from [SPEC.md](../SPEC.md) explicit, either through separate helpers or an explicit compile option, so hosts do not have to guess exported-library semantics from a later `run_module(...)` vs `instantiate(...)` call
+- embedding compilation must keep the shared **compile intent** from [SPEC.md](../SPEC.md) explicit, either through separate helpers or an explicit compile option, so hosts do not have to guess exported-library semantics from a later `run_executable_module(...)` vs `instantiate(...)` call
 - compiled modules are reusable immutable artifacts: `instantiate(&module)` borrows the compiled module instead of consuming it, and hosts may create multiple instances from one compiled module when that matches the host lifecycle
-- executable-style helpers such as `run_executable_string(...)` and `run_module(...)` are for modules with an executable entry contract; export-oriented/library flows use `instantiate(...).call(...)` and must not rely on a synthetic executable entry being invented for them
+- executable-style helpers should keep executable intent explicit in their names, for example `run_executable_string(...)` and `run_executable_module(...)`, so hosts do not have to guess whether a generic `run(...)`/`run_module(...)` helper expects executable or library compile intent
+- export-oriented/library flows use `instantiate(...).call(...)` and must not rely on a synthetic executable entry being invented for them
 - export-oriented/library flows remain part of **Kali-hosted execution** from [SPEC.md](../SPEC.md): module instantiation still performs normal top-level initialization, calls through the **statically known export surface** run under the same sandbox/resource envelope as other embedding execution paths, and there is no special unsandboxed "library mode"
 - if a host calls an executable helper on a library-intent module, or tries to treat an executable-intent module as a library without the required **statically known export surface**, that mismatch should fail explicitly rather than being repaired by fallback heuristics
 - export-oriented embedding calls require the same **statically known export surface** as the CLI's library-oriented artifact modes; if Kali cannot determine one fixed host-callable export set after frontend lowering, embedding-facing compile/instantiate flows must fail with the same canonical `E5011` path rather than exposing reflection-based export discovery
@@ -292,7 +293,7 @@ bool kali_config_set_sandbox(KaliConfig* config, const char* policy_path);
 void kali_config_free(KaliConfig* config);
 
 // Runtime
-uint32_t kali_runtime_abi_version(void);
+uint32_t kali_host_abi_version(void);
 KaliRuntime* kali_runtime_new(const KaliConfig* config);
 void kali_runtime_free(KaliRuntime* runtime);
 
@@ -306,7 +307,7 @@ void kali_module_free(KaliModule* module);
 // Instantiation / execution
 KaliInstance* kali_instantiate(KaliRuntime* runtime, const KaliModule* module);
 void kali_instance_free(KaliInstance* instance);
-KaliValue* kali_run(KaliRuntime* runtime, const KaliModule* module);
+KaliValue* kali_run_executable_module(KaliRuntime* runtime, const KaliModule* module);
 KaliValue* kali_run_executable_string(KaliRuntime* runtime, const char* filename, const char* source);
 KaliValue* kali_call(KaliInstance* instance, const char* fn_name,
                      KaliValue** args, uint32_t argc);
@@ -346,7 +347,7 @@ bool kali_register_host_function(KaliRuntime* runtime, const char* module,
 ### Memory Management
 - All `kali_*_new` / `kali_*_free` pairs — caller manages lifetime
 - `KaliConfig*` is a caller-owned builder object. `kali_runtime_new(const KaliConfig* config)` snapshots the effective config and does **not** consume ownership, so the caller may free the config immediately after runtime creation succeeds or fails.
-- `KaliModule*` and `KaliInstance*` are distinct owned handles: `kali_instantiate(..., const KaliModule* module)` and `kali_run(..., const KaliModule* module)` borrow the compiled module rather than consuming it, so one compiled module may back multiple instances or repeated runs when that matches its explicit compile intent. Freeing a compiled module does not implicitly free any instantiated instance unless a later ABI revision documents that ownership transfer explicitly.
+- `KaliModule*` and `KaliInstance*` are distinct owned handles: `kali_instantiate(..., const KaliModule* module)` and `kali_run_executable_module(..., const KaliModule* module)` borrow the compiled module rather than consuming it, so one compiled module may back multiple instances or repeated runs when that matches its explicit compile intent. Freeing a compiled module does not implicitly free any instantiated instance unless a later ABI revision documents that ownership transfer explicitly.
 - Borrowed string views such as `kali_value_as_string(...)`, `kali_error_message(...)`, and `kali_error_code(...)` remain owned by Kali and are valid only while the referenced value/error object remains alive
 - Owned string results such as `kali_error_json(...)`, `kali_analyze_effects_file(...)`, and `kali_analyze_effects_string(...)` must be freed with `kali_free_string`
 - because the public C ABI itself is a **Phase 2 target**, pre-Phase-2 internal prototypes are free to omit unstable helpers such as the effect-analysis entrypoints instead of pretending they already exist as a stable callable contract
@@ -365,7 +366,7 @@ bool kali_register_host_function(KaliRuntime* runtime, const char* module,
 - Boolean-returning registration/configuration helpers return `false` on error
 - Call `kali_last_error()` for runtime-bound failures, or `kali_global_last_error()` for failures that happen before a `KaliRuntime` exists (for example `kali_runtime_new` returning `NULL`)
 - failed config mutations also report through `kali_global_last_error()` because they may occur before a runtime exists
-- `kali_run(...)` and `kali_run_executable_string(...)` are executable-style convenience paths and should fail for a compiled module or source input that does not have an executable entry contract; export-oriented/library flows should use `kali_compile_library_*` + `kali_instantiate(...)` + `kali_call(...)` instead of expecting the runtime to invent a synthetic entrypoint
+- `kali_run_executable_module(...)` and `kali_run_executable_string(...)` are executable-style convenience paths and should fail for a compiled module or source input that does not have an executable entry contract; export-oriented/library flows should use `kali_compile_library_*` + `kali_instantiate(...)` + `kali_call(...)` instead of expecting the runtime to invent a synthetic entrypoint
 - Error includes the stable string diagnostic code, message, and JSON representation so embedders see the same canonical machine contract as the CLI
 
 ### Building
@@ -413,8 +414,9 @@ To keep embedding stable and machine-checkable, the C ABI needs one explicit com
 - the stable host header exposes it via constants/macros such as:
   - `KALI_CAPI_ABI_VERSION`
   - `KALI_CAPI_ABI_MIN_COMPAT_VERSION` *(optional if compatible windowing is needed)*
-- the runtime exports `uint32_t kali_runtime_abi_version(void);`
+- the host ABI library exports `uint32_t kali_host_abi_version(void);`
 - `kali build --capi foo.ts` embeds the expected host ABI version in emitted metadata so loaders can reject incompatible host/program combinations before instantiation; the canonical metadata-file shape belongs to [specs/18-schemas.md](18-schemas.md)'s **C ABI Metadata Schema (schema v1)** section rather than to ad hoc per-chapter prose
+- the host library reports its own version through `uint32_t kali_host_abi_version(void);`; the function name intentionally says **host ABI** to match the metadata field names (`hostAbiVersion`, `minHostAbiVersion`) and avoid ambiguity with guest/runtime ABI concepts
 - incompatible ABI versions are a hard load-time error; they must not silently proceed on a best-effort basis
 
 Compatibility policy:
