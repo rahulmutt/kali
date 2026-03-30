@@ -421,6 +421,7 @@ To keep the normalized bootstrap scope easy to scan, Phase 1 does **not** imply:
 - general `--api node` command support across `check` / `effects` / `build` / `run` / `test`,
 - standalone browser runtime or browser-hosted `run` / `test`,
 - `eval` / `Function()` support,
+- interactive permission-prompt / privilege-escalation flows such as `Deno.permissions.request()` / `revoke()`,
 - threaded runtime profiles / `SharedArrayBuffer` / `Atomics`,
 - the Phase-2 **public embedding outputs**: stable public Rust embedding, `--capi`, `--component`, or default WIT sidecars for plain `--lib`.
 
