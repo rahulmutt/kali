@@ -100,7 +100,7 @@ Terminology note:
 - `E5008`: Invalid CLI usage or flag/arity combination for the selected command
 - `E5009`: Invalid project configuration
 - `E5010`: Invalid sandbox policy file
-- `E5011`: Cannot prove a statically known export surface for a library-oriented build
+- `E5011`: Cannot determine a statically known export surface for a library-oriented build
 
 Use `E5004` for dependency-state problems such as:
 - project dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports from the install-time project discovery set) have not been installed/materialized yet
@@ -258,7 +258,7 @@ error[E5011]: cannot determine a statically known export surface for library-ori
 ```
 
 Use `E5011` for cases such as:
-- dynamic CommonJS export mutation that prevents one fixed export set from being proved for `--lib`, `--capi`, or `--component`
+- dynamic CommonJS export mutation that prevents one fixed export set from being determined for `--lib`, `--capi`, or `--component`
 - reflection-heavy export assembly that would require Kali to synthesize host-visible exports it cannot justify from static analysis
 - any other library-oriented build where Kali would otherwise need reflective export discovery instead of the required explicit export surface
 

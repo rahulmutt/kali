@@ -126,7 +126,7 @@ assert_eq!(result.as_number(), Some(3.0));
 let module = runtime.compile_executable_file("main.ts")?;
 let result = runtime.run_executable_module(&module)?;
 
-// Compile a library-intent module graph and call statically known exports
+// Compile a library-intent module graph and call through the statically known export surface
 let module = runtime.compile_library_file("lib.ts")?;
 let instance = runtime.instantiate(&module)?;
 let result = instance.call("add", &[Value::Number(1.0), Value::Number(2.0)])?;
