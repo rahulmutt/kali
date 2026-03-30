@@ -469,13 +469,9 @@ Argument-kind simplification:
 - version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md)
 - `kali package-effects` records the resolved version in its machine-readable payload, while early `package-audit` follows the same version-selection rule but does **not** promise command-specific machine-readable version metadata until a dedicated audit payload schema exists
 - any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly
-- follow the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md): package-analysis context inheritance for `package-effects` affects analysis semantics only, not project/version selection
+- follow the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md): package-analysis context inheritance for `package-effects` affects analysis semantics only, not project/version selection, and promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
 - any non-registry target is rejected for these commands in early phases, including raw URLs and local file paths, instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
 - raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
-
-Isolation rule:
-- follow the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md)
-- promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
 
 Registry-analysis cache simplification:
 - `package-effects` and `package-audit` may use the shared **registry-analysis cache** from [SPEC.md](../SPEC.md) for fetched metadata/tarballs
@@ -509,7 +505,7 @@ Simplification rules:
 - unlike `package-effects`, early `package-audit` is intentionally **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics, whether the command runs under discovered config or in configless project mode
 - in schema v1, its package target is selected by the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md) rather than from any ambient project lockfile selection
 - if unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee
-- until a dedicated audit payload schema exists, `package-audit --output json` follows the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md): the standard command envelope is the whole machine-readable contract, `payload` stays omitted or `null`, and package/version metadata must not be smuggled through ad hoc fields or by repurposing `stdout` / `stderr`
+- until a dedicated audit payload schema exists, `package-audit --output json` follows the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md)
 - once a dedicated machine-readable audit payload is added, it should still travel through the same standard `--output json` command envelope instead of inventing a second native bare-JSON format
 
 This integrates with the effect system — know what a dependency does before you use it.
