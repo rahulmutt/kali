@@ -12,6 +12,7 @@ Bootstrap-normalized headline assumptions:
 - embedding is phased: Phase 1 ships a useful but unstable `kali build --lib` **base library artifact**; the stable public Rust/WIT/C ABI and Component Model surface is Phase 2
 - effects are phased too: Phase 1 may use internal effect bookkeeping for sandboxing, but stable `kali effects` / `kali package-effects` are Phase 2 and `kali package-audit` is later compatibility
 - verification is **proof-ready** before it is **proof-backed**: an empty published proof boundary is acceptable early, but releases must not market formal verification as shipped until that boundary names real modeled subsystems and theorem claims
+- current repository verification status: see [proofs/BOUNDARY.md](./proofs/BOUNDARY.md); it currently declares an empty modeled boundary, so this repo is **proof-ready** but not yet **proof-backed**
 - package installation stays context-agnostic in Phase 1, while package support claims use the shared **package-support decision order**: package shape first, then host/API fit for the active context, then command maturity, all under the **published-artifact-first package reading**
 
 Quick Phase-1 non-goals:

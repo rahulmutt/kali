@@ -34,7 +34,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Effects | Internal effect bookkeeping may exist, but stable `kali effects` / `package-effects` reporting waits for Phase 2, and `package-audit` remains later compatibility |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib`; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging |
-| Formal verification | Phase-1 published **proof-boundary manifest** plus proof-CI wiring over the currently modeled subset, following the shared **proof activation split**; no proof-backed support claims beyond that boundary |
+| Formal verification | Phase-1 published **proof-boundary manifest** plus proof-CI wiring over the currently modeled subset, following the shared **proof activation split**; the modeled subset may still be empty while Kali is only **proof-ready**, and no proof-backed support claims may extend beyond the published boundary |
 | Tooling | Deno-like CLI, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports |
 
 Use this table as a reading aid only. Detailed behavior still belongs to the owning chapters and the maturity matrix.
@@ -599,6 +599,10 @@ Rules:
 - before a release or support summary advertises formal verification as a shipped capability, the boundary must be non-empty, name at least one concrete modeled subsystem, and list the claimed theorem/property inventory so the claim is genuinely proof-backed rather than merely proof-ready
 - proof CI follows the activation rule declared by the published boundary; when the boundary is empty, proof jobs are required only for `proofs/`, and once covered implementation/spec areas are named they also become proof-CI triggers
 - chapters should reuse this term instead of re-explaining the same placeholder-versus-shipped-proof distinction in slightly different prose
+
+Current repository note:
+- at the time of this spec revision, [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) still declares an empty modeled boundary, so the repository is **proof-ready** but not yet **proof-backed**
+- README summaries, release notes, and support tables should therefore link to that manifest instead of paraphrasing formal-verification status from memory
 
 ### Canonical browser-applicable mediated subset (schema v1)
 When a chapter says browser-targeted policy/effect reasoning uses the browser-applicable part of the **Kali-mediated capability subset**, it means:
