@@ -584,12 +584,13 @@ Determinism rules:
 - Registry packages (npm/JSR) are materialized into `node_modules/`; raw URL imports are materialized under `.kali/cache/urls/`. Non-install commands consume whichever of those stores are relevant to the current project instead of assuming every project must have both.
 
 ### Registry-analysis commands
-These commands follow the shared **registry-analysis command split** from [SPEC.md](../SPEC.md) while sharing one early-phase target-selection contract:
-- each takes exactly one explicit **registry package identifier** and rejects zero, multiple, raw-URL, or local-path targets with `E5008`
-- the package argument uses the shared **identity-only registry target** form from [SPEC.md](../SPEC.md): `lodash`, `@types/node`, or `jsr:@std/path`, with no inline version/range selector
-- version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md); if the package identity exists but no acceptable non-yanked stable release exists, the command fails with `E5001`
-- both commands follow the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md): current-project `kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/` do not change which package version is analyzed, and the commands do not mutate project-managed dependency state
-- `package-effects` may still inherit semantic analysis context from discovered config/defaults once that command exists, but that inherited context affects analysis semantics only; it must not rewrite package identity/version selection or blur the project-independence rule
+These commands follow the shared **registry-analysis command split** from [SPEC.md](../SPEC.md) while sharing the bundled **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md): one explicit canonical registry package identifier, stable-release selection for versionless CLI targets, and project-independent analysis that does not mutate project-managed dependency state.
+
+Practical consequences:
+- malformed target forms (missing package, multiple packages, raw URL, or local path) fail with `E5008`
+- if the package identity exists but no acceptable non-yanked stable release exists for that identity-only workflow, the command fails with `E5001`
+- current-project `kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/` do not select a different analyzed version
+- `package-effects` may still inherit semantic analysis context from discovered config/defaults once that command exists, but that inherited context changes analysis semantics only; it does not rewrite package identity/version selection
 - turning an analyzed package into a project dependency remains the job of `kali install`
 
 ### `kali package-effects <package>`
@@ -615,7 +616,7 @@ Machine-output rule:
 - see [specs/18-schemas.md](18-schemas.md) for the canonical package-effect payload schema
 
 Analysis rule:
-- `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
+- `kali package-effects <pkg>` follows the shared **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md) and summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
 - it inherits its semantic analysis context through the shared **inherited analysis context** from [SPEC.md](../SPEC.md) rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox` in schema v1; that inherited context changes analysis semantics only and does not alter which package/version was selected
 - in configless mode, that inherited context is just the **default inherited analysis context (schema v1)** from [SPEC.md](../SPEC.md)
 - if discovered config later makes that inherited context resolve to `apiSurface = browser`, plain `kali package-effects <pkg>` reuses the same browser-targeted analysis context once the command itself exists; this later inherited-context reuse does **not** widen the exact **Phase-1 browser-targeted command set**
@@ -640,7 +641,7 @@ Base-gate clarification:
 - output-format flags do not create a second availability path for the command itself
 
 Audit rule:
-- following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command is the context-free registry-metadata/security-audit path rather than a second host-context-aware effect/policy command
+- following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command follows the bundled **registry-analysis target contract (schema v1)** and is the context-free registry-metadata/security-audit path rather than a second host-context-aware effect/policy command
 - as the `package-audit` half of the shared **registry-analysis command split**, early `package-audit` follows **context-free registry analysis (schema v1)** and therefore does **not** inherit the shared **inherited analysis context** or accept package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
 - in schema v1 it is an **envelope-only JSON command**, not a **native-JSON command**; because of that envelope-only model, `kali package-audit --pretty <pkg>` without `--output json` is invalid command usage (`E5008`) rather than an implicit request for JSON mode
 - follow the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md) for the exact envelope-only machine-output contract instead of restating it here

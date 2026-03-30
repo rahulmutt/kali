@@ -277,7 +277,7 @@ Use this checklist:
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
 - library/export-oriented build wording should reuse the **compile intent**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
 - source-command versus package-command wording should reuse the **source-graph command**, **dependency-graph command**, **discovery-driven command**, and **registry-analysis command** terms instead of re-listing the same command families ad hoc
-- single-package registry-analysis wording should reuse the **single-package registry-analysis command**, **registry-analysis availability boundary**, **registry-analysis context split**, **registry-analysis command split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
+- single-package registry-analysis wording should reuse the **single-package registry-analysis command**, the bundled **registry-analysis target contract (schema v1)**, **registry-analysis availability boundary**, **registry-analysis context split**, and **registry-analysis command split** instead of re-listing command shape, version selection, and project-independence details ad hoc
 - shared-flag wording should reuse the **shared flag buckets**, **semantic/context flag surface**, and **JSON-mode selectors** terms instead of letting command-local prose accidentally treat output-format controls as semantic context or vice versa
 - JSON machine-output wording should reuse the canonical **native-JSON command**, **envelope-only JSON command**, **JSON-producing mode**, **JSON-mode selectors**, and **registry-analysis command split** terms instead of restating near-duplicate output-mode rules
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
@@ -1155,11 +1155,26 @@ Rule:
 - use this term instead of restating “exactly one explicit registry package identifier, no raw URLs/local paths, no implicit whole-project mode” in each chapter.
 - package version selection, inherited analysis context, and project-independence are separate rules owned by the neighboring registry-analysis terms.
 
+### Registry-analysis target contract (schema v1)
+The bundled schema-v1 target-selection contract shared by `package-effects` and `package-audit`.
+
+It deliberately packages together the three registry-analysis rules that often drift apart when chapters paraphrase them from memory:
+1. **command shape** — follow the **single-package registry-analysis command** rule: exactly one explicit canonical registry package identifier, with raw URLs, local paths, omitted targets, and multiple targets rejected as `E5008`
+2. **version selection** — follow the **stable-release selection rule (schema v1)** unless a later owning chapter adds an explicit version-aware or lock-aware mode
+3. **project independence** — follow the **registry-analysis project-independence rule**: current-project `kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/` do not pick a different version, and the commands do not mutate project-managed dependency state
+
+Canonical consequence:
+- `package-effects` and `package-audit` are both registry-package workflows over one explicit package identity, not whole-project dependency analyzers, raw-URL analyzers, or “whatever this repo currently has installed” commands.
+
+Rule:
+- use this bundled term when a chapter needs the full early registry-analysis target-selection story instead of restating command shape, stable-release selection, and project-independence as three separate mini-lists.
+- when a chapter only needs one slice, it may still reference the narrower owned term directly.
+
 ### Registry-analysis availability boundary
 The shared validation-order rule for well-formed versus malformed registry-analysis invocations.
 
 In schema v1 this means:
-- malformed registry-analysis invocations still fail first with `E5008` under the **single-package registry-analysis command** rule (and, when relevant, the shared **JSON-producing mode** rules),
+- malformed registry-analysis invocations still fail first with `E5008` under the **registry-analysis target contract (schema v1)** (and, when relevant, the shared **JSON-producing mode** rules),
 - the corresponding well-formed base invocations then fall through to the command's own availability gate (`E5006`) until that command exists in the current phase,
 - once the base command exists, narrower inherited-context/profile gates apply after that base-command gate rather than replacing it,
 - output-format selectors such as `--output json` or `--pretty` never create a second availability path for the command itself.
@@ -1179,7 +1194,7 @@ To keep single-package tooling predictable and avoid a second near-duplicate fla
 - because schema v1 intentionally omits package-analysis-specific context flags, non-default `package-effects` contexts come only from defaults or discovered config; in configless mode the command therefore uses the **default inherited analysis context (schema v1)** unless/until a later spec adds explicit package-analysis context flags.
 - `package-effects` follows the maturity of the inherited analysis axis instead of inventing its own separate gate table: inherited browser context lines up with browser-targeted effect analysis, inherited Node context lines up with the Node analysis gate, inherited `wasm-threads` lines up with the threaded-profile gate, and inherited compat features such as `eval` line up with their own compatibility-phase gates.
 - `package-audit`, once that command exists, follows **context-free registry analysis (schema v1)**.
-- both commands still follow the shared **registry-analysis project-independence rule** as well as the identity-only registry-target rule.
+- both commands still continue to follow the shared **registry-analysis target contract (schema v1)** while differing only in context participation and JSON/output behavior.
 
 ### Registry-analysis command split
 Kali intentionally keeps the two schema-v1 single-package registry-analysis commands small and non-overlapping instead of growing one fuzzy “package inspection” surface.
@@ -1187,7 +1202,7 @@ Kali intentionally keeps the two schema-v1 single-package registry-analysis comm
 In schema v1 this means:
 - `package-effects` is the **Phase 2 target** analysis-context-aware effect-report command: it inherits the shared **inherited analysis context**, follows **axis-aligned inherited analysis gating**, and is a **native-JSON command** once available.
 - `package-audit` is the **Later compatibility** context-free security-audit command: it follows **context-free registry analysis (schema v1)** and is an **envelope-only JSON command** in schema v1.
-- both commands still share the same **single-package registry-analysis command** shape and the **registry-analysis project-independence rule**.
+- both commands still share the same **registry-analysis target contract (schema v1)**.
 
 Rule:
 - use this term when a chapter needs the top-level contrast between `package-effects` and `package-audit` instead of restating the same availability/context/JSON split in slightly different prose.

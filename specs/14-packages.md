@@ -520,13 +520,11 @@ Registry-analysis summary:
 | `package-audit` | Later compatibility | The context-free half of the shared **registry-analysis command split**: follows **context-free registry analysis (schema v1)** | Schema-v1 **envelope-only JSON command**; see [specs/18-schemas.md](18-schemas.md)'s **Package Audit JSON Output (schema v1)** section |
 
 Shared target-selection rule:
-- both commands follow the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
-- explicit package arguments therefore use the canonical **registry package identifier** spelling from [SPEC.md](../SPEC.md) (`lodash`, `@scope/name`, `jsr:@std/path`)
-- early schema-v1 package-analysis commands take the shared **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
-- version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md); any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly
+- both commands follow the bundled **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md)
+- practical expansion of that bundled term here: use one explicit canonical registry package identifier (`lodash`, `@scope/name`, `jsr:@std/path`), resolve versionless CLI targets through the shared **stable-release selection rule (schema v1)**, and keep the analysis project-independent from current manifest/lock/install state
 - if that identity-only package lookup finds the package but no acceptable non-yanked stable release exists, the canonical failure path is `E5001`
-- both commands follow the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md): current project manifest/lock/install state does not pick a different version, and promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
-- later `package-effects` may still inherit the shared **inherited analysis context**, but that inherited context is semantic-analysis input only and must not blur the target-selection/project-independence rule above
+- promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
+- later `package-effects` may still inherit the shared **inherited analysis context**, but that inherited context is semantic-analysis input only and must not blur the bundled target-selection/project-independence rule above
 - raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
 
 Registry-analysis cache rule:
