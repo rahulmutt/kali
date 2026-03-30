@@ -161,7 +161,7 @@ Interpretation rule:
 | `kali check` | Phase 1 MVP | Type-check the canonical project-discovery result with the default API surface (`apiSurface=deno`) |
 | `kali check main.ts` | Phase 1 MVP | Type-check with the canonical default API surface (`apiSurface=deno`) |
 | `kali check a.ts b.ts` | Phase 1 MVP | `check` is set-oriented in early phases: multiple explicit files are allowed and should be checked as one explicit file set rather than rejected as though `check` were a single-entry direct command |
-| `kali check types.d.ts` | Phase 1 MVP | Declaration-only files are valid direct inputs for `check`, even though they are not valid runtime entrypoints, build/effect primary inputs, or test entrypoints |
+| `kali check types.d.ts` | Phase 1 MVP | Declaration-only files are valid explicit file inputs for `check`, even though they are not valid runtime entrypoints, build/effect primary inputs, or test entrypoints |
 | `kali check --sandbox kali.policy.json` | Phase 1 MVP | Reuse the same project-discovery behavior as plain `kali check`; Phase 1 validates policy schema/config for the discovered project graph, and Phase 2+ also checks inferred effects against the policy |
 | `kali check --sandbox kali.policy.json main.ts` | Phase 1 MVP | Same validation path, but scoped to the explicit file set rather than the discovered project graph |
 | `kali check --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node typing/global subset exists |

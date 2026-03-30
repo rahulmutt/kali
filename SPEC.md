@@ -62,6 +62,18 @@ Kali is an ahead-of-time TypeScript/JavaScript compiler and runtime targeting We
 - AI-friendly CLI and diagnostics
 - pure-Rust implementation and embeddability
 
+## Bootstrap Normalization Rule
+
+`BOOTSTRAP.md` is the design input brief, but this spec set is the normative contract.
+
+Interpretation rules:
+- the bootstrap brief mixes **long-term goals**, **phase-1 expectations**, and **implementation preferences** in one list
+- this top-level spec and the chapter set normalize that brief into explicit phase promises, non-goals, and machine-readable contracts
+- when bootstrap wording and a phased chapter promise appear to pull in different directions, **SPEC.md** plus the relevant owning chapter win
+- docs should therefore avoid citing the bootstrap brief as though it were a second parallel source of truth once the normalized rule already exists here
+
+This rule keeps the repository simple: one bootstrap input, one normalized spec set, and one feature-maturity matrix.
+
 ## Bootstrap Requirement Map
 
 This is the compact top-level breakdown of the bootstrap brief into canonical spec areas.
@@ -90,7 +102,7 @@ These constraints are global and should not be weakened by subsystem docs:
 - **AOT only**: no JIT compilation
 - **Pure Rust**: no embedded C/C++ libraries
 - **No tracing/background GC**: deterministic ownership techniques only
-- **Single linked core WASM payload** for the resolved static graph in early phases
+- **Single linked core WASM payload** for the resolved static graph in Phases 1-3
 - **No silent fallback** for unsupported semantics or unsupported host/profile combinations
 - **Stable machine-readable contracts** for every machine-readable surface Kali exposes (JSON output, diagnostics, effect reports, artifact metadata, config, and policy schemas)
 - **One mutating dependency-management command** in early phases: `kali install` is the only command that writes project dependency state; `kali init` may scaffold a config file, but it does not add dependencies, write `kali.lock`, or materialize packages

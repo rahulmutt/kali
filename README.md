@@ -13,6 +13,7 @@ Early-phase headline assumptions:
 
 ## Specification
 - Top-level overview, canonical terminology, chapter ownership, chapter guide, artifact-mode matrix, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
+- Bootstrap-brief normalization rule: [SPEC.md#bootstrap-normalization-rule](./SPEC.md#bootstrap-normalization-rule)
 - Detailed chapter set: [`specs/`](./specs)
 - Single source of truth for gated command/profile availability: [specs/19-feature-maturity.md](./specs/19-feature-maturity.md)
 

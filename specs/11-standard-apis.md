@@ -17,7 +17,7 @@ For dynamic or semantically expensive APIs (for example `Proxy`, weak references
 
 ## API-Surface Loading Rule
 
-For the compact cross-spec summary of early host/API behavior, see the canonical host capability table in [SPEC.md](../SPEC.md).
+For the compact cross-spec summary of early host/API behavior, see the canonical **Host/API Summary** in [SPEC.md](../SPEC.md).
 
 To keep runtime imports, globals, and package expectations aligned:
 - the **Web Platform baseline** is the shared baseline across supported surfaces
