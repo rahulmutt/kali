@@ -34,6 +34,11 @@ Current repository status rule:
 - chapter summaries, release notes, and README copy should cite that manifest rather than inferring proof coverage from the existence of the Lean plan alone
 - [19 — Feature Maturity](19-feature-maturity.md) makes the same guardrail explicit: proof-backed release/support claims while the published boundary is still empty are **Rejected by default**
 
+Claim-reading shortcut:
+- to answer **what proof coverage is claimed today**, read `proofs/BOUNDARY.md` first
+- to answer **what Phase 1 must guarantee**, read this chapter's **proof-ready vs proof-backed** split together with [19 — Feature Maturity](19-feature-maturity.md)
+- to answer **what the first non-placeholder proof target should be**, read **First proof-backed milestone** below
+
 ### First proof-backed milestone
 
 To keep the bootstrap's Lean requirement actionable instead of aspirational, the first non-placeholder proof boundary should be intentionally small and named up front.

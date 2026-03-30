@@ -24,7 +24,7 @@ These stay fixed across phases unless the top-level spec is intentionally change
 ## Phase 1 snapshot
 Phase 1 is intentionally narrow:
 - **Deno-first** standalone execution
-- browser support is limited to the shared **Phase-1 browser-targeted command set**: browser-targeted `check [files...]` plus its supported `--sandbox` variants, and browser-targeted `build --bundle <file>` plus its supported `--sandbox` variants, in both explicit-flag and equivalent inherited-config forms when the effective `apiSurface` is `browser`
+- browser support is limited to the shared **Phase-1 browser-targeted command set**: browser-targeted `check` (either the project-discovery no-file form or an explicit file set) plus its supported `--sandbox` variants, and browser-targeted `build --bundle <file>` plus its supported `--sandbox` variants, in both explicit-flag and equivalent inherited-config forms when the effective `apiSurface` is `browser`
 - broader `--api node` support comes later
 - internal effect bookkeeping may exist, but the stable public effect-report surface is later and intentionally split into a **reporting** half (`kali effects`, `kali package-effects`) and a **policy-comparison** half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`)
 - `kali build --lib` ships only as a Phase-1 **base library artifact** for exact-version/internal consumers in the shared **Deno-oriented build context (schema v1)**; the stable public embedding surface comes later
