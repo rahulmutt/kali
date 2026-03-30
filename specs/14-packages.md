@@ -218,25 +218,20 @@ Install-graph discovery rule:
 
 Installation is **fetch-and-link by default**, not "execute package scripts" by default.
 
-Canonical term:
-- **effective npm-scriptable install work** = the subset of the current `kali install` invocation that targets **npm registry packages** and could therefore expose npm lifecycle hooks
-- this subset is **invocation-scoped**: it includes only the npm package work the current install actually reconciles in a lifecycle-hook-relevant way, including any directly requested npm target and any transitively touched npm dependencies in that same invocation
-- a clean no-op install on an already-synchronized graph therefore has an **empty** effective npm-scriptable subset even if the project already depends on npm packages; `--allow-scripts` is not a request to re-run lifecycle hooks just because npm dependencies exist in the lockfile
-- raw URL targets and `jsr:` targets are outside this subset in schema v1
+Canonical terms:
+- follow **effective npm-scriptable install work** from [SPEC.md](../SPEC.md): the invocation-scoped npm package work the current `kali install` actually reconciles in a lifecycle-hook-relevant way
+- follow **install-time npm-package hook path** from [SPEC.md](../SPEC.md): the schema-v1 boundary for what `--allow-scripts` does and does not mean
 
 To preserve sandbox-first behavior:
 - npm lifecycle scripts (`preinstall`, `install`, `postinstall`) are not executed unless the user explicitly opts in with `kali install --allow-scripts`
 - `--allow-scripts` applies only to that install invocation; it is not an ambient project default
+- with **no explicit install target**, `kali install --allow-scripts` applies only to the invocation's **effective npm-scriptable install work**; if that install work is empty, including on a clean already-synchronized graph, the command should fail with `E5008` instead of silently acting like plain `install`
 - pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
 - pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
-- with **no explicit install target**, `kali install --allow-scripts` applies only to the invocation's **effective npm-scriptable install work**; if that subset is empty, including on a clean already-synchronized graph, the command should fail with `E5008` instead of silently acting like plain `install`
-- mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm subset while the non-npm subset stays on the normal script-free path
+- mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm install-work subset while the non-npm subset stays on the normal script-free path
 - packages requiring native build steps, postinstall-downloaded executables, or other platform-specific binary/bootstrap artifacts are rejected as unsupported even when lifecycle scripts are enabled
 - package metadata and tarballs can still be analyzed before linking
-
-Canonical lifecycle-script boundary:
-- lifecycle scripts are an **install-time npm-package hook path**, not part of the ordinary Kali source-program execution model
-- enabling `--allow-scripts` does **not** imply `--api node`, broader Node package/runtime compatibility, or coverage by the normal `kali effects` / `kali.policy.json` contract
+- follow the shared **install-time npm-package hook path** boundary: this opt-in does **not** imply `--api node`, broader Node package/runtime compatibility, or coverage by the normal `kali effects` / `kali.policy.json` contract
 - raw URL installs stay outside this escape hatch entirely because they have no registry lifecycle-script surface
 - top-level project sandbox config is ignored by `kali install`, so lifecycle-script execution is intentionally outside the schema-v1 project-policy model rather than being half-governed by it
 - package compatibility claims for normal `check` / `build` / `run` / `test` should therefore not be inflated by the existence of this opt-in installer escape hatch

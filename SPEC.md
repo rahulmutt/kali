@@ -128,6 +128,7 @@ Use this checklist:
 - registry-package CLI/manifest spelling versus structured JSON package metadata should reuse the **registry package identifier vs package coordinate** term instead of re-explaining the `jsr:` prefix split in slightly different ways
 - package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
+- install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
 
 Practical rule:
 - if a chapter needs more than a short paragraph to restate one of those shared rules, add or reuse a canonical term here instead of creating another near-duplicate explanation.
@@ -960,17 +961,17 @@ Rules:
 - this is **invocation-scoped**, not a project-wide switch;
 - it includes directly requested npm package targets and any transitively touched npm dependencies that the current install must newly materialize, relink, or otherwise reconcile in a way that could run lifecycle hooks;
 - a clean no-op install on an already-synchronized graph has **empty** effective npm-scriptable install work, even if the project depends on npm packages;
-- if that effective subset is empty, `kali install --allow-scripts` is invalid usage rather than permission to silently behave like plain `install`.
+- if that set is empty, `kali install --allow-scripts` is invalid usage rather than permission to silently behave like plain `install`.
 
-It is not meaningful for:
-- explicit `jsr:` targets,
-- raw URL targets,
-- non-install commands.
+## Install-Time npm-Package Hook Path
 
-Even when enabled, it does **not** imply:
-- Node runtime support,
-- project sandbox participation for install hooks,
-- support for native addons, `node-gyp`, or binary/bootstrap-heavy package contracts.
+The `--allow-scripts` escape hatch is the schema-v1 **install-time npm-package hook path**.
+
+Rules:
+- it is limited to the invocation's **effective npm-scriptable install work**;
+- it is not meaningful for explicit `jsr:` targets, raw URL targets, or non-install commands;
+- it does **not** imply Node runtime support, project sandbox participation for install hooks, or participation in normal `kali effects` / sandbox-policy contracts;
+- it does **not** make native addons, `node-gyp`, or binary/bootstrap-heavy package contracts supported.
 
 ## Numeric-Limit Semantics
 

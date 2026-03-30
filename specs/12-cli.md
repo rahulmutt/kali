@@ -141,7 +141,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--filter <pattern>` | `test` | Run only matching tests |
 | `--coverage` | `test` | Emit test coverage data once the coverage report contract is stabilized; before then this flag is phase-gated or explicitly experimental |
 | `--dev` | `install` | Add the named registry dependency to `devDependencies` instead of `dependencies` |
-| `--allow-scripts` | `install` | Opt into npm lifecycle scripts for that install invocation only; meaningful only when the invocation has non-empty **effective npm-scriptable install work** from [SPEC.md](../SPEC.md), and still rejects native addons, `node-gyp`, and install-time binary/bootstrap package contracts |
+| `--allow-scripts` | `install` | Opt into the schema-v1 **install-time npm-package hook path** for that install invocation only; meaningful only when the invocation has non-empty **effective npm-scriptable install work** from [SPEC.md](../SPEC.md) |
 
 Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
@@ -422,14 +422,14 @@ Install or materialize project dependencies.
 Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that require native addons or install-time binary/bootstrap artifacts remain unsupported even when scripts are enabled.
 
 Boundary rule:
-- `--allow-scripts` is an **install-time tooling escape hatch**, not a runtime/API-surface feature
-- enabling it does **not** imply `--api node`, does not cause lifecycle scripts to participate in `kali effects`, and does not make project `--sandbox` / `kali.json#sandbox` govern install-time hook execution
+- `--allow-scripts` selects the schema-v1 **install-time npm-package hook path** from [SPEC.md](../SPEC.md), not a runtime/API-surface feature
+- plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; on a URL-only, JSR-only, clean already-synchronized, or otherwise no-npm-scriptable install graph it should fail with `E5008` instead of silently degenerating into plain `install`
+- that install work is **invocation-scoped**: it covers only the npm package work the current install actually reconciles in a lifecycle-hook-relevant way, including any directly requested npm target and any transitively touched npm dependencies in the same invocation
+- a clean no-op install therefore keeps that install work empty even if the project already depends on npm packages; `--allow-scripts` does not ask Kali to re-run lifecycle hooks just because npm dependencies exist in the lockfile
 - pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
 - pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
-- plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; on a URL-only, JSR-only, clean already-synchronized, or otherwise no-npm-scriptable install graph it should fail with `E5008` instead of silently degenerating into plain `install`
-- that npm-scriptable subset is **invocation-scoped**: it covers only the npm package work the current install actually reconciles in a lifecycle-hook-relevant way, including any directly requested npm target and any transitively touched npm dependencies in the same invocation
-- a clean no-op install therefore keeps that subset empty even if the project already depends on npm packages; `--allow-scripts` does not ask Kali to re-run lifecycle hooks just because npm dependencies exist in the lockfile
-- mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm subset while the non-npm subset stays on the normal script-free path
+- mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm install-work subset while the non-npm subset stays on the normal script-free path
+- follow the same boundary from [SPEC.md](../SPEC.md): this path does **not** imply `--api node`, does not cause lifecycle scripts to participate in `kali effects`, does not make project `--sandbox` / `kali.json#sandbox` govern install-time hook execution, and does not make native addons, `node-gyp`, or install-time binary/bootstrap package contracts supported
 - package-compatibility claims for normal `check` / `build` / `run` / `test` remain separate from this narrower opt-in install behavior
 ```bash
 kali install lodash                        # Add/install registry dependency from npm
