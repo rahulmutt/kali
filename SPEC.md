@@ -31,7 +31,8 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Runtime model | AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
 | Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set** (`kali check [files...]`, including the project-discovery no-file form and explicit-file-set forms, and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including equivalent inherited-config forms and their supported `--sandbox` variants); `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema validation for `check`/`build`, no project-executed policy code |
-| Effects | Internal effect bookkeeping may exist, but stable `kali effects` / `package-effects` reporting waits for Phase 2, and `package-audit` remains later compatibility |
+| Effects | Internal effect bookkeeping may exist, but the stable public effect-report surface (`kali effects`, `kali package-effects`, and inferred-effect-vs-policy comparison) waits for Phase 2 |
+| Registry audit | `kali package-audit` is a separate context-free registry-analysis workflow and remains later compatibility |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib`; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging |
 | Formal verification | Phase-1 **proof-ready** repository baseline: published **proof-boundary manifest** plus the matching proof-CI activation rule for the currently modeled subset; the modeled subset may still be empty while Kali is only **proof-ready**, and no proof-backed release/support claims may extend beyond the published boundary |
@@ -74,15 +75,16 @@ Rule:
 
 ## Phase-1 Guardrail Splits
 
-Several later chapters reuse the same five distinctions because they are the easiest places for broad bootstrap goals to blur into accidental Phase-1 overclaims:
+Several later chapters reuse the same six distinctions because they are the easiest places for broad bootstrap goals to blur into accidental Phase-1 overclaims:
 - **browser-targeted context** ≠ **standalone browser runtime/test contract**
 - **browser ambient typing surface** ≠ **browser mediated sandbox/effect subset**
 - **base library artifact** ≠ **public embedding surface**
 - **internal effect bookkeeping** ≠ **public effect-report surface**
+- **public effect-report surface** ≠ **context-free registry-audit surface**
 - **proof-ready state** ≠ **proof-backed support state**
 
 Reading rule:
-- when a support claim feels ambiguous, check whether it accidentally crossed one of those five boundaries before assuming the broader reading
+- when a support claim feels ambiguous, check whether it accidentally crossed one of those six boundaries before assuming the broader reading
 - later chapters should prefer reusing these canonical split names instead of re-explaining them in new prose each time
 
 ## Recommended Phase-1 Implementation Order
