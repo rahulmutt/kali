@@ -111,7 +111,7 @@ Canonical early-phase code-resolution ladder:
    - use the canonical condition order table below
    - unsupported or unmatched conditional branches are skipped; Kali should not guess a fallback branch that the package did not publish
 6. If `exports` does not resolve the entry, fall back to legacy entry fields using the same API-surface intent **and still respecting edge kind**:
-   - browser-targeted analysis/build context (Phase 1: `kali check --api browser` and `kali build --bundle --api browser`; later supported browser-targeted analysis commands such as `kali effects --api browser` and browser-context `kali package-effects` must reuse this same rule rather than inventing a second browser package-resolution ladder): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
+   - browser-targeted context (Phase 1: `kali check --api browser` and `kali build --bundle --api browser`; later supported browser-targeted analysis commands such as `kali effects --api browser` and browser-context `kali package-effects` reuse this same rule): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
    - Deno-oriented standalone profile (`--api deno`, Phase 1 default): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
    - later Node profile may add `node`-specific behavior before the generic fallback ladder when explicitly documented
 7. In browser-targeted contexts, after `exports` or the legacy fallback picks a package-published target, apply any `package.json#browser` replacement-map rewrite that covers that selected package-local path:
@@ -132,7 +132,7 @@ Canonical `exports` condition order:
 | API surface / profile | Condition order |
 |---|---|
 | Deno-oriented standalone (`--api deno`, Phase 1 default) | `deno`, then edge kind (`import` or `require`), then `default` |
-| browser-targeted analysis/build context *(Phase 1: `check --api browser`, `build --bundle --api browser`; later supported browser-targeted analysis commands reuse the same order)* | `browser`, then edge kind, then `default` |
+| browser-targeted context *(Phase 1: `check --api browser`, `build --bundle --api browser`; later supported browser-targeted analysis commands reuse the same order)* | `browser`, then edge kind, then `default` |
 | later Node profile | `node`, then edge kind, then `default` |
 
 Phase-1 simplification:

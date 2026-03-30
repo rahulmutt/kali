@@ -164,7 +164,7 @@ These commands do not invent a no-argument whole-project analysis mode in schema
 
 ### Registry-analysis context split
 To keep single-package tooling predictable and avoid a second near-duplicate flag family:
-- `package-effects` is **analysis-context-aware** in early phases: it inherits `apiSurface`, `runtimeProfiles`, and `compatFeatures` from the effective config/defaults and records that context in its nested report instead of taking package-analysis-specific `--api` / runtime-profile / `--compat` flags.
+- `package-effects` is **analysis-context-aware** in early phases: it inherits `apiSurface`, `runtimeProfiles`, and the effective compatibility-feature selection from config/defaults, then records that context in JSON using the emitted field name `compatFeatures` instead of taking package-analysis-specific `--api` / runtime-profile / `--compat` flags.
 - `package-effects` follows the maturity of the inherited analysis axis instead of inventing its own separate gate table: inherited browser context lines up with browser-targeted effect analysis, inherited Node context lines up with the Node analysis gate, inherited `wasm-threads` lines up with the threaded-profile gate, and inherited compat features such as `eval` line up with their own compatibility-phase gates.
 - `package-audit` is **context-free** in early phases: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics.
 - both commands still use the identity-only registry-target rule and must not consult project lock/install state to pick a different package version in schema v1.
@@ -497,8 +497,9 @@ Kali uses one cross-spec numeric-limit rule:
 - zero-capable concurrency counters may use `0` as an explicit deny/tightening value.
 
 Examples:
-- `maxMemory`, `maxCpu`, `maxOpenFiles` must be positive when present,
-- `maxSpawnedProcesses` and `maxThreads` may use `0` as an explicit deny/tightening value,
+- policy fields `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles` must be positive when present,
+- CLI overrides `--max-memory`, `--max-cpu`, and `--max-open-files` follow the same positive-only rule after unit normalization,
+- `resources.maxSpawnedProcesses`, `resources.maxThreads`, `--max-spawned-processes`, and `--max-threads` may use `0` as an explicit deny/tightening value,
 - non-zero values for later-gated capabilities/profiles remain unavailable until those capabilities/profiles exist.
 
 ## Published-Standard Boundary
