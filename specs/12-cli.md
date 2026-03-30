@@ -582,6 +582,7 @@ Analysis rule:
 - in configless mode, that inherited context is just the **default inherited analysis context (schema v1)** from [SPEC.md](../SPEC.md)
 - if discovered config later makes that inherited context resolve to `apiSurface = browser`, plain `kali package-effects <pkg>` reuses the same browser-targeted analysis context once the command itself exists; this later inherited-context reuse does **not** widen the exact **Phase-1 browser-targeted command set**
 - inherited-context availability follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is unavailable, the command fails with `E5006` rather than silently falling back to some smaller context
+- canonical inherited examples once the command exists: `apiSurface = node` stays on the Node gate, `runtimeProfiles = ["wasm-threads"]` stays on the threaded-profile gate, and `compat.features = ["eval"]` stays on the `eval` compatibility gate rather than being silently dropped for package analysis
 - the nested `report.entryPoints` field should name the package-analysis logical root using the same canonical registry identifier spelling the user targeted rather than an opaque tarball URL or cache path
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
 
