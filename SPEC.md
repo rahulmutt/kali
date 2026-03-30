@@ -379,7 +379,7 @@ To keep the normalized bootstrap scope easy to scan, Phase 1 does **not** imply:
 - standalone browser runtime or browser-hosted `run` / `test`,
 - `eval` / `Function()` support,
 - threaded runtime profiles / `SharedArrayBuffer` / `Atomics`,
-- the Phase-2 **public embedding outputs**: stable public Rust embedding, stable C ABI, or default WIT sidecars for plain `--lib`.
+- the Phase-2 **public embedding outputs**: stable public Rust embedding, `--capi`, `--component`, or default WIT sidecars for plain `--lib`.
 
 These are all tracked elsewhere in the owning chapters and the maturity matrix; this snapshot exists only to make the early boundary obvious in one place.
 

@@ -19,7 +19,7 @@ Quick Phase-1 non-goals:
 - no standalone browser runtime or browser-hosted `run` / `test`
 - no `eval` / `Function()` support yet
 - no threaded runtime profile yet
-- no Phase-2 **public embedding outputs** yet: no stable public embedding ABI and no default WIT sidecars for plain `--lib`
+- no Phase-2 **public embedding outputs** yet: no stable public Rust embedding API, no `--capi`, no `--component`, and no default WIT sidecars for plain `--lib`
 
 ## Specification
 - Top-level overview, cross-spec simplification rules, canonical terminology, chapter ownership, chapter guide, artifact-mode matrix, bootstrap traceability, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
