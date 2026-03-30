@@ -15,9 +15,9 @@ Each crate has its own unit tests (Rust `#[cfg(test)]` modules):
 End-to-end tests in `tests/`:
 - Source file → compile → execute → check output
 - Source file → compile → check errors
-- Source file → effects analysis → check JSON output *(Phase 2 target; earlier phases should assert that the command is unavailable or explicitly experimental)*
-- Source file + policy → sandbox validation → check result *(Phase 1: runtime enforcement + policy-file validation, Phase 2+: inferred-effect-vs-policy validation too)*
-- Library source → `kali build --lib` → export-oriented base-library artifact + deterministic artifact metadata *(Phase 1 pre-stable embedding shape)*
+- Source file → effects analysis → check effect-report JSON output *(Phase 2 target; earlier phases should assert that the command is unavailable or explicitly experimental)*
+- Source file + policy → sandbox validation → check result *(Phase 1 MVP for runtime enforcement + policy-file/config validation; Phase 2 target for inferred effect-vs-policy validation too)*
+- Library source → `kali build --lib` → export-oriented **base library artifact** + deterministic artifact metadata *(Phase 1 MVP for the base library artifact; stable public embedding outputs remain a Phase 2 target)*
 - Browser-targeted source → `kali check --api browser` → expected diagnostics/type success
 - Browser-targeted source → `kali build --bundle --api browser` → emitted artifact + smoke execution in a real browser harness
 - Repeated build of the same pinned input/context → byte-stable artifacts and stable machine-readable metadata by default
@@ -59,7 +59,7 @@ Run against the [test262](https://github.com/tc39/test262) conformance suite:
 - Conformance targets are phased:
   - Phase 1: parser/runtime smoke coverage on a curated subset
   - Phase 2-3: expanding automated coverage with feature-based gating
-  - Later compatibility goal: >95% pass rate for supported non-annex-B tests
+  - Later compatibility: >95% pass rate for supported non-Annex-B tests
 
 #### TypeScript (`tsc`-style baselines)
 Inspired by TypeScript's test suite:
@@ -101,7 +101,8 @@ Because Phase 1 already promises the export-oriented base `kali build --lib` mod
 
 #### Kali-Specific Tests
 - **Effect inference tests**: Source → expected effects JSON for the full statically reachable graph from the chosen analysis/logical root *(Phase 2 target; Phase 1 may instead test internal analysis units without a stable CLI surface)*
-- **Sandbox tests**: Source + policy → expected pass/fail, including explicit checks for Phase 1 runtime enforcement vs Phase 2 compile-time effect-policy rejection, and for policy checks over transitive imports/dependencies rather than just the root file
+- **JSON-mode coverage for effect commands**: once `kali effects` / `kali package-effects` exist, assert both the native bare-payload mode and the `--output json` envelope mode so the CLI/output-model split from [SPEC.md](../SPEC.md) and [specs/18-schemas.md](18-schemas.md) cannot drift
+- **Sandbox tests**: Source + policy → expected pass/fail, including explicit checks for Phase 1 runtime enforcement vs Phase 2 compile/check-time effect-vs-policy rejection, and for policy checks over transitive imports/dependencies rather than just the root file
 - **Memory tests**: Source → expected allocation strategy (stack/owned-heap/shared-heap)
 - **Specialization tests**: Generic source → expected number of specializations
 - **Optimization tests**: Source → check specific optimization was applied

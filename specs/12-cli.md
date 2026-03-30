@@ -291,7 +291,7 @@ kali check types.d.ts                      # Validate a declaration-only file di
 kali check --api browser                   # Browser-targeted project-discovery analysis context
 kali check --api browser main.ts           # Browser-targeted analysis context for an explicit file set (no standalone DOM runtime implied)
 kali check --api node main.ts              # Phase 3 target: Node API surface is phase-gated for checking too
-kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation; Phase 2+: effect-policy validation over the discovered project graph
+kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation; Phase 2+: effect-vs-policy validation over the discovered project graph
 kali check --api browser --sandbox kali.policy.json # Same browser-targeted validation path over the discovered project graph
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
 kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
