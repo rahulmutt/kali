@@ -149,6 +149,8 @@ Use `E5006` for cases such as:
 - `run --api browser` in early phases where browser support exists only as an analysis/build context
 - plain `kali run main.ts` or `kali run --sandbox kali.policy.json main.ts` under an inherited `compilerOptions.apiSurface = browser` or `compilerOptions.apiSurface = node`, because effective-context inheritance must not silently fall back to `deno`
 - plain `kali test` or `kali test --sandbox kali.policy.json` under an inherited `compilerOptions.apiSurface = browser` or `compilerOptions.apiSurface = node`, for the same reason
+- plain `kali build main.ts` or `kali build --sandbox kali.policy.json main.ts` under an inherited `compilerOptions.apiSurface = node`, because inherited build contexts must not silently fall back to `deno`
+- plain `kali build --lib lib.ts`, `kali build --capi lib.ts`, or `kali build --component lib.ts` under an inherited `compilerOptions.apiSurface = node`, once those artifact modes exist, for the same inherited-context reason
 - well-formed base invocations that hit the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md), such as `kali package-effects lodash` before Phase 2 or `kali package-audit lodash` before that **Later compatibility** command exists
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - positive values for the shared **feature-gated zero-capable execution budgets** from [SPEC.md](../SPEC.md) before the selected command/runtime-profile/API-surface combination actually supports subprocesses or threads
@@ -319,6 +321,8 @@ Examples:
 - `kali build --api browser main.ts`
 - plain `kali build --sandbox kali.policy.json main.ts` under an inherited browser API surface
 - plain `kali build --lib lib.ts` under an inherited browser API surface
+- plain `kali build --capi lib.ts` under an inherited browser API surface
+- plain `kali build --component lib.ts` under an inherited browser API surface
 - `kali build --bundle main.ts` under the default/inherited non-browser API surface
 - `kali build --bundle --sandbox kali.policy.json main.ts` under the default/inherited non-browser API surface
 - `kali build --lib --api browser lib.ts`

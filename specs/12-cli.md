@@ -268,7 +268,8 @@ Canonical artifact-mode rule:
 - omitting `--bundle`, `--lib`, `--capi`, and `--component` selects the default executable artifact mode and therefore the default **executable compile intent**
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive artifact-mode selectors unless a later spec explicitly defines one as an implication of another
 - `--bundle` preserves executable compile intent while changing the host adapter/output contract to the browser-targeted bundle path
-- explicit `--api browser` and inherited `compilerOptions.apiSurface = browser` are equivalent here: the plain spelling `kali build --bundle main.ts` has two canonical outcomes owned by [19 — Feature Maturity](19-feature-maturity.md) — under the default/inherited non-browser API surface it is `E5008`, while under an inherited browser API surface it is the supported browser-bundle shortcut
+- explicit `--api ...` and inherited `compilerOptions.apiSurface = ...` are equivalent here too: plain `kali build main.ts`, `kali build --sandbox kali.policy.json main.ts`, `kali build --lib lib.ts`, `kali build --capi lib.ts`, and `kali build --component lib.ts` must validate against the same effective API surface as their explicit `--api ...` forms rather than silently falling back
+- for the browser bundle shortcut specifically, the plain spelling `kali build --bundle main.ts` has two canonical outcomes owned by [19 — Feature Maturity](19-feature-maturity.md) — under the default/inherited non-browser API surface it is `E5008`, while under an inherited browser API surface it is the supported browser-bundle shortcut
 - `--lib`, `--capi`, and `--component` switch the build to library compile intent
 - reuse the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): `kali init --lib` chooses a project template only and does not change the later default artifact mode of `kali build`
 - WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag
@@ -306,12 +307,15 @@ kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
 ```
 
-Inherited browser-build shorthand summary:
+Inherited build-context shorthand summary:
 
 | Effective `apiSurface` | Plain command spelling | Result |
 |---|---|---|
-| `browser` | `kali build main.ts` | Invalid usage (`E5008`): same contradiction as explicit `kali build --api browser main.ts` until a non-bundle browser build mode exists |
-| `browser` | `kali build --sandbox kali.policy.json main.ts` | Invalid usage (`E5008`): same contradiction as explicit `kali build --api browser --sandbox kali.policy.json main.ts` |
+| `deno` (default) | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Supported early executable build path |
+| `node` | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Same Node build gate as explicit `--api node`; no silent fallback to `deno` |
+| `browser` | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Invalid usage (`E5008`): same contradiction as explicit `kali build --api browser ...` until a non-bundle browser build mode exists |
+| `node` | `kali build --lib lib.ts` / `kali build --capi lib.ts` / `kali build --component lib.ts` | Same Node build gate as the corresponding explicit `--api node` library-oriented form; no silent fallback |
+| `browser` | `kali build --lib lib.ts` / `kali build --capi lib.ts` / `kali build --component lib.ts` | Invalid usage (`E5008`): same contradiction as the corresponding explicit browser library-oriented form |
 | non-browser (`deno` / `node`) | `kali build --bundle main.ts` | Invalid usage (`E5008`): `--bundle` is browser-only |
 | `browser` | `kali build --bundle main.ts` | Same supported request as explicit `kali build --bundle --api browser main.ts` |
 | non-browser (`deno` / `node`) | `kali build --bundle --sandbox kali.policy.json main.ts` | Invalid usage (`E5008`): `--sandbox` does not change the browser-only meaning of `--bundle` |
