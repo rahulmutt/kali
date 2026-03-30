@@ -29,7 +29,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 |---|---|
 | Language/frontend | Latest published ECMA-262 grammar, TypeScript compatibility where implemented, and first-class `.js` compilation with bounded conservative inference |
 | Runtime model | AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
-| Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set** (`kali check [files...]`, including the project-discovery no-file form and explicit-file-set forms, and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including equivalent inherited-config forms and their supported `--sandbox` variants); `--api node` remains gated |
+| Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set** (`kali check [files...]` plus its supported `--sandbox` variants, and `kali build --bundle <file>` plus its supported `--sandbox` variants, in both explicit-flag and equivalent inherited-config forms when the effective `apiSurface` is `browser`); `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema validation for `check`/`build`, no project-executed policy code |
 | Effects | Internal effect bookkeeping may exist in Phase 1; the Phase-2 stable **public effect-report surface** is intentionally split into a reporting half (`kali effects`, `kali package-effects`) and a policy-comparison half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`) |
 | Registry audit | `kali package-audit` is a separate context-free registry-analysis workflow and remains later compatibility |
@@ -55,6 +55,32 @@ To keep the bootstrap brief implementable, the chapter set is intentionally grou
 
 Strata note:
 - [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) is intentionally a cross-cutting availability overlay rather than a fourth product-only chapter; read it alongside whichever owning chapter defines the command, artifact, or subsystem contract.
+
+### Chapter Map
+
+To make the bootstrap brief easier to navigate, each detailed spec chapter owns one primary slice of the design:
+
+| Chapter | Owns | Bootstrap themes primarily normalized there |
+|---|---|---|
+| [`01 — Architecture`](./specs/01-architecture.md) | core architecture, crate boundaries, AOT-only pipeline, pure-Rust implementation contract | AOT-only compilation, no embedded C/C++, overall engine/runtime structure |
+| [`02 — Lexer & Parser`](./specs/02-lexer-parser.md) | ECMAScript/TypeScript grammar acceptance and parser behavior | latest published ECMA-262 grammar, parse-vs-support boundary |
+| [`03 — AST`](./specs/03-ast.md) | source-level program representation and node ownership | frontend representation and analysis ergonomics |
+| [`04 — Type System`](./specs/04-type-system.md) | TS-superset typing, first-class JavaScript inference, effects, constraints | stronger-than-`tsc` typing, bounded HM-style inference, pragmatic Rust-like ergonomics |
+| [`05 — IR`](./specs/05-ir.md) | lowering stages and optimization-facing IR contracts | layout-aware IR design, explicit dynamic/deoptimized paths |
+| [`06 — Memory`](./specs/06-memory.md) | ownership classes, escape analysis, no-tracing-GC memory model | compile-time stack/heap/shared decisions, no GC |
+| [`07 — Specialization`](./specs/07-specialization.md) | generic/function/layout specialization rules and build-mode cost budgets | aggressive specialization with auditable compile-time cost |
+| [`08 — WASM Codegen`](./specs/08-wasm-codegen.md) | artifact shapes, code generation, host adapter outputs | fast AOT WebAssembly generation, bundle/lib/component artifact boundaries |
+| [`09 — Sandboxing & Effects`](./specs/09-sandboxing.md) | sandbox policy model, runtime enforcement, effect/policy workflow split | sandbox-first execution, static effect reporting roadmap, resource limits |
+| [`10 — Runtime`](./specs/10-runtime.md) | Kali-hosted runtime behavior and dynamic-compatibility execution boundaries | runtime model, engine choice, no language-level JIT, later `eval` execution path |
+| [`11 — Standard APIs`](./specs/11-standard-apis.md) | Deno/Web/Node API layering and host-surface delivery | Deno-first execution, browser-targeted analysis/build, later Node support |
+| [`12 — CLI`](./specs/12-cli.md) | command shapes, flags, arity, output behavior, exit-code ownership | Deno-inspired workflow, concise AI-friendly CLI behavior |
+| [`13 — Embedding, WIT & C ABI`](./specs/13-embedding.md) | embedding surface, WIT-first library contract, C ABI, component packaging | embeddability, Rust API, C API, WIT, Component Model |
+| [`14 — Package Management`](./specs/14-packages.md) | dependency resolution, install/lock rules, package-shape support, raw URLs | npm/JSR/raw-URL support, pure-JS/TS package contract |
+| [`15 — Error Reporting`](./specs/15-errors.md) | diagnostic meanings, human-readable conventions, canonical error boundaries | AI-friendly errors, stable codes, compact feedback loops |
+| [`16 — Testing`](./specs/16-testing.md) | evidence lanes, conformance strategy, package/browser test expectations | `tsc`-inspired test breadth, conformance and determinism evidence |
+| [`17 — Formal Verification`](./specs/17-verification.md) | Lean verification program, proof-ready/proof-backed split | formal verification roadmap and proof-boundary discipline |
+| [`18 — Schemas`](./specs/18-schemas.md) | machine-readable JSON/config/policy/artifact schemas | AI-consumable JSON outputs and stable machine contracts |
+| [`19 — Feature Maturity`](./specs/19-feature-maturity.md) | canonical phase/status matrix for all cross-cutting support claims | exact MVP cut, later compatibility gates, availability truth source |
 
 Reading shortcut:
 - if you are deciding **whether Kali supports something yet**, read `SPEC.md` → `19-feature-maturity.md` → the owning chapter
