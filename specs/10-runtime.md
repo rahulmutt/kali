@@ -16,7 +16,7 @@ This is a deliberate simplification for Phases 1-3, not a forever-exclusive back
 
 Preferred execution modes:
 - **Development**: instantiate emitted WASM directly in wasmtime for fast iteration
-- **Production/embedding**: use wasmtime's precompiled/serialized module support where available to avoid per-launch recompilation costs
+- **Production/embedding**: use wasmtime's precompiled/serialized module support where available to avoid per-launch recompilation costs, but treat those cached/precompiled blobs as an implementation/deployment optimization rather than as a stable Phase-1 public artifact contract; cross-version/public loading guarantees still belong to the later **public embedding surface**
 
 ### Optional Alternative Backend (Later Phase)
 An engine abstraction may be added later to support backends such as `wasmer` when there is a demonstrated embedding or platform need. This must not complicate the initial runtime design, and any added backend must preserve the same externally visible sandbox/resource/diagnostic contracts rather than introducing backend-specific semantics into user-facing behavior.
