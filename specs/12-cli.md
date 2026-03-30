@@ -419,8 +419,9 @@ Boundary rule:
 - enabling it does **not** imply `--api node`, does not cause lifecycle scripts to participate in `kali effects`, and does not make project `--sandbox` / `kali.json#sandbox` govern install-time hook execution
 - pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
 - pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
-- plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; on a URL-only, JSR-only, or otherwise no-npm-scriptable install graph it should fail with `E5008` instead of silently degenerating into plain `install`
-- that npm-scriptable subset is **invocation-scoped**: it covers the npm package work the current install actually reconciles, including any directly requested npm target and any transitively touched npm dependencies in the same invocation
+- plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; on a URL-only, JSR-only, clean already-synchronized, or otherwise no-npm-scriptable install graph it should fail with `E5008` instead of silently degenerating into plain `install`
+- that npm-scriptable subset is **invocation-scoped**: it covers only the npm package work the current install actually reconciles in a lifecycle-hook-relevant way, including any directly requested npm target and any transitively touched npm dependencies in the same invocation
+- a clean no-op install therefore keeps that subset empty even if the project already depends on npm packages; `--allow-scripts` does not ask Kali to re-run lifecycle hooks just because npm dependencies exist in the lockfile
 - mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm subset while the non-npm subset stays on the normal script-free path
 - package-compatibility claims for normal `check` / `build` / `run` / `test` remain separate from this narrower opt-in install behavior
 ```bash
@@ -460,7 +461,7 @@ Determinism rules:
 - If dependency state is missing or stale for the dependency source kinds the project actually uses, those non-install commands fail with the canonical `E5004` path and point the user to `kali install`.
 - If a file-accepting non-install command (`check`, `effects`, `build`, `run`, or `test`) is pointed at explicit files outside the last installed project discovery set and those files reach additional raw URL imports, the command still fails with `E5004`; explicit targets bypass discovery filtering, but they do not retroactively widen the install-time declaration graph.
 - the intended fix is to make those sources part of the install-time declaration graph (for example by widening `include` / `exclude` or adding the relevant source/import-map declaration) and then rerun `kali install`; non-install commands must not auto-install or mutate the dependency graph opportunistically.
-- `--allow-scripts` is install-scoped only; it does not loosen later execution/build sandbox rules.
+- `--allow-scripts` is install-scoped only; it does not loosen later execution/build sandbox rules or request a second pass that re-runs already-settled lifecycle hooks on an otherwise clean install.
 - lifecycle scripts enabled through `--allow-scripts` are outside the normal source-program sandbox/effect-report contract; they are install-time package hooks, not guest-program entrypoints.
 - Registry packages (npm/JSR) are materialized into `node_modules/`; raw URL imports are materialized under `.kali/cache/urls/`. Non-install commands consume whichever of those stores are relevant to the current project instead of assuming every project must have both.
 

@@ -215,7 +215,8 @@ Installation is **fetch-and-link by default**, not "execute package scripts" by 
 
 Canonical term:
 - **effective npm-scriptable install work** = the subset of the current `kali install` invocation that targets **npm registry packages** and could therefore expose npm lifecycle hooks
-- this subset is **invocation-scoped**: it includes the npm package work the current install actually reconciles, including any directly requested npm target and any transitively touched npm dependencies in that same invocation
+- this subset is **invocation-scoped**: it includes only the npm package work the current install actually reconciles in a lifecycle-hook-relevant way, including any directly requested npm target and any transitively touched npm dependencies in that same invocation
+- a clean no-op install on an already-synchronized graph therefore has an **empty** effective npm-scriptable subset even if the project already depends on npm packages; `--allow-scripts` is not a request to re-run lifecycle hooks just because npm dependencies exist in the lockfile
 - raw URL targets and `jsr:` targets are outside this subset in schema v1
 
 To preserve sandbox-first behavior:
@@ -223,7 +224,7 @@ To preserve sandbox-first behavior:
 - `--allow-scripts` applies only to that install invocation; it is not an ambient project default
 - pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
 - pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
-- with **no explicit install target**, `kali install --allow-scripts` applies only to the invocation's **effective npm-scriptable install work**; if that subset is empty, the command should fail with `E5008` instead of silently acting like plain `install`
+- with **no explicit install target**, `kali install --allow-scripts` applies only to the invocation's **effective npm-scriptable install work**; if that subset is empty, including on a clean already-synchronized graph, the command should fail with `E5008` instead of silently acting like plain `install`
 - mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm subset while the non-npm subset stays on the normal script-free path
 - packages requiring native build steps, postinstall-downloaded executables, or other platform-specific binary/bootstrap artifacts are rejected as unsupported even when lifecycle scripts are enabled
 - package metadata and tarballs can still be analyzed before linking

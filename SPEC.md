@@ -772,7 +772,13 @@ For `package-effects` and `package-audit` in schema v1:
 
 ## Effective npm-Scriptable Install Work
 
-`--allow-scripts` is meaningful only when the current `install` invocation includes explicit npm package install work or the discovered dependency graph contains npm package work that could run lifecycle scripts.
+`--allow-scripts` is meaningful only when the current `install` invocation includes npm package work that could actually run lifecycle scripts.
+
+Rules:
+- this is **invocation-scoped**, not a project-wide switch;
+- it includes directly requested npm package targets and any transitively touched npm dependencies that the current install must newly materialize, relink, or otherwise reconcile in a way that could run lifecycle hooks;
+- a clean no-op install on an already-synchronized graph has **empty** effective npm-scriptable install work, even if the project depends on npm packages;
+- if that effective subset is empty, `kali install --allow-scripts` is invalid usage rather than permission to silently behave like plain `install`.
 
 It is not meaningful for:
 - explicit `jsr:` targets,

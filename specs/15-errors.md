@@ -272,7 +272,7 @@ Use `E5008` for cases such as:
 - `kali install foo bar`
 - `kali install --dev`
 - `kali install --api deno`
-- `kali install --allow-scripts` in a URL-only / JSR-only / no-npm project graph
+- `kali install --allow-scripts` in a URL-only / JSR-only / clean already-synchronized / otherwise no-npm project graph
 - `kali install --allow-scripts https://example.com/mod.ts`
 - `kali install --allow-scripts jsr:@std/path`
 - `kali install --dev https://example.com/mod.ts`
