@@ -139,6 +139,12 @@ A command that defaults to project discovery when no explicit files are given:
 - `test`
 - plain `install` for dependency-graph scanning
 
+### Current-directory-scoped scaffold command
+A command whose target root is always the current working directory rather than the nearest discovered ancestor project:
+- `init`
+
+In schema v1, `init` is the canonical exception to ordinary ancestor-based config discovery. It may create a nested child project inside an existing ancestor project as long as the current working directory itself does not already contain `kali.json`.
+
 ### Registry-analysis command
 A command that analyzes exactly one explicit registry package identity rather than a project graph in early phases:
 - `package-effects`
@@ -353,13 +359,23 @@ Consequences:
 
 ## Project Discovery
 
-### Canonical project file set
+### Canonical source-file classes
 
-Project discovery starts from these source files:
-- executable/analyzable: `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`
+Kali uses one cross-spec split for source-file kinds:
+- executable/analyzable source files: `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`
 - declaration-only side inputs: `.d.ts`, `.d.mts`, `.d.cts`
 
-Runtime-bearing entrypoints and direct executable inputs use only the executable/analyzable set.
+Command-facing rule:
+- runtime-bearing entrypoints and other primary program inputs use only the executable/analyzable set,
+- declaration-only files may still participate as type-loading side inputs,
+- `check`, `fmt`, and `lint` may accept declaration-only files explicitly,
+- passing a declaration-only file where a command requires an executable/analyzable primary input is the canonical input-kind mismatch path (`E5007`), not general CLI misuse.
+
+### Canonical project file set
+
+Project discovery starts from the union of those two source-file classes.
+
+Runtime-bearing entrypoints and direct executable inputs still use only the executable/analyzable set.
 
 ### Default project-discovery rule
 
@@ -386,7 +402,8 @@ Discovery stops at nested child directories containing their own `kali.json`. Th
 Config discovery:
 - commands search the current working directory and ancestors for the nearest `kali.json`,
 - if found, that directory is the effective project root,
-- if none is found, commands run in **configless project mode** with the current working directory as the effective project root.
+- if none is found, commands run in **configless project mode** with the current working directory as the effective project root,
+- the schema-v1 exception is the **current-directory-scoped scaffold command** `init`, which always targets the current working directory instead of retargeting to a discovered ancestor project.
 
 Configless project mode rules:
 - plain `kali install` is a no-op success when there are no dependency inputs,
