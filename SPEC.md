@@ -4,6 +4,37 @@ This document is the top-level contract for the Kali spec set. It defines the ca
 
 Detailed subsystem design lives in [`specs/`](./specs).
 
+## Chapter Guide
+
+The top-level spec stays intentionally short on subsystem internals. The table below is the canonical map from the bootstrap brief to the detailed chapter set so readers can jump to the right owner quickly.
+
+| Chapter | Owns | Why it exists in the bootstrap breakdown |
+|---|---|---|
+| [01 — Architecture](./specs/01-architecture.md) | crate boundaries, pipeline stages, global design posture | anchors the AOT-only, pure-Rust, sandbox-first compiler/runtime architecture |
+| [02 — Lexer & Parser](./specs/02-lexer-parser.md) | syntax acceptance, parsing strategy, source compatibility posture | covers latest-published ECMA-262 grammar tracking and fast frontend behavior |
+| [03 — AST](./specs/03-ast.md) | syntax tree shape and source-preserving frontend representation | keeps parsing/output contracts separate from later semantic lowering |
+| [04 — Type System](./specs/04-type-system.md) | stronger-than-TS checking, inference, effect typing hooks | resolves the “TypeScript superset with more inference/constraints” goal |
+| [05 — IR](./specs/05-ir.md) | compiler IR layers and lowering boundaries | captures the explicit-memory-layout, optimization-friendly middle-end story |
+| [06 — Memory Management](./specs/06-memory.md) | ownership, allocation class, no-tracing-GC rules | owns the Rust-like compile-time allocation/borrowing direction |
+| [07 — Optimization & Specialization](./specs/07-specialization.md) | generic specialization and optimization cost controls | owns aggressive specialization without hiding compile-time cost |
+| [08 — WASM Codegen](./specs/08-wasm-codegen.md) | artifact lowering to linked WebAssembly outputs | turns the AOT compiler story into concrete executable/library artifacts |
+| [09 — Sandboxing & Effects](./specs/09-sandboxing.md) | capability model, policy validation, effect reporting semantics | owns the sandbox-first and effect-analysis contract |
+| [10 — Runtime](./specs/10-runtime.md) | execution engine, host ABI, event loop, dynamic-compatibility runtime behavior | owns wasmtime-first execution and long-term dynamic compatibility paths |
+| [11 — Standard APIs](./specs/11-standard-apis.md) | Deno/Node/browser API-surface layering | keeps host compatibility promises phased and auditable |
+| [12 — CLI](./specs/12-cli.md) | commands, flags, output behavior, command examples | owns the Deno-like AI-friendly CLI contract |
+| [13 — Embedding](./specs/13-embedding.md) | Rust embedding, C ABI, WIT, Component Model packaging | owns the embeddability/public-library story |
+| [14 — Package Management](./specs/14-packages.md) | npm/JSR/raw-URL resolution, install mutability, lock/materialization | owns ecosystem access without hidden dependency mutation |
+| [15 — Errors](./specs/15-errors.md) | diagnostic boundaries and stable error-code meanings | owns AI-friendly, machine-parseable failure behavior |
+| [16 — Testing](./specs/16-testing.md) | conformance strategy and evidence requirements | keeps support claims tied to tests instead of aspiration |
+| [17 — Formal Verification](./specs/17-verification.md) | Lean verification scope and proof methodology | owns the “verify critical pieces while iterating” requirement |
+| [18 — Schemas](./specs/18-schemas.md) | stable machine-readable JSON/config/policy contracts | centralizes all schema promises so CLI/docs do not drift |
+| [19 — Feature Maturity](./specs/19-feature-maturity.md) | phase labels, command/profile availability, gating matrix | is the single source of truth for what is actually available when |
+
+Simplification rule:
+- when a question is “where is this designed?”, use the table above
+- when a question is “is this available yet?”, use [19 — Feature Maturity](./specs/19-feature-maturity.md)
+- when a question is “what does the JSON look like?”, use [18 — Schemas](./specs/18-schemas.md)
+
 ## Canonical Chapter Ownership
 
 To keep the spec set easier to maintain and avoid near-duplicate rules drifting apart, each cross-cutting topic has one primary owner:
