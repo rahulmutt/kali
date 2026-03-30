@@ -61,10 +61,10 @@ Run against the [test262](https://github.com/tc39/test262) conformance suite:
   - Phase 2-3: expanding automated coverage with feature-based gating
   - Later compatibility: >95% pass rate for supported non-Annex-B tests
 
-#### TypeScript (`tsc`-style baselines)
+#### TypeScript/JavaScript (`tsc`-style baselines)
 Inspired by TypeScript's test suite:
-- **Type check tests**: `.ts` file + expected diagnostics
-- **Inference tests**: Check inferred types match expectations
+- **Type check tests**: source file from the shared executable/analyzable source-file class + expected diagnostics
+- **Inference tests**: Check inferred types match expectations across both annotated TypeScript and first-class JavaScript inputs
 - **Emit tests**: Check compiled output for specific patterns
 - **Baseline stability**: diagnostics and machine-readable outputs should use stable golden files where possible so spec and implementation drift are easy to spot
 

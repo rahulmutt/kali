@@ -363,7 +363,7 @@ Canonical discovery rule:
 ### `kali lint [files...]`
 Lint source files (implemented in `kali_lint`).
 ```bash
-kali lint                                  # Lint all supported JS/TS source + declaration files in project
+kali lint                                  # Lint the canonical project file set for linting
 kali lint --fix                            # Auto-fix where possible
 kali lint src/a.ts src/b.ts                # Lint an explicit file set
 ```
@@ -378,7 +378,7 @@ Canonical discovery rule:
 ### `kali test [files...]`
 Run test files.
 ```bash
-kali test                                  # Run discovered tests matching supported executable source extensions
+kali test                                  # Run discovered tests from the executable/analyzable source-file class
 kali test --filter "math"                  # Filter by name
 kali test --sandbox kali.policy.json       # Run tests in sandbox
 kali test --coverage                       # Phase 2 target: with coverage report once the stable contract lands
