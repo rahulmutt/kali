@@ -30,6 +30,11 @@ Promotion checklist from proof-ready to proof-backed:
 - name the covered implementation/spec paths that those proofs are intended to constrain
 - update CI wiring so proof jobs trigger for those covered paths in addition to `proofs/`
 
+Cross-file promotion packet:
+- when this manifest stops being the **placeholder proof-boundary manifest**, update [specs/17-verification.md](../specs/17-verification.md) in the same change so the chapter-level verification plan and the published boundary still describe the same first proof-backed scope
+- if the new boundary changes what Phase 1 or later release/support wording may honestly claim, also sync any affected summary/availability owners (at minimum `README.md` and, if a maturity row changes, [specs/19-feature-maturity.md](../specs/19-feature-maturity.md))
+- this keeps the shared **proof-ready vs proof-backed split** anchored in one published boundary instead of drifting across summary prose
+
 Boundary-maintenance rule:
 - once **Covered implementation/spec paths** becomes non-empty, a change to any covered path must land with one of these outcomes in the same PR: (a) matching Lean/model/proof updates, or (b) an explicit narrowing of the published boundary before the implementation/spec change lands
 - widening the boundary also requires updating the named theorem/property inventory; new Lean files alone do not widen the claim surface

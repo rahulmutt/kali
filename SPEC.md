@@ -56,6 +56,21 @@ Use this table as a reading aid only. Detailed behavior still belongs to the own
 
 For the compact answer to “what is actually shipped in Phase 1?”, use the **Phase-1 Shipped Surface Summary** in [specs/19-feature-maturity.md](./specs/19-feature-maturity.md) before dropping into the full command/profile matrix.
 
+## Bootstrap Acceptance Snapshot
+
+For quick bootstrap-review work, use this compact triage before dropping into the longer traceability tables later in this file.
+
+| Bucket | Read it as | Canonical Kali answer |
+|---|---|---|
+| **Hard invariants** | must remain true across all phases unless the top-level spec changes | guest-language AOT only; pure-Rust implementation contract; no tracing/background GC; sandbox-first honesty; deterministic machine-readable contracts |
+| **Phase 1 promises** | what the first dependable release may actually claim | first-class TS/JS compilation with bounded JS inference; Deno-first standalone execution/builds; the shared **Phase-1 browser-targeted command set**; runtime sandbox enforcement plus the shared **Phase-1 static policy-validation surface**; deterministic install/lock behavior; the Phase-1 **base library artifact** for **exact-version consumers**; proof-ready repository state |
+| **Later-phase breadth** | important direction, but not an MVP overread | stable public effect-report commands; inferred-effect-vs-policy rejection; stable public embedding/WIT/C ABI/component flows; broad Node compatibility; executable `eval` / `Function()`; proof-backed release/support claims |
+
+Shortcut:
+- if a bootstrap sentence looks broader than one row above, normalize it before editing subsystem prose
+- if a proposed change would widen a Phase-1 public claim, update the owning chapter plus [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
+- if a proposed change would widen verification claims, update [`specs/17-verification.md`](./specs/17-verification.md) and [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) together
+
 ## Implementation Strata
 
 To keep the bootstrap brief implementable, the chapter set is intentionally grouped into a small number of logical delivery units:
