@@ -114,11 +114,15 @@ Canonical early-phase code-resolution ladder:
    - resolve the exact requested subpath; do not flatten subpath exports into one package-wide entry
    - use the canonical condition order table below
    - unsupported or unmatched conditional branches are skipped; Kali should not guess a fallback branch that the package did not publish
-6. If `exports` does not resolve the entry, fall back to legacy entry fields using the same API-surface intent **and still respecting edge kind**:
-   - Phase-1 simplification: the supported `browser` and `deno` contexts share the same legacy fallback order, so keep one rule instead of near-duplicate per-surface ladders
-   - supported browser-targeted context (Phase 1: `kali check --api browser` and `kali build --bundle --api browser`; later supported browser-targeted analysis commands such as `kali effects --api browser` plus inherited browser-context `kali package-effects`, where that browser context comes from config/defaults rather than package-analysis-specific CLI flags) and the Deno-oriented standalone API surface (`--api deno`, Phase 1 default): for **ESM import edges** prefer `module`, then `main`, and for **CJS require edges** prefer `main`, then `module`
-   - later Node API surface may add `node`-specific behavior before that shared fallback ladder when explicitly documented
-7. In browser-targeted contexts, after `exports` or the legacy fallback picks a package-published target, apply any `package.json#browser` replacement-map rewrite that covers that selected package-local path:
+6. If `exports` does not resolve the entry, fall back to legacy entry fields using the same API-surface intent **and still respecting edge kind**. In schema v1, keep one shared fallback table instead of near-duplicate prose ladders:
+
+   | Context | ESM `import` edge | CJS `require` edge |
+   |---|---|---|
+   | Deno-oriented standalone (`--api deno`, Phase 1 default) | `module`, then `main` | `main`, then `module` |
+   | browser-targeted context *(Phase 1: `check --api browser`, `build --bundle --api browser`; later supported browser-targeted analysis commands reuse the same order)* | `module`, then `main` | `main`, then `module` |
+   | later Node API surface | later Node-specific rule when explicitly documented; until then, do not guess | later Node-specific rule when explicitly documented; until then, do not guess |
+
+7. In browser-targeted contexts, after `exports` or that legacy fallback table picks a package-published target, apply any `package.json#browser` replacement-map rewrite that covers that selected package-local path:
    - this rewrite layer is part of the one shared browser package-resolution context for `check --api browser`, `build --bundle --api browser`, and later browser-context analysis commands such as `effects --api browser` and inherited browser-context `package-effects`
    - if the browser map rewrites the selected path to another package-local file, continue resolution from that rewritten target
    - if the browser map marks the selected path as unavailable (`false`), reject that edge instead of probing alternate non-browser files heuristically
