@@ -266,6 +266,11 @@ Current CLI-vocabulary members of this family:
 ### Registry-analysis command
 A command that analyzes one explicit registry package identifier rather than discovered source files or the whole project graph.
 
+Interpretation rules:
+- schema-v1 registry-analysis commands use the shared **identity-only registry target** form and its stable-release selection rule rather than consulting the current project's manifest or lockfile to pick a version
+- `package-effects` may still inherit the effective analysis context (`apiSurface`, `runtimeProfiles`, `compat.features`), but that inherited analysis context does **not** change the project-independent version-selection rule
+- `package-audit` stays context-free in early phases and is likewise project-independent for version selection
+
 Current CLI-vocabulary members of this family:
 - `package-effects`
 - `package-audit`
@@ -294,6 +299,7 @@ Schema-v1 workflows using this form:
 
 Interpretation rules:
 - this form uses the shared stable-release selection rule from [14 — Package Management](./specs/14-packages.md)
+- if no non-yanked stable release exists for that package identity, the workflow fails with the canonical package-selection diagnostic `E5001` rather than silently selecting a prerelease or consulting ambient project lockfile state
 - it resolves from registry/package metadata rather than from an ambient project lockfile choice unless a later spec adds an explicit lock-aware or version-selecting mode
 - adding explicit version/range selectors later must be a separate documented input mode rather than inferred from the identity-only form
 

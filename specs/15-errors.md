@@ -78,11 +78,11 @@ Terminology note:
 - `E4004`: Dynamic effect detected (cannot statically verify)
 
 ### Import/Module/Availability/Command-Input Errors (E5xxx)
-- `E5001`: Module not found
+- `E5001`: Module/package not found or no selectable stable release
 - `E5002`: Circular dependency detected
 - `E5003`: Invalid module specifier
 - `E5004`: Dependency state not installed or not materialized for the current lockfile
-- `E5005`: Ambiguous module resolution or registry-path conflict
+- `E5005`: Ambiguous resolution or registry-path conflict
 - `E5006`: Feature unavailable in current phase, API surface, command/profile, or target configuration
 - `E5007`: Invalid primary command input kind for the selected command
 - `E5008`: Invalid CLI usage or flag/arity combination for the selected command
@@ -100,7 +100,7 @@ Clarification:
 - for `E5004`, "stale" is a **lock/materialization mismatch**, not a vague timestamp heuristic
 - non-install commands should fail clearly and point to `kali install`; they should not repair dependency state as a side effect
 
-Use `E5001` for module/package-not-found-or-not-selectable problems such as:
+Use `E5001` for module/package-not-found-or-no-selectable-stable-release problems such as:
 - a referenced module or package cannot be found under the documented resolution rules
 - an identity-only registry-target workflow (`kali install <pkg>`, `kali install --dev <pkg>`, `kali package-effects <pkg>`, `kali package-audit <pkg>`) found the package identity, but no non-yanked stable release exists to satisfy the schema-v1 stable-release selection rule
 

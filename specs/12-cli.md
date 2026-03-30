@@ -408,6 +408,7 @@ Argument-kind rules:
 - a **registry install target** uses the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names (for example `jsr:@std/path`)
 - in schema v1, that explicit registry install target is a **package identity only**, not an inline version/range selector
 - adding a registry package through this identity-only CLI form uses the shared stable-release rule from [specs/14-packages.md](14-packages.md): resolve the latest non-yanked stable published version, write `kali.lock` with that concrete version, and record the manifest dependency using the canonical default range `^<resolvedVersion>`
+- if that identity-only lookup finds the package but no acceptable non-yanked stable release, the command fails with `E5001` instead of silently selecting a prerelease or pretending the package was installable under the schema-v1 input form
 - a **registry install target** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
 - in the canonical configless project mode, an explicit registry-package add (`kali install <pkg>` or `kali install --dev <pkg>`) first creates the minimal canonical manifest `{ "schemaVersion": 1 }` at the effective project root, then records the dependency there; this keeps package adds on one manifest path instead of inventing a configless side channel
 - `kali install` does **not** take `--api` in early phases; install is profile-agnostic, so passing `--api ...` is invalid command usage (`E5008`) rather than a request for a second install graph
@@ -439,6 +440,7 @@ Argument-kind rule:
 - `<package>` uses the same canonical registry-package identifier grammar as `kali install`: normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names
 - early schema-v1 package analysis takes the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
 - to keep registry analysis deterministic and project-independent in schema v1, the command uses the shared stable-release rule from [specs/14-packages.md](14-packages.md) and records the resolved version in the output payload
+- if that identity-only package lookup finds the package but no acceptable non-yanked stable release, the command fails with `E5001` instead of silently selecting a prerelease or consulting ambient project dependency state
 - `package-effects` therefore does **not** consult the current project's manifest or lockfile to choose a different version in early phases; a later explicit version/range or lock-aware mode would need its own documented selector
 - any non-registry target is rejected for `package-effects` in early phases, including raw URLs and local file paths; this command analyzes registry packages only, while raw URL dependencies remain part of the project/import-graph workflow handled by `kali install` + `kali effects`
 
@@ -475,6 +477,7 @@ Argument-kind rule:
 - the package argument uses the canonical registry-package identifier grammar (normal npm package name or `jsr:`-prefixed JSR name)
 - early schema-v1 package audit likewise takes the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
 - to keep audit behavior aligned with `package-effects` and avoid hidden project-state coupling, the command uses the shared stable-release rule from [specs/14-packages.md](14-packages.md) and, when it reports machine-readable/package metadata, includes that resolved version as result metadata rather than as part of the required input spelling
+- if that identity-only package lookup finds the package but no acceptable non-yanked stable release, the command fails with `E5001` instead of silently selecting a prerelease or inferring a version from ambient project state
 - any non-registry target is rejected for `package-audit` in early phases, including raw URLs and local file paths; package-audit is registry-package-oriented rather than a second raw-URL/local-path analysis path
 
 Project-state rule:
