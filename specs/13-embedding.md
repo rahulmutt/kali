@@ -159,20 +159,20 @@ typedef struct KaliError KaliError;
 
 // Configuration
 KaliConfig* kali_config_new(void);
-void kali_config_set_api(KaliConfig* config, int api_surface);
-void kali_config_set_build_mode(KaliConfig* config, int build_mode);
+bool kali_config_set_api(KaliConfig* config, int api_surface);
+bool kali_config_set_build_mode(KaliConfig* config, int build_mode);
 void kali_config_clear_runtime_profiles(KaliConfig* config);
-void kali_config_add_runtime_profile(KaliConfig* config, int profile);
+bool kali_config_add_runtime_profile(KaliConfig* config, int profile);
 void kali_config_clear_compat_features(KaliConfig* config);
-void kali_config_add_compat_feature(KaliConfig* config, int feature);
-void kali_config_set_max_memory(KaliConfig* config, uint64_t bytes);
-void kali_config_set_max_cpu_time(KaliConfig* config, uint64_t ms);
-void kali_config_set_sandbox(KaliConfig* config, const char* policy_path);
+bool kali_config_add_compat_feature(KaliConfig* config, int feature);
+bool kali_config_set_max_memory(KaliConfig* config, uint64_t bytes);
+bool kali_config_set_max_cpu_time(KaliConfig* config, uint64_t ms);
+bool kali_config_set_sandbox(KaliConfig* config, const char* policy_path);
 void kali_config_free(KaliConfig* config);
 
 // Runtime
 uint32_t kali_runtime_abi_version(void);
-KaliRuntime* kali_runtime_new(KaliConfig* config);
+KaliRuntime* kali_runtime_new(const KaliConfig* config);
 void kali_runtime_free(KaliRuntime* runtime);
 
 // Compilation
@@ -222,11 +222,13 @@ bool kali_register_host_function(KaliRuntime* runtime, const char* module,
 
 ### Memory Management
 - All `kali_*_new` / `kali_*_free` pairs — caller manages lifetime
+- `KaliConfig*` is a caller-owned builder object. `kali_runtime_new(const KaliConfig* config)` snapshots the effective config and does **not** consume ownership, so the caller may free the config immediately after runtime creation succeeds or fails.
 - `KaliModule*` and `KaliInstance*` are distinct owned handles: freeing a compiled module does not implicitly free an instantiated instance unless a later ABI revision documents that ownership transfer explicitly
 - Strings returned by Kali must be freed with `kali_free_string`
 - because the public C ABI itself is a **Phase 2 target**, pre-Phase-2 internal prototypes are free to omit unstable helpers such as the effect-analysis entrypoints instead of pretending they already exist as a stable callable contract
 - Thread safety: one `KaliRuntime` per thread in the initial implementation
 - The C config surface follows the same set-like semantics as `kali.json` and the Rust builder API: runtime profiles and compat features are unordered unique sets, not boolean toggle pairs
+- mutating config helpers return `bool` so validation/allocation/phase-gating failures all use one C-friendly convention instead of mixing `void` setters with out-of-band failure cases
 - C config/runtime setters for build mode, runtime profiles, and compat features follow the same phase-gating rules as the CLI/config surface; unsupported requests fail with the canonical availability error instead of degrading silently
 - Exposing a C ABI does **not** imply linking any C/C++ implementation into Kali itself; the runtime and compiler remain Rust-only internally
 
@@ -234,6 +236,7 @@ bool kali_register_host_function(KaliRuntime* runtime, const char* module,
 - Pointer-returning functions that can fail return `NULL` on error
 - Boolean-returning registration/configuration helpers return `false` on error
 - Call `kali_last_error()` for runtime-bound failures, or `kali_global_last_error()` for failures that happen before a `KaliRuntime` exists (for example `kali_runtime_new` returning `NULL`)
+- failed config mutations also report through `kali_global_last_error()` because they may occur before a runtime exists
 - Error includes the stable string diagnostic code, message, and JSON representation so embedders see the same canonical machine contract as the CLI
 
 ### Building
