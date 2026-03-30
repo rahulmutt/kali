@@ -143,6 +143,7 @@ Use `E5006` for cases such as:
 - `--api node` before the documented Node subset is implemented
 - `eval` / `Function()` without `--compat eval`
 - dynamic `require()` in early phases
+- recognized-but-unavailable compatibility members such as Phase-1 `Deno.permissions.request()` / `revoke()`
 - `run --api browser` in early phases where browser support exists only as an analysis/build context
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - `--max-spawned-processes N` with a non-zero value before subprocess support exists for the selected command/profile/API surface
@@ -206,6 +207,7 @@ Use `E5009` for cases such as:
 - malformed `kali.json`
 - unknown config keys or wrong value types in `kali.json`
 - duplicate/invalid entries in set-like config arrays such as `compilerOptions.runtimeProfiles` or `compat.features`
+- invalid registry dependency value shapes in `dependencies` / `devDependencies` (for example a SemVer range where schema v1 requires an exact version string)
 - invalid `imports`, `include`, or `exclude` field shapes that violate the documented schema
 
 ### Canonical Invalid-Policy Diagnostic
