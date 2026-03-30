@@ -457,16 +457,11 @@ To keep schema v1 small and avoid undocumented config surface area, early-phase 
 
 Independently of project install state, Kali can analyze a registry package through the **registry-analysis commands**.
 
-Status boundary:
-- `kali package-effects <pkg>` is a **Phase 2 target** that reuses the shared effect-report contract for one registry package
-- `kali package-audit <pkg>` is a **Later compatibility** registry tool and should not be implied by Phase 1-2 compiler/runtime readiness
-- the examples below describe the canonical command shape and result contract for these workflows, not an unconditional claim that both commands are already available in Phase 1
-
-```bash
-kali package-effects lodash                 # Show effects used by package (Phase 2 target)
-kali package-audit lodash                   # Security audit (later compatibility)
-kali package-audit --output json lodash     # Schema-v1 envelope-only JSON output
-```
+Simplification rule:
+- keep the two registry-analysis commands intentionally distinct instead of growing a fuzzy “package inspection” surface
+- `kali package-effects <pkg>` is the **Phase 2 target** analysis-context-aware effect-report path
+- `kali package-audit <pkg>` is the **Later compatibility** context-free security-audit path
+- command spelling/examples stay owned by [12 — CLI](12-cli.md); this section focuses on package semantics, version selection, and context behavior
 
 Registry-analysis summary:
 

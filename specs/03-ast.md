@@ -67,7 +67,7 @@ enum ModuleItem {
 ### Kali-Specific Nodes
 - `EffectAnnotation` — effect summary on function signatures: `! FileSystem.Read | Network.Fetch` *(parsed early; semantically enabled in Phase 2+)*
 - `PureModifier` — `pure function f() { ... }` *(parsed early; semantically enabled in Phase 2+)*
-- Experimental only: `EffectDeclaration`, `PerformExpression`, `HandleExpression` for algebraic effects/handlers *(later compatibility / experimental only)*
+- `EffectDeclaration`, `PerformExpression`, `HandleExpression` for algebraic effects/handlers *(later experimental surface; not part of the Phase 1 MVP and not a separate canonical status label)*
 
 These nodes may appear in the AST before the corresponding feature has semantic support. The parser records the syntax; later phases of checking/lowering decide whether the construct is currently enabled according to [specs/19-feature-maturity.md](19-feature-maturity.md).
 

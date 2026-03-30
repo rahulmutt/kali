@@ -67,7 +67,7 @@ struct Token {
 - Kali extensions:
   - Effect type annotations: `function foo(): number ! FileSystem.Read | Console.Write` *(parsed early, semantically enabled in Phase 2 per [specs/19-feature-maturity.md](19-feature-maturity.md))*
   - `pure` function modifier *(parsed early, semantically enabled in Phase 2 per [specs/19-feature-maturity.md](19-feature-maturity.md))*
-  - Experimental only: `effect` declarations, `perform` expressions, `handle` blocks
+  - `effect` declarations, `perform` expressions, `handle` blocks *(later experimental surface; parsing them early does not grant semantic support or create a separate canonical status label)*
 - JSX/TSX grammar:
   - JSX elements, fragments, expressions, spread attributes
   - Disambiguated from TypeScript generics via context (same approach as tsc)
