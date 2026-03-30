@@ -580,7 +580,7 @@ Package-effects rule:
 - the nested shared effect report includes `analysisContext` so the chosen `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` travel with the report instead of living only in ambient CLI/config state
 - in configless project mode, that inherited context is just the **default inherited analysis context (schema v1)** from [SPEC.md](../SPEC.md)
 - inherited-context availability follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is unavailable, the command fails with `E5006` rather than silently falling back to a smaller one
-- canonical inherited examples once the command exists: `apiSurface = browser` reuses the browser-targeted analysis gate, `apiSurface = node` reuses the Node gate, `runtimeProfiles = ["wasm-threads"]` reuses the threaded-profile gate, and `compat.features = ["eval"]` reuses the `eval` gate
+- representative inherited browser / Node / threaded-profile / compatibility rows stay centralized in [19 — Feature Maturity](19-feature-maturity.md) rather than being re-listed here
 - as a schema-v1 **native-JSON command**, `package-effects --pretty` reformats the native payload and `package-effects --output json` wraps that same payload in the standard CLI command envelope; those formatting switches change presentation only and do not create a second availability path or a third package-effects-only outer format
 
 Package-audit rule:

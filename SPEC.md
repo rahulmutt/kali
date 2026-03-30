@@ -1302,7 +1302,8 @@ Rule:
 To keep single-package tooling predictable and avoid a second near-duplicate flag family:
 - `package-effects`, once that command exists, is **analysis-context-aware**: it inherits `apiSurface`, `runtimeProfiles`, and the effective compatibility-feature selection from config/defaults, then records that context in JSON using the emitted field name `compatFeatures` instead of taking package-analysis-specific `--api` / runtime-profile / `--compat` flags.
 - because schema v1 intentionally omits package-analysis-specific context flags, non-default `package-effects` contexts come only from defaults or discovered config; in configless mode the command therefore uses the **default inherited analysis context (schema v1)** unless/until a later spec adds explicit package-analysis context flags.
-- `package-effects` follows the maturity of the inherited analysis axis instead of inventing its own separate gate table: inherited browser context lines up with browser-targeted effect analysis, inherited Node context lines up with the Node analysis gate, inherited `wasm-threads` lines up with the threaded-profile gate, and inherited compat features such as `eval` line up with their own compatibility-phase gates.
+- `package-effects` follows the maturity of the inherited analysis axis instead of inventing its own separate gate table.
+- use [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) as the one place that enumerates representative inherited browser / Node / threaded-profile / compatibility rows; other chapters should prefer naming the shared **axis-aligned inherited analysis gating** rule over re-listing those same examples.
 - `package-audit`, once that command exists, follows **context-free registry analysis (schema v1)**.
 - both commands still continue to follow the shared **registry-analysis target contract (schema v1)** while differing only in context participation and JSON/output behavior.
 
