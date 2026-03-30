@@ -39,6 +39,21 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 
 Use this table as a reading aid only. Detailed behavior still belongs to the owning chapters and the maturity matrix.
 
+## Implementation Strata
+
+To keep the bootstrap brief implementable, the chapter set is intentionally grouped into a small number of logical delivery units:
+
+| Stratum | Purpose | Primary chapters |
+|---|---|---|
+| bootstrap normalization + cross-spec rules | Turn `BOOTSTRAP.md` into one phase-correct contract and define shared terminology/gating rules | `SPEC.md`, `19-feature-maturity` |
+| frontend + semantics | Parse TS/JS, build typed program meaning, and define what Kali is allowed to infer | `01`-`04` |
+| lowering + runtime core | Choose representations, lower to WASM, enforce runtime/sandbox boundaries, and define host/runtime behavior | `05`-`11` |
+| product/tooling surface | Define command behavior, packages, diagnostics, schemas, tests, embedding, and proof claims | `12`-`18` |
+
+Reading shortcut:
+- if you are deciding **whether Kali supports something yet**, read `SPEC.md` → `19-feature-maturity.md` → the owning chapter
+- if you are deciding **how a supported thing works**, read the owning chapter first, then fall back to `SPEC.md` only for shared terminology or cross-spec conflict resolution
+
 ## Phase-1 Explicit Non-Goals
 
 To keep the bootstrap brief ambitious without making the MVP blurry, Phase 1 should say these non-goals out loud:
