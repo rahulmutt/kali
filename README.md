@@ -28,7 +28,7 @@ Phase 1 is intentionally narrow:
 - broader `--api node` support comes later
 - internal effect bookkeeping may exist, but the stable public effect-report surface is later and intentionally split into a **reporting** half (`kali effects`, `kali package-effects`) and a **policy-comparison** half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`)
 - `kali build --lib` ships only as a Phase-1 **base library artifact** for exact-version/internal consumers in the shared **Deno-oriented build context (schema v1)**; the stable public embedding surface comes later
-- verification in Phase 1 is **proof-ready**, not automatically **proof-backed**; the current published boundary is still empty, so no mechanized proof coverage is claimed yet
+- verification in Phase 1 is **proof-ready**, not automatically **proof-backed**; read [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) for the exact current boundary and proof-state claim instead of inferring it from summary prose
 
 For the compact shipped/not-shipped answer, see the **Phase-1 Shipped Surface Summary** in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 
@@ -57,7 +57,7 @@ Useful normalized reminders:
 This repository is currently spec-first:
 - the checked-in source of truth today is the spec set plus [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md)
 - example crate trees, CI layouts, Lean project layouts, and command examples in the spec describe the intended target shape, not necessarily files that already exist in the repo
-- today the verification artifact that actually exists is the published proof-boundary manifest; the Lean project tree described in the verification chapter is still target-state documentation, not a checked-in proof implementation yet
+- read [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) for the exact current verification artifact and claim boundary; the Lean project tree described in the verification chapter is target-state documentation, not a guarantee that those proof files already exist in the repo
 
 ## Specification map
 - Top-level normalization and terminology: [`SPEC.md`](./SPEC.md)
