@@ -147,6 +147,8 @@ Use `E5006` for cases such as:
 - **recognized-but-unavailable compatibility members** from [SPEC.md](../SPEC.md), such as Phase-1 `Deno.permissions.request()` / `revoke()` (these stay on the compatibility-member path, not the ordinary missing-property/type-error path)
 - `Deno.permissions.query(...)` asked to evaluate a descriptor kind that Kali intentionally does not support in the current phase/API surface (for example an early-phase `ffi`/`sys`-style permission descriptor)
 - `run --api browser` in early phases where browser support exists only as an analysis/build context
+- plain `kali run main.ts` or `kali run --sandbox kali.policy.json main.ts` under an inherited `compilerOptions.apiSurface = browser` or `compilerOptions.apiSurface = node`, because effective-context inheritance must not silently fall back to `deno`
+- plain `kali test` or `kali test --sandbox kali.policy.json` under an inherited `compilerOptions.apiSurface = browser` or `compilerOptions.apiSurface = node`, for the same reason
 - well-formed base invocations that hit the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md), such as `kali package-effects lodash` before Phase 2 or `kali package-audit lodash` before that **Later compatibility** command exists
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - positive values for the shared **feature-gated zero-capable execution budgets** from [SPEC.md](../SPEC.md) before the selected command/runtime-profile/API-surface combination actually supports subprocesses or threads

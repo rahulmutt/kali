@@ -224,11 +224,20 @@ Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
 - follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): supported early browser shapes are the shared **Phase-1 browser-targeted command set** (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including their supported `--sandbox` variants); wrong browser build shapes use `E5008`, while browser execution/test requests use `E5006` until Kali defines a standalone browser runtime/test contract.
 - `--api node` is phase-gated consistently across `check`, `effects`, `build`, `run`, and `test`; early phases reject it with `E5006` rather than exposing a partial Node surface.
+- explicit `--api ...` and inherited `compilerOptions.apiSurface = ...` are equivalent here too: plain `kali run main.ts` and plain `kali run --sandbox kali.policy.json main.ts` must validate against the same effective API surface and therefore hit the same Node/browser execution gates as their explicit `--api node` / `--api browser` forms instead of silently falling back to `deno`.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
 - in schema v1, `--compat eval` is the only stable compatibility-feature spelling and it gates both direct `eval` and `Function()`; the CLI should not invent a separate `--compat function-constructor` alias.
 - sandbox permission and compatibility enablement are separate axes: a policy that allows `effects.eval` does **not** implicitly turn on `--compat eval`, and `--compat eval` does **not** bypass a stricter sandbox policy.
 - `--wasm-threads` selects a different runtime profile rather than a small optimization toggle. Until that threaded profile exists, the flag is rejected. After it exists, if the selected target/engine/profile cannot honor it, the command must still reject it explicitly instead of silently dropping thread support.
 - `--max-spawned-processes` and `--max-threads` follow the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): `0` is a valid explicit deny/tightening value, while positive values must be rejected explicitly until subprocess/thread support actually exists.
+
+Inherited execution-context shorthand:
+
+| Effective `apiSurface` | Command spelling | Result |
+|---|---|---|
+| `deno` (default) | `kali run main.ts` / `kali run --sandbox kali.policy.json main.ts` | Supported early standalone execution path |
+| `node` | `kali run main.ts` / `kali run --sandbox kali.policy.json main.ts` | Same Node execution gate as explicit `--api node`; no silent fallback to `deno` |
+| `browser` | `kali run main.ts` / `kali run --sandbox kali.policy.json main.ts` | Same browser execution gate as explicit `--api browser`; no silent fallback to `deno` |
 
 Sandbox flag behavior is intentionally phase-gated:
 - `kali run --sandbox ...` is a Phase 1 feature for runtime policy enforcement.
@@ -430,6 +439,14 @@ Canonical discovery rule:
 - each explicit `kali test` file must still belong to the shared **executable/analyzable source-file class**; passing a declaration-only file is the canonical invalid-entrypoint error (`E5007`), not a silent skip
 
 Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run`, and analysis/build commands (`kali check`, `kali effects`, `kali build`) follow the same API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
+
+Inherited execution-context shorthand:
+
+| Effective `apiSurface` | Command spelling | Result |
+|---|---|---|
+| `deno` (default) | `kali test` / `kali test --sandbox kali.policy.json` | Supported early standalone test path |
+| `node` | `kali test` / `kali test --sandbox kali.policy.json` | Same Node test-runtime gate as explicit `--api node`; no silent fallback to `deno` |
+| `browser` | `kali test` / `kali test --sandbox kali.policy.json` | Same browser test-runtime gate as explicit `--api browser`; no silent fallback to `deno` |
 
 ### `kali init`
 Initialize a new project scaffold.

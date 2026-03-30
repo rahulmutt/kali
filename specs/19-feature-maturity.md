@@ -184,7 +184,11 @@ Interpretation rule:
 | `kali run --sandbox kali.policy.json main.ts` | Phase 1 MVP | Runtime sandbox enforcement path; policy schema/ranges must validate before execution starts |
 | `kali run --api deno main.ts` | Phase 1 MVP | Supported standalone runtime path |
 | `kali run --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands |
+| plain `kali run main.ts` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali run --api node main.ts`; inherited config must not silently fall back to `deno` for execution |
+| plain `kali run --sandbox kali.policy.json main.ts` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali run --api node --sandbox kali.policy.json main.ts`; attaching `--sandbox` does not bypass the Node execution gate |
 | `kali run --api browser main.ts` | Later compatibility | Reject with `E5006` until a real browser-execution contract exists; browser is an analysis/build context first |
+| plain `kali run main.ts` under an inherited browser API surface | Later compatibility | Same effective request as explicit `kali run --api browser main.ts`; inherited config must not silently fall back to `deno` for execution |
+| plain `kali run --sandbox kali.policy.json main.ts` under an inherited browser API surface | Later compatibility | Same browser-execution gate as explicit `kali run --api browser --sandbox kali.policy.json main.ts`; attaching `--sandbox` does not turn browser into an early standalone runtime |
 | `kali check` | Phase 1 MVP | Type-check the canonical project-discovery result with the default API surface (`apiSurface=deno`) |
 | `kali check main.ts` | Phase 1 MVP | Type-check with the canonical default API surface (`apiSurface=deno`) |
 | `kali check a.ts b.ts` | Phase 1 MVP | `check` follows the shared **set-oriented explicit-file command** rule in early phases: multiple explicit files are allowed and should be checked as one explicit file set rather than rejected as though `check` were a single-entry direct command |
@@ -242,7 +246,11 @@ Interpretation rule:
 | declaration-only file passed to `run` / `effects` / `build` / `test` as a primary input | Rejected by default | Declaration files are analysis/type inputs, not executable entrypoints or build/effect primary inputs; use the canonical invalid-entrypoint diagnostic (`E5007`) rather than treating this as general CLI misuse |
 | `kali test --sandbox kali.policy.json` | Phase 1 MVP | Runtime sandbox enforcement path for tests; policy schema/ranges must validate before execution starts |
 | `kali test --api node` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for test runs too |
+| plain `kali test` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali test --api node`; inherited config must not silently fall back to `deno` for test execution |
+| plain `kali test --sandbox kali.policy.json` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali test --api node --sandbox kali.policy.json`; attaching `--sandbox` does not bypass the Node test-runtime gate |
 | `kali test --api browser` | Later compatibility | Reject with `E5006` until a real browser-test contract exists; early browser support is an analysis/build context, not a standalone test-runtime profile |
+| plain `kali test` under an inherited browser API surface | Later compatibility | Same effective request as explicit `kali test --api browser`; inherited config must not silently fall back to `deno` for test execution |
+| plain `kali test --sandbox kali.policy.json` under an inherited browser API surface | Later compatibility | Same browser-test gate as explicit `kali test --api browser --sandbox kali.policy.json`; attaching `--sandbox` does not turn browser into an early test-runtime profile |
 | `kali test --coverage` | Phase 2 target | Coverage needs a stable machine-readable report contract instead of ad hoc runner output |
 | `kali effects` with no explicit primary source input | Rejected by default | `effects` is a direct-input command in early phases; omitting the analysis root should fail with `E5008` rather than implicitly scanning the project |
 | `kali effects a.ts b.ts` | Rejected by default | Early phases accept exactly one primary analysis root for `effects`; multi-entry reporting requires a later explicit mode, so this should fail with `E5008` |
