@@ -9,6 +9,7 @@ Canonical verification state:
 Release note:
 - this placeholder is acceptable while the project is still iterating on the spec/implementation because it satisfies the Phase-1 **proof-ready** baseline without overclaiming proof coverage
 - before any release markets formal verification as a shipped Kali capability, this manifest should be replaced with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed**
+- the first non-placeholder scope should mirror [specs/17-verification.md](../specs/17-verification.md)'s **First proof-backed milestone** section or point to an explicitly documented equivalent, so the chapter-level plan and this manifest do not drift apart
 
 Promotion checklist from proof-ready to proof-backed:
 - name at least one concrete modeled subsystem rather than leaving the boundary empty;
@@ -48,7 +49,7 @@ Until Lean proofs land, this file should be kept explicit rather than omitted so
 ## Explicitly unmodeled features
 - Full ECMAScript/TypeScript surface semantics
 - Host integrations and OS behavior
-- Dynamic compatibility features such as `eval`
+- Dynamic compatibility features such as `eval` / `Function()`
 - Browser/Node compatibility layers beyond the future modeled core
 - Full lowering/codegen correctness end to end
 

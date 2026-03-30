@@ -218,7 +218,7 @@ This loop is intentionally shorter than the full anti-drift checklist. Use it fi
 
 To keep broad bootstrap asks from turning back into fuzzy “support” wording, any new support claim should answer these five questions explicitly before it lands in chapter prose, README summaries, or release notes:
 1. **Which command or artifact shape?**
-2. **Which effective context?** (`apiSurface`, relevant `runtimeProfiles`, `compat.features`, and whether `--sandbox` participates)
+2. **Which effective context?** (the participating axes of the **effective command context** — typically `apiSurface`, command-relevant `buildMode`, relevant `runtimeProfiles`, `compat.features`, and whether `--sandbox` participates)
 3. **Which delivery rung?** Reuse the shared **compatibility delivery ladder** instead of saying only “supported”.
 4. **Which earliest phase/status?** The answer must line up with [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 5. **Which evidence track owns the claim?** Reuse the testing/proof tracks instead of relying on one-off examples.

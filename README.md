@@ -43,7 +43,7 @@ Quick support-reading checklist:
 1. **What command shape is being asked for?** `build --bundle --api browser` and `run --api browser` are different requests.
 2. **What rung of support is meant?** Use the shared **compatibility delivery ladder** in [SPEC.md](./SPEC.md): parser-accepted, checkable, buildable, executable, deployable-through-host, or policy/effect-modeled.
 3. **If this is about packages, which layer is being asked about?** Use the shared **package-support decision order** in [SPEC.md](./SPEC.md): package shape, then host/API fit, then command maturity.
-4. **What effective context is selected?** Read `apiSurface`, `runtimeProfiles`, `compat.features`, and any attached sandbox policy together.
+4. **What effective context is selected?** Read the participating axes together: `apiSurface`, command-relevant `buildMode`, `runtimeProfiles`, `compat.features`, and any attached sandbox policy.
 5. **Which chapter owns the answer?** Command shape lives in `12-cli`, availability in `19-feature-maturity`, JSON shape in `18-schemas`, diagnostics in `15-errors`.
 
 Use that order before treating any broad bootstrap aspiration as shipped support.

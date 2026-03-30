@@ -12,7 +12,7 @@ Bootstrap-alignment note:
 
 Focus verification on the highest-value areas where bugs have the most impact.
 
-Important simplification rule: Lean proofs target a **core Kali calculus**, not the full surface language all at once. Early proof work should model the statically analyzable subset that excludes late-compatibility features such as `eval`, dynamic module loading, weak/finalization semantics, and browser/OS host details. Those outer features are handled by explicit phase gates in the implementation and only enter the proof story once their semantics stabilize.
+Important simplification rule: Lean proofs target a **core Kali calculus**, not the full surface language all at once. Early proof work should model the statically analyzable subset that excludes late-compatibility features such as `eval` / `Function()`, dynamic module loading, weak/finalization semantics, and browser/OS host details. Those outer features are handled by explicit phase gates in the implementation and only enter the proof story once their semantics stabilize.
 
 ## Proof-ready vs proof-backed
 
@@ -40,6 +40,9 @@ Recommended first proof-backed milestone:
 - one conservative built-in effect-soundness theorem family over the sandbox-relevant capability subset;
 - one declarative sandbox-policy decision/enforcement theorem family for the same modeled capability subset;
 - one explicit covered-path inventory in `proofs/BOUNDARY.md` naming the Lean files plus the corresponding spec chapters / implementation areas those proofs are intended to constrain.
+
+Consistency rule:
+- `proofs/BOUNDARY.md` should mirror this milestone verbatim or point to an explicitly documented equivalent scope; the repository should not let the verification chapter and the published proof-boundary manifest drift into two different “first real proof target” stories.
 
 Promotion rule:
 - the repository becomes **proof-backed** only when that milestone (or another explicitly documented equivalent) is actually listed in `proofs/BOUNDARY.md` with named theorem/property claims
