@@ -123,6 +123,17 @@ Practical consequence:
 - `kali package-audit` should still be read as a later context-free registry-analysis workflow, not as part of the Phase-1/2 sandbox-first effect-report surface,
 - but Phase-1 support claims must still treat them as reserved or phase-gated until their maturity rows open.
 
+Compact reading aid:
+
+| Defined early in docs/schemas | Why define it before it ships? | Availability owner |
+|---|---|---|
+| `kali effects` / `kali package-effects` | stabilize the shared effect vocabulary, JSON shape, and CLI/output-mode rules before the public effect-report surface opens | [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| `kali package-audit` | reserve the separate context-free registry-analysis workflow and its envelope-only JSON contract without accidentally folding it into the effect-report surface | [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| `kali build --capi` / `kali build --component` | reserve the public embedding artifact vocabulary before the Phase-2 public embedding surface is actually shipped | [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| stable public plain `--lib` + default WIT | keep the final WIT-first library contract visible while Phase 1 still ships only the unstable **base library artifact** | [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+
+Use this table when a command or artifact family is already documented but you still need to know whether Kali actually ships it yet.
+
 ## Bootstrap Normalization Rule
 
 `BOOTSTRAP.md` is the input brief. This spec set is the normative source of truth after normalization.
