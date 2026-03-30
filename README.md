@@ -24,6 +24,7 @@ These stay fixed across phases unless the top-level spec is intentionally change
 ## Phase 1 snapshot
 Phase 1 is intentionally narrow. Treat the bullets below as a quick overview only, and read exact shipped/not-shipped boundaries from the **Phase-1 Shipped Surface Summary** in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 
+- **Language/frontend**: `.ts` and `.js` are both first-class inputs in Phase 1. JavaScript is compiled through the same core pipeline with bounded conservative inference rather than a transpile-only compatibility lane.
 - **Developer workflow**: `kali init`, `kali install`, `kali fmt`, `kali lint`, and `kali check [files...]` ship as the main Phase-1 project loop.
 - **Deno-first execution/build**: standalone `kali run <file>`, `kali test [files...]`, and `kali build <file>` ship in the default/inherited Deno-oriented context; `kali build --lib <file>` also ships there, but only as the Phase-1 **base library artifact** for exact-version/internal consumers and only when Kali can determine a **statically known export surface**.
 - **Browser and Node boundaries**: browser support is limited to the shared **Phase-1 browser-targeted command set** — browser-targeted `check [files...]` plus browser-targeted `build --bundle <file>`, including supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`. Standalone browser `run`/`test`, non-bundle browser builds, and broader `--api node` command paths are not shipped in Phase 1.
@@ -33,6 +34,7 @@ Phase 1 is intentionally narrow. Treat the bullets below as a quick overview onl
 ## Bootstrap normalization highlights
 A few broad bootstrap asks are intentionally normalized into smaller cross-spec contracts:
 - **“supports browser APIs”** means browser-targeted analysis/build first, not standalone browser `run`/`test`, and it does **not** mean Kali exposes one sandbox/effect key for every ambient DOM/browser API
+- **“supports npm packages” / “supports non node-gyp packages”** means early support is scoped to the shared **pure JS/TS package contract** plus the documented raw-URL workflow, not a blanket promise that every package without `node-gyp` automatically works
 - **“supports all features including eval”** means parser acceptance and later compatibility planning now, but executable `eval`/`Function()` only in the later gated compatibility path
 - **“static JSON effect reporting”** means Phase 1 enforcement/policy validation first, with the later public effect surface split into reporting (`kali effects`, `kali package-effects`) and policy comparison (`check/build --sandbox`); schema v1 keeps the reporting commands explicit too, so `kali effects` is a one-root source-graph command and `kali package-effects` is a one-package registry-analysis command rather than a hidden project-discovery or dry-run workflow
 - **`kali package-audit`** remains a separate later context-free registry-analysis/security-audit workflow, not part of the effect-reporting or policy-validation surface

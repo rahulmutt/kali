@@ -74,7 +74,7 @@ Canonical input-kind rule:
 
 Naming rule:
 - CLI keeps short flag names such as `--api`
-- `kali.json` keeps the canonical leaf keys under `compilerOptions`: `apiSurface`, `buildMode`, and `runtimeProfiles`
+- `kali.json` keeps the canonical compiler-option leaf keys under `compilerOptions`: `apiSurface`, `buildMode`, `runtimeProfiles`, `strict`, and `maxSpecializations`
 - compatibility switches live in config under `compat.features`, while self-contained emitted JSON flattens that same semantic set to `compatFeatures`
 - new docs, generated config, and machine-readable examples should use only these canonical names instead of inventing aliases
 
@@ -527,7 +527,7 @@ Scaffold simplification rules:
 | `kali init --lib` | `kali.json`, `lib.ts` | no `src/`, no `test/`, no `kali.lock`, no dependency state |
 
 - this scaffold contract is about exact minimal file presence first; starter-file contents may evolve, but they should stay minimal and valid for the selected template instead of growing extra boilerplate by default.
-- both templates should keep the same canonical config vocabulary (`apiSurface`, `buildMode`, `runtimeProfiles`) instead of inventing template-specific aliases.
+- both templates should keep the same canonical config vocabulary (`apiSurface`, `buildMode`, `runtimeProfiles`, `strict`, `maxSpecializations`) instead of inventing template-specific aliases.
 
 ### `kali install [target]`
 Install or materialize project dependencies.
