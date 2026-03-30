@@ -261,6 +261,7 @@ Use this checklist:
 - registry-package CLI/manifest spelling versus structured JSON package metadata should reuse the **registry package identifier vs package coordinate** term instead of re-explaining the `jsr:` prefix split in slightly different ways
 - schema-v1 registry dependency value wording should reuse the **exact-version-first registry manifest rule (schema v1)** instead of restating the exact-version requirement in slightly different prose
 - package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
+- package-effects configless/default-context wording should reuse **default inherited analysis context (schema v1)** instead of repeating a partial default tuple and risking drift about which axes actually participate
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
 - Phase-1 internal effect machinery versus Phase-2 stable effect-report-command wording should reuse the **effect-surface split** instead of creating new near-duplicate “effects exist internally but not publicly yet” prose in each chapter
 - command-purpose wording that distinguishes reporting, policy validation, runtime enforcement, install-time hooks, and registry audit should reuse the **workflow-owner split** instead of creating overlapping “analysis”, “sandbox”, or “inspection” narratives for the same command families
@@ -392,6 +393,19 @@ Rules:
 - when docs show plain standalone-oriented examples such as `kali run main.ts`, `kali build main.ts`, or `kali test` without extra context, this is the implied starting point
 - only participating axes matter for a given command: for example `check` and Phase-2 `effects` still default their analysis context from this same baseline, but they do not suddenly become build-mode-sensitive just because `buildMode = fast` exists in the shared default tuple
 - inherited config or explicit CLI flags may still replace any participating axis; this term exists to avoid repeating the same four-field default tuple in multiple chapters
+
+### Default inherited analysis context (schema v1)
+The configless/default semantic analysis context reused by schema-v1 inherited-analysis workflows such as `package-effects`.
+
+It is the analysis-axis projection of the **Default standalone context (schema v1)**:
+- `apiSurface = deno`
+- `runtimeProfiles = []`
+- `compat.features = []`
+
+Rules:
+- use this term when a chapter means the configless/default inherited analysis knobs specifically, rather than the full command context for `run`/`build`/`test`
+- this term intentionally excludes `buildMode` and `sandbox`, because they do not participate in schema-v1 inherited package analysis
+- its purpose is to prevent drift between chapters that would otherwise restate only part of the broader default tuple in slightly different words
 
 ### Compile intent
 The host-visible meaning of one compilation request, orthogonal to API surface, build mode, and runtime profile:
@@ -1035,7 +1049,7 @@ Rule:
 ### Registry-analysis context split
 To keep single-package tooling predictable and avoid a second near-duplicate flag family:
 - `package-effects`, once that command exists, is **analysis-context-aware**: it inherits `apiSurface`, `runtimeProfiles`, and the effective compatibility-feature selection from config/defaults, then records that context in JSON using the emitted field name `compatFeatures` instead of taking package-analysis-specific `--api` / runtime-profile / `--compat` flags.
-- because schema v1 intentionally omits package-analysis-specific context flags, non-default `package-effects` contexts come only from defaults or discovered config; in configless mode the command therefore uses the schema-v1 defaults unless/until a later spec adds explicit package-analysis context flags.
+- because schema v1 intentionally omits package-analysis-specific context flags, non-default `package-effects` contexts come only from defaults or discovered config; in configless mode the command therefore uses the **default inherited analysis context (schema v1)** unless/until a later spec adds explicit package-analysis context flags.
 - `package-effects` follows the maturity of the inherited analysis axis instead of inventing its own separate gate table: inherited browser context lines up with browser-targeted effect analysis, inherited Node context lines up with the Node analysis gate, inherited `wasm-threads` lines up with the threaded-profile gate, and inherited compat features such as `eval` line up with their own compatibility-phase gates.
 - `package-audit`, once that command exists, follows **context-free registry analysis (schema v1)**.
 - both commands still follow the shared **registry-analysis project-independence rule** as well as the identity-only registry-target rule.
@@ -1062,7 +1076,7 @@ It consists of:
 
 Rules:
 - use this term when a chapter means the inherited `package-effects` analysis knobs specifically, rather than the broader **effective command context** used by normal source commands,
-- in configless mode, this context is therefore just the schema-v1 defaults,
+- in configless mode, this context is therefore just the **default inherited analysis context (schema v1)**,
 - top-level `sandbox` and `buildMode` are outside this term in early phases,
 - if a later spec adds package-analysis-specific CLI context flags, that later spec can extend this term explicitly instead of forcing every chapter to restate the whole inheritance rule.
 
