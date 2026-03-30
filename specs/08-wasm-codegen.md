@@ -132,7 +132,7 @@ Shared artifact-shape rules:
 - `--bundle` under an effective `apiSurface` of `browser` keeps executable compile intent and adds browser JS glue (`kind: js-glue`, `role: browser-glue`) beside that same executable core module
 - that browser-bundle artifact shape is selected by the fully merged effective context, so explicit `--api browser` and equivalent inherited-config browser forms emit the same artifact set
 - `--lib`, `--capi`, and `--component` are the library-oriented artifact modes: they all reuse the same **statically known export surface** and the shared **library-oriented instantiation rule** from [SPEC.md](../SPEC.md)
-- plain Phase-1 `--lib` emits only the **base library artifact** (`kind: wasm-module`, `role: primary-library`); Phase 2 promotes that same selector into the stable public library/WIT contract and adds `kind: wit`, `role: interface-wit` by default
+- plain Phase-1 `--lib` emits only the **base library artifact** (`kind: wasm-module`, `role: primary-library`); that early artifact is for **exact-version consumers** rather than a stable public cross-version embedding contract. Phase 2 promotes that same selector into the stable public library/WIT contract and adds `kind: wit`, `role: interface-wit` by default
 - `--capi` and `--component` are later **public embedding artifact flows** layered on top of that same linked core library payload rather than separate export semantics
 - `--component` adds an outer `wasm-component` wrapper around the same linked core payload; it does not authorize a second independently linked guest graph
 - if Kali cannot determine the required export surface statically for a library-oriented build, fail with `E5011`
@@ -143,7 +143,7 @@ Illustrative artifact sets by valid build mode *(reading aid only; filenames are
 |---|---|
 | default executable build (`kali build foo.ts`) | `foo.wasm` (`kind: wasm-module`, `role: primary-executable`) |
 | browser bundle (`kali build --bundle foo.ts` when the effective `apiSurface` is `browser`) | `foo.wasm` (`kind: wasm-module`, `role: primary-executable`) + `foo.js` (`kind: js-glue`, `role: browser-glue`) |
-| base library build (`kali build --lib lib.ts`) | Phase 1: basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`). From the Phase 2 target onward, add basename-derived `lib.wit` (`kind: wit`, `role: interface-wit`) by default once the public library/WIT contract is stable. |
+| base library build (`kali build --lib lib.ts`) | Phase 1: basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) as the **base library artifact** for **exact-version consumers** only. From the Phase 2 target onward, add basename-derived `lib.wit` (`kind: wit`, `role: interface-wit`) by default once the public library/WIT contract is stable. |
 | C-ABI embedding build (`kali build --capi lib.ts`) | Basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) + `lib.wit` (`kind: wit`, `role: interface-wit`) + generated `lib.exports.h` (`kind: c-header`, `role: embedding-header`) + generated `lib.cabi.json` (`kind: cabi-metadata`, `role: embedding-metadata`). The generated exports header is distinct from the stable host ABI header `kali.h`. |
 | Component Model build (`kali build --component lib.ts`) | Basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) + `lib.wit` (`kind: wit`, `role: interface-wit`) + `lib.component.wasm` (`kind: wasm-component`, `role: primary-component`) |
 

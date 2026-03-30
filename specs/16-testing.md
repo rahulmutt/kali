@@ -114,6 +114,7 @@ Because Phase 1 already promises the shared **Phase-1 browser-targeted command s
 #### Base-Library Artifact Evidence Track
 Because Phase 1 already promises the export-oriented base `kali build --lib` mode, that artifact needs its own explicit evidence lane too:
 - run library-build fixtures that verify the expected exported-library artifact shape without implying the later stable public embedding/WIT contract yet
+- treat any host-consumption smoke coverage for this lane as an **exact-version consumer** test only: pin the producing Kali toolchain/runtime version and do not present those fixtures as evidence of cross-version/public ABI stability
 - include negative tests for library inputs that do **not** have a statically known export surface so the build fails with `E5011` instead of synthesizing reflective exports
 - assert deterministic artifact metadata/output ordering across repeated `--lib` builds of the same pinned input
 - keep this lane separate from the Phase 2 stable embedding/C ABI/Component Model evidence so Phase 1 does not accidentally overclaim public ABI stability
