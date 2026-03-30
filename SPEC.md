@@ -434,6 +434,20 @@ To keep single-package tooling predictable and avoid a second near-duplicate fla
 - `package-audit`, once that command exists, is **context-free** in early phases: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics.
 - both commands still follow the shared **registry-analysis project-independence rule** as well as the identity-only registry-target rule.
 
+### Effective inherited analysis context
+The semantic analysis context that `package-effects` uses in schema v1.
+
+It consists of:
+- built-in defaults,
+- then discovered `kali.json` values for `apiSurface`, `runtimeProfiles`, and `compat.features`,
+- with no package-analysis-specific CLI `--api` / runtime-profile / `--compat` override layer in schema v1.
+
+Rules:
+- use this term when a chapter means the inherited `package-effects` analysis knobs specifically, rather than the broader **effective command context** used by normal source commands,
+- in configless mode, this context is therefore just the schema-v1 defaults,
+- top-level `sandbox` and `buildMode` are outside this term in early phases,
+- if a later spec adds package-analysis-specific CLI context flags, that later spec can extend this term explicitly instead of forcing every chapter to restate the whole inheritance rule.
+
 ### Registry-analysis project-independence rule
 Single-package registry-analysis commands intentionally analyze a registry package as a standalone target, not as "whatever version this project currently has installed."
 
@@ -441,7 +455,7 @@ Rules:
 - version selection follows the shared **stable-release selection rule (schema v1)** unless an owning chapter later adds an explicit version-aware or lock-aware mode,
 - the current project's `kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/` must not change which package version is analyzed,
 - these commands must not mutate project-managed dependency state as a side effect,
-- `package-effects` may still inherit its **analysis context** from defaults/discovered config, but that inherited context affects analysis semantics only and must not change project-independence for package identity/version selection,
+- `package-effects` may still inherit its **effective inherited analysis context**, but that inherited context affects analysis semantics only and must not change project-independence for package identity/version selection,
 - any fetched metadata/tarballs belong to the separate **registry-analysis cache**, not to project installation state.
 
 ### Registry-analysis cache
@@ -451,7 +465,7 @@ Rules:
 - it is outside project-managed dependency state (`kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/`),
 - it may be discarded between invocations and must not be treated as an installed project dependency snapshot,
 - cache identity is keyed by at least the canonical registry identifier plus the resolved concrete version,
-- for analysis-context-aware registry analysis (`package-effects`), the inherited analysis context is also part of the cache identity so browser/deno/profile/compat analyses cannot collide accidentally.
+- for analysis-context-aware registry analysis (`package-effects`), the **effective inherited analysis context** is also part of the cache identity so browser/deno/profile/compat analyses cannot collide accidentally.
 
 ### Library-oriented artifact modes
 Non-browser, export-oriented build modes:
@@ -902,7 +916,7 @@ For `package-effects` and `package-audit` in schema v1:
 - commands may use the shared **registry-analysis cache**,
 - commands must not mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`.
 
-`package-effects` may still inherit its **analysis context** from the effective command context; this rule is about dependency state and version selection, not about ambient analysis semantics.
+`package-effects` may still inherit its **effective inherited analysis context**; this rule is about dependency state and version selection, not about ambient analysis semantics.
 
 ## Effective npm-Scriptable Install Work
 

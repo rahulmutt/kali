@@ -108,7 +108,7 @@ Effective-context validation rule:
 
 Package-analysis flag/context simplification:
 - follow the canonical command-context axis participation table, `analysis context` term, and **registry-analysis context split** in [SPEC.md](../SPEC.md)
-- `kali package-effects` is a **Phase 2 target** and, once available, inherits only the semantic analysis axes (`apiSurface`, `runtimeProfiles`, `compat.features`) from config/defaults; it records that context in `report.analysisContext` using the emitted field names `apiSurface`, `runtimeProfiles`, and `compatFeatures` instead of growing package-analysis-specific `--api` / runtime-profile / `--compat` flags
+- `kali package-effects` is a **Phase 2 target** and, once available, inherits only the semantic analysis axes (`apiSurface`, `runtimeProfiles`, `compat.features`) through the shared **effective inherited analysis context** from [SPEC.md](../SPEC.md); it records that context in `report.analysisContext` using the emitted field names `apiSurface`, `runtimeProfiles`, and `compatFeatures` instead of growing package-analysis-specific `--api` / runtime-profile / `--compat` flags
 - `buildMode` and `sandbox` remain non-semantic for `package-effects` in early phases
 - `kali package-audit` is a **Later compatibility** single-package registry tool and, once available, stays context-free in early phases; inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and `sandbox` do not change its semantics
 - examples later in this chapter describe the canonical command shape/output contract for these registry-analysis commands, not an unconditional promise that they are already available in Phase 1
@@ -482,7 +482,7 @@ Argument-kind rule:
 
 Project-state rule:
 - follow the **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md)
-- `package-effects` may still inherit its analysis context from the **effective command context**
+- `package-effects` may still inherit its analysis context through the shared **effective inherited analysis context** from [SPEC.md](../SPEC.md)
 - turning an analyzed package into a project dependency remains the job of `kali install`
 
 Status: **Phase 2 target**. Before then, if package-level analysis is unavailable, the CLI should report that clearly instead of returning partial ad hoc output.
@@ -498,8 +498,8 @@ Analysis scope rule:
 - `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
 - in schema v1, that analysis starts from the package version selected by the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md) rather than from any already-installed project copy or lockfile entry
 - the nested `report.entryPoints` field should name that package-analysis logical root using the same canonical registry identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than an opaque tarball URL or cache path
-- follow the shared **registry-analysis context split** from [SPEC.md](../SPEC.md): `package-effects` inherits its semantic analysis context from defaults/discovered config rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox` in schema v1
-- practical consequence: non-default `package-effects` contexts currently come from defaults or discovered config only. In configless mode, the command therefore stays on the schema-v1 defaults (`apiSurface = deno`, `runtimeProfiles = []`, `compat.features = []`) instead of offering package-analysis-only CLI escape hatches
+- follow the shared **registry-analysis context split** and **effective inherited analysis context** terms from [SPEC.md](../SPEC.md): `package-effects` inherits its semantic analysis context from defaults/discovered config rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox` in schema v1
+- practical consequence: non-default `package-effects` contexts currently come only from that **effective inherited analysis context**. In configless mode, the command therefore stays on the schema-v1 defaults (`apiSurface = deno`, `runtimeProfiles = []`, `compat.features = []`) instead of offering package-analysis-only CLI escape hatches
 - inherited analysis context follows the same axis-specific maturity gates as the rest of effect analysis rather than a package-only shadow rule set; if the inherited context is still unavailable, the command should fail with `E5006` rather than silently analyzing under some other context
 - inherited `apiSurface = browser` is the intended browser-targeted package-analysis path once `kali package-effects` exists in Phase 2; that keeps package analysis aligned with the same browser ambient typing layer and browser **package-resolution context** used by `kali check --api browser`
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
@@ -516,7 +516,7 @@ Argument-kind rule:
 
 Project-state rule:
 - follow the same **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md)
-- unlike `package-effects`, early `package-audit` does not inherit semantic analysis context from the effective command context
+- unlike `package-effects`, early `package-audit` does not inherit the shared **effective inherited analysis context**; it stays context-free in schema v1
 
 Status: **Later compatibility**. It should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
 ```bash

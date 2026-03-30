@@ -455,7 +455,7 @@ Registry-analysis context summary:
 
 | Command | Availability | Context model | JSON success shape |
 |---|---|---|---|
-| `package-effects` | Phase 2 target | Inherits semantic analysis context from defaults/discovered config only: `apiSurface`, `runtimeProfiles`, `compat.features` | Native JSON payload by default; standard command envelope with `--output json` |
+| `package-effects` | Phase 2 target | Inherits only the semantic analysis axes from the shared **effective inherited analysis context**: `apiSurface`, `runtimeProfiles`, `compat.features` | Native JSON payload by default; standard command envelope with `--output json` |
 | `package-audit` | Later compatibility | Context-free in early phases: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change semantics | Standard command envelope only in schema v1 (`payload` omitted or `null` until a dedicated audit payload exists) |
 
 Shared rule:
@@ -469,7 +469,7 @@ Argument-kind simplification:
 - version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md)
 - `kali package-effects` records the resolved version in its machine-readable payload, while early `package-audit` follows the same version-selection rule but does **not** promise command-specific machine-readable version metadata until a dedicated audit payload schema exists
 - any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly
-- follow the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md): package-analysis context inheritance for `package-effects` affects analysis semantics only, not project/version selection, and promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
+- follow the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md): the **effective inherited analysis context** for `package-effects` affects analysis semantics only, not project/version selection, and promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
 - any non-registry target is rejected for these commands in early phases, including raw URLs and local file paths, instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
 - raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
 
@@ -477,7 +477,7 @@ Registry-analysis cache simplification:
 - `package-effects` and `package-audit` may use the shared **registry-analysis cache** from [SPEC.md](../SPEC.md) for fetched metadata/tarballs
 - that cache is outside project-managed dependency state and must not mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
 - cache identity is keyed by at least the canonical registry identifier plus the resolved concrete version
-- cache context then follows the table above: `package-effects` also keys on the inherited analysis context so `deno` / `browser` / later `node`, runtime-profile, and compatibility-feature analyses cannot collide accidentally, while early context-free `package-audit` does not add those inherited axes to the cache key
+- cache context then follows the table above: `package-effects` also keys on the **effective inherited analysis context** so `deno` / `browser` / later `node`, runtime-profile, and compatibility-feature analyses cannot collide accidentally, while early context-free `package-audit` does not add those inherited axes to the cache key
 
 Because `kali package-effects` is a Phase 2 target and depends on the shared effect-report pipeline, it should stay clearly unavailable or explicitly experimental until that pipeline lands rather than returning a partial bespoke format.
 
@@ -488,7 +488,7 @@ Canonical output simplification:
 - the nested `report.entryPoints` field should identify the package-analysis logical root with the same canonical registry identifier spelling the user targeted (`lodash`, `jsr:@std/path`) rather than an opaque tarball URL, extracted cache path, or internal package ID
 - the nested shared effect report includes `analysisContext` so the chosen `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md)) travel with the report instead of living only in ambient CLI/config state
 - that nested `analysisContext` uses the schema field names `apiSurface`, `runtimeProfiles`, and `compatFeatures`, so downstream tools do not have to translate from ambient config terminology
-- follow the shared **registry-analysis context split** from [SPEC.md](../SPEC.md) and the summary table above: in early phases, `package-effects` inherits its semantic analysis context from defaults/discovered config rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
+- follow the shared **registry-analysis context split** and **effective inherited analysis context** terms from [SPEC.md](../SPEC.md) and the summary table above: in early phases, `package-effects` inherits its semantic analysis context from defaults/discovered config rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
 - in configless project mode, that inherited context is therefore just the schema-v1 defaults (`apiSurface = deno`, `runtimeProfiles = []`, `compat.features = []`)
 - practical consequence: choosing a non-default package-analysis context currently requires real config/defaults rather than package-analysis-specific CLI escape hatches; schema v1 keeps the command surface smaller on purpose
 - inherited analysis context follows the same axis-specific maturity gates as the rest of effect analysis rather than a package-only shadow rule set: browser inherits the browser-targeted analysis path, Node inherits the Node analysis gate, `wasm-threads` inherits the threaded-profile gate, and compat features such as `eval` inherit their own compatibility gate

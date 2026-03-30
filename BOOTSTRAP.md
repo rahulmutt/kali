@@ -1,8 +1,8 @@
 Write a top-level SPEC.md that references specs/*.md to breakdown into logical units the implementation of the following:
 
-- Kali is an implementation of TypeScript that uses the extra type information to generate straight and fast WebAssembly code from it. It should also support compiling JavaScript with type-inference for efficiently compilation.
-- Kali is designed with sandboxing as a first class concern, because it is intended as a target for AI agents to generate code from. It should be able to constrain as far as number of processes spawned, CPU usage, Memory usage, etc. Sanboxing / validation of core APIs / syscalls can be tightly controlled - users can declare functions that determine conditions under which a core API is valid or not via a sandboxing policy passed in when running a Kali program.
-- Should be able to statically run a command a get a JSON output of all the potential effects the program can peform. If needed, extend the type system with effects if that makes it easier to implement this feature and if it will help with sandboxing.
+- Kali is an implementation of TypeScript that uses the extra type information to generate straight and fast WebAssembly code from it. It should also support compiling JavaScript with type inference for efficient compilation.
+- Kali is designed with sandboxing as a first-class concern, because it is intended as a target for AI agents to generate code from. It should be able to constrain things such as number of processes spawned, CPU usage, memory usage, etc. Sandboxing / validation of core APIs / syscalls can be tightly controlled — users can declare functions that determine conditions under which a core API is valid or not via a sandboxing policy passed in when running a Kali program.
+- Should be able to statically run a command and get a JSON output of all the potential effects the program can perform. If needed, extend the type system with effects if that makes it easier to implement this feature and if it will help with sandboxing.
 - Kali can be a superset of TypeScript - extend the type system and the type inference algorithm to do more advanced (but fast) type checking. Constraint solving is on the table.
 - Take inspiration and best practices from projects like:
  - [Boa](https://github.com/boa-dev/boa)
@@ -33,5 +33,5 @@ Write a top-level SPEC.md that references specs/*.md to breakdown into logical u
 - Do NOT embed any C / C++ libraries at all. Make everything implemented in Rust as much as possible.
 - It should have excellent error messages - AI agents should easily parse the error messages and be able to react easily.
 - Design the CLI output for AI agent consumption - don't be too verbose (add verbosity as a separate flag) on successes and for failures provide just enough detail to make AI loops token-efficient.
-- Take insipiration in langauge / type system design from languages Like Haskell, Idris, Adga, Lean. At the same time aim for a pragmatic and ergonomic language like Rust.
+- Take inspiration in language / type system design from languages like Haskell, Idris, Agda, Lean. At the same time aim for a pragmatic and ergonomic language like Rust.
 - Add support for WIT / WebAssembly Component Model (make it a default if it is sensible to do) and keep the interfaces well integrated with sandboxing and Kali-specific.
