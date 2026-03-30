@@ -259,6 +259,10 @@ Artifact-mode quick summary:
 | `--capi` | library | Phase 2 target | public embedding artifact flow over the same **statically known export surface** |
 | `--component` | library | Phase 2 target | Component Model packaging over the same **statically known export surface** |
 
+Reading rule:
+- this table is a CLI-local summary only
+- the canonical artifact-mode matrix and cross-command compile-intent wording still live in [SPEC.md](../SPEC.md), and phase availability still lives in [19 — Feature Maturity](19-feature-maturity.md)
+
 Canonical artifact-mode rule:
 - `kali build` is a direct-input command in early phases: it requires exactly one explicit executable/analyzable primary source input and does not guess a project default such as `main.ts`
 - in executable artifact mode that source input behaves as the program entrypoint; in library-oriented artifact modes it is the primary module input whose exports define the host-facing surface

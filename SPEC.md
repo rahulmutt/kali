@@ -213,6 +213,18 @@ When translating a new bootstrap ask into the spec set, use this short loop befo
 
 This loop is intentionally shorter than the full anti-drift checklist. Use it first for scoping; use the longer checklist later for wording cleanup.
 
+## Support-Claim Checklist
+
+To keep broad bootstrap asks from turning back into fuzzy “support” wording, any new support claim should answer these five questions explicitly before it lands in chapter prose, README summaries, or release notes:
+1. **Which command or artifact shape?**
+2. **Which effective context?** (`apiSurface`, relevant `runtimeProfiles`, `compat.features`, and whether `--sandbox` participates)
+3. **Which delivery rung?** Reuse the shared **compatibility delivery ladder** instead of saying only “supported”.
+4. **Which earliest phase/status?** The answer must line up with [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
+5. **Which evidence track owns the claim?** Reuse the testing/proof tracks instead of relying on one-off examples.
+
+Practical rule:
+- if a sentence cannot answer those five questions cheaply, it is probably too vague to be normative and should be rewritten or moved behind a cross-reference.
+
 ## Cross-Spec Simplification Rules
 
 To keep the spec set implementable and reduce drift between chapters, Kali intentionally standardizes on a few cross-cutting simplifications:
@@ -240,7 +252,7 @@ Use this checklist:
 - JSON field names, payload schemas, artifact kinds/roles, and generated metadata-file shapes such as C ABI embedding metadata belong to [`specs/18-schemas.md`](./specs/18-schemas.md)
 - phase availability belongs to [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
 - bootstrap inspiration wording should keep the “**design references, not compatibility targets**” reading from this file instead of turning the upstream project list into an implied architecture-copy or dependency requirement
-- shared cross-spec tables/rules such as the **Command-context axis participation table**, the **canonical browser-targeted budget compatibility rule**, and the artifact-mode matrix should have exactly one normative copy in this file; other chapters should point here instead of restating a second near-duplicate table
+- shared cross-spec tables/rules such as the **Command-context axis participation table**, the **canonical browser-targeted budget compatibility rule**, and the artifact-mode matrix should have exactly one normative copy in this file; other chapters may include short **reading-aid summaries** only when they label them as non-normative and point back here instead of restating a second near-duplicate normative table
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - host/API-layering wording should reuse the **host-support staircase**
 - broad “support” wording across syntax/check/build/run/bundle/policy claims should reuse the **compatibility delivery ladder** and the **support-claim reading order** instead of implying one undifferentiated notion of support
