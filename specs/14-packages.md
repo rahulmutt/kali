@@ -21,15 +21,15 @@ Reading shortcut:
 Kali supports registry packages (npm/JSR) that stay inside the shared **pure JS/TS package contract** from [SPEC.md](../SPEC.md).
 
 Phase-1 source-kind clarification:
-- supported **raw URL imports** are also first-class package/dependency inputs in Phase 1
+- supported **raw URL imports** are also first-class dependency inputs in Phase 1
 - they follow the same determinism goals (pinning, lockfile tracking, materialized cache state, and no hidden auto-repair by non-install commands) even though they are not registry packages
 - registry-package compatibility and raw-URL compatibility should therefore be read as two dependency-source lanes under one shared install/lock discipline, not as “packages are supported but raw URLs are merely ad hoc”
 
 Phase simplification:
-- **Phase 1 MVP**: packages that fit that contract, fit the shared **linked-artifact model**, and whose host/API assumptions fit either the Deno-oriented standalone surface or the shared **Phase-1 browser-targeted command set**.
-- **Phase 3 target**: broader compatibility for packages that still expect the `node` API surface and additional Node built-ins.
+- **Phase 1 MVP**: pure JS/TS packages that fit the shared **linked-artifact model** and whose host/API assumptions fit either the Deno-oriented standalone surface or the exact **Phase-1 browser-targeted command set**.
+- **Phase 3 target**: the remaining pure JS/TS packages whose normal host assumptions still depend on the `node` API surface and additional Node built-ins.
 
-This keeps the early ecosystem promise realistic: utility libraries, validators, parsers, and many framework packages are in scope early, while Node-host-heavy packages and the excluded **native/binary/bootstrap-heavy package contract** follow later compatibility work.
+This keeps the early ecosystem promise realistic: many utility libraries and browser-targeted packages are in scope early, while Node-host-heavy packages and the excluded **native/binary/bootstrap-heavy package contract** follow later compatibility work.
 
 Install-time clarification:
 - read package support through the shared **published-artifact-first package reading** from [SPEC.md](../SPEC.md): judge the package by the published version/tarball Kali actually installs plus the selected entry files for the active context, not by whatever build pipeline the upstream repository used before publishing
