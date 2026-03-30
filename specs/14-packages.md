@@ -40,7 +40,7 @@ Bootstrap-alignment rule:
 Early registry-package compatibility follows the shared **package-support decision order** from [SPEC.md](../SPEC.md), so package shape, host/API fit, and command maturity do not get conflated:
 - **Phase 1 package compatibility is broader than "only Deno-authored packages"**.
 - **Phase 1 package compatibility is narrower than "Node mode works"**.
-- **Phase 1 package compatibility is also not synonymous with "Deno standalone only"**: supported browser-targeted analysis/build contexts are already part of the early package story for packages whose host/API assumptions fit that context.
+- **Phase 1 package compatibility is also not synonymous with "Deno standalone only"**: the shared **Phase-1 browser-targeted command set** is already part of the early package story for packages whose host/API assumptions fit that context.
 
 Concretely, a package can be supported in Phase 1 when:
 - its code can be resolved statically into the shared **linked-artifact model**,
@@ -341,7 +341,7 @@ Interpretation rules:
 
 ## Install-Time vs Command-Time Resolution Boundary
 
-Because package resolution can vary by analysis/runtime context (`--api deno`, browser-targeted analysis/build contexts, and later `--api node`), Kali needs one explicit boundary so `install`, lockfiles, and ordinary commands do not drift.
+Because package resolution can vary by analysis/runtime context (`--api deno`, the shared **Phase-1 browser-targeted command set** plus later browser-context analysis commands that explicitly reuse it, and later `--api node`), Kali needs one explicit boundary so `install`, lockfiles, and ordinary commands do not drift.
 
 This is the canonical package-management simplification for early phases: Kali keeps one shared installed package state, then performs the final context-sensitive package-edge choice at command time.
 
@@ -352,13 +352,13 @@ Scope note:
 
 - `kali install` is **context-agnostic** in Phases 1-3. It locks package versions, fetches/materializes package contents, and records reproducibility data, but it does **not** pre-resolve one permanent `exports`/`browser`/`deno` branch for every future command.
 - `check`, `effects`, `build`, `run`, and `test` perform the final **command-time package edge selection** from the already-installed package metadata using the active analysis/runtime context.
-- therefore one `kali.lock` and one materialized package tree can serve both the default Deno-oriented standalone path and the supported browser-targeted analysis/build paths (`check --api browser`, `build --bundle --api browser`, plus equivalent inherited-config forms) without requiring separate per-context installs.
+- therefore one `kali.lock` and one materialized package tree can serve both the default Deno-oriented standalone path and the shared **Phase-1 browser-targeted command set** (`check --api browser`, `build --bundle --api browser`, plus equivalent inherited-config forms) without requiring separate per-context installs.
 - this is possible because early-phase context differences choose between files that are already present inside the installed package contents; they do not require separate version solves for each supported context.
 - if a later feature truly requires context-specific solving or materially different dependency graphs, that complexity must be introduced explicitly in a future lockfile/versioning revision rather than being implied accidentally by Phase 1 package wording.
 
 Practical consequence:
 - `kali install` does not take `--api` in early phases, and `compilerOptions.apiSurface` does not cause `install` to write a different lockfile for the same manifest/import graph.
-- changing `--api` between `deno` and a supported browser-targeted analysis/build context affects which already-installed package entry files are chosen at command time, not whether the project is considered installed.
+- changing `--api` between `deno` and the shared **Phase-1 browser-targeted command set** affects which already-installed package entry files are chosen at command time, not whether the project is considered installed.
 - lockfile/cache state belongs to the effective discovered project root; invoking commands from a subdirectory of the same project should still use that one shared `kali.lock`, `node_modules/`, and `.kali/` state rather than inventing nested installs.
 - if a later file-accepting non-install command (`check`, `effects`, `build`, `run`, or `test`) points at explicit files outside the current **install-time declaration graph** from [SPEC.md](../SPEC.md) and those files reach additional raw URL imports, the command should fail with `E5004` and tell the user to rerun `kali install` after updating the project's discoverable sources or import map.
 - this is intentional: explicit file targets bypass discovery filtering for command input selection, but they do not retroactively redefine that **install-time declaration graph**, which owns raw URL lock/cache state.
