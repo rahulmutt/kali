@@ -108,6 +108,22 @@ To keep the spec set implementable and reduce drift between chapters, Kali inten
 
 These are deliberate simplifications, not accidental omissions. Later phases may add capability, but should not fork the core vocabulary or workflow without a clear need.
 
+## Spec-Maintenance Anti-Drift Checklist
+
+When editing or extending the spec set, prefer referencing the owning chapter/term instead of re-explaining it with slightly different wording.
+
+Use this checklist:
+- command shape, flags, arity, `--output json`, and exit behavior belong to [`specs/12-cli.md`](./specs/12-cli.md)
+- diagnostic-code meaning and error-boundary rules belong to [`specs/15-errors.md`](./specs/15-errors.md)
+- JSON field names, payload schemas, and artifact kinds/roles belong to [`specs/18-schemas.md`](./specs/18-schemas.md)
+- phase availability belongs to [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
+- browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
+- library/export-oriented build wording should reuse the **embedding-stability split**, **library-oriented instantiation rule**, and **statically known export surface** terms
+- single-package registry-analysis wording should reuse the **registry-analysis context split**, **registry-analysis project-independence rule**, and **stable-release selection rule (schema v1)**
+
+Practical rule:
+- if a chapter needs more than a short paragraph to restate one of those shared rules, add or reuse a canonical term here instead of creating another near-duplicate explanation.
+
 ## Canonical Terminology
 
 ### API surface

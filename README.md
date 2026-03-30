@@ -33,6 +33,7 @@ Reading rule:
 - treat `BOOTSTRAP.md` as the input brief and the spec set as the normative source of truth after normalization
 - when a bootstrap aspiration and a phase-specific promise seem to differ, prefer `SPEC.md` plus the owning chapter and the feature-maturity matrix
 - remember the two main naming splits used across the specs: config stores compatibility switches under `compat.features` while emitted reports use `compatFeatures`, and semantic effect kinds such as `FileSystem.Read` map onto policy/schema keys such as `effects.fileSystem.read`
+- for maintenance, keep the ownership split tight: command shape/flags live in `12-cli`, diagnostic semantics in `15-errors`, JSON field names in `18-schemas`, and phase availability in `19-feature-maturity`
 
 Quick navigation:
 - frontend and language design: [01 — Architecture](./specs/01-architecture.md), [02 — Lexer & Parser](./specs/02-lexer-parser.md), [03 — AST](./specs/03-ast.md), [04 — Type System](./specs/04-type-system.md)
