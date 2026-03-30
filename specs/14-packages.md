@@ -80,7 +80,7 @@ Early registry-package compatibility follows the shared **package-support decisi
 Concretely, a package can be supported in Phase 1 when:
 - its code can be resolved statically into the shared **linked-artifact model**,
 - its module format can be handled by Kali's ESM/CJS pipeline,
-- and its host/API assumptions are satisfied by either the documented Web baseline plus Deno-oriented standalone surface, or the shared **Phase-1 browser-targeted command set** from [SPEC.md](../SPEC.md).
+- and its host/API assumptions are satisfied by either the Deno-oriented standalone surface *(which already includes the shared **Web baseline**)*, or the shared **Phase-1 browser-targeted command set** from [SPEC.md](../SPEC.md).
 
 A package is **not** automatically in scope just because it lives in npm or JSR. If it depends on broader Node globals/core modules or falls into the **native/binary/bootstrap-heavy package contract**, it stays phase-gated or rejected with the rest of that compatibility work.
 
@@ -88,7 +88,7 @@ Compact bootstrap-normalization table:
 
 | Package shape | Early handling | Why |
 |---|---|---|
-| Pure JS/TS package whose host/API assumptions fit the Phase 1 Web baseline + Deno-oriented standalone surface | **Phase 1 MVP in scope** | This is the core standalone half of the **pure JS/TS package contract** target |
+| Pure JS/TS package whose host/API assumptions fit the Phase-1 Deno-oriented standalone surface *(including the shared **Web baseline**)* | **Phase 1 MVP in scope** | This is the core standalone half of the **pure JS/TS package contract** target |
 | Pure JS/TS package whose host/API assumptions fit the shared **Phase-1 browser-targeted command set** | **Phase 1 MVP in scope for those browser-targeted commands** | Package shape is acceptable and the selected Phase-1 browser-targeted command context can analyze/build it without implying standalone browser execution |
 | Pure JS/TS package that still expects broader Node globals/core modules | **Phase 3 target** | Package shape is acceptable, but host/API requirements exceed the Phase 1 surface |
 | Package that needs native addons, N-API bindings, prebuilt binaries, or postinstall-downloaded executables in the published package Kali installs | **Rejected by default** | Falls into the **native/binary/bootstrap-heavy package contract** under the shared **published-artifact-first package reading** |
