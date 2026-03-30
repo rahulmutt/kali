@@ -4,6 +4,10 @@
 
 Kali uses Lean 4 to formally verify selected high-value invariants of the implementation over time. Verification is iterative — proofs are developed alongside the Rust implementation and updated as the spec evolves, and support claims stay limited to the currently published **proof-boundary manifest** rather than to the whole implementation.
 
+Bootstrap-alignment note:
+- the bootstrap brief's "formally verify implementation details with Lean while iterating on the Spec" requirement is normalized here as an iterative verification program with an honest published boundary from the start
+- that means Phase 1 must be **proof-ready**, but it does **not** automatically imply blanket proof coverage or permission to market Kali as already **proof-backed** before the manifest names at least one concrete modeled subsystem and theorem set
+
 ## Scope
 
 Focus verification on the highest-value areas where bugs have the most impact.

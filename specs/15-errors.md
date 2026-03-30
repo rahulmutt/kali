@@ -142,7 +142,7 @@ error[E5006]: feature unavailable in current phase: --api node
 
 Use `E5006` for cases such as:
 - `--api node` before the documented Node subset is implemented, including `kali check --api node` and `kali check --api node main.ts`
-- `eval` / `Function()` without `--compat eval`
+- `eval` / `Function()` when the active availability context does not permit that compatibility path yet — both ordinary source use without effective `--compat eval` and an explicit `--compat eval` request before the Phase-4 path exists stay on `E5006`
 - dynamic `require()` in early phases
 - **recognized-but-unavailable compatibility members** from [SPEC.md](../SPEC.md), such as Phase-1 `Deno.permissions.request()` / `revoke()` (these stay on the compatibility-member path, not the ordinary missing-property/type-error path)
 - `Deno.permissions.query(...)` asked to evaluate a descriptor kind that Kali intentionally does not support in the current phase/API surface (for example an early-phase `ffi`/`sys`-style permission descriptor)
@@ -164,7 +164,7 @@ Boundary clarification:
 - use `E5008` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it, or `kali build --api browser` without `--bundle` while browser builds are bundle-only)
 - follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): wrong browser build shape (`build --api browser` without the required artifact mode, or browser + library-oriented build modes) is `E5008`, while requesting a browser execution/test contract that does not exist yet (`run --api browser`, `test --api browser`) is `E5006`
 - follow the canonical validation-order rule from [SPEC.md](../SPEC.md): diagnostics report the outermost failing gate first — command-shape contradictions before maturity gates, and a command's own availability gate before narrower inherited-context/profile gates inside that command
-- this applies to registry-analysis commands too: follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md) instead of re-deciding the `E5008`-before-`E5006` split per command
+- this applies to registry-analysis commands too: follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md) instead of re-deciding the `E5008`-before-`E5006` split per command; output-format selectors such as `--output json` also do not create a second availability path for otherwise well-formed `package-effects` / `package-audit` requests
 - maturity-matrix rows that name the *earliest fully supported phase* for a combined command/context shape do not override this precedence rule; for example, `kali build --capi --api node ...` may be summarized as a Phase 3 combination while still reporting the `--capi` gate first in Phase 1
 - a well-formed policy file that is semantically incompatible with the selected **availability context** still falls on the `E5006` side of this boundary
 - malformed project config should use `E5009`; malformed policy JSON, unknown policy fields, or invalid policy numeric/path/pattern shapes should use `E5010`; export-surface determination failures for library-oriented builds should use `E5011`
