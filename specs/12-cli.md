@@ -249,7 +249,7 @@ Canonical artifact-mode rule:
 - omitting `--bundle`, `--lib`, `--capi`, and `--component` selects the default executable artifact mode and therefore the default **executable compile intent**
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive artifact-mode selectors unless a later spec explicitly defines one as an implication of another
 - `--bundle` preserves executable compile intent while changing the host adapter/output contract to the browser-targeted bundle path
-- explicit `--api browser` and inherited `compilerOptions.apiSurface = browser` are equivalent here: `kali build --bundle main.ts` is the supported browser-bundle shortcut when the effective API surface is already `browser`, and the same command is `E5008` only when the effective API surface is still non-browser
+- explicit `--api browser` and inherited `compilerOptions.apiSurface = browser` are equivalent here: the plain spelling `kali build --bundle main.ts` has two canonical outcomes owned by [19 — Feature Maturity](19-feature-maturity.md) — under the default/inherited non-browser API surface it is `E5008`, while under an inherited browser API surface it is the supported browser-bundle shortcut
 - `--lib`, `--capi`, and `--component` switch the build to library compile intent
 - reuse the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): `kali init --lib` chooses a project template only and does not change the later default artifact mode of `kali build`
 - WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag
@@ -288,7 +288,8 @@ kali build --max-specializations 32 main.ts # Override specialization cap
 
 Inheritance note:
 - if `compilerOptions.apiSurface = browser` is already inherited from `kali.json`, plain `kali build --bundle main.ts` is the same supported browser-bundle request as the explicit `--api browser` form above
-- under the default/inherited non-browser API surface, that same plain `kali build --bundle main.ts` remains `E5008` because `--bundle` is browser-only in schema v1
+- if the effective API surface remains the default/inherited non-browser value, that same plain spelling is still invalid usage (`E5008`) because `--bundle` is browser-only in schema v1
+- the maturity matrix now lists those two outcomes as separate rows so the supported inherited-browser shortcut is no longer hidden inside a rejection-only row
 
 ### `kali check [files...]`
 Type-check without compiling.
