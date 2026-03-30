@@ -11,6 +11,10 @@
 
 ## Shared Flags
 
+Current repository-state note:
+- this repository is still spec-first; any crate names mentioned in this chapter (for example `kali_fmt` or `kali_lint`) describe the target implementation decomposition, not a claim that those crates already exist in the current repo today
+- command shapes, flags, and JSON contracts in this chapter are still normative even when the corresponding implementation crates have not landed yet
+
 These flags are shared across the CLI, but some apply only to specific command families. For the canonical meaning of **API surface**, **build mode**, **runtime profile**, and **availability context**, see [SPEC.md](../SPEC.md). For maturity/availability rules, see [19 — Feature Maturity](19-feature-maturity.md).
 
 Ownership rule:
@@ -433,7 +437,7 @@ Compatibility rule:
 - if `--pretty` and `--output json` are combined, formatting applies to the outer command envelope while the nested effect payload remains schema-identical
 
 ### `kali fmt [files...]`
-Format source files (implemented in `kali_fmt`).
+Format source files. Target implementation ownership: `kali_fmt`.
 ```bash
 kali fmt                                   # Format the canonical project file set relevant to formatting (executable/analyzable sources plus declaration-only files)
 kali fmt --check                           # Check formatting (CI mode, exit code 1 if unformatted)
@@ -448,7 +452,7 @@ Canonical discovery rule:
 - `--check` changes rewrite behavior only; it does not change discovery, supported file kinds, or the **set-oriented explicit-file command** contract
 
 ### `kali lint [files...]`
-Lint source files (implemented in `kali_lint`).
+Lint source files. Target implementation ownership: `kali_lint`.
 ```bash
 kali lint                                  # Lint the canonical project file set
 kali lint --fix                            # Auto-fix where possible

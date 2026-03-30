@@ -1,8 +1,12 @@
 # 13 — Embedding, WIT & C ABI
 
 Embedding is intentionally phased and follows the shared **embedding-stability split** from [SPEC.md](../SPEC.md):
-- **Phase 1 MVP**: reusable internal crates exist so the CLI is built library-first, and `kali build --lib` already produces the **base library artifact**. That artifact is intentionally useful for exported-module workflows immediately, but it does **not** yet count as the stable **public embedding surface**. In particular, Phase 1 does not yet promise a stable Rust API, a stable public library/WIT contract, a stable C ABI, or default WIT sidecars for plain `--lib`.
+- **Phase 1 MVP**: Kali should have a reusable library-first internal decomposition, and `kali build --lib` is the early **base library artifact** shape. That artifact is intentionally useful for exported-module workflows immediately, but it does **not** yet count as the stable **public embedding surface**. In particular, Phase 1 does not yet promise a stable Rust API, a stable public library/WIT contract, a stable C ABI, or default WIT sidecars for plain `--lib`.
 - **Phase 2 target**: the **public embedding surface** arrives — the Rust embedding API, the stable public library/WIT contract for `kali build --lib`, the C ABI, and `kali build --capi` / `kali build --component` artifact flows.
+
+Current repository-state note:
+- this repository is still spec-first; crate names such as `kali_embed` and `kali_capi` in this chapter describe the target implementation structure and intended public package names, not a claim that those crates already exist in the current repo today
+- command examples, API sketches, and cargo commands in this chapter should therefore be read as target contracts/illustrative usage unless the repository actually grows the corresponding implementation artifacts
 
 Reading rule:
 - this chapter may define the intended stable shape of later embedding artifact flows (`--capi`, `--component`, stable public `--lib` + WIT) before they are phase-enabled
@@ -392,9 +396,9 @@ Important distinction:
 
 This keeps the shared **host ABI header vs program-specific exports header** split from [SPEC.md](../SPEC.md) intact and avoids overloading the name `kali.h` for two different purposes.
 
-The host-side C ABI itself is provided by the `kali_capi` crate:
+The host-side C ABI itself is intended to be provided by the `kali_capi` crate once that host-side crate lands:
 ```bash
-cargo build --release -p kali_capi         # Build the host-side C ABI shared/static library
+cargo build --release -p kali_capi         # Illustrative target command once the host-side C ABI crate exists
 ```
 
 ## ABI Versioning and Compatibility
