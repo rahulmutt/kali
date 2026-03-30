@@ -23,8 +23,9 @@ error[E1001]: Type 'string' is not assignable to type 'number'
 ### JSON (`--output json`)
 Diagnostics are emitted inside the CLI's versioned command envelope. The canonical JSON schemas for both the envelope and individual diagnostics live in [specs/18-schemas.md](18-schemas.md).
 
-Native-JSON command clarification:
-- `kali effects` and `kali package-effects` emit raw JSON payloads on stdout by default on success
+Native-JSON reporting command clarification:
+- schema v1's native-JSON reporting commands are `kali effects` and `kali package-effects`
+- they emit raw JSON payloads on stdout by default on success
 - when they fail **without** `--output json`, their diagnostics stay human-oriented and should go to stderr so stdout does not become mixed text+JSON
 - callers that need machine-readable failure diagnostics for those commands must request `--output json`
 
@@ -147,6 +148,7 @@ Boundary clarification:
 - use `E5008` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it, or `kali build --api browser` without `--bundle` while browser builds are bundle-only)
 - follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): wrong browser build shape (`build --api browser` without the required artifact mode, or browser + library-oriented build modes) is `E5008`, while requesting a browser execution/test contract that does not exist yet (`run --api browser`, `test --api browser`) is `E5006`
 - when more than one gate could apply, diagnostics should report the outermost failing gate first: command-shape contradictions before maturity gates, and a command's own availability gate before narrower inherited-context/profile gates inside that command
+- maturity-matrix rows that name the *earliest fully supported phase* for a combined command/context shape do not override this precedence rule; for example, `kali build --capi --api node ...` may be summarized as a Phase 3 combination while still reporting the `--capi` gate first in Phase 1
 - a well-formed policy file that is semantically incompatible with the selected command/profile/api surface still falls on the `E5006` side of this boundary
 - malformed project config should use `E5009`; malformed policy JSON, unknown policy fields, or invalid policy numeric/path/pattern shapes should use `E5010`
 - the same rule applies when the triggering value came from discovered config rather than a literal CLI flag; diagnostics should explain the effective value instead of pretending no selection was made

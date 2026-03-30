@@ -549,7 +549,7 @@ Machine-parseable output for commands that normally print human-oriented text. T
 Quiet-mode interaction rule:
 - `--quiet` suppresses extra success/status text, not the command's primary payload
 - for ordinary human-oriented commands, that usually means nothing is printed on success unless the command's main purpose is to emit stdout from the user program or a requested machine payload
-- for `kali effects`, `kali package-effects`, and `--output json` modes, the requested JSON payload/envelope remains the primary output even under `--quiet`
+- for schema v1's native-JSON reporting commands (`kali effects`, `kali package-effects`) and for `--output json` modes, the requested JSON payload/envelope remains the primary output even under `--quiet`
 
 Feature gating is part of the machine contract too: phase/profile rejections should serialize the same stable diagnostic code and note structure as human output. When the failure depends on merged CLI/config state (for example a config-selected API surface or a contradictory artifact-mode combination), JSON diagnostics should also populate the optional structured `context` metadata from [specs/18-schemas.md](18-schemas.md) so tools can see the effective value without scraping prose.
 
@@ -561,11 +561,11 @@ Rules:
 - for execution-style commands in JSON mode, guest/program stdout and stderr are captured into the envelope fields instead of being interleaved as raw terminal text
 - build-like commands should populate artifact `role` whenever it helps distinguish artifact mode without forcing tools to guess from filenames (for example default executable vs `--lib` `wasm-module`)
 
-Exception: `kali effects` and `kali package-effects` already emit JSON as their native outputs, so `--output json` wraps those payloads in the envelope instead of changing their underlying schemas.
+Exception: schema v1's native-JSON reporting commands (`kali effects`, `kali package-effects`) already emit JSON as their native outputs, so `--output json` wraps those payloads in the envelope instead of changing their underlying schemas.
 
-Native-JSON command-stream rule:
+Native-JSON reporting command-stream rule:
 - in default native-payload mode, stdout is reserved for the success payload only
-- extra progress/status text must not be interleaved into stdout for `kali effects` or `kali package-effects`
+- extra progress/status text must not be interleaved into stdout for those commands
 - when those commands fail **without** `--output json`, they should emit the normal human-oriented diagnostics to stderr rather than corrupting stdout with mixed text/JSON output
 - when callers need machine-readable failure results for those commands too, `--output json` is the canonical request path; both success and failure then use the standard command envelope
 - `--pretty` changes formatting of the success payload or outer envelope only; it does not turn stderr diagnostics into JSON

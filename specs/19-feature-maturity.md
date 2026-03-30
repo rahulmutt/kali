@@ -122,6 +122,8 @@ Interpretation rule:
 - Kali must not silently fall back from an inherited unsupported/contradictory context to a different API surface/profile just because the user omitted the matching CLI flag
 - browser rows follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): wrong browser build shapes are `E5008`, while unsupported browser execution/test/runtime contracts are `E5006`
 - when more than one gate could apply, evaluate them from outermost to innermost: **command shape/arity first**, then the command's own phase availability, then finer-grained inherited-context/profile gates inside that command
+- matrix-row status names the **earliest phase where the full command/context combination can be supported**, not necessarily the first diagnostic a pre-support implementation should report when more than one independent gate is still closed
+- for example, `kali build --capi --api node lib.ts` is listed as a **Phase 3 target** because that full combination cannot work before both public embedding artifacts and the Node surface exist, but an early implementation should still report the outermost failing gate first (`--capi` itself in Phase 1, then `--api node` once `--capi` exists but Node remains gated)
 - this keeps diagnostics stable for commands such as `package-effects`: before Phase 2, plain `kali package-effects lodash` should fail on the command's base maturity row; once the command exists, unsupported inherited contexts such as `apiSurface = node` or `compat.features = ["eval"]` use the narrower `E5006` gate instead of changing the command shape or silently falling back
 
 | Command / profile | Early-phase status | Canonical handling |
