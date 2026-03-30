@@ -72,6 +72,8 @@ Effective-context validation rule:
 - command validation always runs against the fully merged **effective command context** (built-in defaults, then discovered config, then CLI flags)
 - therefore config-selected values trigger the same maturity/usage checks as explicit flags; the CLI must not silently "fix up" an inherited context by falling back to some other API surface/profile
 - examples: config-selected `apiSurface = node` still causes plain `kali run main.ts` or `kali test` to hit the Node phase gate (`E5006`), and config-selected `apiSurface = browser` still makes plain `kali build main.ts` invalid early-phase usage (`E5008`) until `--bundle` is selected
+- config-selected `apiSurface = browser` also keeps plain `kali run main.ts` and plain `kali test` on the same browser-runtime/test gate as their explicit `--api browser` forms (`E5006`); omitting the flag does not cause a silent fallback to `deno`
+- when multiple checks could apply, the CLI should evaluate them from outermost to innermost: command-shape/arity first, then base command availability, then finer inherited-context/profile gates inside that command. This keeps phase-gated commands with inherited context, such as `package-effects`, from producing contradictory diagnostics before the command itself exists.
 
 | Flag | Scope | Description |
 |------|-------|-------------|

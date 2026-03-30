@@ -391,6 +391,7 @@ Interpretation rules:
 Canonical examples:
 - if `kali.json` sets `compilerOptions.apiSurface = "node"`, then plain `kali run main.ts` still hits the same Node phase gate as `kali run --api node main.ts`
 - if `kali.json` sets `compilerOptions.apiSurface = "browser"`, then plain `kali build main.ts` is still invalid early-phase command usage until `--bundle` is selected, just like `kali build --api browser main.ts`
+- if `kali.json` sets `compilerOptions.apiSurface = "browser"`, then plain `kali run main.ts` and plain `kali test` still hit the same browser-runtime/test gate as their explicit `--api browser` forms (`E5006`), because browser remains an analysis/build context first
 - commands must not silently fall back from config-selected `browser`/`node` to `deno`
 
 ## Canonical Command-Context Axis Participation
