@@ -9,6 +9,7 @@ Bootstrap-normalized headline assumptions:
 - latest ECMA-262 means the **latest published edition**; accepted grammar does not by itself imply same-phase runtime support for every feature
 - optimization vocabulary is intentionally small: `fast` is the bounded-cost default, while `release` and `release-advanced` are the canonical compile-budget expansion modes
 - the CLI is Deno-inspired at the workflow level (`init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`), but that does **not** imply flag-for-flag Deno parity or same-phase availability for every documented command family
+- documented command/artifact shapes and actual availability are intentionally separate: CLI/package/embedding chapters may define stable spellings or artifact layouts before they are phase-enabled, and [specs/19-feature-maturity.md](./specs/19-feature-maturity.md) remains the availability owner
 - the upstream project list in `BOOTSTRAP.md` is a **design-reference list**, not an architecture-copy or dependency promise
 - the language-inspiration list in `BOOTSTRAP.md` is also normalized: Haskell/Idris/Agda/Lean inform purity/effects/constraint design, but do not imply Phase-1 dependent types, totality checking, or proof-term workflows in ordinary Kali code
 - early runtime standardization is **wasmtime first**; alternative engines are later extensions

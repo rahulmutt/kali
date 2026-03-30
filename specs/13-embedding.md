@@ -4,6 +4,11 @@ Embedding is intentionally phased and follows the shared **embedding-stability s
 - **Phase 1 MVP**: reusable internal crates exist so the CLI is built library-first, and `kali build --lib` already produces the **base library artifact**. That artifact is intentionally useful for exported-module workflows immediately, but it does **not** yet count as the stable **public embedding surface**. In particular, Phase 1 does not yet promise a stable Rust API, a stable public library/WIT contract, a stable C ABI, or default WIT sidecars for plain `--lib`.
 - **Phase 2 target**: the **public embedding surface** arrives — the Rust embedding API, the stable public library/WIT contract for `kali build --lib`, the C ABI, and `kali build --capi` / `kali build --component` artifact flows.
 
+Reading rule:
+- this chapter may define the intended stable shape of later embedding artifact flows (`--capi`, `--component`, stable public `--lib` + WIT) before they are phase-enabled
+- treat those sections as artifact-contract definitions first, not as implied Phase-1 availability promises
+- [19 — Feature Maturity](19-feature-maturity.md) remains the availability owner for when those flows are actually supported
+
 Practical simplification:
 - there is one exported-library contract, not three unrelated embedding semantics
 - Phase 1 plain `--lib` establishes that contract as the **base library artifact**
@@ -49,6 +54,13 @@ Phase-1 practical-use rule for `--lib`:
 - the Phase-1 **base library artifact** may be consumed by internal crates, exact-toolchain workflows, or explicitly unstable experiments
 - it must **not** be described as a stable cross-version/public embedding ABI until the Phase-2 public library/WIT contract is frozen
 - docs and tooling should therefore avoid implying that plain Phase-1 `--lib` output alone guarantees long-term host-call compatibility across Kali releases
+
+Practical non-promises for plain Phase-1 `--lib`:
+- no stable public Rust embedding API
+- no default WIT sidecar
+- no generated C-ABI embedding header/metadata flow
+- no Component Model packaging flow
+- no promise that independently versioned hosts can rely on cross-release ABI compatibility without pinning the exact Kali toolchain
 
 ## Phase 2 target — Rust Library API (`kali_embed`)
 
