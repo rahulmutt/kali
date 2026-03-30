@@ -29,9 +29,9 @@ Engine-choice simplification rule:
 ## Host-Guest Interface
 
 ### Host Adapter Modes
-Kali keeps one guest-facing host ABI, but early phases allow more than one **host adapter** to implement it:
-- **Kali-hosted execution** (`kali run`, `kali test`, embedding) uses native Rust/wasmtime host functions.
-- **Browser bundle output** (`kali build --bundle --api browser`) uses generated JS glue to adapt the same guest-facing capability model onto the real browser host.
+Using the canonical term from [SPEC.md](../SPEC.md), Kali keeps one guest-facing host ABI, but early phases allow more than one **host adapter** to implement it:
+- **native host adapter** — used for Kali-hosted execution (`kali run`, `kali test`, embedding) via native Rust/wasmtime host functions
+- **browser host adapter** — used by `kali build --bundle --api browser` via generated JS glue that maps the same guest-facing capability model onto the real browser host
 
 Cross-spec consistency rule:
 - the guest module should target one coherent Kali host ABI/capability model rather than a totally different imported-API shape per deployment mode
@@ -78,7 +78,7 @@ Interpretation rules:
 - `console`, timers, `fetch`, time, and randomness belong to the Phase 1 Web baseline and may exist across supported API surfaces.
 - the host-import table is therefore a capability/host-boundary summary, not an exhaustive inventory of every JS-visible global provided by the baseline library layer.
 - `console_write` is the canonical host-import shape for the Phase 1 console family; guest-visible `console.log` / `warn` / `error` / `debug` / `info` all lower through this one `Console.Write` capability family with a level discriminator rather than through separate ad hoc imports per method.
-- in Kali-hosted standalone/embedded execution, these are normally satisfied by native Rust host functions; in browser-targeted bundle output, the generated JS glue is responsible for wiring the equivalent behavior onto the real browser host
+- in Kali-hosted standalone/embedded execution, these are normally satisfied by the native host adapter; in browser-targeted bundle output, the browser host adapter is responsible for wiring the equivalent behavior onto the real browser host
 - `fs_read`, `fs_write`, `fs_stat`, `fs_read_dir`, `env_get`, `env_list`, and `process_args` belong to the Deno-oriented standalone host surface in Phase 1, not to the shared Web baseline; later Node compatibility may reuse similar host abstractions, but browser-targeted builds must not assume these imports exist.
 - `process_args` exposes only the invocation's caller-supplied argument vector; in schema v1 this is treated as execution-context input rather than a separately policy-gated host capability.
 - `env_get` / `env_list` expose only the sandbox-permitted environment view; they must not leak the raw host environment and then rely on guest-side filtering.
@@ -86,7 +86,7 @@ Interpretation rules:
 - In Phase 1 this is a query-only compatibility surface: the runtime may expose the minimal status-query behavior, but `request()` / `revoke()`-style escalation methods are absent or rejected rather than being implemented as no-op prompts.
 - The Phase 1 runtime does not provide interactive permission-prompt imports; permission state is an already-resolved sandbox contract, not a request-at-runtime workflow.
 - Every registered host import is policy-aware; enabling an API surface does not bypass sandbox checks.
-- This native host-import enforcement model applies directly only when code executes inside a Kali-controlled runtime or embedding host. Browser-targeted emitted artifacts instead rely on the generated JS glue/browser host adapter, which must preserve the documented browser-targeted capability contract without being described as Kali-controlled post-deployment sandbox enforcement unless a later browser-specific host contract says otherwise.
+- This native host-import enforcement model applies directly only when code executes inside a Kali-controlled runtime or embedding host. Browser-targeted emitted artifacts instead rely on the browser host adapter, which must preserve the documented browser-targeted capability contract without being described as Kali-controlled post-deployment sandbox enforcement unless a later browser-specific host contract says otherwise.
 - That browser glue is responsible for runtime bootstrap plus Kali-mediated capability calls that still go through the guest ABI; it is not a promise that every ambient browser API (for example arbitrary DOM methods) is lowered through one Kali host import per browser primitive.
 - Unsupported imports for the current command/profile are not stubbed silently.
 - If lowering/runtime setup requires a capability that is phase-gated or profile-gated, fail with the canonical feature-maturity diagnostic.

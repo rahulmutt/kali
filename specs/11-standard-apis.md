@@ -2,7 +2,7 @@
 
 ## Strategy
 
-Implement APIs through one shared guest-facing capability model. In Kali-hosted execution this is realized as native host functions provided by the runtime; in browser-targeted bundle output the same capability model is adapted through generated JS glue onto the real browser host. Each API surface is still organized as a separate crate that defines the relevant bindings/registration logic for that surface.
+Implement APIs through one shared guest-facing capability model. Using the canonical terminology from [SPEC.md](../SPEC.md), Kali realizes that model through different **host adapters**: the native host adapter for Kali-hosted execution and the browser host adapter for browser-targeted bundle output. Each API surface is still organized as a separate crate that defines the relevant bindings/registration logic for that surface.
 
 Compatibility is delivered in layers:
 1. **Baseline**: Web platform primitives needed by modern JS libraries.
@@ -43,7 +43,8 @@ Available across supported execution surfaces as the shared baseline.
 
 Interpretation rule:
 - in standalone execution (`run` / `test`), this baseline is present for supported runtime profiles
-- in browser-targeted output (`build --bundle --api browser`), this is the baseline the emitted code targets in the real browser host
+- in browser-targeted output (`build --bundle --api browser`), this is the baseline the emitted code targets in the real browser host through the browser host adapter
+- in browser-targeted analysis-only commands such as `check --api browser`, this section describes the ambient typing surface being checked, not runtime provisioning by Kali
 - command/profile combinations that are themselves phase-gated are still rejected according to [specs/19-feature-maturity.md](19-feature-maturity.md)
 - this baseline list describes the JS-visible API contract, not a one-host-import-per-item requirement: some entries are expected to be implemented in Kali's guest/runtime support library rather than as dedicated host imports (for example `queueMicrotask`, `URL`, `TextEncoder`, `TextDecoder`, `AbortController`, `structuredClone`, and event primitives)
 
@@ -159,7 +160,7 @@ Canonical rule:
 - this follows the top-level **Browser ambient typing vs mediated capability split** in [SPEC.md](../SPEC.md): browser ambient typing is broader than the stable sandbox/effect model
 - this does **not** mean Kali's standalone runtime implements or emulates those DOM APIs
 - when Kali emits browser-targeted artifacts, DOM/Web APIs are expected to come from the real browser host at deployment time
-- the generated browser glue is for runtime bootstrap plus Kali-mediated capability wiring; it is **not** a claim that every browser ambient API is wrapped behind a Kali-specific shim or individually mediated by the schema-v1 sandbox model
+- the browser host adapter is for runtime bootstrap plus Kali-mediated capability wiring; it is **not** a claim that every browser ambient API is wrapped behind a Kali-specific shim or individually mediated by the schema-v1 sandbox model
 - schema-v1 sandbox policies and stable effect reports cover only the **Kali-mediated capability subset** from [SPEC.md](../SPEC.md): filesystem, network, timers, random, console, process, and eval. That names the global stable capability vocabulary, not a guarantee that browser-targeted modes enable every member of it; browser-targeted contexts keep only the documented **canonical browser-applicable mediated subset (schema v1)** for static policy/effect reasoning, while Deno/Node-only keys remain unavailable there. They do **not** create one policy/effect key per DOM API just because DOM ambient typings are available during browser-targeted analysis/build
 - `--sandbox` on a browser-targeted build therefore constrains static analysis/build-time compatibility, not automatic post-deployment browser-permission enforcement by Kali itself
 - no Deno or Node globals are exposed in browser mode unless a later compatibility spec explicitly says so
@@ -217,7 +218,7 @@ User Code (WASM)
 ```
 User Code (WASM)
     │
-    ├── Direct calls → Generated JS glue / browser host adapter
+    ├── Direct calls → Browser host adapter (generated JS glue)
     │                      │
     │                      ├── Maps guest ABI calls onto real browser APIs
     │                      ├── Preserves the documented browser-targeted contract

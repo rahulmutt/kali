@@ -112,6 +112,18 @@ Execution where Kali or an embedding host owns the runtime/import boundary, incl
 - `kali test`
 - embedding hosts using Kali-controlled imports
 
+### Host adapter
+The implementation layer that satisfies Kali's one guest-facing host ABI/capability model for a concrete deployment mode.
+
+Canonical early adapters:
+- **native host adapter** — used for Kali-hosted execution (`run`, `test`, embedding)
+- **browser host adapter** — generated JS glue used by `build --bundle --api browser`
+
+Rule:
+- Kali keeps one guest-facing host ABI and capability vocabulary across adapters
+- adapters may differ in implementation technique, but they must not silently widen the documented command/profile contract
+- browser-targeted analysis/build exposing browser ambient typings does not imply one adapter entry or one sandbox key per DOM API
+
 ### Kali-mediated capability subset
 The stable schema-v1 capability vocabulary shared across effects and sandbox policy:
 - filesystem
@@ -281,7 +293,8 @@ Phase-1 host posture:
 - **wasmtime** is the standardized early runtime engine,
 - **AOT only**; no language-level JIT,
 - **pure Rust only**; no embedded C/C++ libraries,
-- **no tracing/background GC**.
+- **no tracing/background GC**,
+- one guest-facing host ABI is realized through different **host adapters** rather than through unrelated per-deployment guest contracts.
 
 Shared API-loading rule:
 - Web baseline APIs are the shared baseline across supported surfaces,
@@ -295,6 +308,7 @@ This is the most important cross-spec clarification for browser support.
 In browser-targeted contexts:
 - Kali should expose the real browser ambient typing layer needed for browser programs,
 - but stable schema-v1 effects and sandbox policy reason only about the **Kali-mediated capability subset**,
+- and runtime-capable browser artifact paths use the **browser host adapter** rather than a standalone Kali-hosted browser runtime,
 - therefore browser-targeted analysis/build may know about `window`, `document`, DOM types, and browser globals without implying that Kali individually mediates or sandbox-governs every browser API at runtime.
 
 Consequences:
