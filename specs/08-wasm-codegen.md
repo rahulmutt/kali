@@ -124,37 +124,28 @@ Direct binary emission without intermediate text format:
 
 Use the canonical artifact kinds from [specs/18-schemas.md](18-schemas.md) in CLI JSON output and embedding metadata.
 
-Artifact-mode selection follows the canonical matrix in [SPEC.md](../SPEC.md). This chapter focuses on the emitted artifact shapes, not on redefining a second build-mode taxonomy.
+Artifact-mode selection itself is owned by the canonical matrix in [SPEC.md](../SPEC.md) and the command-shape rules in [12 — CLI](12-cli.md). This chapter stays narrower: it describes the emitted artifact **shapes** once a build mode is already valid, instead of restating a second near-duplicate command matrix.
 
-Early-phase artifact-mode rule:
-- `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive build artifact-mode selectors unless a later spec explicitly defines one as implying another
-- omitting all four selects the default executable artifact mode (`kali build foo.ts` → one executable-style `wasm-module` artifact) and therefore the CLI's default **executable compile intent** from [SPEC.md](../SPEC.md)
-- in Phase 1, `--bundle` is reserved for browser-targeted output, therefore requires the **effective API surface** to be `browser`, and still keeps the CLI's **executable compile intent** rather than switching the build into a library/export mode; using `--bundle` under an effective API surface of `deno` or `node` is invalid command usage (`E5008`), not a separate feature-maturity rejection
-- in early phases, `--lib`, `--capi`, and `--component` are **library-oriented artifact modes** and therefore the CLI's explicit **library compile-intent** selectors: non-browser, export-oriented modes derived from a **statically known export surface** as defined in [SPEC.md](../SPEC.md)
-- those library-oriented modes still obey the ordinary build-command API-surface gates: pairing them with `--api browser` is an `E5008` contradiction because browser mode is only defined for `--bundle`, while pairing them with `--api node` remains on the same Phase 3 `E5006` path as other early Node-targeted builds
-- `--lib` is the **base library artifact**, and `--capi` / `--component` are later **public embedding artifact flows** layered over that same exported-library contract
-- if Kali cannot prove that statically known export surface, the library-oriented build must fail with `E5011`
-- this split follows the shared **embedding-stability split** from [SPEC.md](../SPEC.md): Phase 1 establishes the export-oriented artifact shape early without implying that WIT, C headers, or the long-term embedding ABI are already frozen
-- `--component` adds a wrapper around the same linked core library payload; it does not authorize a second independently linked guest-program graph and therefore does not weaken the single-linked-core-payload rule
-- because `--capi` and `--component` already choose exported-library semantics, users should not combine them with `--lib` in early phases; these are separate artifact-mode selectors, not additive modifiers
-- WIT sidecars are not a separate artifact mode: Phase 1 plain `--lib` emits the core library `wasm-module`, and relevant library/embedding outputs emit WIT by default once the public interface surface stabilizes in Phase 2+
-- unsupported combinations must fail explicitly instead of guessing whether the user wanted an executable bundle, a library artifact, a public embedding artifact set, or a component wrapper
+Shared artifact-shape rules:
+- omitting `--bundle`, `--lib`, `--capi`, and `--component` yields the default executable artifact: one `wasm-module` with role `primary-executable`
+- `--bundle --api browser` keeps executable compile intent and adds browser JS glue (`kind: js-glue`, `role: browser-glue`) beside that same executable core module
+- `--lib`, `--capi`, and `--component` are the library-oriented artifact modes: they all reuse the same proved **statically known export surface** and the shared **library-oriented instantiation rule** from [SPEC.md](../SPEC.md)
+- plain Phase-1 `--lib` emits only the **base library artifact** (`kind: wasm-module`, `role: primary-library`); Phase 2 promotes that same selector into the stable public library/WIT contract and adds `kind: wit`, `role: interface-wit` by default
+- `--capi` and `--component` are later **public embedding artifact flows** layered on top of that same linked core library payload rather than separate export semantics
+- `--component` adds an outer `wasm-component` wrapper around the same linked core payload; it does not authorize a second independently linked guest graph
+- if Kali cannot prove the required export surface for a library-oriented build, fail with `E5011`
 
-| Command | Output |
-|---------|--------|
-| `kali build foo.ts` | `foo.wasm` — Kali-hosted WASM module (`kind: wasm-module`, `role: primary-executable`) |
-| `kali build --bundle --api browser foo.ts` | `foo.wasm` + `foo.js` — executable-compile-intent browser output: WASM + JS glue for browsers, where the JS file acts as the browser host adapter for the guest ABI (`foo.wasm`: `kind: wasm-module`, `role: primary-executable`; `foo.js`: `kind: js-glue`, `role: browser-glue`) |
-| `kali build --bundle foo.ts` | Invalid command usage (`E5008`) under the default config; `--bundle` is reserved for browser-targeted output and requires the effective API surface to be `browser` |
-| `kali build --bundle --api node foo.ts` | Invalid command usage (`E5008`); browser bundle mode exists, but pairing it with a non-browser API surface is a contradictory command shape |
-| `kali build --lib foo.ts` | Phase 1: `foo.wasm` — the **base library artifact**, following the shared **library-oriented instantiation rule** and **embedding-stability split** from [SPEC.md](../SPEC.md) (`kind: wasm-module`, `role: primary-library`). Phase 2+: that same plain `--lib` path is promoted into the stable public library/WIT contract inside the **public embedding surface** and also emits `foo.wit` (`kind: wit`, `role: interface-wit`) by default once the public interface contract is stabilized. |
-| `kali build --lib --api node foo.ts` | Phase 3 target: library-oriented builds still obey the ordinary Node build gate rather than inventing a separate library-only Node surface |
-| `kali build --lib --api browser foo.ts` | Invalid command usage (`E5008`) in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library-artifact mode |
-| `kali build --capi foo.ts` | Phase 2 target: one of the stable **public embedding artifact flows** — `foo.wasm` + `foo.wit` + generated `foo.exports.h` program-specific exports header + C-ABI metadata for use with the host-side `kali_capi` library (`foo.wasm`: `kind: wasm-module`, `role: primary-library`; WIT: `kind: wit`, `role: interface-wit`; `foo.exports.h`: `kind: c-header`, `role: embedding-header`; metadata: `kind: cabi-metadata`, `role: embedding-metadata`). This generated header is distinct from the stable host ABI header `kali.h`. |
-| `kali build --capi --api node foo.ts` | Phase 3 target: still gated by the Node build surface even after the public embedding artifact flow exists |
-| `kali build --capi --api browser foo.ts` | Invalid command usage (`E5008`) in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a browser-embedding artifact mode |
-| `kali build --component foo.ts` | Phase 2 target: one of the stable **public embedding artifact flows** — `foo.wasm` + `foo.wit` + `foo.component.wasm` for a Component Model packaging path (`foo.wasm`: `kind: wasm-module`, `role: primary-library`; `foo.wit`: `kind: wit`, `role: interface-wit`; `foo.component.wasm`: `kind: wasm-component`, `role: primary-component`). The outer `.component.wasm` is a packaging wrapper around the same linked core payload, not a separately linked second program. |
-| `kali build --component --api node foo.ts` | Phase 3 target: still gated by the Node build surface even after component packaging exists |
-| `kali build --component --api browser foo.ts` | Invalid command usage (`E5008`) in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a browser-component artifact mode |
+Canonical artifact sets by valid build mode:
+
+| Valid build mode | Emitted artifacts |
+|---|---|
+| default executable build (`kali build foo.ts`) | `foo.wasm` (`kind: wasm-module`, `role: primary-executable`) |
+| browser bundle (`kali build --bundle --api browser foo.ts`) | `foo.wasm` (`kind: wasm-module`, `role: primary-executable`) + `foo.js` (`kind: js-glue`, `role: browser-glue`) |
+| base library build (`kali build --lib foo.ts`) | Phase 1: `foo.wasm` (`kind: wasm-module`, `role: primary-library`). Phase 2+: add `foo.wit` (`kind: wit`, `role: interface-wit`) by default once the public library/WIT contract is stable. |
+| C-ABI embedding build (`kali build --capi foo.ts`) | `foo.wasm` (`kind: wasm-module`, `role: primary-library`) + `foo.wit` (`kind: wit`, `role: interface-wit`) + generated `foo.exports.h` (`kind: c-header`, `role: embedding-header`) + generated `foo.cabi.json` (`kind: cabi-metadata`, `role: embedding-metadata`). The generated exports header is distinct from the stable host ABI header `kali.h`. |
+| Component Model build (`kali build --component foo.ts`) | `foo.wasm` (`kind: wasm-module`, `role: primary-library`) + `foo.wit` (`kind: wit`, `role: interface-wit`) + `foo.component.wasm` (`kind: wasm-component`, `role: primary-component`) |
+
+For invalid or unavailable combinations such as `--bundle` without browser mode, browser + library-oriented modes, or early `--api node`, follow the canonical validation/gating rules in [SPEC.md](../SPEC.md), [12 — CLI](12-cli.md), and [19 — Feature Maturity](19-feature-maturity.md) instead of reintroducing a second artifact-mode matrix here.
 
 ## Source Maps
 
