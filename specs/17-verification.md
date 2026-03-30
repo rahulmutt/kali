@@ -86,6 +86,7 @@ Follow the shared **proof activation split** from [SPEC.md](../SPEC.md):
 - any Phase-1 release note or support claim that leans on formal verification should first replace the empty boundary with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed** rather than merely proof-ready
 - while the published proof boundary is empty, proof CI is required only for changes under `proofs/`; that still satisfies the Phase-1 **proof-ready** baseline because the activation rule is explicit and honest about the empty modeled subset
 - once the manifest names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas
+- until concrete CI workflow files are actually present, that trigger rule is still the repository's normative proof-CI policy rather than evidence that hosted proof automation already exists
 - release notes and support wording should describe that activation state plainly instead of implying that a placeholder manifest already proves part of the implementation
 
 Practical simplification:

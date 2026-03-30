@@ -37,6 +37,7 @@ Until Lean proofs land, this file should be kept explicit rather than omitted so
 - The current proof boundary is **empty**.
 - Therefore proof CI is required only for changes under `proofs/`.
 - If this manifest later names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas.
+- Until concrete CI workflow files exist, this section is the repository's normative proof-CI trigger policy rather than evidence that hosted proof automation is already configured.
 - Until that happens, no release note, README text, or phase summary should imply mechanized coverage for any implementation subsystem.
 
 ## Claimed theorems/properties

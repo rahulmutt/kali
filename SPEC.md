@@ -680,6 +680,7 @@ Rules:
 - an empty published boundary is acceptable only while Kali is still avoiding proof-backed support claims
 - before a release or support summary advertises formal verification as a shipped capability, the boundary must be non-empty, name at least one concrete modeled subsystem, and list the claimed theorem/property inventory so the claim is genuinely proof-backed rather than merely proof-ready
 - proof CI follows the activation rule declared by the published boundary; when the boundary is empty, proof jobs are required only for `proofs/`, and once covered implementation/spec areas are named they also become proof-CI triggers
+- the published activation rule is normative even before concrete CI workflow files land; until automation is wired up, docs must describe it as the repository's proof-CI policy rather than implying that proof jobs already run in hosted CI
 - chapters should reuse this term instead of re-explaining the same placeholder-versus-shipped-proof distinction in slightly different prose
 
 Current repository note:
