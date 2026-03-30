@@ -151,7 +151,9 @@ Track compile-time performance:
 - WASM codegen time
 - End-to-end compile time for real-world projects
 
-Benchmark suite run on CI, regressions detected automatically.
+Implementation-phase rule:
+- once benchmark infrastructure exists, the benchmark suite should run in CI (or another documented automated regression lane) and flag statistically meaningful regressions automatically
+- until then, this section remains a target evidence lane rather than a claim that the current spec-first repository already has hosted benchmark automation
 
 ## Test Infrastructure
 

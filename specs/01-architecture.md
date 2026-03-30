@@ -25,6 +25,10 @@ Declaration-only inputs (`.d.ts`, `.d.mts`, `.d.cts`) participate in parsing/che
 
 ## Crate Structure
 
+Current repository-state clarification:
+- this workspace tree is the **target implementation architecture**, not a claim that the current spec-first repository already contains every listed crate/directory today
+- treat it as the canonical decomposition to converge on as implementation lands, in the same spirit that [specs/16-testing.md](./16-testing.md) defines the target test/CI structure and [specs/17-verification.md](./17-verification.md) defines the target Lean tree
+
 ```
 kali/
 ├── crates/
@@ -56,7 +60,8 @@ kali/
 ```
 
 Interpretation rule:
-- a crate appearing in this workspace layout does **not** by itself imply Phase 1 user-visible support or public-stability guarantees for that surface; for example, `kali_api_node` may exist as an internal staging area before `--api node` is part of the supported command/profile matrix, and `kali_embed` / `kali_capi` may exist as internal or pre-stable crates before the Phase-2 public embedding surface is frozen.
+- a crate appearing in this workspace layout does **not** by itself imply that the current repository already contains that crate, nor does it imply Phase 1 user-visible support or public-stability guarantees for that surface
+- for example, `kali_api_node` may exist as an internal staging area before `--api node` is part of the supported command/profile matrix, and `kali_embed` / `kali_capi` may exist as internal or pre-stable crates before the Phase-2 public embedding surface is frozen.
 
 ## Implementation Phases
 
