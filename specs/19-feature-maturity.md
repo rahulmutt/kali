@@ -102,11 +102,11 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | Native addons / `node-gyp` packages | Rejected by default | Violates the pure-Rust/no-native-addon constraints |
 | npm packages that require unsupported Node core modules | Phase 3 target | Depends on broader `--api node` compatibility work |
 | Phase-1 **base library artifact** (`kali build --lib`) | Phase 1 MVP | This is the Phase-1 side of the shared **embedding-stability split**: projects can build non-executable exported modules early without waiting for the later public embedding contract to freeze |
-| Stable public Rust embedding API | Phase 2 target | Part of the Phase-2 **public embedding outputs** side of that same split |
+| Stable public Rust embedding API | Phase 2 target | Part of the Phase-2 **public embedding surface** side of that same split |
 | Stable public library/WIT contract for `kali build --lib` | Phase 2 target | The same `--lib` selector is promoted from the Phase-1 **base library artifact** into the stable public library contract and emits WIT by default once that interface surface is frozen |
-| Stable public C ABI / `kali build --capi` flow | Phase 2 target | Part of the same Phase-2 **public embedding outputs** stabilization work |
-| WIT emission for public library/embedding interfaces | Phase 2 target | Gives the Phase-2 **public embedding outputs** one canonical exported interface description instead of parallel ad hoc metadata |
-| WebAssembly Component Model packaging (`kali build --component`) | Phase 2 target | Part of the same Phase-2 **public embedding outputs** set, layered on top of the linked core WASM payload for host interop; executable builds still center on the core module path |
+| Stable public C ABI / `kali build --capi` flow | Phase 2 target | Part of the same Phase-2 **public embedding surface** stabilization work |
+| WIT emission for public library/embedding interfaces | Phase 2 target | Gives the Phase-2 **public embedding surface** one canonical exported interface description instead of parallel ad hoc metadata |
+| WebAssembly Component Model packaging (`kali build --component`) | Phase 2 target | Part of the same Phase-2 **public embedding surface** set, layered on top of the linked core WASM payload for host interop; executable builds still center on the core module path |
 | Host ABI versioning for `kali_capi` | Phase 2 target | Stable embedding requires explicit load-time compatibility checks |
 | DOM APIs in standalone runtime | Rejected by default | Kali does not embed a browser engine |
 

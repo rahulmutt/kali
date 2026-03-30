@@ -150,9 +150,9 @@ Interpretation rule:
 - in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires the **effective API surface** to be `browser`, and `kali build --bundle` under an effective API surface of `deno` or `node` is invalid command usage (`E5008`) rather than a feature-maturity rejection, because the browser bundle mode itself exists but the selected flag/config combination is contradictory
 - in early phases, `--lib`, `--capi`, and `--component` are **library-oriented artifact modes**: non-browser, export-oriented build modes derived from a **statically known export surface** as defined in [SPEC.md](../SPEC.md)
 - those library-oriented modes still obey the ordinary build-command API-surface gates: `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` are `E5008` contradictions because browser mode is only defined for `--bundle`, while `kali build --lib --api node ...` remains on the same Phase 3 `E5006` path as other early `--api node` builds
-- `--lib` is the **base library artifact** mode; `--capi` and `--component` are later **public embedding outputs** over that same exported-library contract rather than unrelated semantics
+- `--lib` is the **base library artifact** mode; `--capi` and `--component` are later **public embedding artifact flows** over that same exported-library contract rather than unrelated semantics
 - because `--capi` and `--component` already choose exported-library semantics, users should not combine them with `--lib` in early phases; those flags are separate artifact-mode selectors, not additive modifiers
-- WIT sidecars are not a separate artifact-mode selector: under the shared **embedding-stability split** from [SPEC.md](../SPEC.md), Phase 1 plain `--lib` emits the core library `wasm-module`, and once the Phase-2 **public embedding outputs** stabilize, the relevant library-oriented modes emit WIT by default so callers do not have to choose between "C ABI" and "component metadata" paths
+- WIT sidecars are not a separate artifact-mode selector: under the shared **embedding-stability split** from [SPEC.md](../SPEC.md), Phase 1 plain `--lib` emits the core library `wasm-module`, and once the Phase-2 **public embedding surface** stabilizes, the relevant library-oriented modes emit WIT by default so callers do not have to choose between "C ABI" and "component metadata" paths
 
 Config-array normalization rule:
 - `compilerOptions.runtimeProfiles` and `compat.features` are set-like lists, not ordered pipelines
@@ -251,10 +251,10 @@ Canonical artifact-mode rule:
 - WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag
 - these **library-oriented artifact modes** derive their host-facing surface from a **statically known export surface** as defined in [SPEC.md](../SPEC.md); they do not implicitly expose arbitrary internal declarations just because the source file was compiled in `--lib`/`--capi`/`--component` mode
 - if Kali cannot prove that export surface, the library-oriented build fails with `E5011` instead of synthesizing reflection-based exports
-- plain `--lib` is the Phase-1 **base library artifact**: it establishes the exported-library shape early, but under the shared **embedding-stability split** the stable public embedding/WIT contract remains part of the later Phase-2 **public embedding outputs**
+- plain `--lib` is the Phase-1 **base library artifact**: it establishes the exported-library shape early, but under the shared **embedding-stability split** the stable public embedding/WIT contract remains part of the later Phase-2 **public embedding surface**
 - they also keep the ordinary build-command API-surface semantics: Node-targeted library builds are still phase-gated with `E5006`, while browser-targeted library/embedding combinations are invalid command shapes (`E5008`) until a separate browser-library contract exists
 
-`--capi` and the other **public embedding outputs** follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): under the shared **embedding-stability split**, Phase 1 ships the base library artifact while the stable public embedding outputs are a Phase 2 target.
+`--capi` and the other **public embedding artifact flows** follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): under the shared **embedding-stability split**, Phase 1 ships the base library artifact while the stable public embedding surface is a Phase 2 target.
 
 Sandbox clarification:
 - `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config, and in Phase 2+ it also performs effect-vs-policy validation.
@@ -268,7 +268,7 @@ kali build --bundle main.ts                # Invalid usage (E5008) under the def
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
 kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
-kali build --lib lib.ts                    # Phase-1 base library artifact following the shared library-oriented instantiation rule and embedding-stability split from SPEC.md (kind=wasm-module, role=primary-library; Phase 2+ public embedding outputs then add kind=wit, role=interface-wit by default)
+kali build --lib lib.ts                    # Phase-1 base library artifact following the shared library-oriented instantiation rule and embedding-stability split from SPEC.md (kind=wasm-module, role=primary-library; Phase 2+ public embedding artifact flows then add kind=wit, role=interface-wit by default)
 kali build --lib --api node lib.ts         # Phase 3 target: Node API surface remains build-gated for library-oriented modes too
 kali build --lib --api browser lib.ts      # Invalid usage (E5008) in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library artifact mode
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + metadata (artifacts: wasm-module + wit + c-header + cabi-metadata; roles: primary-library + interface-wit + embedding-header + embedding-metadata; see specs/13-embedding.md)

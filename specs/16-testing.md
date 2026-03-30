@@ -17,7 +17,7 @@ End-to-end tests in `tests/`:
 - Source file → compile → check errors
 - Source file → effects analysis → check effect-report JSON output *(Phase 2 target; earlier phases should assert that the command is unavailable or explicitly experimental)*
 - Source file + policy → sandbox validation → check result *(Phase 1 MVP for runtime enforcement + policy-file/config validation; Phase 2 target for inferred effect-vs-policy validation too)*
-- Library source → `kali build --lib` → export-oriented **base library artifact** + deterministic artifact metadata *(Phase 1 MVP for the base library artifact; stable public embedding outputs remain a Phase 2 target)*
+- Library source → `kali build --lib` → export-oriented **base library artifact** + deterministic artifact metadata *(Phase 1 MVP for the base library artifact; the stable public embedding surface remains a Phase 2 target)*
 - Browser-targeted source → `kali check --api browser` → expected diagnostics/type success
 - Browser-targeted source → `kali build --bundle --api browser` → emitted artifact + smoke execution in a real browser harness
 - Repeated build of the same pinned input/context → byte-stable artifacts and stable machine-readable metadata by default

@@ -10,7 +10,7 @@ Early-phase headline assumptions:
 - dynamic compatibility paths such as `eval` and `Function()` are part of the long-term contract, but remain explicitly phase-gated behind the single schema-v1 compatibility switch `eval`
 - runtime/embedding behavior is standardized on **wasmtime first**; alternative WASM engines are a later extension, not an equal Phase-1 contract
 - hard global constraints remain in force from the bootstrap brief: **AOT only**, **pure Rust**, and **no tracing/background GC**
-- build artifact modes follow one canonical matrix: default executable, browser bundle, a Phase-1 **base library artifact**, and later Phase-2 **public embedding outputs** layered on that same exported-library contract
+- build artifact modes follow one canonical matrix: default executable, browser bundle, a Phase-1 **base library artifact**, and later Phase-2 **public embedding surface** milestones layered on that same exported-library contract
 - public static effect-report commands (`kali effects`, `kali package-effects`) are a **Phase-2** surface; Phase 1 may already rely on internal effect bookkeeping for sandboxing, but that does not imply a stable user-facing JSON report yet
 - package installation stays **context-agnostic** in early phases: one lock/install state serves the default Deno path and supported browser-targeted analysis/build paths, while final `exports`/`browser` edge selection happens at command time
 
@@ -19,7 +19,7 @@ Quick Phase-1 non-goals:
 - no standalone browser runtime or browser-hosted `run` / `test`
 - no `eval` / `Function()` support yet
 - no threaded runtime profile yet
-- no Phase-2 **public embedding outputs** yet: no stable public Rust embedding API, no `--capi`, no `--component`, and no default WIT sidecars for plain `--lib`
+- no Phase-2 **public embedding surface** yet: no stable public Rust embedding API, no `--capi`, no `--component`, and no default WIT sidecars for plain `--lib`
 
 ## Specification
 - Top-level overview, cross-spec simplification rules, canonical terminology, chapter ownership, chapter guide, artifact-mode matrix, bootstrap traceability, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
