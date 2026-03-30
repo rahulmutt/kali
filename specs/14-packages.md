@@ -24,7 +24,8 @@ Phase-1 shorthand answer:
 
 Support-rung clarification for that shorthand:
 - on the Deno-oriented standalone surface, early package claims may be **installable/materializable**, **checkable**, **buildable**, or **executable** depending on the command being discussed
-- on the shared **Phase-1 browser-targeted command set**, early package claims are normally **checkable** and sometimes **deployable-through-host** via `build --bundle`; they are not standalone-browser **executable** claims in Kali itself
+- on the shared **Phase-1 browser-targeted command set** — including equivalent inherited-config forms whenever the effective `apiSurface` resolves to `browser` — early package claims are normally **checkable** and sometimes **deployable-through-host** via `build --bundle`; they are not standalone-browser **executable** claims in Kali itself
+- when package support wording is ambiguous, prefer naming the exact command/context and rung instead of saying only that a package is “supported in browser mode”
 
 This shorthand is only a triage aid. The full answer still uses the shared order: package shape → host/API fit → command maturity → claimed support rung.
 
@@ -112,7 +113,7 @@ Common support-claim examples:
 | Claim wording | What it should mean |
 |---|---|
 | “this npm package works in Phase 1” | Name the rung: for example **checkable/buildable/executable** on the Deno-oriented standalone surface, or **checkable/deployable-through-host** in the shared **Phase-1 browser-targeted command set** |
-| “this browser package is supported” | Usually **checkable** and potentially **deployable-through-host** via `build --bundle`; not standalone browser-runtime **executable** support in Kali itself |
+| “this browser package is supported” | Usually **checkable** and potentially **deployable-through-host** via `build --bundle`, including equivalent inherited-config forms when the effective `apiSurface` is `browser`; not standalone browser-runtime **executable** support in Kali itself |
 | “this package installs” | Only **installable/materializable**; this does not by itself promise that `check`, `build`, `run`, or browser deployment will succeed |
 | “this package needs Node” | Package shape may still be fine, but the claim is blocked on host/API fit and therefore stays on the Phase 3 Node path rather than becoming an early package-compatibility success |
 | “this package can be audited/analyzed” | Answer the registry-analysis question separately: that refers to later `package-effects` / `package-audit` workflows, not to ordinary project-command support |

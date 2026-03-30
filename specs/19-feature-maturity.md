@@ -472,14 +472,19 @@ This appendix separates the broad compatibility story into smaller tables so lan
 
 | Concern | Early canonical status | Notes |
 |---|---|---|
-| Pure JS/TS npm packages within the linked-artifact model | Phase 1 MVP | Restricted to the shared **pure JS/TS package contract** and still context-sensitive: early support covers the Deno-oriented standalone surface plus the shared **Phase-1 browser-targeted command set**, not broad Node-host-heavy assumptions |
-| Pure JS/TS JSR packages within the linked-artifact model | Phase 1 MVP | Registry-style install/lock/materialization path just like npm in early phases, with the same Deno-first standalone or **Phase-1 browser-targeted command set** boundary |
+| Pure JS/TS npm packages within the linked-artifact model | Phase 1 MVP | Restricted to the shared **pure JS/TS package contract** and still context-sensitive: early support covers the Deno-oriented standalone surface plus the shared **Phase-1 browser-targeted command set** (including equivalent inherited-config forms when the effective `apiSurface` is `browser`), not broad Node-host-heavy assumptions. Read claims through the support ladder: early Deno-oriented rows may be **installable/materializable**, **checkable**, **buildable**, or **executable**, while early browser-targeted rows are usually **checkable** or **deployable-through-host** rather than standalone-browser **executable** support. |
+| Pure JS/TS JSR packages within the linked-artifact model | Phase 1 MVP | Registry-style install/lock/materialization path just like npm in early phases, with the same Deno-first standalone or **Phase-1 browser-targeted command set** boundary and the same support-rung reading |
 | Raw URL imports in the shared lock/materialization model | Phase 1 MVP | Pin in `kali.lock`, materialize under `.kali/cache/urls/`, and keep ordinary commands deterministic |
 | Deno-condition package resolution in the default standalone surface | Phase 1 MVP | Honor `exports` condition `deno` when `--api deno` is selected |
 | Browser-condition package resolution for the **Phase-1 browser-targeted command set** | Phase 1 MVP | Reuse one shared browser package-resolution context for the **Phase-1 browser-targeted command set**: honor `exports` condition `browser` plus applicable `package.json#browser` replacement maps consistently |
 | npm lifecycle scripts | Opt-in only | `kali install --allow-scripts`; install-time package hooks stay outside the normal runtime API-surface and project-policy contracts |
 | Packages in the native/binary/bootstrap-heavy package contract | Rejected by default | The excluded shared package contract stays unsupported; `--allow-scripts` must not silently broaden support to it |
 | Broader Node-host-heavy npm compatibility | Phase 3 target | Depends on meaningful Node API support |
+
+Package-support reading shortcut:
+- package compatibility claims should name both the selected command/context and the claimed rung from the shared support ladder (`installable/materializable`, `checkable`, `buildable`, `executable`, or `deployable-through-host`)
+- in particular, Phase-1 browser-targeted package claims should usually be read as **checkable** or **deployable-through-host** claims, not as standalone browser-runtime **executable** claims
+- registry-analysis commands (`package-effects`, `package-audit`) remain separate maturity questions from ordinary project-command package support
 
 ## Hard-Feature Implementation Stage Matrix
 
