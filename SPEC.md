@@ -790,6 +790,7 @@ Rules:
 - omission means “no extra tightening from this source”, not an implicit zero
 - `0` is a valid explicit deny/tightening value even before subprocess or threaded-profile support exists
 - positive values remain availability-gated and must fail with `E5006` until the selected command/profile/API surface actually supports the corresponding capability/profile
+- practical reading: positive `maxSpawnedProcesses` follows the subprocess-support phase path, while positive `maxThreads` follows the opt-in threaded-profile phase path; the cap does not mature earlier than the capability it is trying to budget
 - this rule is intentionally narrower than generic numeric-cap validation: it does **not** apply to positive-only capability-local caps such as `effects.timer.maxActiveTimers` or `effects.network.maxConnections`
 - browser-targeted policy validation still follows the **canonical browser-targeted budget compatibility rule**, so in browser-targeted contexts these fields may be omitted or set to `0`, but positive values remain invalid
 
