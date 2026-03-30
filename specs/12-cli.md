@@ -36,7 +36,7 @@ Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - `check` is a **hybrid analysis command**: it accepts explicit file arguments, or falls back to the canonical project-discovery result when no files are provided
 - `fmt`, `lint`, and `test` are **project-oriented commands** when invoked without explicit file arguments
 - `install` is the canonical **dependency-graph command**: with no explicit install target it reconciles the discovered project dependency graph, including raw URL imports found through project discovery
-- `package-effects` and `package-audit`, when available, are the canonical **registry-analysis commands**: each takes one explicit registry package identifier and does not invent a no-argument whole-project analysis mode in early phases
+- `package-effects` and `package-audit`, when available, are the canonical **registry-analysis commands** and follow the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
 - `init` is not a direct-input source command
 
 Canonical early-phase direct-input arity rule:
@@ -48,8 +48,7 @@ Canonical early-phase direct-input arity rule:
 Canonical install-target and package-argument arity rule:
 - `kali install [target]` accepts **zero or one** explicit install target in early phases
 - that install target may be either a schema-v1 identity-only registry target or a raw URL target
-- `kali package-effects <package>` accepts **exactly one** explicit registry-package argument
-- `kali package-audit <package>` accepts **exactly one** explicit registry-package argument
+- `kali package-effects <package>` and `kali package-audit <package>` follow the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
 - passing more than the allowed number of explicit install targets/package arguments is `E5008` rather than permission to invent an undocumented batch mode
 - omitting the required explicit registry-package argument for a registry-analysis command is also `E5008`
 - flags that conceptually modify an explicit registry-package target (for example `kali install --dev`) require that registry target in early phases; using them without one is also `E5008`

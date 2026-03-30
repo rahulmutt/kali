@@ -270,6 +270,11 @@ error[E5008]: invalid command usage: conflicting build artifact modes '--bundle'
 ```
 
 Use `E5008` for cases such as:
+
+Registry-analysis shorthand:
+- any violation of the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md) is also `E5008`
+
+Examples:
 - `kali run` with no explicit entrypoint
 - `kali build a.ts b.ts` in early phases where `build` is a single-entry direct command
 - `kali effects --sandbox kali.policy.json main.ts`

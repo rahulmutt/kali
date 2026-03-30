@@ -471,8 +471,8 @@ Registry-analysis summary:
 | `package-audit` | Later compatibility | Follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md) | Follow [specs/18-schemas.md](18-schemas.md)'s **Package Audit JSON Output (schema v1)** section |
 
 Shared target-selection rule:
-- both commands take exactly one explicit registry-package argument in early phases; omitting it, passing more than one package, or using a raw URL/local path is invalid command usage (`E5008`)
-- explicit package arguments use the canonical **registry package identifier** spelling from [SPEC.md](../SPEC.md) (`lodash`, `@scope/name`, `jsr:@std/path`)
+- both commands follow the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
+- explicit package arguments therefore use the canonical **registry package identifier** spelling from [SPEC.md](../SPEC.md) (`lodash`, `@scope/name`, `jsr:@std/path`)
 - early schema-v1 package-analysis commands take the shared **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
 - version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md); any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly
 - if that identity-only package lookup finds the package but no acceptable non-yanked stable release exists, the canonical failure path is `E5001`

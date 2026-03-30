@@ -164,7 +164,7 @@ Use this checklist:
 - zero-versus-positive wording for `resources.maxSpawnedProcesses` / `resources.maxThreads` and their matching CLI caps should reuse the **feature-gated zero-capable execution budgets** term instead of restating the same `0`-is-valid / positive-is-gated rule in each chapter
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
 - library/export-oriented build wording should reuse the **compile intent**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
-- single-package registry-analysis wording should reuse the **registry-analysis context split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
+- single-package registry-analysis wording should reuse the **single-package registry-analysis command**, **registry-analysis context split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
 - JSON machine-output wording should reuse the canonical **native-JSON command**, **envelope-only JSON command**, and **JSON-producing mode** terms instead of restating near-duplicate output-mode rules
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
@@ -675,6 +675,23 @@ A command that analyzes exactly one explicit registry package identity rather th
 - `package-audit`
 
 These commands do not invent a no-argument whole-project analysis mode in schema v1.
+
+### Single-package registry-analysis command
+The shared schema-v1 command-shape rule for registry-analysis commands.
+
+In schema v1 this means:
+- the command takes **exactly one** explicit **identity-only registry target**,
+- that target must use the canonical registry package identifier spelling,
+- omitting the target, passing more than one target, or supplying a raw URL/local path is invalid command usage (`E5008`),
+- the command shape is package-oriented only; it does not imply a whole-project dependency analysis mode.
+
+Canonical early examples:
+- `package-effects`
+- `package-audit`
+
+Rule:
+- use this term instead of restating “exactly one explicit registry package identifier, no raw URLs/local paths, no implicit whole-project mode” in each chapter.
+- package version selection, inherited analysis context, and project-independence are separate rules owned by the neighboring registry-analysis terms.
 
 ### Registry-analysis context split
 To keep single-package tooling predictable and avoid a second near-duplicate flag family:
