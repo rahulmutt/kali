@@ -50,7 +50,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, no implicit dependency repair outside `kali install`, opt-in npm lifecycle scripts only via `kali install --allow-scripts`, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib` for exact-version/internal consumers in the shared **Deno-oriented build context (schema v1)**, and only when frontend lowering can determine a **statically known export surface**; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public **WIT-first** `--lib` contract, with `--capi` and `--component` as explicit projections/packaging flows over that same export surface |
 | Formal verification | Phase-1 **proof-ready** repository baseline: published **proof-boundary manifest** plus the proof-CI trigger policy for the currently modeled subset; the modeled subset may still be empty while Kali is only **proof-ready**, and no proof-backed release/support claims may extend beyond the published boundary |
-| Tooling | Deno-inspired CLI workflow, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports |
+| Tooling | Deno-inspired CLI workflow, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports, and a minimal `init` scaffold contract that does not blur into install/materialization |
 
 Use this table as a reading aid only. Detailed behavior still belongs to the owning chapters and the maturity matrix.
 
@@ -139,7 +139,7 @@ To keep the bootstrap brief actionable and avoid trying to build every aspiratio
 2. **Deterministic package/install foundation** — `kali install`, shared lock/materialization rules, package resolution, and strict non-mutating behavior for non-install commands.
 3. **Kali-hosted execution foundation** — one AOT pipeline to one linked WASM payload, `run`/`test` on the Deno-oriented standalone surface, and the Phase-1 runtime/resource sandbox contract.
 4. **Build/artifact foundation** — default executable builds, the browser-bundle half of the shared **Phase-1 browser-targeted command set**, and the Phase-1 `build --lib` base library artifact.
-5. **Developer workflow foundation** — `init`, `check`, `fmt`, `lint`, AI-friendly diagnostics, and stable schema-v1 JSON envelopes/artifact metadata.
+5. **Developer workflow foundation** — the minimal `init` scaffold contract, `check`, `fmt`, `lint`, AI-friendly diagnostics, and stable schema-v1 JSON envelopes/artifact metadata.
 6. **Phase-1 evidence hardening** — conformance tests, package corpus coverage, browser-bundle smoke tests, determinism checks required by the maturity matrix, and maintenance/hardening of the Phase-1 **proof-ready** verification baseline.
 
 Sequencing rule:
