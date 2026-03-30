@@ -136,7 +136,7 @@ Reading rule:
 To reduce drift, these cross-spec terms are defined once here and then reused elsewhere:
 
 - **shared Phase-1 browser-targeted command set** = browser-targeted `kali check [files...]` *(including both the project-discovery no-file form and explicit-file-set forms)* plus browser-targeted `kali build --bundle <file>`, including their supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`
-- **Phase-1 static policy-validation surface** = `kali check --sandbox ...`, `kali build --sandbox <policy> <file>`, `kali build --lib --sandbox <policy> <file>`, and the browser-targeted `kali build --bundle --sandbox <policy> <file>` path inside the shared **Phase-1 browser-targeted command set**
+- **Phase-1 static policy-validation surface** = `kali check --sandbox ...` *(including both the project-discovery no-file form and explicit-file-set forms)*, the default executable-oriented `kali build --sandbox <policy> <file>` path in the shared **Deno-oriented build context (schema v1)**, `kali build --lib --sandbox <policy> <file>`, and the browser-targeted `kali build --bundle --sandbox <policy> <file>` path inside the shared **Phase-1 browser-targeted command set** *(including equivalent inherited-config forms whenever the effective `apiSurface` is `browser`)*
 
 Use these terms instead of re-expanding the same browser-command or static-policy-validation lists in README summaries or chapter-local availability prose.
 

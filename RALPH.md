@@ -1,33 +1,38 @@
 # RALPH
 
-- Iteration: 402 of 1000
+- Iteration: 509 of 1000
 - Prompt file: /workspace/prompts/iterate-spec.md
-- Updated: 2026-03-30T17:51:28+00:00
+- Updated: 2026-03-31T00:05:00.000Z
 
 ## Last emitted message
 
 ```text
 Done.
 
-Updated:
-- `specs/11-standard-apis.md`
-- `specs/14-packages.md`
-- `specs/15-errors.md`
-- `RALPH.md`
+What I changed
+- `SPEC.md`
+  - tightened the canonical definition of **Phase-1 static policy-validation surface**
+  - made it explicit that this surface covers:
+    - `kali check --sandbox ...` in both project-discovery and explicit-file-set forms
+    - the default executable-oriented `kali build --sandbox <policy> <file>` path in the shared **Deno-oriented build context (schema v1)**
+    - `kali build --lib --sandbox <policy> <file>`
+    - browser-targeted `kali build --bundle --sandbox <policy> <file>`, including inherited-config browser equivalents
+  - this closes an ambiguity where the old shorthand could be overread as "all build + sandbox shapes"
 
-What I changed:
-- aligned the API-surface snapshot wording so Phase-1 browser support consistently includes supported `--sandbox` variants and equivalent inherited-config forms
-- simplified the package-resolution browser rewrite note to point at the exact **Phase-1 browser-targeted command set** instead of re-listing examples with slightly different wording
-- filled an error-spec gap by adding the inherited-browser `--sandbox` contradiction examples for `build --capi` and `build --component`
+- `specs/19-feature-maturity.md`
+  - aligned the Phase-1 summary note with that refined definition
+  - spelled out that the static-policy surface is exactly `check --sandbox` plus the three supported build-intent lanes (`build`, `build --lib`, and browser `build --bundle`)
 
-Main inconsistency/drift risk fixed:
-- browser-targeted support and its inherited-config equivalents were described consistently in the CLI/maturity specs, but the API-surface snapshot and package-resolution prose were still a bit narrower/looser
-- the error chapter also omitted two inherited-browser `E5008` examples that the CLI chapter already treated as invalid command shape
+Why these changes
+- I found a cross-spec ambiguity risk:
+  - the old shared term was correct, but still broad enough to invite a wrong reading for inherited browser contexts and unsupported build shapes
+  - the maturity chapter relied on the term without restating the exact Phase-1 build lanes
+- tightening the canonical definition in one place and aligning the summary note makes the Phase-1 sandbox/build boundary easier to read and harder to misapply
 
-Git:
-- commit: pending
-- message: pending
+Git
+- Commit: pending
+- Message: pending
 
-Push:
-- pending
+Push
+- Pending.
 ```
