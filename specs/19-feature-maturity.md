@@ -392,19 +392,14 @@ The compiler should produce clear, stable diagnostics for these cases, using the
 
 ## Canonical Early-Phase Handling
 
-To reduce drift between CLI, runtime, package, and error-reporting specs, unsupported or gated features should follow this table unless a later spec explicitly tightens the behavior.
+To reduce drift between CLI, runtime, package, and error-reporting specs, reuse the **Hard-Feature Implementation Stage Matrix** above as the normative parse-vs-analysis-vs-lowering-vs-execution source of truth instead of maintaining a second near-duplicate feature table here.
 
-| Feature | Parse support | Early-phase semantic handling |
-|---|---|---|
-| dynamic `require()` | Yes | Reject by default with a feature-maturity diagnostic |
-| non-literal `import(expr)` | Yes | Reject by default; mark as a dynamic effect boundary when analyzed |
-| literal-string `import()` | Yes | Parse early; enable only once lowered to the already-linked graph |
-| `eval` / `Function()` | Yes | Report `Eval` effect; reject by default unless `--compat eval` is enabled and the runtime phase supports it |
-| `pure` / explicit effect annotations | Yes | Parse early; checker enables and validates in Phase 2+ |
-| `Proxy` | Yes | Type-check where possible, but reject unsupported runtime lowering paths |
-| `WeakMap` / `WeakSet` / `FinalizationRegistry` | Yes | Reject or gate until faithful semantics are implemented |
+Operational reading rule:
+- broad syntax acceptance does **not** imply early lowering or execution support;
+- early phases should reject unavailable runtime/lowering paths with the canonical feature-maturity diagnostic (`E5006`) unless a stricter subsystem-specific error is more informative;
+- when a feature is parsed early for compatibility planning (`import()`, `eval`, `Proxy`, weak-reference APIs, effect syntax), the checker/runtime docs should point back to the matrix above rather than re-stating a parallel mini-table with slightly different wording.
 
-This table intentionally separates syntax acceptance from semantic support so the parser and AST can stay broad without forcing premature runtime commitments.
+This keeps syntax acceptance clearly separated from semantic support without duplicating the same feature list in two places.
 
 See also:
 - [SPEC.md](../SPEC.md)

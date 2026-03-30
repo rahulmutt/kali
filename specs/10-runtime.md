@@ -86,7 +86,7 @@ Interpretation rules:
 - In Phase 1 this is a query-only compatibility surface: the runtime may expose the minimal status-query behavior (`Deno.permissions.query(...)`), while `request()` / `revoke()` stay **recognized-but-unavailable compatibility members** as defined in [SPEC.md](../SPEC.md).
 - Accepted `query(...)` descriptor names follow the shared **Deno-compatible permission descriptor subset (schema v1)** from [SPEC.md](../SPEC.md), and returned states follow the shared **stable permission status subset (schema v1)**.
 - In Phase 1, that means `query({ name: "net" })` observes the modeled `fetch` capability state only; it must not be implemented as a promise that later socket/listener permissions already exist.
-- Kali's broader schema-v1 capability/effect vocabulary still includes timers, random, console, and later `eval`, but those remain outside `Deno.permissions.query(...)` in schema v1; they are modeled through sandbox/effect contracts rather than through synthetic Deno permission-descriptor names.
+- Kali's broader schema-v1 capability/effect vocabulary still includes the `timer` family, random, console, and later `eval`, but those remain outside `Deno.permissions.query(...)` in schema v1; they are modeled through sandbox/effect contracts rather than through synthetic Deno permission-descriptor names.
 - The Phase 1 runtime does not provide interactive permission-prompt imports; permission state is an already-resolved sandbox contract, not a request-at-runtime workflow.
 - Any attempted `Deno.permissions.request(...)` / `revoke(...)` call must therefore fail through the canonical availability path (`E5006`).
 - Every registered host import is policy-aware; enabling an API surface does not bypass sandbox checks.
