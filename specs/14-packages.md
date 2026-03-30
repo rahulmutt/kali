@@ -282,17 +282,26 @@ Canonical terms:
 To preserve sandbox-first behavior:
 - npm lifecycle scripts (`preinstall`, `install`, `postinstall`) are not executed unless the user explicitly opts in with `kali install --allow-scripts`
 - `--allow-scripts` applies only to that install invocation; it is not an ambient project default
-- with **no explicit install target**, `kali install --allow-scripts` applies only to the invocation's **effective npm-scriptable install work**; if that install work is empty, including on a clean already-synchronized graph, the command should fail with `E5008` instead of silently acting like plain `install`
-- an explicit npm package add such as `kali install --allow-scripts lodash` is the canonical valid shape because that invocation necessarily introduces npm install work if it reaches normal package resolution
-- pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
-- pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
-- mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm install-work subset while the non-npm subset stays on the normal script-free path
-- packages in the excluded **native/binary/bootstrap-heavy package contract** are rejected as unsupported even when lifecycle scripts are enabled
 - package metadata and tarballs can still be analyzed before linking
 - follow the shared **install-time npm-package hook path** boundary: this opt-in does **not** imply `--api node`, broader Node package/runtime compatibility, or coverage by the normal `kali effects` / `kali.policy.json` contract
-- raw URL installs stay outside this escape hatch entirely because they have no registry lifecycle-script surface
 - top-level project sandbox config is ignored by `kali install`, so lifecycle-script execution is intentionally outside the schema-v1 project-policy model rather than being half-governed by it
 - package compatibility claims for normal `check` / `build` / `run` / `test` should therefore not be inflated by the existence of this opt-in installer escape hatch
+
+Canonical `--allow-scripts` triage:
+
+| Invocation shape | Result | Why |
+|---|---|---|
+| `kali install --allow-scripts lodash` (or another explicit npm target) | Valid opt-in path | The invocation has non-empty **effective npm-scriptable install work** if it reaches the normal npm install path |
+| plain `kali install --allow-scripts` with non-empty **effective npm-scriptable install work** in the discovered project graph | Valid opt-in path | Hooks may run only for the npm subset the current install actually reconciles |
+| plain `kali install --allow-scripts` when that effective npm install work is empty | Invalid usage (`E5008`) | The flag must not silently degenerate into plain `install` on a clean/no-npm-work graph |
+| `kali install --allow-scripts jsr:@std/path` | Invalid usage (`E5008`) | JSR packages do not participate in npm lifecycle-script execution in schema v1 |
+| `kali install --allow-scripts https://...` | Invalid usage (`E5008`) | Raw URLs do not expose an npm lifecycle-script surface |
+| mixed install work (npm + JSR and/or raw URLs) | Valid, but npm-only hook execution | Lifecycle scripts may run only for the npm install-work subset while the rest stays on the normal script-free path |
+| package in the excluded **native/binary/bootstrap-heavy package contract** | Still unsupported | `--allow-scripts` is an installer escape hatch, not a package-shape promotion mechanism |
+
+Additional rules:
+- raw URL installs stay outside this escape hatch entirely because they have no registry lifecycle-script surface
+- enabling lifecycle scripts does **not** make the excluded **native/binary/bootstrap-heavy package contract** installable/materializable/executable through the normal support ladder; it only permits hook execution for otherwise eligible npm install work
 
 Uses standard `node_modules/` layout by default for maximum ecosystem compatibility. Kali-specific caches live under `.kali/` instead of inventing a second package tree:
 ```

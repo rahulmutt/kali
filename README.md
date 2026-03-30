@@ -24,6 +24,7 @@ Bootstrap-normalized headline assumptions:
 - practical package-reading shortcut: use the shared **package-support ladder** from [SPEC.md](./SPEC.md) — a package may be **installable/materializable** without yet being **analyzable/checkable**, **buildable**, **executable**, or **deployable-through-host** in the selected command/context
 - package-evidence shortcut: early package-compatibility claims are primarily about ordinary **source-graph commands** (`check`, `build`, `run`, `test`, plus the shared browser-targeted `check` / `build --bundle` paths), not about the later single-package registry-analysis workflows `package-effects` / `package-audit`
 - dependency mutability is intentionally simple: `kali install` owns manifest/lock/materialized dependency state, while non-install commands fail with the canonical `E5004` path instead of auto-installing or silently repairing dependency state
+- npm lifecycle hooks are an install-only opt-in: `kali install --allow-scripts` is meaningful only when the current invocation has non-empty npm install work, and it still does not broaden support beyond the normal pure-JS/TS package contract
 
 Quick Phase-1 non-goals:
 - no general `--api node` command support yet across `check` / `effects` / `build` / `run` / `test`
