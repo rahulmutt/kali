@@ -183,9 +183,16 @@ Canonical gating rule:
 ### Browser API (`--api browser`)
 Browser mode is primarily a **browser-targeted context** in early phases, not a promise that the standalone runtime behaves like a browser. See the canonical host/profile summary in [SPEC.md](../SPEC.md) and the phase-gating matrix in [19 — Feature Maturity](19-feature-maturity.md) when deciding whether a given command/profile combination is supported.
 
-Two layers matter here and should not be conflated:
+Three browser meanings matter here and should not be conflated:
 - **browser ambient typing surface** — the globals/types visible to `check` and browser-targeted `build --bundle` flows (for example `Window`, `Document`, `HTMLElement`, `fetch`, `URL`)
+- **browser mediated capability subset** — the smaller schema-v1 sandbox/effect vocabulary Kali can reason about statically in browser-targeted contexts
 - **standalone runtime host surface** — the APIs provided by Kali's own runtime when it executes code directly
+
+Reading shortcut:
+- ambient typing answers **what code may type-check in a browser-targeted context**
+- the mediated subset answers **what Kali can model in schema-v1 policy/effect terms**
+- the standalone runtime surface answers **what Kali can execute itself without handing control to a real browser host**
+- early browser support in Kali is intentionally broadest at the first layer and narrowest at the third
 
 Canonical rule:
 - the shared **Phase-1 browser-targeted command set** should type-check against the real browser ambient surface, including DOM typings that are normally present in browser-focused TypeScript programs; the matching maturity claim lives in the consolidated browser-command row in [19 — Feature Maturity](19-feature-maturity.md)
