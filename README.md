@@ -15,8 +15,8 @@ Bootstrap-normalized headline assumptions:
 - early runtime standardization is **wasmtime first**; alternative engines are later extensions
 - embedding is phased: Phase 1 ships a useful but unstable `kali build --lib` **base library artifact**; the stable public Rust/WIT/C ABI and Component Model surface is Phase 2
 - effects are phased too: Phase 1 may use internal effect bookkeeping for sandboxing, but stable `kali effects` / `kali package-effects` are Phase 2 and `kali package-audit` is later compatibility
-- verification is **proof-ready** before it is **proof-backed**: an empty published proof boundary is acceptable early, but releases must not market formal verification as shipped until that boundary names real modeled subsystems and theorem claims
-- current repository verification status: see [proofs/BOUNDARY.md](./proofs/BOUNDARY.md); it currently declares an empty modeled boundary, so this repo is **proof-ready** but not yet **proof-backed**
+- verification has one explicit split: the Phase-1 baseline is a **proof-ready** repository state (published proof boundary + honest proof-CI activation rule), while **proof-backed** release/support claims are a stricter bar that require a non-empty boundary naming real modeled subsystems and theorem claims
+- current repository verification status: see [proofs/BOUNDARY.md](./proofs/BOUNDARY.md); it currently declares an empty modeled boundary, so this repo is **proof-ready** but not yet **proof-backed**, and verification should not yet be marketed as shipped proof coverage
 - package installation stays context-agnostic in Phase 1, while package support claims use the shared **package-support decision order**: package shape first, then host/API fit for the active context, then command maturity, all under the **published-artifact-first package reading**
 - practical package-reading shortcut: **installable** is not automatically **analyzable/buildable/runnable** — early package claims should be read in three steps: can Kali materialize the dependency deterministically, can it understand the published JS/TS source shape, and does the selected host/command context actually support the APIs that package expects?
 - dependency mutability is intentionally simple: `kali install` owns manifest/lock/materialized dependency state, while non-install commands fail with the canonical `E5004` path instead of auto-installing or silently repairing dependency state
@@ -53,6 +53,7 @@ Common early-phase misreads worth rejecting quickly:
 - the whole **Phase-1 browser-targeted command set** is supported in Phase 1 — including explicit `--api browser` spellings, equivalent inherited-config forms, and the supported `--sandbox` variants — but `kali run --api browser main.ts` and `kali test --api browser` are still later compatibility.
 - `kali build --lib lib.ts` is a supported Phase-1 **base library artifact**; `kali build --capi lib.ts` and `kali build --component lib.ts` are still Phase-2 embedding flows.
 - `kali check --sandbox ...` and `kali build --sandbox ...` are Phase-1 policy-schema/config validation paths; they do **not** yet imply the Phase-2 inferred-effect-vs-policy comparison workflow.
+- Phase-1 verification wording is about repository/process hygiene first: one published boundary, one activation rule, and no proof-backed marketing beyond that boundary.
 
 ## Specification
 - Top-level overview, implementation strata, cross-spec simplification rules, canonical terminology, chapter ownership, chapter guide, artifact-mode matrix, bootstrap traceability, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)

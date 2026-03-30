@@ -23,6 +23,7 @@ To keep the bootstrap's Lean requirement aligned with the rest of the phased spe
 
 Practical rule:
 - Phase 1 should be **proof-ready** from the start
+- the Phase-1 contract is therefore repository/process hygiene first: published boundary, honest proof-CI activation, and explicit no-overclaim discipline
 - Phase-1 releases may only call verification a shipped capability once they are also **proof-backed**
 
 Current repository status:
@@ -82,7 +83,7 @@ Follow the shared **proof activation split** from [SPEC.md](../SPEC.md):
 - an empty manifest is acceptable during spec-first iteration and early implementation bootstrapping because it still preserves the **proof-ready** state
 - it is **not** enough for a release to market Kali as already formally verified in Phase 1
 - any Phase-1 release note or support claim that leans on formal verification should first replace the empty boundary with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed** rather than merely proof-ready
-- while the published proof boundary is empty, proof CI is required only for changes under `proofs/`
+- while the published proof boundary is empty, proof CI is required only for changes under `proofs/`; that still satisfies the Phase-1 **proof-ready** baseline because the activation rule is explicit and honest about the empty modeled subset
 - once the manifest names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas
 - release notes and support wording should describe that activation state plainly instead of implying that a placeholder manifest already proves part of the implementation
 
