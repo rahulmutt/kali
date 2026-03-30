@@ -17,7 +17,7 @@ Kali is an ahead-of-time TypeScript/JavaScript compiler and runtime targeting We
 - deterministic machine-readable tooling,
 - explicit memory/ownership decisions rather than tracing/background GC,
 - aggressive but auditable specialization,
-- embeddability through a Phase-1 base library artifact that is useful immediately for exact-version/internal consumers, with a Phase-2 public embedding surface: stable Rust embedding API plus stable public `--lib` + WIT, C ABI, and Component Model packaging.
+- embeddability through a Phase-1 base library artifact that is useful immediately for exact-version/internal consumers, with a Phase-2 public embedding surface: stable Rust embedding API plus the stable public **WIT-first** `--lib` contract, with `--capi` and `--component` as explicit projections/packaging flows over that same export surface.
 
 Kali aims for broad JavaScript/TypeScript compatibility over time, but the spec deliberately phases hard features instead of implying that every aspiration is part of the MVP.
 
@@ -34,7 +34,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Effects | Internal effect bookkeeping may exist in Phase 1; the Phase-2 stable **public effect-report surface** is intentionally split into a reporting half (`kali effects`, `kali package-effects`) and a policy-comparison half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`) |
 | Registry audit | `kali package-audit` is a separate context-free registry-analysis workflow and remains later compatibility |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
-| Embedding | Phase-1 **base library artifact** via `kali build --lib` for exact-version/internal consumers in the default/inherited non-browser build context; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging |
+| Embedding | Phase-1 **base library artifact** via `kali build --lib` for exact-version/internal consumers in the default/inherited non-browser build context; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public **WIT-first** `--lib` contract, with `--capi` and `--component` as explicit projections/packaging flows over that same export surface |
 | Formal verification | Phase-1 **proof-ready** repository baseline: published **proof-boundary manifest** plus the proof-CI trigger policy for the currently modeled subset; the modeled subset may still be empty while Kali is only **proof-ready**, and no proof-backed release/support claims may extend beyond the published boundary |
 | Tooling | Deno-inspired CLI workflow, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports |
 
@@ -142,7 +142,7 @@ Canonical examples of that normalization:
 - **“CLI usage should be clean and similar to deno - formatting, linting, typechecking, running, etc.”** → keep one Deno-inspired workflow vocabulary (`init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`) and concise defaults, but do **not** imply flag-for-flag Deno parity or that every Deno command shape automatically exists in the same phase.
 - **“Lexing/parsing/typechecking/codegen should be blazing fast, with stronger optimization modes available when users want them”** → keep one explicit build-mode vocabulary: `fast` is the bounded-cost default, while `release` and `release-advanced` are the only canonical compile-budget expansion modes; deeper optimizations should strengthen those modes instead of spawning new near-duplicate optimization tiers.
 - **“Take inspiration from Haskell / Idris / Agda / Lean while staying pragmatic like Rust”** → use those languages as design references for principled typing, purity, effects, and constraint solving, but do **not** imply Phase-1 dependent types, totality checking, proof terms, or theorem-prover ergonomics in ordinary Kali programs.
-- **“Support WIT / Component Model”** → Phase 1 keeps a base exported-library artifact; stable WIT-first public embedding and component packaging are Phase 2 targets.
+- **“Support WIT / Component Model”** → Phase 1 keeps a base exported-library artifact; Phase 2 promotes plain public `--lib` into the stable **WIT-first** library contract, while Component Model packaging remains the explicit `--component` projection over that same export surface instead of becoming an implicit default for every library build.
 - **“Must be embeddable / expose a C API / be easy to use as a Rust library”** → Phase 1 is library-first internally and already includes the base `kali build --lib` artifact, but the stable public Rust embedding API, stable WIT contract, host-side C ABI, and component/C-embedding packaging are Phase 2 targets.
 - **“Take inspiration from Boa / V8 / JavaScriptCore / SpiderMonkey / Deno / tsc / Porffor / Hermes / Bun”** → treat these as design references and benchmarking/comparison inputs, not as promises to copy their architecture wholesale, match their extension surfaces, or inherit their implementation dependencies; Kali still resolves trade-offs through its own AOT-only, sandbox-first, and pure-Rust constraints.
 - **“No GC”** → no tracing/background GC is allowed; deterministic ownership/reference-counted strategies are acceptable where the owning chapters permit them.
@@ -167,7 +167,7 @@ It intentionally merges three questions in one place so readers do not have to b
 | Deno, Node, and browser support | Phase-gated breadth target | Phase 1 for Deno-first + the exact **Phase-1 browser-targeted command set**; Phase 3 for broader Node compatibility | Phase 1 is Deno-first with the shared **Phase-1 browser-targeted command set**; Node is phase-gated until Phase 3 | [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Support all features including `eval` | Phase-gated compatibility breadth target | Phase 4 compatibility for the executable path | Syntax may be accepted and effects may be modeled earlier, but executable `eval`/`Function()` support is gated behind the single schema-v1 compatibility feature `eval` and must still preserve Kali's no-language-level-JIT invariant | [`specs/10-runtime.md`](./specs/10-runtime.md), [`specs/12-cli.md`](./specs/12-cli.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | npm / JSR / raw-URL package access | Phase contract with bounded package-shape scope | Phase 1 MVP inside the **pure JS/TS package contract** | Early package support is broad for packages inside the **pure JS/TS package contract** that fit the **linked-artifact model** and whose host assumptions match either the Deno-first standalone surface or the shared **Phase-1 browser-targeted command set**, but narrow for the excluded **native/binary/bootstrap-heavy package contract** | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
-| Embeddability, C ABI, WIT, Component Model | Mixed: hard direction + phase-gated public surface | Phase 1 for the base `--lib` artifact; Phase 2 for the stable public embedding surface | Phase 1 ships the base `--lib` artifact; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and component packaging | [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| Embeddability, C ABI, WIT, Component Model | Mixed: hard direction + phase-gated public surface | Phase 1 for the base `--lib` artifact; Phase 2 for the stable public embedding surface | Phase 1 ships the base `--lib` artifact; Phase 2 then makes plain public `--lib` the stable **WIT-first** library contract, while `--capi` and `--component` stay explicit projections/packaging flows over that same export surface instead of becoming implicit defaults | [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Latest published ECMA-262 boundary | Phase contract with explicit exclusion boundary | Phase 1 MVP for latest published grammar; later/explicit for draft or proposal semantics | Kali tracks the latest **published** ECMA-262 edition; draft or proposal semantics stay explicitly experimental rather than implied | [`specs/02-lexer-parser.md`](./specs/02-lexer-parser.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Pure Rust implementation / no embedded C or C++ | Hard invariant | Phase 1 MVP | Implementation choices must preserve the pure-Rust host/runtime/toolchain contract rather than smuggling in embedded C/C++ dependencies | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/10-runtime.md`](./specs/10-runtime.md) |
 | AI-friendly CLI and diagnostics | Hard invariant | Phase 1 MVP | Human output stays concise; JSON contracts, stable codes, and AI-friendly machine payloads are explicit product requirements | [`specs/12-cli.md`](./specs/12-cli.md), [`specs/15-errors.md`](./specs/15-errors.md), [`specs/18-schemas.md`](./specs/18-schemas.md) |
@@ -1307,13 +1307,14 @@ Non-browser, export-oriented build modes:
 ### Embedding-stability split
 Kali uses one shared stability split for library-oriented outputs:
 - **base library artifact** — the Phase-1 `kali build --lib` output shape: export-oriented and useful immediately for exact-version/internal consumers, but still the pre-stable Phase-1 half of the public embedding surface
-- **public embedding surface** — the Phase-2 stabilized public embedding story built on that same exported-library contract: the stable Rust embedding API plus the stable public library/WIT contract, stable C ABI, and Component Model packaging path
+- **public embedding surface** — the Phase-2 stabilized public embedding story built on that same exported-library contract: the stable Rust embedding API plus the stable public **WIT-first** library contract (`--lib`), stable C ABI, and explicit Component Model packaging path
 - **public embedding artifact flows** — the artifact-producing part of that Phase-2 public embedding surface: stable public `--lib` + WIT, `--capi`, and `--component`
 
 Rule:
 - docs should reference this split instead of rephrasing it as “usable but not yet stable”, “public embedding contract”, “stable public library contract”, “library-first internally”, or “WIT/C ABI/component packaging lands later” in slightly different ways
-- Phase 1 shipping the **base library artifact** does **not** by itself imply the Phase-2 **public embedding surface**: no stable public Rust API, stable public library/WIT contract, stable C ABI, cross-version host-loading guarantee, or component packaging yet
-- once Phase 2 promotes that path, plain public `--lib` is the canonical stable public library/WIT contract and emits WIT by default; `--capi` and `--component` are projections/wrappers over that same **statically known export surface** rather than alternate export semantics
+- Phase 1 shipping the **base library artifact** does **not** by itself imply the Phase-2 **public embedding surface**: no stable public Rust API, stable public **WIT-first** library contract, stable C ABI, cross-version host-loading guarantee, or component packaging yet
+- once Phase 2 promotes that path, plain public `--lib` is the canonical stable **WIT-first** library contract and emits WIT by default
+- `--capi` and `--component` are explicit projections/wrappers over that same **statically known export surface** rather than alternate export semantics or implicit defaults for every library build
 
 ### Host ABI header vs program-specific exports header
 Kali intentionally distinguishes the stable host-side C ABI header from build-emitted program-specific export declarations.
@@ -1367,7 +1368,7 @@ To keep the normalized bootstrap scope easy to scan, Phase 1 does **not** imply:
 - `eval` / `Function()` support,
 - interactive permission-prompt / privilege-escalation flows such as `Deno.permissions.request()` / `revoke()`,
 - threaded runtime profiles / `SharedArrayBuffer` / `Atomics`,
-- the Phase-2 **public embedding surface**: stable public Rust embedding, stable public `--lib` + WIT, `--capi`, or `--component`.
+- the Phase-2 **public embedding surface**: stable public Rust embedding, the stable public **WIT-first** `--lib` contract, `--capi`, or `--component`.
 
 These are all tracked elsewhere in the owning chapters and the maturity matrix; this snapshot exists only to make the early boundary obvious in one place.
 
@@ -1500,7 +1501,7 @@ Early documented build artifact modes form one small canonical matrix:
 |---|---|
 | `kali build foo.ts` | default executable-oriented artifact flow |
 | `kali build --bundle foo.ts` when the effective `apiSurface` is `browser` | browser-targeted bundle output |
-| `kali build --lib lib.ts` | Phase-1 **base library artifact**; in Phase 2 the same selector becomes part of the stable public library/WIT contract and adds a default WIT sidecar |
+| `kali build --lib lib.ts` | Phase-1 **base library artifact**; in Phase 2 the same selector becomes part of the stable public **WIT-first** library contract and adds a default WIT sidecar |
 | `kali build --capi lib.ts` | Phase-2 **public embedding artifact flow** for C embedding |
 | `kali build --component lib.ts` | Phase-2 **public embedding artifact flow** for Component Model packaging |
 

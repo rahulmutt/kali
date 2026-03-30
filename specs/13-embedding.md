@@ -1,15 +1,15 @@
 # 13 — Embedding, WIT & C ABI
 
 Embedding is intentionally phased and follows the shared **embedding-stability split** from [SPEC.md](../SPEC.md):
-- **Phase 1 MVP**: Kali should have a reusable library-first internal decomposition, and `kali build --lib` is the early **base library artifact** shape. That artifact is intentionally useful for exported-module workflows immediately, but only for exact-version/internal consumers; it does **not** yet count as the stable **public embedding surface**. In particular, Phase 1 does not yet promise a stable Rust API, a stable public library/WIT contract, a stable C ABI, a cross-version host-loading guarantee, or default WIT sidecars for plain `--lib`.
-- **Phase 2 target**: the **public embedding surface** arrives — the Rust embedding API, the stable public library/WIT contract for `kali build --lib`, the C ABI, and `kali build --capi` / `kali build --component` artifact flows.
+- **Phase 1 MVP**: Kali should have a reusable library-first internal decomposition, and `kali build --lib` is the early **base library artifact** shape. That artifact is intentionally useful for exported-module workflows immediately, but only for exact-version/internal consumers; it does **not** yet count as the stable **public embedding surface**. In particular, Phase 1 does not yet promise a stable Rust API, a stable public **WIT-first** library contract, a stable C ABI, a cross-version host-loading guarantee, or default WIT sidecars for plain `--lib`.
+- **Phase 2 target**: the **public embedding surface** arrives — the Rust embedding API, the stable public **WIT-first** library contract for `kali build --lib`, the C ABI, and `kali build --capi` / `kali build --component` artifact flows.
 
 Current repository-state note:
 - follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): crate names such as `kali_embed` and `kali_capi` in this chapter describe the target implementation structure and intended public package names, not a claim that those crates already exist in the current repo today
 - command examples, API sketches, and cargo commands in this chapter should therefore be read as target contracts/illustrative usage unless the repository actually grows the corresponding implementation artifacts
 
 Reading rule:
-- this chapter may define the intended stable shape of later embedding artifact flows (`--capi`, `--component`, stable public `--lib` + WIT) before they are phase-enabled
+- this chapter may define the intended stable shape of later embedding artifact flows (`--capi`, `--component`, stable public **WIT-first** `--lib` + default WIT) before they are phase-enabled
 - treat those sections as artifact-contract definitions first, not as implied Phase-1 availability promises
 - [19 — Feature Maturity](19-feature-maturity.md) remains the availability owner for when those flows are actually supported
 
@@ -17,13 +17,15 @@ Practical simplification:
 - there is one exported-library contract, not three unrelated embedding semantics
 - Phase 1 plain `--lib` establishes that contract as the **base library artifact**
 - in Phase 1, that base artifact is intentionally useful for internal/exact-toolchain workflows, but it is **not** yet a stable cross-version public ABI contract
-- Phase 2 promotes the same `--lib` path into the canonical stable public library/WIT contract and adds WIT by default
+- Phase 2 promotes the same `--lib` path into the canonical stable **WIT-first** public library contract and adds WIT by default
 - `--capi` and `--component` then project/package that same **statically known export surface** for specific host interop workflows rather than redefining what the library exports mean
+- Component Model packaging remains an explicit `--component` choice rather than an implicit default for every public library build; the default stable public library path is plain `--lib` + WIT
 
 Artifact-progression shorthand:
 - `--lib` is the earliest export-oriented build path: Phase 1 emits the core `wasm-module` only, and Phase 2 keeps the same selector but adds the stable default WIT sidecar.
 - `--capi` is not a second export model; it is the Phase-2 C-facing projection of that same **statically known export surface** (`wasm-module` + `wit` + generated exports header + C-ABI metadata).
 - `--component` is likewise packaging over that same **statically known export surface** rather than a different library contract (`wasm-module` + `wit` + outer component wrapper).
+- Because plain public `--lib` is the canonical stable default once Phase 2 lands, callers should choose `--component` only when they explicitly want Component Model packaging semantics.
 
 ## Phase 1 — Base library artifact
 
@@ -45,7 +47,7 @@ Canonical library-artifact normalization table:
 
 | Selector | Earliest phase | Compile intent | Artifact contract summary |
 |---|---|---|---|
-| `--lib` | Phase 1 MVP | library | Phase 1: `wasm-module` (`role: primary-library`) as the **base library artifact**. Until Phase 2 freezes the public interface contract, this output is export-oriented but not yet a stable public ABI/WIT promise. From the Phase 2 target onward, the same selector becomes the stable public library/WIT contract and adds `wit` (`role: interface-wit`) by default. |
+| `--lib` | Phase 1 MVP | library | Phase 1: `wasm-module` (`role: primary-library`) as the **base library artifact**. Until Phase 2 freezes the public interface contract, this output is export-oriented but not yet a stable public ABI/WIT promise. From the Phase 2 target onward, the same selector becomes the stable public **WIT-first** library contract and adds `wit` (`role: interface-wit`) by default. |
 | `--capi` | Phase 2 target | library | The same **statically known export surface** as a `wasm-module` (`role: primary-library`), plus `wit`, a generated **program-specific exports header** (`kind: c-header`, distinct from the stable host ABI header `kali.h`), and `cabi-metadata`. |
 | `--component` | Phase 2 target | library | The same **statically known export surface** as a `wasm-module` (`role: primary-library`), plus `wit` and a `wasm-component` wrapper. |
 
@@ -134,7 +136,7 @@ Canonical embedding-alignment rule:
 - prefer set-like builder methods such as `runtime_profiles([...])` and `compat_features([...])` over boolean enable/disable pairs so the embedding vocabulary stays aligned with `kali.json`
 - execution-budget setters should mirror the shared runtime limit model from CLI/schema v1 instead of inventing an embedding-only vocabulary: memory, CPU time, open files, spawned-process cap, and thread cap
 - the canonical runtime-profile name remains `wasm-threads`; if the Rust API exposes `RuntimeProfile::WasmThreads`, that is just the typed embedding spelling of the same underlying profile selected by CLI `--wasm-threads`
-- WIT is the canonical host-facing interface description for public library/component outputs; Rust-typed helpers, generated program-specific exports headers, and later component wrappers are projections of that same exported interface contract rather than unrelated parallel ABI descriptions
+- WIT is the canonical host-facing interface description for public library/component outputs; plain public `--lib` is therefore the default stable library artifact shape once Phase 2 lands, and Rust-typed helpers, generated program-specific exports headers, and later component wrappers are projections of that same exported interface contract rather than unrelated parallel ABI descriptions
 - embedding APIs may use idiomatic Rust enums/builders instead of the JSON field names, but they should not invent a second incompatible vocabulary for the same concepts
 - build-oriented embedding calls obey the same API-surface gates as the CLI/spec matrix: for example, `ApiSurface::Node` remains Phase 3-gated for compile/build flows, while browser-targeted build output is still the `--bundle`-style path rather than a generic library/export mode
 - embedding compilation must keep the shared **compile intent** from [SPEC.md](../SPEC.md) explicit, either through separate helpers or an explicit compile option, so hosts do not have to guess exported-library semantics from a later `run_module(...)` vs `instantiate(...)` call
@@ -371,7 +373,7 @@ Artifact selection follows the canonical build matrix and shared **embedding-sta
 `kali build --capi` and `kali build --component` are **Phase 2 targets** and are artifact-generation modes for embedded programs, not requests to turn user TypeScript directly into a native shared library.
 
 ```bash
-kali build --lib lib.ts                    # Phase 1: lib.wasm only (base library artifact). From the Phase 2 target onward: lib.wasm + lib.wit as the stable public library/WIT contract.
+kali build --lib lib.ts                    # Phase 1: lib.wasm only (base library artifact). From the Phase 2 target onward: lib.wasm + lib.wit as the stable public WIT-first library contract.
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + generated lib.exports.h + lib.cabi.json for use with kali_capi
 kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit + lib.component.wasm for Component Model consumers
 ```
@@ -380,7 +382,7 @@ Example-filename rule:
 - build examples in this chapter derive companion filenames from the entry basename (`lib.ts` → `lib.wasm`, `lib.wit`, `lib.exports.h`, `lib.component.wasm`) so artifact examples stay consistent with the canonical artifact/metadata schemas
 
 Artifact-role clarification:
-- `kali build --lib` is the base exported-library path in Phase 1 and the canonical stable public library path from the Phase 2 target onward; once stabilized, that plain public `--lib` output emits `wit` (`role: interface-wit`) by default alongside the core `wasm-module` (`role: primary-library`)
+- `kali build --lib` is the base exported-library path in Phase 1 and the canonical stable public **WIT-first** library path from the Phase 2 target onward; once stabilized, that plain public `--lib` output emits `wit` (`role: interface-wit`) by default alongside the core `wasm-module` (`role: primary-library`)
 - `kali build --capi` uses that same core exported-library artifact (`role: primary-library`) plus `wit` (`role: interface-wit`), the generated **program-specific exports header** such as `lib.exports.h` (`role: embedding-header`), and the generated `cabi-metadata` file such as `lib.cabi.json` (`kind: cabi-metadata`, `role: embedding-metadata`)
 - `kali build --component` keeps the same linked core library payload (`role: primary-library`) and WIT sidecar (`role: interface-wit`), then adds the outer Component Model wrapper as `kind: wasm-component`, `role: primary-component`
 - library-oriented embedding outputs require the same **statically known export surface** defined in [SPEC.md](../SPEC.md); WIT, generated program-specific exports headers, and component packaging are projections of that same explicit export surface rather than separate reflection-based APIs
@@ -391,7 +393,7 @@ Important distinction:
 - `kali_capi` ships the stable **host ABI header**: `kali.h`
 - `kali build --capi foo.ts` emits the **program-specific exports header** such as `foo.exports.h` plus the generated `cabi-metadata` file such as `foo.cabi.json`
 - Phase 1 plain `kali build --lib foo.ts` emits the **base library artifact** (`wasm-module`) only; this is intentionally useful before the **public embedding surface** is frozen, but it is not yet one of the stable **public embedding artifact flows**
-- once the public interface contract stabilizes in the Phase 2 target window, plain public `kali build --lib foo.ts` emits a WIT sidecar by default, and `--capi` / `--component` reuse that same canonical exported interface description instead of defining a second export vocabulary
+- once the public interface contract stabilizes in the Phase 2 target window, plain public `kali build --lib foo.ts` emits a WIT sidecar by default, and `--capi` / `--component` reuse that same canonical exported interface description instead of defining a second export vocabulary or becoming implicit replacements for plain `--lib`
 - library-oriented outputs follow the shared **library-oriented instantiation rule** from [SPEC.md](../SPEC.md): no synthetic executable entry invocation is added, normal module-instantiation behavior still runs at host instantiation time, and exported functions are the host-callable surface layered on top of that
 - In CLI JSON/artifact manifests, these outputs use the canonical artifact kinds `wasm-module`, `wit`, `wasm-component`, `c-header`, and `cabi-metadata`
 

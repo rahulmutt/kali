@@ -170,7 +170,7 @@ Interpretation rule:
 - those library-oriented modes still obey the ordinary build-command API-surface gates: `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` are `E5008` contradictions because browser mode is only defined for `--bundle`, while `kali build --lib --api node ...` remains on the same Phase 3 `E5006` path as other early `--api node` builds
 - `--lib` is the **base library artifact** mode; `--capi` and `--component` are later **public embedding artifact flows** over that same exported-library contract rather than unrelated semantics
 - because `--capi` and `--component` already choose exported-library semantics, users should not combine them with `--lib` in early phases; those flags are separate artifact-mode selectors, not additive modifiers
-- WIT sidecars are not a separate artifact-mode selector: under the shared **embedding-stability split** from [SPEC.md](../SPEC.md), Phase 1 plain `--lib` emits the core library `wasm-module`, and once the Phase-2 **public embedding surface** stabilizes, the relevant library-oriented modes emit WIT by default so callers do not have to choose between separate "C ABI" and "component" interface-description paths
+- WIT sidecars are not a separate artifact-mode selector: under the shared **embedding-stability split** from [SPEC.md](../SPEC.md), Phase 1 plain `--lib` emits the core library `wasm-module`, and once the Phase-2 **public embedding surface** stabilizes, plain public `--lib` becomes the stable **WIT-first** default while `--capi` and `--component` remain explicit projections/packaging choices over that same export surface
 
 Config-array normalization rule:
 - `compilerOptions.runtimeProfiles` and `compat.features` are set-like lists, not ordered pipelines
@@ -277,7 +277,7 @@ Artifact-mode quick summary:
 |---|---|---|---|
 | *(default)* | executable | Phase 1 MVP | one linked executable-oriented WASM artifact |
 | `--bundle` | executable | Phase 1 MVP | browser-targeted bundle path only, and only when the effective `apiSurface` is `browser` |
-| `--lib` | library | Phase 1 MVP | Phase-1 **base library artifact** only; stable public library/WIT contract is later |
+| `--lib` | library | Phase 1 MVP | Phase-1 **base library artifact** only; stable public **WIT-first** library contract is later |
 | `--capi` | library | Phase 2 target | public embedding artifact flow over the same **statically known export surface** |
 | `--component` | library | Phase 2 target | Component Model packaging over the same **statically known export surface** |
 
@@ -296,7 +296,7 @@ Canonical artifact-mode rule:
 - for the browser bundle shortcut specifically, the plain spelling `kali build --bundle main.ts` has two canonical outcomes owned by [19 — Feature Maturity](19-feature-maturity.md) — under the default/inherited non-browser API surface it is `E5008`, while under an inherited browser API surface it is the supported browser-bundle shortcut
 - `--lib`, `--capi`, and `--component` switch the build to library compile intent
 - reuse the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): `kali init --lib` chooses a project template only and does not change the later default artifact mode of `kali build`
-- WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag
+- WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag; once the public embedding surface lands, plain public `--lib` stays the default stable library path while `--component` remains an explicit packaging selector
 - these **library-oriented artifact modes** derive their host-facing surface from a **statically known export surface** as defined in [SPEC.md](../SPEC.md); they do not implicitly expose arbitrary internal declarations just because the source file was compiled in `--lib`/`--capi`/`--component` mode
 - if Kali cannot determine that export surface statically, the library-oriented build fails with `E5011` instead of synthesizing reflection-based exports
 - plain `--lib` is the Phase-1 **base library artifact**: it establishes the exported-library shape early, but under the shared **embedding-stability split** the stable public embedding/WIT contract remains part of the later Phase-2 **public embedding surface**
@@ -318,7 +318,7 @@ kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: mai
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
 kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early for builds either
-kali build --lib lib.ts                    # Phase-1 base library artifact following the shared library-oriented instantiation rule and embedding-stability split from SPEC.md (kind=wasm-module, role=primary-library; from the Phase 2 target onward the same plain --lib path becomes the stable public library/WIT contract and adds kind=wit, role=interface-wit by default)
+kali build --lib lib.ts                    # Phase-1 base library artifact following the shared library-oriented instantiation rule and embedding-stability split from SPEC.md (kind=wasm-module, role=primary-library; from the Phase 2 target onward the same plain --lib path becomes the stable public WIT-first library contract and adds kind=wit, role=interface-wit by default)
 kali build --lib --sandbox kali.policy.json lib.ts # Same Phase-1 base library artifact plus static policy validation; `--sandbox` does not change library compile intent
 kali build --lib --api node lib.ts         # Phase 3 target: Node API surface remains build-gated for library-oriented modes too
 kali build --lib --api browser lib.ts      # Invalid usage (E5008) in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library artifact mode
