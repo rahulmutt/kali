@@ -494,6 +494,17 @@ Included variants inside this same set:
 - explicit `--api browser` spellings and equivalent inherited-config forms
 - the supported browser-targeted `--sandbox` attachments for those same command families
 
+Quick reading-aid examples:
+
+| Effective request | Phase 1 meaning |
+|---|---|
+| `kali check --api browser main.ts` | supported browser-targeted analysis |
+| plain `kali check main.ts` under inherited `compilerOptions.apiSurface = browser` | same supported browser-targeted analysis |
+| `kali build --bundle --api browser main.ts` | supported browser-targeted bundle build |
+| plain `kali build --bundle main.ts` under inherited `compilerOptions.apiSurface = browser` | same supported browser-targeted bundle build |
+| `kali build --api browser main.ts` | wrong browser build shape (`E5008`) until a non-bundle browser build mode exists |
+| `kali run --api browser main.ts` / `kali test --api browser` | unavailable browser runtime/test contract (`E5006`) |
+
 Rules:
 - this term exists to stop a common ambiguity: Phase-1 browser-targeted support does **not** mean every command that performs analysis or build-like work is browser-enabled in Phase 1
 - explicit CLI spellings, inherited-config forms, and the supported `--sandbox` attachments above all count as the same command set once effective-context resolution chooses `apiSurface = browser`; for example, discovered `compilerOptions.apiSurface = browser` makes plain `kali check --sandbox kali.policy.json` and `kali build --bundle main.ts` part of this same Phase-1 set rather than creating extra browser modes

@@ -62,6 +62,17 @@ Common early-phase misreads worth rejecting quickly:
 - `kali check --sandbox ...` and `kali build --sandbox ...` are Phase-1 policy-schema/config validation paths only; under the shared **sandbox-attachment orthogonality** rule from [SPEC.md](./SPEC.md), that sandbox attachment does **not** yet imply the Phase-2 compile/check-time inferred-effect-vs-policy validation workflow, does not change `check` file arity, and on `build` does not change artifact mode or compile intent.
 - Phase-1 verification wording is about repository/process hygiene first: one published boundary, one proof-CI trigger policy, and no proof-backed marketing beyond that boundary. The repo should already be **proof-ready** from the start; later evidence work merely hardens and maintains that baseline.
 
+Practical Phase-1 command/context cheat sheet:
+
+| Request | Phase 1 reading |
+|---|---|
+| `kali check --api browser main.ts` | supported browser-targeted analysis |
+| plain `kali check main.ts` under inherited `compilerOptions.apiSurface = browser` | same supported browser-targeted analysis |
+| `kali build --bundle --api browser main.ts` | supported browser-targeted bundle build |
+| plain `kali build --bundle main.ts` under inherited `compilerOptions.apiSurface = browser` | same supported browser-targeted bundle build |
+| `kali build --api browser main.ts` | invalid browser build shape (`E5008`) until a non-bundle browser build mode exists |
+| `kali run --api browser main.ts` / `kali test --api browser` | unavailable browser runtime/test contract (`E5006`) |
+
 ## Specification
 - Top-level overview, implementation strata, cross-spec simplification rules, canonical terminology, chapter ownership, chapter guide, artifact-mode matrix, bootstrap traceability, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
 - Bootstrap-brief normalization rule: [SPEC.md#bootstrap-normalization-rule](./SPEC.md#bootstrap-normalization-rule)

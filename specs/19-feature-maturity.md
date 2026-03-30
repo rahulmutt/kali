@@ -84,6 +84,18 @@ It is intentionally narrower than the full command/profile matrix below:
 
 Use this summary to avoid broad bootstrap overreads, then drop to the canonical matrix below for exact command/context rows.
 
+Phase-1 sandbox-behavior reading aid:
+
+| Command family | Phase 1 `--sandbox` meaning |
+|---|---|
+| `kali run <file>` / `kali test [files...]` | runtime sandbox enforcement |
+| `kali check [files...]` | policy-schema/config validation only |
+| `kali build <file>` | policy-schema/config validation only |
+| `kali build --lib <file>` | same static policy validation on the Phase-1 base library artifact |
+| `kali build --bundle <file>` with effective `apiSurface = browser` | browser-targeted static compatibility check only, not post-deployment runtime enforcement |
+
+Phase 2 later extends the `check` / `build` rows with inferred-effect-vs-policy validation; this table is only the compact Phase-1 reading aid.
+
 Maintenance note:
 - when a row below says **Phase-1 browser-targeted command set**, reuse the exact command-boundary definition from [SPEC.md](../SPEC.md) instead of re-expanding the same command list inline
 - that keeps the availability matrix aligned with the one canonical cross-spec term and reduces drift when that boundary is clarified later
