@@ -12,9 +12,12 @@ Early-phase headline assumptions:
 - build artifact modes follow one canonical matrix: default executable, browser bundle, a Phase-1 **base library** artifact, and later stable public C embedding / Component Model packages layered on that library contract
 
 ## Specification
-- Top-level overview, canonical terminology, artifact-mode matrix, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
+- Top-level overview, canonical terminology, chapter ownership, artifact-mode matrix, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
 - Detailed specs: [`specs/`](./specs)
 - Phase/status matrix for gated features and command profiles: [specs/19-feature-maturity.md](./specs/19-feature-maturity.md)
 
-## Users
-- [Kai](https://github.com/rahulmutt/kai) an AI-based coding assistant.
+## Project posture
+This repository is currently spec-first: the top-level spec and chapter set are the source of truth for scope, staging, and machine-readable contracts.
+
+## Related project
+- [Kai](https://github.com/rahulmutt/kai), an AI-based coding assistant

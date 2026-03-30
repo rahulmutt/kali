@@ -13,6 +13,12 @@
 
 These flags are shared across the CLI, but some apply only to specific command families. For the canonical meaning of **API surface**, **build mode**, and **runtime profile**, see [SPEC.md](../SPEC.md). For command/profile gating, see [19 — Feature Maturity](19-feature-maturity.md).
 
+Ownership rule:
+- this chapter owns **CLI shape**: flags, arity, command-local behavior, output rules, and exit codes
+- [19 — Feature Maturity](19-feature-maturity.md) owns whether a documented command/profile/feature is actually available in a given phase
+- [18 — Schemas](18-schemas.md) owns the machine-readable JSON shapes
+- when a rule is already defined in one of those owners, prefer a short cross-reference over repeating a second full version here
+
 Command-family terminology used in this chapter:
 - these labels describe **command shape and behavior**, not guaranteed current-phase availability
 - commands such as `effects`, `package-effects`, or `package-audit` may still be phase-gated even though their command family is defined here

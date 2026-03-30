@@ -4,6 +4,24 @@ This document is the top-level contract for the Kali spec set. It defines the ca
 
 Detailed subsystem design lives in [`specs/`](./specs).
 
+## Canonical Chapter Ownership
+
+To keep the spec set easier to maintain and avoid near-duplicate rules drifting apart, each cross-cutting topic has one primary owner:
+
+| Topic | Primary owner | Other chapters should mainly do |
+|---|---|---|
+| Top-level terminology, command families, default tuple, command-context rules, artifact matrix | [SPEC.md](./SPEC.md) | Reuse the canonical terms and link back instead of redefining them |
+| Feature/phase availability and the canonical `E5006` gating boundary | [19 — Feature Maturity](./specs/19-feature-maturity.md) | Reference the matrix/status row instead of restating a new promise |
+| CLI flags, command shapes, output behavior, exit codes | [12 — CLI](./specs/12-cli.md) | Reuse the command/flag contracts rather than inventing command-local variants |
+| Package resolution, install mutability, lock/materialization rules | [14 — Package Management](./specs/14-packages.md) | Reuse the package-resolution and dependency-state rules |
+| Machine-readable JSON contracts | [18 — Schemas](./specs/18-schemas.md) | Link to the schema instead of repeating object shapes inline |
+| Diagnostics/code boundaries (`E5004`, `E5006`, `E5007`, `E5008`, `E5009`, `E5010`) | [15 — Errors](./specs/15-errors.md) | Reuse the canonical boundary rather than redefining new error semantics |
+| Sandbox policy meaning, enforcement domains, effect/policy interaction | [09 — Sandboxing & Effects](./specs/09-sandboxing.md) | Reuse the same policy/enforcement model |
+
+Interpretation rule:
+- if two chapters appear to describe the same cross-cutting rule at different levels of detail, the primary owner above wins unless a later spec revision changes ownership explicitly
+- non-owner chapters should prefer short cross-references over re-explaining the full rule
+
 ## Purpose
 
 Kali is an ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembly, designed for:

@@ -4,6 +4,12 @@
 
 Package loading is compile-time first: Kali resolves, analyzes, and links dependency graphs during build/check/run. For normal builds, application code and its static dependencies are emitted as one linked WASM payload rather than a fleet of runtime-linked WASM modules. Output modes may still add companion artifacts such as JS glue, but they do not change the single linked-payload rule.
 
+Ownership rule:
+- this chapter owns package-resolution order, install mutability, lock/materialization behavior, and registry/raw-URL dependency rules
+- [12 — CLI](12-cli.md) owns command-line flag/arity behavior for `install`, `package-effects`, and `package-audit`
+- [19 — Feature Maturity](19-feature-maturity.md) owns whether those package-oriented commands are available in a given phase
+- [18 — Schemas](18-schemas.md) owns the machine-readable payloads emitted by package-analysis commands
+
 ### Supported Packages
 Kali supports registry packages (npm/JSR) that:
 - Are pure JavaScript/TypeScript (no native code)
