@@ -10,7 +10,7 @@ Current repository-state note:
 - while that remains true, this published manifest is the required verification artifact for the repository's current **proof-ready** baseline
 
 Canonical verification state (following the shared **proof state split** from [SPEC.md](../SPEC.md)):
-- **proof-ready**: yes — this manifest exists and truthfully declares the current claim boundary
+- **proof-ready**: yes — this manifest exists, truthfully declares the current claim boundary, and publishes the repository's current proof-CI trigger policy
 - **proof-backed**: no — the modeled boundary is still empty, so no release may market formal verification as a shipped Kali capability yet
 - repository claim: **no mechanized proof coverage is claimed yet**
 - canonical short summary for README/release text: **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**

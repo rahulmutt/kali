@@ -26,7 +26,7 @@ Phase 1 is intentionally narrow and should be read through the same shipped-surf
 - **Project workflow**: `kali init`, `kali install`, `kali fmt`, `kali lint`, and `kali check [files...]` ship as the core developer loop
 - **Execution**: **Deno-first** standalone `kali run <file>` and `kali test [files...]` ship, including runtime `--sandbox` enforcement
 - **Build**: `kali build <file>` ships in the shared **Deno-oriented build context (schema v1)**; `kali build --lib <file>` ships only as the Phase-1 **base library artifact** for exact-version/internal consumers in that same context, and only when Kali can determine a **statically known export surface** after frontend lowering. The browser-bundle path is intentionally tracked under the separate browser-support bullet below so Phase 1 does not blur browser-targeted build support into a broader browser runtime/build promise.
-- **Browser support**: limited to the shared **Phase-1 browser-targeted command set** — browser-targeted `check [files...]` plus browser-targeted `build --bundle <file>`, including supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`
+- **Browser support**: limited to the shared **Phase-1 browser-targeted command set** — browser-targeted `check [files...]` *(including both the project-discovery no-file form and explicit file sets)* plus browser-targeted `build --bundle <file>`, including supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`
 - **Node support**: broader `--api node` command paths come later; Phase 1 must not imply partial Node runtime/build support
 - **Sandbox/effects split**: `run/test --sandbox` enforce at runtime, while `check/build --sandbox` do policy-schema/config validation only in Phase 1; internal effect bookkeeping may exist, but the stable public effect-report surface opens later and stays explicitly split into a **reporting** half (`kali effects`, `kali package-effects`) and a **policy-comparison** half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`)
 - **Packages**: Phase 1 package support is broad only inside the shared **pure JS/TS package contract**; pure JS/TS npm/JSR packages plus raw URL dependency workflows are in scope when their host assumptions fit either the default Deno-oriented standalone surface or the shared **Phase-1 browser-targeted command set**, while native/binary/bootstrap-heavy packages stay out of scope by default
@@ -37,7 +37,7 @@ For the compact shipped/not-shipped answer, use the **Phase-1 Shipped Surface Su
 
 ## Bootstrap normalization highlights
 A few broad bootstrap asks are intentionally normalized into smaller cross-spec contracts:
-- **“supports browser APIs”** means browser-targeted analysis/build first, not standalone browser `run`/`test`
+- **“supports browser APIs”** means browser-targeted analysis/build first, not standalone browser `run`/`test`, and it does **not** mean Kali exposes one sandbox/effect key for every ambient DOM/browser API
 - **“supports all features including eval”** means parser acceptance and later compatibility planning now, but executable `eval`/`Function()` only in the later gated compatibility path
 - **“static JSON effect reporting”** means Phase 1 enforcement/policy validation first, with the stable public reporting surface opening later
 - **“embeddable / C API / WIT / Component Model”** means a Phase-1 base `--lib` artifact first, then the stable public WIT-first embedding surface later
@@ -51,7 +51,7 @@ Use these shortcuts before interpreting any broad bootstrap aspiration as shippe
 - phase availability lives in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
 
 Useful normalized reminders:
-- “supports browser APIs” does **not** mean standalone browser `run`/`test`
+- “supports browser APIs” does **not** mean standalone browser `run`/`test` or one sandbox/effect key per DOM/browser API
 - package support should be read through the shared **package-support decision order** and **package-support ladder** in [`SPEC.md`](./SPEC.md): package shape first, then host/API fit, then command maturity
 - browser-targeted package/build claims are usually **deployable-through-host**, not standalone-browser **executable** support
 - the CLI is Deno-inspired at the workflow level, not a promise of flag-for-flag Deno parity
