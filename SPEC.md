@@ -789,6 +789,18 @@ Interpretation rules:
 - browser-targeted builds rely on emitted JS glue plus the real browser host
 - supported command/profile combinations should use the selected surface faithfully; unsupported ones fail explicitly rather than silently falling back
 
+### Browser ambient typing vs mediated capability split
+
+To keep the bootstrap goal of “browser API support” honest and implementation-friendly, Kali treats two browser-facing concerns separately:
+1. **browser ambient typing surface** — the globals/types visible during supported browser-targeted analysis/build commands, including normal DOM typings
+2. **Kali-mediated capability model** — the smaller built-in capability subset used for stable effect reports, sandbox policy keys, and Kali-controlled runtime enforcement
+
+Interpretation rules:
+- `--api browser` for supported analysis/build commands selects the real browser ambient typing surface; it is not limited to only the stable sandbox/effect capability keys
+- the stable sandbox/effect contract still talks only about the **Kali-mediated capability subset** defined below rather than one key per DOM/browser API
+- this split is why browser-targeted `check` / `build --bundle` can type-check ordinary browser programs while still avoiding any claim that Kali embeds a standalone browser runtime or mediates every browser-host operation after deployment
+- when docs mention browser support, they should say whether they mean **ambient typing/build targeting** or **stable sandbox/effect coverage** instead of collapsing both into one vague promise
+
 ## Single-Payload and Dynamic-Loading Boundary
 
 ### Single-payload rule

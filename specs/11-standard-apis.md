@@ -21,7 +21,8 @@ For the compact cross-spec summary of early host/API behavior, see the canonical
 
 To keep runtime imports, globals, and package expectations aligned:
 - the **Web Platform baseline** is the shared baseline across supported surfaces
-- `--api deno`, `--api node`, and `--api browser` control which **additional** globals/modules beyond that baseline are available
+- `--api deno`, `--api node`, and `--api browser` control which **additional** ambient globals/modules beyond that baseline are available for the selected supported command/profile
+- for supported browser-targeted analysis/build commands, `--api browser` means the real browser ambient typing layer, not merely the smaller stable sandbox/effect capability set; see the **Browser ambient typing vs mediated capability split** in [SPEC.md](../SPEC.md)
 - browser-targeted contexts must not expose process/env/file globals just because the underlying host runtime happens to have them
 - unsupported globals/modules are absent; Kali must not invent dummy shims by default
 - use the canonical `E5006` availability path for **documented command/profile or feature gating** (for example `--api node` before Phase 3, or `run --api browser` in early phases)
@@ -155,6 +156,7 @@ Two layers matter here and should not be conflated:
 
 Canonical rule:
 - browser-targeted `check` and `build --bundle --api browser` should type-check against the real browser ambient surface, including DOM typings that are normally present in browser-focused TypeScript programs; the matching maturity claim lives in the single consolidated browser-analysis/build row in [19 — Feature Maturity](19-feature-maturity.md)
+- this follows the top-level **Browser ambient typing vs mediated capability split** in [SPEC.md](../SPEC.md): browser ambient typing is broader than the stable sandbox/effect model
 - this does **not** mean Kali's standalone runtime implements or emulates those DOM APIs
 - when Kali emits browser-targeted artifacts, DOM/Web APIs are expected to come from the real browser host at deployment time
 - the generated browser glue is for runtime bootstrap plus Kali-mediated capability wiring; it is **not** a claim that every browser ambient API is wrapped behind a Kali-specific shim or individually mediated by the schema-v1 sandbox model

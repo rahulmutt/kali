@@ -448,6 +448,7 @@ Argument-kind simplification:
 Isolation rule:
 - package-analysis commands may fetch package metadata/tarballs into a temporary analysis cache
 - that cache is intentionally outside the project's managed dependency state: it is not lockfile-backed project installation state and may be discarded between invocations
+- reusable cache entries must be keyed by at least the canonical registry identifier plus the resolved concrete version; for `package-effects`, the effective analysis context (`apiSurface`, `runtimeProfiles`, `compat.features`) is part of that cache identity too so browser/deno/runtime-profile/compat analyses cannot collide accidentally
 - they must **not** mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
 - promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
 
