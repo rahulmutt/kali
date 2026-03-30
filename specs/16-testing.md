@@ -42,7 +42,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | Package compatibility | curated package corpus results recorded per command/profile (`check`, `build`, `test`, `run`) |
 | CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |
 | Artifact reproducibility | repeated-build tests over pinned inputs/toolchains + normalized artifact-byte comparisons + stable emitted-metadata assertions |
-| Proof-backed claims | passing Lean proof jobs for the currently modeled subset |
+| Proof-backed claims | passing Lean proof jobs for the currently modeled subset, scoped by the published **proof-boundary manifest** |
 
 Interpretation rule:
 - a feature can stay listed as a future phase target before these tests exist
@@ -167,7 +167,7 @@ Kali's own test runner for discovered test files, supporting:
 
 Proof-job consistency rule:
 - Lean verification is **not** an all-or-nothing claim that the whole language/runtime is already modeled.
-- CI should run the proof job whenever changes touch the proof tree itself or a Rust/spec subsystem that the current Lean model claims to cover (for example the modeled type, effect, memory, or sandbox core).
+- CI should run the proof job whenever changes touch the proof tree itself or a Rust/spec subsystem that the published **proof-boundary manifest** claims to cover (for example the modeled type, effect, memory, or sandbox core).
 - Changes outside that modeled subset do not need to block on unrelated proof jobs, but they still must not weaken the documented proof boundary accidentally.
 
 ### Test Data

@@ -272,7 +272,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
 - `check/build --sandbox` perform the documented Phase-1 policy-schema/config validation without overclaiming full inferred-effect-vs-policy checking yet.
 - The shared **effect-surface split** remains intact in Phase 1: internal effect bookkeeping may exist, but the stable **public effect-report surface** (`kali effects` / `kali package-effects` reporting and inferred-effect-vs-policy validation) is still correctly absent or explicitly experimental.
-- The Lean-backed verification story is phase-correct: the proof boundary is published, proof-backed claims stay scoped to the currently modeled subset, and CI enforces that modeled subset without implying full-language verification.
+- The Lean-backed verification story is phase-correct: one published **proof-boundary manifest** defines the currently modeled subset, proof-backed claims stay scoped to that manifest, and CI enforces it without implying full-language verification.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
 - Package support works for the documented pure JS/TS, statically linkable subset.
 - Non-install commands still fail with `E5004` on missing/stale dependency state instead of auto-installing or auto-repairing project-managed dependency state.
@@ -281,7 +281,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - MIR is the canonical ownership/layout IR.
 - The Phase-2 **public effect-report surface** is live: `kali effects` emits the documented stable JSON report, `kali package-effects` reuses that shared contract, and explicit effect annotations / `pure` checking are enabled for the built-in capability model.
 - Compile/check-time effect-vs-policy validation works against the declarative policy schema, extending the existing Phase-1 policy-file/config validation path rather than replacing it.
-- Proof coverage expands alongside the modeled ownership/effect/lowering core rather than remaining frozen at the initial Phase-1 proof kernel.
+- Proof coverage expands alongside the modeled ownership/effect/lowering core rather than remaining frozen at the initial Phase-1 proof kernel, and the published **proof-boundary manifest** grows with those claims instead of leaving proof scope implicit.
 - Stable public Rust embedding and C ABI surfaces are documented and shipped.
 - The Phase-1 base `kali build --lib` artifact is promoted into the stable public library/WIT contract, including default WIT emission.
 - Public library/component outputs emit the documented WIT interface contract, and the initial Component Model packaging path works end-to-end.

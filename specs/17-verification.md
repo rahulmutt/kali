@@ -25,6 +25,22 @@ Rule:
 - a phase can ship with partial proof coverage as long as support claims stay inside the documented proof boundary and the matching implementation/testing evidence still exists
 - verification should deepen the same hard invariants the bootstrap cares about most: AOT-only execution, sandbox honesty, deterministic machine contracts, and memory safety without tracing GC
 
+## Published Proof Boundary
+
+Phase 1 should make the verification claim auditable through one published **proof-boundary manifest** (see [SPEC.md](../SPEC.md)) rather than through scattered prose.
+
+That manifest should enumerate, at minimum:
+- the modeled calculus/subsystem slice currently covered in Lean,
+- the named theorems/properties currently claimed,
+- trusted assumptions and explicitly unmodeled features,
+- which implementation/spec subsystems are expected to remain aligned with the model,
+- and the CI trigger rule for when the proof job must run.
+
+Practical simplification:
+- one manifest is the canonical verification boundary for release notes, maturity claims, and CI wiring
+- chapters may summarize it, but they should not invent slightly different proof-scope claims of their own
+- broad phrases such as “formally verified” should be read as “verified for the currently published proof boundary”, not as blanket coverage of all language/runtime behavior
+
 ### Type System Soundness
 Prove soundness for the **core typed fragment** first:
 - **Progress**: well-typed core terms either are values, can step, or are blocked only at an explicitly modeled effect boundary / host boundary
@@ -87,8 +103,8 @@ Lean proofs are evidence for the **currently modeled subset**, not a blanket sup
 Canonical rule:
 - a proof may justify stronger confidence for the modeled core fragment
 - it does **not** by itself promote a feature's maturity label or replace the command/profile-specific evidence tracks from [specs/16-testing.md](16-testing.md)
-- public support wording should therefore require both: the proof claim staying inside its documented model boundary **and** the matching implementation/testing evidence for the command/profile being claimed
-- when the implementation grows beyond the current proof kernel, the unsupported remainder must stay explicitly outside the proof claim rather than being described as informally "covered enough"
+- public support wording should therefore require both: the proof claim staying inside the published **proof-boundary manifest** **and** the matching implementation/testing evidence for the command/profile being claimed
+- when the implementation grows beyond the current proof kernel, the unsupported remainder must stay explicitly outside that manifest rather than being described as informally "covered enough"
 
 This keeps the bootstrap's Lean-verification ambition aligned with the rest of the spec set: verification grows iteratively, but support claims remain evidence-backed and phase-correct.
 
@@ -125,7 +141,7 @@ cd proofs && lake build
 
 CI consistency rules:
 - proof failure blocks merge **for the currently modeled subset**; this is not a claim that all of Kali is already formalized
-- the proof job should trigger whenever a PR changes `proofs/` or changes a Rust/spec subsystem that the Lean model explicitly covers (initially the core type/effect/memory/sandbox fragments)
+- the proof job should trigger whenever a PR changes `proofs/` or changes a Rust/spec subsystem that the published **proof-boundary manifest** says is covered (initially the core type/effect/memory/sandbox fragments)
 - subsystems outside the current proof boundary may evolve without a mandatory proof job, but they must remain outside the documented proof claims until the model is extended
 
 ## Non-Goals

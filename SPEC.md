@@ -180,6 +180,7 @@ Use this checklist:
 - package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
 - Phase-1 internal effect machinery versus Phase-2 stable effect-report-command wording should reuse the **effect-surface split** instead of creating new near-duplicate “effects exist internally but not publicly yet” prose in each chapter
+- verification-boundary wording should reuse the **proof-boundary manifest** term instead of scattering slightly different “modeled subset”, “proof kernel”, or “published proof scope” prose across verification, testing, and maturity chapters
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
 - package-loading and whole-graph-linking wording should reuse the **linked-artifact model** term instead of restating slightly different “single linked payload”, “already-linked graph”, or “no runtime-linked WASM modules” prose
 - package-compatibility wording should reuse the **pure JS/TS package contract** and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different native-addon / downloaded-binary exclusion lists
@@ -459,6 +460,21 @@ Rules:
 - Phase 1 may rely on **internal effect bookkeeping** without implying that effect JSON, command availability, or machine-readable report fields are already stable
 - docs should use this split when they need to explain why sandbox-first implementation can start before the stable report commands land
 - chapters should avoid phrasing that makes the absence of the **public effect-report surface** sound like the total absence of effect infrastructure
+
+### Proof-boundary manifest
+The checked-in declaration of what Kali's current formal-verification claims actually cover.
+
+Canonical contents:
+- the modeled subsystem/calculus boundary,
+- the named theorem/property inventory currently claimed,
+- the trusted assumptions and explicitly unmodeled features,
+- the implementation/spec areas that are expected to stay aligned with that model,
+- the CI rule for when proof jobs must run.
+
+Rules:
+- Phase-1 proof-backed support claims should point to one published **proof-boundary manifest** instead of scattering slightly different proof-scope descriptions across chapters
+- this manifest scopes confidence claims; it does **not** by itself promote maturity or replace command/profile evidence from [`specs/16-testing.md`](./specs/16-testing.md)
+- when the implementation grows beyond the current proof kernel, the unsupported remainder must stay outside the manifest rather than being described as informally covered
 
 ### Canonical browser-applicable mediated subset (schema v1)
 When a chapter says browser-targeted policy/effect reasoning uses the browser-applicable part of the **Kali-mediated capability subset**, it means:
