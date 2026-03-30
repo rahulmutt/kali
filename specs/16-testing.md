@@ -17,6 +17,7 @@ End-to-end tests in `tests/`:
 - Source file → compile → check errors
 - Source file → effects analysis → check effect-report JSON output *(Phase 2 target; this belongs to the shared **public effect-report surface** from [SPEC.md](../SPEC.md), so earlier phases should assert that the command is unavailable or explicitly experimental even if internal effect bookkeeping tests already exist)*
 - Source file + policy → sandbox validation → check result *(Phase 1 MVP for runtime enforcement + policy-file/config validation; Phase 2 target for inferred effect-vs-policy validation too)*
+- Test source set → `kali test [files...]` / `kali test --filter ...` → correct discovery-vs-explicit-file selection behavior, stable post-selection filtering, and expected invalid-entrypoint rejection for declaration-only test inputs
 - Library source → `kali build --lib` → export-oriented **base library artifact** + deterministic artifact metadata *(Phase 1 MVP for the base library artifact; the stable public embedding surface remains a Phase 2 target)*
 - Browser-targeted source → the shared **Phase-1 browser-targeted command set** → expected diagnostics/type success for `check` and emitted artifact + smoke execution in a real browser harness for `build --bundle`, including equivalent inherited-config forms and supported `--sandbox` variants where applicable
 - Repeated build of the same pinned input/context → byte-stable artifacts and stable machine-readable metadata by default
@@ -160,7 +161,8 @@ kali test --coverage                        # Phase 2 target: with coverage repo
 Kali's own test runner for discovered test files, supporting:
 - default discovery starts from the canonical project-discovery result from [SPEC.md](../SPEC.md), then matches `*.test.*` / `*_test.*` across the shared **executable/analyzable source-file class**
 - declaration-only files are excluded from test discovery even if they match the naming pattern
-- explicit file arguments to `kali test` must also belong to that same shared source-file class; passing a declaration-only file is the canonical invalid-entrypoint error (`E5007`) rather than a silent skip
+- explicit file arguments to `kali test` bypass the naming-pattern discovery filter and are treated as one explicit test-module set, but they must still belong to that same shared source-file class; passing a declaration-only file is the canonical invalid-entrypoint error (`E5007`) rather than a silent skip
+- `--filter` should be tested as a post-selection narrowing step over both discovered tests and explicit test-module sets so it cannot drift into a second discovery mode
 - coverage reporting is a **Phase 2 target** so Phase 1 may reject `--coverage` or mark it experimental until the report contract is stabilized
 - `describe`, `it`, `test` blocks
 - `expect` assertions

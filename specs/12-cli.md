@@ -465,7 +465,8 @@ Canonical discovery rule:
 Run test files.
 ```bash
 kali test                                  # Run discovered tests from the executable/analyzable source-file class
-kali test --filter "math"                  # Filter by name
+kali test src/math.test.ts src/vec.test.ts # Run an explicit test-module set
+kali test --filter "math"                  # Filter discovered or explicit tests by name
 kali test --sandbox kali.policy.json       # Run tests in sandbox
 kali test --coverage                       # Phase 2 target: with coverage report once the stable contract lands
 kali test --api deno                       # Supported early standalone test profile
@@ -476,8 +477,9 @@ kali test --api browser                    # Later compatibility; unavailable in
 Canonical discovery rule:
 - default test discovery starts from the canonical project-discovery result, then matches `*.test.*` / `*_test.*` only across the shared **executable/analyzable source-file class** from [SPEC.md](../SPEC.md)
 - declaration-only files are never test entrypoints even if they match the naming pattern
-- if explicit file arguments are supplied to `kali test`, those paths bypass the naming-pattern discovery filter and are treated as direct test-module inputs instead
+- if explicit file arguments are supplied to `kali test`, those paths bypass the naming-pattern discovery filter and are treated as one direct explicit test-module set instead
 - each explicit `kali test` file must still belong to the shared **executable/analyzable source-file class**; passing a declaration-only file is the canonical invalid-entrypoint error (`E5007`), not a silent skip
+- `--filter <pattern>` narrows the selected discovered or explicit test cases after module selection; it does not change discovery roots, API-surface gating, sandbox behavior, or file-kind validation
 
 Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run`, and analysis/build commands (`kali check`, `kali effects`, `kali build`) follow the same API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
 
