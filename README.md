@@ -13,6 +13,11 @@ Shortcuts:
 - **How does it work?** → owning chapter first, then `SPEC.md`
 - **What proof coverage is claimed today?** → `proofs/BOUNDARY.md`
 
+README scope note:
+- this file is overview-first and intentionally non-normative
+- `SPEC.md` owns shared terminology/normalization, `specs/19-feature-maturity.md` owns shipped availability, and owning chapters own subsystem details
+- when README summary bullets and the detailed specs differ, prefer the specs
+
 ## Hard invariants
 These are fixed unless the top-level spec changes:
 - **AOT only** — no language-level JIT
@@ -28,8 +33,8 @@ Phase 1 is intentionally narrow. For exact boundaries, read the **Phase-1 Shippe
 - **Project workflow**: `kali init`, `kali init --lib`, `kali install`, `kali fmt`, `kali lint`, and `kali check [files...]` are the main authoring loop.
 - **Execution**: `kali run <file>` and `kali test [files...]` ship only in the default/inherited Deno-oriented standalone context, using wasmtime for Kali-hosted execution.
 - **Builds**: `kali build <file>` ships as the default executable build in the shared **Deno-oriented build context (schema v1)**; `kali build --lib <file>` ships as the Phase-1 **base library artifact** for **exact-version consumers** when Kali can determine a **statically known export surface**. Here, the Deno-oriented build context is the build/analysis default, not a claim that Phase-1 library outputs expose a Deno-specific public ABI.
-- **Browser support**: Phase 1 browser support is exactly the shared **Phase-1 browser-targeted command set** from [`SPEC.md`](./SPEC.md) — browser-targeted `kali check [files...]` *(including both the project-discovery no-file form and explicit-file-set forms)* plus browser-targeted `kali build --bundle <file>`, including supported `--sandbox` variants and inherited-config equivalents when the effective `apiSurface` is `browser`.
-- **Sandboxing/effects**: `run/test --sandbox` enforce at runtime; the shared **Phase-1 static policy-validation surface** does static policy-schema/config validation only in Phase 1; later public effect reporting stays on the explicit `kali effects <file>` / `kali package-effects <package>` commands rather than a `run/test --dry` side path.
+- **Browser support**: Phase 1 browser support is exactly the shared **Phase-1 browser-targeted command set** from [`SPEC.md`](./SPEC.md).
+- **Sandboxing/effects**: `run/test --sandbox` enforce at runtime; the shared **Phase-1 static policy-validation surface** from [`SPEC.md`](./SPEC.md) does static policy-schema/config validation only in Phase 1; later public effect reporting stays on the explicit `kali effects <file>` / `kali package-effects <package>` commands rather than a `run/test --dry` side path.
 - **Packages**: early support is broad only inside the shared **pure JS/TS package contract** plus the documented raw-URL workflow, and every package claim should still be read through the same order: package shape → host/API fit → command maturity → exact support rung.
 - **Registry analysis**: no stable public `kali package-effects` or `kali package-audit` command ships in Phase 1. `kali package-effects` is intentionally dual-classified once it does ship: it is a registry-analysis command by input shape and part of the public effect-report surface by output contract.
 - **Verification**: reuse the canonical repository summary from [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md): **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
