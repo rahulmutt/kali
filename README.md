@@ -13,6 +13,7 @@ Bootstrap-normalized headline assumptions:
 - the Phase-1 plain `kali build --lib` output is intentionally useful but **not yet a stable public ABI/WIT promise**; stable public embedding starts in Phase 2
 - follow the shared **effect-surface split** from [SPEC.md](./SPEC.md): public static effect-report commands (`kali effects`, `kali package-effects`) are a **Phase-2** surface, while Phase 1 may already rely on internal effect bookkeeping for sandboxing without implying a stable user-facing JSON report yet; `kali package-audit` is even later and should not be read back into the Phase-1 sandbox-first story
 - package installation stays **context-agnostic** in early phases: one lock/install state serves the default Deno path and supported browser-targeted analysis/build paths, while final `exports`/`browser` edge selection happens at command time
+- Phase-1 package compatibility is still **context-sensitive**: pure JS/TS packages may target the Deno-first standalone baseline or the supported browser-targeted `check`/`build --bundle` contexts, while Node-host-heavy assumptions remain phase-gated
 - package compatibility in Phase 1 stays inside the shared **pure JS/TS package contract**; `--allow-scripts` does not widen support to the excluded **native/binary/bootstrap-heavy package contract**
 
 Quick Phase-1 non-goals:

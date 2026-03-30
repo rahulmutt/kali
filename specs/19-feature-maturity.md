@@ -350,8 +350,8 @@ This appendix separates the broad compatibility story into smaller tables so lan
 
 | Concern | Early canonical status | Notes |
 |---|---|---|
-| Pure JS/TS npm packages within the linked-artifact model | Phase 1 MVP | Restricted to the shared **pure JS/TS package contract** |
-| Pure JS/TS JSR packages within the linked-artifact model | Phase 1 MVP | Registry-style install/lock/materialization path just like npm in early phases |
+| Pure JS/TS npm packages within the linked-artifact model | Phase 1 MVP | Restricted to the shared **pure JS/TS package contract** and still context-sensitive: early support covers the Deno-oriented standalone surface plus the supported browser-targeted analysis/build context, not broad Node-host-heavy assumptions |
+| Pure JS/TS JSR packages within the linked-artifact model | Phase 1 MVP | Registry-style install/lock/materialization path just like npm in early phases, with the same Phase-1 Deno-standalone-or-browser-targeted context boundary |
 | Raw URL imports in the shared lock/materialization model | Phase 1 MVP | Pin in `kali.lock`, materialize under `.kali/cache/urls/`, and keep ordinary commands deterministic |
 | Deno-condition package resolution in the default standalone surface | Phase 1 MVP | Honor `exports` condition `deno` when `--api deno` is selected |
 | Browser-condition package resolution in supported browser-targeted analysis/build contexts | Phase 1 MVP | Shared browser package-resolution context for `check --api browser` and `build --bundle --api browser`: honor `exports` condition `browser` plus applicable `package.json#browser` replacement maps consistently |
