@@ -482,6 +482,9 @@ Rules:
 ### Proof-boundary manifest
 The checked-in declaration of what Kali's current formal-verification claims actually cover.
 
+Canonical location:
+- `proofs/BOUNDARY.md` at the repository root
+
 Canonical contents:
 - the modeled subsystem/calculus boundary,
 - the named theorem/property inventory currently claimed,
@@ -491,8 +494,9 @@ Canonical contents:
 
 Rules:
 - Phase-1 proof-backed support claims should point to one published **proof-boundary manifest** instead of scattering slightly different proof-scope descriptions across chapters
+- `proofs/BOUNDARY.md` is the canonical file for that manifest in this repository; other docs may summarize it, but should not replace it with ad hoc proof-scope prose
 - this manifest scopes confidence claims; it does **not** by itself promote maturity or replace command/profile evidence from [`specs/16-testing.md`](./specs/16-testing.md)
-- when the implementation grows beyond the current proof kernel, the unsupported remainder must stay outside the manifest rather than being described as informally covered
+- when the implementation grows beyond the currently published proof boundary, the unsupported remainder must stay outside the manifest rather than being described as informally covered
 
 ### Canonical browser-applicable mediated subset (schema v1)
 When a chapter says browser-targeted policy/effect reasoning uses the browser-applicable part of the **Kali-mediated capability subset**, it means:

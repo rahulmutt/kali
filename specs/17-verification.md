@@ -19,7 +19,7 @@ To keep the bootstrap's Lean requirement aligned with the rest of the phased spe
 | Phase 1 MVP | Core typed calculus, parser/checker model boundaries, declarative sandbox-policy decision procedure, and the trusted-model boundary for AOT/no-tracing-GC invariants |
 | Phase 2 target | Built-in effect inference conservativity, ownership/escape/reference-counting model, and selected lowering-preservation lemmas |
 | Phase 3 target | Specialization/layout-preservation lemmas for the proved fragment, plus stronger package/runtime-model correspondence where the host contract is already stable |
-| Phase 4 compatibility | Late dynamic compatibility paths only after their semantics are frozen enough to model honestly; `eval`/dynamic loading remain outside the proof kernel until then |
+| Phase 4 compatibility | Late dynamic compatibility paths only after their semantics are frozen enough to model honestly; `eval`/dynamic loading remain outside the currently published proof boundary until then |
 
 Rule:
 - a phase can ship with partial proof coverage as long as support claims stay inside the documented proof boundary and the matching implementation/testing evidence still exists
@@ -27,7 +27,7 @@ Rule:
 
 ## Published Proof Boundary
 
-Phase 1 should make the verification claim auditable through one published **proof-boundary manifest** (see [SPEC.md](../SPEC.md)) rather than through scattered prose.
+Phase 1 should make the verification claim auditable through one published **proof-boundary manifest** at `proofs/BOUNDARY.md` (see [SPEC.md](../SPEC.md)) rather than through scattered prose.
 
 That manifest should enumerate, at minimum:
 - the modeled calculus/subsystem slice currently covered in Lean,
@@ -39,7 +39,7 @@ That manifest should enumerate, at minimum:
 Practical simplification:
 - one manifest is the canonical verification boundary for release notes, maturity claims, and CI wiring
 - chapters may summarize it, but they should not invent slightly different proof-scope claims of their own
-- broad phrases such as “formally verified” should be read as “verified for the currently published proof boundary”, not as blanket coverage of all language/runtime behavior
+- broad phrases such as “formally verified” should be read as “verified for the currently published proof boundary in `proofs/BOUNDARY.md`”, not as blanket coverage of all language/runtime behavior
 
 ### Type System Soundness
 Prove soundness for the **core typed fragment** first:
@@ -104,7 +104,7 @@ Canonical rule:
 - a proof may justify stronger confidence for the modeled core fragment
 - it does **not** by itself promote a feature's maturity label or replace the command/profile-specific evidence tracks from [specs/16-testing.md](16-testing.md)
 - public support wording should therefore require both: the proof claim staying inside the published **proof-boundary manifest** **and** the matching implementation/testing evidence for the command/profile being claimed
-- when the implementation grows beyond the current proof kernel, the unsupported remainder must stay explicitly outside that manifest rather than being described as informally "covered enough"
+- when the implementation grows beyond the currently published proof boundary, the unsupported remainder must stay explicitly outside that manifest rather than being described as informally "covered enough"
 
 This keeps the bootstrap's Lean-verification ambition aligned with the rest of the spec set: verification grows iteratively, but support claims remain evidence-backed and phase-correct.
 
@@ -113,7 +113,7 @@ This keeps the bootstrap's Lean-verification ambition aligned with the rest of t
 ### Modeling
 - Define a simplified operational semantics for Kali's core language in Lean
 - This is not the full ECMA-262 spec — focus on the subset relevant to type safety, built-in capability effects, ownership, and selected lowering passes
-- Make the proof boundary explicit: late compatibility features remain outside the proof kernel until their semantics are frozen
+- Make the proof boundary explicit: late compatibility features remain outside `proofs/BOUNDARY.md` until their semantics are frozen
 - The model is a **specification** that the Rust implementation must conform to
 
 ### Proof-Implementation Link

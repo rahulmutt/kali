@@ -167,7 +167,7 @@ Kali's own test runner for discovered test files, supporting:
 
 Proof-job consistency rule:
 - Lean verification is **not** an all-or-nothing claim that the whole language/runtime is already modeled.
-- CI should run the proof job whenever changes touch the proof tree itself or a Rust/spec subsystem that the published **proof-boundary manifest** claims to cover (for example the modeled type, effect, memory, or sandbox core).
+- CI should run the proof job whenever changes touch the proof tree itself or a Rust/spec subsystem that `proofs/BOUNDARY.md` claims to cover (for example the modeled type, effect, memory, or sandbox core).
 - Changes outside that modeled subset do not need to block on unrelated proof jobs, but they still must not weaken the documented proof boundary accidentally.
 
 ### Test Data
