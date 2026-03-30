@@ -100,6 +100,10 @@ Clarification:
 - for `E5004`, "stale" is a **lock/materialization mismatch**, not a vague timestamp heuristic
 - non-install commands should fail clearly and point to `kali install`; they should not repair dependency state as a side effect
 
+Use `E5001` for module/package-not-found-or-not-selectable problems such as:
+- a referenced module or package cannot be found under the documented resolution rules
+- an identity-only registry-target workflow (`kali install <pkg>`, `kali install --dev <pkg>`, `kali package-effects <pkg>`, `kali package-audit <pkg>`) found the package identity, but no non-yanked stable release exists to satisfy the schema-v1 stable-release selection rule
+
 Use `E5005` for resolution ambiguity problems such as:
 - two candidate package/module edges remaining equally valid after applying the documented resolution rules
 - a manifest/import setup that would require two distinct registry identities to collapse onto the same early-phase `node_modules` package path
@@ -249,6 +253,7 @@ Use `E5008` for cases such as:
 - `kali package-audit lodash react`
 - `kali package-audit https://example.com/mod.ts`
 - `kali package-audit ./local.ts`
+- `kali check ../shared/main.ts` when that path escapes the effective project root
 - `kali check packages/child/main.ts` from a parent project when `packages/child/` has its own `kali.json`
 - `kali build --bundle --api node main.ts`
 - `kali install --sandbox kali.policy.json`

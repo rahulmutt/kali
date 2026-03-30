@@ -459,8 +459,9 @@ Schema-v1 simplification:
 - explicit file/path targets for file-accepting source commands (`run`, `build`, `check`, `effects`, `fmt`, `lint`, `test`) must resolve inside the effective project root
 - they must **not** point into a nested child project that has its own `kali.json`
 - to operate on that child project, invoke Kali from that child project root (or one of its subdirectories) instead of reaching across project boundaries from the parent
+- explicit file/path targets are accepted by explicit user selection even when they would not have been discovered by `include` / `exclude`; those filters constrain discovery, not the meaning of an already-explicit target
 
-This keeps config selection, discovery, lockfile ownership, and diagnostics aligned around one project root per invocation.
+This keeps config selection, discovery, lockfile ownership, and diagnostics aligned around one project root per invocation without making explicitly named targets depend on discovery-only filters.
 
 ### Default excluded managed/generated directories
 When discovery runs without an overriding `include` / `exclude` rule that explicitly brings them back, it should skip these directories by default:

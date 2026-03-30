@@ -81,6 +81,7 @@ Registry-collision simplification rule:
 Several early schema-v1 workflows intentionally accept the **identity-only registry target** form from [SPEC.md](../SPEC.md) instead of an inline version/range selector. To keep those workflows deterministic, they share one resolution rule:
 - **latest non-yanked stable published version** means the highest published SemVer version for that package identity that has **no prerelease identifier** and is not yanked
 - those identity-only workflows must fail explicitly rather than silently selecting a prerelease when no non-yanked stable version exists
+- the canonical failure path for that case is `E5001`: the package identity resolved, but no acceptable stable release existed for the schema-v1 identity-only workflow
 
 Schema-v1 uses this rule for:
 - registry-analysis commands such as `kali package-effects <pkg>` and `kali package-audit <pkg>`

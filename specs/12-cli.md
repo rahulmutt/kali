@@ -64,6 +64,7 @@ Canonical config-discovery rule:
 - if none exists, the command runs in the canonical **configless project mode** from [SPEC.md](../SPEC.md), with the current working directory as the effective project root
 - explicit CLI file arguments do **not** relocate that chosen config/root; they resolve relative to the current working directory, while config-owned relative paths continue to resolve relative to the directory containing the discovered `kali.json`
 - in schema v1, explicit file/path targets for file-accepting source commands (`run`, `build`, `check`, `effects`, `fmt`, `lint`, `test`) must stay inside that effective project root and must not point into a nested child project that has its own `kali.json`; crossing into another project root is invalid command usage (`E5008`)
+- explicit file/path targets bypass `include` / `exclude` discovery filtering once the user names them directly; those filters constrain project discovery, not the meaning of an already-explicit target
 - recursive project discovery for no-argument `check` / `fmt` / `lint` / `test` and for no-package-argument `install` graph scanning must stop at nested child directories that contain their own `kali.json`; those child roots are separate projects in schema v1
 
 Effective-context validation rule:
@@ -588,7 +589,7 @@ Configuration simplification rules:
 - the canonical effect-reporting and sandbox-agnostic command classes from [SPEC.md](../SPEC.md) ignore the top-level `sandbox` setting rather than erroring or silently turning themselves into policy-validation commands
 - `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans
 - in schema v1, the only canonical compatibility feature name is `"eval"`; it gates both direct `eval` support and the `Function()` constructor compatibility path
-- `include` / `exclude` constrain the canonical project-discovery result for project-oriented commands, the dependency-graph install scan, and hybrid no-argument discovery commands such as `check`; direct file arguments still name the primary entry explicitly
+- `include` / `exclude` constrain the canonical project-discovery result for project-oriented commands, the dependency-graph install scan, and hybrid no-argument discovery commands such as `check`; direct file arguments still name the primary entry explicitly and are not silently filtered back out just because they sit outside the discovery globs
 - unless overridden, project-oriented discovery still skips the default managed/generated directories named in [SPEC.md](../SPEC.md)
 - `include` / `exclude` filter only the project's own discoverable files; they do not suppress transitive imports/dependencies reached from an accepted entrypoint and they are not a second package-resolution mechanism
 - generated config from `kali init` should prefer these canonical names and should not duplicate them as parallel top-level keys
