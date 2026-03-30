@@ -85,7 +85,8 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | Subprocess spawning (`Deno.Command`, host `process_spawn`) | Phase 3 target | Requires explicit sandbox/process-budget integration |
 | Socket/listener networking (`Network.Connect`, `Network.Listen`, `Deno.serve`) | Phase 3 target | Requires explicit network policy and concurrency controls |
 | Process identity and process-control/working-directory APIs (`Deno.pid`, `process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`) | Later compatibility | Deferred until a future schema/policy contract makes their sandbox and embedding behavior explicit |
-| Built-in effect inference / `kali effects` | Phase 2 target | Required for sandbox-first analysis and policy checking |
+| Internal sandbox-oriented effect bookkeeping | Phase 1 MVP | Follows the shared **effect-surface split** from [SPEC.md](../SPEC.md): Phase 1 may already maintain conservative built-in effect facts internally for sandbox-first implementation and later integration work without claiming a stable CLI/JSON reporting surface |
+| Stable public built-in effect reporting / `kali effects` / `kali package-effects` | Phase 2 target | This is the Phase-2 **public effect-report surface** side of that same split: stable user-facing effect JSON, reporting commands, and compile/check-time inferred-effect-vs-policy validation |
 | Explicit effect annotations / `pure` | Phase 2 target | Initially scoped to the built-in sandbox capability model |
 | User-defined/custom effect kinds in stable reports or policy checking | Later compatibility | Keep Phase 1-2 machine contracts limited to built-in sandbox-relevant effects |
 | Algebraic effect declarations / handlers | Later compatibility | Experimental and must not block delivery of the core capability/effect system |
@@ -265,15 +266,14 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - `kali check` / `build` / `run` / `test` all use the same early-phase API-surface maturity rules: Deno-supported, Node phase-gated, browser supported only for the documented browser-targeted check/bundle paths.
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
 - `check/build --sandbox` perform the documented Phase-1 policy-schema/config validation without overclaiming full inferred-effect-vs-policy checking yet.
-- Stable user-facing `kali effects` / `kali package-effects` reporting is still correctly absent or explicitly experimental in Phase 1 rather than implied by internal sandbox/effect bookkeeping.
+- The shared **effect-surface split** remains intact in Phase 1: internal effect bookkeeping may exist, but the stable **public effect-report surface** (`kali effects` / `kali package-effects` reporting and inferred-effect-vs-policy validation) is still correctly absent or explicitly experimental.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
 - Package support works for the documented pure JS/TS, statically linkable subset.
 - Non-install commands still fail with `E5004` on missing/stale dependency state instead of auto-installing or auto-repairing project-managed dependency state.
 
 ### Phase 2 exit criteria
 - MIR is the canonical ownership/layout IR.
-- `kali effects` emits the documented stable JSON report.
-- Explicit effect annotations and `pure` checking are enabled for the built-in capability model.
+- The Phase-2 **public effect-report surface** is live: `kali effects` emits the documented stable JSON report, `kali package-effects` reuses that shared contract, and explicit effect annotations / `pure` checking are enabled for the built-in capability model.
 - Compile/check-time effect-vs-policy validation works against the declarative policy schema, extending the existing Phase-1 policy-file/config validation path rather than replacing it.
 - Stable public Rust embedding and C ABI surfaces are documented and shipped.
 - The Phase-1 base `kali build --lib` artifact is promoted into the stable public library/WIT contract, including default WIT emission.

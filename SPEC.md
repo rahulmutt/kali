@@ -172,6 +172,7 @@ Use this checklist:
 - schema-v1 registry dependency value wording should reuse the **exact-version-first registry manifest rule (schema v1)** instead of restating the exact-version requirement in slightly different prose
 - package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
+- Phase-1 internal effect machinery versus Phase-2 stable effect-report-command wording should reuse the **effect-surface split** instead of creating new near-duplicate “effects exist internally but not publicly yet” prose in each chapter
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
 - package-compatibility wording should reuse the **pure JS/TS package contract** and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different native-addon / downloaded-binary exclusion lists
 - source-file-kind wording should reuse **canonical source-file classes**, **executable/analyzable source-file class**, and **canonical project file set** instead of repeating long extension lists in every command chapter
@@ -356,6 +357,16 @@ Rule:
 - built-in effect kinds are the semantic names used by the type/effect system and effect reports
 - `effects.*` keys are the policy/schema paths used for configuration and authorization
 - the mapping between those two layers is centralized in [`specs/18-schemas.md`](./specs/18-schemas.md) and should not be re-invented per chapter
+
+### Effect-surface split
+Kali keeps one explicit split between internal effect machinery and the later stable user-facing reporting surface:
+- **internal effect bookkeeping** — conservative compiler/runtime effect facts that may exist in Phase 1 to support sandbox-first implementation, diagnostics, lowering decisions, or later-proofed integration work
+- **public effect-report surface** — the stable user-facing effect-reporting and policy-comparison workflow (`kali effects`, `kali package-effects`, and compile/check-time inferred-effect-vs-policy validation) that becomes part of the supported contract in Phase 2+
+
+Rules:
+- Phase 1 may rely on **internal effect bookkeeping** without implying that effect JSON, command availability, or machine-readable report fields are already stable
+- docs should use this split when they need to explain why sandbox-first implementation can start before the stable report commands land
+- chapters should avoid phrasing that makes the absence of the **public effect-report surface** sound like the total absence of effect infrastructure
 
 ### Canonical browser-applicable mediated subset (schema v1)
 When a chapter says browser-targeted policy/effect reasoning uses the browser-applicable part of the **Kali-mediated capability subset**, it means:

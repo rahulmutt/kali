@@ -23,8 +23,9 @@ This table is a reading aid only. The normative command-shape and phase-gating r
 The static effect system is intentionally scoped around **sandbox-relevant capabilities** first. The goal is a conservative summary of possible effects, not a full research-grade effect calculus.
 
 Phase simplification:
-- **Phase 1**: internal effect bookkeeping may exist to support diagnostics/runtime integration, but the user-facing contract is runtime sandbox enforcement, policy-schema validation, and resource limits rather than a stable effect-report command
-- **Phase 2+**: `kali effects`, compile-time effect-vs-policy validation, and explicit `pure` / effect annotations become part of the supported workflow
+- follow the shared **effect-surface split** from [SPEC.md](../SPEC.md)
+- **Phase 1**: **internal effect bookkeeping** may exist to support diagnostics/runtime integration, but the user-facing contract is runtime sandbox enforcement, policy-schema validation, and resource limits rather than the stable **public effect-report surface**
+- **Phase 2+**: that **public effect-report surface** arrives — `kali effects`, compile-time effect-vs-policy validation, and explicit `pure` / effect annotations become part of the supported workflow
 
 This keeps the sandbox-first story implementable: enforcement exists from the beginning, while the stable effect-report contract lands once the type/effect infrastructure is ready.
 
@@ -43,7 +44,7 @@ function processFile(path: string) {
 kali effects program.ts
 ```
 
-`kali effects` is a Phase 2 target feature. Before then, equivalent internal analysis may exist only as compiler infrastructure and does not need to be exposed as a stable user-facing command.
+`kali effects` is part of the Phase-2 **public effect-report surface**. Before then, equivalent internal analysis may exist only as **internal effect bookkeeping** and does not need to be exposed as a stable user-facing command.
 
 The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md). This chapter treats that schema as the single source of truth for field names and payload shape.
 

@@ -9,7 +9,7 @@ Bootstrap-normalized headline assumptions:
 - dynamic compatibility paths such as `eval` and `Function()` are part of the long-term contract, but remain explicitly phase-gated behind the single schema-v1 compatibility switch `eval`
 - runtime/embedding behavior is standardized on **wasmtime first**; alternative WASM engines are a later extension, not an equal Phase-1 contract
 - build artifact modes follow one canonical matrix: default executable compile intent, browser-bundle executable compile intent, a Phase-1 **base library artifact** for library compile intent, and later Phase-2 **public embedding surface** milestones layered on that same exported-library contract
-- public static effect-report commands (`kali effects`, `kali package-effects`) are a **Phase-2** surface; Phase 1 may already rely on internal effect bookkeeping for sandboxing, but that does not imply a stable user-facing JSON report yet
+- follow the shared **effect-surface split** from [SPEC.md](./SPEC.md): public static effect-report commands (`kali effects`, `kali package-effects`) are a **Phase-2** surface, while Phase 1 may already rely on internal effect bookkeeping for sandboxing without implying a stable user-facing JSON report yet
 - package installation stays **context-agnostic** in early phases: one lock/install state serves the default Deno path and supported browser-targeted analysis/build paths, while final `exports`/`browser` edge selection happens at command time
 - package compatibility in Phase 1 stays inside the shared **pure JS/TS package contract**; `--allow-scripts` does not widen support to the excluded **native/binary/bootstrap-heavy package contract**
 
