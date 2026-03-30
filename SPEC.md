@@ -119,6 +119,7 @@ Use this checklist:
 - phase availability belongs to [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
+- compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
 - library/export-oriented build wording should reuse the **embedding-stability split**, **library-oriented instantiation rule**, and **statically known export surface** terms
 - single-package registry-analysis wording should reuse the **registry-analysis context split**, **registry-analysis project-independence rule**, and **stable-release selection rule (schema v1)**
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
@@ -244,6 +245,18 @@ Rules:
 - these facades report state that Kali already resolved elsewhere; they are not interactive permission-prompt channels
 - they are effect-free in schema v1 unless an owning chapter explicitly adds a new effect family later
 - they must not imply a second sandbox-policy namespace just for observation APIs
+
+### Recognized-but-unavailable compatibility member
+An API member that Kali intentionally recognizes as part of a broader compatibility surface, but that is unavailable in the current phase/availability context and therefore fails through the canonical `E5006` path instead of behaving like an ordinary missing/unknown member.
+
+Canonical schema-v1 examples:
+- `Deno.permissions.request(...)`
+- `Deno.permissions.revoke(...)`
+
+Rules:
+- use this term when the compatibility surface should remain visible/documented, but the specific member is still phase-gated
+- these members must not degrade into silent no-ops, fake prompts, hidden policy mutation, or ordinary missing-member drift between checker and runtime
+- ordinary absent globals/properties that are simply not part of the selected ambient surface are still handled by the usual name/type diagnostics rather than by this term
 
 ### Kali-hosted execution budgets
 The schema-v1 cross-cutting `resources.*` limits used for Kali-controlled execution environments, such as:
@@ -577,7 +590,7 @@ Rules:
 | runtime/host ABI | [`specs/10-runtime.md`](./specs/10-runtime.md) |
 | standard APIs | [`specs/11-standard-apis.md`](./specs/11-standard-apis.md) |
 | CLI shape and exit behavior | [`specs/12-cli.md`](./specs/12-cli.md) |
-| embedding/C API/WIT | [`specs/13-embedding.md`](./specs/13-embedding.md) |
+| embedding/C ABI/WIT | [`specs/13-embedding.md`](./specs/13-embedding.md) |
 | packages/install/lock behavior | [`specs/14-packages.md`](./specs/14-packages.md) |
 | diagnostics semantics | [`specs/15-errors.md`](./specs/15-errors.md) |
 | testing/conformance evidence | [`specs/16-testing.md`](./specs/16-testing.md) |

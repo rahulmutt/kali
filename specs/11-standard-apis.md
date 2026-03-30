@@ -80,7 +80,7 @@ Deno is the primary standalone-runtime API surface because it fits Kali's explic
 - Metadata APIs: `Deno.stat`, `Deno.statSync`, `Deno.readDir`, `Deno.readDirSync`
 - Invocation arguments: `Deno.args`
 - Environment access: `Deno.env.get`, `Deno.env.toObject` *(both expose only the sandbox-permitted environment view rather than the raw host environment)*
-- `Deno.permissions` as the canonical **observation-only compatibility facade** over Kali sandbox policy state; in Phase 1 this is a **query-only** surface that reports granted/denied capability state and does not provide interactive permission prompts or `request()` / `revoke()`-style privilege escalation flows (the canonical maturity decision for this facade lives in [specs/19-feature-maturity.md](19-feature-maturity.md) and the cross-spec term is defined in [SPEC.md](../SPEC.md))
+- `Deno.permissions` as the canonical **observation-only compatibility facade** over Kali sandbox policy state; in Phase 1 this is a **query-only** surface that reports granted/denied capability state and does not provide interactive permission prompts or privilege-escalation flows (the canonical maturity decision lives in [specs/19-feature-maturity.md](19-feature-maturity.md), and the cross-spec terminology lives in [SPEC.md](../SPEC.md))
 
 Effect/sandbox mapping simplification:
 - `Deno.stat*` and `Deno.readDir*` stay under the existing `effects.fileSystem.read` capability rather than introducing separate metadata-directory effect keys in schema v1
@@ -93,8 +93,8 @@ Implementation simplification:
 - Phase 1 should therefore expose the minimal query-oriented surface only
 - `Deno.permissions.query(...)` is the only stable callable path in that facade in Phase 1
 - because Kali does not implement interactive permission prompting in Phase 1, the query result should collapse to the two stable states `granted` and `denied`; it must not report a synthetic `prompt` state that would imply a later `request()` escalation path
-- to keep checker and runtime behavior aligned, `Deno.permissions.request(...)` and `Deno.permissions.revoke(...)` should be treated as **recognized-but-unavailable compatibility members** in Phase 1 rather than as silently missing surface area
-- those members must therefore fail explicitly with the canonical availability path (`E5006`) rather than degrading into ordinary missing-property errors, no-ops, synthetic prompts, or hidden policy mutations
+- to keep checker and runtime behavior aligned, `Deno.permissions.request(...)` and `Deno.permissions.revoke(...)` should be treated as **recognized-but-unavailable compatibility members** from [SPEC.md](../SPEC.md) in Phase 1 rather than as silently missing surface area
+- those members must therefore fail explicitly with the canonical availability path (`E5006`)
 
 For host-capability maturity, the canonical source of truth is [specs/19-feature-maturity.md](19-feature-maturity.md). In particular:
 - read-only environment access is part of the Phase 1 standalone contract
