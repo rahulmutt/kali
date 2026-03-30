@@ -294,8 +294,10 @@ Canonical artifact-mode rule:
 
 Sandbox clarification:
 - `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config, and starting in the Phase 2 target window it also performs effect-vs-policy validation.
+- on `build`, `--sandbox <policy>` is orthogonal to artifact mode: once the underlying build shape is otherwise valid, attaching `--sandbox` adds the same static policy-validation/comparison step without changing compile intent, artifact selection, or the command's ordinary API-surface gates.
+- therefore `kali build --lib --sandbox ...` is the same library-oriented build plus static policy validation, while later `--capi --sandbox ...` / `--component --sandbox ...` reuse that same rule once those artifact modes themselves exist.
 - `kali build --bundle --api browser --sandbox ...` follows the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md): it is a build-time compatibility check over the documented mediated subset, not automatic runtime sandbox enforcement once the emitted browser bundle is deployed into a real browser host.
-- the same effective-context rule applies to inherited browser config: plain `kali build --sandbox kali.policy.json main.ts` under an inherited browser API surface is still the same non-bundle browser-build contradiction as explicit `kali build --api browser --sandbox kali.policy.json main.ts`, so it stays `E5008` until a non-bundle browser build mode exists.
+- the same effective-context rule applies to inherited browser config: plain `kali build --sandbox kali.policy.json main.ts` under an inherited browser API surface is still the same non-bundle browser-build contradiction as explicit `kali build --api browser --sandbox kali.policy.json main.ts`, and plain `kali build --lib --sandbox kali.policy.json lib.ts` under an inherited browser API surface is still the same browser-library contradiction as explicit `kali build --lib --api browser --sandbox kali.policy.json lib.ts`, so both stay `E5008` until those browser build shapes exist.
 ```bash
 kali build main.ts                         # → main.wasm (--fast mode, default; artifact: kind=wasm-module, role=primary-executable)
 kali build --release main.ts               # Optimized build
@@ -306,6 +308,7 @@ kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is 
 kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early for builds either
 kali build --lib lib.ts                    # Phase-1 base library artifact following the shared library-oriented instantiation rule and embedding-stability split from SPEC.md (kind=wasm-module, role=primary-library; from the Phase 2 target onward the same plain --lib path becomes the stable public library/WIT contract and adds kind=wit, role=interface-wit by default)
+kali build --lib --sandbox kali.policy.json lib.ts # Same Phase-1 base library artifact plus static policy validation; `--sandbox` does not change library compile intent
 kali build --lib --api node lib.ts         # Phase 3 target: Node API surface remains build-gated for library-oriented modes too
 kali build --lib --api browser lib.ts      # Invalid usage (E5008) in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library artifact mode
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + lib.cabi.json (artifacts: wasm-module + wit + c-header + cabi-metadata; roles: primary-library + interface-wit + embedding-header + embedding-metadata; `lib.exports.h` is the program-specific exports header, and `lib.cabi.json` is the generated `cabi-metadata` file, not the host ABI header `kali.h`; see specs/13-embedding.md)
@@ -328,8 +331,8 @@ Inherited build-context shorthand summary:
 | `deno` (default) | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Supported early executable build path |
 | `node` | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Same Node build gate as explicit `--api node`; no silent fallback to `deno` |
 | `browser` | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Invalid usage (`E5008`): same contradiction as explicit `kali build --api browser ...` until a non-bundle browser build mode exists |
-| `node` | `kali build --lib lib.ts` / `kali build --capi lib.ts` / `kali build --component lib.ts` | Same Node build gate as the corresponding explicit `--api node` library-oriented form; no silent fallback |
-| `browser` | `kali build --lib lib.ts` / `kali build --capi lib.ts` / `kali build --component lib.ts` | Invalid usage (`E5008`): same contradiction as the corresponding explicit browser library-oriented form |
+| `node` | `kali build --lib lib.ts` / `kali build --lib --sandbox kali.policy.json lib.ts` / `kali build --capi lib.ts` / `kali build --component lib.ts` | Same Node build gate as the corresponding explicit `--api node` library-oriented form; `--sandbox` does not create a separate availability path or silent fallback |
+| `browser` | `kali build --lib lib.ts` / `kali build --lib --sandbox kali.policy.json lib.ts` / `kali build --capi lib.ts` / `kali build --component lib.ts` | Invalid usage (`E5008`): same contradiction as the corresponding explicit browser library-oriented form |
 | non-browser (`deno` / `node`) | `kali build --bundle main.ts` | Invalid usage (`E5008`): `--bundle` is browser-only |
 | `browser` | `kali build --bundle main.ts` | Same supported request as explicit `kali build --bundle --api browser main.ts` |
 | non-browser (`deno` / `node`) | `kali build --bundle --sandbox kali.policy.json main.ts` | Invalid usage (`E5008`): `--sandbox` does not change the browser-only meaning of `--bundle` |

@@ -28,7 +28,7 @@ To keep tests from accidentally widening support claims, the repository should t
 - **Internal-only machinery** (for example Phase-1 effect bookkeeping) should be tested through unit/integration helpers without being mislabeled as the stable public CLI/API surface.
 
 Practical shortcut:
-- `run` / `test` sandbox enforcement, `check` / `build --sandbox` policy validation, the **Phase-1 browser-targeted command set**, and `build --lib` need positive Phase-1 coverage.
+- `run` / `test` sandbox enforcement, `check` / `build --sandbox` policy validation, the **Phase-1 browser-targeted command set**, and `build --lib` including `build --lib --sandbox` need positive Phase-1 coverage.
 - `kali effects` / `kali package-effects`, inferred-effect-vs-policy rejection, stable public embedding flows (`--capi`, `--component`, stable public `--lib` + WIT), and proof-backed release claims stay negative/gated until their owning phase opens.
 
 ### Conformance Test Suites

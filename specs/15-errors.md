@@ -153,7 +153,7 @@ Use `E5006` for cases such as:
 - more generally, any participating **source-graph command** (`check`, `effects`, `build`, `run`, `test`) under an inherited `compilerOptions.runtimeProfiles = ["wasm-threads"]` or `compat.features = ["eval"]` must hit the same `E5006` availability gate as the corresponding explicit `--wasm-threads` / `--compat eval` request instead of silently ignoring the inherited profile/compat selection
 - plain `kali test` or `kali test --sandbox kali.policy.json` under an inherited `compilerOptions.apiSurface = browser` or `compilerOptions.apiSurface = node`, for the same reason
 - plain `kali build main.ts` or `kali build --sandbox kali.policy.json main.ts` under an inherited `compilerOptions.apiSurface = node`, because inherited build contexts must not silently fall back to `deno`
-- plain `kali build --lib lib.ts`, `kali build --capi lib.ts`, or `kali build --component lib.ts` under an inherited `compilerOptions.apiSurface = node`, once those artifact modes exist, for the same inherited-context reason
+- plain `kali build --lib lib.ts`, `kali build --lib --sandbox kali.policy.json lib.ts`, `kali build --capi lib.ts`, or `kali build --component lib.ts` under an inherited `compilerOptions.apiSurface = node`, once those artifact modes exist, for the same inherited-context reason
 - well-formed base invocations that hit the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md), such as `kali package-effects lodash` before Phase 2 or `kali package-audit lodash` before that **Later compatibility** command exists
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - positive values for the shared **feature-gated zero-capable execution budgets** from [SPEC.md](../SPEC.md) before the selected command/runtime-profile/API-surface combination actually supports subprocesses or threads
@@ -320,6 +320,7 @@ Examples:
 - `kali build --api browser main.ts`
 - plain `kali build --sandbox kali.policy.json main.ts` under an inherited browser API surface
 - plain `kali build --lib lib.ts` under an inherited browser API surface
+- plain `kali build --lib --sandbox kali.policy.json lib.ts` under an inherited browser API surface
 - plain `kali build --capi lib.ts` under an inherited browser API surface
 - plain `kali build --component lib.ts` under an inherited browser API surface
 - `kali build --bundle main.ts` under the default/inherited non-browser API surface
