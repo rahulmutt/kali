@@ -25,7 +25,7 @@ Command-family terminology used in this chapter:
 - canonical availability promises live in [19 — Feature Maturity](19-feature-maturity.md)
 - **execution commands**: `run` and `test`
 - **build-like commands**: `build`, plus the compile step embedded inside `run` and `test`
-- **diagnostic-producing commands**: `check`, `build`, `run`, `test`, `fmt --check`, and `lint`
+- **diagnostic-producing commands**: `check`, `effects`, `package-effects`, `build`, `run`, `test`, `fmt --check`, and `lint`
 
 Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - `run`, `build`, and `effects` are **direct-input commands** in early phases: they require exactly one explicit primary source input and do not guess `main.ts` or invent a project-default file
@@ -103,11 +103,10 @@ Effective-context validation rule:
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
 
 Package-analysis flag/context simplification:
-- follow the canonical command-context axis participation table and `analysis context` term in [SPEC.md](../SPEC.md)
-- `kali package-effects` is a **Phase 2 target** and intentionally does **not** grow its own parallel analysis-context flag set in early phases (`--api`, runtime-profile flags such as `--wasm-threads`, or `--compat`); instead it records the inherited analysis context in `report.analysisContext`
-- that inherited package-effects context is limited to the semantic analysis axes (`apiSurface`, `runtimeProfiles`, `compat.features`); `buildMode` and `sandbox` remain non-semantic for the command in early phases
-- `kali package-audit` is a **later-compatibility** single-package registry tool and does **not** add package-analysis-specific analysis-context flags (`--api`, runtime-profile flags, or `--compat`) before there is a documented need
-- unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and `sandbox` do not change its semantics
+- follow the canonical command-context axis participation table, `analysis context` term, and **registry-analysis context split** in [SPEC.md](../SPEC.md)
+- `kali package-effects` is a **Phase 2 target** and inherits only the semantic analysis axes (`apiSurface`, `runtimeProfiles`, `compat.features`) from config/defaults; it records that context in `report.analysisContext` instead of growing package-analysis-specific `--api` / runtime-profile / `--compat` flags
+- `buildMode` and `sandbox` remain non-semantic for `package-effects` in early phases
+- `kali package-audit` is a **later-compatibility** single-package registry tool and stays context-free in early phases; inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and `sandbox` do not change its semantics
 - examples later in this chapter describe the canonical command shape/output contract for these registry-analysis commands, not an unconditional promise that they are already available in Phase 1
 
 Sandbox-flag clarification:

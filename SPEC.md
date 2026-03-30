@@ -152,6 +152,12 @@ A command that analyzes exactly one explicit registry package identity rather th
 
 These commands do not invent a no-argument whole-project analysis mode in schema v1.
 
+### Registry-analysis context split
+To keep single-package tooling predictable and avoid a second near-duplicate flag family:
+- `package-effects` is **analysis-context-aware** in early phases: it inherits `apiSurface`, `runtimeProfiles`, and `compatFeatures` from the effective config/defaults and records that context in its nested report instead of taking package-analysis-specific `--api` / runtime-profile / `--compat` flags.
+- `package-audit` is **context-free** in early phases: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics.
+- both commands still use the identity-only registry-target rule and must not consult project lock/install state to pick a different package version in schema v1.
+
 ### Library-oriented artifact modes
 Non-browser, export-oriented build modes:
 - `--lib`
@@ -284,7 +290,8 @@ Commands whose primary successful output is already a dedicated JSON payload:
 Rules:
 - on success **without** `--output json`, stdout is reserved for that payload only,
 - human-oriented diagnostics for failures without `--output json` go to stderr,
-- `--output json` wraps the same payload in the standard command envelope rather than inventing a second payload shape.
+- `--output json` wraps the same payload in the standard command envelope rather than inventing a second payload shape,
+- `--pretty` changes formatting only: it pretty-prints the active JSON document (native payload by default, outer envelope when `--output json` is selected) without changing the schema.
 
 ### Envelope-only JSON support
 Some commands may support `--output json` even when schema v1 defines no dedicated success-payload schema for them yet.
