@@ -4,9 +4,13 @@ Public embedding is intentionally phased and follows the shared **embedding-stab
 - **Phase 1**: reusable internal crates exist so the CLI is built library-first, and `kali build --lib` already produces the **base library artifact**, but that output is still pre-stable as a public embedding contract. It is intentionally useful for exported-module workflows immediately, yet callers should treat its ABI and sidecar expectations as unstable until Phase 2. In particular, Phase 1 does not yet promise a stable Rust API, a stable C ABI, or default WIT sidecars for plain `--lib`.
 - **Phase 2 target**: the **public embedding outputs** arrive — the Rust embedding API, the stable public `kali build --lib` + WIT contract, the C ABI, and `kali build --capi` / `kali build --component` artifact flows.
 
-## Rust Library API (`kali_embed`)
+## Phase 2 target — Rust Library API (`kali_embed`)
 
 Kali is designed to be used as a Rust library, similar to Deno's embedding API, once the public embedding surface reaches Phase 2.
+
+Availability rule:
+- the Rust embedding API described in this section is the intended **Phase 2 public surface**
+- Phase 1 may already have internal reusable crates and unstable embedding helpers, but those do **not** yet count as the stable public Rust API promised by the maturity matrix
 
 ### Core API
 The API below describes the intended stable shape for the Phase 2 public surface; earlier internal versions may differ.
@@ -115,9 +119,13 @@ Design rules:
 - denial reporting should preserve the canonical Kali diagnostic/error contract, with host-specific predicate detail attached as additional context rather than as an alternate error format
 - if this feature is unavailable in the current phase, embedding APIs should fail with the same canonical availability path (`E5006`) used elsewhere rather than silently registering dead callbacks
 
-## C API (`kali_capi`)
+## Phase 2 target — C API (`kali_capi`)
 
-Exposes Kali functionality via a stable C ABI for embedding from any language.
+This section describes the intended stable C ABI for embedding from any language once the public embedding surface reaches Phase 2.
+
+Availability rule:
+- Phase 1 keeps the compiler/runtime Rust-only internally and may still produce the **base library artifact** through `kali build --lib`
+- the stable host-side C ABI, `kali_capi` library, and `kali build --capi` artifact flow are all part of the later **public embedding outputs**, not Phase 1 promises
 
 ### Host ABI Header (`kali.h`)
 The C declarations below describe the intended stable ABI surface for Phase 2+.
