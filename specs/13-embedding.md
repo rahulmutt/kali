@@ -45,10 +45,15 @@ assert_eq!(result.as_number(), Some(3.0));
 let module = runtime.compile_file("main.ts")?;
 let result = runtime.run_module(&module)?;
 
-// Call exported functions
+// Call exported functions from a reusable compiled library module
 let module = runtime.compile_file("lib.ts")?;
 let instance = runtime.instantiate(&module)?;
 let result = instance.call("add", &[Value::Number(1.0), Value::Number(2.0)])?;
+
+// The same compiled module may be instantiated more than once.
+let second_instance = runtime.instantiate(&module)?;
+let second = second_instance.call("add", &[Value::Number(3.0), Value::Number(4.0)])?;
+assert_eq!(second.as_number(), Some(7.0));
 
 // Get effect analysis (Phase 2 target)
 // Before then, this API may be absent or return the canonical feature-maturity error.
@@ -63,6 +68,8 @@ Canonical embedding-alignment rule:
 - WIT is the canonical host-facing interface description for public library/component outputs; Rust-typed helpers, generated C headers, and later component wrappers are projections of that same exported interface contract rather than unrelated parallel ABI descriptions
 - embedding APIs may use idiomatic Rust enums/builders instead of the JSON field names, but they should not invent a second incompatible vocabulary for the same concepts
 - build-oriented embedding calls obey the same API-surface gates as the CLI/spec matrix: for example, `ApiSurface::Node` remains Phase 3-gated for compile/build flows, while browser-targeted build output is still the `--bundle`-style path rather than a generic library/export mode
+- compiled modules are reusable immutable artifacts: `instantiate(&module)` borrows the compiled module instead of consuming it, and hosts may create multiple instances from one compiled module when that matches the host lifecycle
+- executable-style helpers such as `run_module(...)` are for modules with an executable entry contract; export-oriented/library flows use `instantiate(...).call(...)` and must not rely on a synthetic executable entry being invented for them
 - if a CLI/config/runtime feature is phase-gated (for example `ApiSurface::Node`, `RuntimeProfile::WasmThreads`, or `CompatFeature::Eval`), the embedding API should surface the same canonical `E5006`-style availability failure rather than silently ignoring the request
 
 ### Custom Host Functions
@@ -181,9 +188,9 @@ KaliModule* kali_compile_file(KaliRuntime* runtime, const char* path);
 void kali_module_free(KaliModule* module);
 
 // Instantiation / execution
-KaliInstance* kali_instantiate(KaliRuntime* runtime, KaliModule* module);
+KaliInstance* kali_instantiate(KaliRuntime* runtime, const KaliModule* module);
 void kali_instance_free(KaliInstance* instance);
-KaliValue* kali_run(KaliRuntime* runtime, KaliModule* module);
+KaliValue* kali_run(KaliRuntime* runtime, const KaliModule* module);
 KaliValue* kali_run_string(KaliRuntime* runtime, const char* filename, const char* source);
 KaliValue* kali_call(KaliInstance* instance, const char* fn_name,
                      KaliValue** args, uint32_t argc);
@@ -223,7 +230,7 @@ bool kali_register_host_function(KaliRuntime* runtime, const char* module,
 ### Memory Management
 - All `kali_*_new` / `kali_*_free` pairs — caller manages lifetime
 - `KaliConfig*` is a caller-owned builder object. `kali_runtime_new(const KaliConfig* config)` snapshots the effective config and does **not** consume ownership, so the caller may free the config immediately after runtime creation succeeds or fails.
-- `KaliModule*` and `KaliInstance*` are distinct owned handles: freeing a compiled module does not implicitly free an instantiated instance unless a later ABI revision documents that ownership transfer explicitly
+- `KaliModule*` and `KaliInstance*` are distinct owned handles: `kali_instantiate(..., const KaliModule* module)` and `kali_run(..., const KaliModule* module)` borrow the compiled module rather than consuming it, so one compiled module may back multiple instances or runs. Freeing a compiled module does not implicitly free any instantiated instance unless a later ABI revision documents that ownership transfer explicitly.
 - Strings returned by Kali must be freed with `kali_free_string`
 - because the public C ABI itself is a **Phase 2 target**, pre-Phase-2 internal prototypes are free to omit unstable helpers such as the effect-analysis entrypoints instead of pretending they already exist as a stable callable contract
 - Thread safety: one `KaliRuntime` per thread in the initial implementation
@@ -237,6 +244,7 @@ bool kali_register_host_function(KaliRuntime* runtime, const char* module,
 - Boolean-returning registration/configuration helpers return `false` on error
 - Call `kali_last_error()` for runtime-bound failures, or `kali_global_last_error()` for failures that happen before a `KaliRuntime` exists (for example `kali_runtime_new` returning `NULL`)
 - failed config mutations also report through `kali_global_last_error()` because they may occur before a runtime exists
+- `kali_run(...)` is the executable-style convenience path and should fail for a compiled module that does not have an executable entry contract; export-oriented/library flows should use `kali_instantiate(...)` + `kali_call(...)` instead of expecting the runtime to invent a synthetic entrypoint
 - Error includes the stable string diagnostic code, message, and JSON representation so embedders see the same canonical machine contract as the CLI
 
 ### Building
