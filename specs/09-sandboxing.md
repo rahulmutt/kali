@@ -214,6 +214,7 @@ For dynamic effects that can't be checked at compile time:
 ### Enforcement Domains
 To keep the sandbox story precise across commands and deployment targets:
 - **Kali-hosted runtime enforcement** applies to `kali run`, `kali test`, and embedding hosts that instantiate Kali-controlled host imports.
+- For embedding, that same rule covers both executable-style helpers and library-oriented instantiation/calls: creating an instance from a `--lib`-style module and invoking its proved exports is still **Kali-hosted execution**, not a second unsandboxed host path.
 - **`check` / `build` with `--sandbox`** provide static validation only: policy-schema/config validation in Phase 1, plus effect-vs-policy validation in Phase 2+.
 - **Browser-targeted builds** (`kali build --bundle --api browser`) follow the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md): they may be checked against a policy at build time for the documented mediated subset, but the emitted artifact running inside a real browser does not automatically inherit Kali runtime enforcement after deployment.
 
@@ -233,6 +234,10 @@ Quick browser-targeted examples:
 ## Runtime Resource Limits
 
 For **Kali-hosted execution** (`kali run`, `kali test`, and embedding), runtime resource limits are enforced by the execution host (wasmtime in early phases).
+
+Embedding clarification:
+- this includes library-oriented instantiation too: top-level module initialization performed at instantiate time and later export calls both run inside the same **effective execution envelope** as other Kali-hosted execution paths
+- building a `--lib` artifact is therefore not itself a runtime event, but instantiating or calling that artifact through Kali-controlled imports is
 
 Browser-targeted emitted artifacts do **not** automatically inherit Kali-hosted runtime resource enforcement after deployment into a real browser. Any browser-side budgeting beyond Kali's build-time checks would require a separate later host contract.
 

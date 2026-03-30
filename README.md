@@ -39,6 +39,14 @@ Recommended Phase-1 implementation order:
 
 See the normative cross-spec version in [SPEC.md#recommended-phase-1-implementation-order](./SPEC.md#recommended-phase-1-implementation-order).
 
+Quick support-reading checklist:
+1. **What command shape is being asked for?** For example, `build --bundle --api browser` and `run --api browser` are different requests with different early-phase outcomes.
+2. **What rung of support is meant?** Use the shared **compatibility delivery ladder** in [SPEC.md](./SPEC.md): a feature can be parser-accepted, checkable, buildable, executable, deployable-through-host, or policy/effect-modeled without all higher rungs being true yet.
+3. **What effective context is selected?** Read `apiSurface`, `runtimeProfiles`, `compat.features`, and any attached sandbox policy together rather than in isolation.
+4. **Which chapter owns the answer?** Command shape lives in `12-cli`, availability in `19-feature-maturity`, JSON shape in `18-schemas`, diagnostics in `15-errors`.
+
+This four-step reading order is the shortest safe way to answer “does Kali support X yet?” without over-reading a broad bootstrap aspiration.
+
 ## Specification
 - Top-level overview, implementation strata, cross-spec simplification rules, canonical terminology, chapter ownership, chapter guide, artifact-mode matrix, bootstrap traceability, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
 - Bootstrap-brief normalization rule: [SPEC.md#bootstrap-normalization-rule](./SPEC.md#bootstrap-normalization-rule)
