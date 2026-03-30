@@ -537,7 +537,7 @@ Package-effects rule:
 - in configless project mode, that inherited context is just the **default inherited analysis context (schema v1)** from [SPEC.md](../SPEC.md)
 - inherited-context availability follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is unavailable, the command fails with `E5006` rather than silently falling back to a smaller one
 - canonical inherited examples once the command exists: `apiSurface = browser` reuses the browser-targeted analysis gate, `apiSurface = node` reuses the Node gate, `runtimeProfiles = ["wasm-threads"]` reuses the threaded-profile gate, and `compat.features = ["eval"]` reuses the `eval` gate
-- `--output json` wraps that payload in the standard CLI command envelope; it does not create a third package-effects-only outer format
+- as a schema-v1 **native-JSON command**, `package-effects --pretty` reformats the native payload and `package-effects --output json` wraps that same payload in the standard CLI command envelope; those formatting switches change presentation only and do not create a second availability path or a third package-effects-only outer format
 
 Package-audit rule:
 - keep `kali package-audit` **single-package** in early phases so it does not overlap with a future whole-project dependency-health workflow
