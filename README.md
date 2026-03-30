@@ -24,7 +24,7 @@ These are fixed unless the top-level spec changes:
 ## Phase 1 at a glance
 Phase 1 is intentionally narrow. For exact boundaries, read the **Phase-1 Shipped Surface Summary** in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 
-- **Language/frontend**: `.ts` and `.js` are first-class inputs.
+- **Language/frontend**: `.ts` and `.js` are first-class inputs; Phase 1 JavaScript support is the bounded-inference path, not a downgraded parse-only compatibility mode.
 - **Project workflow**: `kali init`, `kali init --lib`, `kali install`, `kali fmt`, `kali lint`, and `kali check [files...]` are the main authoring loop.
 - **Execution**: `kali run <file>` and `kali test [files...]` ship only in the default/inherited Deno-oriented standalone context, using wasmtime for Kali-hosted execution.
 - **Builds**: `kali build <file>` ships as the default executable build in the shared Deno-oriented build context; `kali build --lib <file>` ships as the Phase-1 **base library artifact** for exact-version/internal consumers when Kali can determine a **statically known export surface**. Here, the Deno-oriented build context is the build/analysis default, not a claim that Phase-1 library outputs expose a Deno-specific public ABI.
@@ -49,6 +49,7 @@ Examples:
 - `kali package-audit` is defined early but is not a Phase-1 command
 - plain `--lib` is documented early as the future stable public WIT-first path, but in Phase 1 it is still only the export-oriented **base library artifact**
 - `kali build --capi` and `kali build --component` are defined early but remain later public embedding artifact flows
+- browser-targeted `check` / `build --bundle` availability does not imply standalone browser `run` / `test`
 
 Rule of thumb:
 - read **shape** from the owning chapter

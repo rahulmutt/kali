@@ -43,7 +43,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 |---|---|
 | Language/frontend | Latest published ECMA-262 grammar, TypeScript compatibility where implemented, and first-class `.js` compilation with bounded conservative inference |
 | Runtime model | AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
-| Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set**; `--api node` remains gated |
+| Host support | the Deno-oriented standalone/build context is the default non-browser context in Phase 1 (`--api deno` for Kali-hosted execution and the shared **Deno-oriented build context (schema v1)** for non-browser builds); `--api browser` is limited to the shared **Phase-1 browser-targeted command set**; `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema/config validation for `check` and the supported `build --sandbox` paths (default executable build, Phase-1 `build --lib`, and browser-targeted `build --bundle`), no project-executed policy code |
 | Effects | Internal effect bookkeeping may exist in Phase 1; the Phase-2 stable **public effect-report surface** is intentionally split into a reporting half (`kali effects`, `kali package-effects`) and a policy-comparison half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`) |
 | Registry audit | `kali package-audit` is a separate context-free registry-analysis/security-audit workflow and remains later compatibility |

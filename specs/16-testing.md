@@ -19,6 +19,7 @@ Each crate has its own unit tests (Rust `#[cfg(test)]` modules):
 End-to-end tests in `tests/`:
 - Source file → compile → execute → check output
 - Source file → compile → check errors
+- Plain `.js` source → check/build/run across representative inference tiers → confirm the shared **first-class JavaScript compilation** contract: precise local inference when cheap, conservative `unknown`/union/dynamic fallbacks when needed, and no silent invention of fresh `any`
 - Source file → effects analysis → check effect-report JSON output *(Phase 2 target; this belongs to the shared **public effect-report surface** from [SPEC.md](../SPEC.md), so earlier phases should assert that the command is unavailable or explicitly experimental even if internal effect bookkeeping tests already exist)*
 - Source file + policy → sandbox validation → check result *(Phase 1 MVP for runtime enforcement + policy-file/config validation; Phase 2 target for inferred effect-vs-policy validation too)*
 - Test source set → `kali test [files...]` / `kali test --filter ...` → correct discovery-vs-explicit-file selection behavior, stable post-selection filtering, and expected invalid-entrypoint rejection for declaration-only test inputs
@@ -50,6 +51,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | Latest-ECMA grammar claim | parser fixtures for the current edition + tracked unsupported-semantics list where relevant |
 | Runtime semantic support claim | command/profile-specific integration tests + the applicable conformance subset for the claimed feature family |
 | Type checking / inference | checker baselines + inference golden tests + targeted regression cases |
+| First-class JavaScript compilation | dedicated `.js` fixtures across `check` / `build` / `run`, JSDoc-hint coverage, and golden cases for the canonical fallback ladder (`precise` → `small union` → `unknown` / dynamic layout) so `.js` support does not regress into parse-only compatibility or implicit-`any` drift |
 | Host APIs / runtime behavior | integration tests that execute the API path + sandbox/resource-limit tests where relevant |
 | The **Phase-1 browser-targeted command set** | browser-targeted `check` tests + browser-targeted `build --bundle` tests + emitted-bundle smoke runs in a real browser harness |
 | Base library/export artifact support (`kali build --lib`) | library-build integration tests + artifact-manifest/schema assertions + deterministic rebuild checks |
@@ -78,6 +80,7 @@ Run against the [test262](https://github.com/tc39/test262) conformance suite:
 #### TypeScript/JavaScript (`tsc`-style baselines)
 Inspired by TypeScript's test suite:
 - **Type check tests**: source file from the shared executable/analyzable source-file class + expected diagnostics
+- **JavaScript-first inference tests**: `.js` fixtures that exercise local inference, exported-boundary conservatism, JSDoc hints, and the fallback ladder from [04 — Type System](04-type-system.md)
 - **Inference tests**: Check inferred types match expectations across both annotated TypeScript and first-class JavaScript inputs
 - **Emit tests**: Check compiled output for specific patterns
 - **Baseline stability**: diagnostics and machine-readable outputs should use stable golden files where possible so spec and implementation drift are easy to spot

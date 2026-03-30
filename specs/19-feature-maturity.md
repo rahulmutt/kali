@@ -73,7 +73,7 @@ It is intentionally narrower than the full command/profile matrix below:
 
 | Area | Phase 1 shipped surface | Not yet shipped in Phase 1 |
 |---|---|---|
-| Project workflow | `kali init`, `kali init --lib`, `kali install`, `kali fmt`, `kali lint`, `kali check [files...]` *(including the project-discovery no-file form and explicit file sets)* | no automatic dependency repair outside `kali install` |
+| Project workflow | `kali init`, `kali init --lib`, `kali install`, `kali fmt`, `kali lint`, `kali check [files...]` *(including the project-discovery no-file form and explicit file sets)*, plus first-class `.js` source support under the bounded-inference contract | no automatic dependency repair outside `kali install` |
 | Execution | `kali run <file>` and `kali test [files...]` in the default/inherited Deno-oriented standalone context, with supported `--sandbox` runtime enforcement | no standalone browser runtime/test contract; no Node execution path yet |
 | Executable build | `kali build <file>` in the shared **Deno-oriented build context (schema v1)**, with shipped static policy validation on the supported `kali build --sandbox <policy> <file>` path | no non-bundle browser build mode; no Node executable build path yet |
 | Export-oriented build / embedding | Phase-1 **base library artifact** via `kali build --lib <file>` in the shared **Deno-oriented build context (schema v1)** for exact-version/internal consumers, only when Kali can determine a **statically known export surface**; shipped static policy validation also covers `kali build --lib --sandbox <policy> <file>`. Here, the Deno-oriented build context is the build/analysis default, not a claim that Phase-1 library outputs expose a Deno-specific public ABI. | no stable public Rust embedding API; no stable public WIT sidecar for plain `--lib`; no stable public C ABI or Component Model flow; no cross-version host-loading guarantee yet |
@@ -90,6 +90,7 @@ Release-note/support-claim shortcut:
 
 | Vague claim | Preferred precise phrasing |
 |---|---|
+| “JavaScript support ships in Phase 1” | “Phase 1 ships **first-class JavaScript compilation with bounded inference**: `.js` is a real check/build/run input class with conservative fallback rules, not a parse-only compatibility lane.” |
 | “browser support ships in Phase 1” | “Phase 1 ships the shared **Phase-1 browser-targeted command set**: browser-targeted `check [files...]` plus browser-targeted `build --bundle <file>`, including supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`.” |
 | “packages work in browser mode” | “For the shared **Phase-1 browser-targeted command set**, package claims are usually **checkable** or **deployable-through-host**, not standalone-browser **executable** support.” |
 | “embedding ships in Phase 1” | “Phase 1 ships only the export-oriented **base library artifact** via `kali build --lib` for exact-version/internal consumers; the stable public embedding surface remains Phase 2.” |
