@@ -85,6 +85,15 @@ An explicitly gated compatibility switch for semantics that are intentionally of
 
 That single name covers both direct `eval` and the `Function()` constructor path.
 
+### Config compat selection vs emitted `compatFeatures`
+Kali intentionally uses two closely related spellings for the same semantic set:
+- config stores compatibility switches under `compat.features`
+- emitted self-contained JSON reports flatten that same set to `compatFeatures`
+
+Rule:
+- this is a shape normalization only, not a second vocabulary
+- docs should not invent alternatives such as `compatFlags` or `compatMode`
+
 ### Browser-targeted context
 A command context whose effective `apiSurface` is `browser`.
 
@@ -114,6 +123,16 @@ The stable schema-v1 capability vocabulary shared across effects and sandbox pol
 - eval
 
 This is the stable capability vocabulary, **not** a claim that every command/profile/API surface enables every capability.
+
+### Built-in effect kind vs policy/schema key
+Kali intentionally uses two related naming layers for effects:
+- semantic built-in effect kinds such as `FileSystem.Read`, `Network.Fetch`, `Process.EnvRead`, `Timer.Schedule`, `Random.GetBytes`, `Console.Write`, and `Eval`
+- schema/policy keys such as `effects.fileSystem.read`, `effects.network.fetch`, `effects.process.envRead`, `effects.timer.schedule`, `effects.random`, `effects.console`, and `effects.eval`
+
+Rule:
+- built-in effect kinds are the semantic names used by the type/effect system and effect reports
+- `effects.*` keys are the policy/schema paths used for configuration and authorization
+- the mapping between those two layers is centralized in [`specs/18-schemas.md`](./specs/18-schemas.md) and should not be re-invented per chapter
 
 ### Canonical browser-applicable mediated subset (schema v1)
 When a chapter says browser-targeted policy/effect reasoning uses the browser-applicable part of the **Kali-mediated capability subset**, it means:
@@ -526,6 +545,17 @@ Non-install commands must not silently:
 - fetch and materialize missing dependency state as a hidden side effect.
 
 They should fail with the canonical dependency-state diagnostic path instead.
+
+## Shared Install State vs Command-Time Package Selection
+
+Kali uses one deliberate simplification for early package management:
+- `install` locks versions and materializes package contents,
+- later commands choose the final package edge at command time from that already-installed metadata using the effective analysis/runtime context.
+
+Consequences:
+- one `kali.lock` plus one materialized package tree serves both the default Deno-oriented standalone path and the supported browser-targeted analysis/build paths in Phase 1,
+- changing `apiSurface` between `deno` and a supported browser-targeted context changes package entry selection, not whether the project is considered installed,
+- separate per-surface installs/lockfiles must not be implied unless a later lockfile revision explicitly introduces that complexity.
 
 ## Identity-Only Registry Target
 

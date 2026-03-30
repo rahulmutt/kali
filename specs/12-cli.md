@@ -63,7 +63,8 @@ Canonical input-kind rule:
 Naming rule:
 - CLI keeps short flag names such as `--api`
 - `kali.json` keeps the canonical leaf keys under `compilerOptions`: `apiSurface`, `buildMode`, and `runtimeProfiles`
-- new docs, generated config, and machine-readable examples should use only these canonical config names
+- compatibility switches live in config under `compat.features`, while self-contained emitted JSON flattens that same semantic set to `compatFeatures`
+- new docs, generated config, and machine-readable examples should use only these canonical names instead of inventing aliases
 
 Canonical config-discovery rule:
 - unless a later spec adds an explicit `--config` override, commands discover the effective project config by searching the current working directory and then its ancestors for the nearest `kali.json`

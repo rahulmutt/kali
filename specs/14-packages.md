@@ -292,6 +292,8 @@ Interpretation rules:
 
 Because package resolution can vary by analysis/runtime context (`--api deno`, browser-targeted analysis/build contexts, and later `--api node`), Kali needs one explicit boundary so `install`, lockfiles, and ordinary commands do not drift.
 
+This is the canonical package-management simplification for early phases: Kali keeps one shared installed package state, then performs the final context-sensitive package-edge choice at command time.
+
 Scope note:
 - this boundary is about **project commands** that consume project-managed dependency state (`check`, `effects`, `build`, `run`, `test`)
 - single-package registry-analysis commands such as later `package-effects` / `package-audit` stay project-independent for version selection and do not consult the current project's installed dependency state

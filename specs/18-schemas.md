@@ -483,6 +483,8 @@ Interpretation rules:
 
 To keep the checker, CLI, effect reports, and sandbox policy model aligned, built-in effect names use one canonical dotted namespace.
 
+This table is the normative mapping for the cross-spec distinction from [SPEC.md](../SPEC.md) between semantic built-in effect kinds and `effects.*` policy/schema keys.
+
 | Effect report / checker name | Policy key |
 |---|---|
 | `FileSystem.Read` | `effects.fileSystem.read` |
