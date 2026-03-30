@@ -24,7 +24,7 @@ To keep the bootstrap's Lean requirement aligned with the rest of the phased spe
 Practical rule:
 - Phase 1 should be **proof-ready** from the start
 - the Phase-1 contract is therefore repository/process hygiene first: published boundary, an honest proof-CI trigger policy, and explicit no-overclaim discipline
-- Phase-1 releases may only call verification a shipped capability once they are also **proof-backed**
+- **proof-backed** is not itself a blanket Phase-1 requirement; it becomes required only for release/support wording that wants to market formal verification as shipped evidence rather than as future-facing process readiness
 
 Current repository status:
 - `proofs/BOUNDARY.md` is intentionally still the empty-boundary placeholder
@@ -54,7 +54,7 @@ Promotion rule:
 
 | Phase | Verification focus |
 |---|---|
-| Phase 1 MVP | Reach and maintain the **proof-ready** state: published proof boundary, honest proof-CI trigger policy, and no proof-backed marketing beyond the manifest. A Phase-1 release may advertise formal verification only once it becomes **proof-backed** with at least one concrete modeled theorem family over the core typed calculus or sandbox-policy core. |
+| Phase 1 MVP | Reach and maintain the **proof-ready** state: published proof boundary, honest proof-CI trigger policy, and no proof-backed marketing beyond the manifest. Phase 1 does **not** require a non-empty proof boundary to ship, but any release/support wording that wants to present formal verification as shipped evidence must first become **proof-backed** with at least one concrete modeled theorem family over the core typed calculus or sandbox-policy core. |
 | Phase 2 target | Built-in effect inference conservativity, ownership/escape/reference-counting model, and selected lowering-preservation lemmas |
 | Phase 3 target | Specialization/layout-preservation lemmas for the proved fragment, plus stronger package/runtime-model correspondence where the host contract is already stable |
 | Phase 4 compatibility | Late dynamic compatibility paths only after their semantics are frozen enough to model honestly; `eval`/dynamic loading remain outside the currently published proof boundary until then |
