@@ -5,7 +5,7 @@
 Sandboxing is a first-class concern in Kali. The system combines:
 1. **Static effect analysis** — maintain a conservative capability-summary model, with a stable user-facing JSON report starting in Phase 2
 2. **Sandbox policies** — declarative rules for what's allowed
-3. **Runtime limits** — cross-cutting resource budgets (CPU, memory, open files, processes, threads) plus selected capability-local caps such as timers and network connections
+3. **Runtime limits** — cross-cutting resource budgets (CPU, memory, open files, processes, threads) plus selected capability-local caps such as the `timer` family and network-connection limits
 
 Command-behavior simplification:
 
@@ -116,7 +116,7 @@ Compatibility-switch boundary:
 - therefore a permissive policy entry such as `effects.eval: true` is only an authorization ceiling; it must not implicitly enable the separate `--compat eval` / `compat.features = ["eval"]` switch
 
 Policy-structure simplification rule:
-- `effects.*` controls whether a capability exists and, where needed, capability-local allowlists/caps (for example URL patterns, timer counts, or network connection counts)
+- `effects.*` controls whether a capability exists and, where needed, capability-local allowlists/caps (for example URL patterns, timer-family caps, or network-connection caps)
 - `resources.*` is reserved for cross-cutting runtime budgets that apply regardless of which specific API triggered them (for example total memory, CPU time, open files, spawned processes, threads)
 - schema v1 intentionally has **no** executable predicate/hook fields inside `kali.policy.json`; later programmable checks, if added, belong only to the embedding-oriented host-predicate extension described below
 - specs should not duplicate the same numeric limit in both places under different names
@@ -143,7 +143,7 @@ Availability rule for policy validation:
 - `0` is meaningful only for the resource counters whose domain naturally allows zero concurrent uses (`resources.maxSpawnedProcesses`, `resources.maxThreads`); it is not the generic schema-wide deny value for every numeric field
 - a policy must **not claim to allow** a capability that the selected command/profile/API surface/phase cannot actually provide
 - therefore validation should reject any unavailable capability being enabled through a non-deny value, not just `true`; non-empty arrays/allowlists are equally invalid when the capability itself is unavailable, and unavailable numeric-budget fields such as `resources.maxSpawnedProcesses` / `resources.maxThreads` must also reject positive values
-- capability-local numeric limit fields are **constraints only**, not implicit enable switches; for example `effects.network.maxConnections` does not by itself allow network use, and `effects.timer.maxActiveTimers` does not by itself permit timers when `effects.timer.schedule` is `false`
+- capability-local numeric limit fields are **constraints only**, not implicit enable switches; for example `effects.network.maxConnections` does not by itself allow network use, and `effects.timer.maxActiveTimers` does not by itself allow timer creation when `effects.timer.schedule` is `false`
 - in schema v1, `effects.timer.maxTimeoutMs`, `effects.timer.maxActiveTimers`, and `effects.network.maxConnections` must be positive integers when present; `0` is invalid for those fields rather than a second disable/deny form
 - examples include `effects.fileSystem.read: true` or `effects.fileSystem.read: ["/tmp/**"]` under an effective API surface of `browser`, `effects.eval: true` before Phase 4, `effects.eval: true` when the effective command context did not enable `--compat eval`, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
 - under an effective API surface of `browser`, follow the **browser-targeted static sandbox contract**, the **canonical browser-targeted budget compatibility rule**, and the **canonical browser-applicable mediated subset (schema v1)** from [SPEC.md](../SPEC.md): browser-targeted `--sandbox` validation stays inside that documented browser-applicable subset, and schema-v1 `resources.*` fields are treated as Kali-hosted execution budgets rather than as post-deployment browser guarantees
@@ -173,6 +173,10 @@ Phase-1 capability snapshot for supported surfaces:
 | `effects.eval` | Phase 4 compatibility | Reserved for the `--compat eval` path |
 | `resources.maxSpawnedProcesses` | Phase 3 target | Becomes meaningful only once subprocess support exists |
 | `resources.maxThreads` | Later compatibility (opt-in only) | Reserved for the later threaded runtime profile |
+
+Interpretation note:
+- this snapshot focuses on capability families and the resource fields whose availability is phase-gated
+- always-valid positive-budget fields for **Kali-hosted execution** — `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles` — are intentionally omitted from the table because they are already part of the Phase 1 runtime-budget contract rather than separate later-phase capability gates
 
 In Phase 2+ when a policy is provided at build or check time:
 1. Inferred effects are checked against allowed effects
