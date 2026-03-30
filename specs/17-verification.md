@@ -10,13 +10,22 @@ Focus verification on the highest-value areas where bugs have the most impact.
 
 Important simplification rule: Lean proofs target a **core Kali calculus**, not the full surface language all at once. Early proof work should model the statically analyzable subset that excludes late-compatibility features such as `eval`, dynamic module loading, weak/finalization semantics, and browser/OS host details. Those outer features are handled by explicit phase gates in the implementation and only enter the proof story once their semantics stabilize.
 
-## Phase-aligned proof scope
+## Proof-ready vs proof-backed
 
-To keep the bootstrap's Lean requirement aligned with the rest of the phased spec, proof work follows the same staged story rather than implying full-language verification from day one.
+To keep the bootstrap's Lean requirement aligned with the rest of the phased spec, Kali distinguishes two verification states that were easy to blur together in earlier wording:
+
+- **proof-ready** — the repository has the published **proof-boundary manifest**, the CI activation rule, and the discipline to avoid overclaiming beyond that boundary
+- **proof-backed** — the manifest is non-empty and names at least one concrete modeled subsystem plus theorem/property inventory that support claims can actually cite
+
+Practical rule:
+- Phase 1 should be **proof-ready** from the start
+- Phase-1 releases may only call verification a shipped capability once they are also **proof-backed**
+
+## Phase-aligned proof scope
 
 | Phase | Verification focus |
 |---|---|
-| Phase 1 MVP | Published proof boundary plus at least one concrete modeled theorem family over the core typed calculus / sandbox-policy core before any Phase-1 release that advertises formal verification; during earlier spec iteration the manifest may remain empty, but only if Kali avoids proof-backed support claims |
+| Phase 1 MVP | Reach and maintain the **proof-ready** state: published proof boundary, honest CI activation, and no proof-backed marketing beyond the manifest. A Phase-1 release may advertise formal verification only once it becomes **proof-backed** with at least one concrete modeled theorem family over the core typed calculus or sandbox-policy core. |
 | Phase 2 target | Built-in effect inference conservativity, ownership/escape/reference-counting model, and selected lowering-preservation lemmas |
 | Phase 3 target | Specialization/layout-preservation lemmas for the proved fragment, plus stronger package/runtime-model correspondence where the host contract is already stable |
 | Phase 4 compatibility | Late dynamic compatibility paths only after their semantics are frozen enough to model honestly; `eval`/dynamic loading remain outside the currently published proof boundary until then |
@@ -39,9 +48,9 @@ That manifest should enumerate, at minimum:
 Before the first proofs land, the manifest may truthfully publish an **empty current proof boundary**. That is still preferable to omitting the file, because it prevents the rest of the spec from accidentally implying proof coverage that does not yet exist.
 
 Follow the shared **proof activation split** from [SPEC.md](../SPEC.md):
-- an empty manifest is acceptable during spec-first iteration and early implementation bootstrapping
+- an empty manifest is acceptable during spec-first iteration and early implementation bootstrapping because it still preserves the **proof-ready** state
 - it is **not** enough for a release to market Kali as already formally verified in Phase 1
-- any Phase-1 release note or support claim that leans on formal verification should first replace the empty boundary with at least one concrete modeled subsystem plus named theorem/property claims
+- any Phase-1 release note or support claim that leans on formal verification should first replace the empty boundary with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed** rather than merely proof-ready
 - while the published proof boundary is empty, proof CI is required only for changes under `proofs/`
 - once the manifest names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas
 - release notes and support wording should describe that activation state plainly instead of implying that a placeholder manifest already proves part of the implementation

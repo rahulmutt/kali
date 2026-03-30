@@ -42,7 +42,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | Package compatibility | curated package corpus results recorded per command/profile (`check`, `build`, `test`, `run`) |
 | CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |
 | Artifact reproducibility | repeated-build tests over pinned inputs/toolchains + normalized artifact-byte comparisons + stable emitted-metadata assertions |
-| Proof-backed claims | passing Lean proof jobs for the currently modeled subset, scoped by the published **proof-boundary manifest** |
+| Proof-backed claims | passing Lean proof jobs for the currently modeled subset, scoped by the published **proof-boundary manifest**; Phase 1 may be merely **proof-ready** earlier, but proof-backed release claims require a non-placeholder modeled subset |
 
 Interpretation rule:
 - a feature can stay listed as a future phase target before these tests exist

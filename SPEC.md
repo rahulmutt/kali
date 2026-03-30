@@ -556,13 +556,13 @@ Rules:
 
 ### Proof activation split
 Kali keeps one explicit split between **publishing the proof boundary** and **advertising proof-backed support**:
-- **boundary publication state** — `proofs/BOUNDARY.md` exists and truthfully declares the currently modeled proof boundary; during spec-first or pre-proof iteration this boundary may still be empty
+- **proof-ready state** — `proofs/BOUNDARY.md` exists and truthfully declares the currently modeled proof boundary; during spec-first or pre-proof iteration this boundary may still be empty
 - **proof-backed support state** — release notes or support claims actively rely on formal verification as shipped evidence for some Kali behavior
 
 Rules:
-- boundary publication may happen earlier than proof-backed support so the repo has one honest place to say “no mechanized coverage yet”
+- the repo should reach the **proof-ready state** early so it has one honest place to say “no mechanized coverage yet”
 - an empty published boundary is acceptable only while Kali is still avoiding proof-backed support claims
-- before a release or support summary advertises formal verification as a shipped capability, the boundary must be non-empty, name at least one concrete modeled subsystem, and list the claimed theorem/property inventory
+- before a release or support summary advertises formal verification as a shipped capability, the boundary must be non-empty, name at least one concrete modeled subsystem, and list the claimed theorem/property inventory so the claim is genuinely proof-backed rather than merely proof-ready
 - proof CI follows the activation rule declared by the published boundary; when the boundary is empty, proof jobs are required only for `proofs/`, and once covered implementation/spec areas are named they also become proof-CI triggers
 - chapters should reuse this term instead of re-explaining the same placeholder-versus-shipped-proof distinction in slightly different prose
 
