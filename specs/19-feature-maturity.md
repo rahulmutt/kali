@@ -147,7 +147,7 @@ Interpretation rule:
 | `kali init --lib` | Phase 1 MVP | Select a library-oriented project template only; it does not implicitly change the later `kali build` artifact mode |
 | `kali fmt` | Phase 1 MVP | Stable formatting command over the canonical project file set relevant to formatting, including declaration-only files |
 | `kali fmt --sandbox kali.policy.json` | Rejected by default | `fmt` is sandbox-agnostic in early phases; top-level config sandbox is ignored for it, and the CLI `--sandbox` flag is invalid usage (`E5008`) |
-| `kali lint` | Phase 1 MVP | Stable lint command with conservative autofix support over the canonical lintable project file set, including declaration-only files |
+| `kali lint` | Phase 1 MVP | Stable lint command with conservative autofix support over the canonical project file set, including declaration-only files |
 | `kali lint --fix` | Phase 1 MVP | Apply only structured non-speculative lint fixes; overlapping fixes stay unapplied rather than being guessed into one rewrite in schema v1 |
 | `kali lint --sandbox kali.policy.json` | Rejected by default | `lint` is sandbox-agnostic in early phases; top-level config sandbox is ignored for it, and the CLI `--sandbox` flag is invalid usage (`E5008`) |
 | `kali install` | Phase 1 MVP | Reconcile the project's managed dependency state: update dependency-owning manifest fields when an explicit registry target is added, resolve/materialize dependency state for the declared dependency source kinds, and write `kali.lock`; install is profile-agnostic in early phases and does not require separate per-`--api` installs |

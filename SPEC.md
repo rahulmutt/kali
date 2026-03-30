@@ -144,6 +144,14 @@ The selected host-facing ambient/runtime family:
 
 `browser` is a **browser-targeted context** in early phases, not a promise of a standalone browser runtime.
 
+### Effective API surface
+The final `apiSurface` value after merging built-in defaults, discovered `kali.json`, and explicit CLI flags.
+
+Rule:
+- this is just the `apiSurface` slice of the broader **effective command context**
+- chapters may use “effective API surface” as shorthand when only that one axis matters
+- docs should not invent alternate names such as “resolved API mode” or “active host flavor” for the same concept
+
 ### Host-support staircase
 Kali's host/API story is intentionally staged as one small staircase rather than three equally mature runtimes:
 1. **Web baseline** — shared JS-visible baseline APIs used across supported surfaces
