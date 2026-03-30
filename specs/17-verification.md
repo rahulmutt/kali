@@ -27,10 +27,11 @@ Practical rule:
 - **proof-backed** is not itself a blanket Phase-1 requirement; it becomes required only for release/support wording that wants to market formal verification as shipped evidence rather than as future-facing process readiness
 
 Current repository status:
-- `proofs/BOUNDARY.md` is intentionally still the shared **placeholder proof-boundary manifest** from [SPEC.md](../SPEC.md)
-- therefore the repository currently satisfies the **proof-ready** baseline but does **not** yet satisfy the **proof-backed** state
-- chapter summaries, release notes, and README copy should point to that manifest instead of implying concrete proof coverage from the existence of the Lean plan alone
-- [19 — Feature Maturity](19-feature-maturity.md) makes that current-state guardrail explicit too: proof-backed release/support claims while the published boundary is still empty are **Rejected by default**
+- `proofs/BOUNDARY.md` is the single source of truth for the repository's current verification state
+- at this spec revision, that manifest is still the shared **placeholder proof-boundary manifest** from [SPEC.md](../SPEC.md)
+- therefore the repository is currently **proof-ready** but not **proof-backed**
+- chapter summaries, release notes, and README copy should cite that manifest rather than inferring proof coverage from the existence of the Lean plan alone
+- [19 — Feature Maturity](19-feature-maturity.md) makes the same current-state guardrail explicit: proof-backed release/support claims while the published boundary is still empty are **Rejected by default**
 
 ### First proof-backed milestone
 
@@ -78,7 +79,7 @@ Before the first proofs land, the manifest may truthfully stay in the shared **p
 
 Manifest simplification rule:
 - the manifest should state the current verification state explicitly using the same two-way split as this chapter: **proof-ready** vs **proof-backed**
-- release notes, README summaries, and maturity claims should cite that one manifest state instead of paraphrasing it differently in multiple places
+- release notes, README summaries, and maturity claims should treat that manifest as the single source of truth instead of paraphrasing current proof status in multiple places
 
 Follow the shared **proof state split** from [SPEC.md](../SPEC.md):
 - the **placeholder proof-boundary manifest** is acceptable during spec-first iteration and early implementation bootstrapping because it still preserves the **proof-ready** state

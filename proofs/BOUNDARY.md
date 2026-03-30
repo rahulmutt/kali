@@ -1,31 +1,29 @@
 # Proof Boundary Manifest
 
-Status: **placeholder proof-boundary manifest** for the initial published proof boundary. The repository currently claims **no mechanized proof coverage yet**, so this file documents the absence of proof claims explicitly.
+Status: **placeholder proof-boundary manifest**.
+
+This file is the canonical repository location for Kali's published **proof-boundary manifest**. Current proof-status summaries in `SPEC.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` should point here instead of paraphrasing repository proof coverage from memory.
 
 Current repository-state note:
-- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): there is not yet a checked-in Lean proof tree under `proofs/`; this **placeholder proof-boundary manifest** is currently the only required verification artifact
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): there is not yet a checked-in Lean proof tree under `proofs/`
 - the illustrative Lean project layout in [specs/17-verification.md](../specs/17-verification.md) is therefore a target layout for when proofs land, not a claim about the current repository contents
+- while that remains true, this published manifest is the required verification artifact for the repository's current **proof-ready** baseline
 
 Canonical verification state (following the shared **proof state split** from [SPEC.md](../SPEC.md)):
-- **proof-ready**: yes — this published manifest exists and defines the current proof state and claim boundary
+- **proof-ready**: yes — this manifest exists and truthfully declares the current claim boundary
 - **proof-backed**: no — the modeled boundary is still empty, so no release may market formal verification as a shipped Kali capability yet
+- repository claim: **no mechanized proof coverage is claimed yet**
 
-Release note:
+Release rule:
 - this **placeholder proof-boundary manifest** is acceptable while the project is still iterating on the spec/implementation because it satisfies the Phase-1 **proof-ready** baseline without overclaiming proof coverage
-- before any release markets formal verification as a shipped Kali capability, this manifest should move beyond the **placeholder proof-boundary manifest** state with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed**
+- before any release markets formal verification as a shipped Kali capability, this manifest must move beyond the **placeholder proof-boundary manifest** state with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed**
 - the first non-placeholder scope should either mirror [specs/17-verification.md](../specs/17-verification.md)'s **First proof-backed milestone** section or point back to that section as the source of truth, so the chapter-level plan and this manifest do not drift apart
 
 Promotion checklist from proof-ready to proof-backed:
-- name at least one concrete modeled subsystem rather than leaving the boundary empty;
-- list the theorem/property inventory explicitly (for example progress, preservation, conservative effect soundness, sandbox-policy soundness);
-- name the covered implementation/spec paths that those proofs are intended to constrain;
-- update CI wiring so proof jobs trigger for those covered paths in addition to `proofs/`.
-
-This file is the canonical repository location for the **proof-boundary manifest** referenced by:
-- `SPEC.md`
-- `specs/17-verification.md`
-- `specs/16-testing.md`
-- `specs/19-feature-maturity.md`
+- name at least one concrete modeled subsystem rather than leaving the boundary empty
+- list the theorem/property inventory explicitly (for example progress, preservation, conservative effect soundness, sandbox-policy soundness)
+- name the covered implementation/spec paths that those proofs are intended to constrain
+- update CI wiring so proof jobs trigger for those covered paths in addition to `proofs/`
 
 Until Lean proofs land, this file should be kept explicit rather than omitted so Kali does not accidentally imply broader formal-verification coverage than it actually has.
 

@@ -725,7 +725,8 @@ Rules:
 - chapters should reuse this term instead of re-explaining the same empty-boundary-versus-proof-backed distinction in slightly different prose
 
 Current repository note:
-- at the time of this spec revision, [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) is still the **placeholder proof-boundary manifest**, so the repository is **proof-ready** but not yet **proof-backed**
+- [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) is the single source of truth for the repository's current verification state
+- at the time of this spec revision, that manifest is still the **placeholder proof-boundary manifest**, so the repository is **proof-ready** but not yet **proof-backed**
 - README summaries, release notes, and support tables should therefore link to that manifest instead of paraphrasing formal-verification status from memory
 
 ### Canonical browser-applicable mediated subset (schema v1)
