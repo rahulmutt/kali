@@ -396,6 +396,9 @@ Use the CLI chapter for command shape and the maturity matrix for availability; 
 | `kali check --sandbox kali.policy.json` | Phase 1 MVP | Static policy validation over the same **resolved source graph selected by the command's roots** from [SPEC.md](../SPEC.md); Phase 2 adds inferred-effect-vs-policy comparison |
 | `kali check --sandbox kali.policy.json program.ts` | Phase 1 MVP | Same static policy-validation path over an explicit file set |
 | `kali check --sandbox kali.policy.json src/a.ts src/b.ts` | Phase 1 MVP | Same static policy-validation path over an explicit multi-file set |
+| `kali build --sandbox kali.policy.json program.ts` | Phase 1 MVP | The shipped default executable-build variant of the same static policy-validation path; `--sandbox` does not execute the program |
+| `kali build --lib --sandbox kali.policy.json lib.ts` | Phase 1 MVP | The same static policy-validation path on the Phase-1 **base library artifact** build; `--sandbox` is orthogonal to library compile intent |
+| `kali build --bundle --api browser --sandbox kali.policy.json web.ts` | Phase 1 MVP | Browser-targeted static policy validation only, following the shared **browser-targeted static sandbox contract** rather than runtime enforcement after deployment |
 | `kali run --sandbox kali.policy.json program.ts` | Phase 1 MVP | Runtime sandbox enforcement during Kali-hosted execution |
 | `kali test --sandbox kali.policy.json` | Phase 1 MVP | Runtime sandbox enforcement during Kali-hosted execution |
 | `kali run --max-memory 256mb --max-cpu 10s --max-open-files 32 program.ts` | Phase 1 MVP | Resource-budget enforcement without an attached policy file |

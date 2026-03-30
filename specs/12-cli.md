@@ -322,7 +322,7 @@ kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: mai
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
 kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early for builds either
-kali build --lib lib.ts                    # Phase-1 base library artifact following the shared library-oriented instantiation rule and embedding-stability split from SPEC.md (kind=wasm-module, role=primary-library; from the Phase 2 target onward the same plain --lib path becomes the stable public WIT-first library contract and adds kind=wit, role=interface-wit by default)
+kali build --lib lib.ts                    # Phase-1 base library artifact for exact-version consumers, following the shared library-oriented instantiation rule and embedding-stability split from SPEC.md (kind=wasm-module, role=primary-library; from the Phase 2 target onward the same plain --lib path becomes the stable public WIT-first library contract and adds kind=wit, role=interface-wit by default)
 kali build --lib --sandbox kali.policy.json lib.ts # Same Phase-1 base library artifact plus static policy validation; `--sandbox` does not change library compile intent
 kali build --lib --api node lib.ts         # Phase 3 target: Node API surface remains build-gated for library-oriented modes too
 kali build --lib --api browser lib.ts      # Invalid usage (E5008) in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library artifact mode
