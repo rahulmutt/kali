@@ -15,7 +15,7 @@ The spec goal is broad compatibility, but the implementation should prefer a sma
 A key simplification rule applies throughout this section: Phase 1 should target the smallest API set that unlocks real-world package execution, and every later API addition should be justified by package compatibility or standards pressure.
 
 Consistency note:
-- browser work in Phase 1 is analysis/build-first (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including their supported `--sandbox` variants), not a hidden promise of standalone DOM runtime parity
+- browser work in Phase 1 is analysis/build-first (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including equivalent inherited-config forms and their supported `--sandbox` variants), not a hidden promise of standalone DOM runtime parity
 - Node work is a later compatibility surface, not a second Phase-1 standalone host peer
 - references to browser support in this chapter should therefore prefer the cross-spec **browser-targeted context** wording instead of implying one broad "browser runtime" milestone
 
