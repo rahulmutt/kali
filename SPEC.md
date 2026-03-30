@@ -528,6 +528,7 @@ It is the build-oriented reading of the **Default standalone context (schema v1)
 Rules:
 - use this term when a chapter means the default/inherited build context in which plain `kali build <file>` and Phase-1 `kali build --lib <file>` are actually supported
 - this term exists to stop a common overread: Phase-1 support for the **base library artifact** belongs only to the Deno-oriented build context and does **not** imply a browser library mode or an early Node build lane
+- for library-oriented outputs, `apiSurface = deno` here is an **analysis/build-context selection** (ambient typing, package-resolution context, and command gating), not a promise that the emitted exported-library contract is a Deno-branded public ABI
 - inherited config and explicit CLI flags may still move a build out of this context; once they do, the ordinary command-shape and maturity rules still apply
 
 ### Compile intent

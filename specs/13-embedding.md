@@ -82,6 +82,7 @@ Compact Phase-1 support-claim table for library-oriented builds:
 API-surface gating simplification for library-oriented embedding builds:
 - `--lib`, `--capi`, and `--component` all reuse the same exported-library contract rather than defining separate host families
 - the Phase-1 **base library artifact** is supported only in the shared **Deno-oriented build context (schema v1)** from [SPEC.md](../SPEC.md); browser/library combinations stay command-shape contradictions and Node/library combinations stay on the ordinary Node maturity gate
+- in that sentence, `apiSurface = deno` is a build/analysis-context choice (ambient typing, package resolution, and command gating), not a claim that the emitted exported-library interface is itself a Deno-specific public ABI
 - effective `apiSurface = browser` therefore remains a command-shape contradiction for those library-oriented modes in early phases rather than a second browser embedding profile
 - effective `apiSurface = node` follows the ordinary Node build gate; embedding-oriented selectors do not create an earlier Node availability path
 - attaching `--sandbox` is orthogonal to those artifact modes: once the underlying library-oriented build shape is otherwise valid, `--sandbox` adds the same static sandbox-policy step without changing API-surface gating or compile intent
