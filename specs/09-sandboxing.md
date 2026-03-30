@@ -69,7 +69,9 @@ In schema v1, these reasons use the canonical machine-readable codes from [specs
 Interpretation rule:
 - distinct `eval` and `function-constructor` report reasons help tooling explain *which* dynamic path was seen, but they still map to the single schema-v1 compatibility feature name `eval`
 
-When `true`, the static analysis is incomplete — the sandbox must enforce at runtime.
+When `true`, the static analysis is incomplete.
+- for **Kali-hosted execution** (`run`, `test`, embedding), runtime sandbox enforcement remains the authoritative backstop for any operations the static report could not fully classify
+- for browser-targeted analysis/build contexts, this flag is still valuable as a static warning signal, but it does **not** imply that deployed browser bundles automatically inherit Kali runtime enforcement after deployment
 
 ## Sandbox Policies
 

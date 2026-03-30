@@ -191,8 +191,8 @@ const char* kali_error_message(const KaliError* error);
 const char* kali_error_code(const KaliError* error); // stable string code such as "E5006"
 const char* kali_error_json(const KaliError* error);
 
-// Effects analysis (Phase 2 target; before then these return NULL and expose the canonical
-// feature-maturity error via kali_last_error())
+// Effects analysis (Phase 2 target; part of the same stabilized effect-report pipeline
+// as `kali effects` once the public embedding ABI exists)
 const char* kali_analyze_effects_file(KaliRuntime* runtime, const char* path);
 const char* kali_analyze_effects_string(KaliRuntime* runtime, const char* filename, const char* source);
 void kali_free_string(const char* s);
@@ -208,6 +208,7 @@ void kali_register_host_function(KaliRuntime* runtime, const char* module,
 ### Memory Management
 - All `kali_*_new` / `kali_*_free` pairs — caller manages lifetime
 - Strings returned by Kali must be freed with `kali_free_string`
+- because the public C ABI itself is a **Phase 2 target**, pre-Phase-2 internal prototypes are free to omit unstable helpers such as the effect-analysis entrypoints instead of pretending they already exist as a stable callable contract
 - Thread safety: one `KaliRuntime` per thread in the initial implementation
 - The C config surface follows the same set-like semantics as `kali.json` and the Rust builder API: runtime profiles and compat features are unordered unique sets, not boolean toggle pairs
 - C config/runtime setters for build mode, runtime profiles, and compat features follow the same phase-gating rules as the CLI/config surface; unsupported requests fail with the canonical availability error instead of degrading silently

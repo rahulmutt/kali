@@ -411,6 +411,8 @@ Simplification rule:
 
 ### Semantics
 - `dynamicEffects: true` means the report is conservative but incomplete
+- for **Kali-hosted execution** contexts, such a report means runtime sandbox enforcement must remain authoritative for the dynamic paths the static model could not fully classify
+- for browser-targeted analysis/build contexts, the same flag is still a static warning signal but must **not** be read as a promise of automatic post-deployment Kali runtime enforcement inside the browser host
 - `dynamicReasons` uses canonical reason strings so tools do not have to infer *why* the report became conservative from free-form notes alone
 - Schema v1 reason strings are: `eval`, `function-constructor`, `dynamic-import`, `proxy-traps`, and `computed-host-access`
 - the separate `eval` and `function-constructor` reason codes do **not** imply separate compatibility-feature names; both still map to the single schema-v1 compatibility switch `eval`
