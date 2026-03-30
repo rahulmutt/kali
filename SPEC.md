@@ -1515,7 +1515,7 @@ To keep the normalized bootstrap scope easy to scan, Phase 1 does **not** imply:
 - general `--api node` command support across `check` / `effects` / `build` / `run` / `test`,
 - standalone browser runtime or browser-hosted `run` / `test`,
 - `eval` / `Function()` support,
-- interactive permission-prompt / privilege-escalation flows such as `Deno.permissions.request()` / `revoke()`,
+- interactive permission-prompt / privilege-escalation flows such as `Deno.permissions.request()` / `revoke()` *(which may still appear as **recognized-but-unavailable compatibility members** rather than ordinary missing members)*,
 - threaded runtime profiles / `SharedArrayBuffer` / `Atomics`,
 - the Phase-2 **public embedding surface**: stable public Rust embedding, the stable public **WIT-first** `--lib` contract, `--capi`, or `--component`.
 
