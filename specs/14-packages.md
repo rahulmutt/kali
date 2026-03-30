@@ -2,7 +2,7 @@
 
 ## Registry Compatibility
 
-Package loading is compile-time first: Kali resolves and analyzes dependency graphs during `check` / `build` / `run` / `test`, and it links them for artifact-producing/executing flows rather than pretending every command does the same work. This chapter follows the shared **linked-artifact model** from [SPEC.md](../SPEC.md): for normal builds, application code and its statically resolvable dependencies lower into one linked core guest payload, and companion outputs such as JS glue do not change that rule.
+Package loading is compile-time first: Kali resolves and analyzes dependency graphs during `check` / `effects` / `build` / `run` / `test`, and it links them for artifact-producing/executing flows rather than pretending every command does the same work. Single-package registry-analysis commands (`package-effects`, `package-audit`) are separate later tools rather than hidden variants of the project-graph path. This chapter follows the shared **linked-artifact model** from [SPEC.md](../SPEC.md): for normal builds, application code and its statically resolvable dependencies lower into one linked core guest payload, and companion outputs such as JS glue do not change that rule.
 
 Ownership rule:
 - this chapter owns package-resolution order, install mutability, lock/materialization behavior, and registry/raw-URL dependency rules

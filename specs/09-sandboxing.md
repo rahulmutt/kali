@@ -59,7 +59,7 @@ Scope rule:
 - the summarized `effects` cover the full statically reachable program/dependency graph rooted at those logical roots under that recorded analysis context
 - the report is therefore a conservative whole-program summary for that rooted graph, not a file-local listing of only the syntax inside the directly named source file
 
-Other commands that embed effect data should place the full report under the CLI envelope's `payload` field instead of redefining the structure.
+Commands that directly emit the shared effect-report payload (for example `kali effects --output json`) should place that report under the CLI envelope's `payload` field instead of redefining it. Commands that wrap the same effect data with extra package metadata (for example `kali package-effects`) should still reuse the canonical nested report shape from [specs/18-schemas.md](18-schemas.md) rather than inventing a second effect vocabulary.
 
 CLI simplification rule:
 - `kali effects` is an observational reporting command, not a second policy-validation command
@@ -106,7 +106,7 @@ Clarification:
 - `--sandbox <policy>` may point to any explicit policy-file path
 - JSON is still the canonical schema/interchange format for CLI tooling and AI agents in schema v1
 
-The canonical policy schema is defined in [specs/18-schemas.md](18-schemas.md). JSON is the canonical interchange format for CLI tooling and AI agents. An equivalent TOML format may be supported later, but it would be a convenience syntax layered on top of the JSON data model rather than a separate policy contract.
+The canonical policy schema is defined in [specs/18-schemas.md](18-schemas.md). An equivalent TOML format may be supported later, but it would be a convenience syntax layered on top of the JSON data model rather than a separate policy contract.
 
 Cross-spec consistency rule:
 - schema v1 string allowlists use the canonical matching rules from [specs/18-schemas.md](18-schemas.md)
