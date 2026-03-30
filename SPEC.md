@@ -419,6 +419,7 @@ The subset of one `kali install` invocation that targets npm registry packages a
 
 Interpretation rules:
 - this subset may be smaller than the invocation's total install work; JSR packages, raw URLs, and no-op/project-reconciliation work outside npm stay outside it in schema v1
+- this subset is **invocation-scoped**: it includes the npm package work the current install actually reconciles, including any directly requested npm target and any transitively touched npm dependencies in that same invocation
 - `kali install --allow-scripts` affects only this subset
 - mixed graphs are valid: when one install touches both npm and non-npm work, lifecycle scripts may run only for the npm subset while the non-npm subset remains on the normal script-free path
 - if the subset is empty, `--allow-scripts` is invalid usage (`E5008`) rather than a silent no-op
@@ -583,6 +584,7 @@ Interpretation rules:
 - built-in defaults still provide the effective command context
 - ordinary project discovery still starts from that current working directory
 - explicit registry-package adds (`kali install <pkg>` / `kali install --dev <pkg>`) are the only early-phase workflow that auto-creates a minimal manifest in this mode
+- explicit raw-URL pin/materialize workflows (`kali install https://...`) may still create `kali.lock` and `.kali/cache/urls/` state at that root, but they do **not** create a placeholder manifest by themselves
 - plain `kali install` in configless mode is a no-op success when the current root contributes no manifest/import/source dependency inputs; running `install` by itself is not treated as an implicit scaffolding request
 - commands must not invent a second hidden config file or dependency-state sidecar just because they ran in configless mode
 

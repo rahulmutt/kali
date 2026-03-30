@@ -192,6 +192,7 @@ Argument semantics are intentionally simple:
 - `--dev` applies only to registry install targets; `kali install --dev https://...` is rejected with `E5008` instead of inventing a raw-URL dev-dependency table
 - raw URL install targets update the shared lock/cache state only; they do not invent a second manifest section and should not rewrite source/import-map declarations implicitly
 - a raw-URL install is therefore best understood as **pin/materialize this exact URL in the shared dependency state**, not as a request to add a new named dependency kind
+- in the canonical configless project mode, an explicit raw-URL install may still create `kali.lock` and `.kali/cache/urls/` state at the effective project root, but it must not create a placeholder manifest by itself
 - if that URL is not actually referenced from source or `kali.json#imports`, it is only staged materialization and may disappear on the next plain `kali install`
 - plain `kali install` reconciles the current manifest + import graph with `kali.lock`, `node_modules/`, and `.kali/cache/urls/`, and may prune raw URL entries that are no longer reachable from that graph
 - in the canonical configless project mode, plain `kali install` is a no-op success when the effective project root contributes no manifest/import/source dependency inputs, and it must not create a placeholder manifest as a side effect
@@ -210,6 +211,7 @@ Installation is **fetch-and-link by default**, not "execute package scripts" by 
 
 Canonical term:
 - **effective npm-scriptable install work** = the subset of the current `kali install` invocation that targets **npm registry packages** and could therefore expose npm lifecycle hooks
+- this subset is **invocation-scoped**: it includes the npm package work the current install actually reconciles, including any directly requested npm target and any transitively touched npm dependencies in that same invocation
 - raw URL targets and `jsr:` targets are outside this subset in schema v1
 
 To preserve sandbox-first behavior:
