@@ -281,14 +281,16 @@ kali check                                 # Type-check the canonical project-di
 kali check main.ts                         # Type check executable/analyzable source
 kali check src/a.ts src/b.ts               # Type check an explicit file set
 kali check types.d.ts                      # Validate a declaration-only file directly
-kali check --api browser main.ts           # Browser-targeted analysis context (no standalone DOM runtime implied)
+kali check --api browser                   # Browser-targeted project-discovery analysis context
+kali check --api browser main.ts           # Browser-targeted analysis context for an explicit file set (no standalone DOM runtime implied)
 kali check --api node main.ts              # Phase 3 target: Node API surface is phase-gated for checking too
 kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation; Phase 2+: effect-policy validation over the discovered project graph
+kali check --api browser --sandbox kali.policy.json # Same browser-targeted validation path over the discovered project graph
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
 kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
 kali check --fix main.ts                   # Apply only safe, compiler-provided suggested fixes
 ```
-`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. The same rule applies when `--sandbox` is present: `kali check --sandbox <policy>` without file arguments validates the discovered project graph rather than becoming a separate command mode, and `kali check --sandbox <policy> [files...]` keeps the same set-oriented explicit-file behavior as plain `check`. Declaration-only files are valid direct inputs for `check`; `run`, `build`, `effects`, and `test` primary inputs may not be declaration-only, and that input-kind mismatch should use the canonical invalid-entrypoint diagnostic (`E5007`).
+`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`: browser targeting changes the analysis context, not the command's hybrid input behavior. The same rule applies when `--sandbox` is present: `kali check --sandbox <policy>` without file arguments validates the discovered project graph rather than becoming a separate command mode, and `kali check --sandbox <policy> [files...]` keeps the same set-oriented explicit-file behavior as plain `check`. Browser-targeted policy validation follows the same discovery-vs-explicit-file split: `kali check --api browser --sandbox <policy>` without file arguments validates the discovered project graph under the browser-targeted analysis context, while explicit files keep the same set-oriented behavior. Declaration-only files are valid direct inputs for `check`; `run`, `build`, `effects`, and `test` primary inputs may not be declaration-only, and that input-kind mismatch should use the canonical invalid-entrypoint diagnostic (`E5007`).
 
 `--fix` is intentionally conservative: it is limited to unambiguous structured edits attached to diagnostics, not arbitrary refactors or speculative type rewrites.
 

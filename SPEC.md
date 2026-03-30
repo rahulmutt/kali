@@ -178,6 +178,7 @@ A command context whose **effective** `apiSurface` is `browser` for a command th
 
 Interpretation rules:
 - in Phase 1, the supported browser-targeted commands are `kali check --api browser` and `kali build --bundle --api browser`
+- for `kali check --api browser`, this support covers both explicit-file invocations and the normal no-argument project-discovery form; browser targeting changes the analysis context, not the hybrid-input nature of `check`
 - later analysis commands such as `kali effects --api browser` and inherited browser-context `kali package-effects` may reuse that same ambient/package-selection context once their own maturity rows allow it
 - this term names an **analysis/build context**, not a promise that Kali embeds a standalone browser runtime or DOM engine
 - `run --api browser` and `test --api browser` therefore remain rejected until a later spec adds an explicit browser-runtime contract
@@ -185,6 +186,7 @@ Interpretation rules:
 ### Canonical browser-surface rejection split
 To keep browser-targeted support honest and machine-readable diagnostics consistent, Kali uses one cross-spec rule for early `--api browser` handling:
 - `kali check --api browser ...` and `kali build --bundle --api browser ...` are the canonical supported early browser-targeted command shapes
+- for `check`, that browser-targeted shape includes both explicit-file invocations and the ordinary no-argument project-discovery path
 - if the command shape is **browser-targetable in principle** but the user selected an impossible early combination, the failure is **invalid command usage** (`E5008`); examples: plain `kali build --api browser main.ts`, `kali build --lib --api browser lib.ts`, `kali build --capi --api browser lib.ts`, `kali build --component --api browser lib.ts`
 - if the user selected `--api browser` for a command that would require a standalone browser-runtime or test-runtime contract Kali does not yet define, the failure is **feature/profile unavailable** (`E5006`); examples: `kali run --api browser main.ts`, `kali test --api browser`
 - commands must not silently fall back from an effective browser selection to `deno`
