@@ -160,7 +160,7 @@ Use this checklist:
 - shared cross-spec tables/rules such as the **Command-context axis participation table**, the **canonical browser-targeted budget compatibility rule**, and the artifact-mode matrix should have exactly one normative copy in this file; other chapters should point here instead of restating a second near-duplicate table
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - host/API-layering wording should reuse the **host-support staircase**
-- broad “support” wording across syntax/check/build/run/bundle/policy claims should reuse the **compatibility delivery ladder** instead of implying one undifferentiated notion of support
+- broad “support” wording across syntax/check/build/run/bundle/policy claims should reuse the **compatibility delivery ladder** and the **support-claim reading order** instead of implying one undifferentiated notion of support
 - early browser-command availability wording should reuse the **Phase-1 browser-targeted command set** when a chapter means exactly `check --api browser` plus `build --bundle --api browser`
 - browser ambient-typing versus sandbox/effect wording should reuse the **Browser ambient typing vs mediated capability split**
 - browser command-shape versus browser-runtime availability wording should reuse the **canonical browser-surface rejection split**
@@ -169,7 +169,7 @@ Use this checklist:
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
 - library/export-oriented build wording should reuse the **compile intent**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
 - source-command versus package-command wording should reuse the **source-graph command**, **dependency-graph command**, **discovery-driven command**, and **registry-analysis command** terms instead of re-listing the same command families ad hoc
-- single-package registry-analysis wording should reuse the **single-package registry-analysis command**, **registry-analysis context split**, **registry-analysis command split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
+- single-package registry-analysis wording should reuse the **single-package registry-analysis command**, **registry-analysis availability boundary**, **registry-analysis context split**, **registry-analysis command split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
 - JSON machine-output wording should reuse the canonical **native-JSON command**, **envelope-only JSON command**, **JSON-producing mode**, and **registry-analysis command split** terms instead of restating near-duplicate output-mode rules
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
@@ -835,6 +835,24 @@ Rule:
 - use this term instead of restating “exactly one explicit registry package identifier, no raw URLs/local paths, no implicit whole-project mode” in each chapter.
 - package version selection, inherited analysis context, and project-independence are separate rules owned by the neighboring registry-analysis terms.
 
+### Registry-analysis availability boundary
+The shared validation-order rule for well-formed versus malformed registry-analysis invocations.
+
+In schema v1 this means:
+- malformed registry-analysis invocations still fail first with `E5008` under the **single-package registry-analysis command** rule (and, when relevant, the shared **JSON-producing mode** rules),
+- the corresponding well-formed base invocations then fall through to the command's own availability gate (`E5006`) until that command exists in the current phase,
+- once the base command exists, narrower inherited-context/profile gates apply after that base-command gate rather than replacing it,
+- output-format selectors such as `--output json` or `--pretty` never create a second availability path for the command itself.
+
+Canonical early consequences:
+- `kali package-effects` → `E5008`
+- `kali package-effects lodash` before Phase 2 → `E5006`
+- `kali package-audit --pretty lodash` → `E5008`
+- `kali package-audit --output json lodash` before the command exists → `E5006`
+
+Rule:
+- use this term when a chapter needs the shared `E5008`-before-`E5006` boundary for registry-analysis commands instead of re-explaining the same well-formed/malformed examples.
+
 ### Registry-analysis context split
 To keep single-package tooling predictable and avoid a second near-duplicate flag family:
 - `package-effects`, once that command exists, is **analysis-context-aware**: it inherits `apiSurface`, `runtimeProfiles`, and the effective compatibility-feature selection from config/defaults, then records that context in JSON using the emitted field name `compatFeatures` instead of taking package-analysis-specific `--api` / runtime-profile / `--compat` flags.
@@ -1024,7 +1042,7 @@ Shared API-loading rule:
 
 ## Compatibility Delivery Ladder
 
-To keep broad bootstrap asks such as “support Node”, “support browser APIs”, or “support latest ECMA-262” from turning into accidental overclaims, Kali uses one shared compatibility-delivery ladder across the spec set.
+To keep broad bootstrap asks such as “support Node”, “support browser APIs”, or “support latest ECMA-262” from turning into accidental overclaims, Kali uses one shared compatibility delivery ladder across the spec set.
 
 A feature may sit on different rungs at the same time depending on command/profile:
 
@@ -1052,7 +1070,7 @@ To keep feature claims short without making them ambiguous, interpret every “K
 1. **Command shape** — is the requested invocation/selector combination valid at all for the command?
    - If not, this is the `E5008` / `E5007` side of the boundary.
    - Examples: `kali build --api browser main.ts` without `--bundle`, conflicting artifact selectors, or a declaration-only file passed as a runtime/build/effect primary input.
-2. **Compatibility-delivery rung** — what kind of support is actually being claimed?
+2. **Compatibility delivery rung** — what kind of support is actually being claimed?
    - Use the shared **compatibility delivery ladder** above instead of collapsing parsing, checking, building, execution, browser deployment, and policy/effect modeling into one overloaded word.
 3. **Availability context** — is that rung available for the selected command/profile/API surface/runtime-profile/compat set in the current phase?
    - If not, this is the canonical `E5006` boundary.

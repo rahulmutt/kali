@@ -495,8 +495,7 @@ kali package-effects --output json lodash  # Command envelope + package-effect p
 ```
 
 Base-gate clarification:
-- before Phase 2, a **well-formed** invocation such as `kali package-effects lodash` should fail on the command's own availability gate (`E5006`), not pretend the command exists with partial output
-- malformed invocations still fail earlier with `E5008` under the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
+- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-effects lodash` reaches the command's own availability gate (`E5006`) until Phase 2 opens
 - once the base command exists, inherited-context gating follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) rather than a package-analysis-specific shadow matrix
 
 Machine-output rule:
@@ -525,8 +524,7 @@ kali package-audit --pretty --output json lodash # Pretty-print that envelope; p
 ```
 
 Base-gate clarification:
-- before this **Later compatibility** command exists, a **well-formed** invocation such as `kali package-audit lodash` or `kali package-audit --output json lodash` should fail on the command's own availability gate (`E5006`)
-- malformed invocations still fail earlier with `E5008` under the shared **single-package registry-analysis command** rule and the shared **JSON-producing mode** rules from [SPEC.md](../SPEC.md)
+- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-audit lodash` or `kali package-audit --output json lodash` reaches the command's own availability gate (`E5006`) until this later command exists
 - output-format flags such as `--output json` or `--pretty` do not create a second availability path for the command itself
 
 Audit rule:
