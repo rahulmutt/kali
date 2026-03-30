@@ -32,6 +32,9 @@ let config = Config::builder()
     .compat_features([])
     .max_memory_mb(256)
     .max_cpu_time_ms(10_000)
+    .max_open_files(32)
+    .max_spawned_processes(0)
+    .max_threads(0)
     .sandbox(SandboxPolicy::from_file("kali.policy.json")?)
     .build();
 
@@ -62,8 +65,9 @@ println!("{}", serde_json::to_string(&effects)?);
 ```
 
 Canonical embedding-alignment rule:
-- the public embedding config should expose the same semantic knobs as CLI/config where they matter to compilation and execution: **API surface**, **build mode**, **runtime profiles**, and **compat features**
+- the public embedding config should expose the same semantic knobs as CLI/config where they matter to compilation and execution: **API surface**, **build mode**, **runtime profiles**, **compat features**, and the cross-cutting execution-budget/resource-limit knobs
 - prefer set-like builder methods such as `runtime_profiles([...])` and `compat_features([...])` over boolean enable/disable pairs so the embedding vocabulary stays aligned with `kali.json`
+- execution-budget setters should mirror the shared runtime limit model from CLI/schema v1 instead of inventing an embedding-only vocabulary: memory, CPU time, open files, spawned-process cap, and thread cap
 - the canonical runtime-profile name remains `wasm-threads`; if the Rust API exposes `RuntimeProfile::WasmThreads`, that is just the typed embedding spelling of the same underlying profile selected by CLI `--wasm-threads`
 - WIT is the canonical host-facing interface description for public library/component outputs; Rust-typed helpers, generated program-specific exports headers, and later component wrappers are projections of that same exported interface contract rather than unrelated parallel ABI descriptions
 - embedding APIs may use idiomatic Rust enums/builders instead of the JSON field names, but they should not invent a second incompatible vocabulary for the same concepts
@@ -207,6 +211,9 @@ void kali_config_clear_compat_features(KaliConfig* config);
 bool kali_config_add_compat_feature(KaliConfig* config, KaliCompatFeature feature);
 bool kali_config_set_max_memory(KaliConfig* config, uint64_t bytes);
 bool kali_config_set_max_cpu_time(KaliConfig* config, uint64_t ms);
+bool kali_config_set_max_open_files(KaliConfig* config, uint32_t count);
+bool kali_config_set_max_spawned_processes(KaliConfig* config, uint32_t count);
+bool kali_config_set_max_threads(KaliConfig* config, uint32_t count);
 bool kali_config_set_sandbox(KaliConfig* config, const char* policy_path);
 void kali_config_free(KaliConfig* config);
 
@@ -272,8 +279,10 @@ bool kali_register_host_function(KaliRuntime* runtime, const char* module,
 - Thread safety: one `KaliRuntime` per thread in the initial implementation
 - The C config surface follows the same set-like semantics as `kali.json` and the Rust builder API: runtime profiles and compat features are unordered unique sets, not boolean toggle pairs
 - enum spellings such as `KaliApiSurface`, `KaliBuildMode`, `KaliRuntimeProfile`, and `KaliCompatFeature` are the typed C-ABI counterparts of the canonical config/CLI vocabularies `apiSurface`, `buildMode`, `runtimeProfiles`, and `compat.features`
+- the resource-limit setters `kali_config_set_max_memory`, `kali_config_set_max_cpu_time`, `kali_config_set_max_open_files`, `kali_config_set_max_spawned_processes`, and `kali_config_set_max_threads` mirror the shared execution-budget model from CLI/schema v1 instead of inventing C-only names
+- for those setters, `max_memory`, `max_cpu_time`, and `max_open_files` keep the same positive-only semantics as CLI/schema v1, while `max_spawned_processes` and `max_threads` may use `0` as an explicit deny/tightening value
 - mutating config helpers return `bool` so validation/allocation/phase-gating failures all use one C-friendly convention instead of mixing `void` setters with out-of-band failure cases
-- C config/runtime setters for API surface, build mode, runtime profiles, and compat features follow the same phase-gating rules as the CLI/config surface; unsupported requests fail with the canonical availability error instead of degrading silently
+- C config/runtime setters for API surface, build mode, runtime profiles, compat features, and resource limits follow the same phase-gating rules as the CLI/config surface; unsupported requests fail with the canonical availability error instead of degrading silently
 - Exposing a C ABI does **not** imply linking any C/C++ implementation into Kali itself; the runtime and compiler remain Rust-only internally
 
 ### Error Handling Convention
