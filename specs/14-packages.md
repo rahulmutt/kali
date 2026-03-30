@@ -185,7 +185,7 @@ Argument semantics are intentionally simple:
 - because install is intentionally profile-agnostic in early phases, `kali install` does **not** take `--api`; passing `--api ...` is invalid command usage (`E5008`), not a request for a second install graph
 
 Install-graph discovery rule:
-- because `kali install` usually runs without an explicit entrypoint, source-level raw URL imports are discovered from the canonical project-discovery result rather than from one ad hoc command entrypoint
+- because `kali install` usually runs without an explicit primary source input, source-level raw URL imports are discovered from the canonical project-discovery result rather than from one ad hoc command-local source root
 - the effective project config/root for that scan is the nearest `kali.json` found by searching the current working directory and then its ancestors; if none exists, install uses the current working directory as the project root
 - that install-time scan set is filtered by `kali.json` `include` / `exclude` when present, or by the default project-discovery rules from [SPEC.md](../SPEC.md) when those fields are omitted
 - recursive install-time discovery must stop at nested child directories that contain their own `kali.json`; those are separate projects unless the user later targets files inside them explicitly

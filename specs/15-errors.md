@@ -147,10 +147,10 @@ Clarification:
 
 ### Canonical Invalid-Entrypoint Diagnostic
 
-Use `E5007` when the user passes a file/input kind that the selected command fundamentally cannot treat as an entrypoint, even though the file itself may still be meaningful elsewhere in the toolchain.
+Use `E5007` when the user passes a file/input kind that the selected command fundamentally cannot treat as its required primary source input, even though the file itself may still be meaningful elsewhere in the toolchain.
 
 Boundary rule:
-- `E5007` is for **input-kind mismatch** (for example a declaration-only file passed where an executable/analyzable entrypoint or build/effect primary input is required)
+- `E5007` is for **input-kind mismatch** (for example a declaration-only file passed where an executable/analyzable runtime entrypoint or other command-required primary source input is required)
 - missing required inputs, too many explicit direct-input arguments, conflicting build artifact-mode selectors (for example `--bundle --lib`), or other command-usage/arity mistakes should use the canonical CLI-usage diagnostic `E5008` instead of overloading `E5007`
 - in the CLI exit-code model, those command-usage cases and `E5007` both typically exit with code `5`, even though `E5007` remains the structured diagnostic for the input-kind mismatch case
 
@@ -168,7 +168,7 @@ Use `E5007` for cases such as:
 - `kali build defs.d.mts`
 - `kali effects defs.d.cts`
 - `kali test foo.test.d.ts`
-- any other direct command input where the selected command requires an executable/analyzable entrypoint but the supplied file is declaration-only
+- any other direct command input where the selected command requires an executable/analyzable runtime entrypoint or other command-required primary source input but the supplied file is declaration-only
 
 Clarification:
 - `E5007` is about **input-kind mismatch**, not phase gating or general CLI misuse

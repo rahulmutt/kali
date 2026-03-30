@@ -161,7 +161,7 @@ Interpretation rule:
 | `kali check --wasm-threads main.ts` | Later compatibility (opt-in only) | `check` participates in runtime-profile-sensitive analysis when relevant; reject with `E5006` until the threaded profile exists and the selected analysis mode supports it |
 | `kali check --api browser --sandbox kali.policy.json main.ts` | Phase 1 MVP | Browser-targeted static policy validation path only; non-deny `resources.*` policy values are rejected because early browser-targeted commands do not promise Kali-hosted runtime-budget enforcement after deployment |
 | `kali check --sandbox kali.policy.json a.ts b.ts` | Phase 1 MVP | `check` keeps its set-oriented explicit-file behavior under `--sandbox`; this validates the supplied file set rather than inventing a single-entry mode |
-| `kali build` with no explicit entrypoint | Rejected by default | `build` is a direct-input command in early phases; omitting the primary source input should fail with `E5008` rather than guessing `main.ts` or scanning the project |
+| `kali build` with no explicit primary source input | Rejected by default | `build` is a direct-input command in early phases; omitting the primary source input should fail with `E5008` rather than guessing `main.ts` or scanning the project |
 | `kali build a.ts b.ts` | Rejected by default | Early phases accept exactly one primary build source input; multi-entry artifact modes require a later explicit spec, so this should fail with `E5008` |
 | `kali build main.ts` | Phase 1 MVP | Produce one linked WASM payload with the canonical default tuple (`apiSurface=deno`, `buildMode=fast`, `runtimeProfiles=[]`, `compat.features=[]`) and the default executable artifact mode |
 | `kali build --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config for the build; Phase 2+ also performs effect-vs-policy validation |
@@ -190,7 +190,7 @@ Interpretation rule:
 | `kali test --api node` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for test runs too |
 | `kali test --api browser` | Rejected by default | Early browser support is an analysis/build context, not a standalone test-runtime profile |
 | `kali test --coverage` | Phase 2 target | Coverage needs a stable machine-readable report contract instead of ad hoc runner output |
-| `kali effects` with no explicit entrypoint | Rejected by default | `effects` is a direct-input command in early phases; omitting the analysis root should fail with `E5008` rather than permission to scan the project |
+| `kali effects` with no explicit primary source input | Rejected by default | `effects` is a direct-input command in early phases; omitting the analysis root should fail with `E5008` rather than permission to scan the project |
 | `kali effects a.ts b.ts` | Rejected by default | Early phases accept exactly one primary analysis root for `effects`; multi-entry reporting requires a later explicit mode, so this should fail with `E5008` |
 | `kali effects main.ts` | Phase 2 target | Before then: unavailable or explicitly experimental, never a partial bespoke report; when available it uses the same default API-surface selection as `check` (`apiSurface=deno`) unless overridden |
 | `kali effects --sandbox kali.policy.json main.ts` | Rejected by default | Keep `effects` as a pure reporting command; policy validation belongs to `check/build --sandbox` so the CLI has one canonical policy-validation path. This rejection should use `E5008`, not the `E5006` maturity gate. |
