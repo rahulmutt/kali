@@ -141,9 +141,9 @@ Canonical artifact sets by valid build mode:
 |---|---|
 | default executable build (`kali build foo.ts`) | `foo.wasm` (`kind: wasm-module`, `role: primary-executable`) |
 | browser bundle (`kali build --bundle --api browser foo.ts`) | `foo.wasm` (`kind: wasm-module`, `role: primary-executable`) + `foo.js` (`kind: js-glue`, `role: browser-glue`) |
-| base library build (`kali build --lib foo.ts`) | Phase 1: `foo.wasm` (`kind: wasm-module`, `role: primary-library`). Phase 2+: add `foo.wit` (`kind: wit`, `role: interface-wit`) by default once the public library/WIT contract is stable. |
-| C-ABI embedding build (`kali build --capi foo.ts`) | `foo.wasm` (`kind: wasm-module`, `role: primary-library`) + `foo.wit` (`kind: wit`, `role: interface-wit`) + generated `foo.exports.h` (`kind: c-header`, `role: embedding-header`) + generated `foo.cabi.json` (`kind: cabi-metadata`, `role: embedding-metadata`). The generated exports header is distinct from the stable host ABI header `kali.h`. |
-| Component Model build (`kali build --component foo.ts`) | `foo.wasm` (`kind: wasm-module`, `role: primary-library`) + `foo.wit` (`kind: wit`, `role: interface-wit`) + `foo.component.wasm` (`kind: wasm-component`, `role: primary-component`) |
+| base library build (`kali build --lib lib.ts`) | Phase 1: `lib.wasm` (`kind: wasm-module`, `role: primary-library`). Phase 2+: add `lib.wit` (`kind: wit`, `role: interface-wit`) by default once the public library/WIT contract is stable. |
+| C-ABI embedding build (`kali build --capi lib.ts`) | `lib.wasm` (`kind: wasm-module`, `role: primary-library`) + `lib.wit` (`kind: wit`, `role: interface-wit`) + generated `lib.exports.h` (`kind: c-header`, `role: embedding-header`) + generated `lib.cabi.json` (`kind: cabi-metadata`, `role: embedding-metadata`). The generated exports header is distinct from the stable host ABI header `kali.h`. |
+| Component Model build (`kali build --component lib.ts`) | `lib.wasm` (`kind: wasm-module`, `role: primary-library`) + `lib.wit` (`kind: wit`, `role: interface-wit`) + `lib.component.wasm` (`kind: wasm-component`, `role: primary-component`) |
 
 For invalid or unavailable combinations such as `--bundle` without browser mode, browser + library-oriented modes, or early `--api node`, follow the canonical validation/gating rules in [SPEC.md](../SPEC.md), [12 — CLI](12-cli.md), and [19 — Feature Maturity](19-feature-maturity.md) instead of reintroducing a second artifact-mode matrix here.
 

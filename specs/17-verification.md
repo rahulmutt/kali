@@ -2,7 +2,7 @@
 
 ## Overview
 
-Use Lean 4 to formally verify critical invariants of Kali's implementation. Verification is iterative — proofs are developed alongside the Rust implementation and updated as the spec evolves.
+Kali uses Lean 4 to formally verify selected high-value invariants of the implementation over time. Verification is iterative — proofs are developed alongside the Rust implementation and updated as the spec evolves, and support claims stay limited to the currently published **proof-boundary manifest** rather than to the whole implementation.
 
 ## Scope
 

@@ -180,6 +180,17 @@ Triage heuristics:
 
 This rule is what keeps bootstrap goals such as broad Node/browser support, `eval`, programmable policy logic, and Component Model packaging aligned with the rest of the spec without letting them erase the project's safety and determinism constraints.
 
+## Bootstrap Editing Loop
+
+When translating a new bootstrap ask into the spec set, use this short loop before editing chapter prose:
+1. **Classify the ask** with the **Bootstrap Triage Rule**.
+2. **Find the owning chapter** and update phase availability there plus [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) if the user-visible contract changed.
+3. **Normalize shared vocabulary here first** when the ask introduces a cross-spec term, command family, or command/context split.
+4. **Prefer one canonical rule over repetition**: if two chapters would need the same long explanation, add or reuse a canonical term in this file and cross-reference it.
+5. **Check the release-claim surface**: README summaries, phase summaries, and examples must still read availability from the maturity matrix rather than from aspirational wording or internal implementation scaffolding.
+
+This loop is intentionally shorter than the full anti-drift checklist. Use it first for scoping; use the longer checklist later for wording cleanup.
+
 ## Cross-Spec Simplification Rules
 
 To keep the spec set implementable and reduce drift between chapters, Kali intentionally standardizes on a few cross-cutting simplifications:
