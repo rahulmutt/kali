@@ -566,6 +566,7 @@ Interpretation rules:
 - `compilerOptions.buildMode` is one of `fast`, `release`, or `release-advanced`
 - `compilerOptions.runtimeProfiles` is an array of semantic runtime-profile names; in schema v1 it is usually empty because later profiles such as `wasm-threads` are still phase-gated
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
+- unknown runtime-profile names are rejected rather than ignored so config loaders do not silently diverge about which execution-capability set was requested
 - `compilerOptions.strict` is the canonical strict-checking bundle switch in config; its semantics are defined in [specs/04-type-system.md](04-type-system.md), and early phases should avoid multiplying near-duplicate strictness booleans unless a later schema revision documents them explicitly
 - `compilerOptions.maxSpecializations` is the project-default specialization cap upper bound; schema v1 defaults it to `16`, and CLI `--max-specializations` may override it per invocation
 - `compilerOptions.maxSpecializations` does not force every build mode to spend that full budget; `buildMode = fast` may still skip most user-authored generic specialization by design, while `release`-oriented modes consume the budget more aggressively
@@ -575,8 +576,8 @@ Interpretation rules:
 - the canonical effect-reporting and sandbox-agnostic command classes from [SPEC.md](../SPEC.md) ignore top-level `sandbox` rather than treating it as an error or as an implicit request to perform policy validation
 - in particular, `package-effects` still ignores `sandbox` even though it inherits the other semantic analysis axes, and `package-audit` ignores the entire host-analysis/runtime/sandbox context bundle in early phases
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
+- both `compilerOptions.runtimeProfiles` and `compat.features` follow the same schema-v1 validation rule: unknown entries and duplicate entries are config errors (`E5009`), not values tools silently ignore or deduplicate away
 - when **valid** set-like arrays such as `compilerOptions.runtimeProfiles` or `compat.features` are normalized in on-disk config, normalization should preserve semantics without reordering entries unnecessarily; preserving first-seen order for minimal user-file churn is preferred even though the arrays are semantically unordered
-- duplicate entries remain a schema/config error (`E5009`) rather than something tools silently deduplicate away during config loading or rewrite
 - machine-emitted payloads that report those sets back out again (for example `analysisContext` in effect/package-effect JSON) should instead use stable lexical order so caches and diffs do not depend on original input ordering
 - the effective project config is the nearest `kali.json` found by searching the current working directory and then its ancestors; if none exists, commands run configless from the current working directory
 - `include` / `exclude` define globs over the canonical project-discovery result for project-oriented commands, the dependency-graph install scan, hybrid no-argument discovery commands such as `check`, and editor/tooling integrations; they do not reinterpret an explicit CLI file argument as a different entry point

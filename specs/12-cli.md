@@ -138,8 +138,9 @@ Interpretation rule:
 
 Config-array normalization rule:
 - `compilerOptions.runtimeProfiles` and `compat.features` are set-like lists, not ordered pipelines
-- entries should be unique
+- entries should be unique; duplicates are config errors (`E5009`), not something tools silently deduplicate away
 - unknown entries are diagnosed instead of ignored
+- when those sets are re-emitted in machine-readable payloads such as `analysisContext`, producers should use stable lexical order so caches and diffs do not depend on original config ordering
 
 Configuration precedence is intentionally simple:
 1. CLI flags override the effective discovered `kali.json`
@@ -480,6 +481,7 @@ kali package-audit jsr:@std/path           # Audit specific JSR package
 Additional flag-surface rule:
 - like `package-effects`, `package-audit` does **not** take package-analysis-specific analysis-context flags (`--api`, runtime-profile flags such as `--wasm-threads`, or `--compat`) or `--sandbox` in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds them
 - unlike `package-effects`, early `package-audit` also does **not** inherit analysis context from `compilerOptions.apiSurface`, `compilerOptions.buildMode`, `compilerOptions.runtimeProfiles`, or `compat.features`; it remains a context-free registry tool
+- therefore config-selected host-analysis/runtime values such as `apiSurface = node`, `apiSurface = browser`, `runtimeProfiles = ["wasm-threads"]`, or `compat.features = ["eval"]` do **not** by themselves gate or rewrite `package-audit`; the command either remains unavailable by its own maturity row or runs with the same context-free semantics once implemented
 - top-level `kali.json#sandbox` is likewise ignored by `package-audit`, matching the broader sandbox-agnostic command rule from [SPEC.md](../SPEC.md)
 
 Output simplification rule:
