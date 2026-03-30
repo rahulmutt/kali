@@ -7,6 +7,11 @@ If another spec needs to mention one of these features, it should link here for 
 Status-label spelling rule:
 - docs should use the canonical labels from this chapter verbatim (`Phase 1 MVP`, `Phase 2 target`, `Phase 3 target`, `Phase 4 compatibility`, `Later compatibility`, `Opt-in only`, `Later compatibility (opt-in only)`, `Rejected by default`) rather than near-duplicates such as `later-compatibility`
 
+Bootstrap-triage note:
+- this matrix classifies **phase contracts** and **phase-gated breadth targets** after the normalization rules in [SPEC.md](../SPEC.md)
+- it does **not** downgrade the top-level bootstrap **hard invariants** such as AOT-only compilation, the pure-Rust implementation contract, no tracing/background GC, sandbox honesty, or deterministic machine contracts into optional toggles
+- when a row about compatibility breadth appears to conflict with one of those hard invariants, the invariant wins and the breadth feature must be redesigned or remain gated
+
 ## Status Labels
 
 - **Phase 1 MVP** — required for the first practically useful implementation

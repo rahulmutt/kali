@@ -94,6 +94,28 @@ When goals compete, Kali resolves them in this order:
 
 This ordering is intentional. Kali should reject or deopt before it silently guesses.
 
+## Bootstrap Triage Rule
+
+To keep `BOOTSTRAP.md` actionable without turning every aspiration into an MVP promise, classify each bootstrap ask into one of three buckets before editing any chapter:
+
+1. **hard invariant** — must remain true across all phases unless the top-level spec is intentionally changed;
+2. **phase contract** — explicitly promised for a named phase by the owning chapter and the maturity matrix;
+3. **phase-gated breadth target** — important long-term direction, but not yet part of the guaranteed user-visible contract.
+
+Canonical **hard invariants** from the bootstrap brief:
+- **AOT only** — no language-level JIT path;
+- **pure Rust implementation contract** — no embedded C/C++ implementation dependencies;
+- **no tracing/background GC** — ownership/reference-counted strategies may exist only where the owning chapters permit them;
+- **sandbox-first honesty** — policy/enforcement claims must never overpromise what Kali can actually mediate;
+- **deterministic machine contracts** — JSON output, artifact/report structure, and command behavior should stay explicit and tool-friendly.
+
+Triage heuristics:
+- if a feature widens the host/runtime contract, requires dynamic code loading/reflection, or introduces a second near-duplicate workflow vocabulary, treat it as a **phase-gated breadth target** unless a chapter and [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) explicitly promote it;
+- optimization, inference, or compatibility work may deepen within the hard invariants, but must not silently weaken them;
+- when in doubt, preserve the hard invariant and phase-gate the broader compatibility request.
+
+This rule is what keeps bootstrap goals such as broad Node/browser support, `eval`, programmable policy logic, and Component Model packaging aligned with the rest of the spec without letting them erase the project's safety and determinism constraints.
+
 ## Cross-Spec Simplification Rules
 
 To keep the spec set implementable and reduce drift between chapters, Kali intentionally standardizes on a few cross-cutting simplifications:
