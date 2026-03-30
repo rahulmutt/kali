@@ -811,7 +811,7 @@ Rule:
 The semantic context that materially affects static analysis results:
 - `apiSurface`
 - `runtimeProfiles`
-- `compatFeatures`
+- compatibility-feature selection (`compat.features` in config, `compatFeatures` in emitted JSON)
 
 ### Effective inherited analysis context
 The final analysis context used by schema-v1 inherited-analysis workflows that do not take their own package-analysis-specific context flags.
@@ -822,7 +822,7 @@ Canonical early example:
 It is derived from the participating analysis axes after defaults and discovered config are merged:
 - `apiSurface`
 - `runtimeProfiles`
-- `compatFeatures`
+- compatibility-feature selection (`compat.features` in config, `compatFeatures` in emitted JSON)
 
 Rules:
 - in configless mode, this resolves to the **default inherited analysis context (schema v1)**
@@ -902,7 +902,7 @@ It consists of:
 - any command-shape/artifact-mode choice that survived contradiction checks,
 - `apiSurface`,
 - `runtimeProfiles`,
-- `compatFeatures`,
+- compatibility-feature selection (`compat.features` in config, `compatFeatures` in emitted JSON),
 - the current implementation phase/maturity table.
 
 Rules:
@@ -1112,19 +1112,16 @@ Rule:
 - use this term when a chapter needs the top-level contrast between `package-effects` and `package-audit` instead of restating the same availability/context/JSON split in slightly different prose.
 - command spelling and arity remain owned by [`specs/12-cli.md`](./specs/12-cli.md), payload schemas remain owned by [`specs/18-schemas.md`](./specs/18-schemas.md), and availability remains owned by [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 
-### Effective inherited analysis context
+### Registry-analysis reminder: effective inherited analysis context
 The semantic analysis context that `package-effects` uses in schema v1.
 
-It consists of:
-- built-in defaults,
-- then discovered `kali.json` values for `apiSurface`, `runtimeProfiles`, and `compat.features`,
-- with no package-analysis-specific CLI `--api` / runtime-profile / `--compat` override layer in schema v1.
+It is already defined above in the general terminology section.
 
-Rules:
-- use this term when a chapter means the inherited `package-effects` analysis knobs specifically, rather than the broader **effective command context** used by normal source commands,
-- in configless mode, this context is therefore just the **default inherited analysis context (schema v1)**,
-- top-level `sandbox` and `buildMode` are outside this term in early phases,
-- if a later spec adds package-analysis-specific CLI context flags, that later spec can extend this term explicitly instead of forcing every chapter to restate the whole inheritance rule.
+Registry-analysis-specific reminder:
+- for `package-effects`, it consists of built-in defaults plus discovered `kali.json` values for `apiSurface`, `runtimeProfiles`, and `compat.features`, with no package-analysis-specific CLI `--api` / runtime-profile / `--compat` override layer in schema v1
+- in configless mode, it therefore resolves to the **default inherited analysis context (schema v1)**
+- top-level `sandbox` and `buildMode` stay outside this term in early phases
+- if a later spec adds package-analysis-specific CLI context flags, that later spec should extend the one canonical definition above instead of creating a second near-duplicate definition here
 
 ### Axis-aligned inherited analysis gating
 The schema-v1 rule for how `package-effects` availability interacts with its **effective inherited analysis context**.
