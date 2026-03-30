@@ -18,7 +18,7 @@ Command-behavior simplification:
 | Command family | `--sandbox` meaning in schema v1 | Runtime enforcement after command returns? |
 |---|---|---|
 | `run`, `test` | Attach policy, validate schema/ranges, and enforce it during **Kali-hosted execution** | Yes, for the documented Kali-hosted capability/resource contract |
-| `check`, `build` | Static validation only: Phase 1 validates policy-schema/config; starting in the Phase 2 target window, the same path also checks inferred effects against policy. In Phase 1, the shipped build-side variants of this row are the default executable build (`kali build <file>`), the Phase-1 base-library build (`kali build --lib <file>`), and the browser-targeted bundle build (`kali build --bundle <file>` with effective `apiSurface = browser`). If the effective `apiSurface` is `browser`, this same row is narrowed by the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) rather than becoming a separate sandbox workflow. | No |
+| `check`, `build` | Static validation only: Phase 1 validates policy-schema/config; starting in the Phase 2 target window, the same path also checks inferred effects against policy. In Phase 1, the build-side variants of this row are the shared **shipped Phase-1 build-side sandbox paths** from [SPEC.md](../SPEC.md). If the effective `apiSurface` is `browser`, this same row is narrowed by the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) rather than becoming a separate sandbox workflow. | No |
 | `effects`, `package-effects` | No sandbox-comparison mode; `--sandbox` is invalid usage (`E5008`) | N/A |
 | `package-audit` | No sandbox mode; `--sandbox` is invalid usage (`E5008`) because this remains the separate context-free registry-analysis/security-audit workflow | N/A |
 
@@ -32,7 +32,7 @@ Bootstrap-reading shortcut:
 
 Practical reading rule:
 - Phase 1 ships only the **runtime-enforcement** and **static policy-validation** owners
-- for the static-policy-validation owner, the shipped Phase-1 build paths are exactly: default executable build, `build --lib`, and browser-targeted `build --bundle`
+- for the static-policy-validation owner, the shipped Phase-1 build paths are exactly the shared **shipped Phase-1 build-side sandbox paths** from [SPEC.md](../SPEC.md)
 - the reporting owner stays part of the later Phase-2 **public effect-report surface** and remains an explicit `kali effects` / `kali package-effects` workflow rather than a dry-run variant of `run` or `test`
 - `package-audit` remains outside all three because it is the separate context-free registry-analysis/security-audit workflow
 

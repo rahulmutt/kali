@@ -78,12 +78,13 @@ It is intentionally narrower than the full command/profile matrix below:
 | Executable build | `kali build <file>` in the shared **Deno-oriented build context (schema v1)**, with shipped static policy validation on the supported `kali build --sandbox <policy> <file>` path | no non-bundle browser build mode; no Node executable build path yet |
 | Export-oriented build / embedding | Phase-1 **base library artifact** via `kali build --lib <file>` in the shared **Deno-oriented build context (schema v1)** for **exact-version consumers**, only when Kali can determine a **statically known export surface**; shipped static policy validation also covers `kali build --lib --sandbox <policy> <file>`. Here, the Deno-oriented build context is the build/analysis default, not a claim that Phase-1 library outputs expose a Deno-specific public ABI. | no stable public Rust embedding API; no stable public WIT sidecar for plain `--lib`; no stable public C ABI or Component Model flow; no cross-version host-loading guarantee yet |
 | Browser-targeted support | exactly the shared **Phase-1 browser-targeted command set**: browser-targeted `check [files...]` *(including the project-discovery no-file form and explicit file sets)* plus browser-targeted `build --bundle <file>`, including equivalent inherited-config forms and supported `--sandbox` variants | no `run --api browser`; no `test --api browser`; no browser library/embed artifact modes |
-| Effects/sandbox | internal sandbox-oriented effect bookkeeping; policy-schema/config validation for the supported `check/build --sandbox` paths (including browser-bundle and base-library build variants); runtime enforcement for `run --sandbox` / `test --sandbox` | no stable public `kali effects`; no stable public `kali package-effects`; no inferred-effect-vs-policy rejection yet; no dry-run `run` / `test` effect-report workflow |
+| Effects/sandbox | internal sandbox-oriented effect bookkeeping; policy-schema/config validation for `kali check --sandbox` plus the shared **shipped Phase-1 build-side sandbox paths**; runtime enforcement for `run --sandbox` / `test --sandbox` | no stable public `kali effects`; no stable public `kali package-effects`; no inferred-effect-vs-policy rejection yet; no dry-run `run` / `test` effect-report workflow |
 | Registry analysis | none shipped in Phase 1 | no stable public single-package registry-analysis commands yet: `kali package-effects` (which also belongs to the later **public effect-report surface**) and `kali package-audit` both remain gated |
 | Verification | published **proof-boundary manifest**, proof-CI trigger policy, and **proof-ready** repository state | no **proof-backed** release/support claims while the boundary is still empty |
 
 Interpretation shortcut:
 - `kali package-effects` appears in both the **Effects/sandbox** and **Registry analysis** stories on purpose: by command shape it is a registry-analysis command, and by user-facing contract it is also part of the later **public effect-report surface**.
+- `kali check --sandbox` and the shared **shipped Phase-1 build-side sandbox paths** likewise appear together on purpose: they are the whole static-policy-validation surface in Phase 1, while `run/test --sandbox` remain the runtime-enforcement surface.
 - reading rule: use the effect row to answer **what kind of reporting surface it belongs to**, and the registry-analysis row to answer **what kind of command/input workflow it is**.
 
 Use this summary to avoid broad bootstrap overreads, then drop to the canonical matrix below for exact command/context rows.
@@ -111,9 +112,7 @@ Phase-1 sandbox-behavior reading aid:
 |---|---|
 | `kali run <file>` / `kali test [files...]` | runtime sandbox enforcement |
 | `kali check [files...]` | policy-schema/config validation only |
-| `kali build <file>` | policy-schema/config validation only |
-| `kali build --lib <file>` | same static policy validation on the Phase-1 base library artifact |
-| `kali build --bundle <file>` with effective `apiSurface = browser` | browser-targeted static policy-schema/config validation only, not post-deployment runtime enforcement |
+| the shared **shipped Phase-1 build-side sandbox paths** | policy-schema/config validation only; for the browser-targeted `build --bundle` member of that set, this remains browser-targeted static validation only and does not imply post-deployment runtime enforcement |
 
 Phase 2 later extends the `check` / `build` rows with inferred-effect-vs-policy validation; this table is only the compact Phase-1 reading aid.
 

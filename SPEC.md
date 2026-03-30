@@ -136,8 +136,9 @@ Reading rule:
 To reduce drift, one cross-spec term is defined once here and then reused elsewhere:
 
 - **shared Phase-1 browser-targeted command set** = browser-targeted `kali check [files...]` *(including both the project-discovery no-file form and explicit-file-set forms)* plus browser-targeted `kali build --bundle <file>`, including their supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`
+- **shipped Phase-1 build-side sandbox paths** = the supported Phase-1 `build --sandbox` combinations: default executable `kali build <file>`, the Phase-1 base-library path `kali build --lib <file>`, and the browser-targeted bundle path `kali build --bundle <file>` inside the shared **Phase-1 browser-targeted command set**
 
-Use this term instead of re-expanding the same browser-command list in README summaries or chapter-local availability prose.
+Use these terms instead of re-expanding the same browser-command or build-side-sandbox lists in README summaries or chapter-local availability prose.
 
 ## Recommended Phase-1 Implementation Order
 
