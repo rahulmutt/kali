@@ -18,8 +18,10 @@ Important simplification rule: Lean proofs target a **core Kali calculus**, not 
 
 To keep the bootstrap's Lean requirement aligned with the rest of the phased spec, Kali distinguishes two verification states that were easy to blur together in earlier wording:
 
-- **proof-ready** — the repository has the published **proof-boundary manifest**, the proof-CI trigger policy, and the discipline to avoid overclaiming beyond that boundary
-- **proof-backed** — the manifest is non-empty and names at least one concrete modeled subsystem plus theorem/property inventory that support claims can actually cite
+| Verification state | Minimum repository requirement | What docs/releases may claim |
+|---|---|---|
+| **proof-ready** | published `proofs/BOUNDARY.md`, honest proof-CI trigger policy, and explicit no-overclaim discipline | the repository is prepared for phased verification work, but does **not** claim shipped mechanized coverage yet |
+| **proof-backed** | the manifest is non-empty and names at least one concrete modeled subsystem plus theorem/property inventory | release/support wording may cite formal verification, but only for the published boundary |
 
 Practical rule:
 - Phase 1 should be **proof-ready** from the start

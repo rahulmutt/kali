@@ -28,7 +28,12 @@ Bootstrap-reading shortcut:
 - treat sandbox policy as one vocabulary reused by three different workflow owners rather than one giant "sandbox mode"
 - `run/test --sandbox` are the **runtime-enforcement** owner
 - `check/build --sandbox` are the **static policy-validation** owner
-- `effects` / `package-effects` are the **reporting** owner and therefore do **not** become policy-comparison commands just because they talk about effects
+- `effects` / `package-effects`, **once those reporting commands exist**, are the **reporting** owner and therefore do **not** become policy-comparison commands just because they talk about effects
+
+Practical reading rule:
+- Phase 1 ships only the first two owners (runtime enforcement plus static policy validation)
+- the reporting owner is part of the later Phase-2 **public effect-report surface**
+- `package-audit` remains outside all three because it is the separate context-free registry-audit workflow
 
 This keeps the bootstrap's sandbox/effect goals aligned with one small command split instead of encouraging parallel dry-run or audit-style command families.
 

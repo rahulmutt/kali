@@ -29,6 +29,7 @@ Compact workflow comparison:
 Bootstrap-reading shortcut:
 - the bootstrap's package goal should not be read as one yes/no answer to “does Kali support npm?”
 - package claims should name both the **decision order** (package shape → host/API fit → command maturity) and the **support rung** being claimed (`installable/materializable`, `checkable`, `buildable`, `executable`, or `deployable-through-host`)
+- registry-analysis commands stay a separate question from project-command support: they are single-package workflows, and even `package-effects` does **not** use the current project's installed dependency state to pick a different package version
 - this keeps Phase-1 ecosystem claims honest: many pure JS/TS packages are already in scope early, while Node-host-heavy or native/binary/bootstrap-heavy packages remain clearly outside the same promise
 
 ### Supported Packages
@@ -91,8 +92,9 @@ Support-decision order simplification:
 Practical shorthand:
 - a package may be **installable/materializable** without being **analyzable/checkable**, **buildable**, **executable**, or **deployable-through-host** for the selected command/context.
 - package discussions should therefore name the rung they mean instead of using one broad word such as “supported”.
+- if the question is about `package-effects` or `package-audit`, answer it separately from those project-command rungs: those commands are registry-analysis workflows, not alternate ways to ask whether the current project graph is runnable.
 
-This keeps three often-confused questions separate: “can Kali materialize this package?”, “can Kali understand its source shape?”, and “can the selected command/context actually support the host APIs it expects?”.
+This keeps four often-confused questions separate: “can Kali materialize this package?”, “can Kali understand its source shape?”, “can the selected command/context actually support the host APIs it expects?”, and “what would a later single-package registry-analysis workflow report about it?”.
 
 ## Dependency Source Kinds
 
