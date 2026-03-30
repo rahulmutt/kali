@@ -65,7 +65,7 @@ Canonical embedding-alignment rule:
 - the public embedding config should expose the same semantic knobs as CLI/config where they matter to compilation and execution: **API surface**, **build mode**, **runtime profiles**, and **compat features**
 - prefer set-like builder methods such as `runtime_profiles([...])` and `compat_features([...])` over boolean enable/disable pairs so the embedding vocabulary stays aligned with `kali.json`
 - the canonical runtime-profile name remains `wasm-threads`; if the Rust API exposes `RuntimeProfile::WasmThreads`, that is just the typed embedding spelling of the same underlying profile selected by CLI `--wasm-threads`
-- WIT is the canonical host-facing interface description for public library/component outputs; Rust-typed helpers, generated C headers, and later component wrappers are projections of that same exported interface contract rather than unrelated parallel ABI descriptions
+- WIT is the canonical host-facing interface description for public library/component outputs; Rust-typed helpers, generated program-specific exports headers, and later component wrappers are projections of that same exported interface contract rather than unrelated parallel ABI descriptions
 - embedding APIs may use idiomatic Rust enums/builders instead of the JSON field names, but they should not invent a second incompatible vocabulary for the same concepts
 - build-oriented embedding calls obey the same API-surface gates as the CLI/spec matrix: for example, `ApiSurface::Node` remains Phase 3-gated for compile/build flows, while browser-targeted build output is still the `--bundle`-style path rather than a generic library/export mode
 - compiled modules are reusable immutable artifacts: `instantiate(&module)` borrows the compiled module instead of consuming it, and hosts may create multiple instances from one compiled module when that matches the host lifecycle
@@ -260,9 +260,9 @@ kali build --component lib.ts              # Produces lib.wasm + lib.wit + lib.c
 
 Artifact-role clarification:
 - `kali build --lib` is the base exported-library path in Phase 1 and the canonical stable public library path in Phase 2+; once stabilized, that plain public `--lib` output emits `wit` (`role: interface-wit`) by default alongside the core `wasm-module` (`role: primary-library`)
-- `kali build --capi` uses that same core exported-library artifact (`role: primary-library`) plus `wit` (`role: interface-wit`), generated header (`role: embedding-header`), and metadata (`role: embedding-metadata`)
+- `kali build --capi` uses that same core exported-library artifact (`role: primary-library`) plus `wit` (`role: interface-wit`), the generated **program-specific exports header** such as `lib.exports.h` (`role: embedding-header`), and metadata (`role: embedding-metadata`)
 - `kali build --component` keeps the same linked core library payload (`role: primary-library`) and WIT sidecar (`role: interface-wit`), then adds the outer Component Model wrapper as `kind: wasm-component`, `role: primary-component`
-- library-oriented embedding outputs require the same **statically known export surface** defined in [SPEC.md](../SPEC.md); WIT, generated C headers, and component packaging are projections of that same explicit export surface rather than separate reflection-based APIs
+- library-oriented embedding outputs require the same **statically known export surface** defined in [SPEC.md](../SPEC.md); WIT, generated program-specific exports headers, and component packaging are projections of that same explicit export surface rather than separate reflection-based APIs
 - if that export surface cannot be proved, the build must fail with `E5011` instead of synthesizing reflection-based exports for embedding
 - that outer component wrapper is packaging over the already-linked core payload, not a second independently linked guest-program graph; this keeps embedding/component outputs aligned with the single-linked-core-payload rule from [SPEC.md](../SPEC.md)
 
