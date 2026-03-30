@@ -171,13 +171,14 @@ kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL depend
 ```
 
 Argument semantics are intentionally simple:
-- registry package arguments use the canonical registry-package identifier grammar from this chapter (`lodash`, `@types/node`, `jsr:@std/path`)
-- in schema v1, explicit registry-package install arguments are **package identities only**, not inline version/range selectors
+- `kali install` takes zero or one explicit **install target** in schema v1
+- registry install targets use the canonical registry-package identifier grammar from this chapter (`lodash`, `@types/node`, `jsr:@std/path`)
+- in schema v1, explicit registry install targets are **package identities only**, not inline version/range selectors
 - adding a registry package through that identity-only CLI form uses the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1): resolve the latest non-yanked stable published version, refresh `kali.lock` using that concrete version, and record the manifest dependency with the canonical default range `^<resolvedVersion>`
-- registry package arguments therefore mutate `kali.json` (`dependencies` or `devDependencies`) and then refresh lock/materialized state
+- registry install targets therefore mutate `kali.json` (`dependencies` or `devDependencies`) and then refresh lock/materialized state
 - in the canonical configless project mode from [SPEC.md](../SPEC.md), an explicit registry-package add (`kali install <pkg>` or `kali install --dev <pkg>`) first creates the minimal canonical manifest `{ "schemaVersion": 1 }` at the effective project root, then records the dependency there; registry-package adds therefore stay on one manifest-based declaration path even in configless directories
-- `--dev` applies only to registry package arguments; `kali install --dev https://...` is rejected with `E5008` instead of inventing a raw-URL dev-dependency table
-- raw URL arguments update the shared lock/cache state only; they do not invent a second manifest section and should not rewrite source/import-map declarations implicitly
+- `--dev` applies only to registry install targets; `kali install --dev https://...` is rejected with `E5008` instead of inventing a raw-URL dev-dependency table
+- raw URL install targets update the shared lock/cache state only; they do not invent a second manifest section and should not rewrite source/import-map declarations implicitly
 - a raw-URL install is therefore best understood as **pin/materialize this exact URL in the shared dependency state**, not as a request to add a new named dependency kind
 - if that URL is not actually referenced from source or `kali.json#imports`, it is only staged materialization and may disappear on the next plain `kali install`
 - plain `kali install` reconciles the current manifest + import graph with `kali.lock`, `node_modules/`, and `.kali/cache/urls/`, and may prune raw URL entries that are no longer reachable from that graph
@@ -202,9 +203,9 @@ Canonical term:
 To preserve sandbox-first behavior:
 - npm lifecycle scripts (`preinstall`, `install`, `postinstall`) are not executed unless the user explicitly opts in with `kali install --allow-scripts`
 - `--allow-scripts` applies only to that install invocation; it is not an ambient project default
-- pairing `--allow-scripts` with an explicit raw URL install argument is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
+- pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
 - pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
-- with **no explicit package argument**, `kali install --allow-scripts` applies only to the invocation's **effective npm-scriptable install work**; if that subset is empty, the command should fail with `E5008` instead of silently acting like plain `install`
+- with **no explicit install target**, `kali install --allow-scripts` applies only to the invocation's **effective npm-scriptable install work**; if that subset is empty, the command should fail with `E5008` instead of silently acting like plain `install`
 - mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm subset while the non-npm subset stays on the normal script-free path
 - packages requiring native build steps, postinstall-downloaded executables, or other platform-specific binary/bootstrap artifacts are rejected as unsupported even when lifecycle scripts are enabled
 - package metadata and tarballs can still be analyzed before linking

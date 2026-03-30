@@ -270,6 +270,19 @@ Current CLI-vocabulary members of this family:
 - `package-effects`
 - `package-audit`
 
+### Install target
+The optional single explicit argument accepted by `kali install`.
+
+Schema-v1 install target kinds:
+- **identity-only registry target** — a registry package identifier such as `lodash`, `@scope/name`, or `jsr:@std/path`
+- **raw URL target** — an exact URL dependency such as `https://deno.land/std/path/mod.ts`
+
+Interpretation rules:
+- in early phases, `kali install` accepts zero or one explicit install target
+- registry-target installs may update `dependencies` / `devDependencies`; raw-URL installs stage/pin shared lock/cache state only
+- flags such as `--dev` apply only to the registry-target form, not to raw URL targets
+- adding explicit version/range selectors later must be a separate documented target form rather than inferred from the identity-only registry form
+
 ### Identity-only registry target
 An explicit registry package argument that names a package identity but not an inline version/range selector.
 
@@ -480,9 +493,10 @@ Interpretation rule:
 - declaration-only files are never valid direct inputs for `run`, `build`, `effects`, or `test`
 - passing a declaration-only file where an executable entrypoint or build/effect primary input is required is the canonical invalid-entrypoint diagnostic (`E5007`)
 
-### Package-argument rule
+### Install-target and package-argument rule
 In early phases:
-- `kali install [package]` accepts zero or one explicit package argument
+- `kali install [target]` accepts zero or one explicit install target
+- that install target may be either a schema-v1 **identity-only registry target** or a raw URL target
 - `kali package-effects <package>` accepts exactly one explicit registry-package argument
 - `kali package-audit <package>` accepts exactly one explicit registry-package argument
 - those explicit registry-package arguments use the schema-v1 **identity-only registry target** form unless a later spec adds a separate version/range selector mode

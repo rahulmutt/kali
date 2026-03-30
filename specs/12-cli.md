@@ -28,7 +28,7 @@ Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - for `effects`, that source input is one explicit analysis root
 - `check` is a **hybrid analysis command**: it accepts explicit file arguments, or falls back to the canonical project-discovery result when no files are provided
 - `fmt`, `lint`, and `test` are **project-oriented commands** when invoked without explicit file arguments
-- `install` is the canonical **dependency-graph command**: with no explicit package argument it reconciles the discovered project dependency graph, including raw URL imports found through project discovery
+- `install` is the canonical **dependency-graph command**: with no explicit install target it reconciles the discovered project dependency graph, including raw URL imports found through project discovery
 - `package-effects` and `package-audit`, when available, are the canonical **registry-analysis commands**: each takes one explicit registry package identifier and does not invent a no-argument whole-project analysis mode in early phases
 - `init` is not a direct-input source command
 
@@ -38,13 +38,14 @@ Canonical early-phase direct-input arity rule:
 - more than one explicit source input for those commands is also `E5008` unless a later spec introduces a documented multi-input mode
 - `check`, `fmt`, `lint`, and `test` may still accept multiple explicit file arguments because their contracts are set-oriented rather than single-program oriented
 
-Canonical package-argument arity rule:
-- `kali install [package]` accepts **zero or one** explicit package argument in early phases
+Canonical install-target and package-argument arity rule:
+- `kali install [target]` accepts **zero or one** explicit install target in early phases
+- that install target may be either a schema-v1 identity-only registry target or a raw URL target
 - `kali package-effects <package>` accepts **exactly one** explicit registry-package argument
 - `kali package-audit <package>` accepts **exactly one** explicit registry-package argument
-- passing more than the allowed number of explicit package arguments is `E5008` rather than permission to invent an undocumented batch mode
-- omitting the required explicit package argument for a registry-analysis command is also `E5008`
-- flags that conceptually modify an explicit package target (for example `kali install --dev`) require that target in early phases; using them without one is also `E5008`
+- passing more than the allowed number of explicit install targets/package arguments is `E5008` rather than permission to invent an undocumented batch mode
+- omitting the required explicit registry-package argument for a registry-analysis command is also `E5008`
+- flags that conceptually modify an explicit registry-package target (for example `kali install --dev`) require that registry target in early phases; using them without one is also `E5008`
 
 Canonical input-kind rule:
 - `run`, `build`, `effects`, and discovered `test` entrypoints/primary inputs accept only the shared executable/analyzable source-file set (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`)
@@ -377,7 +378,7 @@ Scaffold simplification rules:
 - `kali init` should also create only the smallest source/layout skeleton needed for the chosen template (for example `main.ts` for the default app template or `mod.ts`/`lib.ts` for a library template) instead of emitting multiple unused example files.
 - Dependency state is still created by `kali install`, not by `kali init`.
 
-### `kali install [package]`
+### `kali install [target]`
 Install or materialize project dependencies.
 
 Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that require native addons or install-time binary/bootstrap artifacts remain unsupported even when scripts are enabled.
@@ -385,7 +386,7 @@ Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-
 Boundary rule:
 - `--allow-scripts` is an **install-time tooling escape hatch**, not a runtime/API-surface feature
 - enabling it does **not** imply `--api node`, does not cause lifecycle scripts to participate in `kali effects`, and does not make project `--sandbox` / `kali.json#sandbox` govern install-time hook execution
-- pairing `--allow-scripts` with an explicit raw URL argument is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
+- pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
 - pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
 - plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; on a URL-only, JSR-only, or otherwise no-npm-scriptable install graph it should fail with `E5008` instead of silently degenerating into plain `install`
 - mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm subset while the non-npm subset stays on the normal script-free path
@@ -401,15 +402,15 @@ kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL depend
 ```
 
 Argument-kind rules:
-- `kali install [package]` accepts at most one explicit package argument in early phases; multiple package arguments are invalid command usage (`E5008`)
-- a **registry package argument** uses the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names (for example `jsr:@std/path`)
-- in schema v1, that explicit registry-package install argument is a **package identity only**, not an inline version/range selector
+- `kali install [target]` accepts at most one explicit install target in early phases; multiple install targets are invalid command usage (`E5008`)
+- a **registry install target** uses the canonical registry-package identifier grammar from [specs/14-packages.md](14-packages.md): normal npm package names (for example `lodash` or `@types/node`) and `jsr:`-prefixed JSR names (for example `jsr:@std/path`)
+- in schema v1, that explicit registry install target is a **package identity only**, not an inline version/range selector
 - adding a registry package through this identity-only CLI form uses the shared stable-release rule from [specs/14-packages.md](14-packages.md): resolve the latest non-yanked stable published version, write `kali.lock` with that concrete version, and record the manifest dependency using the canonical default range `^<resolvedVersion>`
-- a **registry package argument** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
+- a **registry install target** updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
 - in the canonical configless project mode, an explicit registry-package add (`kali install <pkg>` or `kali install --dev <pkg>`) first creates the minimal canonical manifest `{ "schemaVersion": 1 }` at the effective project root, then records the dependency there; this keeps package adds on one manifest path instead of inventing a configless side channel
 - `kali install` does **not** take `--api` in early phases; install is profile-agnostic, so passing `--api ...` is invalid command usage (`E5008`) rather than a request for a second install graph
-- `--dev` is valid only with a **registry package argument**; using `--dev` without an explicit package or pairing it with a raw URL (`kali install --dev https://...`) is rejected explicitly rather than inventing a second URL-specific manifest bucket
-- a **raw URL argument** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
+- `--dev` is valid only with a **registry install target**; using `--dev` without an explicit registry target or pairing it with a raw URL (`kali install --dev https://...`) is rejected explicitly rather than inventing a second URL-specific manifest bucket
+- a **raw URL install target** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
 - an ad hoc raw-URL install is therefore a **staging/pin workflow**; if the project does not reference that URL from source or `kali.json#imports`, a later plain `kali install` may prune it again
 - plain `kali install` consumes the current manifest/import graph and reconciles lock + materialized state for the dependency source kinds actually used by the project
 - in the canonical configless project mode, plain `kali install` is a no-op success when the effective project root contributes no manifest/import/source dependency inputs, and it must not create a placeholder `kali.json` just because the command ran
