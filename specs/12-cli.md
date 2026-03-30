@@ -34,7 +34,7 @@ Command-family terminology used in this chapter:
 - canonical availability promises live in [19 — Feature Maturity](19-feature-maturity.md)
 - **execution commands**: `run` and `test`
 - **build-like commands**: `build`, plus the compile step embedded inside `run` and `test`
-- **diagnostic-producing commands**: `check`, `effects`, `package-effects`, `build`, `run`, `test`, `fmt --check`, and `lint`
+- **diagnostic-producing commands**: `check`, `effects`, `package-effects`, `package-audit`, `build`, `run`, `test`, `fmt --check`, and `lint`
 - **JSON-producing mode**: use the shared term from [SPEC.md](../SPEC.md); in schema v1 this means either a **native-JSON command** in its default success mode or any invocation with `--output json`
 
 Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
@@ -789,7 +789,7 @@ Configuration simplification rules:
 ## Exit Codes
 
 Interpretation rule:
-- ordinary compile/check/build diagnostics over otherwise valid command inputs exit with **1**; this includes syntax/type/name errors, import/module/resolution failures, dependency-state failures (`E5001`-`E5006` as applicable), library-export proof failures (`E5011`), and compile-time sandbox/effect violations once the Phase 2 target opens
+- ordinary command diagnostics over otherwise valid command inputs exit with **1**; this includes syntax/type/name errors, import/module/resolution failures, dependency-state failures (`E5001`-`E5006` as applicable), library-export proof failures (`E5011`), compile-time sandbox/effect violations once the Phase 2 target opens, and later registry-audit findings emitted through the standard diagnostic arrays
 - this same `1` path also covers a **well-formed but context-incompatible** attached policy whose enabled capability/profile is unavailable for the effective command context (for example `effects.eval: true` before `--compat eval` exists, or browser-targeted `check` / `build --bundle` policies that violate the canonical browser-targeted budget rule by setting `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, or `resources.maxOpenFiles`, or by setting positive `resources.maxSpawnedProcesses` / `resources.maxThreads` values)
 - `fmt --check` and lint-style contract failures that report ordinary command diagnostics also exit with **1**
 - runtime sandbox enforcement failures exit with **3**
@@ -808,7 +808,7 @@ This keeps exit codes simple: command-time failures are separated from runtime e
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Ordinary compile/check/build diagnostic failure (for example syntax, type, name, module/resolution, dependency-state, feature-gating, or library-export-proof failures such as `E5001`-`E5006` and `E5011`, plus build-time sandbox/effect violations, semantically valid but context-incompatible policy enablement such as browser-targeted budget incompatibilities, `fmt --check`, and lint contract failures) |
+| 1 | Ordinary command diagnostic failure (for example syntax, type, name, module/resolution, dependency-state, feature-gating, or library-export-proof failures such as `E5001`-`E5006` and `E5011`, build-time sandbox/effect violations, semantically valid but context-incompatible policy enablement such as browser-targeted budget incompatibilities, later registry-audit findings reported through standard diagnostics, `fmt --check`, and lint contract failures) |
 | 2 | Runtime error (uncaught exception) |
 | 3 | Runtime sandbox violation |
 | 4 | Runtime resource limit exceeded |
