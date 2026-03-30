@@ -14,7 +14,7 @@ Bootstrap-normalized headline assumptions:
 - the language-inspiration list in `BOOTSTRAP.md` is also normalized: Haskell/Idris/Agda/Lean inform purity/effects/constraint design, but do not imply Phase-1 dependent types, totality checking, or proof-term workflows in ordinary Kali code
 - early runtime standardization is **wasmtime first**; alternative engines are later extensions
 - embedding is phased: Phase 1 ships a useful but unstable `kali build --lib` **base library artifact**; Phase 2 adds the stable **public embedding surface**: stable Rust embedding API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging
-- effects are phased too: Phase 1 may use internal effect bookkeeping for sandboxing, but the stable public effect-report surface (`kali effects`, `kali package-effects`, and compile/check-time inferred-effect-vs-policy validation) is Phase 2
+- effects are phased too: Phase 1 may use internal effect bookkeeping for sandboxing, while the stable Phase-2 public effect surface is split into a reporting half (`kali effects`, `kali package-effects`) and a policy-comparison half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`)
 - `kali package-audit` is intentionally separate from effect reporting: it is a later, context-free registry-analysis workflow rather than part of the sandbox/effect-report surface
 - verification has one explicit split: the Phase-1 baseline is a **proof-ready** repository state (published proof boundary + honest proof-CI activation rule), while **proof-backed** release/support claims are a stricter bar that require a non-empty boundary naming real modeled subsystems and theorem claims
 - current repository verification status: see [proofs/BOUNDARY.md](./proofs/BOUNDARY.md); it currently declares an empty modeled boundary, so this repo is **proof-ready** but not yet **proof-backed**, and verification should not yet be marketed as shipped proof coverage
@@ -25,7 +25,7 @@ Bootstrap-normalized headline assumptions:
 Quick Phase-1 non-goals:
 - no general `--api node` command support yet across `check` / `effects` / `build` / `run` / `test`
 - no standalone browser runtime or browser-hosted `run` / `test`
-- no stable public effect-report workflow yet (`kali effects`, `kali package-effects`, and compile/check-time inferred-effect-vs-policy validation)
+- no stable public effect workflow yet: neither the reporting half (`kali effects`, `kali package-effects`) nor the policy-comparison half (compile/check-time inferred-effect-vs-policy validation) is shipped in Phase 1
 - no stable user-facing `kali package-audit` workflow yet; that later command is intentionally separate from the effect-report surface
 - no `eval` / `Function()` support yet
 - no threaded runtime profile yet

@@ -352,7 +352,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - `kali check` / `build` / `run` / `test` all use the same early-phase API-surface maturity rules: Deno-supported, Node phase-gated, browser supported only for the documented browser-targeted check/bundle paths.
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
 - `check/build --sandbox` perform the documented Phase-1 policy-schema/config validation without overclaiming full inferred-effect-vs-policy validation/comparison yet.
-- The shared **effect-surface split** remains intact in Phase 1: internal effect bookkeeping may exist, but the stable **public effect-report surface** (`kali effects` / `kali package-effects` reporting and inferred-effect-vs-policy validation) is still correctly absent or explicitly experimental.
+- The shared **effect-surface split** remains intact in Phase 1: internal effect bookkeeping may exist, but both Phase-2 halves of the stable **public effect-report surface** — the reporting half (`kali effects` / `kali package-effects`) and the policy-comparison half (inferred-effect-vs-policy validation) — are still correctly absent or explicitly experimental.
 - The Lean-backed verification story is phase-correct: the repository reaches the Phase-1 **proof-ready** baseline with one published **proof-boundary manifest** plus the matching CI activation rule, and any proof-backed claim stays scoped to the non-placeholder manifest that actually names the modeled subset.
 - If a Phase-1 release or support statement advertises formal verification as a shipped capability, the manifest must be non-placeholder and name at least one concrete modeled subsystem plus theorem/property inventory; an empty manifest is acceptable only while Kali remains proof-ready but not yet proof-backed.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
@@ -414,7 +414,8 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | TypeScript-compatible checking and flow narrowing | Phase 1 MVP | Compatibility first |
 | Stronger JS inference and conservative fallback to `unknown` / dynamic representations | Phase 1 MVP | Needed for plain JS compilation |
 | Shared bounded inference contract for locals, obvious parameters, and analyzable returns | Phase 1 MVP | Early inference should improve materially on plain `tsc` local inference while staying inside the shared **bounded inference contract** and using the shared **annotation-required inference boundary** when cost or API stability would otherwise become unpredictable |
-| Stable built-in capability-effect reporting | Phase 2 target | Reuses the earlier canonical **public effect-report surface** row above: stable `kali effects` / `kali package-effects` output plus compile/check-time inferred-effect-vs-policy validation |
+| Stable built-in capability-effect reporting | Phase 2 target | Reuses the reporting half of the canonical **public effect-report surface** row above: stable `kali effects` / `kali package-effects` output |
+| Compile/check-time effect-vs-policy validation | Phase 2 target | Reuses the policy-comparison half of that same canonical **public effect-report surface** row above: pass/fail validation on `check/build --sandbox` |
 | Explicit `pure` / effect annotations | Phase 2 target | Built-in sandbox capability model first |
 | Stable user-defined/custom effects in machine contracts | Later compatibility | Keep Phase 1-2 schemas, reports, and policy validation/comparison scoped to the built-in sandbox-relevant effect family |
 

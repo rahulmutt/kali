@@ -31,7 +31,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Runtime model | AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
 | Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set** (`kali check [files...]`, including the project-discovery no-file form and explicit-file-set forms, and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including equivalent inherited-config forms and their supported `--sandbox` variants); `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema validation for `check`/`build`, no project-executed policy code |
-| Effects | Internal effect bookkeeping may exist, but the stable public effect-report surface (`kali effects`, `kali package-effects`, and compile/check-time inferred-effect-vs-policy validation) waits for Phase 2 |
+| Effects | Internal effect bookkeeping may exist in Phase 1; the Phase-2 stable public effect surface is intentionally split into a reporting half (`kali effects`, `kali package-effects`) and a policy-comparison half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`) |
 | Registry audit | `kali package-audit` is a separate context-free registry-analysis workflow and remains later compatibility |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib`; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging |
@@ -130,7 +130,7 @@ Normalization rules:
 Canonical examples of that normalization:
 - **“Support Node, Deno, and browser APIs”** → Phase 1 is Deno-first plus the shared **Phase-1 browser-targeted command set**; broad Node compatibility is Phase 3.
 - **“Support all features including eval”** → `eval`/`Function()` are part of the long-term compatibility contract, but Phase 4-gated behind the single schema-v1 compatibility switch `eval`, and that later compatibility path must still preserve Kali's no-language-level-JIT invariant.
-- **“Statically run a command and get JSON output of all potential effects”** → Phase 1 may keep internal conservative effect bookkeeping for sandboxing/runtime integration, but the stable public JSON-reporting surface is Phase 2: `kali effects`, `kali package-effects`, and compile/check-time inferred-effect-vs-policy validation arrive together instead of fragmenting into several partial report modes.
+- **“Statically run a command and get JSON output of all potential effects”** → Phase 1 may keep internal conservative effect bookkeeping for sandboxing/runtime integration, but the stable public effect surface is Phase 2 and is intentionally split in one place: the reporting half (`kali effects`, `kali package-effects`) and the policy-comparison half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`).
 - **“Latest ECMA-262”** → latest **published** ECMA-262 grammar is Phase 1; draft/Stage-3+ proposal support is experimental rather than implied.
 - **“Programmable sandbox policy conditions”** → project policy files stay declarative in early phases; later programmable narrowing is via host-registered predicates, not executable project policy code.
 - **“Use wasmtime or wasmer”** → standardize on `wasmtime` first; alternative engines are later implementation extensions.
@@ -151,7 +151,7 @@ It intentionally merges three questions in one place so readers do not have to b
 | Bootstrap theme | Triage bucket | Earliest explicit promise | Normalized contract | Primary owner(s) |
 |---|---|---|---|---|
 | TypeScript + first-class JavaScript compilation | Phase contract | Phase 1 MVP | TS compatibility stays broad; `.js` is a first-class input with stronger bounded inference rather than a downgraded mode | [`specs/04-type-system.md`](./specs/04-type-system.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
-| Sandbox-first design + static effect reporting | Mixed: hard invariant + phase-gated reporting breadth | Phase 1 for enforcement/policy validation; Phase 2 for the stable public effect-report surface | Phase 1 ships runtime enforcement plus policy validation; stable `kali effects`, `kali package-effects`, and compile/check-time inferred-effect-vs-policy validation land together in Phase 2 | [`specs/09-sandboxing.md`](./specs/09-sandboxing.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| Sandbox-first design + static effect reporting | Mixed: hard invariant + phase-gated reporting breadth | Phase 1 for enforcement/policy validation; Phase 2 for the stable public effect surface | Phase 1 ships runtime enforcement plus policy validation; Phase 2 then opens the reporting half (`kali effects`, `kali package-effects`) and the policy-comparison half (compile/check-time inferred-effect-vs-policy validation) as two explicit maturity rows under one shared effect-surface split | [`specs/09-sandboxing.md`](./specs/09-sandboxing.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | AOT only / no JIT | Hard invariant | Phase 1 MVP | Kali is language-level AOT only; runtime engine internals must not become part of the language contract | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/10-runtime.md`](./specs/10-runtime.md) |
 | No tracing GC / explicit memory decisions | Hard invariant | Phase 1 MVP | No tracing/background GC; deterministic ownership, escape analysis, and layout decisions are the core memory story, including compile-time selection between the canonical ownership classes (`stack`, `owned heap`, `shared heap`, `borrowed`) instead of deferring shared-reference strategy to an opaque runtime policy | [`specs/06-memory.md`](./specs/06-memory.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Aggressive specialization + layout-aware IR | Phase contract that deepens later | Phase 1 for the explicit layout-aware pipeline shape; Phases 2-3 for deeper optimization | Optimization is staged: explicit layout-aware IR plus specialization deepen over Phases 2-3 without weakening auditability | [`specs/05-ir.md`](./specs/05-ir.md), [`specs/07-specialization.md`](./specs/07-specialization.md) |
@@ -624,13 +624,16 @@ Rule:
 - the mapping between those two layers is centralized in [`specs/18-schemas.md`](./specs/18-schemas.md) and should not be re-invented per chapter
 
 ### Effect-surface split
-Kali keeps one explicit split between internal effect machinery and the later stable user-facing reporting surface:
+Kali keeps one explicit split between internal effect machinery and the later stable user-facing effect surface:
 - **internal effect bookkeeping** — conservative compiler/runtime effect facts that may exist in Phase 1 to support sandbox-first implementation, diagnostics, lowering decisions, or later-proofed integration work
-- **public effect-report surface** — the stable user-facing effect-reporting and policy-comparison workflow (`kali effects`, `kali package-effects`, and compile/check-time inferred-effect-vs-policy validation) that becomes part of the supported contract starting in the Phase 2 target window
+- **public effect-report surface** — the stable Phase-2 user-facing effect surface, intentionally treated as one umbrella with two halves:
+  - the **reporting half** — `kali effects` and `kali package-effects`
+  - the **policy-comparison half** — compile/check-time inferred-effect-vs-policy validation on `kali check --sandbox ...` and `kali build --sandbox ...`
 
 Rules:
 - Phase 1 may rely on **internal effect bookkeeping** without implying that effect JSON, command availability, or machine-readable report fields are already stable
 - docs should use this split when they need to explain why sandbox-first implementation can start before the stable report commands land
+- when a chapter means only one Phase-2 half, it should say **reporting half** or **policy-comparison half** rather than naming the whole umbrella and making readers infer the distinction
 - chapters should avoid phrasing that makes the absence of the **public effect-report surface** sound like the total absence of effect infrastructure
 
 ### Workflow-owner split
