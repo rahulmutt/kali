@@ -69,7 +69,19 @@ For quick bootstrap-review work, use this compact triage before dropping into th
 Shortcut:
 - if a bootstrap sentence looks broader than one row above, normalize it before editing subsystem prose
 - if a proposed change would widen a Phase-1 public claim, update the owning chapter plus [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
-- if a proposed change would widen verification claims, update [`specs/17-verification.md`](./specs/17-verification.md) and [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) together
+- if a proposed change would widen verification claims, update [`specs/17-verification.md`](./specs/17-verification.md) and [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) together, then sync any proof-status summaries that repeat the repository claim boundary (at minimum [`README.md`](./README.md) and [`specs/16-testing.md`](./specs/16-testing.md), plus [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) if a maturity row changes)
+
+## Spec Editing Checklist
+
+Use this before considering a spec edit complete:
+- **availability change** → update the owning chapter and [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) together
+- **shared terminology or cross-spec split change** → update `SPEC.md` first, then clean up any chapter-local wording that reuses that term
+- **proof-boundary / verification claim change** → update [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) and [`specs/17-verification.md`](./specs/17-verification.md) together, then sync summary docs that restate current proof status
+- **browser-targeted support change** → check all four places that commonly drift: the canonical term in `SPEC.md`, [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/16-testing.md`](./specs/16-testing.md), and [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
+- **embedding/library artifact change** → keep the Phase-1 **base library artifact** wording distinct from the later **public embedding surface** wording
+- **package-support claim change** → restate it in the full package order: package shape → host/API fit → command maturity → claimed support rung
+
+This checklist is intentionally short and repetitive: it exists to catch the edits most likely to create cross-file drift.
 
 ## Implementation Strata
 

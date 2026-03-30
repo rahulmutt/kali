@@ -32,7 +32,7 @@ Promotion checklist from proof-ready to proof-backed:
 
 Cross-file promotion packet:
 - when this manifest stops being the **placeholder proof-boundary manifest**, update [specs/17-verification.md](../specs/17-verification.md) in the same change so the chapter-level verification plan and the published boundary still describe the same first proof-backed scope
-- if the new boundary changes what Phase 1 or later release/support wording may honestly claim, also sync any affected summary/availability owners (at minimum `README.md` and, if a maturity row changes, [specs/19-feature-maturity.md](../specs/19-feature-maturity.md))
+- if the new boundary changes what current testing/process evidence or release/support wording may honestly claim, also sync any affected summary/availability owners (at minimum `README.md`, [specs/16-testing.md](../specs/16-testing.md), and, if a maturity row changes, [specs/19-feature-maturity.md](../specs/19-feature-maturity.md))
 - this keeps the shared **proof-ready vs proof-backed split** anchored in one published boundary instead of drifting across summary prose
 
 Boundary-maintenance rule:
