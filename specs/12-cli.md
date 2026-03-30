@@ -242,6 +242,16 @@ Sandbox flag behavior is intentionally phase-gated:
 ### `kali build <file>`
 AOT compile to a WASM module or linked artifact set.
 
+Artifact-mode quick summary:
+
+| Selector | Compile intent | Earliest phase | Early-phase meaning |
+|---|---|---|---|
+| *(default)* | executable | Phase 1 MVP | one linked executable-oriented WASM artifact |
+| `--bundle` | executable | Phase 1 MVP | browser-targeted bundle path only, and only when the effective `apiSurface` is `browser` |
+| `--lib` | library | Phase 1 MVP | Phase-1 **base library artifact** only; stable public library/WIT contract is later |
+| `--capi` | library | Phase 2 target | public embedding artifact flow over the same proved export surface |
+| `--component` | library | Phase 2 target | Component Model packaging over the same proved export surface |
+
 Canonical artifact-mode rule:
 - `kali build` is a direct-input command in early phases: it requires exactly one explicit executable/analyzable primary source input and does not guess a project default such as `main.ts`
 - in executable artifact mode that source input behaves as the program entrypoint; in library-oriented artifact modes it is the primary module input whose exports define the host-facing surface

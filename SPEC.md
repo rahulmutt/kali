@@ -72,14 +72,15 @@ Rule:
 
 ## Phase-1 Guardrail Splits
 
-Several later chapters reuse the same four distinctions because they are the easiest places for broad bootstrap goals to blur into accidental Phase-1 overclaims:
+Several later chapters reuse the same five distinctions because they are the easiest places for broad bootstrap goals to blur into accidental Phase-1 overclaims:
 - **browser-targeted context** ≠ **standalone browser runtime/test contract**
+- **browser ambient typing surface** ≠ **browser mediated sandbox/effect subset**
 - **base library artifact** ≠ **public embedding surface**
 - **internal effect bookkeeping** ≠ **public effect-report surface**
 - **proof-ready state** ≠ **proof-backed support state**
 
 Reading rule:
-- when a support claim feels ambiguous, check whether it accidentally crossed one of those four boundaries before assuming the broader reading
+- when a support claim feels ambiguous, check whether it accidentally crossed one of those five boundaries before assuming the broader reading
 - later chapters should prefer reusing these canonical split names instead of re-explaining them in new prose each time
 
 ## Recommended Phase-1 Implementation Order

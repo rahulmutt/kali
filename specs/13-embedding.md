@@ -1,6 +1,6 @@
-# 13 — Embedding & C ABI
+# 13 — Embedding, WIT & C ABI
 
-Public embedding is intentionally phased and follows the shared **embedding-stability split** from [SPEC.md](../SPEC.md):
+Embedding is intentionally phased and follows the shared **embedding-stability split** from [SPEC.md](../SPEC.md):
 - **Phase 1 MVP**: reusable internal crates exist so the CLI is built library-first, and `kali build --lib` already produces the **base library artifact**. That artifact is intentionally useful for exported-module workflows immediately, but it does **not** yet count as the stable **public embedding surface**. In particular, Phase 1 does not yet promise a stable Rust API, a stable public library/WIT contract, a stable C ABI, or default WIT sidecars for plain `--lib`.
 - **Phase 2 target**: the **public embedding surface** arrives — the Rust embedding API, the stable public library/WIT contract for `kali build --lib`, the C ABI, and `kali build --capi` / `kali build --component` artifact flows.
 
@@ -10,6 +10,21 @@ Practical simplification:
 - in Phase 1, that base artifact is intentionally useful for internal/exact-toolchain workflows, but it is **not** yet a stable cross-version public ABI contract
 - Phase 2 promotes the same `--lib` path into the canonical stable public library/WIT contract and adds WIT by default
 - `--capi` and `--component` then project/package that same proved export surface for specific host interop workflows rather than redefining what the library exports mean
+
+## Phase 1 — Base library artifact
+
+Phase 1 needs one export-oriented build path early so Kali is genuinely embeddable and library-first internally, but the spec should keep that early promise narrow.
+
+What plain `kali build --lib` means in Phase 1:
+
+| Phase-1 property | Guaranteed? | Meaning |
+|---|---|---|
+| Export-oriented WASM output | Yes | Emit one linked `wasm-module` (`role: primary-library`) whose host-facing surface comes from the proved export set |
+| Useful for internal/exact-toolchain workflows | Yes | Internal crates, exact-version integrations, and unstable experiments may consume it immediately |
+| Stable public Rust API | No | That is part of the later **public embedding surface** |
+| Stable public WIT contract / default WIT sidecar | No | Plain `--lib` adds default `wit` output only once the Phase-2 public library contract is frozen |
+| Stable C ABI / `--capi` flow | No | That is Phase 2 work |
+| Stable Component Model packaging / `--component` flow | No | That is Phase 2 work |
 
 Canonical library-artifact normalization table:
 
