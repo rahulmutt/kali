@@ -44,7 +44,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Language/frontend | Latest published ECMA-262 grammar, TypeScript compatibility where implemented, and first-class `.js` compilation with bounded conservative inference |
 | Runtime model | AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
 | Host support | the Deno-oriented standalone/build context is the default non-browser context in Phase 1 (`--api deno` for Kali-hosted execution and the shared **Deno-oriented build context (schema v1)** for non-browser builds); `--api browser` is limited to the shared **Phase-1 browser-targeted command set**; `--api node` remains gated |
-| Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema/config validation for `check` and the supported `build --sandbox` paths (default executable build, Phase-1 `build --lib`, and browser-targeted `build --bundle`), no project-executed policy code |
+| Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema/config validation for the shared **Phase-1 static policy-validation surface**, no project-executed policy code |
 | Effects | Internal effect bookkeeping may exist in Phase 1; the Phase-2 stable **public effect-report surface** is intentionally split into a reporting half (`kali effects`, `kali package-effects`) and a policy-comparison half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`) |
 | Registry audit | `kali package-audit` is a separate context-free registry-analysis/security-audit workflow and remains later compatibility |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, no implicit dependency repair outside `kali install`, opt-in npm lifecycle scripts only via `kali install --allow-scripts`, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
@@ -137,6 +137,7 @@ To reduce drift, one cross-spec term is defined once here and then reused elsewh
 
 - **shared Phase-1 browser-targeted command set** = browser-targeted `kali check [files...]` *(including both the project-discovery no-file form and explicit-file-set forms)* plus browser-targeted `kali build --bundle <file>`, including their supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`
 - **shipped Phase-1 build-side sandbox paths** = the supported Phase-1 `build --sandbox` combinations: default executable `kali build <file>`, the Phase-1 base-library path `kali build --lib <file>`, and the browser-targeted bundle path `kali build --bundle <file>` inside the shared **Phase-1 browser-targeted command set**
+- **Phase-1 static policy-validation surface** = `kali check --sandbox ...` plus the shared **shipped Phase-1 build-side sandbox paths**
 
 Use these terms instead of re-expanding the same browser-command or build-side-sandbox lists in README summaries or chapter-local availability prose.
 
@@ -364,6 +365,7 @@ Use this checklist:
 - browser ambient-typing versus sandbox/effect wording should reuse the **Browser ambient typing vs mediated capability split**
 - browser command-shape versus browser-runtime availability wording should reuse the **canonical browser-surface rejection split**
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
+- Phase-1 static sandbox-validation wording should reuse the **Phase-1 static policy-validation surface** instead of re-listing `kali check --sandbox` plus the build-side variants ad hoc
 - zero-versus-positive wording for `resources.maxSpawnedProcesses` / `resources.maxThreads` and their matching CLI caps should reuse the **feature-gated zero-capable execution budgets** term instead of restating the same `0`-is-valid / positive-is-gated rule in each chapter
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
 - library/export-oriented build wording should reuse the **compile intent**, **Deno-oriented build context (schema v1)**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
