@@ -36,6 +36,7 @@ Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - `check` is a **hybrid analysis command**: it accepts explicit file arguments, or falls back to the canonical project-discovery result when no files are provided
 - `fmt`, `lint`, and `test` are **project-oriented commands** when invoked without explicit file arguments
 - `install` is the canonical **dependency-graph command**: with no explicit install target it reconciles the discovered project dependency graph, including raw URL imports found through project discovery
+- `check` without explicit files, project-oriented no-argument discovery, and the source-discovery portion of `install` are all covered by the shared **discovery-driven command** term from [SPEC.md](../SPEC.md)
 - `package-effects` and `package-audit`, when available, are the canonical **registry-analysis commands** and follow the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
 - `init` is not a direct-input source command
 
@@ -633,8 +634,8 @@ Configuration simplification rules:
 - the canonical effect-reporting and sandbox-agnostic command classes from [SPEC.md](../SPEC.md) ignore the top-level `sandbox` setting rather than erroring or silently turning themselves into policy-validation commands
 - `compat.features` is the config equivalent of CLI `--compat`; it uses the same canonical feature names, is order-insensitive, and should not duplicate them in alternate booleans
 - in schema v1, the only canonical compatibility feature name is `"eval"`; it gates both direct `eval` support and the `Function()` constructor compatibility path
-- `include` / `exclude` constrain the canonical project-discovery result for project-oriented commands, the **dependency-graph command** `install`, and hybrid no-argument discovery commands such as `check`; direct file arguments still name the primary entry explicitly and are not silently filtered back out just because they sit outside the discovery globs
-- unless overridden, project-oriented discovery still skips the default managed/generated directories named in [SPEC.md](../SPEC.md)
+- `include` / `exclude` constrain the canonical project-discovery result for **discovery-driven commands** from [SPEC.md](../SPEC.md); direct file arguments still name the primary entry explicitly and are not silently filtered back out just because they sit outside the discovery globs
+- unless overridden, **discovery-driven command** behavior still skips the default managed/generated directories named in [SPEC.md](../SPEC.md)
 - `include` / `exclude` filter only the project's own discoverable files; they do not suppress transitive imports/dependencies reached from an accepted entrypoint and they are not a second package-resolution mechanism
 - generated config from `kali init` should prefer these canonical names and should not duplicate them as parallel top-level keys
 - `kali init` should not emit `sandbox`, `compat`, `dependencies`, or other optional sections unless the chosen template or user request actually needs them

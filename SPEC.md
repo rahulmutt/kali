@@ -166,7 +166,7 @@ Use this checklist:
 - zero-versus-positive wording for `resources.maxSpawnedProcesses` / `resources.maxThreads` and their matching CLI caps should reuse the **feature-gated zero-capable execution budgets** term instead of restating the same `0`-is-valid / positive-is-gated rule in each chapter
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
 - library/export-oriented build wording should reuse the **compile intent**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
-- source-command versus package-command wording should reuse the **source-graph command**, **dependency-graph command**, and **registry-analysis command** terms instead of re-listing the same command families ad hoc
+- source-command versus package-command wording should reuse the **source-graph command**, **dependency-graph command**, **discovery-driven command**, and **registry-analysis command** terms instead of re-listing the same command families ad hoc
 - single-package registry-analysis wording should reuse the **single-package registry-analysis command**, **registry-analysis context split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
 - JSON machine-output wording should reuse the canonical **native-JSON command**, **envelope-only JSON command**, and **JSON-producing mode** terms instead of restating near-duplicate output-mode rules
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
@@ -742,6 +742,19 @@ Rules:
 - explicit install targets (`kali install <pkg>` or `kali install https://...`) keep `install` in the same command family; they narrow what new dependency state is requested, but do not turn the command into a source-graph command or a registry-analysis command
 - this term is intentionally separate from **project-oriented command** so docs do not blur “discovers project files” with “mutates/reconciles project dependency state”
 
+### Discovery-driven command
+A command behavior that consults the **canonical project-discovery result** as part of input selection in schema v1.
+
+Canonical early cases:
+- no-argument **hybrid analysis command** `check`
+- no-argument **project-oriented commands** `fmt`, `lint`, and `test`
+- the source-discovery portion of the **dependency-graph command** `install`
+
+Rules:
+- this is an umbrella term for discovery behavior only; it does **not** replace the more specific command-family terms above
+- `include` / `exclude`, default project-root walking, nested-project stopping, and default managed/generated-directory skipping should be described against this term when the same discovery rule applies to multiple command families
+- explicit CLI file arguments still bypass discovery for input selection, except where another command-specific rule says discovery contributes additional non-primary inputs (for example the source-discovery portion of `install`)
+
 ### Set-oriented explicit-file command
 A command whose explicit file arguments, when present, are interpreted as a file set rather than as one primary source input:
 - `check`
@@ -1198,7 +1211,7 @@ The ordered file set produced by applying the **default project-discovery rule**
 
 Rules:
 - this term names the shared discovered file set before a command applies its own later semantic filters
-- `check`, `fmt`, `lint`, and no-argument `test` all start from this result when they use discovery
+- **discovery-driven commands** start from this result whenever their schema-v1 command shape uses discovery
 - plain `install` uses this result only for the source-discovery portion of the **install-time declaration graph**; package manifest/import-map declarations remain separate inputs
 - explicit CLI file arguments bypass this discovery result entirely for input selection, except that the **explicit path boundary rule** still applies
 
