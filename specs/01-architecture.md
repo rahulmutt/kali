@@ -47,8 +47,8 @@ kali/
 │   ├── kali_fmt/          — Code formatter
 │   ├── kali_lint/         — Linter
 │   ├── kali_cli/          — CLI binary (ties everything together)
-│   ├── kali_embed/        — Rust embedding API
-│   ├── kali_capi/         — C FFI API
+│   ├── kali_embed/        — Rust embedding API crate (internal/pre-stable in Phase 1; stable public surface is Phase 2)
+│   ├── kali_capi/         — C FFI/host-ABI crate (internal/pre-stable in Phase 1; stable public surface is Phase 2)
 │   └── kali_npm/          — npm/JSR package resolution and loading
 ├── tests/                 — Integration and conformance tests
 ├── proofs/                — Lean 4 formal verification
@@ -56,7 +56,7 @@ kali/
 ```
 
 Interpretation rule:
-- a crate appearing in this workspace layout does **not** by itself imply Phase 1 user-visible support for that surface; for example, `kali_api_node` may exist as an internal staging area before `--api node` is part of the supported command/profile matrix.
+- a crate appearing in this workspace layout does **not** by itself imply Phase 1 user-visible support or public-stability guarantees for that surface; for example, `kali_api_node` may exist as an internal staging area before `--api node` is part of the supported command/profile matrix, and `kali_embed` / `kali_capi` may exist as internal or pre-stable crates before the Phase-2 public embedding contract is frozen.
 
 ## Implementation Phases
 

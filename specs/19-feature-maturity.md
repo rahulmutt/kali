@@ -16,7 +16,7 @@ Status-label spelling rule:
 - **Later compatibility** — intentionally deferred until semantics and cost are justified
 - **Opt-in only** — supported only behind an explicit flag or config
 - **Later compatibility (opt-in only)** — deferred until a later phase and, even then, enabled only behind an explicit runtime/profile switch
-- **Rejected by default** — parser may accept the syntax, but compile/run should fail unless the documented compatibility switch is enabled in a phase that actually implements the feature
+- **Rejected by default** — Kali may still recognize the surface (for example syntax, config, policy, flag, or command shape), but normal compile/run/command handling should fail unless a documented compatibility or availability path is enabled in a phase that actually implements it
 
 ## Status Interpretation Table
 
@@ -27,7 +27,7 @@ Status-label spelling rule:
 | Later compatibility | Intentionally deferred with no near-phase promise |
 | Opt-in only | Implemented only behind an explicit flag/config even after support exists |
 | Later compatibility (opt-in only) | Both deferred and explicitly gated when it eventually lands |
-| Rejected by default | Parse support may exist, but normal compile/run still rejects it unless a documented compatibility path exists and is implemented |
+| Rejected by default | The surface may still be recognized or parsed, but normal compile/run/command handling rejects it unless a documented compatibility or availability path exists and is implemented |
 
 This table exists to keep the status labels operational: a label implies whether Kali should ship, gate, reject, or require an explicit opt-in.
 
