@@ -18,7 +18,7 @@ The spec goal is broad compatibility, but the implementation should prefer a sma
 A key simplification rule applies throughout this section: Phase 1 should target the smallest API set that unlocks real-world package execution, and every later API addition should be justified by package compatibility or standards pressure.
 
 Consistency note:
-- browser work in Phase 1 is limited to the shared **Phase-1 browser-targeted command set** from [SPEC.md](../SPEC.md), not a hidden promise of standalone DOM runtime parity
+- browser work in Phase 1 is limited to the shared **Phase-1 browser-targeted command set** from [SPEC.md](../SPEC.md), whose exact command boundary is owned there rather than re-expanded ad hoc in each chapter
 - Node work is a later compatibility surface, not a second Phase-1 standalone host peer
 - references to browser support in this chapter should therefore prefer the cross-spec **browser-targeted context** wording instead of implying one broad "browser runtime" milestone
 
