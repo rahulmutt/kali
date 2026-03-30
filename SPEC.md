@@ -169,6 +169,15 @@ To keep single-package tooling predictable and avoid a second near-duplicate fla
 - `package-audit` is **context-free** in early phases: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics.
 - both commands still use the identity-only registry-target rule and must not consult project lock/install state to pick a different package version in schema v1.
 
+### Registry-analysis cache
+A non-project-managed cache that registry-analysis commands may use for fetched package metadata/tarballs.
+
+Rules:
+- it is outside project-managed dependency state (`kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/`),
+- it may be discarded between invocations and must not be treated as an installed project dependency snapshot,
+- cache identity is keyed by at least the canonical registry identifier plus the resolved concrete version,
+- for analysis-context-aware registry analysis (`package-effects`), the effective analysis context is also part of the cache identity so browser/deno/profile/compat analyses cannot collide accidentally.
+
 ### Library-oriented artifact modes
 Non-browser, export-oriented build modes:
 - `--lib`

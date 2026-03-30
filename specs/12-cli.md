@@ -464,8 +464,8 @@ Argument-kind rule:
 - any non-registry target is rejected for `package-effects` in early phases, including raw URLs and local file paths; this command analyzes registry packages only, while raw URL dependencies remain part of the project/import-graph workflow handled by `kali install` + `kali effects`
 
 Project-state rule:
-- `kali package-effects <package>` may fetch package metadata/tarballs into an ephemeral analysis cache, but it must **not** mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
-- that analysis cache is intentionally outside the project's managed dependency state: it may be discarded between invocations and is not a lockfile-backed installation target
+- `kali package-effects <package>` may use the shared **registry-analysis cache** from [SPEC.md](../SPEC.md) for fetched package metadata/tarballs
+- it must **not** mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
 - the command is still allowed to inherit its **analysis context** from the effective config/defaults; only dependency-state mutation and version selection stay project-independent in schema v1
 - turning an analyzed package into a project dependency remains the job of `kali install`
 
@@ -501,8 +501,7 @@ Argument-kind rule:
 - any non-registry target is rejected for `package-audit` in early phases, including raw URLs and local file paths; package-audit is registry-package-oriented rather than a second raw-URL/local-path analysis path
 
 Project-state rule:
-- like `package-effects`, audit may use temporary fetched metadata but must not silently install or materialize dependencies into the project's managed state
-- any temporary audit/package-analysis cache is outside the project's managed dependency state and may be discarded between invocations
+- like `package-effects`, audit may use the shared **registry-analysis cache** from [SPEC.md](../SPEC.md) and must not silently install or materialize dependencies into the project's managed state
 - because schema-v1 package audit is registry-oriented rather than project-lock-oriented, it likewise resolves using the shared stable-release rule from [specs/14-packages.md](14-packages.md) instead of consulting the current project's manifest or lockfile by default
 
 Status: **Later compatibility**. It should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
