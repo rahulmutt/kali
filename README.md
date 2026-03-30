@@ -8,6 +8,7 @@ Bootstrap-normalized headline assumptions:
 - stronger-than-`tsc` inference is still bounded: Kali improves local/obvious inference, but keeps an explicit annotation-required boundary instead of open-ended whole-program search
 - latest ECMA-262 means the **latest published edition**; accepted grammar does not by itself imply same-phase runtime support for every feature
 - optimization vocabulary is intentionally small: `fast` is the bounded-cost default, while `release` and `release-advanced` are the canonical compile-budget expansion modes
+- the CLI is Deno-inspired at the workflow level (`fmt`, `lint`, `check`, `build`, `run`, `test`), but that does **not** imply flag-for-flag Deno parity or same-phase availability for every documented command family
 - the upstream project list in `BOOTSTRAP.md` is a **design-reference list**, not an architecture-copy or dependency promise
 - the language-inspiration list in `BOOTSTRAP.md` is also normalized: Haskell/Idris/Agda/Lean inform purity/effects/constraint design, but do not imply Phase-1 dependent types, totality checking, or proof-term workflows in ordinary Kali code
 - early runtime standardization is **wasmtime first**; alternative engines are later extensions

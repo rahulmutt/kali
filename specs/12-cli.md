@@ -3,7 +3,7 @@
 ## Design Principles
 
 1. **AI-agent optimized**: Concise output by default, verbose with `--verbose`
-2. **Deno-inspired**: Familiar subcommand structure
+2. **Deno-inspired**: Familiar subcommand structure and workflow vocabulary (`fmt`, `lint`, `check`, `build`, `run`, `test`), without implying flag-for-flag Deno parity or that every Deno command shape automatically exists in the same phase
 3. **Single binary**: `kali` is distributed as one primary executable; static linking is preferred where practical but not required on every target
 4. **Zero config**: Sensible defaults, explicit configuration when needed
 5. **Stable machine contract**: JSON output is versioned and remains backward-compatible across minor releases
