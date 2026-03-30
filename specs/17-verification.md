@@ -47,6 +47,10 @@ That manifest should enumerate, at minimum:
 
 Before the first proofs land, the manifest may truthfully publish an **empty current proof boundary**. That is still preferable to omitting the file, because it prevents the rest of the spec from accidentally implying proof coverage that does not yet exist.
 
+Manifest simplification rule:
+- the manifest should state the current verification state explicitly using the same two-way split as this chapter: **proof-ready** vs **proof-backed**
+- release notes, README summaries, and maturity claims should cite that one manifest state instead of paraphrasing it differently in multiple places
+
 Follow the shared **proof activation split** from [SPEC.md](../SPEC.md):
 - an empty manifest is acceptable during spec-first iteration and early implementation bootstrapping because it still preserves the **proof-ready** state
 - it is **not** enough for a release to market Kali as already formally verified in Phase 1

@@ -1,10 +1,14 @@
 # Proof Boundary Manifest
 
-Status: placeholder for the initial published proof boundary. The repository currently claims **no mechanized proof coverage yet**, so this file documents the absence of proof claims rather than satisfying the future Phase-1 proof milestone by itself.
+Status: placeholder for the initial published proof boundary. The repository currently claims **no mechanized proof coverage yet**, so this file documents the absence of proof claims explicitly.
+
+Canonical verification state:
+- **proof-ready**: yes — this published manifest exists and defines the current activation/claim boundary
+- **proof-backed**: no — the modeled boundary is still empty, so no release may market formal verification as a shipped Kali capability yet
 
 Release note:
-- this placeholder is acceptable while the project is still iterating on the spec/implementation without making proof-backed support claims
-- before any release markets formal verification as a shipped Kali capability, this manifest should be replaced with at least one concrete modeled subsystem plus named theorem/property claims
+- this placeholder is acceptable while the project is still iterating on the spec/implementation because it satisfies the Phase-1 **proof-ready** baseline without overclaiming proof coverage
+- before any release markets formal verification as a shipped Kali capability, this manifest should be replaced with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed**
 
 This file is the canonical repository location for the **proof-boundary manifest** referenced by:
 - `SPEC.md`
