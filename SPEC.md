@@ -144,6 +144,9 @@ The selected host-facing ambient/runtime family:
 
 `browser` is a **browser-targeted context** in early phases, not a promise of a standalone browser runtime.
 
+Rule:
+- public APIs should preserve this term explicitly: use `apiSurface` in JSON/config, `ApiSurface` in typed APIs, and `api_surface` / `apiSurface`-equivalent spellings in FFI surfaces rather than collapsing the concept to a generic `api` name that could be confused with a concrete host API namespace
+
 ### Effective API surface
 The final `apiSurface` value after merging built-in defaults, discovered `kali.json`, and explicit CLI flags.
 

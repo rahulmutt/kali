@@ -153,6 +153,7 @@ Shape simplification rules:
 - the compile/run/instantiate surface must preserve explicit **compile intent**; hosts must not have to infer exported-library semantics only from whichever post-compile call they try first
 - library/export calls go through an instantiated `KaliInstance`, not directly through the compiled module handle
 - executable-style convenience entrypoints may still compile-and-run in one step, but that must not blur the library-oriented instantiation contract
+- public FFI naming should preserve the canonical **API surface** term from [SPEC.md](../SPEC.md): prefer `api_surface`-style spellings over a generic `api` setter name
 
 ```c
 #ifndef KALI_H
@@ -168,14 +169,42 @@ typedef struct KaliInstance KaliInstance;
 typedef struct KaliValue KaliValue;
 typedef struct KaliError KaliError;
 
+typedef enum KaliApiSurface {
+    KALI_API_SURFACE_DENO = 0,
+    KALI_API_SURFACE_NODE = 1,
+    KALI_API_SURFACE_BROWSER = 2,
+} KaliApiSurface;
+
+typedef enum KaliBuildMode {
+    KALI_BUILD_MODE_FAST = 0,
+    KALI_BUILD_MODE_RELEASE = 1,
+    KALI_BUILD_MODE_RELEASE_ADVANCED = 2,
+} KaliBuildMode;
+
+typedef enum KaliRuntimeProfile {
+    KALI_RUNTIME_PROFILE_WASM_THREADS = 1,
+} KaliRuntimeProfile;
+
+typedef enum KaliCompatFeature {
+    KALI_COMPAT_FEATURE_EVAL = 1,
+} KaliCompatFeature;
+
+typedef enum KaliValueType {
+    KALI_VALUE_NUMBER = 1,
+    KALI_VALUE_STRING = 2,
+    KALI_VALUE_BOOL = 3,
+    KALI_VALUE_NULL = 4,
+    KALI_VALUE_UNDEFINED = 5,
+} KaliValueType;
+
 // Configuration
 KaliConfig* kali_config_new(void);
-bool kali_config_set_api(KaliConfig* config, int api_surface);
-bool kali_config_set_build_mode(KaliConfig* config, int build_mode);
+bool kali_config_set_api_surface(KaliConfig* config, KaliApiSurface api_surface);
+bool kali_config_set_build_mode(KaliConfig* config, KaliBuildMode build_mode);
 void kali_config_clear_runtime_profiles(KaliConfig* config);
-bool kali_config_add_runtime_profile(KaliConfig* config, int profile);
+bool kali_config_add_runtime_profile(KaliConfig* config, KaliRuntimeProfile profile);
 void kali_config_clear_compat_features(KaliConfig* config);
-bool kali_config_add_compat_feature(KaliConfig* config, int feature);
+bool kali_config_add_compat_feature(KaliConfig* config, KaliCompatFeature feature);
 bool kali_config_set_max_memory(KaliConfig* config, uint64_t bytes);
 bool kali_config_set_max_cpu_time(KaliConfig* config, uint64_t ms);
 bool kali_config_set_sandbox(KaliConfig* config, const char* policy_path);
@@ -202,7 +231,7 @@ KaliValue* kali_call(KaliInstance* instance, const char* fn_name,
                      KaliValue** args, uint32_t argc);
 
 // Values
-int kali_value_type(const KaliValue* value);
+KaliValueType kali_value_type(const KaliValue* value);
 double kali_value_as_number(const KaliValue* value);
 const char* kali_value_as_string(const KaliValue* value);
 bool kali_value_as_bool(const KaliValue* value);
@@ -242,8 +271,9 @@ bool kali_register_host_function(KaliRuntime* runtime, const char* module,
 - because the public C ABI itself is a **Phase 2 target**, pre-Phase-2 internal prototypes are free to omit unstable helpers such as the effect-analysis entrypoints instead of pretending they already exist as a stable callable contract
 - Thread safety: one `KaliRuntime` per thread in the initial implementation
 - The C config surface follows the same set-like semantics as `kali.json` and the Rust builder API: runtime profiles and compat features are unordered unique sets, not boolean toggle pairs
+- enum spellings such as `KaliApiSurface`, `KaliBuildMode`, `KaliRuntimeProfile`, and `KaliCompatFeature` are the typed C-ABI counterparts of the canonical config/CLI vocabularies `apiSurface`, `buildMode`, `runtimeProfiles`, and `compat.features`
 - mutating config helpers return `bool` so validation/allocation/phase-gating failures all use one C-friendly convention instead of mixing `void` setters with out-of-band failure cases
-- C config/runtime setters for build mode, runtime profiles, and compat features follow the same phase-gating rules as the CLI/config surface; unsupported requests fail with the canonical availability error instead of degrading silently
+- C config/runtime setters for API surface, build mode, runtime profiles, and compat features follow the same phase-gating rules as the CLI/config surface; unsupported requests fail with the canonical availability error instead of degrading silently
 - Exposing a C ABI does **not** imply linking any C/C++ implementation into Kali itself; the runtime and compiler remain Rust-only internally
 
 ### Error Handling Convention
