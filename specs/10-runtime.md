@@ -103,7 +103,7 @@ Later compatibility/embedding imports extend this set when the corresponding API
 - `process_pid()` only on the later compatibility process-identity path once a schema/policy revision defines its sandbox contract
 - `process_exit(code)` only on the later compatibility process-control path once a schema/policy revision defines its sandbox contract; this does **not** imply that `Deno.exit` is part of the Phase 1 API surface
 - `cwd_get(...)` / `cwd_set(...)` only on the later compatibility working-directory path once a documented policy/effect contract exists
-- `eval_compile(...)` only for the Phase 4 `--compat eval` path
+- `eval_execute(...)` only for the Phase 4 `--compat eval` path
 
 ### Data Passing
 - Strings/buffers: passed as (pointer, length) pairs referencing WASM linear memory
@@ -138,7 +138,12 @@ For async operations, Kali implements a single-threaded event loop:
 
 Implementation strategy:
 1. **Phases 1-3**: parse them, report the `Eval` effect, and reject them by default.
-2. **Phase 4**: support runtime compilation through a host callback (`eval_compile`) with conservative deoptimization of the surrounding scope, enabled via `--compat eval`.
+2. **Phase 4**: support a host-mediated dynamic execution path (`eval_execute`) with conservative deoptimization of the surrounding scope, enabled via `--compat eval`.
+
+AOT-consistency rule:
+- the Phase 4 compatibility path must preserve Kali's top-level **AOT-only / no language-level JIT** invariant
+- therefore `eval` support must not rely on speculative/adaptive JIT compilation of guest code at runtime
+- the later compatibility implementation may parse/check/lower eval'd source at runtime into an interpreter or other precompiled generic execution machinery, but it must not turn `--compat eval` into a second normal JIT pipeline for Kali programs
 
 Compatibility-switch rule:
 - schema v1 keeps one stable compatibility-feature name, `eval`, for both direct `eval` and the `Function()` constructor path
@@ -148,10 +153,10 @@ Requirements for the Phase 4 path:
 - Treat all directly reachable locals as boxed/shared values
 - Disable layout-sensitive optimizations in the affected region
 - Preserve JavaScript-visible semantics before recovering performance
-- Cache repeated eval compilations where safe
+- Cache repeated parsed/lowered eval artifacts where safe without changing the no-language-level-JIT rule
 
 This is intentionally conservative:
-- **Expensive** — full compilation may occur at runtime
+- **Expensive** — dynamic parsing/checking/lowering and generic execution may still occur at runtime even though Kali stays out of the language-level JIT business
 - **Blocked by default** in sandbox policies (effect: `Eval`)
 - **Flagged** in static effect analysis (see [specs/09-sandboxing.md](09-sandboxing.md))
 - **Optimization barrier** for surrounding code

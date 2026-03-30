@@ -49,7 +49,7 @@ Normalization rules:
 
 Canonical examples of that normalization:
 - **“Support Node, Deno, and browser APIs”** → Phase 1 is Deno-first plus browser-targeted analysis/build; broad Node compatibility is Phase 3.
-- **“Support all features including eval”** → `eval`/`Function()` are part of the long-term compatibility contract, but Phase 4-gated behind the single schema-v1 compatibility switch `eval`.
+- **“Support all features including eval”** → `eval`/`Function()` are part of the long-term compatibility contract, but Phase 4-gated behind the single schema-v1 compatibility switch `eval`, and that later compatibility path must still preserve Kali's no-language-level-JIT invariant.
 - **“Latest ECMA-262”** → latest **published** ECMA-262 grammar is Phase 1; draft/Stage-3+ proposal support is experimental rather than implied.
 - **“Programmable sandbox policy conditions”** → project policy files stay declarative in early phases; later programmable narrowing is via host-registered predicates, not executable project policy code.
 - **“Use wasmtime or wasmer”** → standardize on `wasmtime` first; alternative engines are later implementation extensions.
