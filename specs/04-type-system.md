@@ -8,6 +8,10 @@ Kali's type system is a superset of TypeScript's, combining:
 3. **Effect summaries** — tracking side effects for sandboxing
 4. **Constraint solving** — for advanced generic inference
 
+Bootstrap-normalization note:
+- the bootstrap's references to Haskell, Idris, Agda, Lean, and Rust are interpreted here as **design guidance**, not as an immediate promise of dependent types, totality checking, proof terms, or theorem-prover-style user workflows in Phase 1
+- in practice, early Kali should borrow principled ideas about inference, purity, effects, and constraints while still behaving like a pragmatic TypeScript superset with explicit annotation boundaries and predictable compile costs
+
 Implementation order matters:
 - **Phase 1**: preserve TypeScript compatibility, support `.js` inputs as first-class programs, and ship the shared **bounded inference contract** for locals, unannotated parameters where the call/context makes them obvious, and function return types when the body stays within the cheap local-inference fragment.
 - **Phase 2**: extend that inference more confidently across module boundaries, stabilize the built-in capability-effect model, and expose the user-facing effect-report/effect-annotation surface.

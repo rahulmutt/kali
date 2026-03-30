@@ -129,6 +129,8 @@ Canonical examples of that normalization:
 - **“Latest ECMA-262”** → latest **published** ECMA-262 grammar is Phase 1; draft/Stage-3+ proposal support is experimental rather than implied.
 - **“Programmable sandbox policy conditions”** → project policy files stay declarative in early phases; later programmable narrowing is via host-registered predicates, not executable project policy code.
 - **“Use wasmtime or wasmer”** → standardize on `wasmtime` first; alternative engines are later implementation extensions.
+- **“Lexing/parsing/typechecking/codegen should be blazing fast, with stronger optimization modes available when users want them”** → keep one explicit build-mode vocabulary: `fast` is the bounded-cost default, while `release` and `release-advanced` are the only canonical compile-budget expansion modes; deeper optimizations should strengthen those modes instead of spawning new near-duplicate optimization tiers.
+- **“Take inspiration from Haskell / Idris / Agda / Lean while staying pragmatic like Rust”** → use those languages as design references for principled typing, purity, effects, and constraint solving, but do **not** imply Phase-1 dependent types, totality checking, proof terms, or theorem-prover ergonomics in ordinary Kali programs.
 - **“Support WIT / Component Model”** → Phase 1 keeps a base exported-library artifact; stable WIT-first public embedding and component packaging are Phase 2 targets.
 - **“Must be embeddable / expose a C API / be easy to use as a Rust library”** → Phase 1 is library-first internally and already includes the base `kali build --lib` artifact, but the stable public Rust embedding API, stable WIT contract, host-side C ABI, and component/C-embedding packaging are Phase 2 targets.
 - **“Take inspiration from Boa / V8 / JavaScriptCore / SpiderMonkey / Deno / tsc / Porffor / Hermes / Bun”** → treat these as design references and benchmarking/comparison inputs, not as promises to copy their architecture wholesale, match their extension surfaces, or inherit their implementation dependencies; Kali still resolves trade-offs through its own AOT-only, sandbox-first, and pure-Rust constraints.
@@ -147,6 +149,8 @@ It intentionally merges three questions in one place so readers do not have to b
 | AOT only / no JIT | Hard invariant | Phase 1 MVP | Kali is language-level AOT only; runtime engine internals must not become part of the language contract | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/10-runtime.md`](./specs/10-runtime.md) |
 | No tracing GC / explicit memory decisions | Hard invariant | Phase 1 MVP | No tracing/background GC; deterministic ownership, escape analysis, and layout decisions are the core memory story | [`specs/06-memory.md`](./specs/06-memory.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Aggressive specialization + layout-aware IR | Phase contract that deepens later | Phase 1 for the explicit layout-aware pipeline shape; Phases 2-3 for deeper optimization | Optimization is staged: explicit layout-aware IR plus specialization deepen over Phases 2-3 without weakening auditability | [`specs/05-ir.md`](./specs/05-ir.md), [`specs/07-specialization.md`](./specs/07-specialization.md) |
+| Fast frontend/checking/codegen + explicit optimization modes | Phase contract | Phase 1 MVP | `fast` is the bounded-cost default; `release` and `release-advanced` are the canonical compile-budget expansion modes, and later optimizations should deepen those existing modes rather than inventing a second vocabulary | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/07-specialization.md`](./specs/07-specialization.md), [`specs/12-cli.md`](./specs/12-cli.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| Language/type-system inspiration from Haskell, Idris, Agda, Lean balanced with Rust pragmatism | Mixed: hard direction + phase-gated depth | Phase 1 for a pragmatic TypeScript superset with bounded inference; later for deeper purity/effect/constraint features | Treat those languages as design references for principled typing, purity, effects, and constraints, not as a Phase-1 promise of dependent types, totality checking, proof terms, or theorem-prover UX; Kali stays pragmatic and ergonomic like Rust | [`specs/04-type-system.md`](./specs/04-type-system.md), [`specs/17-verification.md`](./specs/17-verification.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Deno, Node, and browser support | Phase-gated breadth target | Phase 1 for Deno-first + browser-targeted analysis/build; Phase 3 for broader Node compatibility | Phase 1 is Deno-first with the shared **Phase-1 browser-targeted command set**; Node is phase-gated until Phase 3 | [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | npm / JSR / raw-URL package access | Phase contract with bounded package-shape scope | Phase 1 MVP inside the **pure JS/TS package contract** | Early package support is broad for packages inside the **pure JS/TS package contract** that fit the **linked-artifact model** and whose host assumptions match either the Deno-first standalone surface or the shared **Phase-1 browser-targeted command set**, but narrow for the excluded **native/binary/bootstrap-heavy package contract** | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Embeddability, C ABI, WIT, Component Model | Mixed: hard direction + phase-gated public surface | Phase 1 for the base `--lib` artifact; Phase 2 for the stable public embedding surface | Phase 1 ships the base `--lib` artifact; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and component packaging | [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
@@ -219,6 +223,7 @@ To keep the spec set implementable and reduce drift between chapters, Kali inten
 - **one published-standard boundary**: latest **published** ECMA-262 grammar in Phase 1, current-edition non-Annex-B semantics for the features Kali marks as supported, and explicit gating for Annex B corners or draft/proposal features instead of letting “latest ECMA-262” mean “everything now”.
 - **one pure-Rust implementation contract**: Kali itself and its shipped dependencies remain Rust-only from the project/toolchain point of view; ordinary platform runtime/system libraries reached through Rust toolchains or OS bindings do not count as smuggling in embedded C/C++ libraries, but bundling or requiring project-specific C/C++ implementation dependencies still violates the contract.
 - **one specialization key model** based on observable layout/representation fingerprints plus the small set of semantic distinctions that still affect correctness, rather than blindly keying every specialization on the full inferred source-level type.
+- **one build-mode vocabulary** (`fast`, `release`, `release-advanced`) for compile-budget/performance trade-offs, rather than per-subsystem optimization tiers that would drift between CLI, optimizer, and maturity docs.
 
 These are deliberate simplifications, not accidental omissions. Later phases may add capability, but should not fork the core vocabulary or workflow without a clear need.
 
@@ -1676,16 +1681,21 @@ Examples:
 - `resources.maxSpawnedProcesses`, `resources.maxThreads`, `--max-spawned-processes`, and `--max-threads` may use `0` as an explicit deny/tightening value,
 - non-zero values for later-gated capabilities/profiles remain unavailable until those capabilities/profiles exist.
 
-## Design References, Not Compatibility Targets
+## Design References, Not Compatibility Targets or Immediate Feature Promises
 
-The bootstrap brief names projects such as Boa, V8, JavaScriptCore, SpiderMonkey, Deno, `tsc`, Porffor, Hermes, and Bun as inspiration sources.
+The bootstrap brief names projects such as Boa, V8, JavaScriptCore, SpiderMonkey, Deno, `tsc`, Porffor, Hermes, and Bun as implementation inspiration sources, and languages such as Haskell, Idris, Agda, Lean, and Rust as language-design inspiration sources.
 
-Normalization rule:
-- treat those projects as reference points for implementation techniques, test strategy, performance investigation, packaging ergonomics, and compatibility prioritization;
-- do **not** read that list as a promise to mirror any one engine's architecture, extension surface, embedding story, dependency stack, or release cadence;
+Normalization rules:
+- treat the engine/tooling list as reference points for implementation techniques, test strategy, performance investigation, packaging ergonomics, and compatibility prioritization;
+- treat the language-design list as reference points for principled typing, purity/effect design, constraint solving, and ergonomics trade-offs;
+- do **not** read either list as a promise to mirror any one engine's architecture, extension surface, embedding story, dependency stack, type-theory depth, theorem-prover UX, or release cadence;
 - when two inspiration sources suggest different designs, Kali still follows its own goal precedence and hard invariants first: semantic correctness, sandbox honesty, determinism, predictable compilation cost, AOT-only execution, and the **Pure-Rust implementation contract**.
 
-This keeps the inspiration list useful without letting it silently override the rest of the spec.
+Practical reading rule:
+- “inspired by Haskell / Idris / Agda / Lean” does **not** by itself mean Phase 1 includes dependent types, totality checking, proof terms, or interactive theorem-prover workflows in user code;
+- “pragmatic and ergonomic like Rust” means the early language should prefer explicit boundaries, predictable compilation cost, and comprehensible tooling over maximal type-theory ambition.
+
+This keeps the inspiration lists useful without letting them silently override the rest of the spec.
 
 ## Published-Standard Boundary
 
