@@ -152,6 +152,7 @@ Use this checklist:
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
 - config-discovery/install interactions without a discovered `kali.json` should reuse the **configless install split** term
 - registry-package CLI/manifest spelling versus structured JSON package metadata should reuse the **registry package identifier vs package coordinate** term instead of re-explaining the `jsr:` prefix split in slightly different ways
+- schema-v1 registry dependency value wording should reuse the **exact-version-first registry manifest rule (schema v1)** instead of restating the exact-version requirement in slightly different prose
 - package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
@@ -1050,6 +1051,18 @@ When a schema-v1 workflow accepts an **identity-only registry target**, Kali res
 - if no acceptable stable release exists, fail with the canonical `E5001` path.
 
 This rule keeps early install and single-package analysis flows deterministic and project-independent.
+
+## Exact-Version-First Registry Manifest Rule (schema v1)
+
+When schema-v1 writes a registry dependency into `kali.json`, the recorded value is the exact resolved version string, not a SemVer range.
+
+Rules:
+- this applies to registry dependency values under `dependencies` and `devDependencies`,
+- explicit registry adds via `kali install <pkg>` and `kali install --dev <pkg>` therefore use the **stable-release selection rule (schema v1)** first, then write that exact resolved version into the manifest,
+- lockfile state and manifest intent should stay tightly aligned in schema v1,
+- wider range syntax may be added later only as a separately documented manifest/CLI contract rather than being implied by identity-only install flows.
+
+This keeps manifest edits deterministic and AI-friendly while avoiding a second hidden version-selection policy between `kali.json` and `kali.lock`.
 
 ## Registry-Analysis Project-Independence Rule
 

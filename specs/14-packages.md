@@ -95,8 +95,7 @@ Schema-v1 uses this rule for:
 - explicit registry-package adds via `kali install <pkg>` and `kali install --dev <pkg>`
 
 Install simplification:
-- when `kali install <pkg>` or `kali install --dev <pkg>` adds a new manifest entry from that **identity-only registry target** form, it resolves the latest non-yanked stable published version, writes the lockfile using that concrete resolved version, and records the dependency in `kali.json` as the exact resolved version string
-- schema v1 intentionally keeps the manifest-written path exact-version-first so manifest intent, lockfile state, and AI-authored edits stay easy to reason about; wider SemVer range syntax may be added later, but only as a separately documented manifest/CLI contract rather than being implied by the identity-only install form
+- when `kali install <pkg>` or `kali install --dev <pkg>` adds a new manifest entry from that **identity-only registry target** form, it follows the shared **stable-release selection rule (schema v1)** and **exact-version-first registry manifest rule (schema v1)** from [SPEC.md](../SPEC.md)
 
 ### Package Resolution
 Follow the common package.json / `exports` / CommonJS-vs-ESM mechanics used by the Node ecosystem, but keep the early-phase Kali rules explicit so browser-targeted, Deno-oriented, and later Node-specific behavior do not drift.
@@ -195,7 +194,7 @@ Argument semantics are intentionally simple:
 - `kali install` takes zero or one explicit **install target** in schema v1
 - registry install targets use the canonical registry-package identifier grammar from this chapter (`lodash`, `@types/node`, `jsr:@std/path`)
 - in schema v1, explicit registry install targets are **package identities only**, not inline version/range selectors
-- adding a registry package through that identity-only CLI form uses the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1): resolve the latest non-yanked stable published version, refresh `kali.lock` using that concrete version, and record the manifest dependency as that exact version string
+- adding a registry package through that identity-only CLI form uses the shared **stable-release selection rule (schema v1)** plus the **exact-version-first registry manifest rule (schema v1)** from [SPEC.md](../SPEC.md): resolve the latest non-yanked stable published version, refresh `kali.lock` using that concrete version, and record the manifest dependency as that same exact version string
 - registry install targets therefore mutate `kali.json` (`dependencies` or `devDependencies`) and then refresh lock/materialized state
 - in the canonical **configless install split** from [SPEC.md](../SPEC.md), an explicit registry-package add (`kali install <pkg>` or `kali install --dev <pkg>`) first creates the minimal canonical manifest `{ "schemaVersion": 1 }` at the effective project root, then records the dependency there
 - `--dev` applies only to registry install targets; `kali install --dev https://...` is rejected with `E5008` instead of inventing a raw-URL dev-dependency table
