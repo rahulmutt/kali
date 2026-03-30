@@ -44,7 +44,7 @@ enum ModuleItem {
 - `YieldExpression`, `AwaitExpression`
 - `ClassExpression`
 - `MetaProperty` (`new.target`, `import.meta`)
-- `ImportExpression` (dynamic import)
+- `ImportExpression` (dynamic import syntax; semantic support is phase-gated later)
 
 ### TypeScript-Specific Nodes
 - `TypeAnnotation` — wraps any type node
@@ -70,6 +70,11 @@ enum ModuleItem {
 - Experimental only: `EffectDeclaration`, `PerformExpression`, `HandleExpression` for algebraic effects/handlers *(later compatibility / experimental only)*
 
 These nodes may appear in the AST before the corresponding feature has semantic support. The parser records the syntax; later phases of checking/lowering decide whether the construct is currently enabled according to [specs/19-feature-maturity.md](19-feature-maturity.md).
+
+Simplification rule:
+- the AST should add dedicated node kinds only for genuinely distinct syntax/semantics, not for every later compatibility switch
+- for example, `ImportExpression` needs its own node because `import()` is a distinct ECMAScript syntactic form
+- by contrast, the `Function()` constructor path is represented through ordinary call/new-expression nodes and is phase-gated semantically under the shared `eval` compatibility switch rather than by inventing a second AST node family just for that compatibility path
 
 ### Patterns (Destructuring)
 - `IdentifierPattern`, `ObjectPattern`, `ArrayPattern`

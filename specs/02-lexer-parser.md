@@ -10,6 +10,15 @@
 - Zero-copy where possible — tokens reference source via spans
 - Streaming/lazy tokenization — parser pulls tokens on demand
 
+### Parse-vs-Support Boundary
+The lexer/parser should accept the syntax Kali intends to understand even when the corresponding semantics are phase-gated elsewhere.
+
+Canonical rule:
+- parsing a construct does **not** by itself mark it as supported for execution or lowering
+- semantic enablement is decided later by checking/lowering against [specs/19-feature-maturity.md](19-feature-maturity.md)
+- this applies especially to syntax-bearing compatibility paths such as `import()`, `eval`, `Function()`-adjacent compatibility behavior, and Kali effect syntax (`pure`, effect annotations, later experimental effect-handler forms)
+- therefore parser breadth should track the latest published grammar, while feature maturity still controls which accepted constructs are executable, lowerable, or only diagnosable in a given phase/profile
+
 ### Token Design
 ```rust
 struct Token {
@@ -45,8 +54,8 @@ struct Token {
   - Generators and async generators
   - `for-in`, `for-of`, `for-await-of`
   - Optional chaining (`?.`), nullish coalescing (`??`)
-  - Dynamic `import()`
-  - `eval` (flagged for sandbox analysis)
+  - Dynamic `import()` *(parsed in Phase 1; semantic support stays phase-gated — literal-string `import()` is a Phase 3 lowering path, while non-literal `import(expr)` remains a later compatibility boundary)*
+  - `eval` *(parsed in Phase 1; semantic/runtime support is phase-gated and tied to the later `eval` compatibility path)*
   - All operator precedences and associativities
 - TypeScript grammar:
   - Type annotations on variables, parameters, return types
