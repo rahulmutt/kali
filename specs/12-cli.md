@@ -511,12 +511,12 @@ Status: **Later compatibility**. It should not block Phase 1-2 compiler/runtime 
 ```bash
 kali package-audit lodash                  # Audit specific npm package
 kali package-audit jsr:@std/path           # Audit specific JSR package
+kali package-audit --output json lodash    # Standard command envelope only until a dedicated audit payload schema exists
 ```
 Additional flag-surface rule:
 - like `package-effects`, `package-audit` does **not** take package-analysis-specific analysis-context flags (`--api`, runtime-profile flags such as `--wasm-threads`, or `--compat`) or `--sandbox` in early phases; passing them is invalid command usage (`E5008`) unless a later spec explicitly adds them
-- unlike `package-effects`, early `package-audit` also does **not** inherit analysis context from `compilerOptions.apiSurface`, `compilerOptions.buildMode`, `compilerOptions.runtimeProfiles`, or `compat.features`; it remains a context-free registry tool
+- unlike `package-effects`, early `package-audit` remains **context-free** with respect to the host-analysis/runtime/sandbox context bundle: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do **not** change its semantics
 - therefore config-selected host-analysis/runtime values such as `apiSurface = node`, `apiSurface = browser`, `runtimeProfiles = ["wasm-threads"]`, or `compat.features = ["eval"]` do **not** by themselves gate or rewrite `package-audit`; the command either remains unavailable by its own maturity row or runs with the same context-free semantics once implemented
-- top-level `kali.json#sandbox` is likewise ignored by `package-audit`, matching the broader sandbox-agnostic command rule from [SPEC.md](../SPEC.md)
 
 Output simplification rule:
 - unlike `kali effects` and `kali package-effects`, `kali package-audit` does **not** define a native bare-JSON payload in schema v1

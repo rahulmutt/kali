@@ -381,6 +381,7 @@ Interpretation rules:
 - schema-v1 registry-analysis commands use the shared **identity-only registry target** form and its stable-release selection rule rather than consulting the current project's manifest or lockfile to pick a version
 - `package-effects` may still inherit the effective analysis context (`apiSurface`, `runtimeProfiles`, `compat.features`), but that inherited analysis context does **not** change the project-independent version-selection rule
 - `package-audit` stays context-free in early phases and is likewise project-independent for version selection
+- output stays intentionally split in schema v1: `package-effects` reuses the native effect-report family, while early `package-audit` uses the standard command envelope only until a dedicated audit payload schema exists
 
 Current CLI-vocabulary members of this family:
 - `package-effects`
@@ -433,7 +434,7 @@ Note:
 - config-selected `apiSurface`, `runtimeProfiles`, and `compat.features` therefore influence `package-effects`, but they do not change the semantics of early `package-audit`
 - unsupported inherited analysis-context values for `package-effects` fail with the same canonical availability path (`E5006`) used by direct analysis commands; Kali must not silently drop an inherited `node`, `wasm-threads`, or later compatibility feature just because `package-effects` has no parallel flag family of its own
 - registry-analysis commands may still use ordinary project/config discovery for generic CLI behavior, but that discovery does **not** change the schema-v1 stable-release version-selection rule and does **not** permit mutation of project-managed dependency state
-- for clarity, early `package-audit` still uses ordinary project/config discovery plus generic CLI behavior (for example project root selection, `--output`, and `--quiet`), but it intentionally ignores host-analysis/runtime knobs such as `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
+- for clarity, early `package-audit` still uses ordinary project/config discovery plus generic CLI behavior (for example project root selection, `--output`, and `--quiet`), but it intentionally ignores the host-analysis/runtime/sandbox context bundle (`apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`)
 - this keeps each command in one primary category and avoids overlapping near-duplicate workflows
 
 ## Canonical Default Tuple
