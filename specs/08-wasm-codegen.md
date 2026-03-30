@@ -128,9 +128,9 @@ Artifact-mode selection follows the canonical matrix in [SPEC.md](../SPEC.md). T
 
 Early-phase artifact-mode rule:
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive build artifact-mode selectors unless a later spec explicitly defines one as implying another
-- omitting all four selects the default executable artifact mode (`kali build foo.ts` → one executable-style `wasm-module` artifact)
+- omitting all four selects the default executable artifact mode (`kali build foo.ts` → one executable-style `wasm-module` artifact) and therefore the CLI's default **executable compile intent** from [SPEC.md](../SPEC.md)
 - in Phase 1, `--bundle` is reserved for browser-targeted output and therefore requires the **effective API surface** to be `browser`; using `--bundle` under an effective API surface of `deno` or `node` is invalid command usage (`E5008`), not a separate feature-maturity rejection
-- in early phases, `--lib`, `--capi`, and `--component` are **library-oriented artifact modes**: non-browser, export-oriented modes derived from a **statically known export surface** as defined in [SPEC.md](../SPEC.md)
+- in early phases, `--lib`, `--capi`, and `--component` are **library-oriented artifact modes** and therefore the CLI's explicit **library compile-intent** selectors: non-browser, export-oriented modes derived from a **statically known export surface** as defined in [SPEC.md](../SPEC.md)
 - those library-oriented modes still obey the ordinary build-command API-surface gates: pairing them with `--api browser` is an `E5008` contradiction because browser mode is only defined for `--bundle`, while pairing them with `--api node` remains on the same Phase 3 `E5006` path as other early Node-targeted builds
 - `--lib` is the **base library artifact**, and `--capi` / `--component` are later **public embedding artifact flows** layered over that same exported-library contract
 - if Kali cannot prove that statically known export surface, the library-oriented build must fail with `E5011`

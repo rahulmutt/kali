@@ -152,6 +152,16 @@ An execution-capability profile orthogonal to API surface, for example:
 
 API surface and runtime profile must not be conflated.
 
+### Compile intent
+The host-visible meaning of one compilation request, orthogonal to API surface, build mode, and runtime profile:
+- **executable intent** — the compiled module/artifact is expected to have an executable entry contract
+- **library intent** — the compiled module/artifact is expected to expose a **statically known export surface** for host calls or export-oriented artifact flows
+
+Rules:
+- CLI artifact modes and embedding compile APIs should select compile intent explicitly rather than forcing hosts to infer it later from whether they try `run` versus `instantiate` / `call`
+- executable-style helpers operate only on executable-intent modules and must fail explicitly on library-intent modules
+- library-intent flows reuse the shared **library-oriented instantiation rule** and the **statically known export surface** requirement
+
 ### Compat feature
 An explicitly gated compatibility switch for semantics that are intentionally off by default. In schema v1, the canonical stable compat feature name is:
 - `eval`
