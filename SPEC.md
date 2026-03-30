@@ -155,6 +155,7 @@ These commands do not invent a no-argument whole-project analysis mode in schema
 ### Registry-analysis context split
 To keep single-package tooling predictable and avoid a second near-duplicate flag family:
 - `package-effects` is **analysis-context-aware** in early phases: it inherits `apiSurface`, `runtimeProfiles`, and `compatFeatures` from the effective config/defaults and records that context in its nested report instead of taking package-analysis-specific `--api` / runtime-profile / `--compat` flags.
+- `package-effects` follows the maturity of the inherited analysis axis instead of inventing its own separate gate table: inherited browser context lines up with browser-targeted effect analysis, inherited Node context lines up with the Node analysis gate, inherited `wasm-threads` lines up with the threaded-profile gate, and inherited compat features such as `eval` line up with their own compatibility-phase gates.
 - `package-audit` is **context-free** in early phases: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics.
 - both commands still use the identity-only registry-target rule and must not consult project lock/install state to pick a different package version in schema v1.
 
