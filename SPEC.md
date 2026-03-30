@@ -223,6 +223,16 @@ Non-browser, export-oriented build modes:
 - `--capi`
 - `--component`
 
+### Statically known export surface
+The export set for a library-oriented build that Kali can prove after frontend lowering without relying on runtime reflection or host-side discovery.
+
+Rules:
+- ESM entry modules satisfy this directly from their explicit exports.
+- CommonJS entry modules participate only when static CJS lowering can prove one fixed export set.
+- If Kali cannot prove one stable export surface, library-oriented build modes fail rather than synthesizing reflective exports.
+
+This term exists so `--lib`, `--capi`, `--component`, embedding docs, and the maturity matrix can all refer to the same export-surface requirement without restating slightly different versions.
+
 ### Logical roots
 The normalized “what this report/build/test run is about” identifiers carried in schemas as `entryPoints`. Examples:
 - `src/main.ts`
@@ -230,6 +240,17 @@ The normalized “what this report/build/test run is about” identifiers carrie
 - `lodash`
 
 This is a naming bridge only: schema field `entryPoints` is the canonical JSON field name.
+
+## Phase-1 Non-Goals Snapshot
+
+To keep the normalized bootstrap scope easy to scan, Phase 1 does **not** imply:
+- standalone `--api node` execution or checking,
+- standalone browser runtime or browser-hosted `run` / `test`,
+- `eval` / `Function()` support,
+- threaded runtime profiles / `SharedArrayBuffer` / `Atomics`,
+- stable public Rust embedding, stable C ABI, or default WIT sidecars for plain `--lib`.
+
+These are all tracked elsewhere in the owning chapters and the maturity matrix; this snapshot exists only to make the early boundary obvious in one place.
 
 ## Host/API Summary
 

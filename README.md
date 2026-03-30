@@ -12,6 +12,13 @@ Early-phase headline assumptions:
 - hard global constraints remain in force from the bootstrap brief: **AOT only**, **pure Rust**, and **no tracing/background GC**
 - build artifact modes follow one canonical matrix: default executable, browser bundle, a Phase-1 **base library** artifact, and later stable public C embedding / Component Model packages layered on that library contract
 
+Quick Phase-1 non-goals:
+- no standalone `--api node` execution/checking yet
+- no standalone browser runtime or browser-hosted `run` / `test`
+- no `eval` / `Function()` support yet
+- no threaded runtime profile yet
+- no stable public embedding ABI or default WIT sidecars for plain `--lib` yet
+
 ## Specification
 - Top-level overview, canonical terminology, chapter ownership, chapter guide, artifact-mode matrix, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
 - Bootstrap-brief normalization rule: [SPEC.md#bootstrap-normalization-rule](./SPEC.md#bootstrap-normalization-rule)

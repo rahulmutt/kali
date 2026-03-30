@@ -227,8 +227,8 @@ kali build --component lib.ts              # Produces lib.wasm + lib.wit + lib.c
 Artifact-role clarification:
 - `kali build --capi` uses the core `wasm-module` as the exported-library artifact (`role: primary-library`) plus `wit` (`role: interface-wit`), generated header (`role: embedding-header`), and metadata (`role: embedding-metadata`)
 - `kali build --component` keeps the same linked core library payload (`role: primary-library`) and WIT sidecar (`role: interface-wit`), then adds the outer Component Model wrapper as `kind: wasm-component`, `role: primary-component`
-- the exported host-facing surface for all three library-oriented modes is derived from a statically known export set for the entry module; WIT, generated C headers, and component packaging are projections of that same explicit export surface rather than separate reflection-based APIs
-- ESM entry modules satisfy that rule directly; CommonJS entry modules participate only when static CJS lowering can prove one fixed export set for the entry module, otherwise the library-oriented build must fail with `E5006` instead of synthesizing reflection-based exports for embedding
+- library-oriented embedding outputs require the same **statically known export surface** defined in [SPEC.md](../SPEC.md); WIT, generated C headers, and component packaging are projections of that same explicit export surface rather than separate reflection-based APIs
+- if that export surface cannot be proved, the build must fail with `E5006` instead of synthesizing reflection-based exports for embedding
 - that outer component wrapper is packaging over the already-linked core payload, not a second independently linked guest-program graph; this keeps embedding/component outputs aligned with the single-linked-core-payload rule from [SPEC.md](../SPEC.md)
 
 Important distinction:
