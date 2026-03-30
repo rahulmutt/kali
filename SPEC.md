@@ -27,7 +27,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 
 | Axis | Phase 1 MVP contract |
 |---|---|
-| Language/frontend | Current published ECMA-262 grammar, TypeScript compatibility where implemented, and first-class `.js` compilation with bounded conservative inference |
+| Language/frontend | Latest published ECMA-262 grammar, TypeScript compatibility where implemented, and first-class `.js` compilation with bounded conservative inference |
 | Runtime model | AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
 | Host support | `--api deno` for Kali-hosted execution; `--api browser` only for browser-targeted `check` and `build --bundle`; `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema validation for `check`/`build`, no project-executed policy code |

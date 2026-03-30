@@ -58,6 +58,13 @@ Closures capture variables. For each capture:
 
 When shared ownership is needed, Kali uses compile-time-inserted deterministic reference counting:
 
+### Compile-Time Ownership-Class Rule
+To keep the bootstrap's “decide heap/stack/shared ownership at compile time” goal aligned with the rest of the spec:
+- the compiler chooses the ownership class (`stack`, `owned heap`, `shared heap`, or `borrowed`) during analysis/lowering rather than leaving that choice to an opaque runtime policy
+- inserted reference-count operations are a consequence of selecting the `shared heap` class, not a hidden fallback memory mode
+- bounded deterministic cycle cleanup, when present, is only reclamation bookkeeping over values that were **already** lowered into shared-heap ownership; it does not retroactively change ownership classes or reintroduce tracing GC
+- later dynamic-compatibility barriers such as `--compat eval` may force more values into the conservative `shared heap` class, but that is still an explicit compile/lowering decision visible to optimization and diagnostics rather than a background collector taking over
+
 ```rust
 struct SharedHeader {
     ref_count: u32,

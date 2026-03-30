@@ -10,6 +10,16 @@ Practical simplification:
 - Phase 2 promotes the same `--lib` path into the canonical stable public library/WIT contract and adds WIT by default
 - `--capi` and `--component` then project/package that same proved export surface for specific host interop workflows rather than redefining what the library exports mean
 
+Canonical library-artifact normalization table:
+
+| Selector | Earliest phase | Compile intent | Stable artifact summary |
+|---|---|---|---|
+| `--lib` | Phase 1 MVP | library | Phase 1: `wasm-module` (`role: primary-library`) as the **base library artifact**. Phase 2+: same selector becomes the stable public library/WIT contract and adds `wit` (`role: interface-wit`) by default. |
+| `--capi` | Phase 2 target | library | The same proved library surface, plus `wit`, a generated **program-specific exports header**, and `cabi-metadata`. |
+| `--component` | Phase 2 target | library | The same proved library surface, plus `wit` and a `wasm-component` wrapper. |
+
+This table is a summary only. The normative artifact kinds/roles still live in [SPEC.md](../SPEC.md), [18 — Schemas](./18-schemas.md), and [19 — Feature Maturity](./19-feature-maturity.md).
+
 ## Phase 2 target — Rust Library API (`kali_embed`)
 
 Kali is designed to be used as a Rust library, similar to Deno's embedding API, once the public embedding surface reaches Phase 2.
@@ -150,6 +160,11 @@ Availability rule:
 ### Host ABI Header (`kali.h`)
 The C declarations below describe the intended stable ABI surface for Phase 2+.
 They are the canonical **host ABI header** from [SPEC.md](../SPEC.md) and come from the host-side `kali_capi` library itself.
+
+Header-split rule:
+- `kali.h` is the stable host-side ABI header shipped with `kali_capi`
+- `kali build --capi` additionally emits a generated **program-specific exports header** (for example `lib.exports.h`) for the compiled library's proved export surface
+- docs should not use `kali.h` as a loose name for both files, because the stable host ABI and the per-build exported-function declarations version and evolve at different layers
 
 Shape simplification rules:
 - keep the same compiled-module vs instantiated-instance split as the Rust API in this chapter
