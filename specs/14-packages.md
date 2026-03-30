@@ -41,6 +41,17 @@ Concretely, a package can be supported in Phase 1 when:
 
 A package is **not** automatically in scope just because it lives in npm or JSR. If it depends on broader Node globals/core modules or falls into the **native/binary/bootstrap-heavy package contract**, it stays phase-gated or rejected with the rest of that compatibility work.
 
+Compact bootstrap-normalization table:
+
+| Package shape | Early handling | Why |
+|---|---|---|
+| Pure JS/TS package whose runtime needs fit the Phase 1 Web baseline + Deno-oriented standalone surface | **Phase 1 MVP in scope** | This is the core **pure JS/TS package contract** target |
+| Pure JS/TS package that still expects broader Node globals/core modules | **Phase 3 target** | Package shape is acceptable, but host/API requirements exceed the Phase 1 surface |
+| Package that needs native addons, N-API bindings, prebuilt binaries, or postinstall-downloaded executables | **Rejected by default** | Falls into the **native/binary/bootstrap-heavy package contract** |
+| Package whose install path uses npm lifecycle scripts but whose shipped runtime code still stays inside the pure JS/TS contract | **Install-time opt-in only** for the hook path; runtime/build support still depends on the other rows | `--allow-scripts` is only an installer escape hatch, not a blanket compatibility promotion |
+
+This table is intentionally about **package-shape triage**. The active `apiSurface`, runtime profile, and feature-maturity gates still determine whether a given project command can actually analyze, build, or run that package in the selected context.
+
 ## Dependency Source Kinds
 
 To keep install, lock, and materialization rules simple, Kali distinguishes only these early source kinds:

@@ -15,10 +15,14 @@ Canonical library-artifact normalization table:
 | Selector | Earliest phase | Compile intent | Stable artifact summary |
 |---|---|---|---|
 | `--lib` | Phase 1 MVP | library | Phase 1: `wasm-module` (`role: primary-library`) as the **base library artifact**. Phase 2+: same selector becomes the stable public library/WIT contract and adds `wit` (`role: interface-wit`) by default. |
-| `--capi` | Phase 2 target | library | The same proved library surface, plus `wit`, a generated **program-specific exports header**, and `cabi-metadata`. |
+| `--capi` | Phase 2 target | library | The same proved library surface, plus `wit`, a generated **program-specific exports header** (`kind: c-header`, distinct from the stable host ABI header `kali.h`), and `cabi-metadata`. |
 | `--component` | Phase 2 target | library | The same proved library surface, plus `wit` and a `wasm-component` wrapper. |
 
 This table is a summary only. The normative artifact kinds/roles still live in [SPEC.md](../SPEC.md), [18 — Schemas](./18-schemas.md), and [19 — Feature Maturity](./19-feature-maturity.md).
+
+Header-split simplification:
+- `kali build --capi` emits the generated **program-specific exports header** for one compiled library
+- it does **not** emit the stable host ABI header `kali.h`; that header ships with the host-side `kali_capi` library
 
 ## Phase 2 target — Rust Library API (`kali_embed`)
 
