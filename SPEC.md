@@ -1697,15 +1697,18 @@ Report the outermost failing gate first:
 1. command shape / arity / contradictory flag combination,
 2. base command availability,
 3. narrower inherited-context or profile gating,
-4. source-code diagnostics within the selected valid context.
+4. primary-input kind validation for commands that require one specific source-file class,
+5. source-code diagnostics within the selected valid context.
 
 In other words:
 - `E5008` owns contradictory command shape,
-- `E5006` owns unavailable-but-real requests inside the chosen **availability context**.
+- `E5006` owns unavailable-but-real requests inside the chosen **availability context**,
+- `E5007` applies only after the command itself is available and its direct-input shape is otherwise valid.
 
 Consequences:
 - contradictory browser build shapes fail before any narrower feature gate,
 - a command that is itself unavailable reports that fact before reporting a narrower inherited profile problem,
+- input-kind mismatch diagnostics such as passing a declaration-only file to a direct-input execution/build/effects command are never used to mask a command-family availability gate,
 - config-derived invalid effective values trigger the same checks as explicit CLI values.
 
 ## Project Discovery

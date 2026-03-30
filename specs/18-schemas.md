@@ -49,9 +49,9 @@ Used by commands that opt into `--output json`.
 - `success: boolean`
 - `errors: Diagnostic[]`
 - `warnings: Diagnostic[]`
+- `payload: object | array | string | number | boolean | null`
 
 ### Optional fields
-- `payload: object | array | string | number | boolean | null`
 - `artifacts: Artifact[]`
 - `stdout: string`
 - `stderr: string`
@@ -61,7 +61,8 @@ Used by commands that opt into `--output json`.
 ### Notes
 - `payload` holds command-specific structured data
 - `command` is intentionally an open-ended string so new CLI subcommands do not force a schema-version bump; stable built-in command names should mirror the CLI subcommand path in kebab-case (for example `check`, `build`, `package-effects`)
-- a command may support `--output json` with the canonical **envelope-only JSON command** model from [SPEC.md](../SPEC.md) even when schema v1 does **not** define a dedicated success-payload schema for it; in that case the envelope itself is the stable contract and schema-v1 producers should emit `payload: null` rather than omitting the field or populating it with an ad hoc object
+- `payload` is always present in the schema-v1 command envelope so consumers can rely on one stable top-level shape; commands without a dedicated success payload emit `payload: null`
+- a command may support `--output json` with the canonical **envelope-only JSON command** model from [SPEC.md](../SPEC.md) even when schema v1 does **not** define a dedicated success-payload schema for it; in that case the envelope itself is the stable contract and schema-v1 producers should emit `payload: null` rather than populating it with an ad hoc object
 - envelope-only JSON command behavior is an output-format rule only; it does **not** promote a command to an earlier phase, create a second command surface, or bypass the command's ordinary maturity/context gates
 - schema v1's **native-JSON commands** are `kali effects` and `kali package-effects` once those commands are available in the current phase; they may emit their native JSON payloads by default, but with `--output json` they must be wrapped in this envelope
 - for those native-JSON commands, default success mode reserves stdout for the payload only; extra progress/status text must not be interleaved into stdout

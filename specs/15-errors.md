@@ -184,6 +184,7 @@ Use `E5007` when the user passes a file/input kind that the selected command fun
 
 Boundary rule:
 - `E5007` is for **input-kind mismatch** (for example a declaration-only file passed where an executable/analyzable runtime entrypoint or other command-required primary source input is required)
+- follow the shared **validation-order rule** from [SPEC.md](../SPEC.md): use `E5007` only after the command itself is available and the overall command shape is otherwise valid
 - missing required inputs, too many explicit direct-input arguments, conflicting build artifact-mode selectors (for example `--bundle --lib`), or other command-usage/arity mistakes should use the canonical CLI-usage diagnostic `E5008` instead of overloading `E5007`
 - in the CLI exit-code model, those command-usage cases and `E5007` both typically exit with code `5`, even though `E5007` remains the structured diagnostic for the input-kind mismatch case
 
@@ -199,8 +200,8 @@ error[E5007]: invalid primary input for command 'run': declaration-only file
 Use `E5007` for cases such as:
 - `kali run types.d.ts`
 - `kali build defs.d.mts`
-- `kali effects defs.d.cts`
 - `kali test foo.test.d.ts`
+- `kali effects defs.d.cts` *(once `kali effects` itself is available; before that, the command-family availability gate still reports `E5006` first)*
 - any other direct command input where the selected command requires an executable/analyzable runtime entrypoint or other command-required primary source input but the supplied file is declaration-only
 
 Clarification:
