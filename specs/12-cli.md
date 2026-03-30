@@ -263,7 +263,7 @@ Inherited execution-context shorthand:
 
 Sandbox flag behavior is intentionally phase-gated:
 - `kali run --sandbox ...` is a Phase 1 feature for runtime policy enforcement.
-- `kali check/build --sandbox ...` validate the policy file/config in Phase 1.
+- `kali check/build --sandbox ...` perform policy-schema/config validation in Phase 1.
 - Graph-scope rule: on `check` and `build`, attaching `--sandbox` validates the same **resolved source graph selected by the command's roots** from [SPEC.md](../SPEC.md) that the command already analyzes/builds; it does not validate only the root file while ignoring transitive imports/dependencies.
 - Full inferred-effect-vs-policy validation is a Phase 2 feature.
 - Policy validation must also reject policies that try to enable capabilities unavailable in the selected command/profile/phase (for example `effects.eval: true` before the eval compatibility path exists, `effects.eval: true` without effective `--compat eval`, or positive values for the **feature-gated zero-capable execution budgets** from [SPEC.md](../SPEC.md) before subprocess/thread support exists).
@@ -333,8 +333,8 @@ kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit 
 kali build --component --sandbox kali.policy.json lib.ts # Phase 2 target: same component-oriented packaging path plus static policy validation; `--sandbox` stays orthogonal to artifact mode
 kali build --component --api node lib.ts   # Phase 3 target: still gated by the Node build surface even after component packaging exists
 kali build --component --api browser lib.ts # Invalid usage (E5008) in early phases; browser mode remains the bundle-only browser-targeted path rather than a component artifact mode
-kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; from the Phase 2 target onward also validate inferred effects
-kali build --bundle --api browser --sandbox kali.policy.json main.ts # Build-time policy compatibility only; no automatic browser-runtime enforcement is implied after deployment
+kali build --sandbox kali.policy.json main.ts # Phase 1: policy-schema/config validation; from the Phase 2 target onward also validate inferred effects
+kali build --bundle --api browser --sandbox kali.policy.json main.ts # Phase 1: browser-targeted static policy-schema/config validation only; no automatic browser-runtime enforcement is implied after deployment
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
 ```
@@ -369,7 +369,7 @@ kali check --api browser main.ts           # Browser-targeted analysis context f
 kali check --api browser src/a.ts src/b.ts # Same browser-targeted analysis context over an explicit multi-file set
 kali check --api node                      # Phase 3 target: Node API surface is phase-gated for project-discovery checking too
 kali check --api node main.ts              # Phase 3 target: same Node analysis gate for an explicit file set
-kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation over the resolved source graph selected by the command's roots; from the Phase 2 target onward, effect-vs-policy validation uses that same scope
+kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy-schema/config validation over the resolved source graph selected by the command's roots; from the Phase 2 target onward, effect-vs-policy validation uses that same scope
 kali check --api browser --sandbox kali.policy.json # Same browser-targeted validation path over the resolved source graph selected by the command's roots
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
 kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
