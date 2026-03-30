@@ -34,13 +34,7 @@ kali effects program.ts
 
 `kali effects` is a Phase 2 target feature. Before then, equivalent internal analysis may exist only as compiler infrastructure and does not need to be exposed as a stable user-facing command.
 
-The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md). The report contains:
-- `schemaVersion`
-- `analysisContext`
-- `entryPoints`
-- `effects`
-- `dynamicEffects`
-- `dynamicReasons`
+The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md). This chapter treats that schema as the single source of truth for field names and payload shape.
 
 Scope rule:
 - `analysisContext` records the semantic knobs that materially affect the report: `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md))

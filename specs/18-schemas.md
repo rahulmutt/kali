@@ -305,7 +305,7 @@ Canonical schema-v1 `role` values:
 - `browser-glue` — browser-targeted JS glue emitted alongside a browser bundle; this is the browser host adapter companion to the bundle's `primary-executable` core module
 - `interface-wit` — canonical WIT interface description emitted for the stable public library/component/embedding flows once that Phase-2 public contract exists
 - `embedding-header` — generated **program-specific exports header** from `kali build --capi` (distinct from the stable **host ABI header** `kali.h`; see [SPEC.md](../SPEC.md))
-- `embedding-metadata` — generated C-ABI/embedding metadata from `kali build --capi`
+- `embedding-metadata` — generated C-ABI compatibility metadata from `kali build --capi` (the artifact `kind` remains `cabi-metadata`; this is the canonical `role` for that file)
 - `debug-source-map` — source-map/debug companion artifact
 
 Interpretation rules:
@@ -832,7 +832,7 @@ Simplification rule:
 
 ## C ABI Metadata Schema (schema v1)
 
-Produced as the contents of the `cabi-metadata` artifact emitted by `kali build --capi`.
+Produced as the contents of the `cabi-metadata` artifact emitted by `kali build --capi` (normally `role: embedding-metadata`).
 
 This metadata exists to answer one narrow question deterministically: **can this generated library artifact be loaded by the available host-side `kali_capi` ABI layer?** It should not duplicate the WIT surface, the generated program-specific exports header, or the CLI artifact manifest.
 
