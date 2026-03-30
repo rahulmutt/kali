@@ -17,6 +17,7 @@ End-to-end tests in `tests/`:
 - Source file → compile → check errors
 - Source file → effects analysis → check JSON output *(Phase 2 target; earlier phases should assert that the command is unavailable or explicitly experimental)*
 - Source file + policy → sandbox validation → check result *(Phase 1: runtime enforcement + policy-file validation, Phase 2+: inferred-effect-vs-policy validation too)*
+- Library source → `kali build --lib` → export-oriented base-library artifact + deterministic artifact metadata *(Phase 1 pre-stable embedding shape)*
 - Browser-targeted source → `kali check --api browser` → expected diagnostics/type success
 - Browser-targeted source → `kali build --bundle --api browser` → emitted artifact + smoke execution in a real browser harness
 - Repeated build of the same pinned input/context → byte-stable artifacts and stable machine-readable metadata by default
@@ -37,6 +38,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | Type checking / inference | checker baselines + inference golden tests + targeted regression cases |
 | Host APIs / runtime behavior | integration tests that execute the API path + sandbox/resource-limit tests where relevant |
 | Browser-targeted analysis/build support | browser-targeted check/build tests + emitted-bundle smoke runs in a real browser harness |
+| Base library/export artifact support (`kali build --lib`) | library-build integration tests + artifact-manifest/schema assertions + deterministic rebuild checks |
 | Package compatibility | curated package corpus results recorded per command/profile (`check`, `build`, `test`, `run`) |
 | CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |
 | Artifact reproducibility | repeated-build tests over pinned inputs/toolchains + normalized artifact-byte comparisons + stable emitted-metadata assertions |
@@ -89,6 +91,13 @@ Because Phase 1 already promises `check --api browser` and `build --bundle --api
 - run bundle smoke tests in at least one real browser automation harness so emitted JS glue + WASM bootstrap are tested together
 - include negative tests that confirm unsupported standalone browser commands (`run --api browser`, `test --api browser`) still fail with the canonical gating diagnostic
 - keep this track separate from any lightweight DOM/unit-test shim so Kali does not accidentally overclaim browser-runtime support from mock-only tests
+
+#### Base-Library Artifact Evidence Track
+Because Phase 1 already promises the export-oriented base `kali build --lib` mode, that artifact needs its own explicit evidence lane too:
+- run library-build fixtures that verify the expected exported-library artifact shape without implying the later stable public embedding/WIT contract yet
+- include negative tests for library inputs that do **not** have a statically known export surface so the build fails with the canonical gate instead of synthesizing reflective exports
+- assert deterministic artifact metadata/output ordering across repeated `--lib` builds of the same pinned input
+- keep this lane separate from the Phase 2 stable embedding/C ABI/Component Model evidence so Phase 1 does not accidentally overclaim public ABI stability
 
 #### Kali-Specific Tests
 - **Effect inference tests**: Source → expected effects JSON for the full statically reachable graph from the chosen analysis/logical root *(Phase 2 target; Phase 1 may instead test internal analysis units without a stable CLI surface)*

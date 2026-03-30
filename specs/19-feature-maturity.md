@@ -247,11 +247,13 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - One linked-WASM-payload compile/run pipeline works end-to-end for TS and JS inputs, with companion artifacts only where an artifact mode explicitly requires them.
 - Repeated builds with the same pinned inputs and toolchain produce stable artifact bytes and stable machine-readable output ordering by default.
 - `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
+- The Phase-1 base export-oriented library artifact (`kali build --lib`) works end-to-end as an intentionally pre-stable public-contract-light mode.
 - The checker ships the bounded HM-style inference fragment promised for Phase 1 for locals, obvious unannotated parameters, and analyzable return types, while still falling back conservatively instead of doing open-ended whole-program search.
 - Browser-targeted `check --api browser` and `build --bundle --api browser` work against the real browser ambient surface without implying DOM runtime support in Kali itself.
 - That browser-targeted claim is backed by dedicated browser-targeted tests, including emitted-bundle smoke runs in a real browser harness rather than only mock DOM/unit tests.
 - `kali check` / `build` / `run` / `test` all use the same early-phase API-surface maturity rules: Deno-supported, Node phase-gated, browser supported only for the documented browser-targeted check/bundle paths.
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
+- `check/build --sandbox` perform the documented Phase-1 policy-schema/config validation without overclaiming full inferred-effect-vs-policy checking yet.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
 - Package support works for the documented pure JS/TS, statically linkable subset.
 
@@ -259,7 +261,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - MIR is the canonical ownership/layout IR.
 - `kali effects` emits the documented stable JSON report.
 - Explicit effect annotations and `pure` checking are enabled for the built-in capability model.
-- Compile/check-time effect-vs-policy validation works against the declarative policy schema.
+- Compile/check-time effect-vs-policy validation works against the declarative policy schema, extending the existing Phase-1 policy-file/config validation path rather than replacing it.
 - Stable public Rust embedding and C ABI surfaces are documented and shipped.
 - The Phase-1 base `kali build --lib` artifact is promoted into the stable public library contract, including default WIT emission.
 - Public library/component outputs emit the documented WIT interface contract, and the initial Component Model packaging path works end-to-end.
