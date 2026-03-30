@@ -296,11 +296,16 @@ kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
 ```
 
-Inheritance note:
-- if `compilerOptions.apiSurface = browser` is already inherited from `kali.json`, plain `kali build --bundle main.ts` is the same supported browser-bundle request as the explicit `--api browser` form above
-- the same inherited-context rule applies when `--sandbox` is attached: plain `kali build --bundle --sandbox kali.policy.json main.ts` is the same supported browser-targeted static policy-validation request as the explicit `--api browser` form
-- if the effective API surface remains the default/inherited non-browser value, those same plain spellings are still invalid usage (`E5008`) because `--bundle` is browser-only in schema v1
-- the maturity matrix now lists those inherited-browser outcomes explicitly so the supported shortcuts are no longer hidden inside rejection-only rows
+Inherited browser-bundle shortcut summary:
+
+| Effective `apiSurface` | Plain command spelling | Result |
+|---|---|---|
+| non-browser (`deno` / `node`) | `kali build --bundle main.ts` | Invalid usage (`E5008`): `--bundle` is browser-only |
+| `browser` | `kali build --bundle main.ts` | Same supported request as explicit `kali build --bundle --api browser main.ts` |
+| non-browser (`deno` / `node`) | `kali build --bundle --sandbox kali.policy.json main.ts` | Invalid usage (`E5008`): `--sandbox` does not change the browser-only meaning of `--bundle` |
+| `browser` | `kali build --bundle --sandbox kali.policy.json main.ts` | Same supported request as explicit `kali build --bundle --api browser --sandbox kali.policy.json main.ts` |
+
+This table is only a shorthand; [19 — Feature Maturity](19-feature-maturity.md) remains the availability owner.
 
 ### `kali check [files...]`
 Type-check without compiling.

@@ -316,6 +316,7 @@ Examples:
 - `kali check packages/child/main.ts` from a parent project when `packages/child/` has its own `kali.json`
 - `kali build --api browser main.ts`
 - `kali build --bundle main.ts` under the default/inherited non-browser API surface
+- `kali build --bundle --sandbox kali.policy.json main.ts` under the default/inherited non-browser API surface
 - `kali build --lib --api browser lib.ts`
 - `kali build --capi --api browser lib.ts`
 - `kali build --component --api browser lib.ts`
