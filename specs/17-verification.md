@@ -44,7 +44,7 @@ Recommended first proof-backed milestone:
 - one explicit covered-path inventory in `proofs/BOUNDARY.md` naming the Lean files plus the corresponding spec chapters / implementation areas those proofs are intended to constrain.
 
 Consistency rule:
-- `proofs/BOUNDARY.md` should mirror this milestone verbatim or point to an explicitly documented equivalent scope; the repository should not let the verification chapter and the published proof-boundary manifest drift into two different “first real proof target” stories.
+- `proofs/BOUNDARY.md` is the canonical published boundary, but the first non-placeholder scope should either mirror this milestone or explicitly point back here as the source of truth; the repository should not let the verification chapter and the published proof-boundary manifest drift into two different “first real proof target” stories.
 
 Promotion rule:
 - the repository becomes **proof-backed** only when that milestone (or another explicitly documented equivalent) is actually listed in `proofs/BOUNDARY.md` with named theorem/property claims
