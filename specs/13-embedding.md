@@ -132,7 +132,7 @@ Design rules:
 - denial reporting should preserve the canonical Kali diagnostic/error contract, with host-specific predicate detail attached as additional context rather than as an alternate error format
 - if this feature is unavailable in the current phase, embedding APIs should fail with the same canonical availability path (`E5006`) used elsewhere rather than silently registering dead callbacks
 
-## Phase 2 target — C API (`kali_capi`)
+## Phase 2 target — C ABI (`kali_capi`)
 
 This section describes the intended stable C ABI for embedding from any language once the public embedding surface reaches Phase 2.
 
@@ -142,7 +142,7 @@ Availability rule:
 
 ### Host ABI Header (`kali.h`)
 The C declarations below describe the intended stable ABI surface for Phase 2+.
-They come from the host-side `kali_capi` library itself.
+They are the canonical **host ABI header** from [SPEC.md](../SPEC.md) and come from the host-side `kali_capi` library itself.
 
 Shape simplification rules:
 - keep the same compiled-module vs instantiated-instance split as the Rust API in this chapter
@@ -267,18 +267,18 @@ Artifact-role clarification:
 - that outer component wrapper is packaging over the already-linked core payload, not a second independently linked guest-program graph; this keeps embedding/component outputs aligned with the single-linked-core-payload rule from [SPEC.md](../SPEC.md)
 
 Important distinction:
-- `kali_capi` ships the stable host ABI header: `kali.h`
-- `kali build --capi foo.ts` emits a **program-specific** exports header such as `foo.exports.h` plus metadata
+- `kali_capi` ships the stable **host ABI header**: `kali.h`
+- `kali build --capi foo.ts` emits the **program-specific exports header** such as `foo.exports.h` plus metadata
 - Phase 1 plain `kali build --lib foo.ts` emits the **base library artifact** (`wasm-module`) only; this is intentionally useful before the **public embedding surface** is frozen, but it is not yet one of the stable **public embedding artifact flows**
 - once the public interface contract stabilizes in Phase 2+, plain public `kali build --lib foo.ts` emits a WIT sidecar by default, and `--capi` / `--component` reuse that same canonical exported interface description instead of defining a second export vocabulary
 - library-oriented outputs follow the shared **library-oriented instantiation rule** from [SPEC.md](../SPEC.md): no synthetic executable entry invocation is added, normal module-instantiation behavior still runs at host instantiation time, and exported functions are the host-callable surface layered on top of that
 - In CLI JSON/artifact manifests, these outputs use the canonical artifact kinds `wasm-module`, `wit`, `wasm-component`, `c-header`, and `cabi-metadata`
 
-This avoids overloading the name `kali.h` for two different purposes and keeps C ABI generation aligned with the Component Model path.
+This keeps the shared **host ABI header vs program-specific exports header** split from [SPEC.md](../SPEC.md) intact and avoids overloading the name `kali.h` for two different purposes.
 
 The host-side C ABI itself is provided by the `kali_capi` crate:
 ```bash
-cargo build --release -p kali_capi         # Build the C API shared/static library
+cargo build --release -p kali_capi         # Build the host-side C ABI shared/static library
 ```
 
 ## ABI Versioning and Compatibility
@@ -296,7 +296,7 @@ To keep embedding stable and machine-checkable, the C ABI needs one explicit com
 Compatibility policy:
 - additive C-ABI changes that preserve layout/call compatibility may keep the same major host ABI version
 - signature changes, ownership-convention changes, struct layout changes, or semantic changes that break existing embedders require a new host ABI version
-- the generated program-specific header (`foo.exports.h`) may evolve independently from the stable host header `kali.h`, but its emitted metadata must still declare which host ABI version it expects
+- the generated **program-specific exports header** (`foo.exports.h`) may evolve independently from the stable **host ABI header** (`kali.h`), but its emitted metadata must still declare which host ABI version it expects
 
 Typical embedding flow:
 1. Build or ship `kali_capi` as the native C ABI layer (including the stable `kali.h` host header).
@@ -313,7 +313,7 @@ The shared library exports only `kali_*` symbols. All Rust internals are hidden.
 
 ## Language Bindings (Future)
 
-The C API enables bindings for:
+The C ABI enables bindings for:
 - Python (`ctypes` or `cffi`)
 - Go (`cgo`)
 - Ruby (`ffi`)

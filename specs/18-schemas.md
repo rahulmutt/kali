@@ -302,7 +302,7 @@ Canonical schema-v1 `role` values:
 - `primary-component` — the main outer Component Model wrapper artifact from `kali build --component foo.ts`
 - `browser-glue` — browser-targeted JS glue emitted alongside a browser bundle; this is the browser host adapter companion to the bundle's `primary-executable` core module
 - `interface-wit` — canonical WIT interface description emitted for the stable public library/component/embedding flows once that Phase-2 public contract exists
-- `embedding-header` — generated program-specific C exports header from `kali build --capi`
+- `embedding-header` — generated **program-specific exports header** from `kali build --capi` (distinct from the stable **host ABI header** `kali.h`; see [SPEC.md](../SPEC.md))
 - `embedding-metadata` — generated C-ABI/embedding metadata from `kali build --capi`
 - `debug-source-map` — source-map/debug companion artifact
 

@@ -54,7 +54,7 @@ Canonical examples of that normalization:
 - **“Programmable sandbox policy conditions”** → project policy files stay declarative in early phases; later programmable narrowing is via host-registered predicates, not executable project policy code.
 - **“Use wasmtime or wasmer”** → standardize on `wasmtime` first; alternative engines are later implementation extensions.
 - **“Support WIT / Component Model”** → Phase 1 keeps a base exported-library artifact; stable WIT-first public embedding and component packaging are Phase 2 targets.
-- **“Must be embeddable / expose a C API / be easy to use as a Rust library”** → Phase 1 is library-first internally and already includes the base `kali build --lib` artifact, but the stable public Rust embedding API, stable WIT contract, C ABI, and component/C-embedding packaging are Phase 2 targets.
+- **“Must be embeddable / expose a C API / be easy to use as a Rust library”** → Phase 1 is library-first internally and already includes the base `kali build --lib` artifact, but the stable public Rust embedding API, stable WIT contract, host-side C ABI, and component/C-embedding packaging are Phase 2 targets.
 - **“No GC”** → no tracing/background GC is allowed; deterministic ownership/reference-counted strategies are acceptable where the owning chapters permit them.
 
 ## Bootstrap Traceability Matrix
@@ -70,7 +70,7 @@ This table is the compact “where did each bootstrap ask land?” view.
 | Aggressive specialization + layout-aware IR | Optimization is staged: explicit layout-aware IR plus specialization deepen over Phases 2-3 without weakening auditability | [`specs/05-ir.md`](./specs/05-ir.md), [`specs/07-specialization.md`](./specs/07-specialization.md) |
 | Deno, Node, and browser support | Phase 1 is Deno-first with browser-targeted analysis/build; Node is phase-gated until Phase 3 | [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | npm / JSR / raw-URL package access | Early package support is broad for pure JS/TS packages that fit the linked-artifact model, but narrow for native/binary/bootstrap-heavy contracts | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
-| Embeddability, C API, WIT, Component Model | Phase 1 ships the base `--lib` artifact; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and component packaging | [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| Embeddability, C ABI, WIT, Component Model | Phase 1 ships the base `--lib` artifact; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and component packaging | [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Latest published ECMA-262 boundary | Kali tracks the latest **published** ECMA-262 edition; draft or proposal semantics stay explicitly experimental rather than implied | [`specs/02-lexer-parser.md`](./specs/02-lexer-parser.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Pure Rust implementation / no embedded C or C++ | Implementation choices must preserve the pure-Rust host/runtime/toolchain contract rather than smuggling in embedded C/C++ dependencies | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/10-runtime.md`](./specs/10-runtime.md) |
 | AI-friendly CLI and diagnostics | Human output stays concise; JSON contracts, stable codes, and AI-friendly machine payloads are explicit product requirements | [`specs/12-cli.md`](./specs/12-cli.md), [`specs/15-errors.md`](./specs/15-errors.md), [`specs/18-schemas.md`](./specs/18-schemas.md) |
@@ -120,7 +120,7 @@ Use this checklist:
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
-- library/export-oriented build wording should reuse the **embedding-stability split**, **library-oriented instantiation rule**, and **statically known export surface** terms
+- library/export-oriented build wording should reuse the **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
 - single-package registry-analysis wording should reuse the **registry-analysis context split**, **registry-analysis project-independence rule**, and **stable-release selection rule (schema v1)**
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
@@ -446,6 +446,18 @@ Rule:
 - docs should reference this split instead of rephrasing it as “usable but not yet stable”, “public embedding contract”, “stable public library contract”, “library-first internally”, or “WIT/C ABI/component packaging lands later” in slightly different ways
 - Phase 1 shipping the **base library artifact** does **not** by itself imply the Phase-2 **public embedding surface**: no stable public Rust API, stable public library/WIT contract, stable C ABI, or component packaging yet
 - once Phase 2 promotes that path, plain public `--lib` is the canonical stable public library/WIT contract and emits WIT by default; `--capi` and `--component` are projections/wrappers over that same proved export surface rather than alternate export semantics
+
+### Host ABI header vs program-specific exports header
+Kali intentionally distinguishes the stable host-side C ABI header from build-emitted program-specific export declarations.
+
+Canonical terms:
+- **host ABI header** — the stable `kali.h` header shipped by `kali_capi` and versioned with the host C ABI
+- **program-specific exports header** — the generated `<entry>.exports.h` header emitted by `kali build --capi` for one compiled library's proved export surface
+
+Rules:
+- docs should not use `kali.h` as a loose synonym for both headers
+- `kali build --capi` emits the **program-specific exports header**, not a second copy of the **host ABI header**
+- ABI/version-compatibility wording should keep the host-side `kali_capi` contract separate from the generated exported-function declarations for one library build
 
 ### Library-oriented instantiation rule
 For library-oriented artifact modes:
