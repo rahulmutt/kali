@@ -43,7 +43,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 |---|---|
 | Language/frontend | Latest published ECMA-262 grammar, TypeScript compatibility where implemented, and first-class `.js` compilation with bounded conservative inference |
 | Runtime model | AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
-| Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set** (`kali check [files...]`, including both the project-discovery no-file form and explicit-file-set forms, plus its supported `--sandbox` variants, and `kali build --bundle <file>` plus its supported `--sandbox` variants, in both explicit-flag and equivalent inherited-config forms when the effective `apiSurface` is `browser`); `--api node` remains gated |
+| Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set**; `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema/config validation for `check` and the supported `build --sandbox` paths (default executable build, Phase-1 `build --lib`, and browser-targeted `build --bundle`), no project-executed policy code |
 | Effects | Internal effect bookkeeping may exist in Phase 1; the Phase-2 stable **public effect-report surface** is intentionally split into a reporting half (`kali effects`, `kali package-effects`) and a policy-comparison half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`) |
 | Registry audit | `kali package-audit` is a separate context-free registry-analysis/security-audit workflow and remains later compatibility |
@@ -130,6 +130,14 @@ Several later chapters reuse the same six distinctions because they are the easi
 Reading rule:
 - when a support claim feels ambiguous, check whether it accidentally crossed one of those six boundaries before assuming the broader reading
 - later chapters should prefer reusing these canonical split names instead of re-explaining them in new prose each time
+
+### Canonical shared command-set definition
+
+To reduce drift, one cross-spec term is defined once here and then reused elsewhere:
+
+- **shared Phase-1 browser-targeted command set** = browser-targeted `kali check [files...]` *(including both the project-discovery no-file form and explicit-file-set forms)* plus browser-targeted `kali build --bundle <file>`, including their supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`
+
+Use this term instead of re-expanding the same browser-command list in README summaries or chapter-local availability prose.
 
 ## Recommended Phase-1 Implementation Order
 
