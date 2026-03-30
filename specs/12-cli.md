@@ -424,8 +424,8 @@ Argument-kind rules:
 - `kali install` is intentionally **profile-agnostic** in early phases: it locks versions and materializes package contents once for the current manifest/import graph, but it does not pre-bake a separate install for each `--api` surface; later `check` / `effects` / `build` / `run` / `test` choose `deno`/browser-targeted package branches from the already-installed metadata at command time
 
 Determinism rules:
-- `kali install` is the command that resolves versions, pins URL imports, and writes `kali.lock`.
-- `kali check`, `effects`, `build`, `run`, and `test` consume existing dependency state; they must not silently modify `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/` as a side effect. Missing URL-cache materialization is treated the same as missing `node_modules/`: fail with `E5004` and point the user to `kali install`.
+- `kali install` is the command that updates dependency-owning manifest fields when needed, resolves versions, pins URL imports, and writes `kali.lock`.
+- `kali check`, `effects`, `build`, `run`, and `test` consume existing project-managed dependency state; they must not silently modify dependency-owning parts of `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/` as a side effect. Missing URL-cache materialization is treated the same as missing `node_modules/`: fail with `E5004` and point the user to `kali install`.
 - For `E5004`, "stale" means the current manifest/import graph, lockfile entries, and required materialized artifacts no longer match for the dependency kinds the project actually uses. It does **not** require ad hoc timestamp-based guessing by non-install commands.
 - If dependency state is missing or stale for the dependency source kinds the project actually uses, those non-install commands fail with the canonical `E5004` path and point the user to `kali install`.
 - If a direct-input command names a file outside the last installed project discovery set and that file reaches additional raw URL imports, the command still fails with `E5004`; non-install commands must not auto-install or mutate the dependency graph opportunistically.

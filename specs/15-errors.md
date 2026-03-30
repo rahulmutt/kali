@@ -97,8 +97,8 @@ Use `E5004` for dependency-state problems such as:
 - the resolver needs explicit dependency installation/synchronization instead of silently re-resolving during `check`, `effects`, `build`, `run`, or `test`
 
 Clarification:
-- for `E5004`, "stale" is a **lock/materialization mismatch**, not a vague timestamp heuristic
-- non-install commands should fail clearly and point to `kali install`; they should not repair dependency state as a side effect
+- for `E5004`, "stale" is a **declaration/lock/materialization mismatch**, not a vague timestamp heuristic
+- non-install commands should fail clearly and point to `kali install`; they should not repair dependency-owning manifest fields, lock state, or materialized dependency state as a side effect
 
 Use `E5001` for module/package-not-found-or-no-selectable-stable-release problems such as:
 - a referenced module or package cannot be found under the documented resolution rules

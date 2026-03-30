@@ -579,15 +579,19 @@ Interpretation rules:
 - top-level `kali.json#sandbox` is ignored for this set rather than being treated as an error
 - early `package-audit` remains context-free with respect to `apiSurface`, `buildMode`, `runtimeProfiles`, and `compat.features`
 
-## Canonical Dependency-State Mutability Rule
+## Canonical Dependency-Management Mutability Rule
 
-Early-phase project dependency state belongs to the effective project root (`kali.lock`, `node_modules/`, `.kali/cache/urls/`).
+Early-phase **project-managed dependency state** belongs to the effective project root and consists of:
+- dependency-owning declaration fields in `kali.json` (`dependencies`, `devDependencies`, and `imports`)
+- `kali.lock`
+- `node_modules/`
+- `.kali/cache/urls/`
 
 Interpretation rules:
-- `kali install` is the only command that mutates that project dependency state
-- `check`, `effects`, `build`, `run`, and `test` consume existing dependency state and fail with `E5004` when it is missing or stale
-- `package-effects` and `package-audit` may use temporary analysis caches, but they do **not** mutate project dependency state
-- commands must not silently repair lock/materialization drift as a side effect of ordinary analysis or execution
+- `kali install` is the only command that mutates that project-managed dependency state
+- `check`, `effects`, `build`, `run`, and `test` consume existing project-managed dependency state and fail with `E5004` when it is missing or stale
+- `package-effects` and `package-audit` may use temporary analysis caches, but they do **not** mutate project-managed dependency state
+- commands must not silently repair declaration/lock/materialization drift as a side effect of ordinary analysis or execution
 
 ## Artifact-Mode Matrix
 

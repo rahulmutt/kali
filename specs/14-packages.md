@@ -293,19 +293,19 @@ Practical consequence:
 
 ## Deterministic Install & Resolution Contract
 
-This chapter follows the top-level [canonical dependency-state mutability rule](../SPEC.md): in early phases, `kali install` is the only command that mutates project dependency state.
+This chapter follows the top-level [canonical dependency-management mutability rule](../SPEC.md): in early phases, `kali install` is the only command that mutates project-managed dependency state.
 
 To keep package behavior predictable across `install`, `check`, `effects`, `build`, `run`, and `test`, Kali uses one simple rule set:
-- `kali install` is the command that resolves dependency versions and writes `kali.lock`.
-- `kali check`, `effects`, `build`, `run`, and `test` consume the existing lockfile/materialized dependency state; they must not silently re-resolve packages or mutate dependency state as a side effect.
+- `kali install` is the command that updates dependency-owning manifest fields in `kali.json` when needed, resolves dependency versions, writes `kali.lock`, and refreshes materialized dependency stores.
+- `kali check`, `effects`, `build`, `run`, and `test` consume the existing declaration + lock + materialized dependency state; they must not silently re-resolve packages or mutate project-managed dependency state as a side effect.
 - If the project's declared dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports from the install-time project discovery set) require materialized state that is missing or stale, non-install commands fail with `E5004` and tell the user to run `kali install`.
 - Here, "stale" means the current declared dependency graph, the corresponding `kali.lock` entries, and the required materialized artifacts no longer agree. Non-install commands should not try to infer staleness from arbitrary mtimes or repair it opportunistically.
 - `node_modules/` is the materialized tree for registry packages (npm/JSR), while `.kali/cache/urls/` is the materialized cache for raw URL imports; `kali.lock` is the canonical reproducibility record for both.
-- When `kali.lock` and the required materialized dependency state disagree, `kali install` is responsible for reconciling them. Other commands should fail clearly rather than guessing which source of truth to trust.
+- When declaration inputs, `kali.lock`, and the required materialized dependency state disagree, `kali install` is responsible for reconciling them. Other commands should fail clearly rather than guessing which source of truth to trust.
 - `--allow-scripts` affects install-time behavior only; it does not change later `check`/`build`/`run` semantics for an already-installed package graph.
 - lifecycle scripts executed during install are outside the normal source-program effect-report/sandbox-policy contract and therefore are not evidence that the installed package graph itself requires those same effects at runtime.
 
-This is an intentional simplification: one command mutates dependency state, all other commands consume it deterministically. For raw URL imports, the source/import-map graph is the declaration source of truth and the lock/cache are the materialized state derived from it.
+This is an intentional simplification: one command mutates project-managed dependency state, all other commands consume it deterministically. For raw URL imports, the source/import-map graph is the declaration source of truth and the lock/cache are the materialized state derived from it.
 
 Diff-friendliness rule:
 - lockfile writers should preserve canonical ordering when rewriting existing `kali.lock`
