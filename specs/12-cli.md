@@ -522,7 +522,7 @@ kali package-audit --pretty --output json lodash # Pretty-print that envelope; p
 ```
 
 Base-gate clarification:
-- before this later-compatibility command exists, a **well-formed** invocation such as `kali package-audit lodash` or `kali package-audit --output json lodash` should fail on the command's own availability gate (`E5006`)
+- before this **Later compatibility** command exists, a **well-formed** invocation such as `kali package-audit lodash` or `kali package-audit --output json lodash` should fail on the command's own availability gate (`E5006`)
 - malformed invocations still fail earlier with `E5008` under the shared **single-package registry-analysis command** rule and the shared **JSON-producing mode** rules from [SPEC.md](../SPEC.md)
 - output-format flags such as `--output json` or `--pretty` do not create a second availability path for the command itself
 
