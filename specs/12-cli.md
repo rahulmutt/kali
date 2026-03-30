@@ -409,15 +409,10 @@ Scaffold simplification rules:
 - `kali init` is **current-directory-scoped** in schema v1: it scaffolds the current working directory and does not retarget itself to an ancestor project root discovered above it.
 - if the current working directory already contains `kali.json`, `kali init` fails with `E5008` instead of overwriting the existing project config.
 - if an ancestor directory contains `kali.json` but the current working directory does not, `kali init` may still create a nested child project rooted at the current working directory; later project discovery then treats that child as a separate project boundary.
-- `kali init` should generate the **minimal canonical** `kali.json` shape unless the selected template truly needs more.
-- For the default app template, that normally means a `kali.json` containing only `{ "schemaVersion": 1 }` plus `main.ts`.
-- For the library template, that normally means the same minimal `kali.json` plus `lib.ts`.
-- The default scaffold should not pre-populate empty `dependencies`, `devDependencies`, `compat`, `sandbox`, or other placeholder sections just to advertise features.
+- follow the shared **minimal canonical scaffold contract** from [SPEC.md](../SPEC.md): emit only the smallest valid schema-v1 scaffold for the selected template rather than extra example files, lockfiles, dependency state, or placeholder optional sections.
 - `kali init --lib` may add library-oriented source/layout hints, but it should still reuse the same canonical config naming (`apiSurface`, `buildMode`, `runtimeProfiles`) instead of inventing template-specific aliases.
 - reuse the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): `kali init --lib` selects a project template only and does not imply later `kali build --lib`
-- `kali init` should also create only the smallest source/layout skeleton needed for the chosen template (for example `main.ts` for the default app template or `lib.ts` for the library template) instead of emitting multiple unused example files.
-- follow the canonical scaffold filename convention from [SPEC.md](../SPEC.md): `main.ts` for the default app template and `lib.ts` for the library template, unless a later template spec explicitly opts into a different filename.
-- Dependency state is still created by `kali install`, not by `kali init`.
+- follow the **canonical scaffold filename convention** from [SPEC.md](../SPEC.md): `main.ts` for the default app template and `lib.ts` for the library template, unless a later template spec explicitly opts into a different filename.
 
 ### `kali install [target]`
 Install or materialize project dependencies.
@@ -427,7 +422,7 @@ Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-
 Boundary rule:
 - read package support through the shared **published-artifact-first package reading** from [SPEC.md](../SPEC.md): the presence of a repository build pipeline or optional lifecycle metadata does not by itself make a package unsupported if the published artifact Kali installs already contains the ordinary JS/TS files it needs
 - `--allow-scripts` selects the schema-v1 **install-time npm-package hook path** from [SPEC.md](../SPEC.md), not a runtime/API-surface feature
-- plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; on a URL-only, JSR-only, clean already-synchronized, or otherwise no-npm-scriptable install graph it should fail with `E5008` instead of silently degenerating into plain `install`
+- plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; an explicit npm target such as `kali install --allow-scripts lodash` is the canonical valid shape, while a URL-only, JSR-only, clean already-synchronized, or otherwise no-npm-scriptable install graph should fail with `E5008` instead of silently degenerating into plain `install`
 - that install work is **invocation-scoped**: it covers only the npm package work the current install actually reconciles in a lifecycle-hook-relevant way, including any directly requested npm target and any transitively touched npm dependencies in the same invocation
 - a clean no-op install therefore keeps that install work empty even if the project already depends on npm packages; `--allow-scripts` does not ask Kali to re-run lifecycle hooks just because npm dependencies exist in the lockfile
 - pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
@@ -623,9 +618,7 @@ Optional metadata field:
 - `$schema` may be included for editor/schema tooling, but `kali init` should omit it by default unless the user/template explicitly asks for it
 
 Omission/default rule for minimal configs:
-- `kali init` should emit only the smallest canonical shape needed for the chosen template.
-- For the default app template, that usually means just `{"schemaVersion": 1}` on disk plus `main.ts` in the source tree.
-- For the library template, that usually means the same minimal config plus `lib.ts`.
+- `kali init` should follow the shared **minimal canonical scaffold contract** from [SPEC.md](../SPEC.md) instead of growing command-local placeholder config or dependency state.
 - Omitted fields inherit documented schema/CLI defaults rather than creating placeholder sections.
 - In schema v1, omitted `compilerOptions` means all compiler-option defaults apply.
 - In schema v1, omitted `compilerOptions.strict` means the default strict-checking bundle is enabled; its canonical semantics are defined in [specs/04-type-system.md](04-type-system.md).

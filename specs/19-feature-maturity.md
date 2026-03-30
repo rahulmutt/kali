@@ -150,11 +150,11 @@ Interpretation rule:
 
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
-| `kali init` | Phase 1 MVP | Create the minimal canonical project scaffold **in the current working directory**; `init` is current-directory-scoped and does not reuse an ancestor project's discovered root. For the default app template this normally means `kali.json` containing just `{ "schemaVersion": 1 }` plus `main.ts`; for the library template, the same minimal config plus `lib.ts`. Scaffolding does not count as dependency-state mutation: `init` must not add dependencies, write `kali.lock`, or materialize packages. |
+| `kali init` | Phase 1 MVP | Follow the shared **minimal canonical scaffold contract** from [SPEC.md](../SPEC.md): create the smallest valid schema-v1 project scaffold in the current working directory, using the canonical built-in starter filenames, without adding dependencies, writing `kali.lock`, or materializing packages. |
 | `kali init` when the current working directory already contains `kali.json` | Rejected by default | Fail with `E5008` instead of silently overwriting the existing project config |
 | `kali init` in a subdirectory whose ancestor already contains `kali.json` | Phase 1 MVP | Create a nested child project rooted at the current working directory when that directory itself does not already contain `kali.json`; later discovery treats that child root as a separate project boundary |
 | `kali init --sandbox kali.policy.json` | Rejected by default | `init` is sandbox-agnostic in early phases; scaffolding does not accept the runtime/build policy-attachment flag, so this is invalid usage (`E5008`) |
-| `kali init --lib` | Phase 1 MVP | Follows the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): selects a library-oriented scaffold template only and does not imply later `kali build --lib` |
+| `kali init --lib` | Phase 1 MVP | Follows the shared **minimal canonical scaffold contract** plus the **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): selects the library-oriented scaffold template only and does not imply later `kali build --lib` |
 | `kali fmt` | Phase 1 MVP | Stable formatting command over the canonical project file set relevant to formatting, including declaration-only files |
 | `kali fmt --sandbox kali.policy.json` | Rejected by default | `fmt` is sandbox-agnostic in early phases; top-level config sandbox is ignored for it, and the CLI `--sandbox` flag is invalid usage (`E5008`) |
 | `kali lint` | Phase 1 MVP | Stable lint command with conservative autofix support over the canonical project file set, including declaration-only files |

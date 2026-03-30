@@ -257,6 +257,7 @@ To preserve sandbox-first behavior:
 - npm lifecycle scripts (`preinstall`, `install`, `postinstall`) are not executed unless the user explicitly opts in with `kali install --allow-scripts`
 - `--allow-scripts` applies only to that install invocation; it is not an ambient project default
 - with **no explicit install target**, `kali install --allow-scripts` applies only to the invocation's **effective npm-scriptable install work**; if that install work is empty, including on a clean already-synchronized graph, the command should fail with `E5008` instead of silently acting like plain `install`
+- an explicit npm package add such as `kali install --allow-scripts lodash` is the canonical valid shape because that invocation necessarily introduces npm install work if it reaches normal package resolution
 - pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
 - pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
 - mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm install-work subset while the non-npm subset stays on the normal script-free path

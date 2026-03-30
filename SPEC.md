@@ -199,8 +199,7 @@ Use this checklist:
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
 - Phase-1 internal effect machinery versus Phase-2 stable effect-report-command wording should reuse the **effect-surface split** instead of creating new near-duplicate “effects exist internally but not publicly yet” prose in each chapter
 - verification-boundary wording should reuse the **proof-boundary manifest** term instead of scattering slightly different “modeled subset”, “proof kernel”, or “published proof scope” prose across verification, testing, and maturity chapters
-- scaffold-template filename wording should reuse the **canonical scaffold filename convention** term instead of reintroducing a second duplicate section with the same `main.ts` / `lib.ts` defaults
-- `kali init --lib` wording should reuse the **template selection vs build artifact mode split** instead of restating “library template does not imply later `build --lib`” in multiple chapters
+- `kali init` scaffold wording should reuse the **minimal canonical scaffold contract**, the **canonical scaffold filename convention**, and the **template selection vs build artifact mode split** instead of reintroducing duplicate `main.ts` / `lib.ts` defaults or near-duplicate “library template does not imply later `build --lib`” prose in multiple chapters
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
 - explicit raw-URL install wording should reuse the **raw-URL install staging/pin workflow** term instead of re-explaining “lock/cache yes, durable declaration no” in each package/install section
 - package-loading and whole-graph-linking wording should reuse the **linked-artifact model** term instead of restating slightly different “single linked payload”, “already-linked graph”, or “no runtime-linked WASM modules” prose
@@ -1370,6 +1369,21 @@ Rules:
 - later template specs may introduce other filenames only explicitly; they should not silently redefine the schema-v1 defaults
 - docs should reference this convention instead of repeating the two filenames ad hoc in multiple chapters
 
+## Minimal canonical scaffold contract
+In schema v1, `kali init` should emit the smallest project scaffold that still establishes one valid project root and one obvious starting source file.
+
+Default scaffold shape:
+- create `kali.json` containing only `{ "schemaVersion": 1 }` unless the selected built-in template explicitly needs more
+- use the **canonical scaffold filename convention** for the starter source file (`main.ts` for the default app template, `lib.ts` for the library template)
+- do **not** create `kali.lock`, `node_modules/`, `.kali/cache/`, or placeholder dependency/sandbox/compat sections
+
+Rules:
+- `kali init` is current-directory-scoped: it scaffolds the current working directory rather than retargeting itself to an ancestor-discovered project root
+- if the current working directory already contains `kali.json`, `kali init` fails instead of overwriting the existing project root
+- if only an ancestor contains `kali.json`, `kali init` may still create a nested child project rooted at the current working directory
+- scaffolding is intentionally separate from dependency reconciliation; `kali install` remains the command that creates or refreshes managed dependency state
+- docs should prefer this term when they mean the whole schema-v1 `init` default, instead of restating file names, minimal config contents, and “no lockfile/dependency state” rules separately
+
 ## Template selection vs build artifact mode split
 Kali keeps one explicit separation between **project scaffolding** and **later artifact selection**:
 - `kali init --lib` selects the library-oriented scaffold template only
@@ -1506,6 +1520,7 @@ For `package-effects` and `package-audit` in schema v1:
 Rules:
 - this is **invocation-scoped**, not a project-wide switch;
 - it includes directly requested npm package targets and any transitively touched npm dependencies that the current install must newly materialize, relink, or otherwise reconcile in a way that could run lifecycle hooks;
+- an explicit npm target such as `kali install lodash` therefore counts as non-empty effective npm-scriptable install work whenever resolution reaches the normal npm install path for that target;
 - a clean no-op install on an already-synchronized graph has **empty** effective npm-scriptable install work, even if the project depends on npm packages;
 - if that set is empty, `kali install --allow-scripts` is invalid usage rather than permission to silently behave like plain `install`.
 
