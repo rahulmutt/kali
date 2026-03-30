@@ -518,6 +518,7 @@ Additional flag-surface rule:
 Output simplification rule:
 - unlike `kali effects` and `kali package-effects`, `kali package-audit` does **not** define a native bare-JSON payload in schema v1
 - if `package-audit` supports `--output json` before a dedicated audit payload schema exists, it uses the canonical **envelope-only JSON support** model from [SPEC.md](../SPEC.md): the stable contract is the standard command envelope itself, with `payload` omitted or `null`
+- in that envelope-only phase, `package-audit` must not smuggle audit/package/version result metadata through `stdout`, `stderr`, or other prose-bearing envelope fields just because no dedicated payload exists yet
 - if/when a dedicated machine-readable audit payload is added later, it should still travel through the standard `--output json` command envelope instead of inventing a second ad hoc top-level format
 
 ## Output Design
@@ -566,6 +567,7 @@ Rules:
 - diagnostics reuse the shared diagnostic schema
 - command-specific structured data goes in `payload` when that command has a dedicated success-payload schema in schema v1
 - commands with **envelope-only JSON support** may still support `--output json` through the standard envelope alone; in that case `payload` should be omitted or `null` rather than filled with ad hoc prose/fields
+- envelope-only JSON support also does **not** permit commands to smuggle structured success metadata through `stdout` / `stderr`; those fields remain reserved for captured text streams
 - common optional top-level fields include `artifacts`, `stdout`, `stderr`, `timings`, and `exitCode`
 - for execution-style commands in JSON mode, guest/program stdout and stderr are captured into the envelope fields instead of being interleaved as raw terminal text
 - build-like commands should populate artifact `role` whenever it helps distinguish artifact mode without forcing tools to guess from filenames (for example default executable vs `--lib` `wasm-module`)

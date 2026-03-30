@@ -64,6 +64,7 @@ Used by commands that opt into `--output json`.
 - for those native-JSON reporting commands, default success mode reserves stdout for the payload only; extra progress/status text must not be interleaved into stdout
 - when those commands fail without `--output json`, human-oriented diagnostics should go to stderr; callers that need machine-readable failure output must request `--output json`
 - commands that currently have only envelope-level JSON support in schema v1 (for example early `package-audit`, if implemented before a dedicated audit payload schema lands) should keep success metadata in standard envelope fields and must not smuggle human prose through `payload`
+- envelope-only JSON support is not permission to repurpose `stdout` / `stderr` as hidden structured-result fields; those stream fields are for captured program/command text only
 - for execution-style commands in JSON mode, guest/program stdout and stderr belong in the envelope's `stdout` / `stderr` fields rather than being interleaved as raw text around the JSON payload
 - diagnostics inside the envelope may carry optional structured `context` metadata when a config/flag-derived effective command context materially caused the failure
 - Commands should avoid inventing top-level ad hoc fields when `payload` is sufficient
