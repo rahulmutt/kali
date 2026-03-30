@@ -808,6 +808,11 @@ Canonical early examples:
 - `package-effects`
 - `package-audit`
 
+Validation-order note:
+- command-shape validation still wins before base command availability for these commands,
+- therefore malformed invocations such as `kali package-effects`, `kali package-effects lodash react`, or `kali package-audit ./local.ts` stay `E5008` even before those commands themselves are available in the current phase,
+- the corresponding well-formed base invocations (`kali package-effects lodash`, `kali package-audit lodash`) then fall through to their own maturity gates.
+
 Rule:
 - use this term instead of restating “exactly one explicit registry package identifier, no raw URLs/local paths, no implicit whole-project mode” in each chapter.
 - package version selection, inherited analysis context, and project-independence are separate rules owned by the neighboring registry-analysis terms.

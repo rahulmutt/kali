@@ -495,6 +495,11 @@ kali package-effects --pretty lodash       # Pretty-printed package-effect repor
 kali package-effects --output json lodash  # Command envelope + package-effect payload
 ```
 
+Base-gate clarification:
+- before Phase 2, a **well-formed** invocation such as `kali package-effects lodash` should fail on the command's own availability gate (`E5006`), not pretend the command exists with partial output
+- malformed invocations still fail earlier with `E5008` under the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
+- once the base command exists, inherited-context gating follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) rather than a package-analysis-specific shadow matrix
+
 `kali package-effects` is a schema-v1 **native-JSON command** once it is available: by default it emits its package-effect payload directly, and with `--output json` it wraps that same payload in the standard command envelope. `--pretty` changes formatting only; if combined with `--output json`, it formats the outer envelope while leaving the nested package-effect payload schema-identical. See [specs/18-schemas.md](18-schemas.md) for the canonical package-effect payload schema.
 
 Analysis rule:
@@ -515,6 +520,11 @@ kali package-audit jsr:@std/path           # Audit specific JSR package
 kali package-audit --output json lodash    # Schema-v1 envelope-only JSON output
 kali package-audit --pretty --output json lodash # Pretty-print that envelope; plain `--pretty` alone is invalid here because package-audit is not native JSON in schema v1
 ```
+
+Base-gate clarification:
+- before this later-compatibility command exists, a **well-formed** invocation such as `kali package-audit lodash` or `kali package-audit --output json lodash` should fail on the command's own availability gate (`E5006`)
+- malformed invocations still fail earlier with `E5008` under the shared **single-package registry-analysis command** rule and the shared **JSON-producing mode** rules from [SPEC.md](../SPEC.md)
+- output-format flags such as `--output json` or `--pretty` do not create a second availability path for the command itself
 
 Audit rule:
 - early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md): unlike `package-effects`, it does not inherit the shared **effective inherited analysis context**, and discovered host-analysis/runtime config does not gate or rewrite its semantics
