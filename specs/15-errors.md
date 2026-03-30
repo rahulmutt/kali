@@ -144,7 +144,7 @@ Use `E5006` for cases such as:
 - `--api node` before the documented Node subset is implemented
 - `eval` / `Function()` without `--compat eval`
 - dynamic `require()` in early phases
-- **recognized-but-unavailable compatibility members** from [SPEC.md](../SPEC.md), such as Phase-1 `Deno.permissions.request()` / `revoke()`
+- **recognized-but-unavailable compatibility members** from [SPEC.md](../SPEC.md), such as Phase-1 `Deno.permissions.request()` / `revoke()` (these stay on the compatibility-member path, not the ordinary missing-property/type-error path)
 - `Deno.permissions.query(...)` asked to evaluate a descriptor kind that Kali intentionally does not support in the current phase/API surface (for example an early-phase `ffi`/`sys`-style permission descriptor)
 - `run --api browser` in early phases where browser support exists only as an analysis/build context
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
