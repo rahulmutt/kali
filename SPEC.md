@@ -873,6 +873,8 @@ In schema v1 this subset is the built-in capability namespace represented by:
 Interpretation rules:
 - observation-only compatibility facades over already-resolved Kali state (for example Phase-1 `Deno.permissions.query`) do **not** create a second sandbox/effect namespace of their own; they stay derived views over the existing capability model
 - this subset is narrower than the full browser ambient surface and narrower than “all globals visible during type checking”
+- the subset names the **global stable capability vocabulary**, not a promise that every API surface/profile enables every member; each command context still admits only the members documented for that surface/profile
+- in particular, browser-targeted modes keep only the browser-applicable members of that vocabulary for static policy/effect reasoning, while Deno/Node-only members (for example filesystem access or mutable process operations) remain unavailable and must stay denied/omitted there
 - browser-targeted analysis/build may expose real browser ambient typings such as DOM globals without implying that every DOM operation has its own stable effect key or sandbox-policy knob
 - browser-targeted policy validation and effect reporting therefore speak only about this **Kali-mediated capability subset**, not arbitrary ambient browser behavior outside the schema-v1 model
 - when later specs add a new built-in stable effect/policy capability, it joins this subset explicitly rather than by implication
