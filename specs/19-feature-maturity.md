@@ -123,7 +123,7 @@ Interpretation rule:
 
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
-| `kali init` | Phase 1 MVP | Create the minimal canonical `kali.json` scaffold **in the current working directory**; `init` is current-directory scoped and does not reuse an ancestor project's discovered root. For the default app template this should normally be just `{ "schemaVersion": 1 }` unless the chosen template needs more |
+| `kali init` | Phase 1 MVP | Create the minimal canonical `kali.json` scaffold **in the current working directory**; `init` is current-directory scoped and does not reuse an ancestor project's discovered root. For the default app template this should normally be just `{ "schemaVersion": 1 }` unless the chosen template needs more. Scaffolding config does not count as dependency-state mutation: `init` must not add dependencies, write `kali.lock`, or materialize packages. |
 | `kali init` when the current working directory already contains `kali.json` | Rejected by default | Fail with `E5008` instead of silently overwriting the existing project config |
 | `kali init` in a subdirectory whose ancestor already contains `kali.json` | Phase 1 MVP | Create a nested child project rooted at the current working directory when that directory itself does not already contain `kali.json`; later discovery treats that child root as a separate project boundary |
 | `kali init --sandbox kali.policy.json` | Rejected by default | `init` is sandbox-agnostic in early phases; scaffolding does not accept the runtime/build policy-attachment flag, so this is invalid usage (`E5008`) |
@@ -232,6 +232,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 
 ### Phase 1 exit criteria
 - One linked-WASM-payload compile/run pipeline works end-to-end for TS and JS inputs, with companion artifacts only where an artifact mode explicitly requires them.
+- Repeated builds with the same pinned inputs and toolchain produce stable artifact bytes and stable machine-readable output ordering by default.
 - `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
 - The checker ships the bounded HM-style inference fragment promised for Phase 1 for locals, obvious unannotated parameters, and analyzable return types, while still falling back conservatively instead of doing open-ended whole-program search.
 - Browser-targeted `check --api browser` and `build --bundle --api browser` work against the real browser ambient surface without implying DOM runtime support in Kali itself.

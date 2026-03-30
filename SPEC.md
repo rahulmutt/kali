@@ -44,7 +44,8 @@ These constraints are global and should not be weakened by subsystem docs:
 - **Single linked core WASM payload** for the resolved static graph in early phases
 - **No silent fallback** for unsupported semantics or unsupported host/profile combinations
 - **Stable machine-readable contracts** for every machine-readable surface Kali exposes (JSON output, diagnostics, effect reports, artifact metadata, config, and policy schemas)
-- **One mutating dependency-management command** in early phases: `kali install` is the only command that writes project dependency state
+- **One mutating dependency-management command** in early phases: `kali install` is the only command that writes project dependency state; `kali init` may scaffold a config file, but it does not add dependencies, write `kali.lock`, or materialize packages
+- **Reproducible by default**: given the same source graph, config, lockfile, effective command context, and Kali version/toolchain, builds should produce byte-stable machine-readable outputs and artifact bytes unless the user explicitly opts into non-reproducible metadata
 
 ## Reference Inspirations
 

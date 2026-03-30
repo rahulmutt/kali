@@ -24,6 +24,16 @@ Interface-layer rule:
 - WIT descriptions and any later WebAssembly Component Model wrapper are derived from that core artifact and its exported ABI
 - these interface-layer artifacts improve embedding/interoperability but do not change the underlying single-linked-payload compilation model
 
+## Artifact Reproducibility Contract
+
+To keep AOT builds auditable and automation-friendly, code generation is reproducible by default:
+- the same source graph, lockfile, effective command context, and Kali version/toolchain should produce byte-stable `.wasm` output and companion artifact contents
+- artifact bytes must not depend on wall-clock timestamps, randomized symbol names, hash-map iteration order, or host-specific absolute paths unless the user explicitly opts into such metadata
+- if debug metadata or source maps need filesystem paths, project-relative paths are the default contract; embedding raw absolute host paths is opt-in only
+- custom sections, symbol tables, and emitted artifact lists should use deterministic ordering when the producer owns that order
+
+This rule keeps build artifacts aligned with the JSON determinism rules in [specs/18-schemas.md](18-schemas.md) and the top-level reproducibility goal in [SPEC.md](../SPEC.md).
+
 ## Code Generation from LIR
 
 ### Function Emission

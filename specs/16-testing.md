@@ -19,6 +19,7 @@ End-to-end tests in `tests/`:
 - Source file + policy → sandbox validation → check result *(Phase 1: runtime enforcement + policy-file validation, Phase 2+: inferred-effect-vs-policy validation too)*
 - Browser-targeted source → `kali check --api browser` → expected diagnostics/type success
 - Browser-targeted source → `kali build --bundle --api browser` → emitted artifact + smoke execution in a real browser harness
+- Repeated build of the same pinned input/context → byte-stable artifacts and stable machine-readable metadata by default
 
 ### Conformance Test Suites
 
@@ -38,6 +39,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | Browser-targeted analysis/build support | browser-targeted check/build tests + emitted-bundle smoke runs in a real browser harness |
 | Package compatibility | curated package corpus results recorded per command/profile (`check`, `build`, `test`, `run`) |
 | CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |
+| Artifact reproducibility | repeated-build tests over pinned inputs/toolchains + normalized artifact-byte comparisons + stable emitted-metadata assertions |
 | Proof-backed claims | passing Lean proof jobs for the currently modeled subset |
 
 Interpretation rule:
