@@ -96,7 +96,7 @@ To keep the bootstrap brief actionable and avoid trying to build every aspiratio
 3. **Kali-hosted execution foundation** — one AOT pipeline to one linked WASM payload, `run`/`test` on the Deno-oriented standalone surface, and the Phase-1 runtime/resource sandbox contract.
 4. **Build/artifact foundation** — default executable builds, the browser-bundle half of the shared **Phase-1 browser-targeted command set**, and the Phase-1 `build --lib` base library artifact.
 5. **Developer workflow foundation** — `init`, `check`, `fmt`, `lint`, AI-friendly diagnostics, and stable schema-v1 JSON envelopes/artifact metadata.
-6. **Phase-1 evidence hardening** — conformance tests, package corpus coverage, browser-bundle smoke tests, and determinism checks required by the maturity matrix.
+6. **Phase-1 evidence hardening** — conformance tests, package corpus coverage, browser-bundle smoke tests, determinism checks required by the maturity matrix, and the Phase-1 **proof-ready** baseline artifacts (the published `proofs/BOUNDARY.md` manifest plus the matching proof-CI activation rule).
 
 Sequencing rule:
 - later Phase-1 work may deepen earlier layers, but should not bypass them with feature-specific shortcuts

@@ -25,7 +25,8 @@ Bootstrap-normalized headline assumptions:
 Quick Phase-1 non-goals:
 - no general `--api node` command support yet across `check` / `effects` / `build` / `run` / `test`
 - no standalone browser runtime or browser-hosted `run` / `test`
-- no stable user-facing `kali effects`, `kali package-effects`, or `kali package-audit` workflow yet
+- no stable public effect-report workflow yet (`kali effects`, `kali package-effects`, and inferred-effect-vs-policy comparison)
+- no stable user-facing `kali package-audit` workflow yet; that later command is intentionally separate from the effect-report surface
 - no `eval` / `Function()` support yet
 - no threaded runtime profile yet
 - no Phase-2 **public embedding surface** yet: no stable public Rust embedding API, no `--capi`, no `--component`, and no default WIT sidecars for plain `--lib`
@@ -36,7 +37,7 @@ Recommended Phase-1 implementation order:
 3. Deno-first Kali-hosted run/test foundation with sandbox enforcement
 4. build outputs (`build`, browser bundle, Phase-1 `--lib`)
 5. developer workflow polish (`init`, `check`, `fmt`, `lint`, diagnostics, JSON contracts)
-6. evidence hardening (conformance, package corpus, browser smoke tests, determinism)
+6. evidence hardening (conformance, package corpus, browser smoke tests, determinism, and the Phase-1 proof-ready boundary/CI baseline)
 
 See the normative cross-spec version in [SPEC.md#recommended-phase-1-implementation-order](./SPEC.md#recommended-phase-1-implementation-order).
 For the compact “what is actually shipped in Phase 1?” answer, see the **Phase-1 Shipped Surface Summary** in [specs/19-feature-maturity.md](./specs/19-feature-maturity.md).
