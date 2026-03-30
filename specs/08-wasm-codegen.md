@@ -133,7 +133,7 @@ Early-phase artifact-mode rule:
 - in early phases, `--lib`, `--capi`, and `--component` are **library-oriented artifact modes**: non-browser, export-oriented modes derived from a **statically known export surface** as defined in [SPEC.md](../SPEC.md)
 - those library-oriented modes still obey the ordinary build-command API-surface gates: pairing them with `--api browser` is an `E5008` contradiction because browser mode is only defined for `--bundle`, while pairing them with `--api node` remains on the same Phase 3 `E5006` path as other early Node-targeted builds
 - `--lib` is the base exported-library mode, and `--capi` / `--component` are later packaging layers over that same exported-library contract
-- if Kali cannot prove that statically known export surface, the library-oriented build must fail with `E5006`
+- if Kali cannot prove that statically known export surface, the library-oriented build must fail with `E5011`
 - this Phase-1 `--lib` artifact is intentionally narrower than the later stable public embedding surface: it defines the exported-library shape early without implying that WIT, C headers, or the long-term embedding ABI are already frozen
 - `--component` adds a wrapper around the same linked core library payload; it does not authorize a second independently linked guest-program graph and therefore does not weaken the single-linked-core-payload rule
 - because `--capi` and `--component` already choose exported-library semantics, users should not combine them with `--lib` in early phases; these are separate artifact-mode selectors, not additive modifiers

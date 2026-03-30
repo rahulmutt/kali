@@ -249,7 +249,7 @@ Canonical artifact-mode rule:
 - `kali init --lib` chooses a project template only; it does not change the later default artifact mode of `kali build`
 - WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag
 - these **library-oriented artifact modes** derive their host-facing surface from a **statically known export surface** as defined in [SPEC.md](../SPEC.md); they do not implicitly expose arbitrary internal declarations just because the source file was compiled in `--lib`/`--capi`/`--component` mode
-- if Kali cannot prove that export surface, the library-oriented build fails with `E5006` instead of synthesizing reflection-based exports
+- if Kali cannot prove that export surface, the library-oriented build fails with `E5011` instead of synthesizing reflection-based exports
 - plain `--lib` is the Phase-1 **base library** artifact: it establishes the exported-library shape early, but the stable public embedding/WIT contract remains Phase 2 work
 - they also keep the ordinary build-command API-surface semantics: Node-targeted library builds are still phase-gated with `E5006`, while browser-targeted library/embedding combinations are invalid command shapes (`E5008`) until a separate browser-library contract exists
 
