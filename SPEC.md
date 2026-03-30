@@ -193,6 +193,17 @@ It does **not** include early schema-v1 Deno/Node-oriented capability keys such 
 
 This browser-applicable subset is a **static compatibility/build-time vocabulary** for browser-targeted contexts in early phases. It is not a promise that deployed browser bundles inherit Kali-hosted runtime enforcement, and it does not create one policy/effect key per DOM or browser API.
 
+### Observation-only compatibility facade
+A host/API surface that lets programs inspect already-resolved runtime or policy state without negotiating new permissions or widening authority.
+
+Canonical schema-v1 example:
+- the read-only `Deno.permissions` facade, in its query-only compatibility form
+
+Rules:
+- these facades report state that Kali already resolved elsewhere; they are not interactive permission-prompt channels
+- they are effect-free in schema v1 unless an owning chapter explicitly adds a new effect family later
+- they must not imply a second sandbox-policy namespace just for observation APIs
+
 ### Kali-hosted execution budgets
 The schema-v1 cross-cutting `resources.*` limits used for Kali-controlled execution environments, such as:
 - memory

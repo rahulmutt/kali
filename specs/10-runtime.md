@@ -82,7 +82,7 @@ Interpretation rules:
 - `fs_read`, `fs_write`, `fs_stat`, `fs_read_dir`, `env_get`, `env_list`, and `process_args` belong to the Deno-oriented standalone host surface in Phase 1, not to the shared Web baseline; later Node compatibility may reuse similar host abstractions, but browser-targeted builds must not assume these imports exist.
 - `process_args` exposes only the invocation's caller-supplied argument vector; in schema v1 this is treated as execution-context input rather than a separately policy-gated host capability.
 - `env_get` / `env_list` expose only the sandbox-permitted environment view; they must not leak the raw host environment and then rely on guest-side filtering.
-- The read-only `Deno.permissions` facade is derived from already-resolved runtime/policy state and normally does not need a dedicated host import; Kali should not model it as an interactive permission-prompt channel.
+- The read-only `Deno.permissions` facade is the canonical **observation-only compatibility facade** for already-resolved runtime/policy state and normally does not need a dedicated host import; Kali should not model it as an interactive permission-prompt channel.
 - In Phase 1 this is a query-only compatibility surface: the runtime may expose the minimal status-query behavior, but `request()` / `revoke()`-style escalation methods are absent or rejected rather than being implemented as no-op prompts.
 - The Phase 1 runtime does not provide interactive permission-prompt imports; permission state is an already-resolved sandbox contract, not a request-at-runtime workflow.
 - Every registered host import is policy-aware; enabling an API surface does not bypass sandbox checks.

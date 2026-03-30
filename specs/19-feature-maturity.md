@@ -321,7 +321,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 |---|---|---|
 | Deno-oriented standalone API surface (`--api deno`) | Phase 1 MVP | Default API surface for standalone execution; typically paired with the baseline single-threaded runtime profile |
 | Invocation arguments in the standalone surface (`Deno.args`) | Phase 1 MVP | Part of the execution context rather than a separately policy-gated capability in schema v1 |
-| Read-only `Deno.permissions` facade over resolved policy state | Phase 1 MVP | Observation-only, query-oriented compatibility surface: report granted/denied capability state without interactive `request()` / `revoke()` escalation flows |
+| Read-only `Deno.permissions` facade over resolved policy state | Phase 1 MVP | Canonical **observation-only compatibility facade**: report granted/denied capability state without interactive `request()` / `revoke()` escalation flows |
 | Read-only environment access in the Deno standalone surface | Phase 1 MVP | Exposes only the sandbox-permitted environment view |
 | Web-baseline randomness subset (`crypto.getRandomValues`) | Phase 1 MVP | Covers the schema-v1 `effects.random` / `Random.GetBytes` capability without implying full Web Crypto support |
 | Mutable environment access / process-environment mutation | Phase 3 target | Policy-controlled host mutation, not part of the Phase 1 baseline |

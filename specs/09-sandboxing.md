@@ -194,7 +194,7 @@ For dynamic effects that can't be checked at compile time:
 - By default, sandbox violations are treated as fatal runtime errors for the top-level execution unless the embedding host explicitly opts into catchable host exceptions
 - All API calls check the same canonical path/URL/address/env matching rules described in [specs/18-schemas.md](18-schemas.md)
 - Runtime enforcement only applies to capabilities that are actually registered for the selected API surface/profile; sandbox policy does not conjure unavailable APIs into existence
-- query-only observation facades over already-resolved sandbox/runtime state (for example Phase-1 `Deno.permissions.query`) are effect-free in schema v1 and therefore do not require a separate policy key
+- query-only **observation-only compatibility facades** over already-resolved sandbox/runtime state (for example Phase-1 `Deno.permissions.query`; see the canonical term in [SPEC.md](../SPEC.md)) are effect-free in schema v1 and therefore do not require a separate policy key
 
 ### Enforcement Domains
 To keep the sandbox story precise across commands and deployment targets:
