@@ -281,6 +281,28 @@ Rules:
 - they are effect-free in schema v1 unless an owning chapter explicitly adds a new effect family later
 - they must not imply a second sandbox-policy namespace just for observation APIs
 
+### Deno-compatible permission descriptor subset (schema v1)
+The only stable `Deno.permissions.query({ name })` descriptor names that Kali models in schema v1:
+- `read`
+- `write`
+- `net`
+- `env`
+- later `run` once subprocess support exists
+
+Rules:
+- this subset exists so Kali can expose a useful Deno-compatible observation facade without inventing Kali-only permission names for unrelated capabilities such as timers, randomness, console, or `eval`
+- unsupported descriptor names (for example `ffi`, `sys`, or any other non-modeled name in the current phase) follow the canonical availability failure path (`E5006`) instead of returning a misleading synthetic status
+- in Phase 1, this effectively means the `read` / `write` / `net` / `env` subset only
+
+### Stable permission status subset (schema v1)
+The only stable status values for Kali's query-only `Deno.permissions` compatibility facade in schema v1:
+- `granted`
+- `denied`
+
+Rules:
+- Kali must not report a synthetic `prompt` state in schema v1, because the compatibility surface is observation-only and does not provide interactive escalation
+- chapters should reuse this term instead of restating the same two-status rule in slightly different prose
+
 ### Recognized-but-unavailable compatibility member
 An API member that Kali intentionally recognizes as part of a broader compatibility surface, but that is unavailable in the current phase/availability context and therefore fails through the canonical `E5006` path instead of behaving like an ordinary missing/unknown member.
 
