@@ -56,7 +56,7 @@ Use that order before treating any broad bootstrap aspiration as shipped support
 Common early-phase misreads worth rejecting quickly:
 - the whole **Phase-1 browser-targeted command set** is supported in Phase 1 — including explicit `--api browser` spellings, equivalent inherited-config forms, and the supported `--sandbox` variants — but `kali run --api browser main.ts` and `kali test --api browser` are still later compatibility.
 - `kali build --lib lib.ts` is a supported Phase-1 **base library artifact**; `kali build --lib --sandbox kali.policy.json lib.ts` is the same Phase-1 base-library build plus static policy validation, while `kali build --capi lib.ts` and `kali build --component lib.ts` are still Phase-2 embedding flows.
-- `kali check --sandbox ...` and `kali build --sandbox ...` are Phase-1 policy-schema/config validation paths; on `build`, that sandbox attachment is orthogonal to artifact mode and does **not** yet imply the Phase-2 compile/check-time inferred-effect-vs-policy validation workflow.
+- `kali check --sandbox ...` and `kali build --sandbox ...` are Phase-1 policy-schema/config validation paths only; on both commands, that sandbox attachment does **not** yet imply the Phase-2 compile/check-time inferred-effect-vs-policy validation workflow, and on `build` it is still orthogonal to artifact mode.
 - Phase-1 verification wording is about repository/process hygiene first: one published boundary, one activation rule, and no proof-backed marketing beyond that boundary.
 
 ## Specification

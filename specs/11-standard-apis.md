@@ -184,24 +184,18 @@ Canonical gating rule:
 Browser mode is primarily a **browser-targeted context** in early phases, not a promise that the standalone runtime behaves like a browser. See the canonical host/profile summary in [SPEC.md](../SPEC.md) and the phase-gating matrix in [19 — Feature Maturity](19-feature-maturity.md) when deciding whether a given command/profile combination is supported.
 
 Three browser meanings matter here and should not be conflated:
-- **browser ambient typing surface** — the globals/types visible to `check` and browser-targeted `build --bundle` flows (for example `Window`, `Document`, `HTMLElement`, `fetch`, `URL`)
-- **browser mediated capability subset** — the smaller schema-v1 sandbox/effect vocabulary Kali can reason about statically in browser-targeted contexts
-- **standalone runtime host surface** — the APIs provided by Kali's own runtime when it executes code directly
 
-Reading shortcut:
-- ambient typing answers **what code may type-check in a browser-targeted context**
-- the mediated subset answers **what Kali can model in schema-v1 policy/effect terms**
-- the standalone runtime surface answers **what Kali can execute itself without handing control to a real browser host**
-- early browser support in Kali is intentionally broadest at the first layer and narrowest at the third
+| Layer | Answers | Phase-1 contract | Does **not** mean |
+|---|---|---|---|
+| **browser ambient typing surface** | what may type-check in a browser-targeted context | the shared **Phase-1 browser-targeted command set** type-checks against the real browser ambient surface, including ordinary DOM typings | Kali's standalone runtime implements or emulates the DOM |
+| **browser mediated capability subset** | what Kali can model in schema-v1 sandbox/effect terms | browser-targeted policy/effect reasoning uses only the documented **canonical browser-applicable mediated subset (schema v1)** | one stable policy/effect key per DOM API, or automatic access to every global capability key |
+| **standalone runtime host surface** | what Kali can execute itself without handing control to a real browser host | still later compatibility for `run --api browser` / `test --api browser` | a hidden embedded browser engine or DOM-runtime parity in Phase 1 |
 
 Canonical rule:
-- the shared **Phase-1 browser-targeted command set** should type-check against the real browser ambient surface, including DOM typings that are normally present in browser-focused TypeScript programs; the matching maturity claim lives in the consolidated browser-command row in [19 — Feature Maturity](19-feature-maturity.md)
-- that same **Phase-1 browser-targeted command set** also shares the browser **package-resolution context** from [SPEC.md](../SPEC.md) and [14 — Packages](14-packages.md) so ambient typing and package entry selection do not drift apart
+- the shared **Phase-1 browser-targeted command set** uses the real browser ambient surface and the shared browser **package-resolution context** from [SPEC.md](../SPEC.md) and [14 — Packages](14-packages.md), so ambient typing and package entry selection do not drift apart
 - this follows the top-level **Browser ambient typing vs mediated capability split** in [SPEC.md](../SPEC.md): browser ambient typing is broader than the stable sandbox/effect model
-- this does **not** mean Kali's standalone runtime implements or emulates those DOM APIs
-- when Kali emits browser-targeted artifacts, DOM/Web APIs are expected to come from the real browser host at deployment time
-- the browser host adapter is for runtime bootstrap plus Kali-mediated capability wiring; it is **not** a claim that every browser ambient API is wrapped behind a Kali-specific shim or individually mediated by the schema-v1 sandbox model
-- schema-v1 sandbox policies and stable effect reports cover only the **Kali-mediated capability subset** from [SPEC.md](../SPEC.md): filesystem, network, timer, random, console, process, and eval. That names the global stable capability vocabulary, not a guarantee that browser-targeted modes enable every member of it; browser-targeted contexts keep only the documented **canonical browser-applicable mediated subset (schema v1)** for static policy/effect reasoning — notably `effects.network.fetch` plus its capability-local cap `effects.network.maxConnections`, `effects.timer.*`, `effects.random`, `effects.console`, and later `effects.eval` when enabled — while Deno/Node-only keys remain unavailable there. They do **not** create one policy/effect key per DOM API just because DOM ambient typings are available during the shared **Phase-1 browser-targeted command set** or later browser-context analysis commands that explicitly reuse it
+- when Kali emits browser-targeted artifacts, DOM/Web APIs come from the real browser host at deployment time; the browser host adapter is for runtime bootstrap plus Kali-mediated capability wiring, not a promise that every ambient browser API is individually wrapped by Kali
+- schema-v1 sandbox policies and stable effect reports still cover only the **Kali-mediated capability subset** from [SPEC.md](../SPEC.md): browser-targeted contexts keep only the documented **canonical browser-applicable mediated subset (schema v1)** — notably `effects.network.fetch` plus `effects.network.maxConnections`, `effects.timer.*`, `effects.random`, `effects.console`, and later `effects.eval` when enabled — while Deno/Node-only keys remain unavailable there
 - `--sandbox` on a browser-targeted build therefore follows the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md), not automatic post-deployment browser-permission enforcement by Kali itself
 - no Deno or Node globals are exposed in browser mode unless a later compatibility spec explicitly says so
 - any lightweight DOM test shim is a separate testing utility, not part of the core browser compatibility contract
