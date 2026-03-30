@@ -198,7 +198,7 @@ Rule:
 
 ### Canonical browser-applicable mediated subset (schema v1)
 When a chapter says browser-targeted policy/effect reasoning uses the browser-applicable part of the **Kali-mediated capability subset**, it means:
-- `effects.network.fetch`
+- `effects.network.fetch`, plus the capability-local cap `effects.network.maxConnections`
 - `effects.timer.schedule`, `effects.timer.maxTimeoutMs`, `effects.timer.maxActiveTimers`
 - `effects.random`
 - `effects.console`
