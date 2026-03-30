@@ -146,7 +146,8 @@ Interpretation rule:
 - command-specific flags inherit the same phase/profile gating rules as the command they belong to
 - documenting a command-specific flag here does **not** imply it needs a separate feature-maturity row unless it changes a phase promise or machine-readable contract
 - build artifact-mode flags follow the canonical matrix in [SPEC.md](../SPEC.md): in early phases `--bundle`, `--lib`, `--capi`, and `--component` are one small closed set of mutually exclusive selectors unless a later spec explicitly says one implies another
-- the omitted selector means the default executable artifact mode; supplying more than one explicit selector from that set (for example `--bundle --lib`, `--bundle --capi`, `--bundle --component`, `--lib --capi`, `--lib --component`, or `--capi --component`) should use the canonical invalid-usage diagnostic `E5008`, not a feature-maturity rejection
+- those selectors choose the build's shared **compile intent** from [SPEC.md](../SPEC.md): omitting all four keeps the default executable compile intent, `--bundle` keeps executable compile intent while selecting the browser-targeted output/host-adapter path, and `--lib` / `--capi` / `--component` are the explicit library compile-intent selectors
+- supplying more than one explicit selector from that set (for example `--bundle --lib`, `--bundle --capi`, `--bundle --component`, `--lib --capi`, `--lib --component`, or `--capi --component`) should use the canonical invalid-usage diagnostic `E5008`, not a feature-maturity rejection
 - in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires the **effective API surface** to be `browser`, and `kali build --bundle` under an effective API surface of `deno` or `node` is invalid command usage (`E5008`) rather than a feature-maturity rejection, because the browser bundle mode itself exists but the selected flag/config combination is contradictory
 - in early phases, `--lib`, `--capi`, and `--component` are **library-oriented artifact modes**: non-browser, export-oriented build modes derived from a **statically known export surface** as defined in [SPEC.md](../SPEC.md)
 - those library-oriented modes still obey the ordinary build-command API-surface gates: `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` are `E5008` contradictions because browser mode is only defined for `--bundle`, while `kali build --lib --api node ...` remains on the same Phase 3 `E5006` path as other early `--api node` builds
@@ -245,8 +246,10 @@ Canonical artifact-mode rule:
 - `kali build` is a direct-input command in early phases: it requires exactly one explicit executable/analyzable primary source input and does not guess a project default such as `main.ts`
 - in executable artifact mode that source input behaves as the program entrypoint; in library-oriented artifact modes it is the primary module input whose exports define the host-facing surface
 - artifact selection follows the canonical matrix in [SPEC.md](../SPEC.md)
-- omitting `--bundle`, `--lib`, `--capi`, and `--component` selects the default executable artifact mode
+- omitting `--bundle`, `--lib`, `--capi`, and `--component` selects the default executable artifact mode and therefore the default **executable compile intent**
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive artifact-mode selectors unless a later spec explicitly defines one as an implication of another
+- `--bundle` preserves executable compile intent while changing the host adapter/output contract to the browser-targeted bundle path
+- `--lib`, `--capi`, and `--component` switch the build to library compile intent
 - `kali init --lib` chooses a project template only; it does not change the later default artifact mode of `kali build`
 - WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag
 - these **library-oriented artifact modes** derive their host-facing surface from a **statically known export surface** as defined in [SPEC.md](../SPEC.md); they do not implicitly expose arbitrary internal declarations just because the source file was compiled in `--lib`/`--capi`/`--component` mode

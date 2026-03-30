@@ -227,10 +227,10 @@ Use `E5010` for cases such as:
 
 ### Canonical Export-Surface-Proof Diagnostic
 
-Use `E5011` when a library-oriented build mode is selected but Kali cannot prove one **statically known export surface** for that build.
+Use `E5011` when a library compile-intent build is selected but Kali cannot prove one **statically known export surface** for that build.
 
 Boundary rule:
-- `E5011` is for **export-surface proof failure**, not for phase gating and not for contradictory CLI usage
+- `E5011` is for **export-surface proof failure** on a library compile-intent build, not for phase gating and not for contradictory CLI usage
 - use `E5006` when the requested library-oriented mode itself is unavailable in the current phase/profile/API surface
 - use `E5008` when the command shape is contradictory before export analysis even begins (for example `kali build --lib --api browser ...`)
 - once a library-oriented mode is otherwise valid, failing to prove one fixed export surface is an `E5011` semantic build rejection rather than a maturity error

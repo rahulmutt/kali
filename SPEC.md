@@ -120,7 +120,7 @@ Use this checklist:
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
-- library/export-oriented build wording should reuse the **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
+- library/export-oriented build wording should reuse the **compile intent**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
 - single-package registry-analysis wording should reuse the **registry-analysis context split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
@@ -591,7 +591,9 @@ Early documented build artifact modes form one small canonical matrix:
 
 Rules:
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive unless a later chapter explicitly says otherwise,
-- `--bundle` is browser-only and requires effective `apiSurface = browser`,
+- omitting all four selects the default **executable compile intent**,
+- `--bundle` is browser-only, requires effective `apiSurface = browser`, and keeps that same executable compile intent while swapping in the browser host adapter/output shape,
+- `--lib`, `--capi`, and `--component` are the explicit **library compile-intent** selectors in early phases,
 - library-oriented artifact modes are non-browser in early phases,
 - Phase 1 plain `--lib` is the **base library artifact**, and in Phase 2 that same selector becomes part of the stable **public embedding surface** rather than introducing a second plain-library mode,
 - companion artifacts such as JS glue, WIT, C headers, or component wrappers do not weaken the single linked core payload rule.
