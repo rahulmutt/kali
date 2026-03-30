@@ -425,6 +425,7 @@ Install or materialize project dependencies.
 Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that fall into the shared **native/binary/bootstrap-heavy package contract** from [SPEC.md](../SPEC.md) remain unsupported even when scripts are enabled.
 
 Boundary rule:
+- read package support through the shared **published-artifact-first package reading** from [SPEC.md](../SPEC.md): the presence of a repository build pipeline or optional lifecycle metadata does not by itself make a package unsupported if the published artifact Kali installs already contains the ordinary JS/TS files it needs
 - `--allow-scripts` selects the schema-v1 **install-time npm-package hook path** from [SPEC.md](../SPEC.md), not a runtime/API-surface feature
 - plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; on a URL-only, JSR-only, clean already-synchronized, or otherwise no-npm-scriptable install graph it should fail with `E5008` instead of silently degenerating into plain `install`
 - that install work is **invocation-scoped**: it covers only the npm package work the current install actually reconciles in a lifecycle-hook-relevant way, including any directly requested npm target and any transitively touched npm dependencies in the same invocation

@@ -188,7 +188,7 @@ Use this checklist:
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
 - explicit raw-URL install wording should reuse the **raw-URL install staging/pin workflow** term instead of re-explaining “lock/cache yes, durable declaration no” in each package/install section
 - package-loading and whole-graph-linking wording should reuse the **linked-artifact model** term instead of restating slightly different “single linked payload”, “already-linked graph”, or “no runtime-linked WASM modules” prose
-- package-compatibility wording should reuse the **pure JS/TS package contract** and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different native-addon / downloaded-binary exclusion lists
+- package-compatibility wording should reuse the **published-artifact-first package reading**, **pure JS/TS package contract**, and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different repo-build-pipeline caveats or native-addon / downloaded-binary exclusion lists
 - source-file-kind wording should reuse **canonical source-file classes**, **executable/analyzable source-file class**, and **canonical project file set** instead of repeating long extension lists in every command chapter
 - early stronger-than-`tsc` inference wording should reuse the **bounded inference contract** and the **annotation-required inference boundary** instead of creating near-duplicate “HM-like but still fast” descriptions in architecture, checker, and maturity chapters
 - checker-config wording for `compilerOptions.strict` should reuse the **strictness bundle** term instead of restating slightly different “strict mode but not many booleans” prose in each chapter
@@ -407,6 +407,14 @@ Rules:
 - package-compatibility claims that use this term mean the package's normal code graph can be resolved and lowered under this static whole-graph model; they do **not** by themselves promise that the package's selected host APIs are already supported for the active `apiSurface`
 - docs should reuse this term instead of alternating between near-duplicate phrases such as “single linked payload”, “already-linked graph”, or “no runtime-linked WASM modules” when they mean the same boundary
 
+### Published-artifact-first package reading
+The shared rule for judging package compatibility by the published package/version Kali actually installs.
+
+Rules:
+- package triage is based on the installed tarball/version plus the selected entry files/conditions for the active context, not on the upstream repository's development toolchain
+- repository-time code generation, bundling, or native build steps do **not** by themselves make a package unsupported if the published artifact already contains the ordinary JS/TS files Kali consumes
+- install-time lifecycle-script metadata matters only when Kali must actually rely on that script path for the selected published artifact to work
+
 ### Pure JS/TS package contract
 The shared early-phase package-compatibility boundary for registry packages Kali can treat as ordinary source packages.
 
@@ -417,6 +425,8 @@ A package stays inside this contract when:
 
 Rules:
 - this term describes package-shape compatibility, not whether the package's chosen host APIs are already supported for the active `apiSurface`.
+- compatibility is judged through the shared **published-artifact-first package reading**: what matters is the package tarball/version Kali actually installs plus the selected entry files/conditions for the active context.
+- therefore a package can still stay inside this contract when its published artifact already contains the JS/TS files Kali consumes, even if the source repository used a heavier build pipeline to produce that published artifact.
 - staying inside this contract is necessary but not sufficient for support: packages may still be phase-gated by unavailable Node/browser/runtime features.
 - docs should reuse this term instead of inventing near-duplicate phrases such as “pure JS packages”, “no native addons”, or “ordinary source-only packages” when the same boundary is meant.
 
@@ -431,8 +441,10 @@ A package is in this contract when its normal install/runtime path depends on on
 - other platform-specific binary/bootstrap artifacts or selection steps.
 
 Rules:
+- use the shared **published-artifact-first package reading** here: a package falls into this contract only when the published package/version Kali installs still depends on those native/binary/bootstrap steps for its normal install/runtime path, not merely because the upstream repository used such tools during development before publishing ready-to-run JS artifacts.
 - this contract is rejected by default in early phases unless an owning chapter and the maturity matrix explicitly say otherwise.
 - opting into npm lifecycle hooks through the **install-time npm-package hook path** does **not** promote these packages into the supported set.
+- the mere presence of optional or unused lifecycle-script metadata does not by itself move a package into this contract; what matters is whether Kali must rely on that script/binary/bootstrap path for the selected published artifact to work.
 - docs should reuse this term instead of repeating slightly different lists such as “native/N-API/prebuilt modules”, “binary/bootstrap-heavy packages”, or “native addon / downloaded executable packages” when the same exclusion boundary is meant.
 
 ### Kali-mediated capability subset

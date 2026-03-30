@@ -18,7 +18,7 @@ Bootstrap-normalized headline assumptions:
 - Lean-backed verification is also phase-scoped: support claims should read through the published **proof-boundary manifest** rather than assuming whole-language or whole-host verification from the start
 - package installation stays **context-agnostic** in early phases: one lock/install state serves the default Deno path and the shared **Phase-1 browser-targeted command set**, while final `exports`/`browser` edge selection happens at command time
 - Phase-1 package compatibility is still **context-sensitive**: pure JS/TS packages may target the Deno-first standalone baseline or the supported browser-targeted `check`/`build --bundle` contexts, while Node-host-heavy assumptions remain phase-gated
-- package compatibility in Phase 1 stays inside the shared **pure JS/TS package contract**; `--allow-scripts` does not widen support to the excluded **native/binary/bootstrap-heavy package contract**
+- package compatibility in Phase 1 stays inside the shared **pure JS/TS package contract** under the shared **published-artifact-first package reading**: what matters is the published package Kali installs, not the upstream repository's prepublish toolchain; `--allow-scripts` still does not widen support to the excluded **native/binary/bootstrap-heavy package contract**
 
 Quick Phase-1 non-goals:
 - no general `--api node` command support yet across `check` / `effects` / `build` / `run` / `test`

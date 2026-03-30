@@ -20,7 +20,9 @@ Phase simplification:
 This keeps the early ecosystem promise realistic: utility libraries, validators, parsers, and many framework packages are in scope early, while Node-host-heavy packages and the excluded **native/binary/bootstrap-heavy package contract** follow later compatibility work.
 
 Install-time clarification:
+- read package support through the shared **published-artifact-first package reading** from [SPEC.md](../SPEC.md): judge the package by the published version/tarball Kali actually installs plus the selected entry files for the active context, not by whatever build pipeline the upstream repository used before publishing
 - packages whose normal install/runtime path falls into the **native/binary/bootstrap-heavy package contract** stay outside the Phase 1 compatibility promise even if most of their published sources are JS/TS
+- conversely, a package is not excluded merely because its repository used bundling/codegen/native tooling before publish if the published artifact Kali installs already contains the ordinary JS/TS files it needs
 - `--allow-scripts` may permit the hook to run for analysis/installation workflows, but it must not be misread as a promise that Kali supports that excluded package contract end-to-end
 
 Bootstrap-alignment rule:
@@ -49,7 +51,8 @@ Compact bootstrap-normalization table:
 | Pure JS/TS package whose runtime needs fit the Phase 1 Web baseline + Deno-oriented standalone surface | **Phase 1 MVP in scope** | This is the core standalone half of the **pure JS/TS package contract** target |
 | Pure JS/TS package whose runtime needs fit the shared **Phase-1 browser-targeted command set** | **Phase 1 MVP in scope for those browser-targeted commands** | Package shape is acceptable and the selected Phase-1 browser-targeted command context can analyze/build it without implying standalone browser execution |
 | Pure JS/TS package that still expects broader Node globals/core modules | **Phase 3 target** | Package shape is acceptable, but host/API requirements exceed the Phase 1 surface |
-| Package that needs native addons, N-API bindings, prebuilt binaries, or postinstall-downloaded executables | **Rejected by default** | Falls into the **native/binary/bootstrap-heavy package contract** |
+| Package that needs native addons, N-API bindings, prebuilt binaries, or postinstall-downloaded executables in the published package Kali installs | **Rejected by default** | Falls into the **native/binary/bootstrap-heavy package contract** under the shared **published-artifact-first package reading** |
+| Package whose repository used heavy prepublish tooling, but whose published package already contains ordinary JS/TS artifacts that fit Kali's selected resolution path | **Triaged by the normal pure JS/TS rows above** | Upstream build tooling alone is not a support veto if the installed package artifact is already ordinary JS/TS |
 | Package whose install path uses npm lifecycle scripts but whose shipped runtime code still stays inside the pure JS/TS contract | **Install-time opt-in only** for the hook path; runtime/build support still depends on the other rows | `--allow-scripts` is only an installer escape hatch, not a blanket compatibility promotion |
 
 This table is intentionally about **package-shape triage**. The active `apiSurface`, runtime profile, and feature-maturity gates still determine whether a given project command can actually analyze, build, or run that package in the selected context.
@@ -58,7 +61,8 @@ Support-decision order simplification:
 1. **Package shape** — first ask whether the package stays inside the **pure JS/TS package contract** or falls into the excluded **native/binary/bootstrap-heavy package contract**.
 2. **Host/API needs** — if the package shape is acceptable, then ask whether its runtime assumptions fit the currently selected API surface (`deno`, browser-targeted context, or later `node`).
 3. **Command/maturity gate** — only then ask whether the selected command/profile is actually available in the current phase.
-4. **Install-time hooks** — `--allow-scripts` can affect installation of npm packages, but it does not skip steps 1-3 and never upgrades an unsupported package into a supported project-command/runtime contract.
+4. **Published artifact first** — evaluate those first three steps against the published package artifact/version Kali actually installs, not against the package repository's development toolchain.
+5. **Install-time hooks** — `--allow-scripts` can affect installation of npm packages, but it does not skip steps 1-4 and never upgrades an unsupported package into a supported project-command/runtime contract.
 
 This keeps three often-confused questions separate: “can Kali materialize this package?”, “can Kali understand its source shape?”, and “can the selected command/context actually support the host APIs it expects?”.
 
