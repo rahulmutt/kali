@@ -219,7 +219,7 @@ This section turns the broad API story into a small implementation checklist so 
 - **Every Phase 1 host call is sandbox-contract-aware**: the runtime may not expose an unchecked host backdoor just because the API itself is part of the MVP. When a policy file is attached, host calls must consult it; when no policy file is attached, the same host-call path must still honor intrinsic phase/API gating plus any direct invocation resource caps instead of bypassing the sandbox machinery entirely.
 - **Node mode is not partially implied**: `--api node` remains phase-gated across `check` / `effects` / `build` / `run` / `test` until its documented subset is implemented; package compatibility must not depend on undocumented fallback behavior.
 - **Browser mode stays API-surface-oriented**: browser-targeted analysis/build can expose browser ambient typings, but standalone runtime does not pretend to provide DOM APIs; browser-specific behavior comes from bundle/glue output and the real browser host.
-- **Browser-targeted support is evidenced separately**: Phase 1 browser claims require dedicated `check --api browser` / `build --bundle --api browser` tests, including smoke execution of emitted bundles in a real browser harness rather than only DOM mocks/unit shims.
+- **Browser-targeted support is evidenced separately**: Phase 1 browser claims require dedicated coverage for the shared **Phase-1 browser-targeted command set**, including smoke execution of emitted bundles in a real browser harness rather than only DOM mocks/unit shims.
 
 This intentionally keeps the Phase 1 promise small: one dependable Web baseline plus one dependable Deno baseline.
 

@@ -278,7 +278,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - `kali run`, `build`, `check`, `fmt`, `lint`, `test`, and `install` exist with stable core behavior.
 - The Phase-1 **base library artifact** (`kali build --lib`) works end-to-end as the Phase-1 half of the shared **embedding-stability split**.
 - The checker ships the shared **bounded inference contract** promised for Phase 1 for locals, obvious unannotated parameters, and analyzable return types, while still falling back conservatively instead of doing open-ended whole-program search.
-- Browser-targeted `check --api browser` and `build --bundle --api browser` work against the real browser ambient surface without implying DOM runtime support in Kali itself.
+- The shared **Phase-1 browser-targeted command set** works against the real browser ambient surface without implying DOM runtime support in Kali itself.
 - That browser-targeted claim is backed by dedicated browser-targeted tests, including emitted-bundle smoke runs in a real browser harness rather than only mock DOM/unit tests.
 - `kali check` / `build` / `run` / `test` all use the same early-phase API-surface maturity rules: Deno-supported, Node phase-gated, browser supported only for the documented browser-targeted check/bundle paths.
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.

@@ -88,7 +88,7 @@ To keep the bootstrap brief actionable and avoid trying to build every aspiratio
 1. **Frontend + checking foundation** — lexer, parser, AST, name resolution, TypeScript-compatible checking, first-class JavaScript handling, and the bounded conservative inference promised for Phase 1.
 2. **Deterministic package/install foundation** — `kali install`, shared lock/materialization rules, package resolution, and strict non-mutating behavior for non-install commands.
 3. **Kali-hosted execution foundation** — one AOT pipeline to one linked WASM payload, `run`/`test` on the Deno-oriented standalone surface, and the Phase-1 runtime/resource sandbox contract.
-4. **Build/artifact foundation** — default executable builds, browser-targeted `build --bundle --api browser`, and the Phase-1 `build --lib` base library artifact.
+4. **Build/artifact foundation** — default executable builds, the browser-bundle half of the shared **Phase-1 browser-targeted command set**, and the Phase-1 `build --lib` base library artifact.
 5. **Developer workflow foundation** — `check`, `fmt`, `lint`, AI-friendly diagnostics, and stable schema-v1 JSON envelopes/artifact metadata.
 6. **Phase-1 evidence hardening** — conformance tests, package corpus coverage, browser-bundle smoke tests, and determinism checks required by the maturity matrix.
 
@@ -397,8 +397,8 @@ Rule:
 A command context whose effective `apiSurface` is `browser`.
 
 In Phase 1, this context is user-visible only through the shared **Phase-1 browser-targeted command set** (including equivalent inherited-config forms once the effective `apiSurface` resolves to `browser`):
-- `kali check --api browser`
-- `kali build --bundle --api browser`
+- `kali check [files...]` when the effective `apiSurface` is `browser`
+- `kali build --bundle <file>` when the effective `apiSurface` is `browser`
 
 Later commands may reuse the same browser-targeted context only when their own maturity rows explicitly open that path.
 
@@ -1214,7 +1214,7 @@ In browser-targeted contexts:
 - therefore browser-targeted analysis/build may know about `window`, `document`, DOM types, and browser globals without implying that Kali individually mediates or sandbox-governs every browser API at runtime.
 
 Consequences:
-- `check --api browser` and `build --bundle --api browser` type-check against browser ambient types,
+- the shared **Phase-1 browser-targeted command set** type-checks against browser ambient types,
 - later browser-targeted analysis commands such as `effects --api browser` and inherited browser-context `package-effects` reuse that same ambient-typing/package-resolution split instead of defining a second browser-analysis model,
 - browser-targeted `--sandbox` is a static compatibility/build-time validation contract,
 - deployed browser bundles do not automatically inherit Kali-hosted runtime enforcement.

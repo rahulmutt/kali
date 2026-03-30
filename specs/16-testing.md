@@ -18,8 +18,7 @@ End-to-end tests in `tests/`:
 - Source file → effects analysis → check effect-report JSON output *(Phase 2 target; this is part of the shared **public effect-report surface** from [SPEC.md](../SPEC.md), so earlier phases should assert that the command is unavailable or explicitly experimental even if internal effect bookkeeping tests already exist)*
 - Source file + policy → sandbox validation → check result *(Phase 1 MVP for runtime enforcement + policy-file/config validation; Phase 2 target for inferred effect-vs-policy validation too)*
 - Library source → `kali build --lib` → export-oriented **base library artifact** + deterministic artifact metadata *(Phase 1 MVP for the base library artifact; the stable public embedding surface remains a Phase 2 target)*
-- Browser-targeted source → `kali check --api browser` → expected diagnostics/type success
-- Browser-targeted source → `kali build --bundle --api browser` → emitted artifact + smoke execution in a real browser harness
+- Browser-targeted source → the shared **Phase-1 browser-targeted command set** → expected diagnostics/type success for `check` and emitted artifact + smoke execution in a real browser harness for `build --bundle`, including equivalent inherited-config forms and supported `--sandbox` variants where applicable
 - Repeated build of the same pinned input/context → byte-stable artifacts and stable machine-readable metadata by default
 
 ### Conformance Test Suites
@@ -86,7 +85,7 @@ Because Kali aims to support real npm/JS ecosystems, package compatibility needs
 - failures should distinguish resolution/type-check/runtime/sandbox causes so roadmap gaps are visible
 
 #### Browser-Targeted Evidence Track
-Because Phase 1 already promises `check --api browser` and `build --bundle --api browser`, those paths need an explicit evidence lane instead of being treated as a side effect of standalone runtime tests:
+Because Phase 1 already promises the shared **Phase-1 browser-targeted command set**, those paths need an explicit evidence lane instead of being treated as a side effect of standalone runtime tests:
 - run browser-targeted type-check fixtures that exercise DOM/browser ambient typings without implying standalone DOM runtime support
 - run bundle smoke tests in at least one real browser automation harness so emitted JS glue + WASM bootstrap are tested together
 - include negative tests that confirm unsupported standalone browser commands (`run --api browser`, `test --api browser`) still fail with the canonical gating diagnostic
