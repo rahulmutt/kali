@@ -62,6 +62,14 @@ Practical non-promises for plain Phase-1 `--lib`:
 - no Component Model packaging flow
 - no promise that independently versioned hosts can rely on cross-release ABI compatibility without pinning the exact Kali toolchain
 
+API-surface gating simplification for library-oriented embedding builds:
+- `--lib`, `--capi`, and `--component` all stay inside the same non-browser exported-library contract
+- effective `apiSurface = browser` remains a command-shape contradiction for those library-oriented modes in early phases rather than a second browser embedding profile
+- effective `apiSurface = node` follows the ordinary Node build gate; embedding-oriented selectors do not create an earlier Node availability path
+- attaching `--sandbox` is orthogonal to those artifact modes: once the underlying library-oriented build shape is otherwise valid, `--sandbox` adds the same static policy-validation step without changing API-surface gating or compile intent
+
+This keeps the embedding chapter aligned with the build matrix in [SPEC.md](../SPEC.md), the CLI rules in [12 — CLI](./12-cli.md), and the availability rows in [19 — Feature Maturity](./19-feature-maturity.md) without repeating a second per-artifact gate table.
+
 ## Phase 2 target — Rust Library API (`kali_embed`)
 
 Kali is designed to be used as a Rust library, similar to Deno's embedding API, once the public embedding surface reaches Phase 2.
