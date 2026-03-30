@@ -10,7 +10,7 @@
 - Mature, well-maintained, WASI support
 - Supports serialized/precompiled artifacts for production embedding
 
-This is a deliberate simplification for Phase 1-3, not a forever-exclusive backend promise. The rest of the spec assumes wasmtime semantics first so the runtime, sandboxing, and embedding contracts stay coherent while the product is still maturing.
+This is a deliberate simplification for Phases 1-3, not a forever-exclusive backend promise. The rest of the spec assumes wasmtime semantics first so the runtime, sandboxing, and embedding contracts stay coherent while the product is still maturing.
 
 **Important consistency rule**: Kali itself is AOT-only and performs no language-level JIT compilation. A host runtime may still validate, translate, or precompile the emitted WASM as an execution detail, but Kali must not depend on speculative/adaptive JIT behavior for correctness or performance.
 

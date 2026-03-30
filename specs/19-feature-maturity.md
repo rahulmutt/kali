@@ -103,7 +103,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 
 ## Interpretation Rules
 
-1. **Single-payload rule**: Phase 1-3 builds target one linked WASM payload for the resolved static graph. Artifact modes may still add companion artifacts such as JS glue, WIT files, component wrappers, or C headers, but they must not reintroduce runtime WASM module linking.
+1. **Single-payload rule**: builds in Phases 1-3 target one linked WASM payload for the resolved static graph. Artifact modes may still add companion artifacts such as JS glue, WIT files, component wrappers, or C headers, but they must not reintroduce runtime WASM module linking.
 2. **Parse vs support**: accepted syntax does not imply full runtime support; unsupported dynamic features should be diagnosed explicitly.
 3. **Effect boundaries**: features marked as dynamic compatibility paths should be reflected in static effect analysis.
 4. **No silent fallback**: if a feature cannot be implemented faithfully under the current phase constraints, Kali should reject or gate it rather than emulate it loosely.

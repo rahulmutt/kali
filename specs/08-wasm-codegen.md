@@ -2,7 +2,7 @@
 
 ## Target
 
-The canonical compilation target for Phases 1-3 is a **single `wasm32` module using the Kali host ABI**.
+The canonical compilation target for Kali in Phases 1-3 is a **single `wasm32` module using the Kali host ABI**.
 
 - **Required baseline**:
   - WASM MVP
@@ -17,7 +17,7 @@ The canonical compilation target for Phases 1-3 is a **single `wasm32` module us
   - Threads (later compatibility only, for the separate `--wasm-threads` runtime profile used by `SharedArrayBuffer` / `Atomics`)
   - SIMD (for typed array optimizations)
 
-The emitted `.wasm` artifact is portable at the WASM layer, but its full execution contract depends on the Kali host ABI and the feature set required by the chosen profile (API surface + build mode + runtime-profile switches). In practice, Phase 1-3 Kali-hosted execution is standardized on wasmtime, while browser-targeted bundle output relies on generated JS glue to adapt the guest-facing ABI onto the real browser host.
+The emitted `.wasm` artifact is portable at the WASM layer, but its full execution contract depends on the Kali host ABI and the feature set required by the chosen profile (API surface + build mode + runtime-profile switches). In practice, Kali-hosted execution in Phases 1-3 is standardized on wasmtime, while browser-targeted bundle output relies on generated JS glue to adapt the guest-facing ABI onto the real browser host.
 
 Interface-layer rule:
 - core code generation still targets a linked core WASM module first

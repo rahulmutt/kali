@@ -290,7 +290,7 @@ Interpretation rules:
 
 Because package resolution can vary by API surface/profile (`deno`, browser-targeted bundle mode, and later `node`), Kali needs one explicit boundary so `install`, lockfiles, and ordinary commands do not drift:
 
-- `kali install` is **profile-agnostic** in Phase 1-3. It locks package versions, fetches/materializes package contents, and records reproducibility data, but it does **not** pre-resolve one permanent `exports`/`browser`/`deno` branch for every future command.
+- `kali install` is **profile-agnostic** in Phases 1-3. It locks package versions, fetches/materializes package contents, and records reproducibility data, but it does **not** pre-resolve one permanent `exports`/`browser`/`deno` branch for every future command.
 - `check`, `effects`, `build`, `run`, and `test` perform the final **command-time package edge selection** from the already-installed package metadata using the active API surface/profile.
 - therefore one `kali.lock` and one materialized package tree can serve both the default Deno-oriented standalone path and the browser-targeted `check` / `build --bundle` path without requiring separate per-profile installs.
 - this is possible because early-phase profile differences choose between files that are already present inside the installed package contents; they do not require separate version solves for each supported profile.
@@ -366,7 +366,7 @@ Interpretation rule:
 Baseline CommonJS support is part of the Phase 1 package story, but it is intentionally narrow and compile-time-oriented:
 - CJS modules (`require`, `module.exports`) are transformed to ESM at compile time
 - `require()` calls with static string arguments → ESM import
-- Dynamic `require()` is **not** part of the Phase 1-3 linked-artifact model; it is rejected by default, and any later compatibility path must be documented in [specs/19-feature-maturity.md](19-feature-maturity.md) rather than invented ad hoc here
+- Dynamic `require()` is **not** part of the linked-artifact model for Phases 1-3; it is rejected by default, and any later compatibility path must be documented in [specs/19-feature-maturity.md](19-feature-maturity.md) rather than invented ad hoc here
 - `__dirname`, `__filename` → transformed to `import.meta.dirname`, `import.meta.filename`
 
 ## Dynamic Imports
