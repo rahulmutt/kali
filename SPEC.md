@@ -679,7 +679,7 @@ Kali keeps one canonical owner for each of the easy-to-confuse analysis/policy/i
 
 In schema v1 this means:
 - `kali effects` and `kali package-effects` are **observational reporting** commands only: they report inferred effects and do not accept `--sandbox`
-- `kali check --sandbox ...` and `kali build --sandbox ...` are the **static policy-validation/comparison** path: Phase 1 validates policy/schema/config, and Phase 2 adds inferred-effect-vs-policy validation
+- `kali check --sandbox ...` and `kali build --sandbox ...` are the **static sandbox-policy** path: Phase 1 validates policy/schema/config, and Phase 2 extends that same path with inferred-effect-vs-policy validation
 - `kali run --sandbox ...` and `kali test --sandbox ...` are the **runtime enforcement** path for **Kali-hosted execution**
 - `kali install --allow-scripts` is the **install-time npm-package hook path** only and stays outside the normal source-program sandbox/effect-report contract
 - `kali package-audit` is the **context-free registry-analysis/security-audit** path and does not become a second host-context-aware effect/policy command
@@ -694,7 +694,7 @@ Attaching `--sandbox <policy>` never changes the base command family or its exis
 
 In schema v1 this means:
 - on `run` / `test`, `--sandbox` adds runtime policy enforcement for the same executable command/profile request,
-- on `check` / `build`, `--sandbox` adds the static policy-validation/comparison workflow step owned by those commands,
+- on `check` / `build`, `--sandbox` adds the static sandbox-policy workflow step owned by those commands: Phase 1 policy/schema/config validation first, then Phase 2 inferred-effect-vs-policy validation on that same path,
 - it does **not** change `check` from a hybrid/set-oriented command into a single-entry command,
 - it does **not** change `build` compile intent, artifact selection, or browser-vs-non-browser build-shape rules,
 - it does **not** bypass API-surface or feature-maturity gates, whether the participating context came from CLI flags or inherited config.
@@ -1511,7 +1511,7 @@ Rules:
 - `--bundle` is browser-only, requires effective `apiSurface = browser`, and keeps that same executable compile intent while swapping in the browser host adapter/output shape,
 - the browser-bundle row is selected by the fully merged effective context, so explicit `--api browser` and equivalent inherited-config browser forms are the same artifact-mode request,
 - `--lib`, `--capi`, and `--component` are the explicit **library compile-intent** selectors in early phases,
-- attaching `--sandbox <policy>` to `build` is orthogonal to artifact mode: it adds the build workflow's static policy-validation/comparison step but does **not** change compile intent, artifact selection, or the command's ordinary API-surface/maturity gates,
+- attaching `--sandbox <policy>` to `build` is orthogonal to artifact mode: it adds the build workflow's static sandbox-policy step (Phase 1 validation, Phase 2 later comparison) but does **not** change compile intent, artifact selection, or the command's ordinary API-surface/maturity gates,
 - library-oriented artifact modes are non-browser in early phases,
 - Phase 1 plain `--lib` is the **base library artifact**, and in Phase 2 that same selector becomes part of the stable **public embedding surface** rather than introducing a second plain-library mode,
 - companion artifacts such as JS glue, WIT, C headers, or component wrappers do not weaken the single linked core payload rule.

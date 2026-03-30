@@ -325,8 +325,8 @@ Examples:
 - plain `kali build --capi --sandbox kali.policy.json lib.ts` under an inherited browser API surface
 - plain `kali build --component lib.ts` under an inherited browser API surface
 - plain `kali build --component --sandbox kali.policy.json lib.ts` under an inherited browser API surface
-- `kali build --bundle main.ts` under the default/inherited non-browser API surface
-- `kali build --bundle --sandbox kali.policy.json main.ts` under the default/inherited non-browser API surface
+- `kali build --bundle main.ts` under an effective API surface other than `browser`
+- `kali build --bundle --sandbox kali.policy.json main.ts` under an effective API surface other than `browser`
 - `kali build --lib --api browser lib.ts`
 - `kali build --capi --api browser lib.ts`
 - `kali build --component --api browser lib.ts`
