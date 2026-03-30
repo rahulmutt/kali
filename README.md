@@ -76,9 +76,13 @@ Practical Phase-1 command/context cheat sheet:
 | Request | Phase 1 reading |
 |---|---|
 | `kali check --api browser main.ts` | supported browser-targeted analysis |
+| `kali check --api browser --sandbox kali.policy.json main.ts` | supported browser-targeted static policy validation |
 | plain `kali check main.ts` under inherited `compilerOptions.apiSurface = browser` | same supported browser-targeted analysis |
+| plain `kali check --sandbox kali.policy.json main.ts` under inherited `compilerOptions.apiSurface = browser` | same supported browser-targeted static policy validation |
 | `kali build --bundle --api browser main.ts` | supported browser-targeted bundle build |
+| `kali build --bundle --api browser --sandbox kali.policy.json main.ts` | supported browser-targeted bundle build plus static policy validation |
 | plain `kali build --bundle main.ts` under inherited `compilerOptions.apiSurface = browser` | same supported browser-targeted bundle build |
+| plain `kali build --bundle --sandbox kali.policy.json main.ts` under inherited `compilerOptions.apiSurface = browser` | same supported browser-targeted bundle build plus static policy validation |
 | `kali build --bundle --api node main.ts` | contradictory non-browser bundle shape (`E5008`); `--bundle` is the browser-only executable packaging path |
 | `kali build --api browser main.ts` | invalid browser build shape (`E5008`) until a non-bundle browser build mode exists |
 | `kali build --lib --api browser lib.ts` | contradictory browser-library build shape (`E5008`); browser mode is Phase-1 `check` + `build --bundle`, not a library artifact mode |
@@ -100,19 +104,12 @@ Reading rule:
 - when a support claim still feels ambiguous, use the shared **support-claim reading order** plus the **compatibility delivery ladder** in `SPEC.md` before assuming Kali means one undifferentiated notion of “support”
 - remember the main naming splits used across the specs: config stores compatibility switches under `compat.features` while emitted reports use `compatFeatures`; cross-spec semantic axes use leaf names such as `apiSurface` / `buildMode` / `runtimeProfiles` while concrete `kali.json` storage uses paths such as `compilerOptions.apiSurface` / `compilerOptions.buildMode` / `compilerOptions.runtimeProfiles`; semantic effect kinds such as `FileSystem.Read` map onto policy/schema keys such as `effects.fileSystem.read`; and registry-package CLI/manifests/logical-root labels use the identifier spelling (`lodash`, `jsr:@std/path`) while structured JSON metadata uses the decomposed package-coordinate form (`registry`, `name`, `version`)
 - for maintenance, keep the ownership split tight: command shape/flags live in `12-cli`, diagnostic semantics in `15-errors`, JSON field names in `18-schemas`, and phase availability in `19-feature-maturity`
-- registry-analysis commands intentionally stay simpler than the canonical **source-graph commands** from [SPEC.md](./SPEC.md): `package-effects` inherits the shared **inherited analysis context** from config/defaults instead of taking its own `--api` / `--wasm-threads` / `--compat` flag family, while `package-audit` follows **context-free registry analysis (schema v1)**
-- JSON-formatting flags do not create second command variants: `--pretty` / `--output json` only change presentation/envelope shape after ordinary command-shape validation, so they inherit the same availability gate as the underlying `effects` / `package-effects` / `package-audit` request
-- that inherited `package-effects` context still keeps the same maturity gates as ordinary analysis/effect commands: inherited browser context reuses the browser-targeted analysis gate, inherited Node context reuses the Node gate, inherited `runtimeProfiles = ["wasm-threads"]` reuses the threaded-profile gate, and inherited `compat.features = ["eval"]` reuses the `eval` gate instead of being silently dropped
-- if the inherited `package-effects` context later resolves to `apiSurface = browser`, it reuses the same browser-targeted analysis context as other browser analysis commands, but only once `package-effects` itself exists; this still does **not** make it part of the exact Phase-1 browser-targeted command set
 
-Registry-analysis quick split:
-
-| Command | Availability | Context model | JSON success mode | First invalid/blocked examples |
-|---|---|---|---|---|
-| `kali package-effects <pkg>` | Phase 2 target | inherits the shared **inherited analysis context**; package version selection still follows the project-independent schema-v1 registry-analysis rule | schema-v1 **native-JSON command** | `kali package-effects` → `E5008`; `kali package-effects --pretty lodash` before Phase 2 → `E5006`; `kali package-effects --api browser lodash` → `E5008` |
-| `kali package-audit <pkg>` | Later compatibility | **context-free registry analysis (schema v1)** | schema-v1 **envelope-only JSON command**; `--pretty` requires `--output json` | `kali package-audit --pretty lodash` → `E5008`; `kali package-audit --output json lodash` before the command exists → `E5006` |
-
-This split is intentional: `package-effects` is the analysis-context-aware effect-report path, while `package-audit` is the context-free registry-metadata/security path. Both still use one explicit registry-package target, neither mutates project-managed dependency state, and neither uses the current project's installed dependency tree to pick a different package version.
+Registry-analysis shortcut:
+- `package-effects` is the later **analysis-context-aware** registry workflow: it stays a Phase 2 target, inherits the shared **inherited analysis context** from config/defaults instead of taking package-analysis-specific `--api` / `--wasm-threads` / `--compat` flags, and is a schema-v1 **native-JSON command** once it exists.
+- `package-audit` is the later **context-free** registry workflow: it stays **Later compatibility**, ignores host-analysis/runtime context in schema v1, and remains a schema-v1 **envelope-only JSON command** (`--pretty` still requires `--output json`).
+- JSON-formatting flags do not create second command variants: `--pretty` / `--output json` change presentation only after ordinary command-shape validation, so they inherit the same availability gate as the underlying `effects` / `package-effects` / `package-audit` request.
+- The full command/context/error split lives in [SPEC.md](./SPEC.md)'s registry-analysis terminology plus [12 — CLI](./specs/12-cli.md), [14 — Package Management](./specs/14-packages.md), [18 — Schemas](./specs/18-schemas.md), and [19 — Feature Maturity](./specs/19-feature-maturity.md).
 
 Quick navigation:
 - frontend and language design: [01 — Architecture](./specs/01-architecture.md), [02 — Lexer & Parser](./specs/02-lexer-parser.md), [03 — AST](./specs/03-ast.md), [04 — Type System](./specs/04-type-system.md)
