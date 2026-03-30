@@ -638,6 +638,11 @@ Pretty-print interaction rule:
 - `--pretty` changes formatting only; it must not change field names, ordering guarantees, or whether stderr/human diagnostics are emitted outside JSON mode
 - JSON-selection flags do **not** bypass command maturity or create a second command surface: if `kali effects`, `kali package-effects`, or `kali package-audit` is still unavailable in the current phase, invocations such as `--pretty` / `--output json` still fail on the command's normal availability gate after any earlier command-shape checks
 
+Quick JSON-mode shorthand:
+- `kali effects --pretty main.ts` and `kali package-effects --pretty lodash` are valid once those **native-JSON commands** exist, because their default success output is already JSON
+- `kali package-audit --pretty --output json lodash` is the valid envelope-only audit form in schema v1
+- `kali package-audit --pretty lodash` stays invalid (`E5008`) because `package-audit` does not become JSON-producing until `--output json` is present
+
 Feature gating is part of the machine contract too: availability-gate rejections should serialize the same stable diagnostic code and note structure as human output. When the failure depends on merged CLI/config state (for example a config-selected API surface or a contradictory artifact-mode combination), JSON diagnostics should also populate the optional structured `context` metadata from [specs/18-schemas.md](18-schemas.md) so tools can see the effective value without scraping prose.
 
 Rules:

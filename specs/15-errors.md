@@ -268,6 +268,7 @@ Boundary rule:
 - use `E5007` when the problem is the supplied input kind rather than the overall command shape
 - use `E5009` / `E5010` for malformed config / policy files respectively, and `E5011` for library-export proof failures
 - output-format flags still obey the shared **JSON-producing mode** rule from [SPEC.md](../SPEC.md): `--pretty` without active JSON output is `E5008`, and `--output json` never creates a second command-availability path
+- shorthand: `--pretty` alone is valid for **native-JSON commands** such as `kali effects` / `kali package-effects` once those commands exist, but not for **envelope-only JSON commands** such as schema-v1 `package-audit`
 - config-derived contradictions count too: if discovered config makes the effective command shape impossible (for example `apiSurface = browser` for plain early-phase `kali build main.ts` without `--bundle`), the diagnostic is still `E5008`
 
 Example:

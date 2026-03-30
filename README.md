@@ -42,6 +42,11 @@ Quick support-reading checklist:
 
 Use that order before treating any broad bootstrap aspiration as shipped support.
 
+Common early-phase misreads worth rejecting quickly:
+- `kali build --bundle --api browser main.ts` is a supported Phase-1 browser-targeted build shape; `kali run --api browser main.ts` is still later compatibility.
+- `kali build --lib lib.ts` is a supported Phase-1 **base library artifact**; `kali build --capi lib.ts` and `kali build --component lib.ts` are still Phase-2 embedding flows.
+- `kali check --sandbox ...` and `kali build --sandbox ...` are Phase-1 policy-schema/config validation paths; they do **not** yet imply the Phase-2 inferred-effect-vs-policy comparison workflow.
+
 ## Specification
 - Top-level overview, implementation strata, cross-spec simplification rules, canonical terminology, chapter ownership, chapter guide, artifact-mode matrix, bootstrap traceability, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
 - Bootstrap-brief normalization rule: [SPEC.md#bootstrap-normalization-rule](./SPEC.md#bootstrap-normalization-rule)

@@ -11,6 +11,11 @@ Practical simplification:
 - Phase 2 promotes the same `--lib` path into the canonical stable public library/WIT contract and adds WIT by default
 - `--capi` and `--component` then project/package that same proved export surface for specific host interop workflows rather than redefining what the library exports mean
 
+Artifact-progression shorthand:
+- `--lib` is the earliest export-oriented build path: Phase 1 emits the core `wasm-module` only, and Phase 2 keeps the same selector but adds the stable default WIT sidecar.
+- `--capi` is not a second export model; it is the Phase-2 C-facing projection of that same proved export surface (`wasm-module` + `wit` + generated exports header + C-ABI metadata).
+- `--component` is likewise packaging over that same proved export surface rather than a different library contract (`wasm-module` + `wit` + outer component wrapper).
+
 ## Phase 1 — Base library artifact
 
 Phase 1 needs one export-oriented build path early so Kali is genuinely embeddable and library-first internally, but the spec should keep that early promise narrow.
