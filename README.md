@@ -20,6 +20,16 @@ Quick Phase-1 non-goals:
 - no threaded runtime profile yet
 - no Phase-2 **public embedding surface** yet: no stable public Rust embedding API, no `--capi`, no `--component`, and no default WIT sidecars for plain `--lib`
 
+Recommended Phase-1 implementation order:
+1. frontend + checking foundation
+2. deterministic install/package foundation
+3. Deno-first Kali-hosted run/test foundation with sandbox enforcement
+4. build outputs (`build`, browser bundle, Phase-1 `--lib`)
+5. developer workflow polish (`check`, `fmt`, `lint`, diagnostics, JSON contracts)
+6. evidence hardening (conformance, package corpus, browser smoke tests, determinism)
+
+See the normative cross-spec version in [SPEC.md#recommended-phase-1-implementation-order](./SPEC.md#recommended-phase-1-implementation-order).
+
 ## Specification
 - Top-level overview, cross-spec simplification rules, canonical terminology, chapter ownership, chapter guide, artifact-mode matrix, bootstrap traceability, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
 - Bootstrap-brief normalization rule: [SPEC.md#bootstrap-normalization-rule](./SPEC.md#bootstrap-normalization-rule)

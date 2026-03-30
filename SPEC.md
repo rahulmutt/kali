@@ -38,6 +38,21 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 
 Use this table as a reading aid only. Detailed behavior still belongs to the owning chapters and the maturity matrix.
 
+## Recommended Phase-1 Implementation Order
+
+To keep the bootstrap brief actionable and avoid trying to build every aspiration at once, Phase 1 should be implemented in this order:
+
+1. **Frontend + checking foundation** — lexer, parser, AST, name resolution, TypeScript-compatible checking, first-class JavaScript handling, and the bounded conservative inference promised for Phase 1.
+2. **Deterministic package/install foundation** — `kali install`, shared lock/materialization rules, package resolution, and strict non-mutating behavior for non-install commands.
+3. **Kali-hosted execution foundation** — one AOT pipeline to one linked WASM payload, `run`/`test` on the Deno-oriented standalone surface, and the Phase-1 runtime/resource sandbox contract.
+4. **Build/artifact foundation** — default executable builds, browser-targeted `build --bundle --api browser`, and the Phase-1 `build --lib` base library artifact.
+5. **Developer workflow foundation** — `check`, `fmt`, `lint`, AI-friendly diagnostics, and stable schema-v1 JSON envelopes/artifact metadata.
+6. **Phase-1 evidence hardening** — conformance tests, package corpus coverage, browser-bundle smoke tests, and determinism checks required by the maturity matrix.
+
+Sequencing rule:
+- later Phase-1 work may deepen earlier layers, but should not bypass them with feature-specific shortcuts
+- in particular, Phase-2/3 breadth work such as stable effect-report commands, public embedding flows, broader Node compatibility, or dynamic compatibility paths must not land by weakening the earlier hard invariants
+
 ## Bootstrap Normalization Rule
 
 `BOOTSTRAP.md` is the input brief. This spec set is the normative source of truth after normalization.
