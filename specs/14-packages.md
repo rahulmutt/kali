@@ -197,7 +197,7 @@ Important separation rules:
 - runtime/code resolution must not treat `types` as a normal execution condition
 - the Deno-oriented standalone surface should honor a package's explicit `deno` condition when present instead of behaving like an unspecified generic bundler
 - `--api node` package resolution is part of the same Phase 3 Node-compatibility gate as the rest of the Node API surface; early phases should not resolve packages as though Node mode were already implemented for `check` or `build`
-- the browser-targeted analysis/build context should honor a package's explicit `browser` condition and any applicable `package.json#browser` replacement-map rewrite consistently across every supported browser-targeted command so analysis and emitted artifacts do not resolve different files by accident
+- the shared **Phase-1 browser-targeted command set**, and any later browser-context analysis command that explicitly reuses that same package-resolution context, should honor a package's explicit `browser` condition and any applicable `package.json#browser` replacement-map rewrite consistently so analysis and emitted artifacts do not resolve different files by accident
 - `package.json#module` is treated only as a legacy bundler-compatibility fallback when `exports` is absent; it must not override an explicit `exports` map, and it should not outrank `main` on a legacy CJS `require` edge
 - when a package explicitly marks a path as unavailable for the active profile (for example `browser: false`), Kali must respect that instead of probing alternate files heuristically
 - declaration/type lookup follows the separate ladder in [Type Resolution](#type-resolution)

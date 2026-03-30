@@ -430,10 +430,10 @@ Included variants inside this same set:
 - the supported browser-targeted `--sandbox` attachments for those same command families
 
 Rules:
-- this term exists to stop a common ambiguity: Phase-1 "browser analysis/build support" does **not** mean every command that performs analysis is browser-enabled in Phase 1
+- this term exists to stop a common ambiguity: Phase-1 browser-targeted support does **not** mean every command that performs analysis or build-like work is browser-enabled in Phase 1
 - explicit CLI spellings, inherited-config forms, and the supported `--sandbox` attachments above all count as the same command set once effective-context resolution chooses `apiSurface = browser`; for example, discovered `compilerOptions.apiSurface = browser` makes plain `kali check --sandbox kali.policy.json` and `kali build --bundle main.ts` part of this same Phase-1 set rather than creating extra browser modes
 - later commands such as `kali effects --api browser` or inherited browser-context `kali package-effects` reuse the same browser-targeted context only when their own maturity rows explicitly say so
-- chapters should prefer this term when they mean the exact early browser-enabled command set, instead of saying only "supported browser analysis/build commands" and forcing readers to infer which commands are already in scope
+- chapters should prefer this term when they mean the exact early browser-enabled command set, instead of saying only "supported browser analysis/build commands" or similar loose phrases and forcing readers to infer which commands are already in scope
 
 ### Browser ambient typing vs mediated capability split
 Kali keeps one explicit boundary between two browser-related layers that are easy to blur together:
@@ -543,7 +543,7 @@ Canonical order:
 
 Rules:
 - package-shape compatibility alone does **not** imply the package is runnable in every command or API surface.
-- browser-targeted package support in Phase 1 still means support inside the shared browser-targeted analysis/build context, not standalone browser execution in Kali itself.
+- browser-targeted package support in Phase 1 still means support inside the shared **Phase-1 browser-targeted command set**, not standalone browser execution in Kali itself.
 - docs should reuse this term instead of collapsing package-shape support, host/API support, and command availability into one ambiguous “package support” claim.
 
 ### Kali-mediated capability subset
