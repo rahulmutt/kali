@@ -68,8 +68,10 @@ Canonical embedding-alignment rule:
 - WIT is the canonical host-facing interface description for public library/component outputs; Rust-typed helpers, generated program-specific exports headers, and later component wrappers are projections of that same exported interface contract rather than unrelated parallel ABI descriptions
 - embedding APIs may use idiomatic Rust enums/builders instead of the JSON field names, but they should not invent a second incompatible vocabulary for the same concepts
 - build-oriented embedding calls obey the same API-surface gates as the CLI/spec matrix: for example, `ApiSurface::Node` remains Phase 3-gated for compile/build flows, while browser-targeted build output is still the `--bundle`-style path rather than a generic library/export mode
+- embedding compilation must keep **executable intent** and **library intent** explicit, either through separate helpers or an explicit compile option, so hosts do not have to guess exported-library semantics from a later `run_module(...)` vs `instantiate(...)` call
 - compiled modules are reusable immutable artifacts: `instantiate(&module)` borrows the compiled module instead of consuming it, and hosts may create multiple instances from one compiled module when that matches the host lifecycle
 - executable-style helpers such as `run_module(...)` are for modules with an executable entry contract; export-oriented/library flows use `instantiate(...).call(...)` and must not rely on a synthetic executable entry being invented for them
+- if a host calls an executable helper on a library-intent module, or tries to treat an executable-intent module as a proved exported library without the required export proof, that mismatch should fail explicitly rather than being repaired by fallback heuristics
 - export-oriented embedding calls require the same **statically known export surface** as the CLI's library-oriented artifact modes; if Kali cannot prove one fixed host-callable export set after frontend lowering, embedding-facing compile/instantiate flows must fail with the same canonical `E5011` path rather than exposing reflection-based export discovery
 - if a CLI/config/runtime feature is phase-gated (for example `ApiSurface::Node`, `RuntimeProfile::WasmThreads`, or `CompatFeature::Eval`), the embedding API should surface the same canonical `E5006`-style availability failure rather than silently ignoring the request
 
@@ -148,6 +150,7 @@ They are the canonical **host ABI header** from [SPEC.md](../SPEC.md) and come f
 Shape simplification rules:
 - keep the same compiled-module vs instantiated-instance split as the Rust API in this chapter
 - compilation produces a `KaliModule`
+- the compile/run/instantiate surface must preserve explicit executable-vs-library intent; hosts must not have to infer exported-library semantics only from whichever post-compile call they try first
 - library/export calls go through an instantiated `KaliInstance`, not directly through the compiled module handle
 - executable-style convenience entrypoints may still compile-and-run in one step, but that must not blur the library-oriented instantiation contract
 

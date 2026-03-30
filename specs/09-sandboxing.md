@@ -191,7 +191,7 @@ error[E4001]: sandbox violation: FileSystem.Write not allowed
 5 |     Deno.writeTextFileSync("out.txt", result);
   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
-  = policy: fileSystem.write is disabled in kali.policy.json
+  = policy: effects.fileSystem.write is disabled in kali.policy.json
 ```
 
 ### Policy Validation (Runtime)
