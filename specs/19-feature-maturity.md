@@ -274,7 +274,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
 - `check/build --sandbox` perform the documented Phase-1 policy-schema/config validation without overclaiming full inferred-effect-vs-policy checking yet.
 - The shared **effect-surface split** remains intact in Phase 1: internal effect bookkeeping may exist, but the stable **public effect-report surface** (`kali effects` / `kali package-effects` reporting and inferred-effect-vs-policy validation) is still correctly absent or explicitly experimental.
-- The Lean-backed verification story is phase-correct: one published **proof-boundary manifest** defines the currently modeled subset, proof-backed claims stay scoped to that manifest, and CI enforces it without implying full-language verification.
+- The Lean-backed verification story is phase-correct: one published **proof-boundary manifest** defines the currently modeled subset, proof-backed claims stay scoped to that manifest, and CI follows that manifest's activation rule without implying full-language verification.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
 - Package support works for the documented pure JS/TS, statically linkable subset.
 - Non-install commands still fail with `E5004` on missing/stale dependency state instead of auto-installing or auto-repairing project-managed dependency state.

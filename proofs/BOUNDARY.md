@@ -12,7 +12,13 @@ Until Lean proofs land, this file should be kept explicit rather than omitted so
 
 ## Modeled boundary
 - No subsystem is yet claimed as mechanically proved in this repository.
-- Planned initial focus: the core typed/effectful calculus plus the declarative sandbox-policy decision procedure.
+- Planned initial focus once proofs start: the core typed/effectful calculus plus the declarative sandbox-policy decision procedure.
+
+## Current activation state
+- The current proof boundary is **empty**.
+- Therefore proof CI is required only for changes under `proofs/`.
+- If this manifest later names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas.
+- Until that happens, no release note, README text, or phase summary should imply mechanized coverage for any implementation subsystem.
 
 ## Claimed theorems/properties
 - None yet.
@@ -34,6 +40,6 @@ Until Lean proofs land, this file should be kept explicit rather than omitted so
 ## CI trigger rule
 Run proof CI when either condition becomes true:
 1. files under `proofs/` change, or
-2. a change touches a subsystem later listed here as inside the modeled boundary.
+2. a change touches a subsystem explicitly listed here as inside the modeled boundary.
 
-Until then, the absence of proof jobs must not be described as proof coverage.
+Until a non-empty modeled boundary is published, only condition (1) is active. The absence of broader proof jobs must not be described as proof coverage.

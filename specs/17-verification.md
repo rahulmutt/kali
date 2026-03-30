@@ -38,6 +38,11 @@ That manifest should enumerate, at minimum:
 
 Before the first proofs land, the manifest may truthfully publish an **empty current proof boundary**. That is still preferable to omitting the file, because it prevents the rest of the spec from accidentally implying proof coverage that does not yet exist.
 
+Activation rule:
+- while the published proof boundary is empty, proof CI is required only for changes under `proofs/`
+- once the manifest names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas
+- release notes and support wording should describe that activation state plainly instead of implying that a placeholder manifest already proves part of the implementation
+
 Practical simplification:
 - one manifest is the canonical verification boundary for release notes, maturity claims, and CI wiring
 - chapters may summarize it, but they should not invent slightly different proof-scope claims of their own
@@ -143,7 +148,8 @@ cd proofs && lake build
 
 CI consistency rules:
 - proof failure blocks merge **for the currently modeled subset**; this is not a claim that all of Kali is already formalized
-- the proof job should trigger whenever a PR changes `proofs/` or changes a Rust/spec subsystem that the published **proof-boundary manifest** says is covered (initially the core type/effect/memory/sandbox fragments)
+- the proof job should always trigger when a PR changes `proofs/`
+- once the published **proof-boundary manifest** names covered Rust/spec subsystems, the proof job should also trigger when a PR changes one of those covered areas
 - subsystems outside the current proof boundary may evolve without a mandatory proof job, but they must remain outside the documented proof claims until the model is extended
 
 ## Non-Goals
