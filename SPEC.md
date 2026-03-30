@@ -307,6 +307,17 @@ Non-browser, export-oriented build modes:
 - `--capi`
 - `--component`
 
+### Library-oriented instantiation rule
+For library-oriented artifact modes:
+- Kali omits any **synthetic executable entry invocation**,
+- normal ECMAScript module-instantiation semantics still apply,
+- therefore top-level module initialization still runs when the host instantiates the artifact,
+- and the host-callable surface is the build's proved export set rather than a synthesized executable entry.
+
+Rule:
+- `--lib`, `--capi`, and `--component` all share this same instantiation rule unless an owning chapter explicitly says otherwise.
+- Docs should prefer referencing this shared term instead of restating slightly different versions of the same behavior.
+
 ### Statically known export surface
 The export set for a library-oriented build that Kali can prove after frontend lowering without relying on runtime reflection or host-side discovery.
 

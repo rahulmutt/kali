@@ -129,7 +129,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | Flag | Scope | Description |
 |------|-------|-------------|
 | `--bundle` | `build` | In Phase 1, selects the browser-targeted artifact path and therefore requires the **effective** `apiSurface` to be `browser` (from CLI or config); it is not a generic "multi-artifact output" switch, and any future extension must be specified explicitly |
-| `--lib` | `build`, `init` | For `build`: select the base library/export artifact mode (no synthetic executable entry invocation; ordinary top-level module initialization still occurs when instantiated). For `init`: scaffold a library-oriented project template only |
+| `--lib` | `build`, `init` | For `build`: select the base library/export artifact mode, following the shared **library-oriented instantiation rule** from [SPEC.md](../SPEC.md). For `init`: scaffold a library-oriented project template only |
 | `--capi` | `build` | Emit the Phase-2 public C-embedding artifact set (`wasm-module` + `wit` + `c-header` + `cabi-metadata`) |
 | `--component` | `build` | Emit a WebAssembly Component Model wrapper for a library/export-oriented build once that packaging path exists; phase-gated until the component flow is implemented |
 | `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
@@ -267,7 +267,7 @@ kali build --bundle main.ts                # Invalid usage (E5008) under the def
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
 kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early on build/check either
-kali build --lib lib.ts                    # Export-oriented base library module (no synthetic executable entry invocation; ordinary top-level module initialization still occurs on instantiation; Phase 1 artifact: kind=wasm-module, role=primary-library; stable public embedding/WIT contract lands in Phase 2+, which then adds kind=wit, role=interface-wit by default)
+kali build --lib lib.ts                    # Export-oriented base library module following the shared library-oriented instantiation rule from SPEC.md (Phase 1 artifact: kind=wasm-module, role=primary-library; stable public embedding/WIT contract lands in Phase 2+, which then adds kind=wit, role=interface-wit by default)
 kali build --lib --api node lib.ts         # Phase 3 target: Node API surface remains build-gated for library-oriented modes too
 kali build --lib --api browser lib.ts      # Invalid usage (E5008) in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library artifact mode
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + metadata (artifacts: wasm-module + wit + c-header + cabi-metadata; roles: primary-library + interface-wit + embedding-header + embedding-metadata; see specs/13-embedding.md)
