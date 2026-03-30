@@ -376,6 +376,7 @@ Status: Phase 2 target. This section documents a **defined command family** in s
 kali effects main.ts                       # Compact effect report JSON to stdout (default API surface: deno)
 kali effects --api browser main.ts         # Browser-targeted effect analysis once the Phase 2 command exists
 kali effects --api node main.ts            # Phase 3 target: Node API surface remains gated here too
+kali effects --compat eval main.ts         # Phase 4 compatibility: dynamic-eval path reflected in effect analysis too
 kali effects --pretty main.ts              # Pretty-printed effect report JSON
 kali effects --output json main.ts         # Command envelope + effect payload
 ```
@@ -400,6 +401,17 @@ Input-kind and host-selection rules:
 - `--api browser` follows the same browser API-surface analysis context as `kali check --api browser`; in Phase 2 this extends browser-targeted analysis to `effects` without implying standalone browser execution
 - `--api node` remains phase-gated until the documented Node surface exists
 - `--compat ...` affects effect analysis too: enabled compatibility paths such as `eval` change the reported effect set/dynamic reasons only when that compatibility feature is actually implemented for the selected phase/profile
+- explicit flags and inherited config are equivalent here too: plain `kali effects main.ts` must validate against the full effective analysis context, so inherited `compilerOptions.apiSurface = browser|node`, inherited `compilerOptions.runtimeProfiles = ["wasm-threads"]`, or inherited `compat.features = ["eval"]` must hit the same gates as the corresponding explicit `--api ...`, `--wasm-threads`, or `--compat eval` forms instead of silently falling back to a simpler analysis mode
+
+Inherited analysis-context shorthand:
+
+| Effective context slice | Command spelling | Result |
+|---|---|---|
+| default (`apiSurface = deno`, no extra runtime profiles / compat features) | `kali effects main.ts` | Default standalone-style effect analysis once the Phase 2 command exists |
+| `apiSurface = browser` | `kali effects main.ts` | Same browser-targeted effect-analysis request as explicit `kali effects --api browser main.ts` |
+| `apiSurface = node` | `kali effects main.ts` | Same Node-gated request as explicit `kali effects --api node main.ts`; no silent fallback to `deno` |
+| `runtimeProfiles = ["wasm-threads"]` | `kali effects main.ts` | Same threaded-profile gate as explicit `kali effects --wasm-threads main.ts`; no silent profile drop |
+| `compat.features = ["eval"]` | `kali effects main.ts` | Same `eval` compatibility gate as explicit `kali effects --compat eval main.ts`; no silent compat-feature removal |
 
 Compatibility rule:
 - plain `kali effects ...` emits the raw effect-report payload
