@@ -278,7 +278,7 @@ Artifact-mode quick summary:
 |---|---|---|---|
 | *(default)* | executable | Phase 1 MVP | one linked executable-oriented WASM artifact |
 | `--bundle` | executable | Phase 1 MVP | browser-targeted bundle path only, and only when the effective `apiSurface` is `browser` |
-| `--lib` | library | Phase 1 MVP | Phase-1 **base library artifact** only; stable public **WIT-first** library contract is later |
+| `--lib` | library | Phase 1 MVP | Phase-1 **base library artifact** only, and only when Kali can determine a **statically known export surface**; stable public **WIT-first** library contract is later |
 | `--capi` | library | Phase 2 target | public embedding artifact flow over the same **statically known export surface** |
 | `--component` | library | Phase 2 target | Component Model packaging over the same **statically known export surface** |
 
@@ -300,7 +300,7 @@ Canonical artifact-mode rule:
 - WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag; once the public embedding surface lands, plain public `--lib` stays the default stable library path while `--component` remains an explicit packaging selector
 - these **library-oriented artifact modes** derive their host-facing surface from a **statically known export surface** as defined in [SPEC.md](../SPEC.md); they do not implicitly expose arbitrary internal declarations just because the source file was compiled in `--lib`/`--capi`/`--component` mode
 - if Kali cannot determine that export surface statically, the library-oriented build fails with `E5011` instead of synthesizing reflection-based exports
-- plain `--lib` is the Phase-1 **base library artifact**: it establishes the exported-library shape early, but under the shared **embedding-stability split** the stable public embedding/WIT contract remains part of the later Phase-2 **public embedding surface**
+- plain `--lib` is the Phase-1 **base library artifact**: it establishes the exported-library shape early, but only when Kali can prove the required **statically known export surface**; otherwise it fails with `E5011`. Under the shared **embedding-stability split** the stable public embedding/WIT contract remains part of the later Phase-2 **public embedding surface**
 - they also keep the ordinary build-command API-surface semantics: Node-targeted library builds are still phase-gated with `E5006`, while browser-targeted library/embedding combinations are invalid command shapes (`E5008`) until a separate browser-library contract exists
 
 `--capi` and the other **public embedding artifact flows** follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): under the shared **embedding-stability split**, Phase 1 ships the base library artifact while the stable public embedding surface is a Phase 2 target.
