@@ -294,6 +294,8 @@ The only stable `Deno.permissions.query({ name })` descriptor names that Kali mo
 
 Rules:
 - this subset exists so Kali can expose a useful Deno-compatible observation facade without inventing Kali-only permission names for unrelated capabilities such as timers, randomness, console, or `eval`
+- descriptor names observe the **currently modeled capability slice**, not some future superset; in particular, `net` reflects only the network capabilities that actually exist for the active phase/API surface
+- in Phase 1's standalone surface, that means `net` effectively reports the status of the modeled `fetch` path only, not future socket/listener powers
 - unsupported descriptor names (for example `ffi`, `sys`, or any other non-modeled name in the current phase) follow the canonical availability failure path (`E5006`) instead of returning a misleading synthetic status
 - in Phase 1, this effectively means the `read` / `write` / `net` / `env` subset only
 

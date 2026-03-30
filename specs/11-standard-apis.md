@@ -98,7 +98,8 @@ Implementation simplification:
 - that keeps the Deno compatibility story aligned with the sandbox-first model: permission status is observed, not negotiated interactively at runtime
 - Phase 1 should therefore expose the minimal query-oriented surface only
 - `Deno.permissions.query(...)` is the only stable callable path in that facade in Phase 1
-- accepted descriptor names follow the shared **Deno-compatible permission descriptor subset (schema v1)** from [SPEC.md](../SPEC.md); in Phase 1 that effectively means the `read` / `write` / `net` / `env` subset, with `net` reflecting the documented network capability surface that exists for the active phase/API surface
+- accepted descriptor names follow the shared **Deno-compatible permission descriptor subset (schema v1)** from [SPEC.md](../SPEC.md); in Phase 1 that effectively means the `read` / `write` / `net` / `env` subset, with `net` reflecting only the documented network capability surface that actually exists for the active phase/API surface
+- practical consequence: in the Phase 1 standalone contract, `Deno.permissions.query({ name: "net" })` observes the modeled `fetch` capability state only; it must not imply that future socket/listener permissions already exist just because the descriptor name is broadly spelled `net`
 - Kali's broader schema-v1 capability/effect vocabulary still includes timers, random, console, and later `eval`, but those are **not** surfaced as synthetic `Deno.permissions.query({ name: ... })` descriptor kinds in schema v1. This keeps the Deno-compat API smaller and avoids implying non-standard Deno permission names.
 - returned states follow the shared **stable permission status subset (schema v1)** from [SPEC.md](../SPEC.md)
 - to keep checker and runtime behavior aligned, unsupported permission-descriptor kinds for `query(...)` and the members `Deno.permissions.request(...)` / `Deno.permissions.revoke(...)` should all follow the canonical availability path (`E5006`) rather than degrading into silent `denied`, fake `prompt`, or missing-surface drift
@@ -106,7 +107,7 @@ Implementation simplification:
 
 For host-capability maturity, the canonical source of truth is [specs/19-feature-maturity.md](19-feature-maturity.md). In particular:
 - read-only environment access is part of the Phase 1 standalone contract
-- mutable environment access, subprocess spawning, and socket/listener networking follow the Phase 3 maturity path
+- mutable environment access, subprocess spawning, and socket/listener networking follow the Phase 3 maturity path; this is why the Phase 1 `net` permission observation remains fetch-only rather than implying `connect`/`listen`
 - process identity, termination, and working-directory APIs remain a later compatibility path until a future schema/policy revision gives them an auditable contract
 
 Process identity (`Deno.pid`), process termination (`Deno.exit`), and working-directory mutation/introspection (`Deno.cwd`, `Deno.chdir`) are therefore intentionally outside the Phase 1 MVP. They widen the embedding/sandbox contract but are not needed for the initial package-oriented baseline.
