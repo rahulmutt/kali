@@ -407,7 +407,7 @@ kali effects --compat eval main.ts         # Phase 4 compatibility: dynamic-eval
 kali effects --pretty main.ts              # Pretty-printed effect report JSON
 kali effects --output json main.ts         # Command envelope + effect payload
 ```
-`kali effects` is a schema-v1 **native-JSON command** once it is available: by default it prints the effect-report payload directly, and with `--output json` it wraps that same payload in the standard command envelope. See [specs/18-schemas.md](18-schemas.md) for the canonical payload schema.
+`kali effects` is a schema-v1 **native-JSON command** once it is available: by default it prints the effect-report payload directly, and with `--output json` it wraps that same payload in the standard command envelope. The payload is a conservative upper-bound report for the selected analysis root/graph, and schema-owned fields such as `dynamicEffects` / `dynamicReasons` explain when that report had to stay conservative or incomplete. See [specs/18-schemas.md](18-schemas.md) for the canonical payload schema.
 
 Analysis scope rule:
 - the emitted payload includes `analysisContext`, which records `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md))

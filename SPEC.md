@@ -625,7 +625,7 @@ Execution where Kali or an embedding host owns the runtime/import boundary, incl
 The implementation layer that satisfies Kali's one guest-facing host ABI/capability model for a concrete deployment mode.
 
 Canonical early adapters:
-- **native host adapter** — used for Kali-hosted execution (`run`, `test`, embedding)
+- **native host adapter** — used for Kali-hosted execution (`run`, `test`, and host-side instantiation/calls of Kali-built library artifacts)
 - **browser host adapter** — generated JS glue used by `build --bundle --api browser`
 
 Rule:
@@ -751,7 +751,7 @@ Rule:
 Kali keeps one explicit split between internal effect machinery and the later stable user-facing effect surface:
 - **internal effect bookkeeping** — conservative compiler/runtime effect facts that may exist in Phase 1 to support sandbox-first implementation, diagnostics, lowering decisions, or later-proofed integration work
 - **public effect-report surface** — the stable Phase-2 user-facing effect surface, intentionally treated as one umbrella with two halves:
-  - the **reporting half** — `kali effects` and `kali package-effects`
+  - the **reporting half** — `kali effects` and `kali package-effects`, which emit a conservative upper-bound effect report over the selected analysis target and use schema-owned fields to mark/report dynamic incompleteness
   - the **policy-comparison half** — compile/check-time inferred-effect-vs-policy validation on `kali check --sandbox ...` and `kali build --sandbox ...`
 
 Rules:
@@ -910,7 +910,7 @@ It is derived from:
 Rules:
 - CLI/runtime overrides may only tighten this envelope; they must not widen a stricter attached policy.
 - when no sandbox policy is attached, direct invocation caps still contribute to the envelope without implying a synthesized allow-all policy file.
-- this term applies to Kali-hosted execution (`run`, `test`, embedding), not to deployed browser bundles.
+- this term applies to Kali-hosted execution (`run`, `test`, and host-side instantiation/calls of Kali-built library artifacts), not to deployed browser bundles.
 
 ### Browser-targeted static sandbox contract
 The canonical early-phase meaning of `--sandbox` in a browser-targeted context.
