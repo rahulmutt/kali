@@ -122,7 +122,8 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 Interpretation rule:
 - matrix rows are evaluated against the fully merged **effective command context** (built-in defaults, then discovered config, then CLI flags)
 - examples written with explicit flags also apply when the same value was inherited from `kali.json`
-- Kali must not silently fall back from an inherited unsupported/contradictory context to a different API surface/profile just because the user omitted the matching CLI flag
+- only the axes that participate for the selected command are maturity-relevant; non-participating inherited axes are ignored rather than becoming hidden gates or contradictions
+- Kali must not silently fall back from an inherited unsupported/contradictory participating context to a different API surface/profile just because the user omitted the matching CLI flag
 - browser rows follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): wrong browser build shapes are `E5008`, while unsupported browser execution/test/runtime contracts are `E5006`
 - follow the canonical validation-order rule from [SPEC.md](../SPEC.md): **command shape/arity first**, then the command's own phase availability, then finer-grained inherited-context/profile gates inside that command
 - matrix-row status names the **earliest phase where the full command/context combination can be supported**, not necessarily the first diagnostic a pre-support implementation should report when more than one independent gate is still closed
@@ -131,7 +132,7 @@ Interpretation rule:
 
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
-| `kali init` | Phase 1 MVP | Create the minimal canonical project scaffold **in the current working directory**; `init` is current-directory scoped and does not reuse an ancestor project's discovered root. For the default app template this normally means `kali.json` containing just `{ "schemaVersion": 1 }` plus `main.ts`; for the library template, the same minimal config plus `lib.ts`. Scaffolding does not count as dependency-state mutation: `init` must not add dependencies, write `kali.lock`, or materialize packages. |
+| `kali init` | Phase 1 MVP | Create the minimal canonical project scaffold **in the current working directory**; `init` is current-directory-scoped and does not reuse an ancestor project's discovered root. For the default app template this normally means `kali.json` containing just `{ "schemaVersion": 1 }` plus `main.ts`; for the library template, the same minimal config plus `lib.ts`. Scaffolding does not count as dependency-state mutation: `init` must not add dependencies, write `kali.lock`, or materialize packages. |
 | `kali init` when the current working directory already contains `kali.json` | Rejected by default | Fail with `E5008` instead of silently overwriting the existing project config |
 | `kali init` in a subdirectory whose ancestor already contains `kali.json` | Phase 1 MVP | Create a nested child project rooted at the current working directory when that directory itself does not already contain `kali.json`; later discovery treats that child root as a separate project boundary |
 | `kali init --sandbox kali.policy.json` | Rejected by default | `init` is sandbox-agnostic in early phases; scaffolding does not accept the runtime/build policy-attachment flag, so this is invalid usage (`E5008`) |

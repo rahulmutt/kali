@@ -69,14 +69,15 @@ Naming rule:
 Canonical config-discovery rule:
 - unless a later spec adds an explicit `--config` override, commands discover the effective project config by searching the current working directory and then its ancestors for the nearest `kali.json`
 - if none exists, the command runs in the canonical **configless project mode** from [SPEC.md](../SPEC.md), with the current working directory as the effective project root
-- `kali init` is the one early-phase exception: it is **current-directory scoped** and does **not** reuse an ancestor `kali.json` as its target root
+- `kali init` is the one early-phase exception: it is **current-directory-scoped** and does **not** reuse an ancestor `kali.json` as its target root
 - explicit CLI file arguments do **not** relocate that chosen config/root; they resolve relative to the current working directory, while config-owned relative paths continue to resolve relative to the directory containing the discovered `kali.json`
 - follow the canonical **explicit path boundary rule** from [SPEC.md](../SPEC.md): file-accepting source-command targets must stay inside the effective project root, must not point into a nested child project that has its own `kali.json`, and bypass `include` / `exclude` only after they are explicitly named
 - recursive project discovery for no-argument `check` / `fmt` / `lint` / `test` and for no-package-argument `install` graph scanning must stop at nested child directories that contain their own `kali.json`; those child roots are separate projects in schema v1
 
 Effective-context validation rule:
 - command validation always runs against the fully merged **effective command context** (built-in defaults, then discovered config, then CLI flags)
-- therefore config-selected values trigger the same maturity/usage checks as explicit flags; the CLI must not silently "fix up" an inherited context by falling back to some other API surface/profile
+- therefore config-selected values trigger the same maturity/usage checks as explicit flags for the axes that actually participate in that command's semantics; the CLI must not silently "fix up" an inherited participating context by falling back to some other API surface/profile
+- non-participating axes are ignored rather than gated: for example `check` ignores inherited `buildMode`, and early `package-audit` ignores inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
 - examples: config-selected `apiSurface = node` still causes plain `kali run main.ts` or `kali test` to hit the Node phase gate (`E5006`), and config-selected `apiSurface = browser` still makes plain `kali build main.ts` invalid early-phase usage (`E5008`) until `--bundle` is selected
 - config-selected `apiSurface = browser` also keeps plain `kali run main.ts` and plain `kali test` on the same browser-runtime/test gate as their explicit `--api browser` forms (`E5006`); omitting the flag does not cause a silent fallback to `deno`
 - follow the canonical validation-order rule from [SPEC.md](../SPEC.md): command-shape/arity first, then base command availability, then finer inherited-context/profile gates inside that command
@@ -394,7 +395,7 @@ kali init --lib                            # Library project template
 ```
 
 Scaffold simplification rules:
-- `kali init` is **current-directory scoped** in schema v1: it scaffolds the current working directory and does not retarget itself to an ancestor project root discovered above it.
+- `kali init` is **current-directory-scoped** in schema v1: it scaffolds the current working directory and does not retarget itself to an ancestor project root discovered above it.
 - if the current working directory already contains `kali.json`, `kali init` fails with `E5008` instead of overwriting the existing project config.
 - if an ancestor directory contains `kali.json` but the current working directory does not, `kali init` may still create a nested child project rooted at the current working directory; later project discovery then treats that child as a separate project boundary.
 - `kali init` should generate the **minimal canonical** `kali.json` shape unless the selected template truly needs more.

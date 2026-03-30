@@ -433,6 +433,7 @@ This table exists so CLI, schemas, package analysis, diagnostics, and JSON-outpu
 
 Interpretation:
 - “yes” means the axis materially participates in command semantics,
+- “no” means the axis is non-participating for that command in schema v1: inherited/default values on that axis do not by themselves trigger semantic gating or contradiction diagnostics for that command,
 - “inherited analysis context only” means the command does not take its own parallel flag family in early phases but still validates inherited config/default analysis context,
 - `sandbox` participation means the command is one of the canonical sandbox-aware commands.
 
