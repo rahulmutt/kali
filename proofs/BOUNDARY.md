@@ -1,6 +1,6 @@
 # Proof Boundary Manifest
 
-Status: placeholder for the initial published proof boundary.
+Status: placeholder for the initial published proof boundary. The repository currently claims **no mechanized proof coverage yet**, so this file documents the absence of proof claims rather than satisfying the future Phase-1 proof milestone by itself.
 
 This file is the canonical repository location for the **proof-boundary manifest** referenced by:
 - `SPEC.md`

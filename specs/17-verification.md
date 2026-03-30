@@ -36,6 +36,8 @@ That manifest should enumerate, at minimum:
 - which implementation/spec subsystems are expected to remain aligned with the model,
 - and the CI trigger rule for when the proof job must run.
 
+Before the first proofs land, the manifest may truthfully publish an **empty current proof boundary**. That is still preferable to omitting the file, because it prevents the rest of the spec from accidentally implying proof coverage that does not yet exist.
+
 Practical simplification:
 - one manifest is the canonical verification boundary for release notes, maturity claims, and CI wiring
 - chapters may summarize it, but they should not invent slightly different proof-scope claims of their own
