@@ -623,6 +623,11 @@ Rules:
 - config-derived values trigger the same gating and contradiction checks as explicit flags,
 - commands must not silently fall back from an unsupported effective value just because the user omitted the matching flag.
 
+Canonical examples:
+- discovered `compilerOptions.apiSurface = browser` makes `kali build --bundle main.ts` the same supported Phase-1 browser-bundle request as explicit `kali build --bundle --api browser main.ts`
+- that same inherited browser value makes plain `kali build main.ts` an `E5008` command-shape contradiction until a non-bundle browser build mode exists
+- discovered `compilerOptions.apiSurface = node` keeps plain `kali run main.ts` and plain `kali test` on the same `E5006` Node-availability gate as their explicit `--api node` forms
+
 ### Availability context
 The normalized context used for maturity and availability checks **after** command-shape validation succeeds.
 

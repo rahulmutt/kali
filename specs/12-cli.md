@@ -250,6 +250,7 @@ Canonical artifact-mode rule:
 - omitting `--bundle`, `--lib`, `--capi`, and `--component` selects the default executable artifact mode and therefore the default **executable compile intent**
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive artifact-mode selectors unless a later spec explicitly defines one as an implication of another
 - `--bundle` preserves executable compile intent while changing the host adapter/output contract to the browser-targeted bundle path
+- explicit `--api browser` and inherited `compilerOptions.apiSurface = browser` are equivalent here: `kali build --bundle main.ts` is the supported browser-bundle shortcut when the effective API surface is already `browser`, and the same command is `E5008` only when the effective API surface is still non-browser
 - `--lib`, `--capi`, and `--component` switch the build to library compile intent
 - `kali init --lib` chooses a project template only; it does not change the later default artifact mode of `kali build`
 - WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag
@@ -268,6 +269,7 @@ kali build main.ts                         # → main.wasm (--fast mode, default
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue)
+kali build --bundle main.ts                # Same supported browser-bundle build when compilerOptions.apiSurface=browser is already inherited from config
 kali build --bundle main.ts                # Invalid usage (E5008) under the default config; --bundle requires the effective API surface to be browser
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
 kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
