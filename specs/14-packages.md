@@ -147,6 +147,7 @@ Canonical early-phase code-resolution ladder:
 
 7. In the shared **browser-targeted context**, after `exports` or that legacy fallback table picks a package-published target, apply any `package.json#browser` replacement-map rewrite that covers that selected package-local path:
    - this rewrite layer is part of the one shared browser package-resolution context reused by `check --api browser`, `build --bundle --api browser`, and later browser-context analysis commands such as `effects --api browser` and inherited browser-context `package-effects`
+   - that later reuse is intentionally about one shared browser package-resolution rule, not about widening the exact **Phase-1 browser-targeted command set** before those later commands have their own maturity rows
    - if the browser map rewrites the selected path to another package-local file, continue resolution from that rewritten target
    - if the browser map marks the selected path as unavailable (`false`), reject that edge instead of probing alternate non-browser files heuristically
    - this browser-map stage refines the already chosen browser-targeted package edge; it does not restart package resolution under a second ad hoc condition-order algorithm

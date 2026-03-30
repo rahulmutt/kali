@@ -508,6 +508,7 @@ Analysis rule:
 - `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
 - it inherits its semantic analysis context through the shared **effective inherited analysis context** from [SPEC.md](../SPEC.md) rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox` in schema v1
 - in configless mode, that inherited context is just the schema-v1 defaults (`apiSurface = deno`, `runtimeProfiles = []`, `compat.features = []`)
+- if discovered config later makes that inherited context resolve to `apiSurface = browser`, plain `kali package-effects <pkg>` reuses the same browser-targeted analysis context once the command itself exists; this later inherited-context reuse does **not** widen the exact **Phase-1 browser-targeted command set**
 - inherited-context availability follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is unavailable, the command fails with `E5006` rather than silently falling back to some smaller context
 - the nested `report.entryPoints` field should name the package-analysis logical root using the same canonical registry identifier spelling the user targeted rather than an opaque tarball URL or cache path
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
