@@ -469,7 +469,7 @@ Argument-kind simplification:
 - version selection follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md)
 - `kali package-effects` records the resolved version in its machine-readable payload, while early `package-audit` follows the same version-selection rule but does **not** promise command-specific machine-readable version metadata until a dedicated audit payload schema exists
 - any later explicit version/range or lock-aware mode must be added as a separate documented selector rather than inferred implicitly
-- this project-independence is about dependency state and version selection; `package-effects` may still inherit its analysis context from the **effective command context** as documented elsewhere
+- follow the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md): package-analysis context inheritance for `package-effects` affects analysis semantics only, not project/version selection
 - any non-registry target is rejected for these commands in early phases, including raw URLs and local file paths, instead of creating a parallel analysis path that overlaps confusingly with project/import-graph handling
 - raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
 

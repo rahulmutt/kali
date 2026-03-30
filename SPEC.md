@@ -396,7 +396,17 @@ To keep single-package tooling predictable and avoid a second near-duplicate fla
 - because schema v1 intentionally omits package-analysis-specific context flags, non-default `package-effects` contexts come only from defaults or discovered config; in configless mode the command therefore uses the schema-v1 defaults unless/until a later spec adds explicit package-analysis context flags.
 - `package-effects` follows the maturity of the inherited analysis axis instead of inventing its own separate gate table: inherited browser context lines up with browser-targeted effect analysis, inherited Node context lines up with the Node analysis gate, inherited `wasm-threads` lines up with the threaded-profile gate, and inherited compat features such as `eval` line up with their own compatibility-phase gates.
 - `package-audit`, once that command exists, is **context-free** in early phases: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics.
-- both commands still use the identity-only registry-target rule and must not consult project lock/install state to pick a different package version in schema v1.
+- both commands still follow the shared **registry-analysis project-independence rule** as well as the identity-only registry-target rule.
+
+### Registry-analysis project-independence rule
+Single-package registry-analysis commands intentionally analyze a registry package as a standalone target, not as "whatever version this project currently has installed."
+
+Rules:
+- version selection follows the shared **stable-release selection rule (schema v1)** unless an owning chapter later adds an explicit version-aware or lock-aware mode,
+- the current project's `kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/` must not change which package version is analyzed,
+- these commands must not mutate project-managed dependency state as a side effect,
+- `package-effects` may still inherit its **analysis context** from defaults/discovered config, but that inherited context affects analysis semantics only and must not change project-independence for package identity/version selection,
+- any fetched metadata/tarballs belong to the separate **registry-analysis cache**, not to project installation state.
 
 ### Registry-analysis cache
 A non-project-managed cache that registry-analysis commands may use for fetched package metadata/tarballs.
