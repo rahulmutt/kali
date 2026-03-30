@@ -280,6 +280,7 @@ bool kali_register_host_function(KaliRuntime* runtime, const char* module,
 - The C config surface follows the same set-like semantics as `kali.json` and the Rust builder API: runtime profiles and compat features are unordered unique sets, not boolean toggle pairs
 - enum spellings such as `KaliApiSurface`, `KaliBuildMode`, `KaliRuntimeProfile`, and `KaliCompatFeature` are the typed C-ABI counterparts of the canonical config/CLI vocabularies `apiSurface`, `buildMode`, `runtimeProfiles`, and `compat.features`
 - the resource-limit setters `kali_config_set_max_memory`, `kali_config_set_max_cpu_time`, `kali_config_set_max_open_files`, `kali_config_set_max_spawned_processes`, and `kali_config_set_max_threads` mirror the shared execution-budget model from CLI/schema v1 instead of inventing C-only names
+- unit spelling stays implementation-friendly but semantically aligned: `kali_config_set_max_memory(..., bytes)` uses raw bytes for FFI friendliness, `kali_config_set_max_cpu_time(..., ms)` uses milliseconds, and the Rust builder / policy schema keep their higher-level `max_memory_mb` / `maxMemoryMB` naming over that same underlying limit model
 - for those setters, `max_memory`, `max_cpu_time`, and `max_open_files` keep the same positive-only semantics as CLI/schema v1, while `max_spawned_processes` and `max_threads` may use `0` as an explicit deny/tightening value
 - mutating config helpers return `bool` so validation/allocation/phase-gating failures all use one C-friendly convention instead of mixing `void` setters with out-of-band failure cases
 - C config/runtime setters for API surface, build mode, runtime profiles, compat features, and resource limits follow the same phase-gating rules as the CLI/config surface; unsupported requests fail with the canonical availability error instead of degrading silently
@@ -300,9 +301,12 @@ Artifact selection follows the canonical build matrix and shared **embedding-sta
 
 ```bash
 kali build --lib lib.ts                    # Phase 1: lib.wasm only (base library artifact). Phase 2+: lib.wasm + lib.wit as the stable public library/WIT contract.
-kali build --capi lib.ts                   # Produces lib.wasm + lib.wit + generated lib.exports.h + metadata for use with kali_capi
-kali build --component lib.ts              # Produces lib.wasm + lib.wit + lib.component.wasm for Component Model consumers
+kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + generated lib.exports.h + metadata for use with kali_capi
+kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit + lib.component.wasm for Component Model consumers
 ```
+
+Example-filename rule:
+- build examples in this chapter derive companion filenames from the entry basename (`lib.ts` → `lib.wasm`, `lib.wit`, `lib.exports.h`, `lib.component.wasm`) so artifact examples stay consistent with the canonical artifact/metadata schemas
 
 Artifact-role clarification:
 - `kali build --lib` is the base exported-library path in Phase 1 and the canonical stable public library path in Phase 2+; once stabilized, that plain public `--lib` output emits `wit` (`role: interface-wit`) by default alongside the core `wasm-module` (`role: primary-library`)
@@ -346,14 +350,14 @@ Compatibility policy:
 
 Typical embedding flow:
 1. Build or ship `kali_capi` as the native C ABI layer (including the stable `kali.h` host header).
-2. Compile Kali/TypeScript library code to `foo.wasm` with `kali build --capi lib.ts` to obtain `foo.wasm` plus `foo.wit`, `foo.exports.h`, and metadata.
+2. Compile Kali/TypeScript library code with `kali build --capi lib.ts` to obtain `lib.wasm`, `lib.wit`, `lib.exports.h`, and metadata.
 3. Verify ABI compatibility between the emitted metadata and the available `kali_capi` host library.
 4. Load that artifact through the `kali_*` API from C or another FFI consumer.
 
 Typical component flow:
 1. Compile Kali/TypeScript library code with `kali build --component lib.ts`.
-2. Use the emitted `foo.wit` as the canonical interface description for tooling/review.
-3. Load `foo.component.wasm` in a Component Model host that matches the documented runtime/profile constraints.
+2. Use the emitted `lib.wit` as the canonical interface description for tooling/review.
+3. Load `lib.component.wasm` in a Component Model host that matches the documented runtime/profile constraints.
 
 The shared library exports only `kali_*` symbols. All Rust internals are hidden.
 

@@ -498,7 +498,7 @@ Simplification rules:
 - unlike `package-effects`, early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md), whether the command runs under discovered config or in configless project mode, so inherited host-analysis/runtime config does not gate or rewrite its semantics
 - in schema v1, its package target is selected by the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md) rather than from any ambient project lockfile selection
 - if unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee
-- until a dedicated audit payload schema exists, `package-audit --output json` follows the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md) instead of re-specifying a parallel package-audit-only output contract here
+- `package-audit --output json` follows the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md); keep this chapter focused on command semantics instead of restating the envelope contract here
 - once a dedicated machine-readable audit payload is added, it should still travel through the same standard `--output json` command envelope instead of inventing a second native bare-JSON format
 
 This integrates with the effect system — know what a dependency does before you use it.
