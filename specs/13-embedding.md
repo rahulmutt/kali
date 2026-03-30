@@ -286,4 +286,4 @@ The C API enables bindings for:
 - C# (`P/Invoke`)
 - Zig (direct C interop)
 
-Once the public embedding surface lands, the stable contract focuses first on the C ABI; language-specific bindings remain community-driven or higher-level wrappers over that ABI.
+Once the public embedding surface lands, the stable embedding contract includes both the public Rust API and the C ABI/WIT-based host contract. For non-Rust languages, the first cross-language stable focus is the C ABI, while language-specific bindings remain community-driven or higher-level wrappers over that ABI.
