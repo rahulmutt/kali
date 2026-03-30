@@ -309,6 +309,19 @@ When translating a new bootstrap ask into the spec set, use this short loop befo
 
 This loop is intentionally shorter than the full anti-drift checklist. Use it first for scoping; use the longer checklist later for wording cleanup.
 
+## Minimum Cross-File Update Set
+
+To keep spec edits small and still prevent drift, apply this minimum update set whenever a user-visible rule changes:
+- **phase/support change** → update the owning chapter **and** [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
+- **CLI shape/flag/arity/output change** → update [`specs/12-cli.md`](./specs/12-cli.md), then sync any affected diagnostics in [`specs/15-errors.md`](./specs/15-errors.md) and any affected JSON/schema contracts in [`specs/18-schemas.md`](./specs/18-schemas.md)
+- **sandbox/effect workflow change** → update [`specs/09-sandboxing.md`](./specs/09-sandboxing.md), then sync the corresponding command, diagnostic, schema, and maturity owners (`12`, `15`, `18`, `19`)
+- **embedding/artifact change** → update [`specs/13-embedding.md`](./specs/13-embedding.md) plus any affected artifact/schema/CLI owners (`08`, `12`, `18`, `19`)
+- **verification-claim change** → update [`specs/17-verification.md`](./specs/17-verification.md) and [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) together
+
+Shortcut:
+- if a change would alter what a release note could honestly claim, it is almost never a one-file edit
+- prefer this minimum update set over adding a second explanatory paragraph in a non-owning chapter
+
 ## Support-Claim Checklist
 
 To keep broad bootstrap asks from turning back into fuzzy “support” wording, any new support claim should answer these five questions explicitly before it lands in chapter prose, README summaries, or release notes:

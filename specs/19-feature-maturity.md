@@ -220,6 +220,7 @@ Interpretation rule:
 - in this command/profile matrix, the status label is a planning/maturity summary, not by itself the diagnostic choice: rows marked **Rejected by default** may still fail as `E5008` invalid usage or `E5006` unavailable-feature gating depending on the canonical handling column and the shared validation-order rules
 - for example, `kali build --capi --api node lib.ts` is listed as a **Phase 3 target** because that full combination cannot work before both the Phase-2 **public embedding surface** and the Node surface exist, but an early implementation should still report the outermost failing gate first (`--capi` itself in Phase 1, then `--api node` once `--capi` exists but Node remains gated)
 - this keeps diagnostics stable for commands such as `package-effects`: before Phase 2, plain `kali package-effects lodash` should fail on the command's base maturity row; once the command exists, inherited-context maturity follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) instead of a package-analysis-specific shadow matrix
+- apply that same reading to later **defined command families** such as `effects`: before the command itself ships, the base command gate wins even if an inherited context would eventually be supported (for example browser analysis); once the command exists, supported inherited contexts should behave exactly like their explicit-flag forms instead of being reinterpreted as hidden fallback requests
 
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
