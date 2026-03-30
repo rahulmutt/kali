@@ -168,6 +168,7 @@ Use this checklist:
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
 - config-discovery/install interactions without a discovered `kali.json` should reuse the **configless install split** term
+- config-field wording should reuse the **config leaf key vs full config path** split: use leaf names such as `apiSurface`, `buildMode`, and `runtimeProfiles` for cross-spec semantic axes, but use concrete schema paths such as `compilerOptions.apiSurface`, `compilerOptions.buildMode`, `compilerOptions.runtimeProfiles`, and `compat.features` when a chapter means actual `kali.json` storage or diagnostic `configPath` values
 - registry-package CLI/manifest spelling versus structured JSON package metadata should reuse the **registry package identifier vs package coordinate** term instead of re-explaining the `jsr:` prefix split in slightly different ways
 - schema-v1 registry dependency value wording should reuse the **exact-version-first registry manifest rule (schema v1)** instead of restating the exact-version requirement in slightly different prose
 - package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
@@ -191,7 +192,7 @@ The selected host-facing ambient/runtime family:
 `browser` is a **browser-targeted context** in early phases, not a promise of a standalone browser runtime.
 
 Rule:
-- public APIs should preserve this term explicitly: use `apiSurface` in JSON/config, `ApiSurface` in typed APIs, and `api_surface` / `apiSurface`-equivalent spellings in FFI surfaces rather than collapsing the concept to a generic `api` name that could be confused with a concrete host API namespace
+- public APIs should preserve this term explicitly: use `apiSurface` as the canonical JSON/report field name and config leaf name (in schema-v1 `kali.json`, the concrete path is `compilerOptions.apiSurface`), `ApiSurface` in typed APIs, and `api_surface` / `apiSurface`-equivalent spellings in FFI surfaces rather than collapsing the concept to a generic `api` name that could be confused with a concrete host API namespace
 
 ### Effective API surface
 The final `apiSurface` value after merging built-in defaults, discovered `kali.json`, and explicit CLI flags.
@@ -200,6 +201,19 @@ Rule:
 - this is just the `apiSurface` slice of the broader **effective command context**
 - chapters may use “effective API surface” as shorthand when only that one axis matters
 - docs should not invent alternate names such as “resolved API mode” or “active host flavor” for the same concept
+
+### Config leaf key vs full config path
+Kali uses one deliberate naming split so cross-spec terminology can stay short without making the on-disk schema ambiguous.
+
+Canonical examples:
+- semantic/config **leaf keys**: `apiSurface`, `buildMode`, `runtimeProfiles`, `strict`, `maxSpecializations`
+- concrete schema-v1 `kali.json` **paths**: `compilerOptions.apiSurface`, `compilerOptions.buildMode`, `compilerOptions.runtimeProfiles`, `compilerOptions.strict`, `compilerOptions.maxSpecializations`
+- compatibility config is already stored at its canonical full path: `compat.features`
+
+Rules:
+- use the short leaf-key names when a chapter is talking about semantic axes, effective-context merging, report fields, or CLI/config vocabulary alignment
+- use the full schema path when a chapter is talking about actual `kali.json` layout, defaults for a stored field, or diagnostic metadata such as `Diagnostic.context.configPath`
+- docs should not blur these into competing vocabularies; `apiSurface` and `compilerOptions.apiSurface` are the same concept at different specificity levels, not two different settings
 
 ### Host-support staircase
 Kali's host/API story is intentionally staged as one small staircase rather than three equally mature runtimes:
