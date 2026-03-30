@@ -96,9 +96,9 @@ Later compatibility/embedding imports extend this set when the corresponding API
 - `process_spawn(...)` for the Phase 3 subprocess-support path
 - `env_set(...)` for the Phase 3 mutable-environment path once `effects.process.envWrite` is part of the enabled host surface
 - socket/listener networking imports for the Phase 3 `Network.Connect` / `Network.Listen` / `Deno.serve` path
-- `process_pid()` only on the later-compatibility process-identity path once a schema/policy revision defines its sandbox contract
-- `process_exit(code)` only on the later-compatibility process-control path once a schema/policy revision defines its sandbox contract; this does **not** imply that `Deno.exit` is part of the Phase 1 API surface
-- `cwd_get(...)` / `cwd_set(...)` only on the later-compatibility working-directory path once a documented policy/effect contract exists
+- `process_pid()` only on the later compatibility process-identity path once a schema/policy revision defines its sandbox contract
+- `process_exit(code)` only on the later compatibility process-control path once a schema/policy revision defines its sandbox contract; this does **not** imply that `Deno.exit` is part of the Phase 1 API surface
+- `cwd_get(...)` / `cwd_set(...)` only on the later compatibility working-directory path once a documented policy/effect contract exists
 - `eval_compile(...)` only for the Phase 4 `--compat eval` path
 
 ### Data Passing

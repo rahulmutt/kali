@@ -107,7 +107,7 @@ Package-analysis flag/context simplification:
 - follow the canonical command-context axis participation table, `analysis context` term, and **registry-analysis context split** in [SPEC.md](../SPEC.md)
 - `kali package-effects` is a **Phase 2 target** and, once available, inherits only the semantic analysis axes (`apiSurface`, `runtimeProfiles`, `compat.features`) from config/defaults; it records that context in `report.analysisContext` using the emitted field names `apiSurface`, `runtimeProfiles`, and `compatFeatures` instead of growing package-analysis-specific `--api` / runtime-profile / `--compat` flags
 - `buildMode` and `sandbox` remain non-semantic for `package-effects` in early phases
-- `kali package-audit` is a **later-compatibility** single-package registry tool and, once available, stays context-free in early phases; inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and `sandbox` do not change its semantics
+- `kali package-audit` is a **Later compatibility** single-package registry tool and, once available, stays context-free in early phases; inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and `sandbox` do not change its semantics
 - examples later in this chapter describe the canonical command shape/output contract for these registry-analysis commands, not an unconditional promise that they are already available in Phase 1
 
 Sandbox-flag clarification:

@@ -4,6 +4,9 @@ This document is the canonical matrix for features that are easy to describe inc
 
 If another spec needs to mention one of these features, it should link here for phase/status rather than restating a different maturity decision.
 
+Status-label spelling rule:
+- docs should use the canonical labels from this chapter verbatim (`Phase 1 MVP`, `Phase 2 target`, `Phase 3 target`, `Phase 4 compatibility`, `Later compatibility`, `Opt-in only`, `Later compatibility (opt-in only)`, `Rejected by default`) rather than near-duplicates such as `later-compatibility`
+
 ## Status Labels
 
 - **Phase 1 MVP** — required for the first practically useful implementation

@@ -96,7 +96,7 @@ Early simplification:
 
 Important separation rule:
 - this is an **internal memory-management strategy** for ordinary object graphs
-- it does **not** imply that JavaScript weak-reference APIs (`WeakMap`, `WeakSet`, `FinalizationRegistry`) are available early; those remain later-compatibility features as defined in [specs/19-feature-maturity.md](19-feature-maturity.md)
+- it does **not** imply that JavaScript weak-reference APIs (`WeakMap`, `WeakSet`, `FinalizationRegistry`) are available early; those remain **Later compatibility** features as defined in [specs/19-feature-maturity.md](19-feature-maturity.md)
 - it also does **not** imply movable GC, stop-the-world tracing, or user-visible finalization semantics in early phases
 
 ## Stack Allocation in Linear Memory

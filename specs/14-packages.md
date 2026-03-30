@@ -432,7 +432,7 @@ Independently of project install state, Kali can analyze a registry package thro
 
 Status boundary:
 - `kali package-effects <pkg>` is a **Phase 2 target** that reuses the shared effect-report contract for one registry package
-- `kali package-audit <pkg>` is a **later-compatibility** registry tool and should not be implied by Phase 1-2 compiler/runtime readiness
+- `kali package-audit <pkg>` is a **Later compatibility** registry tool and should not be implied by Phase 1-2 compiler/runtime readiness
 - the examples below describe the canonical command shape and result contract for these workflows, not an unconditional claim that both commands are already available in Phase 1
 
 ```bash
@@ -475,7 +475,7 @@ Canonical output simplification:
 - the nested shared effect report still summarizes the full statically reachable package graph selected for analysis under that recorded context; it is not just a manifest-level metadata report
 - `--output json` wraps that payload in the standard CLI command envelope; it does not create a third package-effects-only outer format
 
-`kali package-audit` is a later-compatibility tooling feature rather than a core compiler/runtime milestone.
+`kali package-audit` is a **Later compatibility** tooling feature rather than a core compiler/runtime milestone.
 
 Simplification rules:
 - keep it **single-package** in early phases so it does not overlap with a future whole-project dependency-health workflow
