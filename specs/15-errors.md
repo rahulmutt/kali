@@ -150,7 +150,7 @@ Use `E5006` for cases such as:
 - well-formed base invocations that hit the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md), such as `kali package-effects lodash` before Phase 2 or `kali package-audit lodash` before that **Later compatibility** command exists
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - positive values for the shared **feature-gated zero-capable execution budgets** from [SPEC.md](../SPEC.md) before the selected command/runtime-profile/API-surface combination actually supports subprocesses or threads
-- an attached sandbox policy trying to enable a real capability that exists in the spec set but is unavailable in the current **availability context** (for example `effects.eval: true` before the eval path exists, `effects.eval: true` without effective `--compat eval`, or browser-targeted `check` / `build --bundle` policies that set browser-incompatible resource budgets such as any presence of `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, or `resources.maxOpenFiles`, or positive values for `resources.maxSpawnedProcesses` / `resources.maxThreads`)
+- an attached sandbox policy trying to enable a real capability that exists in the spec set but is unavailable in the current **availability context** (for example `effects.eval: true` before the eval path exists, `effects.eval: true` without effective `--compat eval`, or a browser-targeted `check` / `build --bundle` policy that violates the shared **canonical browser-targeted budget compatibility rule** from [SPEC.md](../SPEC.md))
 - any parse-supported construct that is intentionally not semantically enabled in the current availability context
 
 Boundary clarification:
