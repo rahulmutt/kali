@@ -75,6 +75,18 @@ When goals compete, Kali resolves them in this order:
 
 This ordering is intentional. Kali should reject or deopt before it silently guesses.
 
+## Cross-Spec Simplification Rules
+
+To keep the spec set implementable and reduce drift between chapters, Kali intentionally standardizes on a few cross-cutting simplifications:
+- **one guest-facing host ABI** realized through different host adapters, rather than separate guest contracts for standalone execution, browser bundles, and embedding;
+- **one linked core payload per build**, with companion artifacts such as JS glue, WIT, headers, or component wrappers layered on top rather than becoming separate runtime-linked guest graphs;
+- **one browser-targeted context model** reused across supported browser analysis/build commands, with later browser-context `package-effects` inheriting that context from config/defaults instead of growing a package-analysis-specific `--api` flag family;
+- **one install/lock state** shared across the default Deno-oriented standalone path and supported browser-targeted analysis/build paths in schema v1;
+- **one compatibility-feature name** (`eval`) for both direct `eval` and `Function()`;
+- **one sandbox/effect vocabulary** for the Kali-mediated capability subset, rather than per-DOM/per-host-API policy keys.
+
+These are deliberate simplifications, not accidental omissions. Later phases may add capability, but should not fork the core vocabulary or workflow without a clear need.
+
 ## Canonical Terminology
 
 ### API surface
