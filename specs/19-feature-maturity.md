@@ -48,7 +48,7 @@ Promotion rule:
 - the required evidence should match the claim being made:
   - language/runtime semantics → conformance + integration coverage
   - type-system behavior → checker/inference baselines
-  - package compatibility → curated package corpus results
+  - package compatibility → curated package corpus results for the claimed source-graph command/context combinations (including browser-targeted `check` / `build --bundle` when those package claims are made)
   - host/runtime APIs → integration + sandbox/resource-limit coverage
   - the shared **Phase-1 browser-targeted command set** → browser-targeted `check` tests + browser-targeted `build --bundle` tests + emitted-bundle smoke runs in a real browser harness
   - CLI/JSON contracts → golden/snapshot/schema tests
