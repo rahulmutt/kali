@@ -355,14 +355,18 @@ kali check --api browser --sandbox kali.policy.json src/a.ts src/b.ts # Same bro
 ```
 `kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`, `--api node`, and `--sandbox`: API-surface selection changes only the analysis context, not the command's file-arity model, and attaching a policy still does not turn `check` into a direct-input command.
 
-Inherited browser-context shorthand:
+Inherited check-context shorthand:
 
 | Effective `apiSurface` | Command spelling | Result |
 |---|---|---|
-| non-browser (`deno` / `node`) | `kali check [files...]` | Ordinary standalone/default analysis context |
+| `deno` (default) | `kali check [files...]` | Supported standalone/default analysis context |
+| `node` | `kali check [files...]` | Same Node analysis gate as explicit `kali check --api node [files...]`; no silent fallback to `deno` |
 | `browser` | `kali check [files...]` | Same browser-targeted request as explicit `kali check --api browser [files...]` |
-| non-browser (`deno` / `node`) | `kali check --sandbox kali.policy.json [files...]` | Ordinary standalone/default policy-validation request |
+| `deno` (default) | `kali check --sandbox kali.policy.json [files...]` | Supported standalone/default policy-validation request |
+| `node` | `kali check --sandbox kali.policy.json [files...]` | Same Node policy-validation gate as explicit `kali check --api node --sandbox kali.policy.json [files...]`; no silent fallback to `deno` |
 | `browser` | `kali check --sandbox kali.policy.json [files...]` | Same browser-targeted static policy-validation request as explicit `kali check --api browser --sandbox kali.policy.json [files...]` |
+
+This table is a CLI reading aid only; [19 — Feature Maturity](19-feature-maturity.md) remains the availability owner.
 
 Declaration-only files are valid explicit file inputs for `check`; `run`, `build`, `effects`, and `test` primary inputs may not be declaration-only, and that input-kind mismatch should use the canonical invalid-entrypoint diagnostic (`E5007`).
 
