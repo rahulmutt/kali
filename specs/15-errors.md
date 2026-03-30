@@ -149,7 +149,7 @@ Use `E5006` for cases such as:
 - `run --api browser` in early phases where browser support exists only as an analysis/build context
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - positive values for the shared **feature-gated zero-capable execution budgets** from [SPEC.md](../SPEC.md) before the selected command/runtime-profile/API-surface combination actually supports subprocesses or threads
-- an attached sandbox policy trying to enable a real capability that exists in the spec set but is unavailable in the current **availability context** (for example `effects.eval: true` before the eval path exists, `effects.eval: true` without effective `--compat eval`, or browser-targeted `check` / `build --bundle` policies that set browser-incompatible resource budgets such as `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, `resources.maxOpenFiles`, or positive values for those same **feature-gated zero-capable execution budgets**)
+- an attached sandbox policy trying to enable a real capability that exists in the spec set but is unavailable in the current **availability context** (for example `effects.eval: true` before the eval path exists, `effects.eval: true` without effective `--compat eval`, or browser-targeted `check` / `build --bundle` policies that set browser-incompatible resource budgets such as any presence of `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, or `resources.maxOpenFiles`, or positive values for `resources.maxSpawnedProcesses` / `resources.maxThreads`)
 - any parse-supported construct that is intentionally not semantically enabled in the current availability context
 
 Boundary clarification:
