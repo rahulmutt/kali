@@ -4,10 +4,11 @@
 
 Implement APIs through one shared guest-facing capability model. Using the canonical terminology from [SPEC.md](../SPEC.md), Kali realizes that model through different **host adapters**: the native host adapter for Kali-hosted execution and the browser host adapter for browser-targeted bundle output. Each API surface is still organized as a separate crate that defines the relevant bindings/registration logic for that surface.
 
-Compatibility is delivered in layers:
-1. **Baseline**: Web platform primitives needed by modern JS libraries.
-2. **Primary host**: Deno-style APIs, since they align well with explicit permissions and sandboxing.
-3. **Compatibility layers**: Node.js shims plus browser-targeted ambient/bundle support, added incrementally and tested against real packages.
+Using the canonical **host-support staircase** from [SPEC.md](../SPEC.md), compatibility is delivered in layers:
+1. **Web baseline**: shared platform primitives needed by modern JS libraries.
+2. **Primary standalone host**: Deno-style APIs, since they align well with explicit permissions and sandboxing.
+3. **Browser-targeted context**: ambient typing plus bundle/build support that targets the real browser host rather than a standalone Kali browser runtime.
+4. **Node compatibility surface**: later package-driven compatibility work, added incrementally and tested against real packages.
 
 The spec goal is broad compatibility, but the implementation should prefer a smaller, dependable surface over a shallow imitation of every host API.
 
@@ -15,6 +16,7 @@ A key simplification rule applies throughout this section: Phase 1 should target
 
 Consistency note:
 - browser work in Phase 1 is analysis/build-first (`check --api browser`, `build --bundle --api browser`), not a hidden promise of standalone DOM runtime parity
+- Node work is a later compatibility surface, not a second Phase-1 standalone host peer
 - references to browser support in this chapter should therefore prefer the cross-spec **browser-targeted context** wording instead of implying one broad "browser runtime" milestone
 
 For dynamic or semantically expensive APIs (for example `Proxy`, weak references, and threaded primitives), the canonical phase/status lives in [specs/19-feature-maturity.md](19-feature-maturity.md). This section should describe API layering, not restate a conflicting maturity decision.

@@ -99,7 +99,7 @@ Install simplification:
 - schema v1 intentionally keeps the manifest-written path exact-version-first so manifest intent, lockfile state, and AI-authored edits stay easy to reason about; wider SemVer range syntax may be added later, but only as a separately documented manifest/CLI contract rather than being implied by the identity-only install form
 
 ### Package Resolution
-Follow Node.js-style package resolution, but keep the early-phase rules explicit so browser, Deno, and package behavior do not drift.
+Follow the common package.json / `exports` / CommonJS-vs-ESM mechanics used by the Node ecosystem, but keep the early-phase Kali rules explicit so browser-targeted, Deno-oriented, and later Node-specific behavior do not drift.
 
 Terminology simplification:
 - use the cross-spec term **package-resolution context** from [SPEC.md](../SPEC.md) for the normalized package-selection inputs: `apiSurface` plus module edge kind (`import` vs `require`)

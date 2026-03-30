@@ -118,6 +118,7 @@ Use this checklist:
 - JSON field names, payload schemas, artifact kinds/roles, and generated metadata-file shapes such as C ABI embedding metadata belong to [`specs/18-schemas.md`](./specs/18-schemas.md)
 - phase availability belongs to [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
+- host/API-layering wording should reuse the **host-support staircase**
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
 - library/export-oriented build wording should reuse the **compile intent**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
@@ -138,6 +139,18 @@ The selected host-facing ambient/runtime family:
 - `browser`
 
 `browser` is a **browser-targeted context** in early phases, not a promise of a standalone browser runtime.
+
+### Host-support staircase
+Kali's host/API story is intentionally staged as one small staircase rather than three equally mature runtimes:
+1. **Web baseline** — shared JS-visible baseline APIs used across supported surfaces
+2. **Deno-oriented standalone surface** — the Phase-1 primary runtime/API surface for Kali-hosted execution
+3. **Browser-targeted context** — Phase-1 ambient typing + bundle/build support that targets the real browser host rather than a standalone Kali browser runtime
+4. **Node compatibility surface** — later package-driven compatibility work, not a second Phase-1 primary host
+
+Rule:
+- chapters should prefer this staircase when explaining how Web baseline, Deno, browser-targeted support, and later Node compatibility relate
+- docs should avoid phrasing Node and browser support as though they were simply two more Phase-1 peers of the Deno standalone runtime
+- browser-targeted support and Node compatibility may both expand later, but they start from different contracts and should not be described as one generic "compatibility layer"
 
 ### Build mode
 The compilation-cost/performance dial:
@@ -512,7 +525,7 @@ These are all tracked elsewhere in the owning chapters and the maturity matrix; 
 
 ## Host/API Summary
 
-Phase-1 host posture:
+Using the canonical **host-support staircase**:
 - **standalone execution** is Deno-first,
 - **browser support** is analysis/build-first,
 - **Node compatibility** is a later ecosystem phase,
