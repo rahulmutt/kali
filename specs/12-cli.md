@@ -106,6 +106,11 @@ Effective-context validation rule:
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
 
+Shared source-graph gating rule:
+- `check`, `effects`, `build`, `run`, and `test` share the same participating runtime-profile / compatibility axes for `--wasm-threads` and `--compat eval` unless a later command-specific row says otherwise
+- explicit flags and inherited config are equivalent here too: `compilerOptions.runtimeProfiles = ["wasm-threads"]` and `compat.features = ["eval"]` must trigger the same maturity gate as the corresponding CLI flags instead of being silently ignored because the user omitted the explicit flag spelling
+- command sections may show only representative examples for those shared gates to keep the CLI chapter readable; [19 — Feature Maturity](19-feature-maturity.md) remains the availability owner
+
 Package-analysis flag/context simplification:
 - follow the canonical command-context axis participation table, `analysis context` term, **registry-analysis context split**, and **registry-analysis command split** in [SPEC.md](../SPEC.md)
 - practical shortcut: the canonical **source-graph commands** from [SPEC.md](../SPEC.md) own the explicit `--api` / `--compat` / `--wasm-threads` flag family; registry-analysis commands do not
