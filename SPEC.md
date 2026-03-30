@@ -127,6 +127,7 @@ Use this checklist:
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
 - registry-package CLI/manifest spelling versus structured JSON package metadata should reuse the **registry package identifier vs package coordinate** term instead of re-explaining the `jsr:` prefix split in slightly different ways
 - package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
+- package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
 
 Practical rule:
 - if a chapter needs more than a short paragraph to restate one of those shared rules, add or reuse a canonical term here instead of creating another near-duplicate explanation.
@@ -448,6 +449,23 @@ Rules:
 - in configless mode, this context is therefore just the schema-v1 defaults,
 - top-level `sandbox` and `buildMode` are outside this term in early phases,
 - if a later spec adds package-analysis-specific CLI context flags, that later spec can extend this term explicitly instead of forcing every chapter to restate the whole inheritance rule.
+
+### Axis-aligned inherited analysis gating
+The schema-v1 rule for how `package-effects` availability interacts with its **effective inherited analysis context**.
+
+In schema v1 this means:
+- `package-effects` first follows its own base maturity row,
+- once the command exists, each inherited analysis axis reuses the same maturity gate as the corresponding ordinary analysis/effect command path,
+- Kali must not invent a package-analysis-specific shadow gate table or silently fall back to a smaller context.
+
+Canonical consequences:
+- inherited `apiSurface = browser` reuses the browser-targeted analysis gate,
+- inherited `apiSurface = node` reuses the Node analysis gate,
+- inherited `runtimeProfiles = ["wasm-threads"]` reuses the threaded-profile gate,
+- inherited `compat.features = ["eval"]` reuses the compatibility-feature gate.
+
+Rule:
+- use this term instead of re-listing those axis-by-axis examples when a chapter means this exact package-effects maturity behavior.
 
 ### Context-free registry analysis (schema v1)
 The early schema-v1 rule for registry-analysis commands whose semantics intentionally do not depend on inherited host-analysis/runtime configuration.

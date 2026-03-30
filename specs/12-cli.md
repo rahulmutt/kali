@@ -109,6 +109,7 @@ Effective-context validation rule:
 Package-analysis flag/context simplification:
 - follow the canonical command-context axis participation table, `analysis context` term, and **registry-analysis context split** in [SPEC.md](../SPEC.md)
 - `kali package-effects` is a **Phase 2 target** and, once available, inherits only the semantic analysis axes (`apiSurface`, `runtimeProfiles`, `compat.features`) through the shared **effective inherited analysis context** from [SPEC.md](../SPEC.md); it records that context in `report.analysisContext` using the emitted field names `apiSurface`, `runtimeProfiles`, and `compatFeatures` instead of growing package-analysis-specific `--api` / runtime-profile / `--compat` flags
+- inherited-context maturity for `package-effects` follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md)
 - `buildMode` and `sandbox` remain non-semantic for `package-effects` in early phases
 - `kali package-audit` is a **Later compatibility** single-package registry tool and, once available, follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md)
 - examples later in this chapter describe the canonical command shape/output contract for these registry-analysis commands, not an unconditional promise that they are already available in Phase 1
@@ -209,7 +210,7 @@ kali run --max-open-files 32 main.ts       # Open-file-handle limit
 kali run --max-spawned-processes 0 main.ts # Disallow child processes for this run
 kali run --api node main.ts                # Use Node.js API surface (Phase 3 target)
 kali run --api deno main.ts                # Use Deno API surface (default)
-kali run --api browser main.ts             # Rejected in early standalone phases; browser is a browser-targeted context first
+kali run --api browser main.ts             # Later compatibility; unavailable in early standalone phases because browser is a browser-targeted context first
 kali run --wasm-threads main.ts            # Enable WASM threads (SharedArrayBuffer, Atomics; opt-in only)
 ```
 
@@ -383,7 +384,7 @@ kali test --sandbox kali.policy.json       # Run tests in sandbox
 kali test --coverage                       # Phase 2 target: with coverage report once the stable contract lands
 kali test --api deno                       # Supported early standalone test profile
 kali test --api node                       # Phase 3 target
-kali test --api browser                    # Rejected in early phases; browser is an analysis/build context first
+kali test --api browser                    # Later compatibility; unavailable in early phases because browser is an analysis/build context first
 ```
 
 Canonical discovery rule:
@@ -500,7 +501,7 @@ Analysis scope rule:
 - the nested `report.entryPoints` field should name that package-analysis logical root using the same canonical registry identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than an opaque tarball URL or cache path
 - follow the shared **registry-analysis context split** and **effective inherited analysis context** terms from [SPEC.md](../SPEC.md): `package-effects` inherits its semantic analysis context from defaults/discovered config rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox` in schema v1
 - practical consequence: non-default `package-effects` contexts currently come only from that **effective inherited analysis context**. In configless mode, the command therefore stays on the schema-v1 defaults (`apiSurface = deno`, `runtimeProfiles = []`, `compat.features = []`) instead of offering package-analysis-only CLI escape hatches
-- inherited analysis context follows the same axis-specific maturity gates as the rest of effect analysis rather than a package-only shadow rule set; if the inherited context is still unavailable, the command should fail with `E5006` rather than silently analyzing under some other context
+- inherited-context maturity follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is still unavailable, the command should fail with `E5006` rather than silently analyzing under some other context
 - inherited `apiSurface = browser` is the intended browser-targeted package-analysis path once `kali package-effects` exists in Phase 2; that keeps package analysis aligned with the same browser ambient typing layer and browser **package-resolution context** used by `kali check --api browser`
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
 

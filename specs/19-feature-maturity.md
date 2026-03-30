@@ -95,7 +95,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | Browser API surface for supported analysis/build commands (`--api browser`), including ambient DOM typings for those commands | Phase 1 MVP | Phase 1 enables browser-targeted analysis/build against the real browser ambient surface for `check` and `build --bundle`, including the DOM typings normally expected in browser programs, without claiming DOM support in Kali's standalone runtime; this status requires its own browser-targeted evidence track rather than inference from standalone runtime tests, and later analysis commands may reuse that same browser context once their own maturity rows allow it |
 | `package.json#exports` condition `deno` for `--api deno` resolution | Phase 1 MVP | Aligns package resolution with the default Deno-oriented standalone API surface |
 | `package.json#browser` replacement maps and `exports` condition `browser` in browser-targeted analysis/build contexts | Phase 1 MVP | Needed for practical browser-targeted npm compatibility without widening standalone runtime claims; supported browser-targeted commands should share one browser **package-resolution context** (browser `exports` condition order plus any applicable `package.json#browser` rewrites) rather than inventing per-command ladders |
-| `run --api browser` | Rejected by default | Early standalone runtime does not emulate a browser host |
+| `run --api browser` | Later compatibility | Early standalone runtime does not emulate a browser host; reject with `E5006` until a real browser-execution contract exists |
 | npm lifecycle scripts (`kali install --allow-scripts`) | Opt-in only | Disabled by default for sandbox-first behavior; this is an install-time package-hook escape hatch, not evidence of `--api node` support or participation in the normal sandbox/effect-report contract |
 | Automatic dependency installation or lockfile/materialization repair during `check` / `effects` / `build` / `run` / `test` | Rejected by default | Keeps dependency state deterministic and makes `kali install` the single mutating dependency-management command; missing/stale state should fail with `E5004` instead of being repaired implicitly |
 | Packages whose normal install/runtime path depends on native addons, compiled native code, postinstall-downloaded executables, or other platform-specific binary/bootstrap artifacts | Rejected by default | Violates the pure-Rust/no-native-addon goal, weakens deterministic install expectations, and should not be implied by `--allow-scripts` |
@@ -136,7 +136,7 @@ Interpretation rule:
 - for `build` rows, the selected artifact mode also fixes the shared **compile intent** from [SPEC.md](../SPEC.md): default/no selector and `--bundle` are executable compile-intent paths, while `--lib` / `--capi` / `--component` are library compile-intent paths
 - in this command/profile matrix, the status label is a planning/maturity summary, not by itself the diagnostic choice: rows marked **Rejected by default** may still fail as `E5008` invalid usage or `E5006` unavailable-feature gating depending on the canonical handling column and the shared validation-order rules
 - for example, `kali build --capi --api node lib.ts` is listed as a **Phase 3 target** because that full combination cannot work before both the Phase-2 **public embedding artifact flow** and the Node surface exist, but an early implementation should still report the outermost failing gate first (`--capi` itself in Phase 1, then `--api node` once `--capi` exists but Node remains gated)
-- this keeps diagnostics stable for commands such as `package-effects`: before Phase 2, plain `kali package-effects lodash` should fail on the command's base maturity row; once the command exists, inherited analysis context follows the maturity of the inherited axis instead of a package-analysis-specific shadow matrix (`apiSurface = browser` follows the browser analysis row, `apiSurface = node` follows the Node analysis row, `runtimeProfiles = ["wasm-threads"]` follows the threaded-profile row, and `compat.features = ["eval"]` follows the compatibility-feature row)
+- this keeps diagnostics stable for commands such as `package-effects`: before Phase 2, plain `kali package-effects lodash` should fail on the command's base maturity row; once the command exists, inherited-context maturity follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) instead of a package-analysis-specific shadow matrix
 
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
@@ -170,7 +170,7 @@ Interpretation rule:
 | `kali run --sandbox kali.policy.json main.ts` | Phase 1 MVP | Runtime sandbox enforcement path; policy schema/ranges must validate before execution starts |
 | `kali run --api deno main.ts` | Phase 1 MVP | Supported standalone runtime path |
 | `kali run --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands |
-| `kali run --api browser main.ts` | Rejected by default | Reject with `E5006`; browser is an analysis/build context first |
+| `kali run --api browser main.ts` | Later compatibility | Reject with `E5006` until a real browser-execution contract exists; browser is an analysis/build context first |
 | `kali check` | Phase 1 MVP | Type-check the canonical project-discovery result with the default API surface (`apiSurface=deno`) |
 | `kali check main.ts` | Phase 1 MVP | Type-check with the canonical default API surface (`apiSurface=deno`) |
 | `kali check a.ts b.ts` | Phase 1 MVP | `check` follows the shared **set-oriented explicit-file** rule in early phases: multiple explicit files are allowed and should be checked as one explicit file set rather than rejected as though `check` were a single-entry direct command |
@@ -212,7 +212,7 @@ Interpretation rule:
 | declaration-only file passed to `run` / `effects` / `build` / `test` as a primary input | Rejected by default | Declaration files are analysis/type inputs, not executable entrypoints or build/effect primary inputs; use the canonical invalid-entrypoint diagnostic (`E5007`) rather than treating this as general CLI misuse |
 | `kali test --sandbox kali.policy.json` | Phase 1 MVP | Runtime sandbox enforcement path for tests; policy schema/ranges must validate before execution starts |
 | `kali test --api node` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for test runs too |
-| `kali test --api browser` | Rejected by default | Early browser support is an analysis/build context, not a standalone test-runtime profile |
+| `kali test --api browser` | Later compatibility | Reject with `E5006` until a real browser-test contract exists; early browser support is an analysis/build context, not a standalone test-runtime profile |
 | `kali test --coverage` | Phase 2 target | Coverage needs a stable machine-readable report contract instead of ad hoc runner output |
 | `kali effects` with no explicit primary source input | Rejected by default | `effects` is a direct-input command in early phases; omitting the analysis root should fail with `E5008` rather than permission to scan the project |
 | `kali effects a.ts b.ts` | Rejected by default | Early phases accept exactly one primary analysis root for `effects`; multi-entry reporting requires a later explicit mode, so this should fail with `E5008` |
@@ -341,7 +341,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Mutable environment access / process-environment mutation | Phase 3 target | Policy-controlled host mutation, not part of the Phase 1 baseline |
 | Subprocess spawning and socket/listener networking | Phase 3 target | Shares the same sandbox/process/network maturity path as the corresponding capability rows above |
 | Browser-targeted `check` and `build --bundle` | Phase 1 MVP | Browser-targeted builds execute against the real browser host via the browser host adapter, with browser ambient typings available during analysis/build but no standalone browser emulation; support claims require dedicated browser-targeted tests and real-browser bundle smoke coverage, and later browser-targeted analysis commands should reuse the same ambient typing layer and browser package-resolution context once their own rows become available |
-| Standalone `run --api browser` | Rejected by default | No embedded browser engine |
+| Standalone `run --api browser` | Later compatibility | No embedded browser engine yet; reject with `E5006` until a real browser-execution contract exists |
 | Node API surface across `check` / `effects` / `build` / `run` / `test` | Phase 3 target | Package-driven subset first; early phases reject `--api node` consistently rather than exposing a partial surface |
 | Threaded runtime profile / `--wasm-threads` | Later compatibility (opt-in only) | Runtime-profile switch, independent from API-surface selection |
 
