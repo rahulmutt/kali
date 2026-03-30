@@ -317,6 +317,7 @@ To keep spec edits small and still prevent drift, apply this minimum update set 
 - **sandbox/effect workflow change** → update [`specs/09-sandboxing.md`](./specs/09-sandboxing.md), then sync the corresponding command, diagnostic, schema, and maturity owners (`12`, `15`, `18`, `19`)
 - **embedding/artifact change** → update [`specs/13-embedding.md`](./specs/13-embedding.md) plus any affected artifact/schema/CLI owners (`08`, `12`, `18`, `19`)
 - **verification-claim change** → update [`specs/17-verification.md`](./specs/17-verification.md) and [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) together
+- **package workflow / registry-analysis change** → update [`specs/14-packages.md`](./specs/14-packages.md), then sync any affected command/output/error/availability owners (`12`, `15`, `18`, `19`)
 
 Shortcut:
 - if a change would alter what a release note could honestly claim, it is almost never a one-file edit

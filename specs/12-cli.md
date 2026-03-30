@@ -399,7 +399,7 @@ Checker diagnostics may still carry structured `SuggestedFix` metadata for edito
 ### `kali effects <file>`
 Output static effect analysis as JSON.
 
-Status: Phase 2 target. This section documents a **defined command family** in schema v1; in Phase 1 the command may still be unavailable or explicitly marked experimental while the internal effect infrastructure stabilizes.
+Status: Phase 2 target. This section documents a **defined command family** in schema v1; in Phase 1 the command may still be unavailable or explicitly marked experimental while the internal effect infrastructure stabilizes. JSON-formatting selectors do not create an earlier path: before the command itself ships, `kali effects --pretty ...` and `kali effects --output json ...` stay on the same base command gate as plain `kali effects ...`.
 ```bash
 kali effects main.ts                       # Compact effect report JSON to stdout (default API surface: deno)
 kali effects --api browser main.ts         # Browser-targeted effect analysis once the Phase 2 command exists
