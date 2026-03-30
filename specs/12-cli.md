@@ -90,10 +90,11 @@ Effective-context validation rule:
 
 Package-analysis flag/context simplification:
 - follow the canonical command-context axis participation table and `analysis context` term in [SPEC.md](../SPEC.md)
-- `kali package-effects`, when implemented, intentionally does **not** grow its own parallel analysis-context flag set in early phases (`--api`, runtime-profile flags such as `--wasm-threads`, or `--compat`); instead it records the inherited analysis context in `report.analysisContext`
+- `kali package-effects` is a **Phase 2 target** and intentionally does **not** grow its own parallel analysis-context flag set in early phases (`--api`, runtime-profile flags such as `--wasm-threads`, or `--compat`); instead it records the inherited analysis context in `report.analysisContext`
 - that inherited package-effects context is limited to the semantic analysis axes (`apiSurface`, `runtimeProfiles`, `compat.features`); `buildMode` and `sandbox` remain non-semantic for the command in early phases
-- `kali package-audit` likewise stays a single-package registry tool in early phases and does **not** add package-analysis-specific analysis-context flags (`--api`, runtime-profile flags, or `--compat`) before there is a documented need
+- `kali package-audit` is a **later-compatibility** single-package registry tool and does **not** add package-analysis-specific analysis-context flags (`--api`, runtime-profile flags, or `--compat`) before there is a documented need
 - unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and `sandbox` do not change its semantics
+- examples later in this chapter describe the canonical command shape/output contract for these registry-analysis commands, not an unconditional promise that they are already available in Phase 1
 
 Sandbox-flag clarification:
 - the CLI `--sandbox <policy>` flag is reserved for the canonical sandbox-aware commands: `run`, `test`, `check`, and `build`
@@ -439,7 +440,7 @@ Project-state rule:
 - that analysis cache is intentionally outside the project's managed dependency state: it may be discarded between invocations and is not a lockfile-backed installation target
 - turning an analyzed package into a project dependency remains the job of `kali install`
 
-Status: depends on the Phase 2 effect-report pipeline; if package-level analysis is not yet implemented, the CLI should report that clearly instead of returning partial ad hoc output.
+Status: **Phase 2 target**. Before then, if package-level analysis is unavailable, the CLI should report that clearly instead of returning partial ad hoc output.
 ```bash
 kali package-effects lodash                # Analyze npm package
 kali package-effects jsr:@std/path         # Analyze JSR package
@@ -457,7 +458,6 @@ Analysis scope rule:
 - the inherited context is still subject to the normal maturity rules for that command; for example, if config selects `apiSurface = node`, `runtimeProfiles = ["wasm-threads"]`, or `compat.features = ["eval"]` before those analysis modes are supported, `kali package-effects` should fail with `E5006` rather than silently analyzing under some other context
 - inherited `apiSurface = browser` is the intended browser-targeted package-analysis path once `kali package-effects` exists in Phase 2; that keeps package analysis aligned with the same browser ambient/package-selection context used by `kali check --api browser`
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
-- the nested `report.entryPoints` field names those package-analysis roots using the shared effect-report schema
 
 ### `kali package-audit <package>`
 Security audit for one registry package.
@@ -474,7 +474,7 @@ Project-state rule:
 - any temporary audit/package-analysis cache is outside the project's managed dependency state and may be discarded between invocations
 - because schema-v1 package audit is registry-oriented rather than project-lock-oriented, it likewise resolves using the shared stable-release rule from [specs/14-packages.md](14-packages.md) instead of consulting the current project's manifest or lockfile by default
 
-Status: later tooling feature. It should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
+Status: **Later compatibility**. It should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
 ```bash
 kali package-audit lodash                  # Audit specific npm package
 kali package-audit jsr:@std/path           # Audit specific JSR package

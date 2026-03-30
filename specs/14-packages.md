@@ -405,10 +405,16 @@ To keep schema v1 small and avoid undocumented config surface area, early-phase 
 
 ## Package Analysis
 
-Independently of project install state, Kali can analyze a registry package:
+Independently of project install state, Kali can analyze a registry package through the **registry-analysis commands**.
+
+Status boundary:
+- `kali package-effects <pkg>` is a **Phase 2 target** that reuses the shared effect-report contract for one registry package
+- `kali package-audit <pkg>` is a **later-compatibility** registry tool and should not be implied by Phase 1-2 compiler/runtime readiness
+- the examples below describe the canonical command shape and result contract for these workflows, not an unconditional claim that both commands are already available in Phase 1
+
 ```bash
-kali package-effects lodash                 # Show effects used by package
-kali package-audit lodash                   # Security audit
+kali package-effects lodash                 # Show effects used by package (Phase 2 target)
+kali package-audit lodash                   # Security audit (later compatibility)
 ```
 
 Argument-kind simplification:
@@ -427,7 +433,7 @@ Isolation rule:
 - they must **not** mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
 - promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
 
-`kali package-effects` depends on the Phase 2 effect-report pipeline. Until that lands, the command should be clearly unavailable or marked experimental rather than returning a partial bespoke format.
+Because `kali package-effects` is a Phase 2 target and depends on the shared effect-report pipeline, it should stay clearly unavailable or explicitly experimental until that pipeline lands rather than returning a partial bespoke format.
 
 Canonical output simplification:
 - `kali package-effects <pkg>` should reuse the same effect vocabulary and `dynamicReasons` contract as `kali effects`
@@ -442,6 +448,6 @@ Canonical output simplification:
 - the nested shared effect report still summarizes the full statically reachable package graph selected for analysis under that recorded context; it is not just a manifest-level metadata report
 - `--output json` wraps that payload in the standard CLI command envelope; it does not create a third package-effects-only outer format
 
-`kali package-audit` is a later tooling feature rather than a core compiler/runtime milestone. Keeping it single-package in early phases avoids an ambiguous no-argument "audit the whole project" mode that would otherwise overlap with future dependency-health workflows. It also keeps the flag surface small: like `package-effects`, `package-audit` does **not** take package-analysis-specific analysis-context flags (`--api`, runtime-profile flags such as `--wasm-threads`, or `--compat`) or `--sandbox` in early phases unless a later spec explicitly adds them. Unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics. In schema v1, its package target is likewise selected by the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1) rather than from any ambient project lockfile selection. If unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee. If/when machine-readable audit output is added, it should use the standard `--output json` command envelope rather than inventing a second native bare-JSON format.
+`kali package-audit` is a later-compatibility tooling feature rather than a core compiler/runtime milestone. Keeping it single-package in early phases avoids an ambiguous no-argument "audit the whole project" mode that would otherwise overlap with future dependency-health workflows. It also keeps the flag surface small: like `package-effects`, `package-audit` does **not** take package-analysis-specific analysis-context flags (`--api`, runtime-profile flags such as `--wasm-threads`, or `--compat`) or `--sandbox` in early phases unless a later spec explicitly adds them. Unlike `package-effects`, early `package-audit` is **context-free**: inherited `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox` do not change its semantics. In schema v1, its package target is likewise selected by the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1) rather than from any ambient project lockfile selection. If unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee. If/when machine-readable audit output is added, it should use the standard `--output json` command envelope rather than inventing a second native bare-JSON format.
 
 This integrates with the effect system — know what a dependency does before you use it.
