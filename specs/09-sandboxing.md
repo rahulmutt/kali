@@ -3,7 +3,7 @@
 ## Overview
 
 Sandboxing is a first-class concern in Kali. The system combines:
-1. **Static effect analysis** — maintain a conservative capability-summary model, with a stable user-facing JSON report starting in Phase 2
+1. **Static effect analysis** — maintain a conservative capability-summary model from Phase 1 onward; the stable public surface opens later as the split **public effect-report surface**
 2. **Sandbox policies** — declarative rules for what's allowed
 3. **Runtime limits** — cross-cutting resource budgets (CPU, memory, open files, processes, threads) plus selected capability-local caps such as the `timer` family and network-connection limits
 
@@ -44,8 +44,11 @@ The static effect system is intentionally scoped around **sandbox-relevant capab
 Phase simplification:
 - follow the shared **effect-surface split** from [SPEC.md](../SPEC.md)
 - **Phase 1**: **internal effect bookkeeping** may exist to support diagnostics/runtime integration, but the user-facing contract is runtime sandbox enforcement, policy-schema validation, and resource limits rather than the stable **public effect-report surface**
-- **Phase 2 target**: that **public effect-report surface** arrives — `kali effects`, `kali package-effects`, compile/check-time effect-vs-policy validation, and explicit `pure` / effect annotations become part of the supported workflow
-- [19 — Feature Maturity](19-feature-maturity.md) now splits that Phase-2 promise explicitly into the **reporting** half and the **compile/check-time inferred-effect-vs-policy validation** half so other chapters do not need to imply one from the other
+- **Phase 2 target**: that stable **public effect-report surface** opens in two explicit halves so reporting and pass/fail policy comparison do not get conflated:
+  - **reporting half** — `kali effects`, `kali package-effects`, and the stable effect JSON contract
+  - **policy-comparison half** — compile/check-time inferred-effect-vs-policy validation on `kali check --sandbox` / `kali build --sandbox`
+- explicit `pure` / effect annotations join that same Phase-2 effect workflow rather than creating a third parallel surface
+- [19 — Feature Maturity](19-feature-maturity.md) keeps those two Phase-2 halves as separate maturity rows so other chapters do not need to imply one from the other
 
 This keeps the sandbox-first story implementable: enforcement exists from the beginning, while the stable effect-report contract lands once the type/effect infrastructure is ready.
 

@@ -22,17 +22,18 @@ These stay fixed across phases unless the top-level spec is intentionally change
 - deterministic machine-readable contracts for CLI output, diagnostics, and artifacts
 
 ## Phase 1 snapshot
-Phase 1 is intentionally narrow:
-- **Deno-first** standalone execution
-- browser support is limited to the shared **Phase-1 browser-targeted command set**: browser-targeted `check` (either the project-discovery no-file form or an explicit file set) plus its supported `--sandbox` variants, and browser-targeted `build --bundle <file>` plus its supported `--sandbox` variants, in both explicit-flag and equivalent inherited-config forms when the effective `apiSurface` is `browser`
-- broader `--api node` support comes later
-- sandboxing in Phase 1 is split on purpose: `run/test --sandbox` enforce at runtime, while `check/build --sandbox` perform policy-schema/config validation only; inferred-effect-vs-policy rejection is later
-- internal effect bookkeeping may exist, but the stable public effect-report surface is later and intentionally split into a **reporting** half (`kali effects`, `kali package-effects`) and a **policy-comparison** half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`)
-- package support in Phase 1 is broad only inside the shared **pure JS/TS package contract**: pure JS/TS npm/JSR packages plus raw URL imports are in scope when their host assumptions fit either the default Deno-oriented standalone surface or the shared browser-targeted command set; native/binary/bootstrap-heavy packages stay out of scope by default
-- `kali build --lib` ships only as a Phase-1 **base library artifact** for exact-version/internal consumers in the shared **Deno-oriented build context (schema v1)**; the stable public embedding surface comes later
-- verification in Phase 1 is **proof-ready**, not automatically **proof-backed**; today the repository's published proof boundary is still the placeholder/no-mechanized-coverage state described in [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md)
+Phase 1 is intentionally narrow and should be read through the same shipped-surface boundaries as [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md):
+- **Project workflow**: `kali init`, `kali install`, `kali fmt`, `kali lint`, and `kali check [files...]` ship as the core developer loop
+- **Execution**: **Deno-first** standalone `kali run <file>` and `kali test [files...]` ship, including runtime `--sandbox` enforcement
+- **Build**: `kali build <file>` ships in the shared **Deno-oriented build context (schema v1)**; `kali build --lib <file>` ships only as the Phase-1 **base library artifact** for exact-version/internal consumers in that same context
+- **Browser support**: limited to the shared **Phase-1 browser-targeted command set** — browser-targeted `check [files...]` plus browser-targeted `build --bundle <file>`, including supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`
+- **Node support**: broader `--api node` command paths come later; Phase 1 must not imply partial Node runtime/build support
+- **Sandbox/effects split**: `run/test --sandbox` enforce at runtime, while `check/build --sandbox` do policy-schema/config validation only in Phase 1; internal effect bookkeeping may exist, but the stable public effect-report surface opens later and stays explicitly split into a **reporting** half (`kali effects`, `kali package-effects`) and a **policy-comparison** half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`)
+- **Packages**: Phase 1 package support is broad only inside the shared **pure JS/TS package contract**; pure JS/TS npm/JSR packages plus raw URL dependency workflows are in scope when their host assumptions fit either the default Deno-oriented standalone surface or the shared browser-targeted command set, while native/binary/bootstrap-heavy packages stay out of scope by default
+- **Registry analysis**: no stable public `kali package-audit` workflow yet
+- **Verification**: Phase 1 is **proof-ready**, not automatically **proof-backed**; the current published boundary remains the placeholder/no-mechanized-coverage state described in [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md)
 
-For the compact shipped/not-shipped answer, see the **Phase-1 Shipped Surface Summary** in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
+For the compact shipped/not-shipped answer, use the **Phase-1 Shipped Surface Summary** in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) as the canonical quick reference.
 
 ## Bootstrap normalization highlights
 A few broad bootstrap asks are intentionally normalized into smaller cross-spec contracts:
