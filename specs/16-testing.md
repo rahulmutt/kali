@@ -81,8 +81,8 @@ let x: number = "hello";
 Because Kali aims to support real npm/JS ecosystems, package compatibility needs its own evidence track rather than anecdotal one-off testing:
 - maintain a curated corpus of representative packages (validators, parsers, utility libraries, browser-targeted libs, selected Node-host-heavy packages once Phase 3 begins)
 - record whether each package is expected to `check`, `build`, `test`, or `run` under each supported profile
-- treat package suites as phase-scoped contracts: Phase 1 corpus targets pure JS/TS packages that fit the linked-artifact model; later corpora can add harder Node/browser packages
-- keep binary/bootstrap-heavy packages in a clearly separate exclusion/negative track so `--allow-scripts` evidence does not get misreported as general support for native-addon or downloaded-binary package contracts
+- treat package suites as phase-scoped contracts: Phase 1 corpus targets packages inside the shared **pure JS/TS package contract** that fit the linked-artifact model; later corpora can add harder Node/browser packages
+- keep packages in the excluded **native/binary/bootstrap-heavy package contract** in a clearly separate exclusion/negative track so `--allow-scripts` evidence does not get misreported as general support for that contract
 - failures should distinguish resolution/type-check/runtime/sandbox causes so roadmap gaps are visible
 
 #### Browser-Targeted Evidence Track

@@ -103,7 +103,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | `run --api browser` | Later compatibility | Early standalone runtime does not emulate a browser host; reject with `E5006` until a real browser-execution contract exists |
 | npm lifecycle scripts (`kali install --allow-scripts`) | Opt-in only | Disabled by default for sandbox-first behavior; this uses the shared **install-time npm-package hook path** from [SPEC.md](../SPEC.md), not evidence of `--api node` support or participation in the normal sandbox/effect-report contract |
 | Automatic dependency installation or lockfile/materialization repair during `check` / `effects` / `build` / `run` / `test` | Rejected by default | Keeps dependency state deterministic and makes `kali install` the single mutating dependency-management command; missing/stale state should fail with `E5004` instead of being repaired implicitly |
-| Packages whose normal install/runtime path depends on native addons, `node-gyp`, N-API bindings, compiled native code, prebuilt native modules, postinstall-downloaded executables, or other platform-specific binary/bootstrap artifacts | Rejected by default | Violates the pure-Rust/no-native-addon goal, weakens deterministic install expectations, and must not be implied by `--allow-scripts` |
+| Packages whose normal install/runtime path falls into the shared **native/binary/bootstrap-heavy package contract** | Rejected by default | Falls outside the shared **pure JS/TS package contract**, weakens deterministic install expectations, and must not be implied by `--allow-scripts` |
 | npm packages that require unsupported Node core modules | Phase 3 target | Depends on broader `--api node` compatibility work |
 | Phase-1 **base library artifact** (`kali build --lib`) | Phase 1 MVP | This is the Phase-1 side of the shared **embedding-stability split**: projects can build non-executable exported modules early without waiting for the later **public embedding surface** to freeze |
 | Stable public Rust embedding API | Phase 2 target | Part of the Phase-2 **public embedding surface** side of that same split |
@@ -248,7 +248,7 @@ Interpretation rule:
 | `kali package-audit --compat eval lodash` | Rejected by default | Early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md) and does not take package-analysis-specific `--api` / runtime-profile / `--compat` flags, so this is invalid command usage (`E5008`) unless a later spec adds those flags |
 | `kali package-audit --wasm-threads lodash` | Rejected by default | Early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md) and does not take package-analysis-specific runtime-profile flags, so this is invalid command usage (`E5008`) unless a later spec adds that mode |
 | `kali package-audit --sandbox kali.policy.json lodash` | Rejected by default | Early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md); top-level config sandbox is ignored for it, and the CLI `--sandbox` flag is invalid usage (`E5008`) |
-| `kali install --allow-scripts <npm-pkg>` | Opt-in only | Explicit-package example of the same `--allow-scripts` contract above: lifecycle hooks are permitted only for that npm-targeted install work, while native addons, `node-gyp`, N-API/prebuilt native modules, and other binary/bootstrap-heavy packages remain rejected and this still does not imply Node-runtime or project-sandbox support |
+| `kali install --allow-scripts <npm-pkg>` | Opt-in only | Explicit-package example of the same `--allow-scripts` contract above: lifecycle hooks are permitted only for that npm-targeted install work, while the excluded **native/binary/bootstrap-heavy package contract** remains rejected and this still does not imply Node-runtime or project-sandbox support |
 | `kali run/test --max-spawned-processes 0 ...` | Phase 1 MVP | `0` is a valid explicit deny/tightening value even before subprocess support exists; only non-zero values are phase-gated |
 | `kali run/test --max-spawned-processes N` with `N > 0` before subprocess support exists | Rejected by default | Reject with `E5006` until the selected command/profile/API surface actually supports subprocesses |
 | `kali run/test --max-threads 0 ...` | Phase 1 MVP | `0` is a valid explicit deny/tightening value even before the threaded runtime profile exists; only non-zero values are phase-gated |
@@ -353,13 +353,13 @@ This appendix separates the broad compatibility story into smaller tables so lan
 
 | Concern | Early canonical status | Notes |
 |---|---|---|
-| Pure JS/TS npm packages within the linked-artifact model | Phase 1 MVP | Restricted to the pure JS/TS package contract; no native addons, N-API bindings, or binary/bootstrap install contracts |
+| Pure JS/TS npm packages within the linked-artifact model | Phase 1 MVP | Restricted to the shared **pure JS/TS package contract** |
 | Pure JS/TS JSR packages within the linked-artifact model | Phase 1 MVP | Registry-style install/lock/materialization path just like npm in early phases |
 | Raw URL imports in the shared lock/materialization model | Phase 1 MVP | Pin in `kali.lock`, materialize under `.kali/cache/urls/`, and keep ordinary commands deterministic |
 | Deno-condition package resolution in the default standalone surface | Phase 1 MVP | Honor `exports` condition `deno` when `--api deno` is selected |
 | Browser-condition package resolution in supported browser-targeted analysis/build contexts | Phase 1 MVP | Shared browser package-resolution context for `check --api browser` and `build --bundle --api browser`: honor `exports` condition `browser` plus applicable `package.json#browser` replacement maps consistently |
 | npm lifecycle scripts | Opt-in only | `kali install --allow-scripts`; install-time package hooks stay outside the normal runtime API-surface and project-policy contracts |
-| Native/binary/bootstrap-dependent packages | Rejected by default | Includes native addons, `node-gyp`, N-API/prebuilt native modules, and platform-specific downloaded executables; `--allow-scripts` must not silently broaden support to them |
+| Packages in the native/binary/bootstrap-heavy package contract | Rejected by default | The excluded shared package contract stays unsupported; `--allow-scripts` must not silently broaden support to it |
 | Broader Node-host-heavy npm compatibility | Phase 3 target | Depends on meaningful Node API support |
 
 ## Hard-Feature Implementation Stage Matrix

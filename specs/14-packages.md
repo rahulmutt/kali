@@ -11,20 +11,17 @@ Ownership rule:
 - [18 — Schemas](18-schemas.md) owns the machine-readable payloads emitted by package-analysis commands
 
 ### Supported Packages
-Kali supports registry packages (npm/JSR) that stay inside the **pure JS/TS package contract**:
-- package code is JavaScript/TypeScript rather than a native host module
-- the package uses standard module systems (ESM or CJS)
-- the package's normal install/runtime path does **not** depend on native addons, `node-gyp`, N-API bindings, prebuilt native modules, or install-time binary/bootstrap selection
+Kali supports registry packages (npm/JSR) that stay inside the shared **pure JS/TS package contract** from [SPEC.md](../SPEC.md).
 
 Phase simplification:
-- **Phase 1 MVP**: packages that fit that pure JS/TS contract, do not depend on unsupported Node core modules, and fit the linked-artifact model.
+- **Phase 1 MVP**: packages that fit that contract, do not depend on unsupported Node core modules, and fit the linked-artifact model.
 - **Phase 3 target**: broader compatibility for packages that expect the `node` API surface and additional Node built-ins.
 
-This keeps the early ecosystem promise realistic: utility libraries, validators, parsers, and many framework packages are in scope early, while Node-host-heavy or native/binary-bootstrap-heavy packages follow later compatibility work.
+This keeps the early ecosystem promise realistic: utility libraries, validators, parsers, and many framework packages are in scope early, while Node-host-heavy packages and the excluded **native/binary/bootstrap-heavy package contract** follow later compatibility work.
 
-Install-time binary/bootstrap clarification:
-- packages whose normal install/runtime path depends on compiling native code, loading N-API/native-addon modules, downloading platform-specific executables, or selecting prebuilt host binaries at install time are outside the Phase 1 compatibility promise even if the top-level package sources are mostly JS/TS
-- `--allow-scripts` may permit the hook to run for analysis/installation workflows, but it must not be misread as a promise that Kali supports the resulting native/binary package contract end-to-end
+Install-time clarification:
+- packages whose normal install/runtime path falls into the **native/binary/bootstrap-heavy package contract** stay outside the Phase 1 compatibility promise even if most of their published sources are JS/TS
+- `--allow-scripts` may permit the hook to run for analysis/installation workflows, but it must not be misread as a promise that Kali supports that excluded package contract end-to-end
 
 ## Canonical Phase-1 Package-Compatibility Interpretation
 
@@ -37,7 +34,7 @@ Concretely, a package can be supported in Phase 1 when:
 - its module format can be handled by Kali's ESM/CJS pipeline,
 - and its runtime needs are satisfied by the documented Phase 1 Web baseline plus Deno-oriented standalone surface.
 
-A package is **not** automatically in scope just because it lives in npm or JSR. If it depends on broader Node globals/core modules or breaks the pure JS/TS package contract (for example native/N-API/prebuilt modules), it stays phase-gated or rejected with the rest of that compatibility work.
+A package is **not** automatically in scope just because it lives in npm or JSR. If it depends on broader Node globals/core modules or falls into the **native/binary/bootstrap-heavy package contract**, it stays phase-gated or rejected with the rest of that compatibility work.
 
 ## Dependency Source Kinds
 
@@ -228,7 +225,7 @@ To preserve sandbox-first behavior:
 - pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
 - pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
 - mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm install-work subset while the non-npm subset stays on the normal script-free path
-- packages requiring native build steps, N-API/native-addon loading, postinstall-downloaded executables, or other platform-specific binary/bootstrap artifacts are rejected as unsupported even when lifecycle scripts are enabled
+- packages in the excluded **native/binary/bootstrap-heavy package contract** are rejected as unsupported even when lifecycle scripts are enabled
 - package metadata and tarballs can still be analyzed before linking
 - follow the shared **install-time npm-package hook path** boundary: this opt-in does **not** imply `--api node`, broader Node package/runtime compatibility, or coverage by the normal `kali effects` / `kali.policy.json` contract
 - raw URL installs stay outside this escape hatch entirely because they have no registry lifecycle-script surface

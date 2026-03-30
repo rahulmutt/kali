@@ -419,7 +419,7 @@ Scaffold simplification rules:
 ### `kali install [target]`
 Install or materialize project dependencies.
 
-Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that require native addons or install-time binary/bootstrap artifacts remain unsupported even when scripts are enabled.
+Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that fall into the shared **native/binary/bootstrap-heavy package contract** from [SPEC.md](../SPEC.md) remain unsupported even when scripts are enabled.
 
 Boundary rule:
 - `--allow-scripts` selects the schema-v1 **install-time npm-package hook path** from [SPEC.md](../SPEC.md), not a runtime/API-surface feature
@@ -429,7 +429,7 @@ Boundary rule:
 - pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
 - pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
 - mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm install-work subset while the non-npm subset stays on the normal script-free path
-- follow the same boundary from [SPEC.md](../SPEC.md): this path does **not** imply `--api node`, does not cause lifecycle scripts to participate in `kali effects`, does not make project `--sandbox` / `kali.json#sandbox` govern install-time hook execution, and does not make native addons, `node-gyp`, or install-time binary/bootstrap package contracts supported
+- follow the same boundary from [SPEC.md](../SPEC.md): this path does **not** imply `--api node`, does not cause lifecycle scripts to participate in `kali effects`, does not make project `--sandbox` / `kali.json#sandbox` govern install-time hook execution, and does not make the excluded **native/binary/bootstrap-heavy package contract** supported
 - package-compatibility claims for normal `check` / `build` / `run` / `test` remain separate from this narrower opt-in install behavior
 ```bash
 kali install lodash                        # Add/install registry dependency from npm
@@ -437,7 +437,7 @@ kali install jsr:@std/path                 # Add/install registry dependency fro
 kali install                               # Materialize all declared dependencies for the project
 kali install --allow-scripts               # Permit lifecycle hooks only when this invocation actually has effective npm-scriptable install work; otherwise invalid usage (E5008)
 kali install --dev vitest                  # Add/install dev dependency
-kali install --allow-scripts lodash        # Opt into lifecycle scripts for one npm package install; invalid for explicit `jsr:` or raw-URL targets; still not a promise that binary/bootstrap-heavy packages are supported
+kali install --allow-scripts lodash        # Opt into lifecycle scripts for one npm package install; invalid for explicit `jsr:` or raw-URL targets; still not a promise that the excluded native/binary/bootstrap-heavy package contract is supported
 kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency
 ```
 

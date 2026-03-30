@@ -32,7 +32,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Host support | `--api deno` for Kali-hosted execution; `--api browser` only for browser-targeted `check` and `build --bundle`; `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema validation for `check`/`build`, no project-executed policy code |
 | Effects | Internal effect bookkeeping may exist, but stable `kali effects` / `package-effects` reporting waits for Phase 2 |
-| Packaging | One lock/install state, pure JS/TS registry packages first, no native addons / `node-gyp` / binary bootstrap contracts |
+| Packaging | One lock/install state, registry support first for the **pure JS/TS package contract**, and rejection by default for the **native/binary/bootstrap-heavy package contract** |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib`; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging |
 | Tooling | Deno-like CLI, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports |
 
@@ -69,7 +69,7 @@ This table is the compact “where did each bootstrap ask land?” view.
 | No tracing GC / explicit memory decisions | No tracing/background GC; deterministic ownership, escape analysis, and layout decisions are the core memory story | [`specs/06-memory.md`](./specs/06-memory.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Aggressive specialization + layout-aware IR | Optimization is staged: explicit layout-aware IR plus specialization deepen over Phases 2-3 without weakening auditability | [`specs/05-ir.md`](./specs/05-ir.md), [`specs/07-specialization.md`](./specs/07-specialization.md) |
 | Deno, Node, and browser support | Phase 1 is Deno-first with browser-targeted analysis/build; Node is phase-gated until Phase 3 | [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
-| npm / JSR / raw-URL package access | Early package support is broad for pure JS/TS packages that fit the linked-artifact model, but narrow for native/binary/bootstrap-heavy contracts | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| npm / JSR / raw-URL package access | Early package support is broad for packages inside the **pure JS/TS package contract** that fit the linked-artifact model, but narrow for the excluded **native/binary/bootstrap-heavy package contract** | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Embeddability, C ABI, WIT, Component Model | Phase 1 ships the base `--lib` artifact; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and component packaging | [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Latest published ECMA-262 boundary | Kali tracks the latest **published** ECMA-262 edition; draft or proposal semantics stay explicitly experimental rather than implied | [`specs/02-lexer-parser.md`](./specs/02-lexer-parser.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Pure Rust implementation / no embedded C or C++ | Implementation choices must preserve the pure-Rust host/runtime/toolchain contract rather than smuggling in embedded C/C++ dependencies | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/10-runtime.md`](./specs/10-runtime.md) |
@@ -158,6 +158,7 @@ Use this checklist:
 - package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
+- package-compatibility wording should reuse the **pure JS/TS package contract** and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different native-addon / downloaded-binary exclusion lists
 - source-file-kind wording should reuse **canonical source-file classes**, **executable/analyzable source-file class**, and **canonical project file set** instead of repeating long extension lists in every command chapter
 
 Practical rule:
@@ -272,6 +273,34 @@ Rules:
 - ordinary platform runtime/system libraries reached through the normal Rust toolchain, system call bindings, or OS-provided interfaces do **not** by themselves violate the contract.
 - exposing a C ABI for embedding does **not** weaken this rule; a Rust implementation may publish C-callable boundaries without embedding a C/C++ implementation.
 - docs should reuse this term instead of re-explaining the distinction as “pure Rust except libc”, “no C/C++ in-tree”, or “C ABI is okay because only the boundary is C”.
+
+### Pure JS/TS package contract
+The shared early-phase package-compatibility boundary for registry packages Kali can treat as ordinary source packages.
+
+A package stays inside this contract when:
+- its shipped code is JavaScript/TypeScript rather than a native host module,
+- it uses ordinary JS module systems that Kali models (`import`/ESM and supported CommonJS lowering),
+- its normal install/runtime path does **not** require the **native/binary/bootstrap-heavy package contract**.
+
+Rules:
+- this term describes package-shape compatibility, not whether the package's chosen host APIs are already supported for the active `apiSurface`.
+- staying inside this contract is necessary but not sufficient for support: packages may still be phase-gated by unavailable Node/browser/runtime features.
+- docs should reuse this term instead of inventing near-duplicate phrases such as “pure JS packages”, “no native addons”, or “ordinary source-only packages” when the same boundary is meant.
+
+### Native/binary/bootstrap-heavy package contract
+The shared cross-spec name for package behaviors that fall outside Kali's early ordinary-source package model.
+
+A package is in this contract when its normal install/runtime path depends on one or more of:
+- native addons or `node-gyp`,
+- N-API bindings or other compiled native code,
+- prebuilt native modules,
+- postinstall-downloaded executables,
+- other platform-specific binary/bootstrap artifacts or selection steps.
+
+Rules:
+- this contract is rejected by default in early phases unless an owning chapter and the maturity matrix explicitly say otherwise.
+- opting into npm lifecycle hooks through the **install-time npm-package hook path** does **not** promote these packages into the supported set.
+- docs should reuse this term instead of repeating slightly different lists such as “native/N-API/prebuilt modules”, “binary/bootstrap-heavy packages”, or “native addon / downloaded executable packages” when the same exclusion boundary is meant.
 
 ### Kali-mediated capability subset
 The stable schema-v1 capability vocabulary shared across effects and sandbox policy:
@@ -1095,7 +1124,7 @@ Rules:
 - it is limited to the invocation's **effective npm-scriptable install work**;
 - it is not meaningful for explicit `jsr:` targets, raw URL targets, or non-install commands;
 - it does **not** imply Node runtime support, project sandbox participation for install hooks, or participation in normal `kali effects` / sandbox-policy contracts;
-- it does **not** make native addons, `node-gyp`, or binary/bootstrap-heavy package contracts supported.
+- it does **not** make the excluded **native/binary/bootstrap-heavy package contract** supported.
 
 ## Numeric-Limit Semantics
 

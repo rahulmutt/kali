@@ -11,6 +11,7 @@ Bootstrap-normalized headline assumptions:
 - build artifact modes follow one canonical matrix: default executable compile intent, browser-bundle executable compile intent, a Phase-1 **base library artifact** for library compile intent, and later Phase-2 **public embedding surface** milestones layered on that same exported-library contract
 - public static effect-report commands (`kali effects`, `kali package-effects`) are a **Phase-2** surface; Phase 1 may already rely on internal effect bookkeeping for sandboxing, but that does not imply a stable user-facing JSON report yet
 - package installation stays **context-agnostic** in early phases: one lock/install state serves the default Deno path and supported browser-targeted analysis/build paths, while final `exports`/`browser` edge selection happens at command time
+- package compatibility in Phase 1 stays inside the shared **pure JS/TS package contract**; `--allow-scripts` does not widen support to the excluded **native/binary/bootstrap-heavy package contract**
 
 Quick Phase-1 non-goals:
 - no general `--api node` command support yet across `check` / `effects` / `build` / `run` / `test`
