@@ -622,7 +622,7 @@ Interpretation rules:
 - an ad hoc `kali install https://...` therefore stages/pins materialization for that exact URL, but durable project ownership still comes from source imports or `imports`
 - schema v1 intentionally has **no** per-project registry override/auth fields in `kali.json`; early npm-registry override, if supported, comes from the documented environment/host configuration path rather than from an undocumented project config key
 - Config should not mirror every CLI boolean directly when a more semantic field already exists
-- Precedence is `CLI > kali.json > defaults`, except sandbox policy restrictions still constrain effective runtime behavior
+- follow the canonical precedence rule from [specs/12-cli.md](12-cli.md): `CLI > kali.json > defaults`, while any attached sandbox policy still acts as an upper bound for runtime capabilities/resource limits rather than a lower-precedence preference value
 - Unknown config fields are rejected at every documented nesting level unless a future schema revision adds an explicit extension mechanism
 
 ## Sandbox Policy Schema
