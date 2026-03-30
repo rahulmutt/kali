@@ -307,7 +307,7 @@ Canonical artifact-mode rule:
 
 Sandbox clarification:
 - follow the shared **sandbox-attachment orthogonality** rule from [SPEC.md](../SPEC.md)
-- `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config over the same **resolved source graph** rooted at the primary source input, and starting in the Phase 2 target window it also performs effect-vs-policy validation
+- `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config over the same **resolved source graph selected by that explicit input**, and starting in the Phase 2 target window it also performs effect-vs-policy validation
 - therefore `kali build --lib --sandbox ...` is the same library-oriented build plus static policy validation, while later `--capi --sandbox ...` / `--component --sandbox ...` reuse that same rule once those artifact modes themselves exist
 - `kali build --bundle --api browser --sandbox ...` follows the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md): it is a build-time compatibility check over the documented mediated subset, not automatic runtime sandbox enforcement once the emitted browser bundle is deployed into a real browser host
 - inherited browser config follows the same orthogonality rule: plain `kali build --sandbox kali.policy.json main.ts` under an inherited browser API surface is still the same non-bundle browser-build contradiction as explicit `kali build --api browser --sandbox kali.policy.json main.ts`, and plain library-oriented forms such as `kali build --lib --sandbox ...`, `kali build --capi --sandbox ...`, or `kali build --component --sandbox ...` under an inherited browser API surface are still the same browser-library contradictions as their explicit `--api browser` counterparts, so they stay `E5008` until those browser build shapes exist
@@ -367,13 +367,13 @@ kali check --api browser main.ts           # Browser-targeted analysis context f
 kali check --api browser src/a.ts src/b.ts # Same browser-targeted analysis context over an explicit multi-file set
 kali check --api node                      # Phase 3 target: Node API surface is phase-gated for project-discovery checking too
 kali check --api node main.ts              # Phase 3 target: same Node analysis gate for an explicit file set
-kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation over the discovered project's resolved source graph; from the Phase 2 target onward, effect-vs-policy validation uses that same scope
+kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation over the resolved source graph selected by the discovered project roots; from the Phase 2 target onward, effect-vs-policy validation uses that same scope
 kali check --api browser --sandbox kali.policy.json # Same browser-targeted validation path over the discovered project's resolved source graph
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
 kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
 kali check --api browser --sandbox kali.policy.json src/a.ts src/b.ts # Same browser-targeted validation path over an explicit multi-file set
 ```
-`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`, `--api node`, and `--sandbox`: API-surface selection changes only the analysis context, and the shared **sandbox-attachment orthogonality** rule from [SPEC.md](../SPEC.md) keeps `check` from turning into a direct-input command. When `--sandbox` is attached, validation still ranges over the same **resolved source graph** from [SPEC.md](../SPEC.md) rooted at the discovered project or explicit file set; it is not a root-file-only check. Inherited browser-config equivalents are summarized in the shorthand table below so the same bare `kali check ...` spelling does not need to appear twice with two different contexts.
+`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`, `--api node`, and `--sandbox`: API-surface selection changes only the analysis context, and the shared **sandbox-attachment orthogonality** rule from [SPEC.md](../SPEC.md) keeps `check` from turning into a direct-input command. When `--sandbox` is attached, validation still ranges over the same **resolved source graph selected by the command's roots** from [SPEC.md](../SPEC.md); it is not a root-file-only check. Inherited browser-config equivalents are summarized in the shorthand table below so the same bare `kali check ...` spelling does not need to appear twice with two different contexts.
 
 Inherited check-context shorthand:
 
@@ -408,7 +408,7 @@ kali effects --output json main.ts         # Command envelope + effect payload
 
 Analysis scope rule:
 - the emitted payload includes `analysisContext`, which records `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md))
-- `kali effects <file>` summarizes effects for the same **resolved source graph** from [SPEC.md](../SPEC.md) rooted at that analysis input under the selected API surface/profile; it is not limited to syntax that appears textually in the one named file
+- `kali effects <file>` summarizes effects for the same **resolved source graph selected by that analysis input** under the selected API surface/profile; it is not limited to syntax that appears textually in the one named file
 - schema-v1 keeps the shared field name `entryPoints`, but for `kali effects` it records the report's logical root labels and therefore normally contains the single explicit analysis-root label for this command
 - `effects` then summarizes the reachable program/dependency graph from those recorded logical roots
 

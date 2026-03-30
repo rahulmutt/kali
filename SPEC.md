@@ -1151,6 +1151,7 @@ Rules:
 - use this term when the intended scope is “the whole graph this command actually analyzes/builds/reports on”, not only the root file textually named on the CLI
 - transitive imports and resolved package entry files are part of the **resolved source graph** once reached from the selected roots
 - discovery filters such as `include` / `exclude` choose or narrow roots, but they do not prune already-reached transitive dependencies inside the **resolved source graph**
+- when prose needs to distinguish project-discovery from explicit-input cases, prefer saying the command validates or reports on the **resolved source graph selected by its roots** rather than reintroducing longer variants such as “rooted at the discovered project or explicit file set”
 - static sandbox validation and effect reporting should reuse this same scope rather than inventing narrower root-file-only readings per command
 
 ### Registry-analysis command

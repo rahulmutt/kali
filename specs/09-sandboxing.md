@@ -148,7 +148,7 @@ Compile-time policy handling is intentionally split to keep Phase 1 smaller and 
 - Graph-scope rule: compile-time `--sandbox` validation follows the same **resolved source graph** from [SPEC.md](../SPEC.md) that the underlying command is already analyzing or building; attaching a policy changes validation, not graph reachability.
 - For the hybrid `kali check` command, `kali check --sandbox <policy>` without explicit file arguments still uses the canonical project-discovery result; `--sandbox` adds policy validation, not a new input-selection mode.
 - With explicit `check` file arguments, `--sandbox` keeps the same **set-oriented explicit-file command** behavior as plain `kali check`: it validates the supplied file set as graph roots, and it does not collapse `check` into a one-entrypoint command just because a policy was attached.
-- For direct-input `build`, `kali build --sandbox <policy> <file>` validates the same **resolved source graph** rooted at that primary source input rather than only the root file in isolation.
+- For direct-input `build`, `kali build --sandbox <policy> <file>` validates the same **resolved source graph selected by that explicit input** rather than only the root file in isolation.
 - Browser-targeted static policy validation follows that same graph-scope rule for the supported browser-targeted `check` and `build --bundle` paths.
 
 Availability rule for policy validation:
