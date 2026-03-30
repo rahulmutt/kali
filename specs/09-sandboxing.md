@@ -141,12 +141,12 @@ Availability rule for policy validation:
 - in schema v1, the canonical deny values for capability fields are `false` for boolean capabilities and `[]` for allowlist-shaped capabilities
 - numeric limit/budget fields are **not** one generic "deny" channel across the whole schema: they remain numeric constraints with field-specific semantics
 - omission is the canonical "no explicit budget provided" state for resource-budget fields such as `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles`
-- `0` is meaningful only for the resource counters whose domain naturally allows zero concurrent uses (`resources.maxSpawnedProcesses`, `resources.maxThreads`); it is not the generic schema-wide deny value for every numeric field
+- `0` is meaningful only for the **feature-gated zero-capable execution budgets** from [SPEC.md](../SPEC.md) (`resources.maxSpawnedProcesses`, `resources.maxThreads`); it is not the generic schema-wide deny value for every numeric field
 - a policy must **not claim to allow** a capability that the selected command/profile/API surface/phase cannot actually provide
-- therefore validation should reject any unavailable capability being enabled through a non-deny value, not just `true`; non-empty arrays/allowlists are equally invalid when the capability itself is unavailable, and unavailable numeric-budget fields such as `resources.maxSpawnedProcesses` / `resources.maxThreads` must also reject positive values
+- therefore validation should reject any unavailable capability being enabled through a non-deny value, not just `true`; non-empty arrays/allowlists are equally invalid when the capability itself is unavailable, and those **feature-gated zero-capable execution budgets** must also reject positive values until their corresponding capability/profile exists
 - capability-local numeric limit fields are **constraints only**, not implicit enable switches; for example `effects.network.maxConnections` does not by itself allow network use, and `effects.timer.maxActiveTimers` does not by itself allow timer creation when `effects.timer.schedule` is `false`
 - in schema v1, `effects.timer.maxTimeoutMs`, `effects.timer.maxActiveTimers`, and `effects.network.maxConnections` must be positive integers when present; `0` is invalid for those fields rather than a second disable/deny form
-- examples include `effects.fileSystem.read: true` or `effects.fileSystem.read: ["/tmp/**"]` under an effective API surface of `browser`, `effects.eval: true` before Phase 4, `effects.eval: true` when the effective command context did not enable `--compat eval`, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists
+- examples include `effects.fileSystem.read: true` or `effects.fileSystem.read: ["/tmp/**"]` under an effective API surface of `browser`, `effects.eval: true` before Phase 4, `effects.eval: true` when the effective command context did not enable `--compat eval`, `effects.process.spawn: true` before subprocess support exists, `effects.process.envWrite: true` before mutable env APIs exist, or positive values for the **feature-gated zero-capable execution budgets** before subprocess/thread support exists
 - under an effective API surface of `browser`, follow the **browser-targeted static sandbox contract**, the **canonical browser-targeted budget compatibility rule**, and the **canonical browser-applicable mediated subset (schema v1)** from [SPEC.md](../SPEC.md): browser-targeted `--sandbox` validation stays inside that documented browser-applicable subset, and schema-v1 `resources.*` fields are treated as Kali-hosted execution budgets rather than as post-deployment browser guarantees
 - in schema v1, the valid browser-targeted capability families are therefore `effects.network.fetch` plus its capability-local cap `effects.network.maxConnections`, `effects.timer.*`, `effects.random`, and `effects.console`, plus later `effects.eval` only when its separate compatibility path exists and is enabled
 - that subset is still a **global stable capability vocabulary** rather than a guarantee that every surface enables every member; browser-targeted validation admits only those browser-applicable members, while Deno/Node-only capability keys such as `effects.fileSystem.*`, `effects.process.*`, `effects.network.connect`, and `effects.network.listen` remain unavailable and must stay denied/omitted there
@@ -263,7 +263,7 @@ Effective-limit rule:
 ### Process Limits
 - Process spawning goes through host functions → policy-checked
 - `resources.maxSpawnedProcesses` is the cross-cutting cap for concurrently active child processes once subprocess APIs exist
-- before subprocess support lands, policy validation should reject values greater than `0` here for the same reason it rejects `effects.process.spawn: true`: the policy must not appear to enable or budget for an unavailable capability
+- this field follows the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): `0` is a valid explicit deny/tightening value, while positive values must still be rejected until subprocess support exists
 
 ### Timer Limits
 - Timer creation can be disabled entirely via `effects.timer.schedule: false`
@@ -282,7 +282,7 @@ Effective-limit rule:
 
 ### Thread Limits (Later Threaded Profile)
 - `resources.maxThreads` matters only for the later `--wasm-threads` runtime profile
-- before that profile exists, policy validation should reject `resources.maxThreads > 0` rather than silently accepting a non-functional limit
+- this field follows the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): `0` is a valid explicit deny/tightening value, while positive values must still be rejected until the threaded profile exists
 - Once threading exists, the runtime must enforce the cap across worker/thread creation
 - A per-invocation thread-limit override may only reduce the effective cap; it must never increase a stricter policy limit
 

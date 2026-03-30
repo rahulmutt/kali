@@ -100,8 +100,8 @@ Effective-context validation rule:
 | `--max-memory <size>` | execution commands | Override the invocation memory cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-cpu <duration>` | execution commands | Override the invocation CPU cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-open-files N` | execution commands | Override the invocation open-file-handle cap; may only tighten the effective limit relative to config/policy, never widen it |
-| `--max-spawned-processes N` | execution commands | Override the invocation child-process cap; may only tighten the effective limit. `0` is always a valid explicit deny/tightening value, while non-zero values are rejected until the selected command/profile/API surface actually supports subprocesses |
-| `--max-threads N` | execution commands | Override the invocation thread cap for the threaded runtime profile; may only tighten the effective limit. `0` is always a valid explicit deny/tightening value, while non-zero values are rejected unless threading is supported and enabled |
+| `--max-spawned-processes N` | execution commands | Override the invocation child-process cap; may only tighten the effective limit. Follows the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md) |
+| `--max-threads N` | execution commands | Override the invocation thread cap for the threaded runtime profile; may only tighten the effective limit. Follows the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md) |
 | `--wasm-threads` | `check`, `effects`, `build`, `run`, `test` | Opt into the later threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; before that profile exists, or on unsupported targets, the command must fail with `E5006` |
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
@@ -167,7 +167,7 @@ Configuration precedence is intentionally simple:
 2. the effective discovered `kali.json` overrides built-in defaults
 3. Sandbox policy caps, when a policy is attached, remain upper bounds for runtime capabilities and resource limits
 
-That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy. If no policy is attached, those direct invocation flags simply become the effective cap for the current command instead of being compared against an implicit allow-all policy. In Phase 1 this tightening path applies directly to `--max-memory`, `--max-cpu`, and `--max-open-files`. For later-gated caps such as `--max-spawned-processes` and `--max-threads`, the same tightening rule applies once the underlying capability exists; before then, `0` remains a valid explicit deny/tightening value while non-zero values stay phase/profile-gated.
+That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy. If no policy is attached, those direct invocation flags simply become the effective cap for the current command instead of being compared against an implicit allow-all policy. In Phase 1 this tightening path applies directly to `--max-memory`, `--max-cpu`, and `--max-open-files`. For later-gated caps such as `--max-spawned-processes` and `--max-threads`, reuse the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md).
 
 Interpretation rule:
 - the resulting merged values are the command's one **effective command context** for validation, lowering, and reporting
@@ -186,7 +186,7 @@ Canonical resource-literal rule:
 - `--max-threads` accepts a plain non-negative integer count
 - CLI parsing normalizes these to bytes, milliseconds, and integer counts before comparing them with sandbox-policy limits
 - follow the canonical numeric-limit semantics from [SPEC.md](../SPEC.md): `--max-memory`, `--max-cpu`, and `--max-open-files` must be **positive** when present, so `0` is invalid rather than a hidden deny form
-- only `--max-spawned-processes` and `--max-threads` may use `0` as an explicit deny/tightening value, because zero concurrent uses is meaningful for those counters
+- only `--max-spawned-processes` and `--max-threads` use the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): `0` is a valid explicit deny/tightening value for those counters because zero concurrent uses is meaningful there
 - schema v1 policy files keep the simpler integer fields `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, `resources.maxOpenFiles`, `resources.maxSpawnedProcesses`, and `resources.maxThreads`; CLI literals/counts are a convenience syntax over that same effective-limit model rather than a second resource schema
 
 Canonical default tuple:
@@ -228,14 +228,13 @@ Canonical interpretation rules:
 - in schema v1, `--compat eval` is the only stable compatibility-feature spelling and it gates both direct `eval` and `Function()`; the CLI should not invent a separate `--compat function-constructor` alias.
 - sandbox permission and compatibility enablement are separate axes: a policy that allows `effects.eval` does **not** implicitly turn on `--compat eval`, and `--compat eval` does **not** bypass a stricter sandbox policy.
 - `--wasm-threads` selects a different runtime profile rather than a small optimization toggle. Until that threaded profile exists, the flag is rejected. After it exists, if the selected target/engine/profile cannot honor it, the command must still reject it explicitly instead of silently dropping thread support.
-- `--max-spawned-processes N` is meaningful only when the selected command/profile/API surface exposes subprocess support. A non-zero process cap without effective subprocess support must be rejected explicitly rather than ignored.
-- `--max-threads N` is meaningful only together with the threaded runtime profile. A non-zero thread cap without effective thread support must be rejected explicitly rather than ignored.
+- `--max-spawned-processes` and `--max-threads` follow the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): `0` is a valid explicit deny/tightening value, while positive values must be rejected explicitly until subprocess/thread support actually exists.
 
 Sandbox flag behavior is intentionally phase-gated:
 - `kali run --sandbox ...` is a Phase 1 feature for runtime policy enforcement.
 - `kali check/build --sandbox ...` validate the policy file/config in Phase 1.
 - Full inferred-effect-vs-policy validation is a Phase 2 feature.
-- Policy validation must also reject policies that try to enable capabilities unavailable in the selected command/profile/phase (for example `effects.eval: true` before the eval compatibility path exists, `effects.eval: true` without effective `--compat eval`, `resources.maxSpawnedProcesses > 0` before subprocess support exists, or `resources.maxThreads > 0` before the threaded runtime profile exists).
+- Policy validation must also reject policies that try to enable capabilities unavailable in the selected command/profile/phase (for example `effects.eval: true` before the eval compatibility path exists, `effects.eval: true` without effective `--compat eval`, or positive values for the **feature-gated zero-capable execution budgets** from [SPEC.md](../SPEC.md) before subprocess/thread support exists).
 - For browser-targeted `check --api browser --sandbox ...` and `build --bundle --api browser --sandbox ...`, follow the **browser-targeted static sandbox contract** and the **canonical browser-targeted budget compatibility rule** from [SPEC.md](../SPEC.md): browser-targeted sandboxing is a static compatibility check over the documented mediated subset, and schema-v1 `resources.*` fields are treated as Kali-hosted execution budgets rather than as post-deployment browser guarantees.
 - Policy files remain declarative; any later host-registered sandbox policy predicates are an embedding-oriented extension, not a second inline policy language.
 - If neither CLI nor config attaches a policy, the command runs with **no project policy file**; direct resource flags such as `--max-memory` and later supported caps such as `--max-spawned-processes` still apply, but there is no hidden synthesized policy document behind the scenes. For `run`/`test`, those direct caps still contribute to the **effective execution envelope** from [SPEC.md](../SPEC.md).

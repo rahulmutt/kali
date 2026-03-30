@@ -161,6 +161,7 @@ Use this checklist:
 - browser ambient-typing versus sandbox/effect wording should reuse the **Browser ambient typing vs mediated capability split**
 - browser command-shape versus browser-runtime availability wording should reuse the **canonical browser-surface rejection split**
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
+- zero-versus-positive wording for `resources.maxSpawnedProcesses` / `resources.maxThreads` and their matching CLI caps should reuse the **feature-gated zero-capable execution budgets** term instead of restating the same `0`-is-valid / positive-is-gated rule in each chapter
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
 - library/export-oriented build wording should reuse the **compile intent**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
 - single-package registry-analysis wording should reuse the **registry-analysis context split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
@@ -479,6 +480,23 @@ It consists of:
 
 Rule:
 - chapters should reference this term instead of restating near-duplicate prose about “build-time-only browser sandboxing”, “static browser policy validation”, or “no automatic browser runtime enforcement”.
+
+### Feature-gated zero-capable execution budgets
+The schema-v1 rule for execution-budget fields whose domain naturally allows an explicit zero-concurrency deny/tightening value, while any positive value still assumes the underlying capability/profile actually exists.
+
+Canonical early examples:
+- policy fields `resources.maxSpawnedProcesses` and `resources.maxThreads`
+- matching CLI tightening caps such as `--max-spawned-processes` and `--max-threads`
+
+Rules:
+- omission means “no extra tightening from this source”, not an implicit zero
+- `0` is a valid explicit deny/tightening value even before subprocess or threaded-profile support exists
+- positive values remain availability-gated and must fail with `E5006` until the selected command/profile/API surface actually supports the corresponding capability/profile
+- this rule is intentionally narrower than generic numeric-cap validation: it does **not** apply to positive-only capability-local caps such as `effects.timer.maxActiveTimers` or `effects.network.maxConnections`
+- browser-targeted policy validation still follows the **canonical browser-targeted budget compatibility rule**, so in browser-targeted contexts these fields may be omitted or set to `0`, but positive values remain invalid
+
+Rule:
+- use this term instead of re-explaining the same `0`-is-valid / positive-is-gated split for these fields and flags in each chapter.
 
 ### Canonical browser-targeted budget compatibility rule
 Because schema-v1 `resources.*` fields are **Kali-hosted execution budgets**, browser-targeted contexts treat them as a narrow validation boundary rather than as deployed-browser guarantees.
