@@ -129,11 +129,11 @@ Artifact-mode selection itself is owned by the canonical matrix in [SPEC.md](../
 Shared artifact-shape rules:
 - omitting `--bundle`, `--lib`, `--capi`, and `--component` yields the default executable artifact: one `wasm-module` with role `primary-executable`
 - `--bundle` under an effective `apiSurface` of `browser` keeps executable compile intent and adds browser JS glue (`kind: js-glue`, `role: browser-glue`) beside that same executable core module
-- `--lib`, `--capi`, and `--component` are the library-oriented artifact modes: they all reuse the same proved **statically known export surface** and the shared **library-oriented instantiation rule** from [SPEC.md](../SPEC.md)
+- `--lib`, `--capi`, and `--component` are the library-oriented artifact modes: they all reuse the same **statically known export surface** and the shared **library-oriented instantiation rule** from [SPEC.md](../SPEC.md)
 - plain Phase-1 `--lib` emits only the **base library artifact** (`kind: wasm-module`, `role: primary-library`); Phase 2 promotes that same selector into the stable public library/WIT contract and adds `kind: wit`, `role: interface-wit` by default
 - `--capi` and `--component` are later **public embedding artifact flows** layered on top of that same linked core library payload rather than separate export semantics
 - `--component` adds an outer `wasm-component` wrapper around the same linked core payload; it does not authorize a second independently linked guest graph
-- if Kali cannot prove the required export surface for a library-oriented build, fail with `E5011`
+- if Kali cannot determine the required export surface statically for a library-oriented build, fail with `E5011`
 
 Canonical artifact sets by valid build mode:
 

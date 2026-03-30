@@ -259,8 +259,8 @@ Artifact-mode quick summary:
 | *(default)* | executable | Phase 1 MVP | one linked executable-oriented WASM artifact |
 | `--bundle` | executable | Phase 1 MVP | browser-targeted bundle path only, and only when the effective `apiSurface` is `browser` |
 | `--lib` | library | Phase 1 MVP | Phase-1 **base library artifact** only; stable public library/WIT contract is later |
-| `--capi` | library | Phase 2 target | public embedding artifact flow over the same proved export surface |
-| `--component` | library | Phase 2 target | Component Model packaging over the same proved export surface |
+| `--capi` | library | Phase 2 target | public embedding artifact flow over the same **statically known export surface** |
+| `--component` | library | Phase 2 target | Component Model packaging over the same **statically known export surface** |
 
 Canonical artifact-mode rule:
 - `kali build` is a direct-input command in early phases: it requires exactly one explicit executable/analyzable primary source input and does not guess a project default such as `main.ts`
@@ -275,7 +275,7 @@ Canonical artifact-mode rule:
 - reuse the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): `kali init --lib` chooses a project template only and does not change the later default artifact mode of `kali build`
 - WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag
 - these **library-oriented artifact modes** derive their host-facing surface from a **statically known export surface** as defined in [SPEC.md](../SPEC.md); they do not implicitly expose arbitrary internal declarations just because the source file was compiled in `--lib`/`--capi`/`--component` mode
-- if Kali cannot prove that export surface, the library-oriented build fails with `E5011` instead of synthesizing reflection-based exports
+- if Kali cannot determine that export surface statically, the library-oriented build fails with `E5011` instead of synthesizing reflection-based exports
 - plain `--lib` is the Phase-1 **base library artifact**: it establishes the exported-library shape early, but under the shared **embedding-stability split** the stable public embedding/WIT contract remains part of the later Phase-2 **public embedding surface**
 - they also keep the ordinary build-command API-surface semantics: Node-targeted library builds are still phase-gated with `E5006`, while browser-targeted library/embedding combinations are invalid command shapes (`E5008`) until a separate browser-library contract exists
 

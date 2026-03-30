@@ -1131,14 +1131,14 @@ Kali uses one shared stability split for library-oriented outputs:
 Rule:
 - docs should reference this split instead of rephrasing it as “usable but not yet stable”, “public embedding contract”, “stable public library contract”, “library-first internally”, or “WIT/C ABI/component packaging lands later” in slightly different ways
 - Phase 1 shipping the **base library artifact** does **not** by itself imply the Phase-2 **public embedding surface**: no stable public Rust API, stable public library/WIT contract, stable C ABI, or component packaging yet
-- once Phase 2 promotes that path, plain public `--lib` is the canonical stable public library/WIT contract and emits WIT by default; `--capi` and `--component` are projections/wrappers over that same proved export surface rather than alternate export semantics
+- once Phase 2 promotes that path, plain public `--lib` is the canonical stable public library/WIT contract and emits WIT by default; `--capi` and `--component` are projections/wrappers over that same **statically known export surface** rather than alternate export semantics
 
 ### Host ABI header vs program-specific exports header
 Kali intentionally distinguishes the stable host-side C ABI header from build-emitted program-specific export declarations.
 
 Canonical terms:
 - **host ABI header** — the stable `kali.h` header shipped by `kali_capi` and versioned with the host C ABI
-- **program-specific exports header** — the generated `<entry>.exports.h` header emitted by `kali build --capi` for one compiled library's proved export surface
+- **program-specific exports header** — the generated `<entry>.exports.h` header emitted by `kali build --capi` for one compiled library's **statically known export surface**
 
 Rules:
 - docs should not use `kali.h` as a loose synonym for both headers
@@ -1150,21 +1150,24 @@ For library-oriented artifact modes:
 - Kali omits any **synthetic executable entry invocation**,
 - normal ECMAScript module-instantiation semantics still apply,
 - therefore top-level module initialization still runs when the host instantiates the artifact,
-- and the host-callable surface is the build's proved export set rather than a synthesized executable entry.
+- and the host-callable surface is the build's **statically known export surface** rather than a synthesized executable entry.
 
 Rule:
 - `--lib`, `--capi`, and `--component` all share this same instantiation rule unless an owning chapter explicitly says otherwise.
 - Docs should prefer referencing this shared term instead of restating slightly different versions of the same behavior.
 
 ### Statically known export surface
-The export set for a library-oriented build that Kali can prove after frontend lowering without relying on runtime reflection or host-side discovery.
+The export set for a library-oriented build that Kali can determine statically after frontend lowering without relying on runtime reflection or host-side discovery.
 
 Rules:
 - ESM entry modules satisfy this directly from their explicit exports.
-- CommonJS entry modules participate only when static CJS lowering can prove one fixed export set.
-- If Kali cannot prove one stable export surface, library-oriented build modes fail rather than synthesizing reflective exports.
+- CommonJS entry modules participate only when static CJS lowering can determine one fixed export set.
+- If Kali cannot determine one stable export surface, library-oriented build modes fail rather than synthesizing reflective exports.
 
 This term exists so `--lib`, `--capi`, `--component`, embedding docs, and the maturity matrix can all refer to the same export-surface requirement without restating slightly different versions.
+
+Naming rule:
+- prefer **statically known export surface** over phrases such as "proved exports" or "proved export surface" so embedding/build terminology does not blur into the separate Lean verification vocabulary.
 
 ### Logical roots
 The normalized “what this report/build/test run is about” identifiers carried in schemas as `entryPoints`. Examples:

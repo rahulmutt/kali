@@ -166,7 +166,7 @@ Boundary clarification:
 - this applies to registry-analysis commands too: follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md) instead of re-deciding the `E5008`-before-`E5006` split per command
 - maturity-matrix rows that name the *earliest fully supported phase* for a combined command/context shape do not override this precedence rule; for example, `kali build --capi --api node ...` may be summarized as a Phase 3 combination while still reporting the `--capi` gate first in Phase 1
 - a well-formed policy file that is semantically incompatible with the selected **availability context** still falls on the `E5006` side of this boundary
-- malformed project config should use `E5009`; malformed policy JSON, unknown policy fields, or invalid policy numeric/path/pattern shapes should use `E5010`; export-surface proof failures for library-oriented builds should use `E5011`
+- malformed project config should use `E5009`; malformed policy JSON, unknown policy fields, or invalid policy numeric/path/pattern shapes should use `E5010`; export-surface determination failures for library-oriented builds should use `E5011`
 - the same rule applies when the triggering value came from discovered config rather than a literal CLI flag; diagnostics should explain the effective value instead of pretending no selection was made
 - in JSON mode, prefer filling structured diagnostic `context` metadata (`origin`, `configPath`/`flag`, and `effectiveValue` when useful) in addition to any human-oriented prose notes
 
@@ -233,19 +233,19 @@ Use `E5010` for cases such as:
 - invalid allowlist entry shapes or invalid path/URL matcher syntax under the schema-v1 matcher rules
 - invalid numeric values such as `resources.maxMemoryMB = 0` or `effects.timer.maxActiveTimers = 0`
 
-### Canonical Export-Surface-Proof Diagnostic
+### Canonical Export-Surface Diagnostic
 
-Use `E5011` when a library compile-intent build is selected but Kali cannot prove one **statically known export surface** for that build.
+Use `E5011` when a library compile-intent build is selected but Kali cannot determine one **statically known export surface** for that build.
 
 Boundary rule:
-- `E5011` is for **export-surface proof failure** on a library compile-intent build, not for phase gating and not for contradictory CLI usage
+- `E5011` is for **export-surface determination failure** on a library compile-intent build, not for phase gating and not for contradictory CLI usage
 - use `E5006` when the requested library-oriented mode itself is unavailable in the current phase/profile/API surface
 - use `E5008` when the command shape is contradictory before export analysis even begins (for example `kali build --lib --api browser ...`)
-- once a library-oriented mode is otherwise valid, failing to prove one fixed export surface is an `E5011` semantic build rejection rather than a maturity error
+- once a library-oriented mode is otherwise valid, failing to determine one fixed export surface is an `E5011` semantic build rejection rather than a maturity error
 
 Example:
 ```
-error[E5011]: cannot prove a statically known export surface for library-oriented build
+error[E5011]: cannot determine a statically known export surface for library-oriented build
   --> lib.cjs:1:1
   |
   = note: CommonJS exports vary dynamically across execution paths
