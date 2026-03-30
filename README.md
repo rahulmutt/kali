@@ -2,25 +2,17 @@
 An ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembly, designed for sandboxed execution, strong static analysis, and AI-friendly tooling.
 
 Bootstrap-normalized headline assumptions:
-- use the triage from [SPEC.md#bootstrap-triage-rule](./SPEC.md#bootstrap-triage-rule): first separate **hard invariants** from **phase contracts** and **phase-gated breadth targets**, then read the owning chapter plus the maturity matrix
-- hard invariants from the bootstrap brief stay fixed across the early plan: **AOT only**, **pure Rust**, **no tracing/background GC**, **sandbox-first honesty**, and deterministic machine-readable contracts
-- stronger-than-`tsc` inference in Phase 1 follows one shared **bounded inference contract**: Kali improves local/obvious inference materially, but keeps an explicit annotation-required boundary instead of drifting into open-ended whole-program search
-- host support follows one small staircase: shared **Web baseline**, **Deno-first** standalone execution, the shared **Phase-1 browser-targeted command set** (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including their supported `--sandbox` variants), and broader **Node compatibility** as a later ecosystem phase
-- later analysis/reporting commands may reuse that same browser-targeted context once their own maturity rows open, but that later reuse does **not** broaden the exact **Phase-1 browser-targeted command set**
-- read every broad support claim through the shared **support-claim reading order** in [SPEC.md](./SPEC.md): first check command shape, then the intended **compatibility delivery ladder** rung (`accepted`, `checkable`, `buildable`, `executable`, `deployable-through-host`, `policy/effect-modeled`), then phase/context availability
-- latest ECMA-262 tracking means the **latest published edition**; grammar support does **not** imply blanket same-phase runtime support for every accepted feature, and draft / Stage-3+ proposal support is explicit and experimental rather than implied
-- the upstream project list in `BOOTSTRAP.md` (Boa, V8, JavaScriptCore, SpiderMonkey, Deno, `tsc`, Porffor, Hermes, Bun) is normalized as a **design-reference list**, not as a promise to copy those architectures or inherit their dependency stacks
-- dynamic compatibility paths such as `eval` and `Function()` are part of the long-term contract, but remain explicitly phase-gated behind the single schema-v1 compatibility switch `eval`
-- runtime/embedding behavior is standardized on **wasmtime first**; alternative WASM engines are a later extension, not an equal Phase-1 contract
-- build artifact modes follow one canonical matrix: default executable compile intent, browser-bundle executable compile intent, a Phase-1 **base library artifact** for library compile intent, and later Phase-2 **public embedding surface** milestones layered on that same exported-library contract
-- the Phase-1 plain `kali build --lib` output is intentionally useful but **not yet a stable public ABI/WIT promise**; stable public embedding starts in Phase 2
-- follow the shared **effect-surface split** from [SPEC.md](./SPEC.md): public static effect-report commands (`kali effects`, `kali package-effects`) are a **Phase-2** surface, while Phase 1 may already rely on internal effect bookkeeping for sandboxing without implying a stable user-facing JSON report yet; `kali package-audit` is even later and should not be read back into the Phase-1 sandbox-first story
-- Lean-backed verification is also phase-scoped: Kali should be **proof-ready** in Phase 1 (published **proof-boundary manifest** at `proofs/BOUNDARY.md` plus the shared proof-CI activation rule from [SPEC.md](./SPEC.md)) without pretending it is already broadly mechanically verified
-- until the first concrete proofs land, that manifest may truthfully remain empty; treat that as an anti-overclaiming guardrail, not as evidence that any subsystem is already mechanically verified
-- proof-backed release claims are stricter: before marketing formal verification as a shipped capability, the manifest must become non-empty and name at least one concrete modeled subsystem plus theorem/property inventory
-- package installation stays **context-agnostic** in early phases: one lock/install state serves the default Deno path and the shared **Phase-1 browser-targeted command set**, while final `exports`/`browser` edge selection happens at command time
-- Phase-1 package compatibility is still **context-sensitive**: pure JS/TS packages may target the Deno-first standalone baseline or the supported browser-targeted `check`/`build --bundle` contexts, while Node-host-heavy assumptions remain phase-gated
-- package compatibility in Phase 1 stays inside the shared **pure JS/TS package contract** under the shared **published-artifact-first package reading**: what matters is the published package Kali installs, not the upstream repository's prepublish toolchain; `--allow-scripts` still does not widen support to the excluded **native/binary/bootstrap-heavy package contract**
+- `BOOTSTRAP.md` is the input brief; [SPEC.md](./SPEC.md) plus [specs/19-feature-maturity.md](./specs/19-feature-maturity.md) are the normative source of truth after normalization
+- hard invariants stay fixed across phases: **AOT only**, **pure Rust**, **no tracing/background GC**, **sandbox-first honesty**, and deterministic machine-readable contracts
+- Phase 1 is intentionally narrow: **Deno-first** standalone execution plus the exact **Phase-1 browser-targeted command set** (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including supported `--sandbox` variants); broader Node support comes later
+- stronger-than-`tsc` inference is still bounded: Kali improves local/obvious inference, but keeps an explicit annotation-required boundary instead of open-ended whole-program search
+- latest ECMA-262 means the **latest published edition**; accepted grammar does not by itself imply same-phase runtime support for every feature
+- the upstream project list in `BOOTSTRAP.md` is a **design-reference list**, not an architecture-copy or dependency promise
+- early runtime standardization is **wasmtime first**; alternative engines are later extensions
+- embedding is phased: Phase 1 ships a useful but unstable `kali build --lib` **base library artifact**; the stable public Rust/WIT/C ABI and Component Model surface is Phase 2
+- effects are phased too: Phase 1 may use internal effect bookkeeping for sandboxing, but stable `kali effects` / `kali package-effects` are Phase 2 and `kali package-audit` is later compatibility
+- verification is **proof-ready** before it is **proof-backed**: an empty published proof boundary is acceptable early, but releases must not market formal verification as shipped until that boundary names real modeled subsystems and theorem claims
+- package installation stays context-agnostic in Phase 1, while package compatibility stays context-sensitive and limited to the shared **pure JS/TS package contract** under the **published-artifact-first package reading**
 
 Quick Phase-1 non-goals:
 - no general `--api node` command support yet across `check` / `effects` / `build` / `run` / `test`
@@ -41,12 +33,12 @@ Recommended Phase-1 implementation order:
 See the normative cross-spec version in [SPEC.md#recommended-phase-1-implementation-order](./SPEC.md#recommended-phase-1-implementation-order).
 
 Quick support-reading checklist:
-1. **What command shape is being asked for?** For example, `build --bundle --api browser` and `run --api browser` are different requests with different early-phase outcomes.
-2. **What rung of support is meant?** Use the shared **compatibility delivery ladder** in [SPEC.md](./SPEC.md): a feature can be parser-accepted, checkable, buildable, executable, deployable-through-host, or policy/effect-modeled without all higher rungs being true yet.
-3. **What effective context is selected?** Read `apiSurface`, `runtimeProfiles`, `compat.features`, and any attached sandbox policy together rather than in isolation.
+1. **What command shape is being asked for?** `build --bundle --api browser` and `run --api browser` are different requests.
+2. **What rung of support is meant?** Use the shared **compatibility delivery ladder** in [SPEC.md](./SPEC.md): parser-accepted, checkable, buildable, executable, deployable-through-host, or policy/effect-modeled.
+3. **What effective context is selected?** Read `apiSurface`, `runtimeProfiles`, `compat.features`, and any attached sandbox policy together.
 4. **Which chapter owns the answer?** Command shape lives in `12-cli`, availability in `19-feature-maturity`, JSON shape in `18-schemas`, diagnostics in `15-errors`.
 
-This four-step reading order is the shortest safe way to answer “does Kali support X yet?” without over-reading a broad bootstrap aspiration.
+Use that order before treating any broad bootstrap aspiration as shipped support.
 
 ## Specification
 - Top-level overview, implementation strata, cross-spec simplification rules, canonical terminology, chapter ownership, chapter guide, artifact-mode matrix, bootstrap traceability, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)

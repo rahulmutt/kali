@@ -31,7 +31,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Runtime model | AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
 | Host support | `--api deno` for Kali-hosted execution; `--api browser` only for the shared **Phase-1 browser-targeted command set** (`kali check [files...]` and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including their supported `--sandbox` variants); `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema validation for `check`/`build`, no project-executed policy code |
-| Effects | Internal effect bookkeeping may exist, but stable `kali effects` / `package-effects` reporting waits for Phase 2 |
+| Effects | Internal effect bookkeeping may exist, but stable `kali effects` / `package-effects` reporting waits for Phase 2, and `package-audit` remains later compatibility |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib`; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging |
 | Formal verification | Phase-1 published **proof-boundary manifest** plus proof-CI wiring over the currently modeled subset, following the shared **proof activation split**; no proof-backed support claims beyond that boundary |
@@ -60,6 +60,7 @@ To keep the bootstrap brief ambitious without making the MVP blurry, Phase 1 sho
 - no standalone `run --api browser` or `test --api browser` runtime contract yet;
 - no supported `--api node` command path yet;
 - no stable public `kali effects` / `kali package-effects` workflow yet;
+- no stable public `kali package-audit` workflow yet;
 - no stable public embedding ABI/WIT/C-ABI contract yet beyond the Phase-1 **base library artifact**;
 - no executable project-local sandbox policy code;
 - no runtime `eval` / `Function()` compatibility path yet;
@@ -109,6 +110,7 @@ Rules:
 
 Practical consequence:
 - it is valid for schema-v1 to define the stable shape of later commands such as `kali effects`, `kali package-effects`, `kali package-audit`, `kali build --capi`, or `kali build --component` before those surfaces are actually available,
+- `kali package-audit` should still be read as a later context-free registry-analysis workflow, not as part of the Phase-1/2 sandbox-first effect-report surface,
 - but Phase-1 support claims must still treat them as reserved or phase-gated until their maturity rows open.
 
 ## Bootstrap Normalization Rule
