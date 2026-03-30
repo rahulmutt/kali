@@ -361,7 +361,8 @@ Early-phase interpretation rule:
 - for the Phase 2 CLI command `kali effects <file>`, `entryPoints` normally contains exactly one element because schema v1 keeps the command at one explicit primary analysis root
 - for direct CLI analysis inputs, the canonical label should be the normalized user-facing entry path (preferably project-root-relative when that root is known) rather than an implementation-specific symbol ID or opaque internal module handle
 - `analysisContext` records the semantic knobs that materially affect the report: selected `apiSurface`, enabled `runtimeProfiles`, and enabled `compatFeatures`
-- the report covers the full statically reachable program/dependency graph rooted at those logical roots under that recorded analysis context; it is not a file-local AST scan of only the named source file
+- the report covers the command's full analysis graph under that recorded analysis context, not a file-local AST scan of only the named source file
+- for source-graph producers such as `kali effects`, that graph is the same **resolved source graph** defined in [SPEC.md](../SPEC.md)
 - the field stays an array so the same schema can later cover package-wide, test-runner, or other report producers without inventing a second effect-report shape
 
 ### `EffectAnalysisContext`
@@ -489,7 +490,7 @@ Interpretation rules:
 - as the analysis-context-aware half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md), `kali package-effects` inherits that analysis context through the shared **inherited analysis context** rather than introducing a second package-analysis-only flag family; the schema records the chosen context, regardless of how it was selected
 - inherited-context maturity follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) rather than a package-only shadow rule set
 - the recorded context reflects the command's successfully selected analysis mode; it does **not** relax feature-maturity rules, so an inherited context that is still unavailable for package analysis still causes `E5006` instead of producing a report under a fallback surface
-- `entryPoints` names the package-analysis logical roots (for example the canonical package root specifier) and the summarized effects still cover the same statically reachable graph selected for that package analysis, not only the top-level `package.json` metadata file
+- `entryPoints` names the package-analysis logical roots (for example the canonical package root specifier) and the summarized effects still cover the command's full analysis graph for that package root, not only the top-level `package.json` metadata file
 - for schema-v1 CLI package analysis, that root label should use the same canonical registry package identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than a tarball URL, cache path, or opaque internal package handle
 - `schemaVersion` at the outer package-effect layer versions the package-analysis payload; the nested `report.schemaVersion` continues to version the shared effect-report schema independently
 - by default, `kali package-effects` may emit this payload directly; with `--output json`, it is wrapped in the standard CLI command envelope with this object under `payload`

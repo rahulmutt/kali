@@ -75,22 +75,13 @@ That manifest should enumerate, at minimum:
 
 Before the first proofs land, the manifest may truthfully stay in the shared **placeholder proof-boundary manifest** state from [SPEC.md](../SPEC.md). That is still preferable to omitting the file, because it prevents the rest of the spec from accidentally implying proof coverage that does not yet exist. The current repository state should always be read from `proofs/BOUNDARY.md`, not inferred from this chapter's examples or milestone plan.
 
-Manifest simplification rule:
+Reading and claim rules:
 - the manifest should state the current verification state explicitly using the same two-way split as this chapter: **proof-ready** vs **proof-backed**
-- release notes, README summaries, and maturity claims should treat that manifest as the single source of truth instead of paraphrasing current proof status in multiple places
-
-Follow the shared **proof state split** from [SPEC.md](../SPEC.md):
+- release notes, README summaries, maturity claims, and CI wiring should treat `proofs/BOUNDARY.md` as the single source of truth instead of paraphrasing current proof status in multiple places
 - the **placeholder proof-boundary manifest** is acceptable during spec-first iteration and early implementation bootstrapping because it still preserves the **proof-ready** state
-- it is **not** enough for a release to market Kali as already formally verified in Phase 1
-- any Phase-1 release note or support claim that leans on formal verification should first replace the **placeholder proof-boundary manifest** with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed** rather than merely proof-ready
-- while the published proof boundary is still the **placeholder proof-boundary manifest**, proof CI is required only for changes under `proofs/`; that still satisfies the Phase-1 **proof-ready** baseline because the proof-CI trigger policy is explicit and honest about the empty modeled subset
-- once the manifest names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas
+- it is **not** enough for a release to market Kali as already formally verified in Phase 1; any such release/support claim must first replace the placeholder state with at least one concrete modeled subsystem plus named theorem/property claims so the claim becomes genuinely **proof-backed**
+- while the published proof boundary is still the placeholder manifest, proof CI is required only for changes under `proofs/`; once the manifest names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas
 - until concrete CI workflow files are actually present, that trigger rule is still the repository's normative proof-CI policy rather than evidence that hosted proof automation already exists
-- release notes and support wording should describe that proof state plainly instead of implying that a placeholder manifest already proves part of the implementation
-
-Practical simplification:
-- one manifest is the canonical verification boundary for release notes, maturity claims, and CI wiring
-- chapters may summarize it, but they should not invent slightly different proof-scope claims of their own
 - broad phrases such as “formally verified” should be read as “verified for the currently published proof boundary in `proofs/BOUNDARY.md`”, not as blanket coverage of all language/runtime behavior
 
 ### Type System Soundness
