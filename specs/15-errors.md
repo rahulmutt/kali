@@ -154,6 +154,7 @@ Use `E5006` for cases such as:
 - any parse-supported construct that is intentionally not semantically enabled in the current availability context
 
 Boundary clarification:
+- follow the shared **support-claim reading order** from [SPEC.md](../SPEC.md): command shape first, then the intended support rung, then the resulting **availability context**
 - use `E5006` when the requested feature is real but unavailable in the current **availability context**
 - use `E5008` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it, or `kali build --api browser` without `--bundle` while browser builds are bundle-only)
 - follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): wrong browser build shape (`build --api browser` without the required artifact mode, or browser + library-oriented build modes) is `E5008`, while requesting a browser execution/test contract that does not exist yet (`run --api browser`, `test --api browser`) is `E5006`
@@ -258,6 +259,7 @@ Use `E5008` when the command line itself is malformed for the selected command, 
 
 Boundary rule:
 - `E5008` is for **CLI/config usage shape errors**, not language/runtime maturity gating and not malformed config/policy files
+- use the shared **support-claim reading order** from [SPEC.md](../SPEC.md): if the request fails before a meaningful availability check exists, it belongs on the `E5008` / `E5007` side rather than on `E5006`
 - use `E5006` when the user asked for a documented feature that exists in the spec set but is unavailable in the current **availability context**
 - use `E5007` when the problem is the supplied input kind rather than the overall command shape
 - use `E5009` / `E5010` for malformed config / policy files respectively, and `E5011` for library-export proof failures

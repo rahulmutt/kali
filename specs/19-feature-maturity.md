@@ -9,7 +9,7 @@ Status-label spelling rule:
 
 Bootstrap-triage note:
 - this matrix classifies **phase contracts** and **phase-gated breadth targets** after the normalization rules in [SPEC.md](../SPEC.md)
-- it does **not** downgrade the top-level bootstrap **hard invariants** such as AOT-only compilation, the pure-Rust implementation contract, no tracing/background GC, sandbox honesty, or deterministic machine contracts into optional toggles
+- it does **not** downgrade the top-level bootstrap **hard invariants** such as AOT-only compilation, the **Pure-Rust implementation contract**, no tracing/background GC, sandbox honesty, or deterministic machine contracts into optional toggles
 - when a row about compatibility breadth appears to conflict with one of those hard invariants, the invariant wins and the breadth feature must be redesigned or remain gated
 
 ## Status Labels
@@ -75,7 +75,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | No tracing/background GC in the execution model | Phase 1 MVP | Deterministic ownership/reference-counted strategies may exist where other chapters allow them, but tracing/background GC is outside the supported design |
 | Pure-Rust implementation with no embedded C/C++ libraries | Phase 1 MVP | Follows the shared **Pure-Rust implementation contract** from [SPEC.md](../SPEC.md): Kali stays Rust-only from the project/toolchain point of view without treating ordinary platform runtime/system libraries reached through Rust bindings as spec violations |
 | Standardized Kali-hosted execution engine: `wasmtime` | Phase 1 MVP | Early standalone execution and embedding target one documented pure-Rust engine so runtime behavior and testing have a single baseline |
-| Alternative Kali-hosted execution engines beyond `wasmtime` | Later compatibility | Engine plurality is an implementation extension after the first documented runtime contract is stable; it must not weaken the language/runtime guarantees or the pure-Rust constraint |
+| Alternative Kali-hosted execution engines beyond `wasmtime` | Later compatibility | Engine plurality is an implementation extension after the first documented runtime contract is stable; it must not weaken the language/runtime guarantees or the **Pure-Rust implementation contract** |
 | Invocation arguments (`Deno.args`; later Node `process.argv`) | Phase 1 MVP | Treated as caller-supplied execution context rather than a separately policy-gated host capability in schema v1 |
 | Read-only environment access (`Deno.env.get`, `Deno.env.toObject`, policy-filtered host env view) | Phase 1 MVP | Needed for practical standalone compatibility while still fitting the sandbox model |
 | Read-only `Deno.permissions` facade (query-only over the shared **Deno-compatible permission descriptor subset (schema v1)**, returning only the shared **stable permission status subset (schema v1)**; no `request()` / `revoke()` escalation path) | Phase 1 MVP | Exposes Kali sandbox state for compatibility without interactive permission escalation, while avoiding synthetic Kali-only permission names inside the Deno facade; descriptor observations stay scoped to the currently modeled capability slice, so Phase 1 `net` is effectively fetch-only rather than an implied socket/listener promise |

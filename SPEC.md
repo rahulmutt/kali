@@ -1015,6 +1015,25 @@ Interpretation rules:
 
 Use this ladder when reading or editing any “support” claim in the spec set.
 
+## Support-Claim Reading Order
+
+To keep feature claims short without making them ambiguous, interpret every “Kali supports X” statement in this order:
+
+1. **Command shape** — is the requested invocation/selector combination valid at all for the command?
+   - If not, this is the `E5008` / `E5007` side of the boundary.
+   - Examples: `kali build --api browser main.ts` without `--bundle`, conflicting artifact selectors, or a declaration-only file passed as a runtime/build/effect primary input.
+2. **Compatibility-delivery rung** — what kind of support is actually being claimed?
+   - Use the shared **compatibility delivery ladder** above instead of collapsing parsing, checking, building, execution, browser deployment, and policy/effect modeling into one overloaded word.
+3. **Availability context** — is that rung available for the selected command/profile/API surface/runtime-profile/compat set in the current phase?
+   - If not, this is the canonical `E5006` boundary.
+
+Practical reading examples:
+- “browser support in Phase 1” means browser APIs are **checkable** and browser bundles are **deployable-through-host** for the shared **Phase-1 browser-targeted command set**; it does **not** imply standalone browser-runtime **executable** support.
+- “`eval` is supported later” means the syntax is **accepted** early, may be partially **policy/effect-modeled** earlier, but does not become **executable** until the Phase-4 compatibility path.
+- “Node support is phase-gated” means a well-formed `--api node` request reaches the **availability context** gate (`E5006`) rather than becoming a browser-shape contradiction (`E5008`).
+
+When editing other chapters, prefer linking back to this reading order instead of re-explaining the same parse-vs-check-vs-build-vs-run distinction in new words.
+
 ## Browser Ambient Typing vs Mediated Capability Split
 
 This is the most important cross-spec clarification for browser support.
