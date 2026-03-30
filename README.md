@@ -28,7 +28,7 @@ Bootstrap-normalized headline assumptions:
 Quick Phase-1 non-goals:
 - no general `--api node` command support yet across `check` / `effects` / `build` / `run` / `test`
 - no standalone browser runtime or browser-hosted `run` / `test`
-- no non-bundle browser build lane: under an effective browser API surface, Phase-1 builds stay on `check` or `build --bundle`, not plain `build` / `build --lib`
+- no non-bundle browser build lane: browser-targeted support in Phase 1 is limited to `check` plus `build --bundle`; under an effective browser API surface there is no plain `build` / `build --lib` browser path yet
 - no stable public effect workflow yet: neither the reporting half (`kali effects`, `kali package-effects`) nor the policy-comparison half (compile/check-time inferred-effect-vs-policy validation) is shipped in Phase 1, and there is no dry-run `run` / `test` replacement for that workflow
 - no stable user-facing `kali package-audit` workflow yet; that later command is intentionally separate from the effect-report surface
 - no `eval` / `Function()` support yet
@@ -41,7 +41,7 @@ Recommended Phase-1 implementation order:
 3. Deno-first Kali-hosted run/test foundation with sandbox enforcement
 4. build outputs (`build`, browser bundle, Phase-1 `--lib`)
 5. developer workflow polish (`init`, `check`, `fmt`, `lint`, diagnostics, JSON contracts)
-6. evidence hardening (conformance, package corpus, browser smoke tests, determinism, and ongoing maintenance of the already-published Phase-1 proof-ready boundary/CI baseline)
+6. evidence hardening (conformance, package corpus, browser smoke tests, determinism, and ongoing maintenance of the already-published Phase-1 proof-ready boundary/trigger-policy baseline)
 
 See the normative cross-spec version in [SPEC.md#recommended-phase-1-implementation-order](./SPEC.md#recommended-phase-1-implementation-order).
 For the compact “what is actually shipped in Phase 1?” answer, see the **Phase-1 Shipped Surface Summary** in [specs/19-feature-maturity.md](./specs/19-feature-maturity.md).
@@ -57,7 +57,7 @@ Use that order before treating any broad bootstrap aspiration as shipped support
 
 Common early-phase misreads worth rejecting quickly:
 - the whole **Phase-1 browser-targeted command set** is supported in Phase 1 — including explicit `--api browser` spellings, equivalent inherited-config forms, and the supported `--sandbox` variants — but `kali run --api browser main.ts` and `kali test --api browser` are still later compatibility.
-- `kali build --lib lib.ts` is a supported Phase-1 **base library artifact** for exact-version/internal consumers in the default/inherited non-browser build context; `kali build --lib --sandbox kali.policy.json lib.ts` is the same Phase-1 base-library build plus static policy validation, while `kali build --capi lib.ts` and `kali build --component lib.ts` are still Phase-2 embedding flows.
+- `kali build --lib lib.ts` is a supported Phase-1 **base library artifact** for exact-version/internal consumers in the default/inherited non-browser build context; `kali build --lib --sandbox kali.policy.json lib.ts` is the same Phase-1 base library build plus static policy validation, while `kali build --capi lib.ts` and `kali build --component lib.ts` are still Phase-2 embedding flows.
 - `kali check --sandbox ...` and `kali build --sandbox ...` are Phase-1 policy-schema/config validation paths only; under the shared **sandbox-attachment orthogonality** rule from [SPEC.md](./SPEC.md), that sandbox attachment does **not** yet imply the Phase-2 compile/check-time inferred-effect-vs-policy validation workflow, does not change `check` file arity, and on `build` does not change artifact mode or compile intent.
 - Phase-1 verification wording is about repository/process hygiene first: one published boundary, one proof-CI trigger policy, and no proof-backed marketing beyond that boundary. The repo should already be **proof-ready** from the start; later evidence work merely hardens and maintains that baseline.
 
