@@ -197,14 +197,14 @@ Argument semantics are intentionally simple:
 - in schema v1, explicit registry install targets are **package identities only**, not inline version/range selectors
 - adding a registry package through that identity-only CLI form uses the shared [canonical stable-release selection rule](#canonical-stable-release-selection-rule-schema-v1): resolve the latest non-yanked stable published version, refresh `kali.lock` using that concrete version, and record the manifest dependency as that exact version string
 - registry install targets therefore mutate `kali.json` (`dependencies` or `devDependencies`) and then refresh lock/materialized state
-- in the canonical configless project mode from [SPEC.md](../SPEC.md), an explicit registry-package add (`kali install <pkg>` or `kali install --dev <pkg>`) first creates the minimal canonical manifest `{ "schemaVersion": 1 }` at the effective project root, then records the dependency there; registry-package adds therefore stay on one manifest-based declaration path even in configless directories
+- in the canonical **configless install split** from [SPEC.md](../SPEC.md), an explicit registry-package add (`kali install <pkg>` or `kali install --dev <pkg>`) first creates the minimal canonical manifest `{ "schemaVersion": 1 }` at the effective project root, then records the dependency there
 - `--dev` applies only to registry install targets; `kali install --dev https://...` is rejected with `E5008` instead of inventing a raw-URL dev-dependency table
 - raw URL install targets update the shared lock/cache state only; they do not invent a second manifest section and should not rewrite source/import-map declarations implicitly
 - a raw-URL install is therefore best understood as **pin/materialize this exact URL in the shared dependency state**, not as a request to add a new named dependency kind
-- in the canonical configless project mode, an explicit raw-URL install may still create `kali.lock` and `.kali/cache/urls/` state at the effective project root, but it must not create a placeholder manifest by itself
+- in that same **configless install split**, an explicit raw-URL install may still create `kali.lock` and `.kali/cache/urls/` state at the effective project root, but it must not create a placeholder manifest by itself
 - if that URL is not actually referenced from source or `kali.json#imports`, it is only staged materialization and may disappear on the next plain `kali install`
 - plain `kali install` reconciles the current manifest + import graph with `kali.lock`, `node_modules/`, and `.kali/cache/urls/`, and may prune raw URL entries that are no longer reachable from that graph
-- in the canonical configless project mode, plain `kali install` is a no-op success when the effective project root contributes no manifest/import/source dependency inputs, and it must not create a placeholder manifest as a side effect
+- in that same **configless install split**, plain `kali install` is a no-op success when the effective project root contributes no manifest/import/source dependency inputs, and it must not create a placeholder manifest as a side effect
 - because install is intentionally profile-agnostic in early phases, `kali install` does **not** take `--api`; passing `--api ...` is invalid command usage (`E5008`), not a request for a second install graph
 
 Install-graph discovery rule:

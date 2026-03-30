@@ -126,9 +126,9 @@ Use this checklist:
 - single-package registry-analysis wording should reuse the **registry-analysis context split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
+- config-discovery/install interactions without a discovered `kali.json` should reuse the **configless install split** term
 - registry-package CLI/manifest spelling versus structured JSON package metadata should reuse the **registry package identifier vs package coordinate** term instead of re-explaining the `jsr:` prefix split in slightly different ways
 - package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
-- schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of repeating envelope-only wording locally
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
 - source-file-kind wording should reuse **canonical source-file classes**, **executable/analyzable source-file class**, and **canonical project file set** instead of repeating long extension lists in every command chapter
@@ -549,6 +549,17 @@ Rules:
 - cache identity is keyed by at least the canonical registry identifier plus the resolved concrete version,
 - for analysis-context-aware registry analysis (`package-effects`), the **effective inherited analysis context** is also part of the cache identity so browser/deno/profile/compat analyses cannot collide accidentally.
 
+### Configless install split
+The canonical schema-v1 install behavior when config discovery finds no `kali.json` and the command therefore runs in **configless project mode**.
+
+It has exactly three branches:
+- **plain `kali install`** → succeed as a no-op when there are no dependency inputs; do not create a placeholder manifest just because the command ran
+- **explicit registry-package add** (`kali install <pkg>` / `kali install --dev <pkg>`) → first create the minimal canonical manifest `{ "schemaVersion": 1 }`, then record the dependency there and continue with normal install work
+- **explicit raw-URL install** (`kali install https://...`) → may create lock/cache state for that exact URL, but must not create a placeholder manifest by itself
+
+Rule:
+- chapters should reference this term instead of re-explaining the three-way configless install behavior in slightly different prose.
+
 ### Library-oriented artifact modes
 Non-browser, export-oriented build modes:
 - `--lib`
@@ -902,7 +913,7 @@ Config discovery:
 - if none is found, commands run in **configless project mode** with the current working directory as the effective project root,
 - the schema-v1 exception is the **current-directory-scoped scaffold command** `init`, which always targets the current working directory instead of retargeting to a discovered ancestor project.
 
-Configless project mode rules:
+Configless project mode rules follow one shared **configless install split**:
 - plain `kali install` is a no-op success when there are no dependency inputs,
 - explicit registry-package add (`kali install <pkg>` / `kali install --dev <pkg>`) creates the minimal manifest `{ "schemaVersion": 1 }` first,
 - explicit raw-URL install may create lock/cache state but must not create a placeholder manifest by itself.
