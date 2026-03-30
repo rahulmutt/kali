@@ -240,7 +240,8 @@ To keep the spec set implementable and reduce drift between chapters, Kali inten
 - **one install/lock state** shared across the default Deno-oriented standalone path and the shared **Phase-1 browser-targeted command set** in schema v1;
 - **one package-support decision order**: decide package shape first, then host/API fit for the active context, then command/profile maturity, all under the same published-artifact reading;
 - **one compatibility-feature name** (`eval`) for both direct `eval` and `Function()`;
-- **one sandbox/effect vocabulary** for the Kali-mediated capability subset, rather than per-DOM/per-host-API policy keys.
+- **one sandbox/effect vocabulary** for the Kali-mediated capability subset, rather than per-DOM/per-host-API policy keys;
+- **one current-repository-state vs target-contract reading**: illustrative crate trees, workspace layouts, proof trees, cargo commands, and target artifact examples may define the intended implementation/package shape before the repository actually contains every listed file or crate; current-repository claims must therefore point to existing files/artifacts instead of being inferred from those target examples;
 - **one published-standard boundary**: latest **published** ECMA-262 grammar in Phase 1, current-edition non-Annex-B semantics for the features Kali marks as supported, and explicit gating for Annex B corners or draft/proposal features instead of letting “latest ECMA-262” mean “everything now”.
 - **one pure-Rust implementation contract**: Kali itself and its shipped dependencies remain Rust-only from the project/toolchain point of view; ordinary platform runtime/system libraries reached through Rust toolchains or OS bindings do not count as smuggling in embedded C/C++ libraries, but bundling or requiring project-specific C/C++ implementation dependencies still violates the contract.
 - **one specialization key model** based on observable layout/representation fingerprints plus the small set of semantic distinctions that still affect correctness, rather than blindly keying every specialization on the full inferred source-level type.
@@ -258,6 +259,7 @@ Use this checklist:
 - JSON field names, payload schemas, artifact kinds/roles, and generated metadata-file shapes such as C ABI embedding metadata belong to [`specs/18-schemas.md`](./specs/18-schemas.md)
 - phase availability belongs to [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
 - bootstrap inspiration wording should keep the “**design references, not compatibility targets**” reading from this file instead of turning the upstream project list into an implied architecture-copy or dependency requirement
+- illustrative crate/workspace/proof-tree layouts and example host/build commands should reuse the shared **current-repository-state vs target-contract reading** instead of scattering one-off “target only / not in repo yet” caveats with slightly different wording
 - shared cross-spec tables/rules such as the **Command-context axis participation table**, the **canonical browser-targeted budget compatibility rule**, and the artifact-mode matrix should have exactly one normative copy in this file; other chapters may include short **reading-aid summaries** only when they label them as non-normative and point back here instead of restating a second near-duplicate normative table
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - host/API-layering wording should reuse the **host-support staircase**

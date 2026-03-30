@@ -60,7 +60,7 @@ kali/
 ```
 
 Interpretation rule:
-- a crate appearing in this workspace layout does **not** by itself imply that the current repository already contains that crate, nor does it imply Phase 1 user-visible support or public-stability guarantees for that surface
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): a crate appearing in this workspace layout does **not** by itself imply that the current repository already contains that crate, nor does it imply Phase 1 user-visible support or public-stability guarantees for that surface
 - for example, `kali_api_node` may exist as an internal staging area before `--api node` is part of the supported command/profile matrix, and `kali_embed` / `kali_capi` may exist as internal or pre-stable crates before the Phase-2 public embedding surface is frozen.
 
 ## Implementation Phases

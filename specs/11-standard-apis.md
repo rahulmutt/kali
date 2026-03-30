@@ -5,7 +5,7 @@
 Implement APIs through one shared guest-facing capability model. Using the canonical terminology from [SPEC.md](../SPEC.md), Kali realizes that model through different **host adapters**: the native host adapter for Kali-hosted execution and the browser host adapter for browser-targeted bundle output. In the target implementation structure, each API surface is organized as a separate crate that defines the relevant bindings/registration logic for that surface.
 
 Current repository-state note:
-- this repository is still spec-first; API-surface crate names in this chapter describe the target implementation decomposition, not a claim that every such crate already exists in the current repo today
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): API-surface crate names in this chapter describe the target implementation decomposition, not a claim that every such crate already exists in the current repo today
 
 Using the canonical **host-support staircase** from [SPEC.md](../SPEC.md), compatibility is delivered in layers:
 1. **Web baseline**: shared platform primitives needed by modern JS libraries.
@@ -218,14 +218,15 @@ This resolves a common ambiguity: browser-targeted analysis may know about `docu
 
 This section turns the broad API story into a small implementation checklist so runtime, CLI, and testing do not drift:
 
-- **Web baseline must work end-to-end**: `console`, timers, `queueMicrotask`, `fetch`, `URL`, `TextEncoder`/`TextDecoder`, `AbortController`, `structuredClone`, `performance.now()`, the MVP randomness subset (`crypto.getRandomValues`), and event primitives are available in `run` and covered by integration tests.
-- **Deno baseline must work end-to-end**: file read/write, metadata/read-dir, invocation arguments, and read-only env access all execute through the host ABI and obey the documented sandbox/execution contract.
+- **Kali-hosted standalone Web baseline must work end to end**: `console`, timers, `queueMicrotask`, `fetch`, `URL`, `TextEncoder`/`TextDecoder`, `AbortController`, `structuredClone`, `performance.now()`, the MVP randomness subset (`crypto.getRandomValues`), and event primitives are available in Kali-hosted `run` / `test` on the supported standalone surface and covered by integration tests.
+- **Deno baseline must work end to end**: file read/write, metadata/read-dir, invocation arguments, and read-only env access all execute through the host ABI and obey the documented sandbox/execution contract.
 - **Every Phase 1 host call is sandbox-contract-aware**: the runtime may not expose an unchecked host backdoor just because the API itself is part of the MVP. When a policy file is attached, host calls must consult it; when no policy file is attached, the same host-call path must still honor intrinsic phase/API gating plus any direct invocation resource caps instead of bypassing the sandbox machinery entirely.
 - **Node mode is not partially implied**: `--api node` remains phase-gated across `check` / `effects` / `build` / `run` / `test` until its documented subset is implemented; package compatibility must not depend on undocumented fallback behavior.
 - **Browser mode stays API-surface-oriented**: browser-targeted analysis/build can expose browser ambient typings, but standalone runtime does not pretend to provide DOM APIs; browser-specific behavior comes from bundle/glue output and the real browser host.
+- **Browser-targeted Web-baseline overlap is evidenced through the browser host, not through a hidden browser runtime**: the subset of the Web baseline that intersects browser-targeted bundle behavior must survive emitted-bundle smoke tests in a real browser harness, while broader ambient DOM coverage is evidenced through browser-targeted type-checking plus bundle/deploy smoke rather than through Kali-hosted runtime tests.
 - **Browser-targeted support is evidenced separately**: Phase 1 browser claims require dedicated coverage for the shared **Phase-1 browser-targeted command set**, including smoke execution of emitted bundles in a real browser harness rather than only DOM mocks/unit shims.
 
-This intentionally keeps the Phase 1 promise small: one dependable Web baseline plus one dependable Deno baseline.
+This intentionally keeps the Phase 1 promise small: one dependable Kali-hosted standalone baseline plus one dependable browser-targeted deploy/build lane, without implying a standalone browser runtime.
 
 ## Implementation Architecture
 
