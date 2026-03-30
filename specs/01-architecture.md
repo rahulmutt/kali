@@ -13,7 +13,7 @@ Source (.ts/.tsx/.mts/.cts/.js/.jsx/.mjs/.cjs)
     └─ Effect Inference (09-sandboxing.md; internal analysis may exist before stable user-facing reports)
   → Typed AST
   → HIR                (05-ir.md) — High-level IR, desugared
-  → MIR                (05-ir.md) — Mid-level IR, memory layouts + ownership *(Phase 2+; Phase 1 may lower HIR → LIR directly)*
+  → MIR                (05-ir.md) — Mid-level IR, memory layouts + ownership *(Phase 2 target onward; Phase 1 may lower HIR → LIR directly)*
   → LIR                (05-ir.md) — Low-level IR, WASM-ready
   → WASM Module        (08-wasm-codegen.md)
   → Execution          (10-runtime.md)

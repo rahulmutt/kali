@@ -425,7 +425,7 @@ Simplification rule:
 - `dynamicReasons` must be empty when `dynamicEffects` is `false`
 - If `dynamicReasons` contains `eval` or `function-constructor`, the report should also include the built-in `Eval` effect in `effects`
 - Effect `kind` names must match the canonical built-in names derived from the type system and sandbox policy model
-- the reserved Phase-2+ public effect-report schemas, together with the Phase-1/2 policy/config machine contracts, are limited to built-in sandbox-relevant effect kinds; later experimental user-defined effects, if exposed, should use a reserved `Custom.<name>` namespace rather than overloading built-in policy keys
+- the reserved public effect-report schemas that start in the Phase 2 target window, together with the Phase-1/2 policy/config machine contracts, are limited to built-in sandbox-relevant effect kinds; later experimental user-defined effects, if exposed, should use a reserved `Custom.<name>` namespace rather than overloading built-in policy keys
 - Effect locations use `SourceLocation` fields and the same 1-based `line` / `column` convention as diagnostics so tools do not need separate coordinate systems for errors vs effect reports
 - If a consumer needs a full range instead of a point location, it should use the same `SourceSpan` shape rather than inventing a command-specific span format
 - To keep reports diff-friendly and AI-friendly, producers should emit a deterministic order: sort `effects` by `kind`, then sort each occurrence list by normalized `file`, `line`, `column`, and `function` when present

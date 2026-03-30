@@ -622,7 +622,7 @@ Rule:
 ### Effect-surface split
 Kali keeps one explicit split between internal effect machinery and the later stable user-facing reporting surface:
 - **internal effect bookkeeping** — conservative compiler/runtime effect facts that may exist in Phase 1 to support sandbox-first implementation, diagnostics, lowering decisions, or later-proofed integration work
-- **public effect-report surface** — the stable user-facing effect-reporting and policy-comparison workflow (`kali effects`, `kali package-effects`, and compile/check-time inferred-effect-vs-policy validation) that becomes part of the supported contract in Phase 2+
+- **public effect-report surface** — the stable user-facing effect-reporting and policy-comparison workflow (`kali effects`, `kali package-effects`, and compile/check-time inferred-effect-vs-policy validation) that becomes part of the supported contract starting in the Phase 2 target window
 
 Rules:
 - Phase 1 may rely on **internal effect bookkeeping** without implying that effect JSON, command availability, or machine-readable report fields are already stable
@@ -634,7 +634,7 @@ Kali keeps one canonical owner for each of the easy-to-confuse analysis/policy/i
 
 In schema v1 this means:
 - `kali effects` and `kali package-effects` are **observational reporting** commands only: they report inferred effects and do not accept `--sandbox`
-- `kali check --sandbox ...` and `kali build --sandbox ...` are the **static policy-validation/comparison** path: Phase 1 validates policy/schema/config, and Phase 2+ adds inferred-effect-vs-policy validation
+- `kali check --sandbox ...` and `kali build --sandbox ...` are the **static policy-validation/comparison** path: Phase 1 validates policy/schema/config, and Phase 2 adds inferred-effect-vs-policy validation
 - `kali run --sandbox ...` and `kali test --sandbox ...` are the **runtime enforcement** path for **Kali-hosted execution**
 - `kali install --allow-scripts` is the **install-time npm-package hook path** only and stays outside the normal source-program sandbox/effect-report contract
 - `kali package-audit` is the **context-free registry-analysis/security-audit** path and does not become a second host-context-aware effect/policy command
@@ -810,6 +810,22 @@ The semantic context that materially affects static analysis results:
 - `apiSurface`
 - `runtimeProfiles`
 - `compatFeatures`
+
+### Effective inherited analysis context
+The final analysis context used by schema-v1 inherited-analysis workflows that do not take their own package-analysis-specific context flags.
+
+Canonical early example:
+- `kali package-effects <package>`
+
+It is derived from the participating analysis axes after defaults and discovered config are merged:
+- `apiSurface`
+- `runtimeProfiles`
+- `compatFeatures`
+
+Rules:
+- in configless mode, this resolves to the **default inherited analysis context (schema v1)**
+- this term exists so package-analysis docs can talk about inherited browser/node/profile/compat selection once, without restating the merge story in each chapter
+- it affects analysis semantics and availability gating, but it does not alter package identity/version selection or the project-independence rules for registry analysis
 
 ### Command-context axis participation table
 To keep effective-context validation consistent across commands, schema v1 uses one shared participation table for the main semantic axes:

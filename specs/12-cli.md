@@ -293,7 +293,7 @@ Canonical artifact-mode rule:
 `--capi` and the other **public embedding artifact flows** follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): under the shared **embedding-stability split**, Phase 1 ships the base library artifact while the stable public embedding surface is a Phase 2 target.
 
 Sandbox clarification:
-- `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config, and in Phase 2+ it also performs effect-vs-policy validation.
+- `kali build --sandbox ...` never executes the program; in Phase 1 it validates policy/config, and starting in the Phase 2 target window it also performs effect-vs-policy validation.
 - `kali build --bundle --api browser --sandbox ...` follows the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md): it is a build-time compatibility check over the documented mediated subset, not automatic runtime sandbox enforcement once the emitted browser bundle is deployed into a real browser host.
 - the same effective-context rule applies to inherited browser config: plain `kali build --sandbox kali.policy.json main.ts` under an inherited browser API surface is still the same non-bundle browser-build contradiction as explicit `kali build --api browser --sandbox kali.policy.json main.ts`, so it stays `E5008` until a non-bundle browser build mode exists.
 ```bash
@@ -305,7 +305,7 @@ kali build --bundle main.ts                # Same browser-bundle request once di
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
 kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early for builds either
-kali build --lib lib.ts                    # Phase-1 base library artifact following the shared library-oriented instantiation rule and embedding-stability split from SPEC.md (kind=wasm-module, role=primary-library; Phase 2+ the same plain --lib path becomes the stable public library/WIT contract and adds kind=wit, role=interface-wit by default)
+kali build --lib lib.ts                    # Phase-1 base library artifact following the shared library-oriented instantiation rule and embedding-stability split from SPEC.md (kind=wasm-module, role=primary-library; from the Phase 2 target onward the same plain --lib path becomes the stable public library/WIT contract and adds kind=wit, role=interface-wit by default)
 kali build --lib --api node lib.ts         # Phase 3 target: Node API surface remains build-gated for library-oriented modes too
 kali build --lib --api browser lib.ts      # Invalid usage (E5008) in early phases; browser mode is a browser-targeted context tied to `check` and `build --bundle`, not a library artifact mode
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + lib.cabi.json (artifacts: wasm-module + wit + c-header + cabi-metadata; roles: primary-library + interface-wit + embedding-header + embedding-metadata; `lib.exports.h` is the program-specific exports header, and `lib.cabi.json` is the generated `cabi-metadata` file, not the host ABI header `kali.h`; see specs/13-embedding.md)
@@ -314,7 +314,7 @@ kali build --capi --api browser lib.ts     # Invalid usage (E5008) in early phas
 kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit + lib.component.wasm (artifacts: lib.wasm kind=wasm-module role=primary-library; lib.wit kind=wit role=interface-wit; lib.component.wasm kind=wasm-component role=primary-component)
 kali build --component --api node lib.ts   # Phase 3 target: still gated by the Node build surface even after component packaging exists
 kali build --component --api browser lib.ts # Invalid usage (E5008) in early phases; browser mode remains the bundle-only browser-targeted path rather than a component artifact mode
-kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; Phase 2+: also validate inferred effects
+kali build --sandbox kali.policy.json main.ts # Phase 1: validate policy file/config; from the Phase 2 target onward also validate inferred effects
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Build-time policy compatibility only; no automatic browser-runtime enforcement is implied after deployment
 kali build --bundle --sandbox kali.policy.json main.ts # Same browser-targeted static-policy-validation request once discovered config already makes the effective apiSurface `browser`
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
@@ -351,7 +351,7 @@ kali check                                 # Under inherited browser config, thi
 kali check main.ts                         # Under inherited browser config, this is the same supported request as explicit `kali check --api browser main.ts`
 kali check --api node                      # Phase 3 target: Node API surface is phase-gated for project-discovery checking too
 kali check --api node main.ts              # Phase 3 target: same Node analysis gate for an explicit file set
-kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation; Phase 2+: effect-vs-policy validation over the discovered project graph
+kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy file/config validation; from the Phase 2 target onward, effect-vs-policy validation over the discovered project graph
 kali check --api browser --sandbox kali.policy.json # Same browser-targeted validation path over the discovered project graph
 kali check --sandbox kali.policy.json      # Under inherited browser config, the same browser-targeted static policy-validation request as explicit `kali check --api browser --sandbox ...`
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
@@ -768,7 +768,7 @@ Configuration simplification rules:
 ## Exit Codes
 
 Interpretation rule:
-- ordinary compile/check/build diagnostics over otherwise valid command inputs exit with **1**; this includes syntax/type/name errors, import/module/resolution failures, dependency-state failures (`E5001`-`E5006` as applicable), library-export proof failures (`E5011`), and Phase 2+ compile-time sandbox/effect violations
+- ordinary compile/check/build diagnostics over otherwise valid command inputs exit with **1**; this includes syntax/type/name errors, import/module/resolution failures, dependency-state failures (`E5001`-`E5006` as applicable), library-export proof failures (`E5011`), and compile-time sandbox/effect violations once the Phase 2 target opens
 - this same `1` path also covers a **well-formed but context-incompatible** attached policy whose enabled capability/profile is unavailable for the effective command context (for example `effects.eval: true` before `--compat eval` exists, or browser-targeted `check` / `build --bundle` policies that violate the canonical browser-targeted budget rule by setting `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, or `resources.maxOpenFiles`, or by setting positive `resources.maxSpawnedProcesses` / `resources.maxThreads` values)
 - `fmt --check` and lint-style contract failures that report ordinary command diagnostics also exit with **1**
 - runtime sandbox enforcement failures exit with **3**

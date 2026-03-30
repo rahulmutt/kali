@@ -167,7 +167,7 @@ Narrowing state is forked at branches and merged at join points (union of narrow
 
 Effect tracking follows the shared **effect-surface split** from [SPEC.md](../SPEC.md):
 - **Phase 1** may maintain conservative built-in effect facts internally for sandbox-first implementation, lowering, and diagnostics
-- the stable user-facing effect-report commands, explicit effect annotations, and policy-comparison workflow are Phase 2+
+- the stable user-facing effect-report commands, explicit effect annotations, and policy-comparison workflow start in the Phase 2 target window
 - later experimental/user-defined effect syntax must not accidentally leak into the stable Phase-1/2 machine contract just because the compiler has an internal representation for it
 
 ### Effect Types
@@ -214,7 +214,7 @@ Normalization rule:
 The effect system feeds directly into the sandbox analyzer (see [specs/09-sandboxing.md](09-sandboxing.md)):
 - `kali effects` is the Phase 2 user-facing command for emitting effect reports as JSON (see [specs/12-cli.md](12-cli.md))
 - **Phase 1**: runtime sandbox enforcement works even when full static effect-policy validation is not yet exposed as a stable user-facing feature
-- **Phase 2+**: inferred effects are validated against sandbox policies at compile/check time
+- **Phase 2 target**: inferred effects are validated against sandbox policies at compile/check time
 
 ## Canonical Strictness Bundle
 
@@ -267,7 +267,7 @@ Target feature families include:
 - **Boundary fidelity over guesswork**: cross-module/package types must follow the exact resolved import subpath rather than a package-wide shortcut; see the canonical declaration-resolution rules in [specs/14-packages.md](14-packages.md)
 - **Effect annotations** *(Phase 2 target)*: `function read(path: string): string ! FileSystem.Read`
 - **Purity checking** *(Phase 2 target)*: `pure function add(a: number, b: number): number`
-- **User-defined/algebraic effects** *(later, experimental)*: kept out of the MVP and introduced only after the sandbox capability model is stable
+- **User-defined/algebraic effects** *(later experimental surface)*: kept out of the MVP and introduced only after the sandbox capability model is stable
 - **Refined types** (future): `type PositiveInt = number & { __brand: "positive" }`
 - **Constraint propagation**: more aggressive generic resolution than tsc where compile-time cost stays bounded
 

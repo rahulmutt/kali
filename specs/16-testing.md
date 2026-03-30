@@ -127,7 +127,7 @@ Because schema v1 now treats the built-in `kali init` templates as exact minimal
 ### Snapshot Tests
 For IR representations:
 - Source → HIR snapshot
-- Source → MIR snapshot (including memory layout decisions) *(Phase 2+, once MIR is the canonical ownership/layout IR)*
+- Source → MIR snapshot (including memory layout decisions) *(from the Phase 2 target onward, once MIR is the canonical ownership/layout IR)*
 - Source → WASM text format snapshot
 - Snapshots reviewed on change, committed to repo
 
@@ -192,7 +192,7 @@ Proof-job consistency rule:
 - `tests/snapshots/` — IR/output snapshots
 - `tests/conformance/` — test262 and tsc-derived tests
 - `tests/sandbox/` — sandbox policy + program pairs
-- `tests/effects/` — effect-analysis cases; in Phase 1 these may target internal bookkeeping/helpers, while Phase 2+ additionally uses them for the stable public effect-report surface
+- `tests/effects/` — effect-analysis cases; in Phase 1 these may target internal bookkeeping/helpers, while from the Phase 2 target onward they additionally cover the stable public effect-report surface
 - `tests/memory/` — ownership and allocation decision test cases
 - `proofs/` — Lean models and proofs for the currently verified core subset
 

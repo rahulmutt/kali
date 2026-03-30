@@ -23,7 +23,7 @@ Simplification rule:
 2. Lower each candidate call into a provisional specialization key built from parameter/result **layout/representation fingerprints** plus any remaining semantic distinctions that still affect correctness
 3. Group by that canonical key rather than by raw type-argument spelling alone
 4. For each unique key, instantiate the function body with the corresponding concrete lowering assumptions
-5. Lower to the canonical layout-aware IR for the active phase: MIR in Phase 2+, or directly to LIR in Phase 1 while MIR is still being introduced
+5. Lower to the canonical layout-aware IR for the active phase: MIR from the Phase 2 target onward, or directly to LIR in Phase 1 while MIR is still being introduced
 6. Apply type-/layout-specific optimizations (for example integer fast paths for eligible `number` flows)
 
 Examples of distinctions that may still keep separate specializations even when layouts look similar:

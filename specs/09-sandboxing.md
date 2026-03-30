@@ -16,7 +16,7 @@ Command-behavior simplification:
 | Command family | `--sandbox` meaning in schema v1 | Runtime enforcement after command returns? |
 |---|---|---|
 | `run`, `test` | Attach policy, validate schema/ranges, and enforce it during **Kali-hosted execution** | Yes, for the documented Kali-hosted capability/resource contract |
-| `check`, `build` | Static validation only: Phase 1 validates policy/schema/config; Phase 2+ also checks inferred effects against policy. If the effective `apiSurface` is `browser`, this same row is narrowed by the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) rather than becoming a separate sandbox workflow. | No |
+| `check`, `build` | Static validation only: Phase 1 validates policy/schema/config; starting in the Phase 2 target window, the same path also checks inferred effects against policy. If the effective `apiSurface` is `browser`, this same row is narrowed by the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) rather than becoming a separate sandbox workflow. | No |
 | `effects`, `package-effects`, `package-audit` | No sandbox-comparison mode; `--sandbox` is invalid usage (`E5008`) | N/A |
 
 This table is a reading aid only. The normative command-shape and phase-gating rules still live in [specs/12-cli.md](12-cli.md), [specs/19-feature-maturity.md](19-feature-maturity.md), and the shared terminology in [SPEC.md](../SPEC.md).
@@ -28,7 +28,7 @@ The static effect system is intentionally scoped around **sandbox-relevant capab
 Phase simplification:
 - follow the shared **effect-surface split** from [SPEC.md](../SPEC.md)
 - **Phase 1**: **internal effect bookkeeping** may exist to support diagnostics/runtime integration, but the user-facing contract is runtime sandbox enforcement, policy-schema validation, and resource limits rather than the stable **public effect-report surface**
-- **Phase 2+**: that **public effect-report surface** arrives — `kali effects`, `kali package-effects`, compile/check-time effect-vs-policy validation, and explicit `pure` / effect annotations become part of the supported workflow
+- **Phase 2 target**: that **public effect-report surface** arrives — `kali effects`, `kali package-effects`, compile/check-time effect-vs-policy validation, and explicit `pure` / effect annotations become part of the supported workflow
 
 This keeps the sandbox-first story implementable: enforcement exists from the beginning, while the stable effect-report contract lands once the type/effect infrastructure is ready.
 
@@ -46,7 +46,7 @@ function processFile(path: string) {
 
 This example is intentionally descriptive, not a promise that Phase 1 already exposes stable per-function effect syntax or JSON output.
 
-### Public JSON Effect Report (Phase 2+)
+### Public JSON Effect Report (Phase 2 target)
 ```bash
 kali effects program.ts
 ```
@@ -140,7 +140,7 @@ Policy-decision layering rule:
 Compile-time policy handling is intentionally split to keep Phase 1 smaller and less ambiguous:
 
 - **Phase 1**: `--sandbox` validates the policy file itself (schema, patterns, resource-limit ranges, unsupported fields) and attaches it to the build/run configuration, but does **not** promise a complete static proof that all effects fit the policy.
-- **Phase 2+**: inferred effects are checked against the allowed policy capabilities.
+- **Phase 2 target**: inferred effects are checked against the allowed policy capabilities.
 - For the hybrid `kali check` command, `kali check --sandbox <policy>` without explicit file arguments still uses the canonical project-discovery result; `--sandbox` adds policy validation, not a new input-selection mode.
 - With explicit `check` file arguments, `--sandbox` keeps the same **set-oriented explicit-file command** behavior as plain `kali check`: it validates the supplied file set, and it does not collapse `check` into a one-entrypoint command just because a policy was attached.
 
@@ -187,7 +187,7 @@ Interpretation note:
 - this snapshot focuses on capability families and the resource fields whose availability is phase-gated
 - always-valid positive-budget fields for **Kali-hosted execution** — `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles` — are intentionally omitted from the table because they are already part of the Phase 1 runtime-budget contract rather than separate later-phase capability gates
 
-In Phase 2+ when a policy is provided at build or check time:
+From the Phase 2 target onward, when a policy is provided at build or check time:
 1. Inferred effects are checked against allowed effects
 2. Violations are **compile errors** (not warnings)
 3. Unused permissions are reported as **warnings**
@@ -219,7 +219,7 @@ For dynamic effects that can't be checked at compile time:
 To keep the sandbox story precise across commands and deployment targets:
 - **Kali-hosted runtime enforcement** applies to `kali run`, `kali test`, and embedding hosts that instantiate Kali-controlled host imports.
 - For embedding, that same rule covers both executable-style helpers and library-oriented instantiation/calls: creating an instance from a `--lib`-style module and invoking its **statically known exports** is still **Kali-hosted execution**, not a second unsandboxed host path.
-- **`check` / `build` with `--sandbox`** provide static validation only: policy-schema/config validation in Phase 1, plus effect-vs-policy validation in Phase 2+.
+- **`check` / `build` with `--sandbox`** provide static validation only: policy-schema/config validation in Phase 1, plus effect-vs-policy validation starting in the Phase 2 target window.
 - **Browser-targeted builds** in the shared **Phase-1 browser-targeted command set** (that is, `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including inherited-config forms) follow the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md): they may be checked against a policy at build time for the documented mediated subset, but the emitted artifact running inside a real browser does not automatically inherit Kali runtime enforcement after deployment.
 
 Interpretation rule:
@@ -363,7 +363,7 @@ kali effects program.ts
 
 # Check the discovered project against a policy (no execution)
 # Phase 1: validates the policy file/config only
-# Phase 2+: also validates inferred effects against the policy
+# Phase 2 target and later: also validates inferred effects against the policy
 kali check --sandbox kali.policy.json
 
 # Check one or more explicit files against a policy instead

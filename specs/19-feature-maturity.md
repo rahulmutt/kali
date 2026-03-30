@@ -137,7 +137,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 
 Interpretation rule:
 - matrix rows are evaluated against the fully merged **effective command context** (built-in defaults, then discovered config, then CLI flags)
-- some rows refer to **defined command families** from [SPEC.md](../SPEC.md): their command shape may already be documented in [12 — CLI](12-cli.md) or other owning chapters even when this matrix still marks them Phase 2+ or Later
+- some rows refer to **defined command families** from [SPEC.md](../SPEC.md): their command shape may already be documented in [12 — CLI](12-cli.md) or other owning chapters even when this matrix still marks them with a later canonical status label such as `Phase 2 target` or `Later compatibility`
 - examples written with explicit flags also apply when the same value was inherited from `kali.json`
 - for the shared source-graph command axes `--wasm-threads` and `--compat eval`, one representative explicit-flag row may stand in for the same maturity gate across `check` / `effects` / `build` / `run` / `test` unless a later row carves out a command-specific exception; inherited `compilerOptions.runtimeProfiles` / `compat.features` must hit that same gate rather than being silently dropped
 - unless a row explicitly says otherwise, a plain command spelling without an inherited-context qualifier is read under the canonical default effective context for that command; inherited non-default contexts that change the outcome should get their own explicit rows instead of being hidden inside a rationale sentence
@@ -194,7 +194,7 @@ Interpretation rule:
 | `kali check main.ts` | Phase 1 MVP | Type-check with the canonical default API surface (`apiSurface=deno`) |
 | `kali check a.ts b.ts` | Phase 1 MVP | `check` follows the shared **set-oriented explicit-file command** rule in early phases: multiple explicit files are allowed and should be checked as one explicit file set rather than rejected as though `check` were a single-entry direct command |
 | `kali check types.d.ts` | Phase 1 MVP | Declaration-only files are valid explicit file inputs for `check`, even though they are not valid runtime entrypoints, build/effect primary inputs, or test entrypoints |
-| `kali check --sandbox kali.policy.json` | Phase 1 MVP | Reuse the same project-discovery behavior as plain `kali check`; Phase 1 validates policy schema/config for the discovered project graph, and Phase 2+ also checks inferred effects against the policy |
+| `kali check --sandbox kali.policy.json` | Phase 1 MVP | Reuse the same project-discovery behavior as plain `kali check`; Phase 1 validates policy schema/config for the discovered project graph, and from the Phase 2 target onward the same path also checks inferred effects against the policy |
 | `kali check --sandbox kali.policy.json main.ts` | Phase 1 MVP | Same validation path, but scoped to the explicit file set rather than the discovered project graph |
 | `kali check --api node` | Phase 3 target | Reject with `E5006` until the documented Node typing/global subset exists; `check` keeps its project-discovery no-file form here too rather than inventing a node-specific direct-input requirement |
 | plain `kali check` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali check --api node`; inherited config must not silently fall back to `deno` for checking |
@@ -222,7 +222,7 @@ Interpretation rule:
 | `kali build main.ts` | Phase 1 MVP | Produce one linked WASM payload with the shared **default standalone context (schema v1)** from [SPEC.md](../SPEC.md) and the default executable artifact mode / executable compile intent |
 | plain `kali build main.ts` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali build --api node main.ts`; inherited config must not silently fall back to `deno` for builds |
 | plain `kali build main.ts` under an inherited browser API surface | Rejected by default | Same effective request as explicit `kali build --api browser main.ts`, so this remains the browser build-shape contradiction path (`E5008`) until a non-bundle browser build mode exists |
-| `kali build --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config for the build; Phase 2+ also performs effect-vs-policy validation |
+| `kali build --sandbox kali.policy.json main.ts` | Phase 1 MVP | Phase 1 validates policy schema/config for the build; from the Phase 2 target onward the same path also performs effect-vs-policy validation |
 | plain `kali build --sandbox kali.policy.json main.ts` under an inherited Node API surface | Phase 3 target | Same effective request as explicit `kali build --api node --sandbox kali.policy.json main.ts`; attaching `--sandbox` does not bypass the Node build gate |
 | plain `kali build --sandbox kali.policy.json main.ts` under an inherited browser API surface | Rejected by default | Same effective request as explicit `kali build --api browser --sandbox kali.policy.json main.ts`, so this remains the browser build-shape contradiction path (`E5008`) until a non-bundle browser build mode exists |
 | `kali build --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for builds too |
