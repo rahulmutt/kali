@@ -1,5 +1,9 @@
 # 16 — Testing
 
+Current repository-state note:
+- this repository is still spec-first; the crate names, test directories, and CI lanes below define the target implementation/testing contract, not a claim that every Rust crate, fixture tree, or hosted CI job already exists today
+- current repo obligations are therefore narrower: keep the spec/docs internally consistent, keep phase-gated workflows honestly marked as unavailable until their maturity rows open, and follow the published proof-boundary policy in `proofs/BOUNDARY.md`
+
 ## Test Strategy
 
 ### Unit Tests
@@ -171,6 +175,7 @@ Kali's own test runner for discovered test files, supporting:
 - Sandbox-aware (tests can run in sandbox mode)
 
 ### CI Pipeline
+Target implementation-phase CI pipeline:
 ```
 1. cargo fmt --check
 2. cargo clippy -- -D warnings
@@ -182,6 +187,10 @@ Kali's own test runner for discovered test files, supporting:
 8. Benchmarks (compare to baseline)
 9. Lean proof verification per `proofs/BOUNDARY.md` activation rule
 ```
+
+Current spec-first repo baseline:
+- until the Rust implementation/test tree exists, the practical CI minimum is spec/docs consistency plus the proof-boundary-policy checks described in `proofs/BOUNDARY.md`
+- once implementation crates, fixtures, and hosted automation land, this target pipeline becomes the expected default CI shape for supported surfaces
 
 Proof-job consistency rule:
 - Lean verification is **not** an all-or-nothing claim that the whole language/runtime is already modeled.
@@ -196,7 +205,7 @@ Proof-job consistency rule:
 - `tests/sandbox/` — sandbox policy + program pairs
 - `tests/effects/` — effect-analysis cases; in Phase 1 these may target internal bookkeeping/helpers, while from the Phase 2 target onward they additionally cover the stable public effect-report surface
 - `tests/memory/` — ownership and allocation decision test cases
-- `proofs/` — Lean models and proofs for the currently verified core subset
+- `proofs/` — today: the published proof-boundary manifest; later: Lean models and proofs for the currently verified core subset once the proof tree exists
 
 ### Runtime Execution Tests
 In addition to compiler tests, run compiled WASM programs and verify:
