@@ -538,9 +538,13 @@ To keep schema v1 small and avoid undocumented config surface area, early-phase 
 Independently of project install state for **package identity/version selection**, Kali can analyze a registry package through the **registry-analysis commands**.
 
 Clarification:
-- this project-independence rule is about which package/version gets analyzed and about not mutating project-managed dependency state
-- it does **not** forbid the later `package-effects` command from inheriting semantic analysis context (`apiSurface`, `runtimeProfiles`, `compat.features`) from discovered config/defaults once that command exists
-- that inherited context still changes analysis semantics only; it must not rewrite target package selection or make the command depend on the current project's lock/install state
+- follow the shared **registry-analysis independence split** from [SPEC.md](../SPEC.md)
+- this keeps one small two-part rule instead of repeating a longer paragraph in every chapter:
+
+| Question | Early schema-v1 answer |
+|---|---|
+| Which package/version is analyzed? | The explicit registry target plus the shared **stable-release selection rule (schema v1)**; current project manifest/lock/install state does not pick a different version and the command does not mutate project-managed dependency state |
+| Which semantic analysis context is used for `package-effects`? | Built-in defaults plus discovered config through the shared **inherited analysis context**; this may change analysis semantics, but not package target/version selection |
 
 Simplification rule:
 - follow the shared **registry-analysis command split** and **workflow-owner split** from [SPEC.md](../SPEC.md) instead of growing a fuzzy “package inspection” surface that mixes effect reporting, policy validation, install behavior, and security audit semantics

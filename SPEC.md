@@ -307,6 +307,7 @@ To keep the spec set implementable and reduce drift between chapters, Kali inten
 - **one package-support decision order**: decide package shape first, then host/API fit for the active context, then command/profile maturity, all under the same published-artifact reading;
 - **one static-analysis workflow split**: the bootstrap's “statically run a command and get JSON output of all potential effects” request maps to `effects` / `package-effects` for reporting and `check/build --sandbox` for policy comparison, rather than adding dry-run variants of `run` / `test`;
 - **one explicit-root reporting shape**: schema-v1 `effects` stays a one-root source-graph reporting command, while schema-v1 `package-effects` / `package-audit` stay one-package registry-analysis commands instead of growing project-discovery or batch shortcuts;
+- **one registry-analysis independence split**: schema-v1 `package-effects` may inherit semantic analysis context (`apiSurface`, `runtimeProfiles`, `compat.features`) from defaults/discovered config, but that inherited context never rewrites the explicit package selector, resolved version, or project-independence rule for `package-effects` / `package-audit`;
 - **one compatibility-feature name** (`eval`) for both direct `eval` and `Function()`;
 - **one sandbox/effect vocabulary** for the Kali-mediated capability subset, rather than per-DOM/per-host-API policy keys;
 - **one current-repository-state vs target-contract reading**: illustrative crate trees, workspace layouts, proof trees, cargo commands, and target artifact examples may define the intended implementation/package shape before the repository actually contains every listed file or crate; current-repository claims must therefore point to existing files/artifacts instead of being inferred from those target examples;
@@ -354,6 +355,7 @@ Use this checklist:
 - package-audit semantics that intentionally ignore inherited host-analysis/runtime config should reuse **context-free registry analysis (schema v1)** instead of restating the ignored-axis list
 - package-effects configless/default-context wording should reuse **default inherited analysis context (schema v1)** instead of repeating a partial default tuple and risking drift about which axes actually participate
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
+- package-effects/project-independence wording should reuse the **registry-analysis independence split** instead of re-explaining from scratch that discovered config may change analysis semantics but not the explicit package target, resolved version, or project-state independence
 - Phase-1 internal effect machinery versus Phase-2 stable effect-report-command wording should reuse the **effect-surface split** instead of creating new near-duplicate “effects exist internally but not publicly yet” prose in each chapter
 - command-purpose wording that distinguishes reporting, policy validation, runtime enforcement, install-time hooks, and registry audit should reuse the **workflow-owner split** instead of creating overlapping “analysis”, “sandbox”, or “inspection” narratives for the same command families
 - `--sandbox` behavior across `check` / `build` / `run` / `test` should reuse the **sandbox-attachment orthogonality** rule instead of re-explaining in each chapter that sandbox attachment does not change command family, file arity, compile intent, artifact mode, or API-surface gating
@@ -1269,7 +1271,7 @@ The bundled schema-v1 target-selection contract shared by `package-effects` and 
 It deliberately packages together the three registry-analysis rules that often drift apart when chapters paraphrase them from memory:
 1. **command shape** — follow the **single-package registry-analysis command** rule: exactly one explicit canonical registry package identifier, with raw URLs, local paths, omitted targets, and multiple targets rejected as `E5008`
 2. **version selection** — follow the **stable-release selection rule (schema v1)** unless a later owning chapter adds an explicit version-aware or lock-aware mode
-3. **project independence** — follow the **registry-analysis project-independence rule**: current-project `kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/` do not pick a different version, and the commands do not mutate project-managed dependency state
+3. **project independence** — follow the **registry-analysis independence split**: current-project `kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/` do not pick a different version, and the commands do not mutate project-managed dependency state
 
 Canonical consequence:
 - `package-effects` and `package-audit` are both registry-package workflows over one explicit package identity, not whole-project dependency analyzers, raw-URL analyzers, or “whatever this repo currently has installed” commands.
@@ -1303,6 +1305,20 @@ To keep single-package tooling predictable and avoid a second near-duplicate fla
 - `package-effects` follows the maturity of the inherited analysis axis instead of inventing its own separate gate table: inherited browser context lines up with browser-targeted effect analysis, inherited Node context lines up with the Node analysis gate, inherited `wasm-threads` lines up with the threaded-profile gate, and inherited compat features such as `eval` line up with their own compatibility-phase gates.
 - `package-audit`, once that command exists, follows **context-free registry analysis (schema v1)**.
 - both commands still continue to follow the shared **registry-analysis target contract (schema v1)** while differing only in context participation and JSON/output behavior.
+
+### Registry-analysis independence split
+The schema-v1 rule that separates **which package/version is being analyzed** from **which semantic analysis context is used**.
+
+In schema v1 this means:
+- the explicit registry package target plus the shared **stable-release selection rule (schema v1)** choose the analyzed package/version,
+- current-project `kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/` do **not** pick a different package/version and the command does not mutate that project-managed dependency state,
+- `package-effects` may still inherit semantic analysis context (`apiSurface`, `runtimeProfiles`, `compat.features`) from defaults/discovered config through the shared **inherited analysis context**,
+- that inherited context may change analysis semantics only; it does **not** rewrite the explicit package selector, resolved version, or project-independence rule,
+- `package-audit` stays on **context-free registry analysis (schema v1)** and therefore does not even take that inherited semantic-context branch in early phases.
+
+Rule:
+- use this term when a chapter needs to say “config may influence how `package-effects` is analyzed, but not which package/version it targets” without re-explaining the same separation in new words.
+- combine it with the narrower **registry-analysis target contract (schema v1)** only when the chapter also needs the command-shape and stable-release-selection details.
 
 ### Registry-analysis command split
 Kali intentionally keeps the two schema-v1 single-package registry-analysis commands small and non-overlapping instead of growing one fuzzy “package inspection” surface.
@@ -1363,16 +1379,6 @@ Canonical early example:
 Rule:
 - use this term instead of restating the full ignored-axis list each time a chapter means this exact schema-v1 behavior
 - this term is about semantic context participation only; it does not by itself imply anything about package version selection, cache identity, or project mutability
-
-### Registry-analysis project-independence rule
-Single-package registry-analysis commands intentionally analyze a registry package as a standalone target, not as "whatever version this project currently has installed."
-
-Rules:
-- version selection follows the shared **stable-release selection rule (schema v1)** unless an owning chapter later adds an explicit version-aware or lock-aware mode,
-- the current project's `kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/` must not change which package version is analyzed,
-- these commands must not mutate project-managed dependency state as a side effect,
-- `package-effects` may still inherit its **inherited analysis context**, but that inherited context affects analysis semantics only and must not change project-independence for package identity/version selection,
-- any fetched metadata/tarballs belong to the separate **registry-analysis cache**, not to project installation state.
 
 ### Registry-analysis cache
 A non-project-managed cache that registry-analysis commands may use for fetched package metadata/tarballs.

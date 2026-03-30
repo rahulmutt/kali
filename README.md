@@ -57,6 +57,7 @@ Useful normalized reminders:
 - the CLI is Deno-inspired at the workflow level, not a promise of flag-for-flag Deno parity
 - documented command shape and shipped availability are separate; availability always comes from the maturity matrix
 - later reporting/registry-analysis commands stay explicit in their targets: `kali effects` is direct-input and `kali package-effects` / `kali package-audit` take one explicit registry package target in schema v1
+- later `kali package-effects` may inherit analysis context from defaults/discovered config, but that changes analysis semantics only; it does not let the current project pick a different package target/version or turn registry analysis into a project-installed-dependency workflow
 
 ## Repository posture
 This repository is currently spec-first:
