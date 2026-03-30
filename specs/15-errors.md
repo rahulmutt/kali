@@ -29,8 +29,8 @@ error[E1001]: Type 'string' is not assignable to type 'number'
 ### JSON (`--output json`)
 Diagnostics are emitted inside the CLI's versioned command envelope. The canonical JSON schemas for both the envelope and individual diagnostics live in [specs/18-schemas.md](18-schemas.md).
 
-Native-JSON reporting command clarification:
-- schema v1 reserves native-JSON success output for `kali effects` and `kali package-effects` once those commands are available in the current phase
+Native-JSON command clarification:
+- schema v1's **native-JSON commands** are `kali effects` and `kali package-effects` once those commands are available in the current phase
 - they emit raw JSON payloads on stdout by default on success
 - when they fail **without** `--output json`, their diagnostics stay human-oriented and should go to stderr so stdout does not become mixed text+JSON
 - callers that need machine-readable failure diagnostics for those commands must request `--output json`

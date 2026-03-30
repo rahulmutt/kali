@@ -61,15 +61,15 @@ Used by commands that opt into `--output json`.
 ### Notes
 - `payload` holds command-specific structured data
 - `command` is intentionally an open-ended string so new CLI subcommands do not force a schema-version bump; stable built-in command names should mirror the CLI subcommand path in kebab-case (for example `check`, `build`, `package-effects`)
-- a command may support `--output json` with the canonical **envelope-only JSON support** model from [SPEC.md](../SPEC.md) even when schema v1 does **not** define a dedicated success-payload schema for it; in that case the envelope itself is the stable contract and `payload` should be omitted or `null` rather than populated with an ad hoc object
-- envelope-only JSON support is an output-format rule only; it does **not** promote a command to an earlier phase, create a second command surface, or bypass the command's ordinary maturity/context gates
-- schema v1 reserves native-JSON success output for `kali effects` and `kali package-effects` once those commands are available in the current phase; they may emit their native JSON payloads by default, but with `--output json` they must be wrapped in this envelope
-- for those native-JSON reporting commands, default success mode reserves stdout for the payload only; extra progress/status text must not be interleaved into stdout
+- a command may support `--output json` with the canonical **envelope-only JSON command** model from [SPEC.md](../SPEC.md) even when schema v1 does **not** define a dedicated success-payload schema for it; in that case the envelope itself is the stable contract and `payload` should be omitted or `null` rather than populated with an ad hoc object
+- envelope-only JSON command behavior is an output-format rule only; it does **not** promote a command to an earlier phase, create a second command surface, or bypass the command's ordinary maturity/context gates
+- schema v1's **native-JSON commands** are `kali effects` and `kali package-effects` once those commands are available in the current phase; they may emit their native JSON payloads by default, but with `--output json` they must be wrapped in this envelope
+- for those native-JSON commands, default success mode reserves stdout for the payload only; extra progress/status text must not be interleaved into stdout
 - `--pretty` follows the cross-spec **JSON-producing mode** rule from [SPEC.md](../SPEC.md): it is meaningful only when the command is actively emitting JSON, and then it reformats the active JSON document (native payload by default, outer envelope when `--output json` is selected) without changing any field names or schema semantics
 - `--pretty` does **not** by itself switch a command into JSON mode; envelope-only JSON commands still need `--output json` before `--pretty` becomes meaningful
 - when those commands fail without `--output json`, human-oriented diagnostics should go to stderr; callers that need machine-readable failure output must request `--output json`
-- commands that currently have only envelope-level JSON support in schema v1 (for example `package-audit`) may use standard envelope fields only for ordinary command metadata (such as generic diagnostics, captured text streams, timings, or exit code); they must not invent command-specific result objects outside `payload`, and they must not smuggle human prose through `payload`
-- envelope-only JSON support is not permission to repurpose `stdout` / `stderr` as hidden structured-result fields; those stream fields are for captured program/command text only
+- commands that currently have only envelope-level JSON support in schema v1 (for example `package-audit`) are **envelope-only JSON commands** and may use standard envelope fields only for ordinary command metadata (such as generic diagnostics, captured text streams, timings, or exit code); they must not invent command-specific result objects outside `payload`, and they must not smuggle human prose through `payload`
+- envelope-only JSON commands are not permission to repurpose `stdout` / `stderr` as hidden structured-result fields; those stream fields are for captured program/command text only
 - for execution-style commands in JSON mode, guest/program stdout and stderr belong in the envelope's `stdout` / `stderr` fields rather than being interleaved as raw text around the JSON payload
 - diagnostics inside the envelope may carry optional structured `context` metadata when a config/flag-derived effective command context materially caused the failure
 - Commands should avoid inventing top-level ad hoc fields when `payload` is sufficient
@@ -496,7 +496,7 @@ Interpretation rules:
 
 ## Package Audit JSON Output (schema v1)
 
-`kali package-audit` intentionally has **no dedicated success-payload schema in schema v1**.
+`kali package-audit` intentionally has **no dedicated success-payload schema in schema v1** and is therefore the canonical schema-v1 **envelope-only JSON command**.
 
 The machine-readable contract is therefore the standard CLI command envelope only:
 - `--output json` emits the normal envelope

@@ -124,6 +124,7 @@ Use this checklist:
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
 - library/export-oriented build wording should reuse the **compile intent**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
 - single-package registry-analysis wording should reuse the **registry-analysis context split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
+- JSON machine-output wording should reuse the canonical **native-JSON command**, **envelope-only JSON command**, and **JSON-producing mode** terms instead of restating near-duplicate output-mode rules
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
 - config-discovery/install interactions without a discovered `kali.json` should reuse the **configless install split** term
@@ -431,9 +432,45 @@ Rules:
 The command-shape terms in this section classify how a command behaves **when that command exists** in schema v1.
 
 Rules:
-- these terms describe arity, discovery, and context inheritance, not whether the command is already Phase 1 available,
+- these terms describe arity, discovery, context inheritance, and output shape, not whether the command is already Phase 1 available,
 - phase availability still comes from the owning chapter plus [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md),
 - docs should avoid rephrasing a command-shape term as an availability promise.
+
+### JSON-producing mode
+A command invocation whose primary success output is JSON.
+
+In schema v1 this happens in exactly two ways:
+- the invocation is a **native-JSON command** in its default success mode, or
+- `--output json` selects the standard command envelope.
+
+Rules:
+- `--pretty` is meaningful only in **JSON-producing mode**
+- output-format flags do not create a second availability path or separate semantic context
+- docs should reuse this term instead of spelling out slightly different “already JSON vs wrapped JSON” rules in each chapter
+
+### Native-JSON command
+A command whose default successful output is its command-specific JSON payload rather than the standard command envelope.
+
+Schema-v1 examples once those commands are available:
+- `kali effects`
+- `kali package-effects`
+
+Rules:
+- default success output is the native payload on stdout with no interleaved status/progress text
+- `--output json` wraps that same payload in the standard command envelope instead of changing the payload schema
+- failures without `--output json` follow the ordinary human-diagnostic path; machine-readable failure output still requires the envelope request path
+
+### Envelope-only JSON command
+A command that may support `--output json` through the standard command envelope even though schema v1 defines no dedicated success-payload schema for it yet.
+
+Canonical schema-v1 example once that later command exists:
+- `kali package-audit`
+
+Rules:
+- the stable machine-readable contract is the standard command envelope itself
+- `payload` should be omitted or `null` rather than populated with ad hoc command-specific objects
+- `stdout` / `stderr` remain captured text-stream fields only, not hidden structured result channels
+- docs should reuse this term instead of restating a near-duplicate “envelope but no payload schema” rule per command
 
 ### Direct-input command
 A command that requires exactly one explicit primary source input in early phases:
@@ -754,45 +791,17 @@ Read in this order for a clean mental model:
 
 ## JSON Output Modes
 
-To keep CLI, schemas, and command docs aligned, schema v1 uses one small output-mode model.
+To keep CLI, schemas, and command docs aligned, schema v1 uses the shared **JSON-producing mode**, **native-JSON command**, and **envelope-only JSON command** terms defined earlier in this file.
 
-### JSON-producing mode
-A command invocation is in **JSON-producing mode** when JSON is the primary success output, either because:
-- the command is one of schema v1's native-JSON reporting commands **once that command is available in the current phase**, or
-- `--output json` selected the standard command envelope.
-
-Rule:
-- `--pretty` is meaningful only in JSON-producing mode
-- `--pretty` does **not** by itself switch a command into JSON-producing mode; for envelope-only JSON commands, `--output json` is still required
-- in that mode, it reformats the active JSON document only and does not change the schema
-- outside that mode, `--pretty` is invalid command usage (`E5008`) rather than a silent no-op
-
-### Native-JSON reporting commands
-Schema v1 reserves native-JSON success output for these commands once they are available in the current phase:
-- `effects`
-- `package-effects`
+Schema-v1 command assignment:
+- **native-JSON commands** once available: `effects`, `package-effects`
+- canonical **envelope-only JSON command** once available: `package-audit`
 
 Rules:
-- on success **without** `--output json`, stdout is reserved for that payload only,
-- human-oriented diagnostics for failures without `--output json` go to stderr,
-- `--output json` wraps the same payload in the standard command envelope rather than inventing a second payload shape,
-- `--pretty` changes formatting only: it pretty-prints the active JSON document (native payload by default, outer envelope when `--output json` is selected) without changing the schema.
-
-### Envelope-only JSON support
-Some commands may support `--output json` even when schema v1 defines no dedicated success-payload schema for them yet.
-
-Rules:
-- the stable machine-readable contract is the standard command envelope itself,
-- `payload` should be omitted or `null` rather than populated with ad hoc command-specific objects,
-- `stdout` / `stderr` fields are for captured text streams only, not hidden structured result channels,
-- this is an output-format rule only: it must not be treated as a separate command surface, a second context model, or an alternate availability path.
-
-Canonical schema-v1 example once that later command exists:
-- `package-audit --output json`
-
-Short form:
-- **native JSON command** → payload by default, envelope on request
-- **envelope-only JSON command** → envelope only
+- `--pretty` is meaningful only in **JSON-producing mode**
+- `--pretty` does **not** by itself switch a command into JSON-producing mode; for an **envelope-only JSON command**, `--output json` is still required
+- **native-JSON commands** reserve stdout for the success payload in their default success mode, and `--output json` wraps that same payload in the standard command envelope rather than inventing a second payload shape
+- these are output-format classifications only; they must not be treated as separate command surfaces, second context models, or alternate availability paths
 
 ## Command/Context Axis Participation Table
 

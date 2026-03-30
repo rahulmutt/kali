@@ -26,7 +26,7 @@ Command-family terminology used in this chapter:
 - **execution commands**: `run` and `test`
 - **build-like commands**: `build`, plus the compile step embedded inside `run` and `test`
 - **diagnostic-producing commands**: `check`, `effects`, `package-effects`, `build`, `run`, `test`, `fmt --check`, and `lint`
-- **JSON-producing mode**: a command invocation that emits JSON as its primary success output, either because the command is one of schema v1's native-JSON reporting commands (`effects`, `package-effects`) **once that command is available in the current phase**, or because `--output json` selected the standard command envelope
+- **JSON-producing mode**: use the shared term from [SPEC.md](../SPEC.md); in schema v1 this means either a **native-JSON command** in its default success mode or any invocation with `--output json`
 
 Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - `run`, `build`, and `effects` are **direct-input commands** in early phases: they require exactly one explicit primary source input and do not guess `main.ts` or invent a project-default file
@@ -87,7 +87,7 @@ Effective-context validation rule:
 |------|-------|-------------|
 | `--verbose` | all commands | Detailed output: timing per phase, optimization decisions |
 | `--output json` | all commands | Request the standard machine-readable JSON output mode for that command: wrap native-JSON payloads in the command envelope, or emit the envelope itself for envelope-only JSON commands |
-| `--pretty` | JSON-producing mode | Pretty-print the active JSON document without changing its schema; meaningful only for native-JSON reporting commands or when `--output json` is active (including envelope-only JSON commands) |
+| `--pretty` | JSON-producing mode | Pretty-print the active JSON document without changing its schema; meaningful only for **native-JSON commands** or when `--output json` is active (including **envelope-only JSON commands**) |
 | `--quiet` | all commands | Suppress non-error status/progress output; for data-producing commands such as `effects` and `package-effects`, it must not suppress the primary payload itself |
 | `--max-errors N` | diagnostic-producing commands | Cap reported errors (default: 50) |
 | `--color auto\|always\|never` | text-output commands | Color output control |
@@ -317,7 +317,7 @@ kali effects --api node main.ts            # Phase 3 target: Node API surface re
 kali effects --pretty main.ts              # Pretty-printed effect report JSON
 kali effects --output json main.ts         # Command envelope + effect payload
 ```
-By default, `kali effects` prints the effect report payload directly because JSON is the primary output of the command. With `--output json`, it is wrapped in the standard command envelope described below. See [specs/18-schemas.md](18-schemas.md) for the canonical payload schema.
+`kali effects` is a schema-v1 **native-JSON command** once it is available: by default it prints the effect-report payload directly, and with `--output json` it wraps that same payload in the standard command envelope. See [specs/18-schemas.md](18-schemas.md) for the canonical payload schema.
 
 Analysis scope rule:
 - the emitted payload includes `analysisContext`, which records `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md))
@@ -493,7 +493,7 @@ kali package-effects jsr:@std/path         # Analyze JSR package
 kali package-effects --pretty lodash       # Pretty-printed package-effect report JSON
 kali package-effects --output json lodash  # Command envelope + package-effect payload
 ```
-By default, `kali package-effects` emits its native JSON payload directly, following the same simplification as `kali effects`. With `--output json`, that payload is wrapped in the standard command envelope. `--pretty` changes formatting only; if combined with `--output json`, it formats the outer envelope while leaving the nested package-effect payload schema-identical. See [specs/18-schemas.md](18-schemas.md) for the canonical package-effect payload schema.
+`kali package-effects` is the other schema-v1 **native-JSON command** once it is available: by default it emits its package-effect payload directly, and with `--output json` it wraps that same payload in the standard command envelope. `--pretty` changes formatting only; if combined with `--output json`, it formats the outer envelope while leaving the nested package-effect payload schema-identical. See [specs/18-schemas.md](18-schemas.md) for the canonical package-effect payload schema.
 
 Analysis scope rule:
 - `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
@@ -530,7 +530,7 @@ Additional flag-surface rule:
 - unlike `package-effects`, early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md), so inherited host-analysis/runtime config does not gate or rewrite the command's semantics
 
 Output simplification rule:
-- unlike `kali effects` and `kali package-effects`, `kali package-audit` does **not** define a native bare-JSON payload in schema v1
+- unlike `kali effects` and `kali package-effects`, `kali package-audit` is an **envelope-only JSON command** in schema v1 rather than a **native-JSON command**
 - follow the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md) for the exact envelope-only machine-output contract instead of restating it here
 - because of that envelope-only model, `kali package-audit --pretty <pkg>` without `--output json` is invalid command usage (`E5008`) rather than an implicit request for JSON mode
 - output-format flags do **not** create a separate availability path or context model for `package-audit`
@@ -572,13 +572,13 @@ Machine-parseable output for commands that normally print human-oriented text. T
 Quiet-mode interaction rule:
 - `--quiet` suppresses extra success/status text, not the command's primary payload
 - for ordinary human-oriented commands, that usually means nothing is printed on success unless the command's main purpose is to emit stdout from the user program or a requested machine payload
-- for schema v1's native-JSON reporting commands (`kali effects`, `kali package-effects`) and for `--output json` modes, the requested JSON payload/envelope remains the primary output even under `--quiet`
+- for schema v1 **native-JSON commands** (`kali effects`, `kali package-effects`) and for any other **JSON-producing mode**, the requested JSON payload/envelope remains the primary output even under `--quiet`
 
 Pretty-print interaction rule:
 - `--pretty` is meaningful only in **JSON-producing mode**
 - `--pretty` does **not** opt a command into JSON mode by itself
-- for `kali effects` and `kali package-effects`, plain success output is already JSON, so `--pretty` reformats that native payload
-- for any command with `--output json`, including envelope-only JSON commands such as early `package-audit --output json`, `--pretty` reformats the outer command envelope
+- for schema v1 **native-JSON commands**, plain success output is already JSON, so `--pretty` reformats that native payload
+- for any command with `--output json`, including **envelope-only JSON commands** such as early `package-audit --output json`, `--pretty` reformats the outer command envelope
 - if a command is not otherwise emitting JSON (for example `kali check --pretty` without `--output json`, or early `kali package-audit --pretty lodash` without `--output json`), `--pretty` is invalid command usage (`E5008`) rather than a silent no-op
 - `--pretty` changes formatting only; it must not change field names, ordering guarantees, or whether stderr/human diagnostics are emitted outside JSON mode
 - JSON-selection flags do **not** bypass command maturity or create a second command surface: if `kali effects`, `kali package-effects`, or `kali package-audit` is still unavailable in the current phase, invocations such as `--pretty` / `--output json` still fail on the command's normal availability gate after any earlier command-shape checks
@@ -589,15 +589,15 @@ Rules:
 - top-level output uses the versioned command envelope
 - diagnostics reuse the shared diagnostic schema
 - command-specific structured data goes in `payload` when that command has a dedicated success-payload schema in schema v1
-- commands with **envelope-only JSON support** may still support `--output json` through the standard envelope alone; in that case `payload` should be omitted or `null` rather than filled with ad hoc prose/fields
-- envelope-only JSON support also does **not** permit commands to smuggle structured success metadata through `stdout` / `stderr`; those fields remain reserved for captured text streams
+- **envelope-only JSON commands** may still support `--output json` through the standard envelope alone; in that case `payload` should be omitted or `null` rather than filled with ad hoc prose/fields
+- the **envelope-only JSON command** model also does **not** permit commands to smuggle structured success metadata through `stdout` / `stderr`; those fields remain reserved for captured text streams
 - common optional top-level fields include `artifacts`, `stdout`, `stderr`, `timings`, and `exitCode`
 - for execution-style commands in JSON mode, guest/program stdout and stderr are captured into the envelope fields instead of being interleaved as raw terminal text
 - build-like commands should populate artifact `role` whenever it helps distinguish artifact mode without forcing tools to guess from filenames (for example default executable vs `--lib` `wasm-module`)
 
-Exception: schema v1's native-JSON reporting commands (`kali effects`, `kali package-effects`) already emit JSON as their native outputs, so `--output json` wraps those payloads in the envelope instead of changing their underlying schemas.
+Exception: schema v1's **native-JSON commands** (`kali effects`, `kali package-effects`) already emit JSON as their native outputs, so `--output json` wraps those payloads in the envelope instead of changing their underlying schemas.
 
-Native-JSON reporting command-stream rule:
+Native-JSON command stream rule:
 - in default native-payload mode, stdout is reserved for the success payload only
 - extra progress/status text must not be interleaved into stdout for those commands
 - when those commands fail **without** `--output json`, they should emit the normal human-oriented diagnostics to stderr rather than corrupting stdout with mixed text/JSON output
