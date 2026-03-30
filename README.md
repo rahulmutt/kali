@@ -32,7 +32,7 @@ Quick Phase-1 non-goals:
 Reading rule:
 - treat `BOOTSTRAP.md` as the input brief and the spec set as the normative source of truth after normalization
 - when a bootstrap aspiration and a phase-specific promise seem to differ, prefer `SPEC.md` plus the owning chapter and the feature-maturity matrix
-- remember the two main naming splits used across the specs: config stores compatibility switches under `compat.features` while emitted reports use `compatFeatures`, and semantic effect kinds such as `FileSystem.Read` map onto policy/schema keys such as `effects.fileSystem.read`
+- remember the three main naming splits used across the specs: config stores compatibility switches under `compat.features` while emitted reports use `compatFeatures`; semantic effect kinds such as `FileSystem.Read` map onto policy/schema keys such as `effects.fileSystem.read`; and registry-package CLI/manifests/logical-root labels use the identifier spelling (`lodash`, `jsr:@std/path`) while structured JSON metadata uses the decomposed package-coordinate form (`registry`, `name`, `version`)
 - for maintenance, keep the ownership split tight: command shape/flags live in `12-cli`, diagnostic semantics in `15-errors`, JSON field names in `18-schemas`, and phase availability in `19-feature-maturity`
 
 Quick navigation:

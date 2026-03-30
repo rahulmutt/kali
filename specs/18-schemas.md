@@ -477,6 +477,8 @@ Required fields:
 
 Interpretation rules:
 - `PackageCoordinate` is for **registry packages only**; schema v1 package-effect payloads do not use this shape for raw URLs or local paths
+- follow the shared **registry package identifier vs package coordinate** split from [SPEC.md](../SPEC.md): this structured object is the decomposed package-coordinate form, while CLI arguments, diagnostics, and nested `report.entryPoints` use the user-facing registry package identifier spelling
+- `package.name` therefore carries the registry-native package name only (`lodash`, `@types/node`, `@std/path`); for JSR packages the `jsr:` identity marker is represented by `package.registry = "jsr"`, not duplicated inside `package.name`
 - `package.version` is the concrete resolved version actually analyzed. The CLI package argument is versionless in schema v1; for `package-effects`, that resolved version follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md) unless a later spec adds an explicit version/range selector.
 - because schema-v1 registry analysis follows the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md), this resolved version is not inferred from the current project's manifest or lockfile.
 - the emitted payload must still record the exact resolved version so caches, diffs, and audit trails stay reproducible.
@@ -486,7 +488,7 @@ Interpretation rules:
 - inherited package-analysis context follows the same axis-specific maturity gates as the rest of effect analysis rather than a package-only shadow rule set: browser inherits the browser-targeted analysis path, Node inherits the Node analysis gate, `wasm-threads` inherits the threaded-profile gate, and compat features such as `eval` inherit their own compatibility gate
 - the recorded context reflects the command's successfully selected analysis mode; it does **not** relax feature-maturity rules, so an inherited context that is still unavailable for package analysis still causes `E5006` instead of producing a report under a fallback surface
 - `entryPoints` names the package-analysis logical roots (for example the canonical package root specifier) and the summarized effects still cover the full statically reachable graph selected for that package analysis, not only the top-level `package.json` metadata file
-- for schema-v1 CLI package analysis, that root label should use the same canonical registry identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than a tarball URL, cache path, or opaque internal package handle
+- for schema-v1 CLI package analysis, that root label should use the same canonical registry package identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than a tarball URL, cache path, or opaque internal package handle
 - `schemaVersion` at the outer package-effect layer versions the package-analysis payload; the nested `report.schemaVersion` continues to version the shared effect-report schema independently
 - by default, `kali package-effects` may emit this payload directly; with `--output json`, it is wrapped in the standard CLI command envelope with this object under `payload`
 

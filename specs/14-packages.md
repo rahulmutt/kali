@@ -56,6 +56,7 @@ Kali uses one shared registry-package identifier grammar across `kali.json`, `ka
 - **JSR packages** use an explicit `jsr:` prefix, for example `jsr:@std/path`
 
 Interpretation rules:
+- follow the shared **registry package identifier vs package coordinate** split from [SPEC.md](../SPEC.md): CLI/manifests/diagnostics use the registry package identifier spelling (`lodash`, `jsr:@std/path`), while structured JSON package metadata may decompose the same package into `{ registry, name, version }`
 - bare package names default to the npm registry in CLI/package-manifest contexts
 - the `jsr:` prefix is required for JSR so package identity stays unambiguous in `kali.json`, lockfiles, diagnostics, and install commands
 - this prefix is a **registry identity marker**, not a request to invent a second installation layout; both npm and JSR registry packages still materialize into `node_modules/` in early phases

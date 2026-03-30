@@ -123,6 +123,7 @@ Use this checklist:
 - single-package registry-analysis wording should reuse the **registry-analysis context split**, **registry-analysis project-independence rule**, and **stable-release selection rule (schema v1)**
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
+- registry-package CLI/manifest spelling versus structured JSON package metadata should reuse the **registry package identifier vs package coordinate** term instead of re-explaining the `jsr:` prefix split in slightly different ways
 
 Practical rule:
 - if a chapter needs more than a short paragraph to restate one of those shared rules, add or reuse a canonical term here instead of creating another near-duplicate explanation.
@@ -809,6 +810,19 @@ This term is used consistently across:
 - `kali package-effects`
 - `kali package-audit`
 - manifest keys under `dependencies` / `devDependencies`
+- logical-root labels such as effect-report `entryPoints`
+
+## Registry package identifier vs package coordinate
+
+Kali intentionally uses two related representations for registry packages:
+- **registry package identifier** — the user-facing string spelling used by CLI arguments, manifest keys, diagnostics, and logical-root labels such as effect-report `entryPoints`; examples: `lodash`, `jsr:@std/path`
+- **package coordinate** — the structured JSON form used when a schema needs decomposed metadata, typically `{ registry, name, version }`
+
+Rules:
+- npm package coordinates keep `registry: "npm"` and `name` as the bare npm package name
+- JSR package coordinates keep `registry: "jsr"` and `name` as the registry-native package name **without** the `jsr:` identity marker; the prefix stays represented by `registry`, not duplicated inside `name`
+- when a schema needs a stable user-facing root label or diagnostic spelling, prefer the **registry package identifier** form rather than reconstructing an ad hoc string from a package coordinate
+- docs should not invent a third spelling such as embedding the `jsr:` prefix into JSON `name` fields while also carrying `registry: "jsr"`
 
 ## Stable-Release Selection Rule (schema v1)
 
