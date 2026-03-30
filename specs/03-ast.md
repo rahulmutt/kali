@@ -2,7 +2,7 @@
 
 ## Design Principles
 
-- **Typed nodes**: Each AST node is a distinct Rust type, not a catch-all enum where possible. Use enums for categories (Expression, Statement, Declaration).
+- **Dedicated node types**: Each AST node is a distinct Rust type where practical, not a catch-all enum. Use enums for true categories such as `Expression`, `Statement`, and `Declaration`; keep semantic typing information in later checker side tables rather than implying the parsed AST is already type-checked.
 - **Arena-allocated**: All nodes live in a per-file arena. References are indices or arena pointers.
 - **Span-annotated**: Every node carries a `Span` for error reporting and source mapping.
 - **Immutable after construction**: The AST is built once by the parser and never mutated.

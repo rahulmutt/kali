@@ -151,7 +151,7 @@ It intentionally merges three questions in one place so readers do not have to b
 | TypeScript + first-class JavaScript compilation | Phase contract | Phase 1 MVP | TS compatibility stays broad; `.js` is a first-class input with stronger bounded inference rather than a downgraded mode | [`specs/04-type-system.md`](./specs/04-type-system.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Sandbox-first design + static effect reporting | Mixed: hard invariant + phase-gated reporting breadth | Phase 1 for enforcement/policy validation; Phase 2 for the stable public effect-report surface | Phase 1 ships runtime enforcement plus policy validation; stable `kali effects` and compile-time effect-vs-policy checks land in Phase 2 | [`specs/09-sandboxing.md`](./specs/09-sandboxing.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | AOT only / no JIT | Hard invariant | Phase 1 MVP | Kali is language-level AOT only; runtime engine internals must not become part of the language contract | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/10-runtime.md`](./specs/10-runtime.md) |
-| No tracing GC / explicit memory decisions | Hard invariant | Phase 1 MVP | No tracing/background GC; deterministic ownership, escape analysis, and layout decisions are the core memory story | [`specs/06-memory.md`](./specs/06-memory.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| No tracing GC / explicit memory decisions | Hard invariant | Phase 1 MVP | No tracing/background GC; deterministic ownership, escape analysis, and layout decisions are the core memory story, including compile-time selection between the canonical ownership classes (`stack`, `owned heap`, `shared heap`, `borrowed`) instead of deferring shared-reference strategy to an opaque runtime policy | [`specs/06-memory.md`](./specs/06-memory.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Aggressive specialization + layout-aware IR | Phase contract that deepens later | Phase 1 for the explicit layout-aware pipeline shape; Phases 2-3 for deeper optimization | Optimization is staged: explicit layout-aware IR plus specialization deepen over Phases 2-3 without weakening auditability | [`specs/05-ir.md`](./specs/05-ir.md), [`specs/07-specialization.md`](./specs/07-specialization.md) |
 | Fast frontend/checking/codegen + explicit optimization modes | Phase contract | Phase 1 MVP | `fast` is the bounded-cost default; `release` and `release-advanced` are the canonical compile-budget expansion modes, and later optimizations should deepen those existing modes rather than inventing a second vocabulary | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/07-specialization.md`](./specs/07-specialization.md), [`specs/12-cli.md`](./specs/12-cli.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Language/type-system inspiration from Haskell, Idris, Agda, Lean balanced with Rust pragmatism | Mixed: hard direction + phase-gated depth | Phase 1 for a pragmatic TypeScript superset with bounded inference; later for deeper purity/effect/constraint features | Treat those languages as design references for principled typing, purity, effects, and constraints, not as a Phase-1 promise of dependent types, totality checking, proof terms, or theorem-prover UX; Kali stays pragmatic and ergonomic like Rust | [`specs/04-type-system.md`](./specs/04-type-system.md), [`specs/17-verification.md`](./specs/17-verification.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
@@ -1352,10 +1352,11 @@ Examples:
 - `kali run --api browser main.ts` → `E5006`
 - `kali test --api browser` → `E5006`
 
-## Canonical Browser-Targeted Policy Boundary
+## Browser-Targeted Static Sandbox Contract
 
-For browser-targeted contexts, `--sandbox` follows the **browser-targeted static sandbox contract**:
+For browser-targeted contexts, `--sandbox` follows one canonical static-sandbox rule:
 - it validates static compatibility against the documented **Kali-mediated capability subset**,
+- it applies equally to explicit `--api browser` invocations and equivalent inherited-config browser contexts,
 - it does not promise Kali-controlled post-deployment sandbox enforcement inside an arbitrary real browser host,
 - cross-cutting `resources.*` budgets are interpreted as **Kali-hosted execution budgets** and therefore sit outside the early browser deployment guarantee.
 
@@ -1375,7 +1376,7 @@ Early documented build artifact modes form one small canonical matrix:
 | Build invocation shape | Meaning |
 |---|---|
 | `kali build foo.ts` | default executable-oriented artifact flow |
-| `kali build --bundle --api browser foo.ts` | browser-targeted bundle output |
+| `kali build --bundle foo.ts` when the effective `apiSurface` is `browser` | browser-targeted bundle output |
 | `kali build --lib lib.ts` | Phase-1 **base library artifact**; in Phase 2 the same selector becomes part of the stable public library/WIT contract and adds a default WIT sidecar |
 | `kali build --capi lib.ts` | Phase-2 **public embedding artifact flow** for C embedding |
 | `kali build --component lib.ts` | Phase-2 **public embedding artifact flow** for Component Model packaging |
@@ -1384,6 +1385,7 @@ Rules:
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive unless a later chapter explicitly says otherwise,
 - omitting all four selects the default **executable compile intent**,
 - `--bundle` is browser-only, requires effective `apiSurface = browser`, and keeps that same executable compile intent while swapping in the browser host adapter/output shape,
+- the browser-bundle row is selected by the fully merged effective context, so explicit `--api browser` and equivalent inherited-config browser forms are the same artifact-mode request,
 - `--lib`, `--capi`, and `--component` are the explicit **library compile-intent** selectors in early phases,
 - attaching `--sandbox <policy>` to `build` is orthogonal to artifact mode: it adds the build workflow's static policy-validation/comparison step but does **not** change compile intent, artifact selection, or the command's ordinary API-surface/maturity gates,
 - library-oriented artifact modes are non-browser in early phases,
