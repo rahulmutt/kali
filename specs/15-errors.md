@@ -145,6 +145,7 @@ Use `E5006` for cases such as:
 - `eval` / `Function()` without `--compat eval`
 - dynamic `require()` in early phases
 - **recognized-but-unavailable compatibility members** from [SPEC.md](../SPEC.md), such as Phase-1 `Deno.permissions.request()` / `revoke()`
+- `Deno.permissions.query(...)` asked to evaluate a descriptor kind that Kali intentionally does not support in the current phase/API surface (for example an early-phase `ffi`/`sys`-style permission descriptor)
 - `run --api browser` in early phases where browser support exists only as an analysis/build context
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - `--max-spawned-processes N` with a non-zero value before subprocess support exists for the selected command/runtime-profile/API-surface combination

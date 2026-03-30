@@ -96,9 +96,10 @@ Implementation simplification:
 - that keeps the Deno compatibility story aligned with the sandbox-first model: permission status is observed, not negotiated interactively at runtime
 - Phase 1 should therefore expose the minimal query-oriented surface only
 - `Deno.permissions.query(...)` is the only stable callable path in that facade in Phase 1
+- the supported query-descriptor vocabulary is intentionally the small subset that maps cleanly onto Kali's documented capability model: file-system read/write, network (`fetch` in Phase 1 and later broader net/socket forms when they exist), environment read, subprocess/run, timers, random, console, and later `eval` where applicable. Descriptor kinds that would imply unsupported Deno-specific capabilities or host contracts (for example `ffi`, `sys`, or other non-modeled permission names) should not silently pretend to work.
 - because Kali does not implement interactive permission prompting in Phase 1, the query result should collapse to the two stable states `granted` and `denied`; it must not report a synthetic `prompt` state that would imply a later `request()` escalation path
-- to keep checker and runtime behavior aligned, `Deno.permissions.request(...)` and `Deno.permissions.revoke(...)` should be treated as **recognized-but-unavailable compatibility members** from [SPEC.md](../SPEC.md) in Phase 1 rather than as silently missing surface area
-- those members must therefore fail explicitly with the canonical availability path (`E5006`)
+- to keep checker and runtime behavior aligned, unsupported permission-descriptor kinds for `query(...)` and the members `Deno.permissions.request(...)` / `Deno.permissions.revoke(...)` should all follow the canonical availability path (`E5006`) rather than degrading into silent `denied`, fake `prompt`, or missing-surface drift
+- type checking should model that same reduced contract: Kali's Deno-compat typing for this query-only facade should expose only the supported descriptor subset and the stable status subset `"granted" | "denied"`, rather than advertising a wider runtime contract that Kali intentionally does not implement yet
 
 For host-capability maturity, the canonical source of truth is [specs/19-feature-maturity.md](19-feature-maturity.md). In particular:
 - read-only environment access is part of the Phase 1 standalone contract
