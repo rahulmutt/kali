@@ -299,6 +299,7 @@ Use this checklist:
 - explicit raw-URL install wording should reuse the **raw-URL install staging/pin workflow** term instead of re-explaining “lock/cache yes, durable declaration no” in each package/install section
 - package-loading and whole-graph-linking wording should reuse the **linked-artifact model** term instead of restating slightly different “single linked payload”, “already-linked graph”, or “no runtime-linked WASM modules” prose
 - package-compatibility wording should reuse the **package-support decision order**, the **package-support ladder**, the **published-artifact-first package reading**, **pure JS/TS package contract**, and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different repo-build-pipeline caveats or native-addon / downloaded-binary exclusion lists
+- graph-scope wording for analysis, effect reporting, and static sandbox validation should reuse the **resolved source graph** term instead of alternating between near-duplicate phrases such as “full statically reachable graph”, “discovered project graph”, or “linked graph rooted at the primary source input” when the same source-graph scope is meant
 - source-file-kind wording should reuse **canonical source-file classes**, **executable/analyzable source-file class**, and **canonical project file set** instead of repeating long extension lists in every command chapter
 - first-class `.js` support wording should reuse the **first-class JavaScript compilation** term instead of alternating between near-duplicate phrases such as “plain JavaScript mode”, “JS-first compilation”, or “JavaScript compatibility lane”
 - early stronger-than-`tsc` inference wording should reuse the **bounded inference contract** and the **annotation-required inference boundary** instead of creating near-duplicate “HM-like but still fast” descriptions in architecture, checker, and maturity chapters
@@ -1137,6 +1138,20 @@ Rules:
 - they validate against the full **effective command context** for the axes that participate in that command,
 - they follow the project-root, explicit-path, and source-file-kind rules for ordinary source commands,
 - they are intentionally distinct from the package-oriented **registry-analysis commands**.
+
+### Resolved source graph
+The full statically reachable source/import/dependency graph selected by one **source-graph command** after input selection, config merging, and context-sensitive resolution.
+
+Canonical early cases:
+- for the direct-input commands `build`, `run`, and `effects`, the graph is rooted at the one explicit primary source input
+- for the hybrid command `check`, the graph is rooted at either the canonical project-discovery result or the explicit file set
+- browser-targeted and later Node-targeted commands still use this same term; only the effective resolution context changes
+
+Rules:
+- use this term when the intended scope is “the whole graph this command actually analyzes/builds/reports on”, not only the root file textually named on the CLI
+- transitive imports and resolved package entry files are part of the **resolved source graph** once reached from the selected roots
+- discovery filters such as `include` / `exclude` choose or narrow roots, but they do not prune already-reached transitive dependencies inside the **resolved source graph**
+- static sandbox validation and effect reporting should reuse this same scope rather than inventing narrower root-file-only readings per command
 
 ### Registry-analysis command
 A command that analyzes exactly one explicit registry package identity rather than a project graph in early phases:

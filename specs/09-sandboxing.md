@@ -145,10 +145,10 @@ Compile-time policy handling is intentionally split to keep Phase 1 smaller and 
 
 - **Phase 1**: `--sandbox` validates the policy file itself (schema, patterns, resource-limit ranges, unsupported fields) and attaches it to the build/run configuration, but does **not** promise a complete static proof that all effects fit the policy.
 - **Phase 2 target**: inferred effects are checked against the allowed policy capabilities.
-- Graph-scope rule: compile-time `--sandbox` validation follows the same full statically reachable module/dependency graph that the underlying command is already analyzing or building; attaching a policy changes validation, not graph reachability.
+- Graph-scope rule: compile-time `--sandbox` validation follows the same **resolved source graph** from [SPEC.md](../SPEC.md) that the underlying command is already analyzing or building; attaching a policy changes validation, not graph reachability.
 - For the hybrid `kali check` command, `kali check --sandbox <policy>` without explicit file arguments still uses the canonical project-discovery result; `--sandbox` adds policy validation, not a new input-selection mode.
 - With explicit `check` file arguments, `--sandbox` keeps the same **set-oriented explicit-file command** behavior as plain `kali check`: it validates the supplied file set as graph roots, and it does not collapse `check` into a one-entrypoint command just because a policy was attached.
-- For direct-input `build`, `kali build --sandbox <policy> <file>` validates the full linked graph rooted at that primary source input rather than only the root file in isolation.
+- For direct-input `build`, `kali build --sandbox <policy> <file>` validates the same **resolved source graph** rooted at that primary source input rather than only the root file in isolation.
 - Browser-targeted static policy validation follows that same graph-scope rule for the supported browser-targeted `check` and `build --bundle` paths.
 
 Availability rule for policy validation:
@@ -371,7 +371,7 @@ Use the CLI chapter for command shape and the maturity matrix for availability; 
 | Representative command | Earliest status | Owns which workflow? |
 |---|---|---|
 | `kali effects program.ts` | Phase 2 target | Reporting only: emits inferred effects; no policy comparison |
-| `kali check --sandbox kali.policy.json` | Phase 1 MVP | Static policy validation over the discovered project graph; Phase 2 adds inferred-effect-vs-policy comparison |
+| `kali check --sandbox kali.policy.json` | Phase 1 MVP | Static policy validation over the same **resolved source graph** from [SPEC.md](../SPEC.md) selected by the discovered project; Phase 2 adds inferred-effect-vs-policy comparison |
 | `kali check --sandbox kali.policy.json program.ts` | Phase 1 MVP | Same static policy-validation path over an explicit file set |
 | `kali check --sandbox kali.policy.json src/a.ts src/b.ts` | Phase 1 MVP | Same static policy-validation path over an explicit multi-file set |
 | `kali run --sandbox kali.policy.json program.ts` | Phase 1 MVP | Runtime sandbox enforcement during Kali-hosted execution |
