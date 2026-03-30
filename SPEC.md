@@ -213,6 +213,18 @@ This keeps the browser story simple:
 - **browser analysis/build contexts that exist but were requested with the wrong artifact shape** → `E5008`
 - **browser execution/runtime contracts that do not exist yet** → `E5006`
 
+### Canonical browser-targeted policy boundary
+To keep sandbox wording consistent across CLI, sandboxing, API-surface, and maturity chapters, Kali uses one cross-spec rule for browser-targeted `--sandbox` handling:
+- in early phases, the only browser-targeted sandbox-aware command shapes are `kali check --api browser --sandbox ...` and `kali build --bundle --api browser --sandbox ...`
+- these are **static compatibility checks** over the documented **Kali-mediated capability subset** only; they do **not** imply Kali-hosted post-deployment runtime enforcement inside the real browser host
+- capability-local `effects.*` policy keys remain valid only for that documented subset
+- cross-cutting `resources.*` budgets that would imply Kali-hosted browser-deployment enforcement are rejected for this profile
+- schema-v1 applies one concrete rejection rule: `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles` are rejected whenever present; `resources.maxSpawnedProcesses` and `resources.maxThreads` reject positive values
+
+This keeps the browser sandbox story simple:
+- **browser-targeted capability compatibility within the documented mediated subset** → allowed to validate statically
+- **browser-targeted post-deployment runtime-budget enforcement claims** → rejected until Kali defines a real browser-host contract for them
+
 ### Build mode
 The optimization/compile-time tradeoff:
 - `fast`
