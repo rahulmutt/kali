@@ -44,7 +44,7 @@ Canonical terminology simplification:
 
 ## API Layers
 
-### Web Platform APIs (Baseline)
+### Web baseline
 Available across supported execution surfaces as the shared baseline.
 
 Interpretation rule:
@@ -289,7 +289,7 @@ The runtime should prioritize the subset needed by real-world packages and confo
 ## Global Scope
 
 The global object provides:
-- All Web Platform APIs in the shared baseline
+- All APIs in the shared Web baseline
 - API-surface-specific additions selected by mode (`deno` in early standalone phases; broader `node` later when that surface is implemented)
 - `globalThis` reference
 - TypeScript-aware — all globals are typed in Kali's standard lib `.d.ts` files
