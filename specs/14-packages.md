@@ -17,6 +17,13 @@ Reading shortcut:
 - **registry-analysis commands** (`package-effects` / `package-audit`) are later single-package workflows with documented command/schema shapes, but their actual availability still comes from [19 — Feature Maturity](19-feature-maturity.md)
 - use that split before reading any sentence that says a package is “supported”, so package-shape support, install behavior, and later registry-analysis tooling do not get conflated
 
+Phase-1 shorthand answer:
+- **Yes** for pure JS/TS npm/JSR packages and raw URL imports that fit the shared **linked-artifact model** and whose host assumptions match either the default Deno-oriented standalone surface or the shared **Phase-1 browser-targeted command set**.
+- **Not yet** for package support that depends on the broader `node` API surface.
+- **No by default** for packages whose normal published install/runtime path falls into the shared **native/binary/bootstrap-heavy package contract**.
+
+This shorthand is only a triage aid. The full answer still uses the shared order: package shape → host/API fit → command maturity → claimed support rung.
+
 Compact workflow comparison:
 
 | Workflow bucket | Primary question | Mutates manifest/lock/materialized state? | Context participation |
@@ -39,6 +46,7 @@ Phase-1 source-kind clarification:
 - supported **raw URL imports** are also first-class dependency inputs in Phase 1
 - they follow the same determinism goals (pinning, lockfile tracking, materialized cache state, and no hidden auto-repair by non-install commands) even though they are not registry packages
 - registry-package compatibility and raw-URL compatibility should therefore be read as two dependency-source lanes under one shared install/lock discipline, not as “packages are supported but raw URLs are merely ad hoc”
+- this matters for bootstrap alignment: “easy access to millions of existing JavaScript packages” is not registry-only wording in Kali's normalized package story; the same deterministic dependency model also covers direct raw URL inputs where that workflow is the natural fit
 
 Phase simplification:
 - **Phase 1 MVP**: pure JS/TS packages that fit the shared **linked-artifact model** and whose host/API assumptions fit either the Deno-oriented standalone surface or the exact **Phase-1 browser-targeted command set**.
