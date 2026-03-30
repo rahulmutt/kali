@@ -93,7 +93,7 @@ Build-mode clarification:
 - **WASM-specific peephole**: Combine instruction sequences, optimize local usage
 - **Linear memory layout optimization**: Place frequently co-accessed data adjacently
 - **LTO (Link-Time Optimization)**: Cross-module inlining and dead code elimination
-- **Optional external post-pass**: If users install `wasm-opt`, Kali may invoke it as a separate user-provided tool, but Kali's core optimization pipeline must remain fully implemented in Rust and must not depend on Binaryen
+- **Optional external post-pass**: If users install `wasm-opt`, Kali may invoke it as a separate user-provided tool, but this remains an additive `release-advanced` helper only. Follow the shared **Pure-Rust implementation contract** from [SPEC.md](../SPEC.md): Kali's core optimization pipeline, tests, and feature claims must remain valid without Binaryen or any other external post-pass tool.
 
 ## Dynamic Fallback
 

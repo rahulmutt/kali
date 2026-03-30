@@ -155,12 +155,13 @@ This section uses the canonical term **build mode** to match [SPEC.md](../SPEC.m
 |------|-------------|
 | `fast` | Minimal optimization, fastest compile time (default; selected by `--fast`) |
 | `release` | Standard optimizations: inlining, dead code elimination, layout optimization (selected by `--release`) |
-| `release-advanced` | Aggressive optimization: expanded specialization budget, optional separate-tool WASM post-pass, LTO (selected by `--release-advanced`) |
+| `release-advanced` | Aggressive optimization: expanded specialization budget, optional user-provided WASM post-pass, LTO (selected by `--release-advanced`) |
 
 Compile-budget rule:
 - `fast` is the canonical bounded-cost path and should avoid optimization or inference strategies whose worst-case behavior is hard to predict
 - `release` may spend more compile budget on broadly beneficial whole-program improvements
 - `release-advanced` is the only early documented place where materially more expensive optimization search/post-processing should be expected by default
+- any optional external post-pass must follow the shared **Pure-Rust implementation contract** from [SPEC.md](../SPEC.md): it may be a user-provided add-on such as `wasm-opt`, but Kali's documented core pipeline must remain fully functional and fully specified without it
 - if an optimization, inference extension, or specialization strategy needs noticeably more compile budget, prefer gating it by build mode, an explicit flag, or a later phase rather than silently charging that cost to the default workflow
 
 ### Error Strategy

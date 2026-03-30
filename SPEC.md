@@ -528,6 +528,7 @@ Rules:
 - Kali's implementation crates and shipped dependency stack must remain Rust-only from the project/toolchain point of view; bundling or requiring project-specific C/C++ libraries violates the contract.
 - ordinary platform runtime/system libraries reached through the normal Rust toolchain, system call bindings, or OS-provided interfaces do **not** by themselves violate the contract.
 - exposing a C ABI for embedding does **not** weaken this rule; a Rust implementation may publish C-callable boundaries without embedding a C/C++ implementation.
+- optional user-provided external tools may be invoked only as additive post-processing helpers and must stay non-required: Kali's documented core compile/runtime pipeline, tests, and feature claims must remain valid without them, and the project must not quietly turn such tools into hidden required dependencies.
 - docs should reuse this term instead of re-explaining the distinction as “pure Rust except libc”, “no C/C++ in-tree”, or “C ABI is okay because only the boundary is C”.
 
 ### Linked-artifact model
