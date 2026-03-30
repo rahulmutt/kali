@@ -84,6 +84,7 @@ Interpretation rules:
 - `env_get` / `env_list` expose only the sandbox-permitted environment view; they must not leak the raw host environment and then rely on guest-side filtering.
 - The read-only `Deno.permissions` facade is the canonical **observation-only compatibility facade** for already-resolved runtime/policy state and normally does not need a dedicated host import; Kali should not model it as an interactive permission-prompt channel.
 - In Phase 1 this is a query-only compatibility surface: the runtime may expose the minimal status-query behavior (`Deno.permissions.query(...)`), but `request()` / `revoke()`-style escalation methods are absent or rejected rather than being implemented as no-op prompts.
+- Because Kali does not implement interactive permission prompting in Phase 1, that query path should collapse to the stable states `granted` and `denied`; it must not report a synthetic `prompt` state.
 - The Phase 1 runtime does not provide interactive permission-prompt imports; permission state is an already-resolved sandbox contract, not a request-at-runtime workflow.
 - Any attempted `Deno.permissions.request(...)` / `revoke(...)` call must therefore fail through the canonical availability path (`E5006`), not through a fake prompt or a silent success path.
 - Every registered host import is policy-aware; enabling an API surface does not bypass sandbox checks.

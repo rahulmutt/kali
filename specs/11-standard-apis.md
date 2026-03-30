@@ -92,6 +92,7 @@ Implementation simplification:
 - that keeps the Deno compatibility story aligned with the sandbox-first model: permission status is observed, not negotiated interactively at runtime
 - Phase 1 should therefore expose the minimal query-oriented surface only
 - `Deno.permissions.query(...)` is the only stable callable path in that facade in Phase 1
+- because Kali does not implement interactive permission prompting in Phase 1, the query result should collapse to the two stable states `granted` and `denied`; it must not report a synthetic `prompt` state that would imply a later `request()` escalation path
 - `Deno.permissions.request(...)` and `Deno.permissions.revoke(...)` must fail explicitly with the canonical availability path (`E5006`) rather than behaving as no-ops, synthetic prompts, or hidden policy mutations
 
 For host-capability maturity, the canonical source of truth is [specs/19-feature-maturity.md](19-feature-maturity.md). In particular:

@@ -385,6 +385,7 @@ Kali uses one shared stability split for library-oriented outputs:
 Rule:
 - docs should reference this split instead of rephrasing it as “usable but not yet stable”, “library-first internally”, or “WIT/C ABI/component packaging lands later” in slightly different ways
 - Phase 1 shipping the **base library artifact** does **not** by itself imply a stable public Rust API, stable WIT contract, stable C ABI, or component packaging
+- once Phase 2 promotes that path, plain public `--lib` is the canonical exported-library contract and emits WIT by default; `--capi` and `--component` are projections/wrappers over that same proved export surface rather than alternate export semantics
 
 ### Library-oriented instantiation rule
 For library-oriented artifact modes:
