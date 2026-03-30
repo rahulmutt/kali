@@ -68,6 +68,7 @@ Common early-phase misreads worth rejecting quickly:
 - Bootstrap traceability table: [SPEC.md#bootstrap-traceability-matrix](./SPEC.md#bootstrap-traceability-matrix) *(includes triage bucket + earliest explicit phase promise for each bootstrap ask)*
 - Detailed chapter set: [`specs/`](./specs)
 - Single source of truth for gated command/profile availability: [specs/19-feature-maturity.md](./specs/19-feature-maturity.md)
+- Reading shortcut: treat `19-feature-maturity` as the cross-cutting availability overlay and read it alongside the owning command/subsystem chapter rather than as a detached appendix
 
 Reading rule:
 - treat `BOOTSTRAP.md` as the input brief and the spec set as the normative source of truth after normalization

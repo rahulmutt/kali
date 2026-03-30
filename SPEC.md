@@ -53,6 +53,9 @@ To keep the bootstrap brief implementable, the chapter set is intentionally grou
 | lowering + runtime core | Choose representations, lower to WASM, enforce runtime/sandbox boundaries, and define host/runtime behavior | `05`-`11` |
 | product/tooling surface | Define command behavior, packages, diagnostics, schemas, tests, embedding, and proof claims | `12`-`18` |
 
+Strata note:
+- [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) is intentionally a cross-cutting availability overlay rather than a fourth product-only chapter; read it alongside whichever owning chapter defines the command, artifact, or subsystem contract.
+
 Reading shortcut:
 - if you are deciding **whether Kali supports something yet**, read `SPEC.md` → `19-feature-maturity.md` → the owning chapter
 - if you are deciding **how a supported thing works**, read the owning chapter first, then fall back to `SPEC.md` only for shared terminology or cross-spec conflict resolution

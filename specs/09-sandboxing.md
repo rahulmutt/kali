@@ -363,26 +363,19 @@ If implemented, this enables:
 
 ## Integration with CLI
 
-```bash
-# Phase 2 target: show inferred effects only (JSON; no policy comparison here)
-kali effects program.ts
+Use the CLI chapter for command shape and the maturity matrix for availability; this section only summarizes which sandbox/effect workflow each command owns.
 
-# Check the discovered project against a policy (no execution)
-# Phase 1: validates the policy file/config only
-# Phase 2 target and later: also validates inferred effects against the policy
-kali check --sandbox kali.policy.json
+| Representative command | Earliest status | Owns which workflow? |
+|---|---|---|
+| `kali effects program.ts` | Phase 2 target | Reporting only: emits inferred effects; no policy comparison |
+| `kali check --sandbox kali.policy.json` | Phase 1 MVP | Static policy validation over the discovered project graph; Phase 2 adds inferred-effect-vs-policy comparison |
+| `kali check --sandbox kali.policy.json program.ts` | Phase 1 MVP | Same static policy-validation path over an explicit file set |
+| `kali check --sandbox kali.policy.json src/a.ts src/b.ts` | Phase 1 MVP | Same static policy-validation path over an explicit multi-file set |
+| `kali run --sandbox kali.policy.json program.ts` | Phase 1 MVP | Runtime sandbox enforcement during Kali-hosted execution |
+| `kali test --sandbox kali.policy.json` | Phase 1 MVP | Runtime sandbox enforcement during Kali-hosted execution |
+| `kali run --max-memory 256mb --max-cpu 10s --max-open-files 32 program.ts` | Phase 1 MVP | Resource-budget enforcement without an attached policy file |
+| `kali run --max-spawned-processes 0 program.ts` | Phase 1 MVP for the zero-cap rule | Explicit deny/tightening value for the later-gated subprocess budget |
 
-# Check one or more explicit files against a policy instead
-kali check --sandbox kali.policy.json program.ts
-kali check --sandbox kali.policy.json src/a.ts src/b.ts
-
-# Run with sandbox enforcement
-kali run --sandbox kali.policy.json program.ts
-
-# Test with sandbox enforcement
-kali test --sandbox kali.policy.json
-
-# Run with resource limits only (no effect policy)
-kali run --max-memory 256mb --max-cpu 10s --max-open-files 32 program.ts
-kali run --max-spawned-processes 0 program.ts
-```
+Consistency rule:
+- `effects` is the reporting workflow, `check/build --sandbox` is the static validation/comparison workflow, and `run/test --sandbox` is the runtime-enforcement workflow
+- `effects --sandbox` remains invalid usage (`E5008`) rather than a second place to compare policy against inferred effects
