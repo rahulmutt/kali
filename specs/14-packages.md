@@ -289,7 +289,8 @@ Practical consequence:
 - `kali install` does not take `--api` in early phases, and `compilerOptions.apiSurface` does not cause `install` to write a different lockfile for the same manifest/import graph.
 - changing `--api` between `deno` and browser-targeted build/check affects which already-installed package entry files are chosen at command time, not whether the project is considered installed.
 - lockfile/cache state belongs to the effective discovered project root; invoking commands from a subdirectory of the same project should still use that one shared `kali.lock`, `node_modules/`, and `.kali/` state rather than inventing nested installs.
-- if a direct-input command later points at a file outside the last installed project discovery set and that file reaches additional raw URL imports, the command should fail with `E5004` and tell the user to rerun `kali install` after updating the project's discoverable sources or import map.
+- if a later file-accepting non-install command (`check`, `effects`, `build`, `run`, or `test`) points at explicit files outside the last installed project discovery set and those files reach additional raw URL imports, the command should fail with `E5004` and tell the user to rerun `kali install` after updating the project's discoverable sources or import map.
+- this is intentional: explicit file targets bypass discovery filtering for command input selection, but they do not retroactively redefine the install-time declaration graph that owns raw URL lock/cache state.
 
 ## Deterministic Install & Resolution Contract
 

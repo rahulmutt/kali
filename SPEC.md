@@ -493,6 +493,11 @@ Schema-v1 simplification:
 
 This keeps config selection, discovery, lockfile ownership, and diagnostics aligned around one project root per invocation without making explicitly named targets depend on discovery-only filters.
 
+Dependency-state clarification:
+- explicit file/path targets may legally sit outside discovery-glob coverage, but plain `kali install` still discovers raw URL dependencies from the canonical project-discovery result rather than from every future ad hoc explicit target
+- therefore a later file-accepting non-install command (`check`, `effects`, `build`, `run`, or `test`) may still fail with `E5004` if an explicit target outside the last installed discovery set reaches additional raw URL imports
+- the fix is to make that source reachable from the install-time declaration graph (for example by widening `include` / `exclude` or adding the relevant import-map/source declaration) and then rerun `kali install`; non-install commands must not auto-install opportunistically
+
 ### Default excluded managed/generated directories
 When discovery runs without an overriding `include` / `exclude` rule that explicitly brings them back, it should skip these directories by default:
 - `.git/`
