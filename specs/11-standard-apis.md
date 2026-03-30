@@ -28,7 +28,7 @@ For the compact cross-spec summary of early host/API behavior, see the canonical
 To keep runtime imports, globals, and package expectations aligned:
 - the **Web baseline** is the shared baseline across supported surfaces
 - `--api deno`, `--api node`, and `--api browser` control which **additional** ambient globals/modules beyond that baseline are available for the selected supported command/profile
-- for supported browser-targeted analysis/build commands, `--api browser` means the real browser ambient typing layer, not merely the smaller stable sandbox/effect capability set; see the **Browser ambient typing vs mediated capability split** in [SPEC.md](../SPEC.md)
+- for supported browser-targeted analysis/build commands, `--api browser` means the real browser ambient typing layer, not merely the smaller **Kali-mediated capability subset** used by schema-v1 sandbox/effect contracts; see the **Browser ambient typing vs mediated capability split** in [SPEC.md](../SPEC.md)
 - browser-targeted contexts must not expose process/env/file globals just because the underlying host runtime happens to have them
 - unsupported globals/modules are absent; Kali must not invent dummy shims by default
 - use the canonical `E5006` availability path for **documented command/profile or feature gating** (for example `--api node` before Phase 3, or `run --api browser` in early phases)

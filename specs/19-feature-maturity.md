@@ -218,7 +218,7 @@ Interpretation rule:
 | `kali test --api node` | Phase 3 target | Reject with `E5006` until the documented Node subset lands for test runs too |
 | `kali test --api browser` | Later compatibility | Reject with `E5006` until a real browser-test contract exists; early browser support is an analysis/build context, not a standalone test-runtime profile |
 | `kali test --coverage` | Phase 2 target | Coverage needs a stable machine-readable report contract instead of ad hoc runner output |
-| `kali effects` with no explicit primary source input | Rejected by default | `effects` is a direct-input command in early phases; omitting the analysis root should fail with `E5008` rather than permission to scan the project |
+| `kali effects` with no explicit primary source input | Rejected by default | `effects` is a direct-input command in early phases; omitting the analysis root should fail with `E5008` rather than implicitly scanning the project |
 | `kali effects a.ts b.ts` | Rejected by default | Early phases accept exactly one primary analysis root for `effects`; multi-entry reporting requires a later explicit mode, so this should fail with `E5008` |
 | `kali effects main.ts` | Phase 2 target | Before then: unavailable or explicitly experimental, never a partial bespoke report; when available it uses the same default API-surface selection as `check` (`apiSurface=deno`) unless overridden |
 | `kali effects --sandbox kali.policy.json main.ts` | Rejected by default | Keep `effects` as a pure reporting command; policy validation belongs to `check/build --sandbox` so the CLI has one canonical policy-validation path. This rejection should use `E5008`, not the `E5006` maturity gate. |

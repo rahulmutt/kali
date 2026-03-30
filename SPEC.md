@@ -143,6 +143,8 @@ Use this checklist:
 - shared cross-spec tables/rules such as the **Command-context axis participation table**, the **canonical browser-targeted budget compatibility rule**, and the artifact-mode matrix should have exactly one normative copy in this file; other chapters should point here instead of restating a second near-duplicate table
 - install/lock/materialization rules and command-time package selection belong to [`specs/14-packages.md`](./specs/14-packages.md)
 - host/API-layering wording should reuse the **host-support staircase**
+- browser ambient-typing versus sandbox/effect wording should reuse the **Browser ambient typing vs mediated capability split**
+- browser command-shape versus browser-runtime availability wording should reuse the **canonical browser-surface rejection split**
 - browser-targeted `--sandbox` wording should reuse the **browser-targeted static sandbox contract**
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
 - library/export-oriented build wording should reuse the **compile intent**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
@@ -752,6 +754,7 @@ In browser-targeted contexts:
 
 Consequences:
 - `check --api browser` and `build --bundle --api browser` type-check against browser ambient types,
+- later browser-targeted analysis commands such as `effects --api browser` and inherited browser-context `package-effects` reuse that same ambient-typing/package-resolution split instead of defining a second browser-analysis model,
 - browser-targeted `--sandbox` is a static compatibility/build-time validation contract,
 - deployed browser bundles do not automatically inherit Kali-hosted runtime enforcement.
 
