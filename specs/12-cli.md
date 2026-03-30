@@ -82,8 +82,8 @@ Effective-context validation rule:
 | `--max-memory <size>` | execution commands | Override the invocation memory cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-cpu <duration>` | execution commands | Override the invocation CPU cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-open-files N` | execution commands | Override the invocation open-file-handle cap; may only tighten the effective limit relative to config/policy, never widen it |
-| `--max-spawned-processes N` | execution commands | Override the invocation child-process cap; may only tighten the effective limit and is rejected when the selected command/profile/API surface does not support subprocesses |
-| `--max-threads N` | execution commands | Override the invocation thread cap for the threaded runtime profile; may only tighten the effective limit and is rejected unless threading is supported and enabled |
+| `--max-spawned-processes N` | execution commands | Override the invocation child-process cap; may only tighten the effective limit. `0` is always a valid explicit deny/tightening value, while non-zero values are rejected until the selected command/profile/API surface actually supports subprocesses |
+| `--max-threads N` | execution commands | Override the invocation thread cap for the threaded runtime profile; may only tighten the effective limit. `0` is always a valid explicit deny/tightening value, while non-zero values are rejected unless threading is supported and enabled |
 | `--wasm-threads` | `check`, `effects`, `build`, `run`, `test` | Opt into the later threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; before that profile exists, or on unsupported targets, the command must fail with `E5006` |
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
@@ -147,7 +147,7 @@ Configuration precedence is intentionally simple:
 2. the effective discovered `kali.json` overrides built-in defaults
 3. Sandbox policy caps, when a policy is attached, remain upper bounds for runtime capabilities and resource limits
 
-That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy. If no policy is attached, those direct invocation flags simply become the effective cap for the current command instead of being compared against an implicit allow-all policy. In Phase 1 this tightening path applies to `--max-memory`, `--max-cpu`, and `--max-open-files`; later resource flags such as `--max-spawned-processes` and `--max-threads` follow the same rule once their underlying capabilities exist.
+That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy. If no policy is attached, those direct invocation flags simply become the effective cap for the current command instead of being compared against an implicit allow-all policy. In Phase 1 this tightening path applies directly to `--max-memory`, `--max-cpu`, and `--max-open-files`. For later-gated caps such as `--max-spawned-processes` and `--max-threads`, the same tightening rule applies once the underlying capability exists; before then, `0` remains a valid explicit deny/tightening value while non-zero values stay phase/profile-gated.
 
 Interpretation rule:
 - the resulting merged values are the command's one **effective context** for validation, lowering, and reporting

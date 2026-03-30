@@ -216,6 +216,10 @@ Interpretation rule:
 | `kali package-audit --wasm-threads lodash` | Rejected by default | Early `package-audit` is context-free and does not take package-analysis-specific runtime-profile flags, so this is invalid command usage (`E5008`) unless a later spec adds that mode |
 | `kali package-audit --sandbox kali.policy.json lodash` | Rejected by default | Early `package-audit` is a context-free registry tool; top-level config sandbox is ignored for it, and the CLI `--sandbox` flag is invalid usage (`E5008`) |
 | `kali install --allow-scripts <npm-pkg>` | Opt-in only | Explicit-package example of the same `--allow-scripts` contract above: lifecycle hooks are permitted only for that npm-targeted install work, while native addons, binary/bootstrap-heavy packages, and `node-gyp` remain rejected and this still does not imply Node-runtime or project-sandbox support |
+| `kali run/test --max-spawned-processes 0 ...` | Phase 1 MVP | `0` is a valid explicit deny/tightening value even before subprocess support exists; only non-zero values are phase-gated |
+| `kali run/test --max-spawned-processes N` with `N > 0` before subprocess support exists | Rejected by default | Reject with `E5006` until the selected command/profile/API surface actually supports subprocesses |
+| `kali run/test --max-threads 0 ...` | Phase 1 MVP | `0` is a valid explicit deny/tightening value even before the threaded runtime profile exists; only non-zero values are phase-gated |
+| `kali run/test --max-threads N` with `N > 0` before thread support exists | Rejected by default | Reject with `E5006` until the threaded runtime profile exists and the selected command/profile supports it |
 | `--compat eval` | Phase 4 compatibility | Before runtime support exists, reject with `E5006` rather than parsing and silently ignoring the flag; once implemented, sandbox policy permission for `effects.eval` still does not implicitly enable this compatibility switch |
 | `--wasm-threads` | Later compatibility (opt-in only) | Reject with `E5006` until the threaded runtime profile exists; after that, still reject explicitly when unavailable on the selected target/engine |
 
