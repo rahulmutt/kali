@@ -821,6 +821,7 @@ When Kali exposes machine-readable output:
 - those commands may emit their native payloads directly by default
 - in that native-payload mode, **stdout is reserved for the success payload only**; extra status/progress text must not be interleaved into stdout, and default human diagnostics on failure should go to stderr instead
 - `--output json` wraps command results in the standard command envelope from [specs/18-schemas.md](./specs/18-schemas.md)
+- a command does **not** need a command-specific success-payload schema in order to support `--output json`; in schema v1 it may expose only the standard envelope with `payload` omitted or `null`, but it must say that explicitly rather than inventing an ad hoc payload shape
 - `--output json` is also the canonical way to request a machine-readable **failure** result for native-JSON reporting commands, so tools do not have to parse human stderr diagnostics
 - machine-emitted arrays should use deterministic canonical ordering wherever the producer owns the order, so AI/tooling diffs do not depend on traversal or hash-map iteration order
 

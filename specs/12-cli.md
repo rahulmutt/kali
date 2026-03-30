@@ -510,7 +510,8 @@ Additional flag-surface rule:
 
 Output simplification rule:
 - unlike `kali effects` and `kali package-effects`, `kali package-audit` does **not** define a native bare-JSON payload in schema v1
-- if/when machine-readable audit output is added, it should travel through the standard `--output json` command envelope instead of inventing a second ad hoc top-level format
+- if `package-audit` supports `--output json` before a dedicated audit payload schema exists, the stable contract is the standard command envelope itself, with `payload` omitted or `null` rather than an ad hoc audit object
+- if/when a dedicated machine-readable audit payload is added later, it should still travel through the standard `--output json` command envelope instead of inventing a second ad hoc top-level format
 
 ## Output Design
 
@@ -556,7 +557,8 @@ Feature gating is part of the machine contract too: phase/profile rejections sho
 Rules:
 - top-level output uses the versioned command envelope
 - diagnostics reuse the shared diagnostic schema
-- command-specific structured data goes in `payload`
+- command-specific structured data goes in `payload` when that command has a dedicated success-payload schema in schema v1
+- commands that do **not** yet define a dedicated success-payload schema may still support `--output json` through the envelope alone; in that case `payload` should be omitted or `null` rather than filled with ad hoc prose/fields
 - common optional top-level fields include `artifacts`, `stdout`, `stderr`, `timings`, and `exitCode`
 - for execution-style commands in JSON mode, guest/program stdout and stderr are captured into the envelope fields instead of being interleaved as raw terminal text
 - build-like commands should populate artifact `role` whenever it helps distinguish artifact mode without forcing tools to guess from filenames (for example default executable vs `--lib` `wasm-module`)
