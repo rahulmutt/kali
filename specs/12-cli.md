@@ -126,6 +126,7 @@ Package-analysis flag/context simplification:
 - follow the canonical command-context axis participation table, `analysis context` term, **registry-analysis context split**, and **registry-analysis command split** in [SPEC.md](../SPEC.md)
 - practical shortcut: the canonical **source-graph commands** from [SPEC.md](../SPEC.md) own the explicit `--api` / `--compat` / `--wasm-threads` flag family; registry-analysis commands do not
 - in schema v1, `package-effects` inherits only the semantic analysis axes through the shared **inherited analysis context**, records them in `report.analysisContext` using the emitted field names `apiSurface`, `runtimeProfiles`, and `compatFeatures`, and follows the shared **axis-aligned inherited analysis gating** rule
+- `package-effects` intentionally sits at the intersection of two cross-spec splits: it is a **registry-analysis command** by input shape, and it is also part of the later **public effect-report surface** by output contract
 - follow the shared **registry-analysis independence split** from [SPEC.md](../SPEC.md): that inherited context changes analysis semantics only and never rewrites the explicit package selector, resolved version, or project-independence rule
 - in schema v1, `package-audit` follows **context-free registry analysis (schema v1)** and keeps the simpler envelope-only machine-output path owned by [18 — Schemas](18-schemas.md)
 - `buildMode` and `sandbox` remain non-semantic for `package-effects` in early phases
