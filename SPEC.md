@@ -813,7 +813,7 @@ The semantic context that materially affects static analysis results:
 - `runtimeProfiles`
 - compatibility-feature selection (`compat.features` in config, `compatFeatures` in emitted JSON)
 
-### Effective inherited analysis context
+### Inherited analysis context
 The final analysis context used by schema-v1 inherited-analysis workflows that do not take their own package-analysis-specific context flags.
 
 Canonical early example:
@@ -827,6 +827,7 @@ It is derived from the participating analysis axes after defaults and discovered
 Rules:
 - in configless mode, this resolves to the **default inherited analysis context (schema v1)**
 - this term exists so package-analysis docs can talk about inherited browser/node/profile/compat selection once, without restating the merge story in each chapter
+- in schema v1 this inherited context is already the effective one, because there is no package-analysis-specific CLI override layer
 - it affects analysis semantics and availability gating, but it does not alter package identity/version selection or the project-independence rules for registry analysis
 
 ### Command-context axis participation table
@@ -1104,7 +1105,7 @@ To keep single-package tooling predictable and avoid a second near-duplicate fla
 Kali intentionally keeps the two schema-v1 single-package registry-analysis commands small and non-overlapping instead of growing one fuzzy “package inspection” surface.
 
 In schema v1 this means:
-- `package-effects` is the **Phase 2 target** analysis-context-aware effect-report command: it inherits the **effective inherited analysis context**, follows **axis-aligned inherited analysis gating**, and is a **native-JSON command** once available.
+- `package-effects` is the **Phase 2 target** analysis-context-aware effect-report command: it inherits the shared **inherited analysis context**, follows **axis-aligned inherited analysis gating**, and is a **native-JSON command** once available.
 - `package-audit` is the **Later compatibility** context-free security-audit command: it follows **context-free registry analysis (schema v1)** and is an **envelope-only JSON command** in schema v1.
 - both commands still share the same **single-package registry-analysis command** shape and the **registry-analysis project-independence rule**.
 
@@ -1112,19 +1113,24 @@ Rule:
 - use this term when a chapter needs the top-level contrast between `package-effects` and `package-audit` instead of restating the same availability/context/JSON split in slightly different prose.
 - command spelling and arity remain owned by [`specs/12-cli.md`](./specs/12-cli.md), payload schemas remain owned by [`specs/18-schemas.md`](./specs/18-schemas.md), and availability remains owned by [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 
-### Registry-analysis reminder: effective inherited analysis context
+### Registry-analysis reminder: inherited analysis context
 The semantic analysis context that `package-effects` uses in schema v1.
 
 It is already defined above in the general terminology section.
 
+Naming simplification:
+- use **inherited analysis context** as the canonical term
+- in schema v1 this context is already the effective one, because `package-effects` has no package-analysis-specific CLI `--api` / runtime-profile / `--compat` override layer
+- chapters should therefore not alternate between “inherited analysis context” and “effective inherited analysis context” for the same concept
+
 Registry-analysis-specific reminder:
-- for `package-effects`, it consists of built-in defaults plus discovered `kali.json` values for `apiSurface`, `runtimeProfiles`, and `compat.features`, with no package-analysis-specific CLI `--api` / runtime-profile / `--compat` override layer in schema v1
+- for `package-effects`, it consists of built-in defaults plus discovered `kali.json` values for `apiSurface`, `runtimeProfiles`, and `compat.features`
 - in configless mode, it therefore resolves to the **default inherited analysis context (schema v1)**
 - top-level `sandbox` and `buildMode` stay outside this term in early phases
 - if a later spec adds package-analysis-specific CLI context flags, that later spec should extend the one canonical definition above instead of creating a second near-duplicate definition here
 
 ### Axis-aligned inherited analysis gating
-The schema-v1 rule for how `package-effects` availability interacts with its **effective inherited analysis context**.
+The schema-v1 rule for how `package-effects` availability interacts with its **inherited analysis context**.
 
 In schema v1 this means:
 - `package-effects` first follows its own base maturity row,
@@ -1162,7 +1168,7 @@ Rules:
 - version selection follows the shared **stable-release selection rule (schema v1)** unless an owning chapter later adds an explicit version-aware or lock-aware mode,
 - the current project's `kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/` must not change which package version is analyzed,
 - these commands must not mutate project-managed dependency state as a side effect,
-- `package-effects` may still inherit its **effective inherited analysis context**, but that inherited context affects analysis semantics only and must not change project-independence for package identity/version selection,
+- `package-effects` may still inherit its **inherited analysis context**, but that inherited context affects analysis semantics only and must not change project-independence for package identity/version selection,
 - any fetched metadata/tarballs belong to the separate **registry-analysis cache**, not to project installation state.
 
 ### Registry-analysis cache
@@ -1172,7 +1178,7 @@ Rules:
 - it is outside project-managed dependency state (`kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/`),
 - it may be discarded between invocations and must not be treated as an installed project dependency snapshot,
 - cache identity is keyed by at least the canonical registry identifier plus the resolved concrete version,
-- for analysis-context-aware registry analysis (`package-effects`), the **effective inherited analysis context** is also part of the cache identity so browser/deno/profile/compat analyses cannot collide accidentally.
+- for analysis-context-aware registry analysis (`package-effects`), the **inherited analysis context** is also part of the cache identity so browser/deno/profile/compat analyses cannot collide accidentally.
 
 ### Configless install split
 The canonical schema-v1 install behavior when config discovery finds no `kali.json` and the command therefore runs in **configless project mode**.
@@ -1724,7 +1730,7 @@ For `package-effects` and `package-audit` in schema v1:
 - commands may use the shared **registry-analysis cache**,
 - commands must not mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`.
 
-`package-effects` may still inherit its **effective inherited analysis context**; this rule is about dependency state and version selection, not about ambient analysis semantics.
+`package-effects` may still inherit its **inherited analysis context**; this rule is about dependency state and version selection, not about ambient analysis semantics.
 
 ## Effective npm-Scriptable Install Work
 

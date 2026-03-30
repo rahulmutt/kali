@@ -114,7 +114,7 @@ Shared source-graph gating rule:
 Package-analysis flag/context simplification:
 - follow the canonical command-context axis participation table, `analysis context` term, **registry-analysis context split**, and **registry-analysis command split** in [SPEC.md](../SPEC.md)
 - practical shortcut: the canonical **source-graph commands** from [SPEC.md](../SPEC.md) own the explicit `--api` / `--compat` / `--wasm-threads` flag family; registry-analysis commands do not
-- in schema v1, `package-effects` inherits only the semantic analysis axes through the shared **effective inherited analysis context**, records them in `report.analysisContext` using the emitted field names `apiSurface`, `runtimeProfiles`, and `compatFeatures`, and follows the shared **axis-aligned inherited analysis gating** rule
+- in schema v1, `package-effects` inherits only the semantic analysis axes through the shared **inherited analysis context**, records them in `report.analysisContext` using the emitted field names `apiSurface`, `runtimeProfiles`, and `compatFeatures`, and follows the shared **axis-aligned inherited analysis gating** rule
 - in schema v1, `package-audit` follows **context-free registry analysis (schema v1)** and keeps the simpler envelope-only machine-output path owned by [18 — Schemas](18-schemas.md)
 - `buildMode` and `sandbox` remain non-semantic for `package-effects` in early phases
 - examples later in this chapter describe the canonical command shape/output contract for these registry-analysis commands, not an unconditional promise that they are already available in Phase 1
@@ -607,7 +607,7 @@ Machine-output rule:
 
 Analysis rule:
 - `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
-- it inherits its semantic analysis context through the shared **effective inherited analysis context** from [SPEC.md](../SPEC.md) rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox` in schema v1; that inherited context changes analysis semantics only and does not alter which package/version was selected
+- it inherits its semantic analysis context through the shared **inherited analysis context** from [SPEC.md](../SPEC.md) rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox` in schema v1; that inherited context changes analysis semantics only and does not alter which package/version was selected
 - in configless mode, that inherited context is just the **default inherited analysis context (schema v1)** from [SPEC.md](../SPEC.md)
 - if discovered config later makes that inherited context resolve to `apiSurface = browser`, plain `kali package-effects <pkg>` reuses the same browser-targeted analysis context once the command itself exists; this later inherited-context reuse does **not** widen the exact **Phase-1 browser-targeted command set**
 - inherited-context availability follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is unavailable, the command fails with `E5006` rather than silently falling back to some smaller context
@@ -633,7 +633,7 @@ Base-gate clarification:
 
 Audit rule:
 - following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command is the context-free registry-metadata/security-audit path rather than a second host-context-aware effect/policy command
-- this command is the `package-audit` half of the shared **registry-analysis command split**: early `package-audit` follows **context-free registry analysis (schema v1)** and does not inherit the shared **effective inherited analysis context**
+- this command is the `package-audit` half of the shared **registry-analysis command split**: early `package-audit` follows **context-free registry analysis (schema v1)** and does not inherit the shared **inherited analysis context**
 - early `package-audit` therefore does **not** take package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
 - in schema v1 it is an **envelope-only JSON command**, not a **native-JSON command**
 - follow the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md) for the exact envelope-only machine-output contract instead of restating it here
