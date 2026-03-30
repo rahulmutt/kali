@@ -30,6 +30,7 @@ Current repository status:
 - `proofs/BOUNDARY.md` is intentionally still the empty-boundary placeholder
 - therefore the repository currently satisfies the **proof-ready** baseline but does **not** yet satisfy the **proof-backed** state
 - chapter summaries, release notes, and README copy should point to that manifest instead of implying concrete proof coverage from the existence of the Lean plan alone
+- [19 — Feature Maturity](19-feature-maturity.md) makes that current-state guardrail explicit too: proof-backed release/support claims while the published boundary is still empty are **Rejected by default**
 
 ### First proof-backed milestone
 
