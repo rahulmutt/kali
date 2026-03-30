@@ -48,6 +48,7 @@ Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - `check` without explicit files, project-oriented no-argument discovery, and the source-discovery portion of `install` are all covered by the shared **discovery-driven command** term from [SPEC.md](../SPEC.md)
 - `package-effects` and `package-audit`, when available, are the canonical **registry-analysis commands** and follow the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
 - bootstrap-normalization shortcut: the bootstrap's “statically run a command and get JSON output of all potential effects” request maps to the analysis/reporting commands (`effects`, `package-effects`) plus the policy-comparison path on `check/build --sandbox`, not to a second dry-run variant of `run` or `test`
+- schema-v1 keeps those reporting/registry-analysis commands explicit in their targets: `effects` stays a one-root source-graph command, while `package-effects` and `package-audit` stay one-package registry-analysis commands rather than project-discovery or batch-analysis shortcuts
 - `init` is not a direct-input source command
 
 Canonical early-phase direct-input arity rule:

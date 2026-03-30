@@ -39,7 +39,7 @@ For the compact shipped/not-shipped answer, use the **Phase-1 Shipped Surface Su
 A few broad bootstrap asks are intentionally normalized into smaller cross-spec contracts:
 - **“supports browser APIs”** means browser-targeted analysis/build first, not standalone browser `run`/`test`, and it does **not** mean Kali exposes one sandbox/effect key for every ambient DOM/browser API
 - **“supports all features including eval”** means parser acceptance and later compatibility planning now, but executable `eval`/`Function()` only in the later gated compatibility path
-- **“static JSON effect reporting”** means Phase 1 enforcement/policy validation first, with the stable public reporting surface opening later
+- **“static JSON effect reporting”** means Phase 1 enforcement/policy validation first, with the later public effect surface split into reporting (`kali effects`, `kali package-effects`) and policy comparison (`check/build --sandbox`); schema v1 keeps the reporting commands explicit too, so `kali effects` is a one-root source-graph command and `kali package-effects` is a one-package registry-analysis command rather than a hidden project-discovery or dry-run workflow
 - **“embeddable / C API / WIT / Component Model”** means a Phase-1 base `--lib` artifact first, then the stable public WIT-first embedding surface later
 
 ## Reading shortcuts
@@ -56,6 +56,7 @@ Useful normalized reminders:
 - browser-targeted package/build claims are usually **deployable-through-host**, not standalone-browser **executable** support
 - the CLI is Deno-inspired at the workflow level, not a promise of flag-for-flag Deno parity
 - documented command shape and shipped availability are separate; availability always comes from the maturity matrix
+- later reporting/registry-analysis commands stay explicit in their targets: `kali effects` is direct-input and `kali package-effects` / `kali package-audit` take one explicit registry package target in schema v1
 
 ## Repository posture
 This repository is currently spec-first:
