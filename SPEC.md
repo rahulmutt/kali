@@ -169,8 +169,8 @@ Use this checklist:
 - compatibility-surface wording for query-only permission observation should reuse the **observation-only compatibility facade** and **recognized-but-unavailable compatibility member** terms
 - library/export-oriented build wording should reuse the **compile intent**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
 - source-command versus package-command wording should reuse the **source-graph command**, **dependency-graph command**, **discovery-driven command**, and **registry-analysis command** terms instead of re-listing the same command families ad hoc
-- single-package registry-analysis wording should reuse the **single-package registry-analysis command**, **registry-analysis context split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
-- JSON machine-output wording should reuse the canonical **native-JSON command**, **envelope-only JSON command**, and **JSON-producing mode** terms instead of restating near-duplicate output-mode rules
+- single-package registry-analysis wording should reuse the **single-package registry-analysis command**, **registry-analysis context split**, **registry-analysis command split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
+- JSON machine-output wording should reuse the canonical **native-JSON command**, **envelope-only JSON command**, **JSON-producing mode**, and **registry-analysis command split** terms instead of restating near-duplicate output-mode rules
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
 - config-discovery/install interactions without a discovered `kali.json` should reuse the **configless install split** term
@@ -842,6 +842,18 @@ To keep single-package tooling predictable and avoid a second near-duplicate fla
 - `package-effects` follows the maturity of the inherited analysis axis instead of inventing its own separate gate table: inherited browser context lines up with browser-targeted effect analysis, inherited Node context lines up with the Node analysis gate, inherited `wasm-threads` lines up with the threaded-profile gate, and inherited compat features such as `eval` line up with their own compatibility-phase gates.
 - `package-audit`, once that command exists, follows **context-free registry analysis (schema v1)**.
 - both commands still follow the shared **registry-analysis project-independence rule** as well as the identity-only registry-target rule.
+
+### Registry-analysis command split
+Kali intentionally keeps the two schema-v1 single-package registry-analysis commands small and non-overlapping instead of growing one fuzzy “package inspection” surface.
+
+In schema v1 this means:
+- `package-effects` is the **Phase 2 target** analysis-context-aware effect-report command: it inherits the **effective inherited analysis context**, follows **axis-aligned inherited analysis gating**, and is a **native-JSON command** once available.
+- `package-audit` is the **Later compatibility** context-free security-audit command: it follows **context-free registry analysis (schema v1)** and is an **envelope-only JSON command** in schema v1.
+- both commands still share the same **single-package registry-analysis command** shape and the **registry-analysis project-independence rule**.
+
+Rule:
+- use this term when a chapter needs the top-level contrast between `package-effects` and `package-audit` instead of restating the same availability/context/JSON split in slightly different prose.
+- command spelling and arity remain owned by [`specs/12-cli.md`](./specs/12-cli.md), payload schemas remain owned by [`specs/18-schemas.md`](./specs/18-schemas.md), and availability remains owned by [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 
 ### Effective inherited analysis context
 The semantic analysis context that `package-effects` uses in schema v1.

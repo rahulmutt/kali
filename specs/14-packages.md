@@ -460,17 +460,15 @@ To keep schema v1 small and avoid undocumented config surface area, early-phase 
 Independently of project install state, Kali can analyze a registry package through the **registry-analysis commands**.
 
 Simplification rule:
-- keep the two registry-analysis commands intentionally distinct instead of growing a fuzzy “package inspection” surface
-- `kali package-effects <pkg>` is the **Phase 2 target** analysis-context-aware effect-report path
-- `kali package-audit <pkg>` is the **Later compatibility** context-free security-audit path
+- follow the shared **registry-analysis command split** from [SPEC.md](../SPEC.md) instead of growing a fuzzy “package inspection” surface
 - command spelling/examples stay owned by [12 — CLI](12-cli.md); this section focuses on package semantics, version selection, and context behavior
 
 Registry-analysis summary:
 
 | Command | Availability | Context model | JSON success shape |
 |---|---|---|---|
-| `package-effects` | Phase 2 target | Inherits only the semantic analysis axes from the shared **effective inherited analysis context**: `apiSurface`, `runtimeProfiles`, `compat.features` | Native JSON payload by default; standard command envelope with `--output json` |
-| `package-audit` | Later compatibility | Follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md) | Follow [specs/18-schemas.md](18-schemas.md)'s **Package Audit JSON Output (schema v1)** section |
+| `package-effects` | Phase 2 target | The analysis-context-aware half of the shared **registry-analysis command split**: inherits the shared **effective inherited analysis context** | Schema-v1 **native-JSON command**; standard command envelope with `--output json` |
+| `package-audit` | Later compatibility | The context-free half of the shared **registry-analysis command split**: follows **context-free registry analysis (schema v1)** | Schema-v1 **envelope-only JSON command**; see [specs/18-schemas.md](18-schemas.md)'s **Package Audit JSON Output (schema v1)** section |
 
 Shared target-selection rule:
 - both commands follow the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
@@ -500,7 +498,7 @@ Package-effects rule:
 
 Package-audit rule:
 - keep `kali package-audit` **single-package** in early phases so it does not overlap with a future whole-project dependency-health workflow
-- treat it as a registry-metadata / security-audit workflow, not as a second host-context-sensitive execution/effect-analysis command
+- as the context-free half of the shared **registry-analysis command split**, it is a registry-metadata / security-audit workflow rather than a second host-context-sensitive execution/effect-analysis command
 - early `package-audit` therefore does **not** take package-analysis-specific `--api`, runtime-profile, `--compat`, or `--sandbox` flags
 - early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md): whether the command runs under discovered config or in configless project mode, inherited host-analysis/runtime config does not gate or rewrite its semantics
 - if unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee
