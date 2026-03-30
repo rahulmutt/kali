@@ -50,7 +50,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, no implicit dependency repair outside `kali install`, opt-in npm lifecycle scripts only via `kali install --allow-scripts`, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib` for exact-version/internal consumers in the shared **Deno-oriented build context (schema v1)**, and only when frontend lowering can determine a **statically known export surface**; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public **WIT-first** `--lib` contract, with `--capi` and `--component` as explicit projections/packaging flows over that same export surface |
 | Formal verification | Phase-1 **proof-ready** repository baseline: published **proof-boundary manifest** plus the proof-CI trigger policy for the currently modeled subset; the modeled subset may still be empty while Kali is only **proof-ready**, and no proof-backed release/support claims may extend beyond the published boundary |
-| Tooling | Deno-inspired CLI workflow, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports, and a minimal `init` scaffold contract that does not blur into install/materialization |
+| Tooling | Deno-inspired CLI workflow, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports, and minimal `init` / `init --lib` scaffold contracts that do not blur into install/materialization |
 
 Use this table as a reading aid only. Detailed behavior still belongs to the owning chapters and the maturity matrix.
 
@@ -108,7 +108,7 @@ To keep the bootstrap brief ambitious without making the MVP blurry, Phase 1 sho
 - no stable public `kali effects` / `kali package-effects` workflow yet;
 - no compile/check-time inferred-effect-vs-policy validation yet on `kali check --sandbox` / `kali build --sandbox` beyond policy-schema/config validation;
 - no stable public `kali package-audit` workflow yet;
-- no stable public embedding ABI/WIT/C-ABI contract yet beyond the Phase-1 **base library artifact**;
+- no stable public Rust embedding API or stable public ABI/WIT/C-ABI contract yet beyond the Phase-1 **base library artifact**;
 - no executable project-local sandbox policy code;
 - no runtime `eval` / `Function()` compatibility path yet;
 - no threaded runtime profile yet.

@@ -27,9 +27,9 @@ Phase 1 is intentionally narrow. For exact boundaries, read the **Phase-1 Shippe
 - **Language/frontend**: `.ts` and `.js` are first-class inputs.
 - **Project workflow**: `kali init`, `kali init --lib`, `kali install`, `kali fmt`, `kali lint`, and `kali check [files...]` are the main authoring loop.
 - **Execution**: `kali run <file>` and `kali test [files...]` ship only in the default/inherited Deno-oriented standalone context, using wasmtime for Kali-hosted execution.
-- **Builds**: `kali build <file>` ships in the shared Deno-oriented build context; `kali build --lib <file>` ships as the Phase-1 **base library artifact** for exact-version/internal consumers when Kali can determine a **statically known export surface**.
+- **Builds**: `kali build <file>` ships as the default executable build in the shared Deno-oriented build context; `kali build --lib <file>` ships as the Phase-1 **base library artifact** for exact-version/internal consumers when Kali can determine a **statically known export surface**.
 - **Browser support**: Phase 1 browser support is exactly the shared **Phase-1 browser-targeted command set** — browser-targeted `check [files...]` plus browser-targeted `build --bundle <file>` under an effective `apiSurface = browser`, including supported `--sandbox` variants and inherited-config equivalents.
-- **Sandboxing/effects**: `run/test --sandbox` enforce at runtime; supported `check/build --sandbox` paths do static policy-schema/config validation only in Phase 1.
+- **Sandboxing/effects**: `run/test --sandbox` enforce at runtime; supported `check --sandbox`, default `build --sandbox`, `build --lib --sandbox`, and browser-targeted `build --bundle --sandbox` paths do static policy-schema/config validation only in Phase 1.
 - **Packages**: early support is broad only inside the shared **pure JS/TS package contract** plus the documented raw-URL workflow.
 - **Verification**: reuse the canonical repository summary from [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md): **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
 

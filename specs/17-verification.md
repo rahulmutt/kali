@@ -32,7 +32,7 @@ Current repository status rule:
 - `proofs/BOUNDARY.md` is the single source of truth for the repository's current verification state
 - chapter summaries, release notes, and README copy should cite or quote that manifest rather than restating current proof coverage from memory or from this chapter's roadmap prose
 - if the manifest is still the shared **placeholder proof-boundary manifest**, the honest repository claim remains **proof-ready** rather than **proof-backed**
-- in that placeholder state, repository summaries should say the quiet part explicitly: Kali is proof-ready, but no mechanized proof coverage is currently claimed yet
+- in that placeholder state, repository summaries should reuse the canonical short summary from `proofs/BOUNDARY.md` verbatim: **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
 - [19 — Feature Maturity](19-feature-maturity.md) makes the same guardrail explicit: proof-backed release/support claims while the published boundary is still empty are **Rejected by default**
 
 Claim-reading shortcut:
