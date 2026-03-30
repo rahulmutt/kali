@@ -39,6 +39,8 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 
 Use this table as a reading aid only. Detailed behavior still belongs to the owning chapters and the maturity matrix.
 
+For the compact answer to “what is actually shipped in Phase 1?”, use the **Phase-1 Shipped Surface Summary** in [specs/19-feature-maturity.md](./specs/19-feature-maturity.md) before dropping into the full command/profile matrix.
+
 ## Implementation Strata
 
 To keep the bootstrap brief implementable, the chapter set is intentionally grouped into a small number of logical delivery units:

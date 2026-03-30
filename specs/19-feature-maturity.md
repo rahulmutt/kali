@@ -56,6 +56,27 @@ Promotion rule:
 
 This keeps “Phase 1 MVP” and later status labels tied to measurable behavior rather than intent alone.
 
+## Phase-1 Shipped Surface Summary
+
+This section is a compact reading aid for the most common Phase-1 question: **what is actually shipped end to end?**
+
+It is intentionally narrower than the full command/profile matrix below:
+- it lists only the core command/context families that should be treated as shipped in Phase 1,
+- it keeps later documented command families visible as explicitly **not yet shipped**,
+- the full matrix later in this chapter remains the normative owner for exact arity, inherited-context equivalence, and diagnostic precedence.
+
+| Area | Phase 1 shipped surface | Not yet shipped in Phase 1 |
+|---|---|---|
+| Project workflow | `kali init`, `kali install`, `kali fmt`, `kali lint`, `kali check [files...]` | no automatic dependency repair outside `kali install` |
+| Execution | `kali run <file>` and `kali test [files...]` in the default/inherited Deno-oriented standalone context, with supported `--sandbox` runtime enforcement | no standalone browser runtime/test contract; no Node execution path yet |
+| Build | `kali build <file>`, `kali build --bundle <file>` only when the effective `apiSurface` is `browser`, `kali build --lib <file>`, and supported `--sandbox` static policy validation on shipped build paths | no non-bundle browser build mode; no `--capi`; no `--component`; no Node build path yet |
+| Browser support | exactly the shared **Phase-1 browser-targeted command set**: browser-targeted `check [files...]` plus browser-targeted `build --bundle <file>`, including equivalent inherited-config forms and supported `--sandbox` variants | no `run --api browser`; no `test --api browser`; no browser library/embed artifact modes |
+| Effects/sandbox reporting | internal sandbox-oriented effect bookkeeping; policy-schema/config validation for `check --sandbox` / `build --sandbox`; runtime enforcement for `run --sandbox` / `test --sandbox` | no stable public `kali effects`; no stable public `kali package-effects`; no stable public `kali package-audit`; no inferred-effect-vs-policy rejection yet |
+| Embedding | Phase-1 **base library artifact** via `kali build --lib` | no stable public Rust embedding API; no stable public WIT sidecar for plain `--lib`; no stable public C ABI or Component Model flow |
+| Verification | published **proof-boundary manifest** and **proof-ready** repository state | no **proof-backed** support claims while the boundary is still empty |
+
+Use this summary to avoid broad bootstrap overreads, then drop to the canonical matrix below for exact command/context rows.
+
 ## Canonical Matrix
 
 | Feature | Status | Rationale |
@@ -154,7 +175,7 @@ Interpretation rule:
 
 | Command / profile | Early-phase status | Canonical handling |
 |---|---|---|
-| `kali init` | Phase 1 MVP | Follow the shared **minimal canonical scaffold contract** from [SPEC.md](../SPEC.md): create the smallest valid schema-v1 project scaffold in the current working directory, using the canonical built-in starter filenames, without adding dependencies, writing `kali.lock`, or materializing packages. |
+| `kali init` | Phase 1 MVP | Follow the shared **minimal canonical scaffold contract** from [SPEC.md](../SPEC.md): create the smallest valid schema-v1 project scaffold in the current working directory, using the canonical built-in starter filenames (`main.ts` by default, `lib.ts` with `--lib`), without adding dependencies, writing `kali.lock`, or materializing packages. |
 | `kali init` when the current working directory already contains `kali.json` | Rejected by default | Fail with `E5008` instead of silently overwriting the existing project config |
 | `kali init` in a subdirectory whose ancestor already contains `kali.json` | Phase 1 MVP | Create a nested child project rooted at the current working directory when that directory itself does not already contain `kali.json`; later discovery treats that child root as a separate project boundary |
 | `kali init --sandbox kali.policy.json` | Rejected by default | `init` is sandbox-agnostic in early phases; scaffolding does not accept the runtime/build policy-attachment flag, so this is invalid usage (`E5008`) |

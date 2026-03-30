@@ -489,8 +489,8 @@ Inherited execution-context shorthand:
 ### `kali init`
 Initialize a new project scaffold.
 ```bash
-kali init                                  # Create the minimal project scaffold in the current dir (kali.json + smallest starter source file)
-kali init --lib                            # Library project template
+kali init                                  # Create the minimal project scaffold in the current dir (kali.json + main.ts)
+kali init --lib                            # Create the minimal library scaffold (kali.json + lib.ts)
 ```
 
 Scaffold simplification rules:

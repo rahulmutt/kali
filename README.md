@@ -3,7 +3,7 @@ An ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembl
 
 Bootstrap-normalized headline assumptions:
 - `BOOTSTRAP.md` is the input brief; [SPEC.md](./SPEC.md) plus [specs/19-feature-maturity.md](./specs/19-feature-maturity.md) are the normative source of truth after normalization
-- hard invariants stay fixed across phases: **AOT only**, **pure Rust**, **no tracing/background GC**, **sandbox-first honesty**, and deterministic machine-readable contracts
+- hard invariants stay fixed across phases: **AOT only**, the **Pure-Rust implementation contract**, **no tracing/background GC**, **sandbox-first honesty**, and deterministic machine-readable contracts
 - Phase 1 is intentionally narrow: **Deno-first** standalone execution plus the exact **Phase-1 browser-targeted command set** (`kali check [files...]`, including the project-discovery no-file form and explicit-file-set forms, and `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including equivalent inherited-config forms and supported `--sandbox` variants); broader Node support comes later
 - stronger-than-`tsc` inference is still bounded: Kali improves local/obvious inference, but keeps an explicit annotation-required boundary instead of open-ended whole-program search
 - latest ECMA-262 means the **latest published edition**; accepted grammar does not by itself imply same-phase runtime support for every feature
@@ -38,6 +38,7 @@ Recommended Phase-1 implementation order:
 6. evidence hardening (conformance, package corpus, browser smoke tests, determinism)
 
 See the normative cross-spec version in [SPEC.md#recommended-phase-1-implementation-order](./SPEC.md#recommended-phase-1-implementation-order).
+For the compact “what is actually shipped in Phase 1?” answer, see the **Phase-1 Shipped Surface Summary** in [specs/19-feature-maturity.md](./specs/19-feature-maturity.md).
 
 Quick support-reading checklist:
 1. **What command shape is being asked for?** `build --bundle --api browser` and `run --api browser` are different requests.
