@@ -1,8 +1,8 @@
 # RALPH
 
-- Iteration: 401 of 1000
+- Iteration: 402 of 1000
 - Prompt file: /workspace/prompts/iterate-spec.md
-- Updated: 2026-03-30T18:05:00.000Z
+- Updated: 2026-03-30T17:51:28+00:00
 
 ## Last emitted message
 
@@ -11,18 +11,18 @@ Done.
 
 Updated:
 - `specs/11-standard-apis.md`
-- `specs/12-cli.md`
-- `specs/19-feature-maturity.md`
+- `specs/14-packages.md`
+- `specs/15-errors.md`
 - `RALPH.md`
 
-What I improved:
-- clarified that the API-surface snapshot in `specs/11-standard-apis.md` intentionally excludes the registry-analysis commands, so later browser/Node reuse for `package-effects` is not mistaken for a Phase-1 browser-surface expansion
-- simplified the `package-effects` CLI and maturity wording to lean on the canonical **axis-aligned inherited analysis gating** rule instead of restating the same browser/Node/threaded/eval fallback story in multiple places
-- tightened the wording around inherited-context behavior so the docs consistently say Kali must gate rather than silently falling back or dropping inherited analysis settings
+What I changed:
+- aligned the API-surface snapshot wording so Phase-1 browser support consistently includes supported `--sandbox` variants and equivalent inherited-config forms
+- simplified the package-resolution browser rewrite note to point at the exact **Phase-1 browser-targeted command set** instead of re-listing examples with slightly different wording
+- filled an error-spec gap by adding the inherited-browser `--sandbox` contradiction examples for `build --capi` and `build --component`
 
-Inconsistency/drift risk fixed:
-- the package-analysis sections were semantically aligned already, but they were still close to drifting because the same inherited-context rule was explained in slightly different prose across the CLI, API-surface, and maturity chapters
-- the updated wording keeps one canonical rule and makes the later `package-effects` browser-context reuse explicitly non-Phase-1
+Main inconsistency/drift risk fixed:
+- browser-targeted support and its inherited-config equivalents were described consistently in the CLI/maturity specs, but the API-surface snapshot and package-resolution prose were still a bit narrower/looser
+- the error chapter also omitted two inherited-browser `E5008` examples that the CLI chapter already treated as invalid command shape
 
 Git:
 - commit: pending
