@@ -2,7 +2,7 @@
 
 Status: **placeholder proof-boundary manifest**.
 
-This file is the canonical repository location for Kali's published **proof-boundary manifest**. Current proof-status summaries in `SPEC.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` should point here instead of paraphrasing repository proof coverage from memory.
+This file is the canonical repository location for Kali's published **proof-boundary manifest**. Current proof-status summaries in `README.md`, `SPEC.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` should point here instead of paraphrasing repository proof coverage from memory.
 
 Current repository-state note:
 - follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): there is not yet a checked-in Lean proof tree under `proofs/`

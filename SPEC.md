@@ -66,6 +66,7 @@ To keep the bootstrap brief ambitious without making the MVP blurry, Phase 1 sho
 - no standalone `run --api browser` or `test --api browser` runtime contract yet;
 - no supported `--api node` command path yet;
 - no stable public `kali effects` / `kali package-effects` workflow yet;
+- no compile/check-time inferred-effect-vs-policy validation yet on `kali check --sandbox` / `kali build --sandbox` beyond policy schema/config validation;
 - no stable public `kali package-audit` workflow yet;
 - no stable public embedding ABI/WIT/C-ABI contract yet beyond the Phase-1 **base library artifact**;
 - no executable project-local sandbox policy code;

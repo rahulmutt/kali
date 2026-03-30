@@ -30,7 +30,7 @@ Quick Phase-1 non-goals:
 - no general `--api node` command support yet across `check` / `effects` / `build` / `run` / `test`
 - no standalone browser runtime or browser-hosted `run` / `test`
 - no non-bundle browser build lane: browser-targeted support in Phase 1 is limited to `check` plus `build --bundle`; under an effective browser API surface there is no plain `build` / `build --lib` browser path yet
-- no stable public effect workflow yet: neither the reporting half (`kali effects`, `kali package-effects`) nor the policy-comparison half (compile/check-time inferred-effect-vs-policy validation) is shipped in Phase 1, and there is no dry-run `run` / `test` replacement for that workflow
+- no stable public effect workflow yet: neither the reporting half (`kali effects`, `kali package-effects`) nor the policy-comparison half (compile/check-time inferred-effect-vs-policy validation) is shipped in Phase 1; `kali check/build --sandbox ...` still perform only policy schema/config validation in Phase 1, and there is no dry-run `run` / `test` replacement for that workflow
 - no stable user-facing `kali package-audit` workflow yet; that later command is intentionally separate from the effect-report surface
 - no `eval` / `Function()` support yet
 - no threaded runtime profile yet
