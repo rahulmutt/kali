@@ -22,7 +22,7 @@ Preferred execution modes:
 An engine abstraction may be added later to support backends such as `wasmer` when there is a demonstrated embedding or platform need. This must not complicate the initial runtime design, and any added backend must preserve the same externally visible sandbox/resource/diagnostic contracts rather than introducing backend-specific semantics into user-facing behavior.
 
 Engine-choice simplification rule:
-- subsystem implementations may compare `wasmtime` and `wasmer` internally, but the public early-phase spec contract is standardized on `wasmtime`
+- internal backend experiments or comparisons must not change the public early-phase contract: it is standardized on `wasmtime`
 - no chapter should phrase engine choice as though Phase 1 leaves both backends equally normative
 - adding another backend later is an implementation-extension decision, not a license to fork the CLI, sandbox, or embedding contracts by engine
 

@@ -13,8 +13,8 @@ Bootstrap-normalized headline assumptions:
 - the upstream project list in `BOOTSTRAP.md` is a **design-reference list**, not an architecture-copy or dependency promise
 - the language-inspiration list in `BOOTSTRAP.md` is also normalized: Haskell/Idris/Agda/Lean inform purity/effects/constraint design, but do not imply Phase-1 dependent types, totality checking, or proof-term workflows in ordinary Kali code
 - early runtime standardization is **wasmtime first**; alternative engines are later extensions
-- embedding is phased: Phase 1 ships a useful but unstable `kali build --lib` **base library artifact**; the stable public Rust/WIT/C ABI and Component Model surface is Phase 2
-- effects are phased too: Phase 1 may use internal effect bookkeeping for sandboxing, but the stable public effect-report surface (`kali effects`, `kali package-effects`, and inferred-effect-vs-policy comparison) is Phase 2
+- embedding is phased: Phase 1 ships a useful but unstable `kali build --lib` **base library artifact**; Phase 2 adds the stable **public embedding surface**: stable Rust embedding API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging
+- effects are phased too: Phase 1 may use internal effect bookkeeping for sandboxing, but the stable public effect-report surface (`kali effects`, `kali package-effects`, and compile/check-time inferred-effect-vs-policy validation) is Phase 2
 - `kali package-audit` is intentionally separate from effect reporting: it is a later, context-free registry-analysis workflow rather than part of the sandbox/effect-report surface
 - verification has one explicit split: the Phase-1 baseline is a **proof-ready** repository state (published proof boundary + honest proof-CI activation rule), while **proof-backed** release/support claims are a stricter bar that require a non-empty boundary naming real modeled subsystems and theorem claims
 - current repository verification status: see [proofs/BOUNDARY.md](./proofs/BOUNDARY.md); it currently declares an empty modeled boundary, so this repo is **proof-ready** but not yet **proof-backed**, and verification should not yet be marketed as shipped proof coverage
@@ -25,7 +25,7 @@ Bootstrap-normalized headline assumptions:
 Quick Phase-1 non-goals:
 - no general `--api node` command support yet across `check` / `effects` / `build` / `run` / `test`
 - no standalone browser runtime or browser-hosted `run` / `test`
-- no stable public effect-report workflow yet (`kali effects`, `kali package-effects`, and inferred-effect-vs-policy comparison)
+- no stable public effect-report workflow yet (`kali effects`, `kali package-effects`, and compile/check-time inferred-effect-vs-policy validation)
 - no stable user-facing `kali package-audit` workflow yet; that later command is intentionally separate from the effect-report surface
 - no `eval` / `Function()` support yet
 - no threaded runtime profile yet
@@ -54,7 +54,7 @@ Use that order before treating any broad bootstrap aspiration as shipped support
 Common early-phase misreads worth rejecting quickly:
 - the whole **Phase-1 browser-targeted command set** is supported in Phase 1 — including explicit `--api browser` spellings, equivalent inherited-config forms, and the supported `--sandbox` variants — but `kali run --api browser main.ts` and `kali test --api browser` are still later compatibility.
 - `kali build --lib lib.ts` is a supported Phase-1 **base library artifact**; `kali build --lib --sandbox kali.policy.json lib.ts` is the same Phase-1 base-library build plus static policy validation, while `kali build --capi lib.ts` and `kali build --component lib.ts` are still Phase-2 embedding flows.
-- `kali check --sandbox ...` and `kali build --sandbox ...` are Phase-1 policy-schema/config validation paths; on `build`, that sandbox attachment is orthogonal to artifact mode and does **not** yet imply the Phase-2 inferred-effect-vs-policy comparison workflow.
+- `kali check --sandbox ...` and `kali build --sandbox ...` are Phase-1 policy-schema/config validation paths; on `build`, that sandbox attachment is orthogonal to artifact mode and does **not** yet imply the Phase-2 compile/check-time inferred-effect-vs-policy validation workflow.
 - Phase-1 verification wording is about repository/process hygiene first: one published boundary, one activation rule, and no proof-backed marketing beyond that boundary.
 
 ## Specification
