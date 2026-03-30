@@ -63,8 +63,8 @@ Scope rule:
 - `analysisContext` records the semantic knobs that materially affect the report: `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md))
 - schema v1 keeps the shared field name `entryPoints`, but it names the report's logical roots rather than promising runtime entrypoints in every producer
 - for `kali effects`, those `entryPoints` are the analysis-root labels
-- the summarized `effects` cover the full statically reachable program/dependency graph rooted at those logical roots under that recorded analysis context
-- the report is therefore a conservative whole-program summary for that rooted graph, not a file-local listing of only the syntax inside the directly named source file
+- the summarized `effects` cover the **resolved source graph selected by those logical roots** under that recorded analysis context
+- the report is therefore a conservative whole-program summary for that **resolved source graph**, not a file-local listing of only the syntax inside the directly named source file
 
 Commands that directly emit the shared effect-report payload (for example `kali effects --output json`) should place that report under the CLI envelope's `payload` field instead of redefining it. Commands that wrap the same effect data with extra package metadata (for example `kali package-effects`) should still reuse the canonical nested report shape from [specs/18-schemas.md](18-schemas.md) rather than inventing a second effect vocabulary.
 
@@ -145,7 +145,7 @@ Compile-time policy handling is intentionally split to keep Phase 1 smaller and 
 
 - **Phase 1**: `--sandbox` validates the policy file itself (schema, patterns, resource-limit ranges, unsupported fields) and attaches it to the build/run configuration, but does **not** promise a complete static proof that all effects fit the policy.
 - **Phase 2 target**: inferred effects are checked against the allowed policy capabilities.
-- Graph-scope rule: compile-time `--sandbox` validation follows the same **resolved source graph** from [SPEC.md](../SPEC.md) that the underlying command is already analyzing or building; attaching a policy changes validation, not graph reachability.
+- Graph-scope rule: compile-time `--sandbox` validation follows the same **resolved source graph selected by the command's roots** from [SPEC.md](../SPEC.md) that the underlying command is already analyzing or building; attaching a policy changes validation, not graph reachability.
 - For the hybrid `kali check` command, `kali check --sandbox <policy>` without explicit file arguments still uses the canonical project-discovery result; `--sandbox` adds policy validation, not a new input-selection mode.
 - With explicit `check` file arguments, `--sandbox` keeps the same **set-oriented explicit-file command** behavior as plain `kali check`: it validates the supplied file set as graph roots, and it does not collapse `check` into a one-entrypoint command just because a policy was attached.
 - For direct-input `build`, `kali build --sandbox <policy> <file>` validates the same **resolved source graph selected by that explicit input** rather than only the root file in isolation.
@@ -371,7 +371,7 @@ Use the CLI chapter for command shape and the maturity matrix for availability; 
 | Representative command | Earliest status | Owns which workflow? |
 |---|---|---|
 | `kali effects program.ts` | Phase 2 target | Reporting only: emits inferred effects; no policy comparison |
-| `kali check --sandbox kali.policy.json` | Phase 1 MVP | Static policy validation over the same **resolved source graph** from [SPEC.md](../SPEC.md) selected by the discovered project; Phase 2 adds inferred-effect-vs-policy comparison |
+| `kali check --sandbox kali.policy.json` | Phase 1 MVP | Static policy validation over the same **resolved source graph selected by the command's roots** from [SPEC.md](../SPEC.md); Phase 2 adds inferred-effect-vs-policy comparison |
 | `kali check --sandbox kali.policy.json program.ts` | Phase 1 MVP | Same static policy-validation path over an explicit file set |
 | `kali check --sandbox kali.policy.json src/a.ts src/b.ts` | Phase 1 MVP | Same static policy-validation path over an explicit multi-file set |
 | `kali run --sandbox kali.policy.json program.ts` | Phase 1 MVP | Runtime sandbox enforcement during Kali-hosted execution |
