@@ -2,7 +2,7 @@
 
 ## Registry Compatibility
 
-Package loading is compile-time first: Kali resolves and analyzes dependency graphs during `check` / `build` / `run` / `test`, and it links them for artifact-producing/executing flows rather than pretending every command does the same work. For normal builds, application code and its static dependencies are emitted as one linked WASM payload rather than a fleet of runtime-linked WASM modules. Output modes may still add companion artifacts such as JS glue, but they do not change the single linked-payload rule.
+Package loading is compile-time first: Kali resolves and analyzes dependency graphs during `check` / `build` / `run` / `test`, and it links them for artifact-producing/executing flows rather than pretending every command does the same work. This chapter follows the shared **linked-artifact model** from [SPEC.md](../SPEC.md): for normal builds, application code and its statically resolvable dependencies lower into one linked core guest payload, and companion outputs such as JS glue do not change that rule.
 
 Ownership rule:
 - this chapter owns package-resolution order, install mutability, lock/materialization behavior, and registry/raw-URL dependency rules
@@ -14,7 +14,7 @@ Ownership rule:
 Kali supports registry packages (npm/JSR) that stay inside the shared **pure JS/TS package contract** from [SPEC.md](../SPEC.md).
 
 Phase simplification:
-- **Phase 1 MVP**: packages that fit that contract, do not depend on unsupported Node core modules, fit the linked-artifact model, and whose runtime assumptions match a **supported Phase-1 command context** — either the Deno-oriented standalone surface or the shared **Phase-1 browser-targeted command set**.
+- **Phase 1 MVP**: packages that fit that contract, do not depend on unsupported Node core modules, fit the shared **linked-artifact model**, and whose runtime assumptions match either the Deno-oriented standalone surface or the shared **Phase-1 browser-targeted command set**.
 - **Phase 3 target**: broader compatibility for packages that expect the `node` API surface and additional Node built-ins.
 
 This keeps the early ecosystem promise realistic: utility libraries, validators, parsers, and many framework packages are in scope early, while Node-host-heavy packages and the excluded **native/binary/bootstrap-heavy package contract** follow later compatibility work.
@@ -36,9 +36,9 @@ Early registry-package compatibility needs one explicit simplification so packag
 - **Phase 1 package compatibility is also not synonymous with "Deno standalone only"**: supported browser-targeted analysis/build contexts are already part of the early package story for packages whose host assumptions fit that context.
 
 Concretely, a package can be supported in Phase 1 when:
-- its code can be resolved statically into the linked-artifact model,
+- its code can be resolved statically into the shared **linked-artifact model**,
 - its module format can be handled by Kali's ESM/CJS pipeline,
-- and its runtime needs are satisfied by one supported Phase-1 context: either the documented Web baseline plus Deno-oriented standalone surface, or the shared **Phase-1 browser-targeted command set** (`check --api browser`, `build --bundle --api browser`).
+- and its runtime needs are satisfied by either the documented Web baseline plus Deno-oriented standalone surface, or the shared **Phase-1 browser-targeted command set** (`check --api browser`, `build --bundle --api browser`).
 
 A package is **not** automatically in scope just because it lives in npm or JSR. If it depends on broader Node globals/core modules or falls into the **native/binary/bootstrap-heavy package contract**, it stays phase-gated or rejected with the rest of that compatibility work.
 

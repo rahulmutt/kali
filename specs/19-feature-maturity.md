@@ -65,7 +65,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | First-class JavaScript compilation with inference | Phase 1 MVP | Required so `.js` projects are not forced to migrate to TypeScript before benefiting from Kali; the early guarantee follows the shared **bounded inference contract** rather than open-ended whole-program search |
 | CommonJS module lowering | Phase 1 MVP | Needed for early npm package compatibility within the linked-artifact model |
 | `require("literal")` | Phase 1 MVP | Rewritten during compilation when statically resolvable |
-| Dynamic `require()` | Rejected by default | Conflicts with the early single-linked-artifact model |
+| Dynamic `require()` | Rejected by default | Conflicts with the early **linked-artifact model** |
 | Broad npm compatibility for packages that expect more Node built-ins | Phase 3 target | Depends on broader `--api node` support beyond the Phase 1 package baseline |
 | Literal-string `import()` | Phase 3 target | Can be lowered to the already-linked graph without runtime WASM module linking |
 | Non-literal `import(expr)` | Later compatibility | Requires a dynamic host-mediated path and conservative effect handling |
@@ -352,7 +352,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Concern | Early canonical status | Notes |
 |---|---|---|
 | Pure JS/TS npm packages within the linked-artifact model | Phase 1 MVP | Restricted to the shared **pure JS/TS package contract** and still context-sensitive: early support covers the Deno-oriented standalone surface plus the supported browser-targeted analysis/build context, not broad Node-host-heavy assumptions |
-| Pure JS/TS JSR packages within the linked-artifact model | Phase 1 MVP | Registry-style install/lock/materialization path just like npm in early phases, with the same Phase-1 Deno-standalone-or-browser-targeted context boundary |
+| Pure JS/TS JSR packages within the linked-artifact model | Phase 1 MVP | Registry-style install/lock/materialization path just like npm in early phases, with the same Deno-first standalone or **Phase-1 browser-targeted command set** boundary |
 | Raw URL imports in the shared lock/materialization model | Phase 1 MVP | Pin in `kali.lock`, materialize under `.kali/cache/urls/`, and keep ordinary commands deterministic |
 | Deno-condition package resolution in the default standalone surface | Phase 1 MVP | Honor `exports` condition `deno` when `--api deno` is selected |
 | Browser-condition package resolution for the **Phase-1 browser-targeted command set** | Phase 1 MVP | Shared browser package-resolution context for `check --api browser` and `build --bundle --api browser`: honor `exports` condition `browser` plus applicable `package.json#browser` replacement maps consistently |

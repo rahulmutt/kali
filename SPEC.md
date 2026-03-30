@@ -84,7 +84,7 @@ This table is the compact “where did each bootstrap ask land?” view.
 | No tracing GC / explicit memory decisions | No tracing/background GC; deterministic ownership, escape analysis, and layout decisions are the core memory story | [`specs/06-memory.md`](./specs/06-memory.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Aggressive specialization + layout-aware IR | Optimization is staged: explicit layout-aware IR plus specialization deepen over Phases 2-3 without weakening auditability | [`specs/05-ir.md`](./specs/05-ir.md), [`specs/07-specialization.md`](./specs/07-specialization.md) |
 | Deno, Node, and browser support | Phase 1 is Deno-first with the shared **Phase-1 browser-targeted command set**; Node is phase-gated until Phase 3 | [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
-| npm / JSR / raw-URL package access | Early package support is broad for packages inside the **pure JS/TS package contract** that fit the linked-artifact model and one supported Phase-1 command context (Deno-first standalone or the shared **Phase-1 browser-targeted command set**), but narrow for the excluded **native/binary/bootstrap-heavy package contract** | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| npm / JSR / raw-URL package access | Early package support is broad for packages inside the **pure JS/TS package contract** that fit the **linked-artifact model** and whose host assumptions match either the Deno-first standalone surface or the shared **Phase-1 browser-targeted command set**, but narrow for the excluded **native/binary/bootstrap-heavy package contract** | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Embeddability, C ABI, WIT, Component Model | Phase 1 ships the base `--lib` artifact; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and component packaging | [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Latest published ECMA-262 boundary | Kali tracks the latest **published** ECMA-262 edition; draft or proposal semantics stay explicitly experimental rather than implied | [`specs/02-lexer-parser.md`](./specs/02-lexer-parser.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Pure Rust implementation / no embedded C or C++ | Implementation choices must preserve the pure-Rust host/runtime/toolchain contract rather than smuggling in embedded C/C++ dependencies | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/10-runtime.md`](./specs/10-runtime.md) |
@@ -135,7 +135,7 @@ This rule is what keeps bootstrap goals such as broad Node/browser support, `eva
 
 To keep the spec set implementable and reduce drift between chapters, Kali intentionally standardizes on a few cross-cutting simplifications:
 - **one guest-facing host ABI** realized through different host adapters, rather than separate guest contracts for standalone execution, browser bundles, and embedding;
-- **one linked core payload per build**, with companion artifacts such as JS glue, WIT, headers, or component wrappers layered on top rather than becoming separate runtime-linked guest graphs;
+- **one linked-artifact model**, with one linked core payload per build/analysis root and any companion artifacts such as JS glue, WIT, headers, or component wrappers layered on top rather than becoming separate runtime-linked guest graphs;
 - **one browser-targeted context model** reused across supported browser analysis/build commands, with later browser-context `package-effects` inheriting that context from config/defaults instead of growing a package-analysis-specific `--api` flag family;
 - **one install/lock state** shared across the default Deno-oriented standalone path and supported browser-targeted analysis/build paths in schema v1;
 - **one compatibility-feature name** (`eval`) for both direct `eval` and `Function()`;
@@ -178,6 +178,7 @@ Use this checklist:
 - package-effects inherited-context maturity wording should reuse **axis-aligned inherited analysis gating** instead of re-listing the browser/node/runtime-profile/compatibility examples in each chapter
 - Phase-1 internal effect machinery versus Phase-2 stable effect-report-command wording should reuse the **effect-surface split** instead of creating new near-duplicate “effects exist internally but not publicly yet” prose in each chapter
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
+- package-loading and whole-graph-linking wording should reuse the **linked-artifact model** term instead of restating slightly different “single linked payload”, “already-linked graph”, or “no runtime-linked WASM modules” prose
 - package-compatibility wording should reuse the **pure JS/TS package contract** and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different native-addon / downloaded-binary exclusion lists
 - source-file-kind wording should reuse **canonical source-file classes**, **executable/analyzable source-file class**, and **canonical project file set** instead of repeating long extension lists in every command chapter
 - early stronger-than-`tsc` inference wording should reuse the **bounded inference contract** and the **annotation-required inference boundary** instead of creating near-duplicate “HM-like but still fast” descriptions in architecture, checker, and maturity chapters
@@ -383,6 +384,18 @@ Rules:
 - ordinary platform runtime/system libraries reached through the normal Rust toolchain, system call bindings, or OS-provided interfaces do **not** by themselves violate the contract.
 - exposing a C ABI for embedding does **not** weaken this rule; a Rust implementation may publish C-callable boundaries without embedding a C/C++ implementation.
 - docs should reuse this term instead of re-explaining the distinction as “pure Rust except libc”, “no C/C++ in-tree”, or “C ABI is okay because only the boundary is C”.
+
+### Linked-artifact model
+Kali's early package/build assumption that one resolved static graph lowers into one linked core guest artifact per build or analysis root.
+
+In practice this means:
+- ordinary ESM edges, lowered CommonJS edges, and other statically resolvable dependencies are folded into one already-linked graph before execution or artifact emission,
+- companion outputs such as browser JS glue, WIT, headers, or component wrappers may be emitted, but they layer around that same linked core payload rather than turning it into runtime guest-module linking,
+- dynamic loading forms such as non-literal `require()` or late host-driven guest module linking sit outside this model unless a later maturity row explicitly opens them.
+
+Rules:
+- package-compatibility claims that use this term mean the package's normal code graph can be resolved and lowered under this static whole-graph model; they do **not** by themselves promise that the package's selected host APIs are already supported for the active `apiSurface`
+- docs should reuse this term instead of alternating between near-duplicate phrases such as “single linked payload”, “already-linked graph”, or “no runtime-linked WASM modules” when they mean the same boundary
 
 ### Pure JS/TS package contract
 The shared early-phase package-compatibility boundary for registry packages Kali can treat as ordinary source packages.
