@@ -203,6 +203,10 @@ Proof-job consistency rule:
 - A release should not treat a placeholder/empty proof boundary as evidence of shipped proof coverage; proof-backed release claims require a non-placeholder modeled subset and theorem inventory.
 
 ### Test Data
+Current-state clarification:
+- the directory names below are the **target test/proof layout** once implementation fixtures land; in the current spec-first repo they should be read as intended locations, not guaranteed present directories
+- the one verification artifact that is required today is `proofs/BOUNDARY.md`
+
 - `tests/fixtures/` — source files for integration tests
 - `tests/snapshots/` — IR/output snapshots
 - `tests/conformance/` — test262 and tsc-derived tests

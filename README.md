@@ -89,5 +89,10 @@ Quick navigation:
 ## Project posture
 This repository is currently spec-first: the top-level spec and chapter set are the source of truth for scope, staging, and machine-readable contracts.
 
+Current repository baseline:
+- the checked-in source of truth today is the spec set plus the published proof-boundary manifest at [proofs/BOUNDARY.md](./proofs/BOUNDARY.md)
+- target crate trees, test directories, CI lanes, and Lean project layouts shown in the spec chapters describe the intended implementation shape, not a claim that every such file or directory already exists in this repository
+- when reading architecture, testing, embedding, or verification examples, prefer the shared **current-repository-state vs target-contract reading** from [SPEC.md](./SPEC.md) before inferring present implementation status from an illustrative tree or command example
+
 ## Related project
 - [Kai](https://github.com/rahulmutt/kai), an AI-based coding assistant
