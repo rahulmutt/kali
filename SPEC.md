@@ -1180,6 +1180,7 @@ When schema-v1 writes a registry dependency into `kali.json`, the recorded value
 
 Rules:
 - this applies to registry dependency values under `dependencies` and `devDependencies`,
+- schema-v1 registry manifests that use broad version-range syntax for those fields are invalid config (`E5009`) rather than a second supported dependency-policy mode,
 - explicit registry adds via `kali install <pkg>` and `kali install --dev <pkg>` therefore use the **stable-release selection rule (schema v1)** first, then write that exact resolved version into the manifest,
 - lockfile state and manifest intent should stay tightly aligned in schema v1,
 - wider range syntax may be added later only as a separately documented manifest/CLI contract rather than being implied by identity-only install flows.

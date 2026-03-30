@@ -637,6 +637,7 @@ Configuration simplification rules:
 - `include` / `exclude` filter only the project's own discoverable files; they do not suppress transitive imports/dependencies reached from an accepted entrypoint and they are not a second package-resolution mechanism
 - generated config from `kali init` should prefer these canonical names and should not duplicate them as parallel top-level keys
 - `kali init` should not emit `sandbox`, `compat`, `dependencies`, or other optional sections unless the chosen template or user request actually needs them
+- when schema-v1 registry dependencies are present in `dependencies` / `devDependencies`, their values are exact resolved version strings; broad SemVer ranges are invalid config (`E5009`) rather than a second supported manifest mode
 - because absence of `sandbox` means “no policy attached” rather than “allow all by explicit policy”, tools should preserve omission when round-tripping minimal configs unless the user intentionally chooses a default policy path
 - precedence is `CLI > kali.json > defaults`, except sandbox-policy restrictions still constrain effective runtime behavior
 

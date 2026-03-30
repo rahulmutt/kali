@@ -63,7 +63,7 @@ This keeps three often-confused questions separate: “can Kali materialize this
 ## Dependency Source Kinds
 
 To keep install, lock, and materialization rules simple, Kali distinguishes only these early source kinds:
-- **Registry packages** — npm and JSR packages declared in `kali.json` under `dependencies` / `devDependencies`, resolved by package identity plus manifest-pinned version, and materialized into `node_modules/`
+- **Registry packages** — npm and JSR packages declared in `kali.json` under `dependencies` / `devDependencies`, resolved by package identity plus the manifest's exact pinned version, and materialized into `node_modules/`
 - **Raw URL imports** — exact `https://...` dependencies declared in source code or `kali.json#imports`, cached under `.kali/cache/urls/`
 
 Clarification:
@@ -117,6 +117,7 @@ Schema-v1 uses this rule for:
 
 Install simplification:
 - when `kali install <pkg>` or `kali install --dev <pkg>` adds a new manifest entry from that **identity-only registry target** form, it follows the shared **stable-release selection rule (schema v1)** and **exact-version-first registry manifest rule (schema v1)** from [SPEC.md](../SPEC.md)
+- schema-v1 registry dependency values in `kali.json` are therefore exact resolved version strings; broad SemVer ranges are invalid config (`E5009`) rather than an alternate supported manifest mode
 
 ### Package Resolution
 Follow the common package.json / `exports` / CommonJS-vs-ESM mechanics used by the Node ecosystem, but keep the early-phase Kali rules explicit so browser-targeted, Deno-oriented, and later Node-specific behavior do not drift.
