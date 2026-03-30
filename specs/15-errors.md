@@ -244,6 +244,9 @@ Use `E5008` for cases such as:
 - `kali install --allow-scripts https://example.com/mod.ts`
 - `kali install --allow-scripts jsr:@std/path`
 - `kali install --dev https://example.com/mod.ts`
+- `kali run --max-memory 0 main.ts`
+- `kali run --max-cpu 0 main.ts`
+- `kali run --max-open-files 0 main.ts`
 - `kali package-effects`
 - `kali package-effects lodash react`
 - `kali package-effects https://example.com/mod.ts`

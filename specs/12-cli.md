@@ -175,6 +175,8 @@ Canonical resource-literal rule:
 - `--max-spawned-processes` accepts a plain non-negative integer count
 - `--max-threads` accepts a plain non-negative integer count
 - CLI parsing normalizes these to bytes, milliseconds, and integer counts before comparing them with sandbox-policy limits
+- follow the canonical numeric-limit semantics from [SPEC.md](../SPEC.md): `--max-memory`, `--max-cpu`, and `--max-open-files` must be **positive** when present, so `0` is invalid rather than a hidden deny form
+- only `--max-spawned-processes` and `--max-threads` may use `0` as an explicit deny/tightening value, because zero concurrent uses is meaningful for those counters
 - schema v1 policy files keep the simpler integer fields `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, `resources.maxOpenFiles`, `resources.maxSpawnedProcesses`, and `resources.maxThreads`; CLI literals/counts are a convenience syntax over that same effective-limit model rather than a second resource schema
 
 Canonical default tuple:

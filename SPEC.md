@@ -773,6 +773,17 @@ Interpretation rules:
 - browser-targeted policy validation and effect reporting therefore speak only about this **Kali-mediated capability subset**, not arbitrary ambient browser behavior outside the schema-v1 model
 - when later specs add a new built-in stable effect/policy capability, it joins this subset explicitly rather than by implication
 
+## Canonical Numeric-Limit Semantics
+
+To keep CLI flags, policy validation, runtime enforcement, and JSON schemas aligned, Kali uses one shared rule for numeric capability/resource limits:
+- capability-local numeric fields are **constraints only**; they never imply that the surrounding capability is enabled
+- positive-budget dimensions such as `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, `resources.maxOpenFiles`, and their matching CLI overrides (`--max-memory`, `--max-cpu`, `--max-open-files`) must be **positive when present**; `0` is invalid rather than a hidden deny form
+- zero-capable concurrency counters such as `resources.maxSpawnedProcesses`, `resources.maxThreads`, and their matching CLI overrides may use `0` as an explicit deny/tightening value because zero concurrent uses is semantically meaningful there
+- in policy files, omission is the canonical “unspecified” state for positive-budget dimensions; tools must not synthesize a second numeric deny convention
+- browser-targeted policy attachment still follows the stricter early browser rule from the sandbox matrix below: cross-cutting `resources.*` budgets that would imply Kali-hosted post-deployment enforcement are rejected for that profile
+
+This section exists to stop drift between CLI parsing, policy/schema validation, runtime enforcement, and error reporting.
+
 ## Canonical Sandbox Attachment Matrix
 
 This is the compact cross-spec meaning of attaching a sandbox policy.
