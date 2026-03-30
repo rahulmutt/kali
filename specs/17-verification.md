@@ -124,7 +124,11 @@ Prove specific high-value lowering passes preserve the modeled semantics:
 
 ## Lean 4 Project Structure
 
-```
+Current-state clarification:
+- the repository does **not** yet contain this Lean project tree; today the only required verification artifact is the published `proofs/BOUNDARY.md` manifest
+- treat the layout below as the **target proof-tree shape once mechanized proofs start landing**, not as a claim that those files already exist in the current repo state
+
+```text
 proofs/
 ├── Kali/
 │   ├── Syntax.lean          — AST and type syntax definitions
@@ -185,12 +189,16 @@ This keeps the bootstrap's Lean-verification ambition aligned with the rest of t
 
 ## CI Integration
 
+Future-state command once the Lean proof tree exists:
+
 ```bash
 # Build and check all Lean proofs for the current published proof boundary
 cd proofs && lake build
-
-# In CI, run this job whenever the proof tree or a covered subsystem changes
 ```
+
+Current-state rule:
+- until `proofs/` contains an actual Lean project (`lakefile.lean`, `lean-toolchain`, and proof sources), this command is illustrative rather than currently runnable
+- the current repository obligation is the published proof-boundary manifest plus the trigger policy below
 
 CI consistency rules:
 - proof failure blocks merge for the subsystem set currently named by the published **proof-boundary manifest**; this is not a claim that all of Kali is already formalized

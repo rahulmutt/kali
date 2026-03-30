@@ -2,6 +2,10 @@
 
 Status: placeholder for the initial published proof boundary. The repository currently claims **no mechanized proof coverage yet**, so this file documents the absence of proof claims explicitly.
 
+Current repository-state note:
+- there is not yet a checked-in Lean proof tree under `proofs/`; this manifest is currently the only required verification artifact
+- the illustrative Lean project layout in [specs/17-verification.md](../specs/17-verification.md) is therefore a target layout for when proofs land, not a claim about the current repository contents
+
 Canonical verification state:
 - **proof-ready**: yes — this published manifest exists and defines the current activation/claim boundary
 - **proof-backed**: no — the modeled boundary is still empty, so no release may market formal verification as a shipped Kali capability yet
