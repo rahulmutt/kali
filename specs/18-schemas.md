@@ -327,12 +327,13 @@ Produced by `kali effects`.
 ### Required fields
 - `schemaVersion: number`
 - `analysisContext: EffectAnalysisContext`
-- `entryPoints: string[]` — logical analysis roots for this report (for example a normalized CLI entry path such as `src/main.ts`, a discovered test entry label, or an exported embedding entry name)
+- `entryPoints: string[]` — shared schema field for the logical analysis roots of this report (for example a normalized CLI input path such as `src/main.ts`, a discovered test label, a package root specifier such as `lodash`, or an exported embedding entry name)
 - `effects: EffectOccurrence[]`
 - `dynamicEffects: boolean`
 - `dynamicReasons: string[]` — canonical reason codes explaining why the report is conservative/incomplete; empty when `dynamicEffects` is `false`
 
 Early-phase interpretation rule:
+- `entryPoints` is a historical shared field name for logical roots, not a promise that every producer is describing a runtime entrypoint
 - for the Phase 2 CLI command `kali effects <file>`, `entryPoints` normally contains exactly one element because the command takes one explicit primary analysis root in early phases
 - for direct CLI analysis inputs, the canonical label should be the normalized user-facing entry path (preferably project-root-relative when that root is known) rather than an implementation-specific symbol ID or opaque internal module handle
 - `analysisContext` records the semantic knobs that materially affect the report: selected `apiSurface`, enabled `runtimeProfiles`, and enabled `compatFeatures`

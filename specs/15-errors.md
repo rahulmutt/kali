@@ -84,7 +84,7 @@ Terminology note:
 - `E5004`: Dependency state not installed or not materialized for the current lockfile
 - `E5005`: Ambiguous module resolution or registry-path conflict
 - `E5006`: Feature unavailable in current phase, API surface, command/profile, or target configuration
-- `E5007`: Invalid command input or entrypoint kind for the selected command
+- `E5007`: Invalid primary command input kind for the selected command
 - `E5008`: Invalid CLI usage or flag/arity combination for the selected command
 - `E5009`: Invalid project configuration
 - `E5010`: Invalid sandbox policy file
@@ -156,10 +156,10 @@ Boundary rule:
 
 Example:
 ```
-error[E5007]: invalid entrypoint for command 'run': declaration-only file
+error[E5007]: invalid primary input for command 'run': declaration-only file
   --> types.d.ts:1:1
   |
-  = note: declaration files participate in type checking and ambient typing, but they do not contain executable program entrypoints
+  = note: declaration files participate in type checking and ambient typing, but they are not valid executable or analyzable primary inputs for this command
   = help: use 'kali check types.d.ts' to validate declarations, or pass an executable source file to 'kali run'
 ```
 
