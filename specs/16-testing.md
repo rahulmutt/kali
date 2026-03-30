@@ -2,7 +2,7 @@
 
 Current repository-state note:
 - this repository is still spec-first; the crate names, test directories, and CI lanes below define the target implementation/testing contract, not a claim that every Rust crate, fixture tree, or hosted CI job already exists today
-- current repo obligations are therefore narrower: keep the spec/docs internally consistent, keep phase-gated workflows honestly marked as unavailable until their maturity rows open, and follow the shared **proof state split** from [SPEC.md](../SPEC.md) plus the published proof-boundary policy in `proofs/BOUNDARY.md`
+- current repo obligations are therefore narrower: keep the spec/docs internally consistent, keep phase-gated workflows honestly marked as unavailable until their maturity rows open, and follow the shared **proof-ready vs proof-backed split** from [SPEC.md](../SPEC.md) plus the published proof-boundary policy in `proofs/BOUNDARY.md`
 
 ## Test Strategy
 
@@ -56,7 +56,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | Package compatibility | curated package corpus results recorded per shipped source-graph command/context **and per claimed rung of the shared package-support ladder** from [SPEC.md](../SPEC.md) (for example standalone `check` / `build` / `run` / `test`, plus browser-targeted `check` / `build --bundle` when those package claims are made) |
 | CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |
 | Artifact reproducibility | repeated-build tests over pinned inputs/toolchains + normalized artifact-byte comparisons + stable emitted-metadata assertions |
-| Proof-backed claims | passing Lean proof jobs for the currently modeled subset, scoped by the published **proof-boundary manifest** and the shared **proof state split**; Phase 1 may be merely **proof-ready** earlier, but proof-backed release claims require a non-empty published boundary with named theorem/property claims |
+| Proof-backed claims | passing Lean proof jobs for the currently modeled subset, scoped by the published **proof-boundary manifest** and the shared **proof-ready vs proof-backed split**; Phase 1 may be merely **proof-ready** earlier, but proof-backed release claims require a non-empty published boundary with named theorem/property claims |
 
 Interpretation rule:
 - a feature can stay listed as a future phase target before these tests exist

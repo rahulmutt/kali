@@ -805,7 +805,7 @@ Rules:
 - this manifest scopes confidence claims; it does **not** by itself promote maturity or replace command/profile evidence from [`specs/16-testing.md`](./specs/16-testing.md)
 - when the implementation grows beyond the currently published proof boundary, the unsupported remainder must stay outside the manifest rather than being described as informally covered
 
-### Proof state split
+### Proof-ready vs proof-backed split
 Kali keeps one explicit split between **being proof-ready** and **advertising proof-backed support**:
 - **proof-ready state** — `proofs/BOUNDARY.md` exists and truthfully declares the currently modeled proof boundary
 - **proof-backed support state** — release notes or support claims actively rely on formal verification as shipped evidence for some Kali behavior
@@ -817,7 +817,7 @@ Rules:
 - before a release or support summary advertises formal verification as a shipped capability, the boundary must move beyond the **placeholder proof-boundary manifest**, name at least one concrete modeled subsystem, and list the claimed theorem/property inventory so the claim is genuinely proof-backed rather than merely proof-ready
 - proof CI follows the proof-CI trigger policy declared by the published boundary; an empty modeled boundary requires proof jobs only for `proofs/`, and once covered implementation/spec areas are named they also become proof-CI triggers
 - that proof-CI trigger policy is normative even before concrete CI workflow files land; until automation is wired up, docs must describe it as policy rather than implying that proof jobs already run in hosted CI
-- chapters should reuse this term instead of re-explaining the same empty-boundary-versus-proof-backed distinction in slightly different prose
+- chapters should reuse this exact **proof-ready vs proof-backed split** instead of re-explaining the same empty-boundary-versus-proof-backed distinction in slightly different prose
 
 Current repository note:
 - [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) is the single source of truth for the repository's current verification state

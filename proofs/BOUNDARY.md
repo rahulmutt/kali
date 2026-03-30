@@ -9,11 +9,14 @@ Current repository-state note:
 - the illustrative Lean project layout in [specs/17-verification.md](../specs/17-verification.md) is therefore a target layout for when proofs land, not a claim about the current repository contents
 - while that remains true, this published manifest is the required verification artifact for the repository's current **proof-ready** baseline
 
-Canonical verification state (following the shared **proof state split** from [SPEC.md](../SPEC.md)):
-- **proof-ready**: yes — this manifest exists, truthfully declares the current claim boundary, and publishes the repository's current proof-CI trigger policy
-- **proof-backed**: no — the modeled boundary is still empty, so no release may market formal verification as a shipped Kali capability yet
-- repository claim: **no mechanized proof coverage is claimed yet**
-- canonical short summary for README/release text: **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
+Canonical verification state (following the shared **proof-ready vs proof-backed split** from [SPEC.md](../SPEC.md)):
+
+| Item | Current state |
+|---|---|
+| proof-ready | **yes** — this manifest exists, truthfully declares the current claim boundary, and publishes the repository's current proof-CI trigger policy |
+| proof-backed | **no** — the modeled boundary is still empty, so no release may market formal verification as a shipped Kali capability yet |
+| repository claim | **no mechanized proof coverage is claimed yet** |
+| canonical short summary | **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.** |
 
 Release rule:
 - this **placeholder proof-boundary manifest** is acceptable while the project is still iterating on the spec/implementation because it satisfies the Phase-1 **proof-ready** baseline without overclaiming proof coverage
