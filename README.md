@@ -15,7 +15,7 @@ Early-phase headline assumptions:
 - package installation stays **context-agnostic** in early phases: one lock/install state serves the default Deno path and supported browser-targeted analysis/build paths, while final `exports`/`browser` edge selection happens at command time
 
 Quick Phase-1 non-goals:
-- no standalone `--api node` execution/checking yet
+- no general `--api node` command support yet across `check` / `effects` / `build` / `run` / `test`
 - no standalone browser runtime or browser-hosted `run` / `test`
 - no `eval` / `Function()` support yet
 - no threaded runtime profile yet

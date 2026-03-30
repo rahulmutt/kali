@@ -461,6 +461,13 @@ Isolation rule:
 - follow the shared **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md)
 - promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
 
+Registry-analysis cache simplification:
+- `package-effects` and `package-audit` may use the shared **registry-analysis cache** from [SPEC.md](../SPEC.md) for fetched metadata/tarballs
+- that cache is outside project-managed dependency state and must not mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
+- cache identity is keyed by at least the canonical registry identifier plus the resolved concrete version
+- for `package-effects`, the inherited effective analysis context is also part of that cache identity so `deno` / `browser` / later `node`, runtime-profile, and compatibility-feature analyses cannot collide accidentally
+- for early context-free `package-audit`, host-analysis/runtime/sandbox selections do not participate in the cache key because they do not change command semantics
+
 Because `kali package-effects` is a Phase 2 target and depends on the shared effect-report pipeline, it should stay clearly unavailable or explicitly experimental until that pipeline lands rather than returning a partial bespoke format.
 
 Canonical output simplification:

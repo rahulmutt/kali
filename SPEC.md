@@ -375,7 +375,7 @@ This is a naming bridge only: schema field `entryPoints` is the canonical JSON f
 ## Phase-1 Non-Goals Snapshot
 
 To keep the normalized bootstrap scope easy to scan, Phase 1 does **not** imply:
-- standalone `--api node` execution or checking,
+- general `--api node` command support across `check` / `effects` / `build` / `run` / `test`,
 - standalone browser runtime or browser-hosted `run` / `test`,
 - `eval` / `Function()` support,
 - threaded runtime profiles / `SharedArrayBuffer` / `Atomics`,
