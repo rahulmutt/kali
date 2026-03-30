@@ -79,7 +79,7 @@ Effective-context validation rule:
 - therefore config-selected values trigger the same maturity/usage checks as explicit flags; the CLI must not silently "fix up" an inherited context by falling back to some other API surface/profile
 - examples: config-selected `apiSurface = node` still causes plain `kali run main.ts` or `kali test` to hit the Node phase gate (`E5006`), and config-selected `apiSurface = browser` still makes plain `kali build main.ts` invalid early-phase usage (`E5008`) until `--bundle` is selected
 - config-selected `apiSurface = browser` also keeps plain `kali run main.ts` and plain `kali test` on the same browser-runtime/test gate as their explicit `--api browser` forms (`E5006`); omitting the flag does not cause a silent fallback to `deno`
-- when multiple checks could apply, the CLI should evaluate them from outermost to innermost: command-shape/arity first, then base command availability, then finer inherited-context/profile gates inside that command. This keeps phase-gated commands with inherited context, such as `package-effects`, from producing contradictory diagnostics before the command itself exists.
+- follow the canonical validation-order rule from [SPEC.md](../SPEC.md): command-shape/arity first, then base command availability, then finer inherited-context/profile gates inside that command
 
 | Flag | Scope | Description |
 |------|-------|-------------|
@@ -518,7 +518,7 @@ Additional flag-surface rule:
 
 Output simplification rule:
 - unlike `kali effects` and `kali package-effects`, `kali package-audit` does **not** define a native bare-JSON payload in schema v1
-- if `package-audit` supports `--output json` before a dedicated audit payload schema exists, the stable contract is the standard command envelope itself, with `payload` omitted or `null` rather than an ad hoc audit object
+- if `package-audit` supports `--output json` before a dedicated audit payload schema exists, it uses the canonical **envelope-only JSON support** model from [SPEC.md](../SPEC.md): the stable contract is the standard command envelope itself, with `payload` omitted or `null`
 - if/when a dedicated machine-readable audit payload is added later, it should still travel through the standard `--output json` command envelope instead of inventing a second ad hoc top-level format
 
 ## Output Design
@@ -566,7 +566,7 @@ Rules:
 - top-level output uses the versioned command envelope
 - diagnostics reuse the shared diagnostic schema
 - command-specific structured data goes in `payload` when that command has a dedicated success-payload schema in schema v1
-- commands that do **not** yet define a dedicated success-payload schema may still support `--output json` through the envelope alone; in that case `payload` should be omitted or `null` rather than filled with ad hoc prose/fields
+- commands with **envelope-only JSON support** may still support `--output json` through the standard envelope alone; in that case `payload` should be omitted or `null` rather than filled with ad hoc prose/fields
 - common optional top-level fields include `artifacts`, `stdout`, `stderr`, `timings`, and `exitCode`
 - for execution-style commands in JSON mode, guest/program stdout and stderr are captured into the envelope fields instead of being interleaved as raw terminal text
 - build-like commands should populate artifact `role` whenever it helps distinguish artifact mode without forcing tools to guess from filenames (for example default executable vs `--lib` `wasm-module`)

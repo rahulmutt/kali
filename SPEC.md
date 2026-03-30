@@ -406,6 +406,8 @@ Interpretation rules:
 - Kali must not silently rewrite the effective context just to make a command succeed
 - if the effective context requests a real but unavailable feature/profile, fail with `E5006`
 - if the effective context creates a contradictory command shape, fail with `E5008`
+- validation order is canonical across the spec set: check **command shape/arity first**, then the command's own base availability, then narrower inherited-context/profile gates inside that command
+- this ordering keeps diagnostics stable for commands with inherited context; for example, before `package-effects` exists, plain `kali package-effects lodash` fails on the command row itself, while once the command exists an unsupported inherited `apiSurface = node` or `compat.features = ["eval"]` can fail on the narrower `E5006` gate instead
 - a command may still document that some context axes are intentionally **non-semantic** for it in early phases; for example early `package-audit` still uses ordinary project/config discovery plus generic CLI behavior, but it intentionally ignores host-analysis/runtime knobs such as `apiSurface`, `buildMode`, `runtimeProfiles`, `compat.features`, and top-level `sandbox`
 
 Canonical examples:
@@ -841,7 +843,8 @@ When Kali exposes machine-readable output:
 - those commands may emit their native payloads directly by default
 - in that native-payload mode, **stdout is reserved for the success payload only**; extra status/progress text must not be interleaved into stdout, and default human diagnostics on failure should go to stderr instead
 - `--output json` wraps command results in the standard command envelope from [specs/18-schemas.md](./specs/18-schemas.md)
-- a command does **not** need a command-specific success-payload schema in order to support `--output json`; in schema v1 it may expose only the standard envelope with `payload` omitted or `null`, but it must say that explicitly rather than inventing an ad hoc payload shape
+- a command with **envelope-only JSON support** does not need a command-specific success-payload schema in order to support `--output json`; in schema v1 it may expose only the standard envelope with `payload` omitted or `null`, but it must say that explicitly rather than inventing an ad hoc payload shape
+- early `package-audit` is the canonical envelope-only JSON example if it ships before a dedicated audit payload schema lands
 - `--output json` is also the canonical way to request a machine-readable **failure** result for native-JSON reporting commands, so tools do not have to parse human stderr diagnostics
 - machine-emitted arrays should use deterministic canonical ordering wherever the producer owns the order, so AI/tooling diffs do not depend on traversal or hash-map iteration order
 

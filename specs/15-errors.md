@@ -6,6 +6,12 @@
 2. **Human-friendly**: Clear, colorful, with context and suggestions
 3. **Consistent**: Every error has a code, message, location, and optional fix suggestion
 
+Ownership rule:
+- this chapter owns diagnostic-code meaning, error-boundary guidance, and human-readable diagnostic conventions
+- [19 — Feature Maturity](19-feature-maturity.md) owns whether a documented feature/profile exists in a given phase
+- [12 — CLI](12-cli.md) owns command spelling/arity and exit-code behavior
+- [18 — Schemas](18-schemas.md) owns JSON envelope/diagnostic field shapes
+
 ## Error Format
 
 ### Default (Human)
@@ -147,7 +153,7 @@ Boundary clarification:
 - use `E5006` when the requested feature/profile is real but unavailable in the current phase/profile
 - use `E5008` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it, or `kali build --api browser` without `--bundle` while browser builds are bundle-only)
 - follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): wrong browser build shape (`build --api browser` without the required artifact mode, or browser + library-oriented build modes) is `E5008`, while requesting a browser execution/test contract that does not exist yet (`run --api browser`, `test --api browser`) is `E5006`
-- when more than one gate could apply, diagnostics should report the outermost failing gate first: command-shape contradictions before maturity gates, and a command's own availability gate before narrower inherited-context/profile gates inside that command
+- follow the canonical validation-order rule from [SPEC.md](../SPEC.md): diagnostics report the outermost failing gate first — command-shape contradictions before maturity gates, and a command's own availability gate before narrower inherited-context/profile gates inside that command
 - maturity-matrix rows that name the *earliest fully supported phase* for a combined command/context shape do not override this precedence rule; for example, `kali build --capi --api node ...` may be summarized as a Phase 3 combination while still reporting the `--capi` gate first in Phase 1
 - a well-formed policy file that is semantically incompatible with the selected command/profile/api surface still falls on the `E5006` side of this boundary
 - malformed project config should use `E5009`; malformed policy JSON, unknown policy fields, or invalid policy numeric/path/pattern shapes should use `E5010`

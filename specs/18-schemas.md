@@ -11,6 +11,12 @@ Kali emits several machine-consumed JSON formats:
 
 To keep the specs consistent and AI-friendly, these formats are centralized here instead of being redefined independently in multiple chapters.
 
+Ownership rule:
+- this chapter owns stable JSON field names, payload shapes, and schema-versioning rules
+- [12 — CLI](12-cli.md) owns flag spelling and which commands expose `--output json`
+- [19 — Feature Maturity](19-feature-maturity.md) owns whether a command/profile is available in a given phase
+- [15 — Errors](15-errors.md) owns diagnostic-code meaning and error-boundary guidance
+
 ## Versioning Rules
 
 - Every top-level machine-readable **JSON** document carries `schemaVersion`
@@ -53,7 +59,7 @@ Used by commands that opt into `--output json`.
 ### Notes
 - `payload` holds command-specific structured data
 - `command` is intentionally an open-ended string so new CLI subcommands do not force a schema-version bump; stable built-in command names should mirror the CLI subcommand path in kebab-case (for example `check`, `build`, `package-effects`)
-- a command may support `--output json` even when schema v1 does **not** define a dedicated success-payload schema for it; in that case the envelope itself is the stable contract and `payload` should be omitted or `null` rather than populated with an ad hoc object
+- a command may support `--output json` with the canonical **envelope-only JSON support** model from [SPEC.md](../SPEC.md) even when schema v1 does **not** define a dedicated success-payload schema for it; in that case the envelope itself is the stable contract and `payload` should be omitted or `null` rather than populated with an ad hoc object
 - schema v1's native-JSON reporting commands are `kali effects` and `kali package-effects`; they may emit their native JSON payloads by default, but with `--output json` they must be wrapped in this envelope
 - for those native-JSON reporting commands, default success mode reserves stdout for the payload only; extra progress/status text must not be interleaved into stdout
 - when those commands fail without `--output json`, human-oriented diagnostics should go to stderr; callers that need machine-readable failure output must request `--output json`
