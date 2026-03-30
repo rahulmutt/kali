@@ -417,7 +417,7 @@ kali install jsr:@std/path                 # Add/install registry dependency fro
 kali install                               # Materialize all declared dependencies for the project
 kali install --allow-scripts               # Permit lifecycle hooks for the invocation's effective npm-scriptable install work
 kali install --dev vitest                  # Add/install dev dependency
-kali install --allow-scripts <pkg>         # Opt into lifecycle scripts for one npm package install; invalid for explicit `jsr:` or raw-URL targets; still not a promise that binary/bootstrap-heavy packages are supported
+kali install --allow-scripts lodash        # Opt into lifecycle scripts for one npm package install; invalid for explicit `jsr:` or raw-URL targets; still not a promise that binary/bootstrap-heavy packages are supported
 kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency
 ```
 
@@ -495,7 +495,7 @@ Argument-kind rule:
 - `kali package-audit <package>` accepts exactly one explicit registry-package argument in early phases; omitting it or passing more than one package is invalid command usage (`E5008`)
 - the package argument uses the canonical registry-package identifier grammar (normal npm package name or `jsr:`-prefixed JSR name)
 - early schema-v1 package audit likewise takes the **identity-only registry target** form from [SPEC.md](../SPEC.md), not an inline version/range selector
-- to keep audit behavior aligned with `package-effects` and avoid hidden project-state coupling, the command uses the shared stable-release rule from [specs/14-packages.md](14-packages.md) and, when it reports machine-readable/package metadata, includes that resolved version as result metadata rather than as part of the required input spelling
+- to keep audit behavior aligned with `package-effects` and avoid hidden project-state coupling, the command uses the shared stable-release rule from [specs/14-packages.md](14-packages.md); once Kali defines a dedicated audit payload schema, that payload should record the resolved version as result metadata rather than forcing it into the required input spelling
 - if that identity-only package lookup finds the package but no acceptable non-yanked stable release, the command fails with `E5001` instead of silently selecting a prerelease or inferring a version from ambient project state
 - any non-registry target is rejected for `package-audit` in early phases, including raw URLs and local file paths; package-audit is registry-package-oriented rather than a second raw-URL/local-path analysis path
 
