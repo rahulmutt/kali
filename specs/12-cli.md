@@ -21,7 +21,7 @@ Ownership rule:
 
 Command-family terminology used in this chapter:
 - these labels describe **command shape and behavior**, not guaranteed current-phase availability
-- commands such as `effects`, `package-effects`, or `package-audit` may still be phase-gated even though their command family is defined here
+- later command/artifact families in this chapter follow the shared **defined command family** rule from [SPEC.md](../SPEC.md): for example `effects`, `package-effects`, `package-audit`, `build --capi`, and `build --component` may already have stable schema-v1 shapes here while remaining phase-gated
 - canonical availability promises live in [19 — Feature Maturity](19-feature-maturity.md)
 - **execution commands**: `run` and `test`
 - **build-like commands**: `build`, plus the compile step embedded inside `run` and `test`
@@ -312,7 +312,7 @@ Checker diagnostics may still carry structured `SuggestedFix` metadata for edito
 ### `kali effects <file>`
 Output static effect analysis as JSON.
 
-Status: Phase 2 target. In Phase 1, the command may be unavailable or explicitly marked experimental while the internal effect infrastructure stabilizes.
+Status: Phase 2 target. This section documents a **defined command family** in schema v1; in Phase 1 the command may still be unavailable or explicitly marked experimental while the internal effect infrastructure stabilizes.
 ```bash
 kali effects main.ts                       # Compact effect report JSON to stdout (default API surface: deno)
 kali effects --api browser main.ts         # Browser-targeted effect analysis once the Phase 2 command exists
@@ -481,7 +481,7 @@ These commands follow the shared **registry-analysis command split** from [SPEC.
 ### `kali package-effects <package>`
 Analyze effects of one registry package under the canonical schema-v1 registry-analysis rules.
 
-Status: **Phase 2 target**. Before then, if package-level analysis is unavailable, the CLI should report that clearly instead of returning partial ad hoc output.
+Status: **Phase 2 target**. This section documents a **defined command family** in schema v1; before Phase 2, if package-level analysis is unavailable, the CLI should report that clearly instead of returning partial ad hoc output.
 ```bash
 kali package-effects lodash                # Analyze npm package
 kali package-effects jsr:@std/path         # Analyze JSR package
@@ -511,7 +511,7 @@ Analysis rule:
 ### `kali package-audit <package>`
 Security audit for one registry package under the canonical schema-v1 registry-analysis rules.
 
-Status: **Later compatibility**. It should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
+Status: **Later compatibility**. This section also documents a **defined command family** in schema v1; it should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
 ```bash
 kali package-audit lodash                  # Audit specific npm package
 kali package-audit jsr:@std/path           # Audit specific JSR package

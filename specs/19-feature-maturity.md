@@ -12,6 +12,7 @@ Bootstrap-triage note:
 - it does **not** downgrade the top-level bootstrap **hard invariants** such as AOT-only compilation, the **Pure-Rust implementation contract**, no tracing/background GC, sandbox honesty, or deterministic machine contracts into optional toggles
 - it should also be read together with the top-level **Phase-1 Explicit Non-Goals** guardrail in [SPEC.md](../SPEC.md), so broad bootstrap aspirations do not get mistaken for shipped Phase-1 breadth
 - when a row about compatibility breadth appears to conflict with one of those hard invariants, the invariant wins and the breadth feature must be redesigned or remain gated
+- some rows in this chapter refer to a command/flag/artifact family whose stable shape is already documented elsewhere; follow the shared **defined command family** rule from [SPEC.md](../SPEC.md): documented shape and actual availability are separate, and this matrix is the availability owner
 
 ## Status Labels
 
@@ -136,6 +137,7 @@ This table exists to stop drift between CLI examples, runtime behavior, package 
 
 Interpretation rule:
 - matrix rows are evaluated against the fully merged **effective command context** (built-in defaults, then discovered config, then CLI flags)
+- some rows refer to **defined command families** from [SPEC.md](../SPEC.md): their command shape may already be documented in [12 — CLI](12-cli.md) or other owning chapters even when this matrix still marks them Phase 2+ or Later
 - examples written with explicit flags also apply when the same value was inherited from `kali.json`
 - canonical reading example: discovered `compilerOptions.apiSurface = browser` makes plain `kali check main.ts` map to the same supported browser-targeted analysis row as explicit `kali check --api browser main.ts`, and makes `kali build --bundle main.ts` map to the same supported row as explicit `kali build --bundle --api browser main.ts`; that same inherited browser value still makes plain `kali build main.ts` fail on the browser build-shape contradiction path (`E5008`) until a non-bundle browser build mode exists
 - only the axes that participate for the selected command are maturity-relevant; non-participating inherited axes are ignored rather than becoming hidden gates or contradictions

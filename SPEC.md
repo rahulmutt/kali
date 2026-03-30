@@ -84,6 +84,21 @@ Sequencing rule:
 - later Phase-1 work may deepen earlier layers, but should not bypass them with feature-specific shortcuts
 - in particular, Phase-2/3 breadth work such as stable effect-report commands, public embedding flows, broader Node compatibility, or dynamic compatibility paths must not land by weakening the earlier hard invariants
 
+## Phase Contracts vs Implementation Order
+
+Kali uses two different orderings on purpose:
+- **phase contracts** describe the earliest user-visible support promise for a feature,
+- **implementation order** describes the recommended engineering sequence for getting there.
+
+Rules:
+- a later-phase feature may still appear in docs, schemas, CLI vocabulary, or internal crate boundaries earlier if doing so prevents naming drift,
+- that early documentation does **not** promote the feature into the current phase,
+- release notes, support summaries, tests, and examples must still read availability from [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md), not from the mere fact that a command/flag/artifact family already has a documented shape.
+
+Practical consequence:
+- it is valid for schema-v1 to define the stable shape of later commands such as `kali effects`, `kali package-effects`, `kali package-audit`, `kali build --capi`, or `kali build --component` before those surfaces are actually available,
+- but Phase-1 support claims must still treat them as reserved or phase-gated until their maturity rows open.
+
 ## Bootstrap Normalization Rule
 
 `BOOTSTRAP.md` is the input brief. This spec set is the normative source of truth after normalization.
@@ -748,6 +763,21 @@ Rules:
 - these terms describe arity, discovery, context inheritance, and output shape, not whether the command is already Phase 1 available,
 - phase availability still comes from the owning chapter plus [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md),
 - docs should avoid rephrasing a command-shape term as an availability promise.
+
+### Defined command family
+A command, flag family, or artifact family whose stable shape is documented before its maturity row is open.
+
+Canonical schema-v1 examples:
+- `kali effects`
+- `kali package-effects`
+- `kali package-audit`
+- `kali build --capi`
+- `kali build --component`
+
+Rules:
+- documenting one of these families early is a vocabulary-stability move, not an availability promise,
+- command-shape rules for a **defined command family** still apply once the command exists, but the command may remain phase-gated until its maturity row opens,
+- docs should prefer this term over repeating looser prose such as “defined here but maybe unavailable”, “reserved future command”, or “documented in advance” when the same boundary is meant.
 
 ### JSON-producing mode
 A command invocation whose primary success output is JSON.
