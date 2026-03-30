@@ -69,6 +69,16 @@ Practical non-promises for plain Phase-1 `--lib`:
 - no Component Model packaging flow
 - no promise that independently versioned hosts can rely on cross-release loading or ABI compatibility without pinning the exact Kali toolchain
 
+Compact Phase-1 support-claim table for library-oriented builds:
+
+| Question | Phase-1 answer |
+|---|---|
+| Can Kali build one export-oriented library artifact? | Yes: `kali build --lib <file>` emits the **base library artifact** when Kali can determine a **statically known export surface**. |
+| Can that same build take `--sandbox`? | Yes: `kali build --lib --sandbox <policy> <file>` stays the same library-oriented build plus static policy-schema/config validation. |
+| Does that make plain `--lib` a stable public embedding ABI? | No: Phase 1 support stops at exact-version/internal consumers. |
+| Does plain `--lib` emit WIT by default? | No: default WIT emission belongs to the Phase-2 stable public **WIT-first** contract. |
+| Do browser or early Node library builds become supported through embedding wording? | No: browser/library combinations stay command-shape contradictions, and Node/library combinations stay on the ordinary Node maturity gate. |
+
 API-surface gating simplification for library-oriented embedding builds:
 - `--lib`, `--capi`, and `--component` all reuse the same exported-library contract rather than defining separate host families
 - the Phase-1 **base library artifact** is supported only in the shared **Deno-oriented build context (schema v1)** from [SPEC.md](../SPEC.md); browser/library combinations stay command-shape contradictions and Node/library combinations stay on the ordinary Node maturity gate
