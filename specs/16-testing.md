@@ -9,7 +9,7 @@ Each crate has its own unit tests (Rust `#[cfg(test)]` modules):
 - `kali_types`: Type inference and checking results
 - `kali_hir/mir/lir`: IR correctness after transformations
 - `kali_codegen`: WASM binary output validation
-- `kali_sandbox`: Effect analysis correctness
+- `kali_sandbox`: Policy parsing/validation, runtime-enforcement helpers, and internal effect-analysis correctness without implying the Phase 1 CLI already exposes stable effect-report commands
 
 ### Integration Tests
 End-to-end tests in `tests/`:

@@ -7,11 +7,15 @@ Implement APIs through one shared guest-facing capability model. Using the canon
 Compatibility is delivered in layers:
 1. **Baseline**: Web platform primitives needed by modern JS libraries.
 2. **Primary host**: Deno-style APIs, since they align well with explicit permissions and sandboxing.
-3. **Compatibility layers**: Node.js shims and browser-facing glue, added incrementally and tested against real packages.
+3. **Compatibility layers**: Node.js shims plus browser-targeted ambient/bundle support, added incrementally and tested against real packages.
 
 The spec goal is broad compatibility, but the implementation should prefer a smaller, dependable surface over a shallow imitation of every host API.
 
 A key simplification rule applies throughout this section: Phase 1 should target the smallest API set that unlocks real-world package execution, and every later API addition should be justified by package compatibility or standards pressure.
+
+Consistency note:
+- browser work in Phase 1 is analysis/build-first (`check --api browser`, `build --bundle --api browser`), not a hidden promise of standalone DOM runtime parity
+- references to browser support in this chapter should therefore prefer the cross-spec **browser-targeted context** wording instead of implying one broad "browser runtime" milestone
 
 For dynamic or semantically expensive APIs (for example `Proxy`, weak references, and threaded primitives), the canonical phase/status lives in [specs/19-feature-maturity.md](19-feature-maturity.md). This section should describe API layering, not restate a conflicting maturity decision.
 

@@ -5,7 +5,7 @@
 ### Requirements
 - Full lexical grammar support for the latest published ECMA-262 edition
 - TypeScript syntax extensions (type annotations, generics, enums, etc.)
-- Stage-3+/draft JavaScript proposals are out of scope unless the feature-maturity matrix or an explicit experimental flag says otherwise; see the published-standard boundary in [SPEC.md](../SPEC.md)
+- Grammar tracking and semantic support are intentionally separate: Phase 1 tracks the latest **published** grammar, while current-edition non-Annex-B semantics apply only to the features Kali marks as supported in the current command/profile; Annex B corners and Stage-3+/draft proposals remain explicitly gated by [specs/19-feature-maturity.md](19-feature-maturity.md)
 - Kali-specific syntax extensions, kept intentionally small in early phases (effect annotations first; advanced effect syntax behind an experimental flag)
 - Zero-copy where possible — tokens reference source via spans
 - Streaming/lazy tokenization — parser pulls tokens on demand
@@ -16,6 +16,7 @@ The lexer/parser should accept the syntax Kali intends to understand even when t
 Canonical rule:
 - parsing a construct does **not** by itself mark it as supported for execution or lowering
 - semantic enablement is decided later by checking/lowering against [specs/19-feature-maturity.md](19-feature-maturity.md)
+- acceptance of a current-edition syntax form also does **not** imply Annex B behavior or proposal semantics unless the maturity matrix or an explicit experimental flag says so
 - this applies especially to syntax-bearing compatibility paths such as `import()`, `eval`, `Function()`-adjacent compatibility behavior, and Kali effect syntax (`pure`, effect annotations, later experimental effect-handler forms)
 - therefore parser breadth should track the latest published grammar, while feature maturity still controls which accepted constructs are executable, lowerable, or only diagnosable in a given phase/profile
 
