@@ -26,7 +26,7 @@ Phase 1 is intentionally narrow. Treat the bullets below as a quick overview onl
 
 - **Language/frontend**: `.ts` and `.js` are both first-class inputs in Phase 1. JavaScript goes through the same core pipeline with bounded conservative inference rather than a transpile-only compatibility lane.
 - **Project workflow**: `kali init`, `kali install`, `kali fmt`, `kali lint`, and `kali check [files...]` ship as the main Phase-1 authoring loop.
-- **Execution**: standalone `kali run <file>` and `kali test [files...]` ship only in the default/inherited Deno-oriented standalone context.
+- **Execution**: standalone `kali run <file>` and `kali test [files...]` ship only in the default/inherited Deno-oriented standalone context, standardized on wasmtime for Kali-hosted execution in early phases.
 - **Executable build**: `kali build <file>` ships in the shared **Deno-oriented build context (schema v1)**.
 - **Export-oriented build**: `kali build --lib <file>` also ships in that same build context as the Phase-1 **base library artifact** for exact-version/internal consumers when Kali can determine a **statically known export surface**. This is useful immediately, but it is still **not** the stable public embedding surface.
 - **Browser-targeted support**: browser support in Phase 1 is exactly the shared **Phase-1 browser-targeted command set** — browser-targeted `check [files...]` plus browser-targeted `build --bundle <file>`, including supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`. This is **checkable** / **deployable-through-host** support, not a standalone browser `run`/`test` contract.
@@ -41,7 +41,8 @@ Some command families and artifact flows are documented before they ship so name
 Examples:
 - `kali effects` and `kali package-effects` are defined early so the public effect-report vocabulary is stable, but they are still Phase-2 surfaces.
 - `kali package-audit` is documented early as the separate registry-analysis/security-audit lane, but it is not a Phase-1 command.
-- `kali build --capi` and `kali build --component` are defined early so embedding vocabulary is stable, but Phase 1 ships only the export-oriented **base library artifact** via plain `--lib`.
+- the stable public plain `--lib` + default WIT contract is defined early so the final embedding vocabulary does not drift, but Phase 1 plain `--lib` is still only the export-oriented **base library artifact** for exact-version/internal consumers.
+- `kali build --capi` and `kali build --component` are defined early so embedding vocabulary is stable, but they are still later public embedding artifact flows rather than extra Phase-1 build modes.
 
 When in doubt, read command/artifact **shape** from the owning chapter and **availability** from [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 
