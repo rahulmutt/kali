@@ -594,7 +594,7 @@ Smallest valid schema-v1 config:
 
 Defaults:
 - omitted `compilerOptions` means `{}`
-- omitted `compilerOptions.strict` means `true`; the canonical semantics of this strictness bundle are defined in [specs/04-type-system.md](04-type-system.md)
+- omitted `compilerOptions.strict` means `true`; the canonical semantics of this **strictness bundle** are defined in [SPEC.md](../SPEC.md) and [specs/04-type-system.md](04-type-system.md)
 - omitted `compilerOptions.apiSurface` means `deno`
 - omitted `compilerOptions.buildMode` means `fast`
 - omitted `compilerOptions.runtimeProfiles` means `[]`
@@ -619,7 +619,7 @@ Interpretation rules:
 - `compilerOptions.runtimeProfiles` is an array of semantic runtime-profile names; in schema v1 it is usually empty because later profiles such as `wasm-threads` are still phase-gated
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
 - unknown runtime-profile names are rejected rather than ignored so config loaders do not silently diverge about which execution-capability set was requested
-- `compilerOptions.strict` is the canonical strict-checking bundle switch in config; its semantics are defined in [specs/04-type-system.md](04-type-system.md), and early phases should avoid multiplying near-duplicate strictness booleans unless a later schema revision documents them explicitly
+- `compilerOptions.strict` is the canonical **strictness bundle** switch in config; its semantics are defined in [SPEC.md](../SPEC.md) and [specs/04-type-system.md](04-type-system.md), and early phases should avoid multiplying near-duplicate strictness booleans unless a later schema revision documents them explicitly
 - `compilerOptions.maxSpecializations` is the project-default specialization cap upper bound; schema v1 defaults it to `16`, and CLI `--max-specializations` may override it per invocation
 - `compilerOptions.maxSpecializations` does not force every build mode to spend that full budget; `buildMode = fast` may still skip most user-authored generic specialization by design, while `release`-oriented modes consume the budget more aggressively
 - top-level `sandbox` is an optional default sandbox-policy path; it is the config equivalent of supplying `--sandbox <path>` for the canonical sandbox-aware commands from [SPEC.md](../SPEC.md), and an explicit CLI flag overrides it

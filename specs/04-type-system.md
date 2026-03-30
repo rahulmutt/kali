@@ -109,21 +109,15 @@ Types are interned via `TypeId` (u32 index into a type arena) for cheap comparis
 
 ## Bounded Inference Contract
 
-To keep the bootstrap goal of stronger-than-`tsc` inference aligned with the project's performance goals, Kali defines one explicit early inference budget:
+Follow the shared **bounded inference contract** and **annotation-required inference boundary** from [SPEC.md](../SPEC.md).
 
-### Phase 1 inference scope
-Phase 1 inference should go beyond plain `tsc`-style local contextual typing, but stay inside a predictable fragment:
-- **in scope early**: local let-bindings, small expression trees, function return types from analyzable bodies, destructuring from known tuple/object shapes, and straightforward generic call-site inference
-- **sometimes in scope**: unannotated parameters when a single obvious contextual/call-site type exists and using it does not require whole-program search
-- **not part of the early promise**: open-ended whole-program inference, implicit API-boundary re-shaping across many modules, or expensive constraint search whose compile-time cost scales unpredictably
+For the type checker, that means:
+- Phase 1 inference should go beyond plain `tsc`-style local contextual typing, but stay inside that predictable bounded fragment
+- when the checker would need unbounded search, repeated speculative instantiations, wide cross-module backtracking, or unstable public-API inference, it should stop the advanced path early
+- the fallback remains the canonical JavaScript/TypeScript-safe set: explicit annotation requirement, `unknown`, unions, or a dynamic/layout-conservative representation
+- the checker must not invent fresh `any` merely to keep inference moving
 
-### Inference-budget rule
-When the checker would need unbounded search, repeated speculative instantiations, or wide cross-module backtracking to infer a type:
-- stop the advanced inference path early
-- fall back to the canonical JavaScript/TypeScript-safe choices (`unknown`, unions, explicit annotation requirement, or dynamic representation)
-- do **not** invent fresh `any` merely to keep inference moving
-
-This is the main simplification that keeps "HM-style inference" compatible with blazing-fast compilation: Kali supports a strong bounded fragment early and grows outward only where cost remains measurable and testable.
+This is the main simplification that keeps “HM-style inference” compatible with blazing-fast compilation: Kali supports a strong bounded fragment early and grows outward only where cost remains measurable and testable.
 
 ## Hindley-Milner Integration
 
@@ -136,8 +130,8 @@ This is the main simplification that keeps "HM-style inference" compatible with 
   - Effect polymorphism in later phases
 
 ### Let-Generalization
-- Functions and let-bindings are generalized (polymorphic) when their type variables don't escape **and** the binding stays inside the bounded inference fragment
-- Public/module-boundary generalization should be conservative in Phase 1; when principality or exported API stability is unclear, prefer an explicit annotation or a conservative boundary type over a clever inferred signature
+- Functions and let-bindings are generalized (polymorphic) when their type variables don't escape **and** the binding stays inside the shared **bounded inference contract**
+- Public/module-boundary generalization should follow the shared **annotation-required inference boundary**: when principality or exported API stability is unclear, prefer an explicit annotation or a conservative boundary type over a clever inferred signature
 - Monomorphization happens later (see [specs/07-specialization.md](07-specialization.md))
 
 ### Constraint Solving
@@ -220,9 +214,9 @@ The effect system feeds directly into the sandbox analyzer (see [specs/09-sandbo
 
 ## Canonical Strictness Bundle
 
-Kali exposes one top-level strictness switch in schema v1: `compilerOptions.strict`.
+Kali exposes one top-level **strictness bundle** in schema v1: `compilerOptions.strict`.
 
-To keep CLI/config simple in early phases, this is a **bundle**, not a menu of many near-duplicate booleans. The canonical intent is:
+To keep CLI/config simple in early phases, this is a bundle, not a menu of many near-duplicate booleans. The canonical intent is:
 - `strict: true` *(default)* enables Kali's TypeScript-inspired strict checker behavior
 - `strict: false` relaxes only the subset of diagnostics where Kali has a documented conservative fallback
 - strictness changes type-checking diagnostics only; it must **not** change runtime semantics, sandbox enforcement, feature-maturity gating, or dependency-resolution behavior

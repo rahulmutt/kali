@@ -62,7 +62,7 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 | Stage-3+/draft TC39 proposals beyond the latest published ECMA-262 edition | Rejected by default | Keep the “latest ECMA-262” promise scoped to published editions; proposal support needs an explicit experimental flag or its own maturity row instead of being implied by grammar tracking |
 | Current-edition non-Annex-B semantics for features Kali marks as supported in a given command/profile | Phase 1 MVP | "Latest standard support" is not parser-only: once Kali claims a feature is supported for a command/profile, the supported path should aim at faithful current-edition semantics and be backed by the matching evidence track rather than by syntax acceptance alone |
 | Static ESM `import` / `export` | Phase 1 MVP | Core module system |
-| First-class JavaScript compilation with inference | Phase 1 MVP | Required so `.js` projects are not forced to migrate to TypeScript before benefiting from Kali |
+| First-class JavaScript compilation with inference | Phase 1 MVP | Required so `.js` projects are not forced to migrate to TypeScript before benefiting from Kali; the early guarantee follows the shared **bounded inference contract** rather than open-ended whole-program search |
 | CommonJS module lowering | Phase 1 MVP | Needed for early npm package compatibility within the linked-artifact model |
 | `require("literal")` | Phase 1 MVP | Rewritten during compilation when statically resolvable |
 | Dynamic `require()` | Rejected by default | Conflicts with the early single-linked-artifact model |
@@ -323,7 +323,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 |---|---|---|
 | TypeScript-compatible checking and flow narrowing | Phase 1 MVP | Compatibility first |
 | Stronger JS inference and conservative fallback to `unknown` / dynamic representations | Phase 1 MVP | Needed for plain JS compilation |
-| Bounded HM-style inference for locals, obvious parameters, and analyzable returns | Phase 1 MVP | Early inference should improve materially on plain `tsc` local inference without requiring open-ended whole-program search |
+| Bounded HM-style inference for locals, obvious parameters, and analyzable returns | Phase 1 MVP | Early inference should improve materially on plain `tsc` local inference while staying inside the shared **bounded inference contract** and using the shared **annotation-required inference boundary** when cost or API stability would otherwise become unpredictable |
 | Stable built-in capability-effect reporting | Phase 2 target | `kali effects` and policy checking |
 | Explicit `pure` / effect annotations | Phase 2 target | Built-in sandbox capability model first |
 | Stable user-defined/custom effects in machine contracts | Later compatibility | Keep early schemas/policies simple |

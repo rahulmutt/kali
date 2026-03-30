@@ -179,6 +179,8 @@ Use this checklist:
 - install-lifecycle-script wording should reuse **install-time npm-package hook path** and **effective npm-scriptable install work** instead of re-explaining the `--allow-scripts` boundary in each chapter
 - package-compatibility wording should reuse the **pure JS/TS package contract** and **native/binary/bootstrap-heavy package contract** terms instead of repeating slightly different native-addon / downloaded-binary exclusion lists
 - source-file-kind wording should reuse **canonical source-file classes**, **executable/analyzable source-file class**, and **canonical project file set** instead of repeating long extension lists in every command chapter
+- early stronger-than-`tsc` inference wording should reuse the **bounded inference contract** and the **annotation-required inference boundary** instead of creating near-duplicate “HM-like but still fast” descriptions in architecture, checker, and maturity chapters
+- checker-config wording for `compilerOptions.strict` should reuse the **strictness bundle** term instead of restating slightly different “strict mode but not many booleans” prose in each chapter
 
 Practical rule:
 - if a chapter needs more than a short paragraph to restate one of those shared rules, add or reuse a canonical term here instead of creating another near-duplicate explanation.
@@ -234,6 +236,51 @@ The compilation-cost/performance dial:
 - `fast`
 - `release`
 - `release-advanced`
+
+### Bounded inference contract
+The shared cross-spec meaning of Kali's Phase-1 “stronger than plain `tsc`, but still predictably fast” inference promise.
+
+In scope for the early bounded contract:
+- local let-bindings and small expression trees,
+- analyzable return types from cheap local function-body analysis,
+- destructuring from known tuple/object shapes,
+- straightforward call-site generic inference,
+- sometimes unannotated parameters when one obvious contextual/call-site type exists and using it does not require wide search.
+
+Outside the early bounded contract:
+- open-ended whole-program inference,
+- wide cross-module/package backtracking,
+- public API reshaping based on non-principal or expensive inference,
+- mutually recursive inference problems that require broad iterative/global search,
+- repeated speculative instantiation whose compile-time cost is hard to predict.
+
+Rules:
+- when the checker hits one of those outer cases, it should stop the advanced inference path early and fall back to an explicit annotation requirement or a conservative boundary type such as `unknown`, unions, or a dynamic/layout-conservative representation
+- Kali must not invent fresh `any` merely to keep inference moving
+- chapters should reuse this term instead of creating new near-duplicate “HM-like inference, but bounded” prose every time the same early contract is meant
+
+### Annotation-required inference boundary
+The canonical point where Kali intentionally stops the **bounded inference contract** and requires user help or a conservative boundary type.
+
+Canonical early examples:
+- exported/public declarations whose inferred signature would become part of a stable module/package surface but is not cheaply principal,
+- mutually recursive function/value SCCs that would require broad iterative solving,
+- generic or constraint cycles that trigger repeated speculative instantiation/backtracking,
+- cross-module/package inference cases whose cost or API consequences are hard to bound.
+
+Rules:
+- prefer an explicit annotation or a conservative boundary type over unstable clever inference
+- this boundary is about predictability and API stability, not a checker failure to understand local code
+- `compilerOptions.strict = false` does not remove this boundary or license fallback to implicit `any`
+
+### Strictness bundle
+The cross-spec name for schema-v1 `compilerOptions.strict`.
+
+Rules:
+- it is one top-level checker-behavior bundle, not a menu of many early-phase sub-booleans
+- it changes checker diagnostics and accepted conservative fallbacks only; it must not change runtime semantics, sandbox/effect enforcement, feature-maturity gates, or dependency-resolution behavior
+- schema-v1 default is `true`
+- chapters should reuse this term instead of rephrasing it as separate “strict mode”, “strict defaults”, or “TS-strict-like bundle” concepts when they mean the same config switch
 
 ### Runtime profile
 An execution-capability profile orthogonal to API surface, for example:

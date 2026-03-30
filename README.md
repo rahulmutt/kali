@@ -4,6 +4,7 @@ An ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembl
 Bootstrap-normalized headline assumptions:
 - use the triage from [SPEC.md#bootstrap-triage-rule](./SPEC.md#bootstrap-triage-rule): first separate **hard invariants** from **phase contracts** and **phase-gated breadth targets**, then read the owning chapter plus the maturity matrix
 - hard invariants from the bootstrap brief stay fixed across the early plan: **AOT only**, **pure Rust**, **no tracing/background GC**, **sandbox-first honesty**, and deterministic machine-readable contracts
+- stronger-than-`tsc` inference in Phase 1 follows one shared **bounded inference contract**: Kali improves local/obvious inference materially, but keeps an explicit annotation-required boundary instead of drifting into open-ended whole-program search
 - host support follows one small staircase: shared **Web baseline**, **Deno-first** standalone execution, **browser-targeted** analysis/build support (`check --api browser`, `build --bundle --api browser`), and broader **Node compatibility** as a later ecosystem phase
 - latest ECMA-262 tracking means the **latest published edition**; grammar support does **not** imply blanket same-phase runtime support for every accepted feature, and draft / Stage-3+ proposal support is explicit and experimental rather than implied
 - dynamic compatibility paths such as `eval` and `Function()` are part of the long-term contract, but remain explicitly phase-gated behind the single schema-v1 compatibility switch `eval`

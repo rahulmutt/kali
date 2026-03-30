@@ -622,7 +622,7 @@ Configuration simplification rules:
 - `compilerOptions.runtimeProfiles` is an array of explicit semantic runtime-profile switches; an empty array means the default single-threaded baseline, while a future threaded config would use `"runtimeProfiles": ["wasm-threads"]`
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates
 - `compilerOptions.apiSurface` and `compilerOptions.runtimeProfiles` describe different axes and must not be conflated: `deno`/`node`/`browser` select host APIs, while runtime profiles select execution capabilities such as threads
-- `compilerOptions.strict` is the config-level strictness bundle; its semantics live in [specs/04-type-system.md](04-type-system.md) and it should not be re-expanded into many parallel booleans in early phases
+- `compilerOptions.strict` is the config-level **strictness bundle**; its semantics live in [SPEC.md](../SPEC.md) and [specs/04-type-system.md](04-type-system.md), and it should not be re-expanded into many parallel booleans in early phases
 - `compilerOptions.maxSpecializations` caps specialization fan-out for generic/layout-driven optimization in modes that actively specialize; CLI `--max-specializations` overrides it for a single invocation
 - `compilerOptions.maxSpecializations` is an upper bound rather than a promise that `buildMode = fast` will consume that full budget; `fast` may still skip most user-authored generic specialization by design
 - top-level `sandbox` is an optional default policy-file path equivalent to supplying `--sandbox <path>` for the canonical sandbox-aware commands from [SPEC.md](../SPEC.md); an explicit CLI `--sandbox` overrides it
