@@ -139,6 +139,13 @@ A command that defaults to project discovery when no explicit files are given:
 - `test`
 - plain `install` for dependency-graph scanning
 
+### Registry-analysis command
+A command that analyzes exactly one explicit registry package identity rather than a project graph in early phases:
+- `package-effects`
+- `package-audit`
+
+These commands do not invent a no-argument whole-project analysis mode in schema v1.
+
 ### Library-oriented artifact modes
 Non-browser, export-oriented build modes:
 - `--lib`
@@ -259,9 +266,38 @@ Read in this order for a clean mental model:
 5. lowering/runtime chapters `05`-`11`,
 6. toolchain/product chapters `12`-`18`.
 
+## JSON Output Modes
+
+To keep CLI, schemas, and command docs aligned, schema v1 uses one small output-mode model.
+
+### Native-JSON reporting commands
+Commands whose primary successful output is already a dedicated JSON payload:
+- `effects`
+- `package-effects`
+
+Rules:
+- on success **without** `--output json`, stdout is reserved for that payload only,
+- human-oriented diagnostics for failures without `--output json` go to stderr,
+- `--output json` wraps the same payload in the standard command envelope rather than inventing a second payload shape.
+
+### Envelope-only JSON support
+Some commands may support `--output json` even when schema v1 defines no dedicated success-payload schema for them yet.
+
+Rules:
+- the stable machine-readable contract is the standard command envelope itself,
+- `payload` should be omitted or `null` rather than populated with ad hoc command-specific objects,
+- `stdout` / `stderr` fields are for captured text streams only, not hidden structured result channels.
+
+Canonical early example:
+- `package-audit --output json`
+
+Short form:
+- **native JSON command** → payload by default, envelope on request
+- **envelope-only JSON command** → envelope only
+
 ## Command/Context Axis Participation Table
 
-This table exists so CLI, schemas, package analysis, and diagnostics use one shared model.
+This table exists so CLI, schemas, package analysis, diagnostics, and JSON-output rules use one shared model.
 
 | Command family | `apiSurface` | `buildMode` | `runtimeProfiles` | `compatFeatures` | `sandbox` |
 |---|---:|---:|---:|---:|---:|
