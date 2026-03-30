@@ -188,11 +188,12 @@ Target implementation-phase CI pipeline:
 6. TypeScript test suite
 7. Fuzz testing (time-limited)
 8. Benchmarks (compare to baseline)
-9. Lean proof verification per the `proofs/BOUNDARY.md` proof-CI trigger policy
+9. Lean proof verification when required by the `proofs/BOUNDARY.md` proof-CI trigger policy
 ```
 
 Current spec-first repo baseline:
 - until the Rust implementation/test tree exists, the practical CI minimum is spec/docs consistency plus the proof-boundary-policy checks described in `proofs/BOUNDARY.md`
+- the repository's proof-ready baseline should already exist before that full CI pipeline does; the proof job simply runs only when the published proof boundary says it must
 - once implementation crates, fixtures, and hosted automation land, this target pipeline becomes the expected default CI shape for supported surfaces
 
 Proof-job consistency rule:

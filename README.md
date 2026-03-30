@@ -39,7 +39,7 @@ Recommended Phase-1 implementation order:
 3. Deno-first Kali-hosted run/test foundation with sandbox enforcement
 4. build outputs (`build`, browser bundle, Phase-1 `--lib`)
 5. developer workflow polish (`init`, `check`, `fmt`, `lint`, diagnostics, JSON contracts)
-6. evidence hardening (conformance, package corpus, browser smoke tests, determinism, and the Phase-1 proof-ready boundary/CI baseline)
+6. evidence hardening (conformance, package corpus, browser smoke tests, determinism, and ongoing maintenance of the already-published Phase-1 proof-ready boundary/CI baseline)
 
 See the normative cross-spec version in [SPEC.md#recommended-phase-1-implementation-order](./SPEC.md#recommended-phase-1-implementation-order).
 For the compact “what is actually shipped in Phase 1?” answer, see the **Phase-1 Shipped Surface Summary** in [specs/19-feature-maturity.md](./specs/19-feature-maturity.md).
@@ -57,7 +57,7 @@ Common early-phase misreads worth rejecting quickly:
 - the whole **Phase-1 browser-targeted command set** is supported in Phase 1 — including explicit `--api browser` spellings, equivalent inherited-config forms, and the supported `--sandbox` variants — but `kali run --api browser main.ts` and `kali test --api browser` are still later compatibility.
 - `kali build --lib lib.ts` is a supported Phase-1 **base library artifact** for exact-version/internal consumers; `kali build --lib --sandbox kali.policy.json lib.ts` is the same Phase-1 base-library build plus static policy validation, while `kali build --capi lib.ts` and `kali build --component lib.ts` are still Phase-2 embedding flows.
 - `kali check --sandbox ...` and `kali build --sandbox ...` are Phase-1 policy-schema/config validation paths only; on both commands, that sandbox attachment does **not** yet imply the Phase-2 compile/check-time inferred-effect-vs-policy validation workflow, and on `build` it is still orthogonal to artifact mode.
-- Phase-1 verification wording is about repository/process hygiene first: one published boundary, one proof-CI trigger policy, and no proof-backed marketing beyond that boundary.
+- Phase-1 verification wording is about repository/process hygiene first: one published boundary, one proof-CI trigger policy, and no proof-backed marketing beyond that boundary. The repo should already be **proof-ready** from the start; later evidence work merely hardens and maintains that baseline.
 
 ## Specification
 - Top-level overview, implementation strata, cross-spec simplification rules, canonical terminology, chapter ownership, chapter guide, artifact-mode matrix, bootstrap traceability, and bootstrap-resolution notes: [SPEC.md](./SPEC.md)
