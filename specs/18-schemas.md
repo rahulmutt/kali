@@ -327,18 +327,18 @@ Produced by `kali effects`.
 ### Required fields
 - `schemaVersion: number`
 - `analysisContext: EffectAnalysisContext`
-- `entryPoints: string[]` — shared schema field for the logical analysis roots of this report (for example a normalized CLI input path such as `src/main.ts`, a discovered test label, a package root specifier such as `lodash`, or an exported embedding entry name)
+- `entryPoints: string[]` — shared schema-v1 field for the report's **logical roots** (see the naming bridge in [SPEC.md](../SPEC.md)); examples include a normalized CLI input path such as `src/main.ts`, a discovered test label, or a package root specifier such as `lodash`
 - `effects: EffectOccurrence[]`
 - `dynamicEffects: boolean`
 - `dynamicReasons: string[]` — canonical reason codes explaining why the report is conservative/incomplete; empty when `dynamicEffects` is `false`
 
 Early-phase interpretation rule:
-- `entryPoints` is a historical shared field name for logical roots, not a promise that every producer is describing a runtime entrypoint
+- `entryPoints` is a historical stable field name for logical roots, not a promise that every producer is describing a runtime entrypoint
 - for the Phase 2 CLI command `kali effects <file>`, `entryPoints` normally contains exactly one element because the command takes one explicit primary analysis root in early phases
 - for direct CLI analysis inputs, the canonical label should be the normalized user-facing entry path (preferably project-root-relative when that root is known) rather than an implementation-specific symbol ID or opaque internal module handle
 - `analysisContext` records the semantic knobs that materially affect the report: selected `apiSurface`, enabled `runtimeProfiles`, and enabled `compatFeatures`
-- the report covers the full statically reachable program/dependency graph rooted at those entry points under that recorded analysis context; it is not a file-local AST scan of only the named source file
-- the field stays an array so the same schema can later cover package-wide, test-runner, or embedding-oriented reports without inventing a second effect-report shape
+- the report covers the full statically reachable program/dependency graph rooted at those logical roots under that recorded analysis context; it is not a file-local AST scan of only the named source file
+- the field stays an array so the same schema can later cover package-wide, test-runner, or other report producers without inventing a second effect-report shape
 
 ### `EffectAnalysisContext`
 ```json
@@ -359,7 +359,7 @@ Interpretation rules:
 - because config stores compatibility features under the nested key `compat.features`, the effect-report field name is flattened to `compatFeatures` for a compact self-contained payload; this is a shape simplification, not a second vocabulary
 - `runtimeProfiles` and `compatFeatures` are semantic sets encoded as arrays; they must be deduplicated, and in machine-emitted payloads they should be sorted in stable lexical order
 - `apiSurface = "node"` or later compatibility/runtime-profile values may appear only when those modes are actually implemented for the command/profile; the schema records the chosen context, it does not relax feature-maturity rules
-- including `analysisContext` keeps effect payloads self-describing for caches, tooling, embedding, and AI-agent loops; the same entrypoint may have materially different effect results under different API surfaces or compatibility features
+- including `analysisContext` keeps effect payloads self-describing for caches, tooling, embedding, and AI-agent loops; the same logical root may have materially different effect results under different API surfaces or compatibility features
 
 ### `EffectOccurrence`
 ```json
@@ -460,7 +460,7 @@ Interpretation rules:
 - inside that nested report, `analysisContext` records which API surface / runtime-profile / compatibility-feature selection the package was analyzed under
 - in early phases, `kali package-effects` inherits that analysis context from the effective config/defaults rather than introducing a second package-analysis-only flag family; the schema records the chosen context, regardless of how it was selected
 - the recorded context reflects the command's successfully selected analysis mode; it does **not** relax feature-maturity rules, so an unsupported inherited context (for example `apiSurface = node`, `runtimeProfiles = ["wasm-threads"]`, or `compatFeatures = ["eval"]` before those package-analysis modes exist) still causes `E5006` instead of producing a report under a fallback surface
-- `entryPoints` names the package-analysis roots (for example the canonical package root specifier) and the summarized effects still cover the full statically reachable graph selected for that package analysis, not only the top-level `package.json` metadata file
+- `entryPoints` names the package-analysis logical roots (for example the canonical package root specifier) and the summarized effects still cover the full statically reachable graph selected for that package analysis, not only the top-level `package.json` metadata file
 - for schema-v1 CLI package analysis, that root label should use the same canonical registry identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than a tarball URL, cache path, or opaque internal package handle
 - `schemaVersion` at the outer package-effect layer versions the package-analysis payload; the nested `report.schemaVersion` continues to version the shared effect-report schema independently
 - by default, `kali package-effects` may emit this payload directly; with `--output json`, it is wrapped in the standard CLI command envelope with this object under `payload`

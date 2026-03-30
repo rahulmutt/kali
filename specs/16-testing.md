@@ -89,7 +89,7 @@ Because Phase 1 already promises `check --api browser` and `build --bundle --api
 - keep this track separate from any lightweight DOM/unit-test shim so Kali does not accidentally overclaim browser-runtime support from mock-only tests
 
 #### Kali-Specific Tests
-- **Effect inference tests**: Source → expected effects JSON for the full statically reachable graph from the chosen entrypoint *(Phase 2 target; Phase 1 may instead test internal analysis units without a stable CLI surface)*
+- **Effect inference tests**: Source → expected effects JSON for the full statically reachable graph from the chosen analysis/logical root *(Phase 2 target; Phase 1 may instead test internal analysis units without a stable CLI surface)*
 - **Sandbox tests**: Source + policy → expected pass/fail, including explicit checks for Phase 1 runtime enforcement vs Phase 2 compile-time effect-policy rejection, and for policy checks over transitive imports/dependencies rather than just the root file
 - **Memory tests**: Source → expected allocation strategy (stack/owned-heap/shared-heap)
 - **Specialization tests**: Generic source → expected number of specializations

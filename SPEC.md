@@ -230,6 +230,19 @@ Interpretation rule:
 - prose may refer to the semantic axis as **compatibility features** or `compat.features`
 - when a chapter is describing the exact emitted JSON field name, it should say `compatFeatures`
 
+### Canonical naming bridge: logical roots vs `entryPoints`
+Kali keeps one shared report concept even though the schema-v1 field name is historically runtime-flavored.
+
+Canonical rule:
+- prose should refer to the report roots as **logical roots** when the discussion is not specifically about executable runtime entrypoints
+- schema-v1 effect-family payloads keep the field name `entryPoints`
+- in `kali effects`, those `entryPoints` are normally the explicit analysis-root labels
+- in `kali package-effects`, those `entryPoints` are normally the package-root labels such as `lodash` or `jsr:@std/path`
+
+Interpretation rule:
+- `entryPoints` is a stable machine-readable field name, not a claim that every producer is describing a runtime entrypoint
+- chapters should therefore avoid re-explaining it as if package analysis or other report producers were forced into runtime-entrypoint terminology
+
 ### Direct-input command
 A command that requires exactly one explicit primary source input and must not guess a project default file.
 

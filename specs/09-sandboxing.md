@@ -44,8 +44,9 @@ The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md)
 
 Scope rule:
 - `analysisContext` records the semantic knobs that materially affect the report: `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md))
-- `entryPoints` names the analysis roots
-- the summarized `effects` cover the full statically reachable program/dependency graph rooted at those entry points under that recorded analysis context
+- schema v1 keeps the shared field name `entryPoints`, but it names the report's logical roots rather than promising runtime entrypoints in every producer
+- for `kali effects`, those `entryPoints` are the analysis-root labels
+- the summarized `effects` cover the full statically reachable program/dependency graph rooted at those logical roots under that recorded analysis context
 - the report is therefore a conservative whole-program summary for that rooted graph, not a file-local listing of only the syntax inside the directly named source file
 
 Other commands that embed effect data should place the full report under the CLI envelope's `payload` field instead of redefining the structure.

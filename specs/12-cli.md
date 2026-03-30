@@ -303,7 +303,8 @@ By default, `kali effects` prints the effect report payload directly because JSO
 Analysis scope rule:
 - the emitted payload includes `analysisContext`, which records `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md))
 - `kali effects <file>` summarizes effects for the full statically reachable graph rooted at that analysis input under the selected API surface/profile; it is not limited to syntax that appears textually in the one named file
-- `entryPoints` in the emitted payload identifies the analysis root(s), while `effects` summarizes the reachable program/dependency graph from those roots
+- schema-v1 keeps the shared field name `entryPoints`, but for `kali effects` it records the report's logical root labels and therefore normally contains the single explicit analysis-root label for this command
+- `effects` then summarizes the reachable program/dependency graph from those recorded logical roots
 
 Sandbox-interaction rule:
 - `kali effects` reports inferred effects only; it does **not** accept `--sandbox`
@@ -462,7 +463,7 @@ By default, `kali package-effects` emits its native JSON payload directly, follo
 Analysis scope rule:
 - `kali package-effects <pkg>` summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
 - in schema v1, that analysis starts from the package version selected by the shared stable-release rule from [specs/14-packages.md](14-packages.md) rather than from any already-installed project copy or lockfile entry
-- the nested `report.entryPoints` field should name that analysis root using the same canonical registry identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than an opaque tarball URL or cache path
+- the nested `report.entryPoints` field should name that package-analysis logical root using the same canonical registry identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than an opaque tarball URL or cache path
 - in early phases, that analysis context is inherited from the effective `kali.json` / default analysis settings rather than from package-specific `--api` / `--compat` flags
 - because the command intentionally reuses inherited context instead of growing a second near-duplicate flag family, `kali package-effects` does **not** take package-analysis-specific analysis-context flags (`--api`, runtime-profile flags such as `--wasm-threads`, or `--compat`) or `--sandbox` in early phases; passing any of them is invalid command usage (`E5008`) unless a later spec explicitly adds that mode
 - the inherited context is still subject to the normal maturity rules for that command; for example, if config selects `apiSurface = node`, `runtimeProfiles = ["wasm-threads"]`, or `compat.features = ["eval"]` before those analysis modes are supported, `kali package-effects` should fail with `E5006` rather than silently analyzing under some other context
