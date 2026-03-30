@@ -268,6 +268,7 @@ Use `E5008` for cases such as:
 - `kali package-audit --compat eval lodash`
 - `kali package-audit --sandbox kali.policy.json lodash`
 - `kali package-audit` with no package argument
+- `kali check --pretty` without `--output json`
 - `kali package-audit lodash react`
 - `kali package-audit https://example.com/mod.ts`
 - `kali package-audit ./local.ts`

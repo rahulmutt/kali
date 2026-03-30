@@ -26,6 +26,7 @@ Command-family terminology used in this chapter:
 - **execution commands**: `run` and `test`
 - **build-like commands**: `build`, plus the compile step embedded inside `run` and `test`
 - **diagnostic-producing commands**: `check`, `effects`, `package-effects`, `build`, `run`, `test`, `fmt --check`, and `lint`
+- **JSON-producing mode**: a command invocation that emits JSON as its primary success output, either because the command is one of schema v1's native-JSON reporting commands (`effects`, `package-effects`) or because `--output json` selected the standard command envelope
 
 Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - `run`, `build`, and `effects` are **direct-input commands** in early phases: they require exactly one explicit primary source input and do not guess `main.ts` or invent a project-default file
@@ -86,6 +87,7 @@ Effective-context validation rule:
 |------|-------|-------------|
 | `--verbose` | all commands | Detailed output: timing per phase, optimization decisions |
 | `--output json` | all commands | Machine-parseable JSON output |
+| `--pretty` | JSON-producing mode | Pretty-print the active JSON document without changing its schema; meaningful only for native-JSON reporting commands or when `--output json` is active |
 | `--quiet` | all commands | Suppress non-error status/progress output; for data-producing commands such as `effects` and `package-effects`, it must not suppress the primary payload itself |
 | `--max-errors N` | diagnostic-producing commands | Cap reported errors (default: 50) |
 | `--color auto\|always\|never` | text-output commands | Color output control |
@@ -133,7 +135,6 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
 | `--max-specializations N` | `build`, `run`, `test` | Override the specialization fan-out cap upper bound for a single invocation; this is an upper bound, not a promise that the current build mode will spend the full budget, and `--fast` may still skip most user-authored generic specialization entirely |
 | `--fix` | `check`, `lint` | Apply only structured, tool-generated safe fixes for the selected command |
-| `--pretty` | `effects`, `package-effects` | Pretty-print the native JSON payload for effect-analysis commands without changing its schema |
 | `--check` | `fmt` | Report formatting drift without rewriting files |
 | `--filter <pattern>` | `test` | Run only matching tests |
 | `--coverage` | `test` | Emit test coverage data once the coverage report contract is stabilized; before then this flag is phase-gated or explicitly experimental |
@@ -570,6 +571,13 @@ Quiet-mode interaction rule:
 - `--quiet` suppresses extra success/status text, not the command's primary payload
 - for ordinary human-oriented commands, that usually means nothing is printed on success unless the command's main purpose is to emit stdout from the user program or a requested machine payload
 - for schema v1's native-JSON reporting commands (`kali effects`, `kali package-effects`) and for `--output json` modes, the requested JSON payload/envelope remains the primary output even under `--quiet`
+
+Pretty-print interaction rule:
+- `--pretty` is meaningful only in **JSON-producing mode**
+- for `kali effects` and `kali package-effects`, plain success output is already JSON, so `--pretty` reformats that native payload
+- for any command with `--output json`, `--pretty` reformats the outer command envelope
+- if a command is not otherwise emitting JSON (for example `kali check --pretty` without `--output json`), `--pretty` is invalid command usage (`E5008`) rather than a silent no-op
+- `--pretty` changes formatting only; it must not change field names, ordering guarantees, or whether stderr/human diagnostics are emitted outside JSON mode
 
 Feature gating is part of the machine contract too: phase/profile rejections should serialize the same stable diagnostic code and note structure as human output. When the failure depends on merged CLI/config state (for example a config-selected API surface or a contradictory artifact-mode combination), JSON diagnostics should also populate the optional structured `context` metadata from [specs/18-schemas.md](18-schemas.md) so tools can see the effective value without scraping prose.
 

@@ -405,6 +405,16 @@ Read in this order for a clean mental model:
 
 To keep CLI, schemas, and command docs aligned, schema v1 uses one small output-mode model.
 
+### JSON-producing mode
+A command invocation is in **JSON-producing mode** when JSON is the primary success output, either because:
+- the command is a native-JSON reporting command, or
+- `--output json` selected the standard command envelope.
+
+Rule:
+- `--pretty` is meaningful only in JSON-producing mode
+- in that mode, it reformats the active JSON document only and does not change the schema
+- outside that mode, `--pretty` is invalid command usage (`E5008`) rather than a silent no-op
+
 ### Native-JSON reporting commands
 Commands whose primary successful output is already a dedicated JSON payload:
 - `effects`
