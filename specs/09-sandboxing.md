@@ -29,17 +29,21 @@ Phase simplification:
 
 This keeps the sandbox-first story implementable: enforcement exists from the beginning, while the stable effect-report contract lands once the type/effect infrastructure is ready.
 
-### Effect Inference
-The type checker infers effects for every function (see [specs/04-type-system.md](04-type-system.md)):
+### Conceptual Effect Inference Model
+The checker/runtime pipeline reasons about effects per function (see [specs/04-type-system.md](04-type-system.md)). In Phase 1 this may still be internal-only bookkeeping rather than a guaranteed user-visible command/report surface.
+
+Illustrative internal summary:
 ```typescript
-// Inferred: ! FileSystem.Read | Console.Write
+// Conceptual summary: ! FileSystem.Read | Console.Write
 function processFile(path: string) {
     const data = Deno.readTextFileSync(path);
     console.log(data.length);
 }
 ```
 
-### JSON Effect Report
+This example is intentionally descriptive, not a promise that Phase 1 already exposes stable per-function effect syntax or JSON output.
+
+### Public JSON Effect Report (Phase 2+)
 ```bash
 kali effects program.ts
 ```

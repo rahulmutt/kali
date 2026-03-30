@@ -11,13 +11,14 @@ Bootstrap-normalized headline assumptions:
 - runtime/embedding behavior is standardized on **wasmtime first**; alternative WASM engines are a later extension, not an equal Phase-1 contract
 - build artifact modes follow one canonical matrix: default executable compile intent, browser-bundle executable compile intent, a Phase-1 **base library artifact** for library compile intent, and later Phase-2 **public embedding surface** milestones layered on that same exported-library contract
 - the Phase-1 plain `kali build --lib` output is intentionally useful but **not yet a stable public ABI/WIT promise**; stable public embedding starts in Phase 2
-- follow the shared **effect-surface split** from [SPEC.md](./SPEC.md): public static effect-report commands (`kali effects`, `kali package-effects`) are a **Phase-2** surface, while Phase 1 may already rely on internal effect bookkeeping for sandboxing without implying a stable user-facing JSON report yet
+- follow the shared **effect-surface split** from [SPEC.md](./SPEC.md): public static effect-report commands (`kali effects`, `kali package-effects`) are a **Phase-2** surface, while Phase 1 may already rely on internal effect bookkeeping for sandboxing without implying a stable user-facing JSON report yet; `kali package-audit` is even later and should not be read back into the Phase-1 sandbox-first story
 - package installation stays **context-agnostic** in early phases: one lock/install state serves the default Deno path and supported browser-targeted analysis/build paths, while final `exports`/`browser` edge selection happens at command time
 - package compatibility in Phase 1 stays inside the shared **pure JS/TS package contract**; `--allow-scripts` does not widen support to the excluded **native/binary/bootstrap-heavy package contract**
 
 Quick Phase-1 non-goals:
 - no general `--api node` command support yet across `check` / `effects` / `build` / `run` / `test`
 - no standalone browser runtime or browser-hosted `run` / `test`
+- no stable user-facing `kali effects`, `kali package-effects`, or `kali package-audit` workflow yet
 - no `eval` / `Function()` support yet
 - no threaded runtime profile yet
 - no Phase-2 **public embedding surface** yet: no stable public Rust embedding API, no `--capi`, no `--component`, and no default WIT sidecars for plain `--lib`

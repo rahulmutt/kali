@@ -498,7 +498,8 @@ Package-effects rule:
 
 Package-audit rule:
 - keep `kali package-audit` **single-package** in early phases so it does not overlap with a future whole-project dependency-health workflow
-- early `package-audit` does **not** take package-analysis-specific `--api`, runtime-profile, `--compat`, or `--sandbox` flags
+- treat it as a registry-metadata / security-audit workflow, not as a second host-context-sensitive execution/effect-analysis command
+- early `package-audit` therefore does **not** take package-analysis-specific `--api`, runtime-profile, `--compat`, or `--sandbox` flags
 - early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md): whether the command runs under discovered config or in configless project mode, inherited host-analysis/runtime config does not gate or rewrite its semantics
 - if unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee
 - `package-audit --output json` follows the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md); keep this chapter focused on command semantics instead of restating the envelope contract here
