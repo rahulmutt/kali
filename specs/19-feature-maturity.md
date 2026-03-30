@@ -96,7 +96,7 @@ Phase-1 sandbox-behavior reading aid:
 | `kali check [files...]` | policy-schema/config validation only |
 | `kali build <file>` | policy-schema/config validation only |
 | `kali build --lib <file>` | same static policy validation on the Phase-1 base library artifact |
-| `kali build --bundle <file>` with effective `apiSurface = browser` | browser-targeted static compatibility check only, not post-deployment runtime enforcement |
+| `kali build --bundle <file>` with effective `apiSurface = browser` | browser-targeted static policy-schema/config validation only, not post-deployment runtime enforcement |
 
 Phase 2 later extends the `check` / `build` rows with inferred-effect-vs-policy validation; this table is only the compact Phase-1 reading aid.
 
