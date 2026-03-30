@@ -324,7 +324,7 @@ Rules:
 The stable schema-v1 capability vocabulary shared across effects and sandbox policy:
 - filesystem
 - network
-- timers
+- timer
 - random
 - console
 - process
@@ -711,7 +711,7 @@ Non-browser, export-oriented build modes:
 ### Embedding-stability split
 Kali uses one shared stability split for library-oriented outputs:
 - **base library artifact** — the Phase-1 `kali build --lib` output shape: export-oriented and useful immediately, but still the pre-stable Phase-1 half of the public embedding surface
-- **public embedding surface** — the Phase-2 stabilized public embedding story built on that same exported-library contract: the stable Rust embedding API plus the stable public library/WIT contract
+- **public embedding surface** — the Phase-2 stabilized public embedding story built on that same exported-library contract: the stable Rust embedding API plus the stable public library/WIT contract, stable C ABI, and Component Model packaging path
 - **public embedding artifact flows** — the artifact-producing part of that Phase-2 public embedding surface: stable public `--lib` + WIT, `--capi`, and `--component`
 
 Rule:

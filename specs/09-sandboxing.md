@@ -7,6 +7,17 @@ Sandboxing is a first-class concern in Kali. The system combines:
 2. **Sandbox policies** — declarative rules for what's allowed
 3. **Runtime limits** — cross-cutting resource budgets (CPU, memory, open files, processes, threads) plus selected capability-local caps such as timers and network connections
 
+Command-behavior simplification:
+
+| Command family | `--sandbox` meaning in schema v1 | Runtime enforcement after command returns? |
+|---|---|---|
+| `run`, `test` | Attach policy, validate schema/ranges, and enforce it during **Kali-hosted execution** | Yes, for the documented Kali-hosted capability/resource contract |
+| `check`, `build` | Static validation only: Phase 1 validates policy/schema/config; Phase 2+ also checks inferred effects against policy | No |
+| browser-targeted `check --api browser`, `build --bundle --api browser` | Same static validation only, but narrowed by the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) | No |
+| `effects`, `package-effects`, `package-audit` | No sandbox-comparison mode; `--sandbox` is invalid usage (`E5008`) | N/A |
+
+This table is a reading aid only. The normative command-shape and phase-gating rules still live in [specs/12-cli.md](12-cli.md), [specs/19-feature-maturity.md](19-feature-maturity.md), and the shared terminology in [SPEC.md](../SPEC.md).
+
 ## Static Effect Analysis
 
 The static effect system is intentionally scoped around **sandbox-relevant capabilities** first. The goal is a conservative summary of possible effects, not a full research-grade effect calculus.
