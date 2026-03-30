@@ -516,7 +516,7 @@ Argument-kind rule:
 
 Project-state rule:
 - follow the same **registry-analysis project-independence rule** from [SPEC.md](../SPEC.md)
-- unlike `package-effects`, early `package-audit` does not inherit the shared **effective inherited analysis context**; it instead follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md)
+- early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md): unlike `package-effects`, it does not inherit the shared **effective inherited analysis context**, and discovered host-analysis/runtime config does not gate or rewrite its semantics
 
 Status: **Later compatibility**. It should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
 ```bash
@@ -525,11 +525,8 @@ kali package-audit jsr:@std/path           # Audit specific JSR package
 kali package-audit --output json lodash    # Schema-v1 envelope-only JSON output
 kali package-audit --pretty --output json lodash # Pretty-print that envelope; plain `--pretty` alone is invalid here because package-audit is not native JSON in schema v1
 ```
-Additional flag-surface rule:
-- follow the shared **registry-analysis context split** from [SPEC.md](../SPEC.md): like `package-effects`, early `package-audit` does **not** take package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
-- unlike `package-effects`, early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md), so inherited host-analysis/runtime config does not gate or rewrite the command's semantics
-
-Output simplification rule:
+Additional flag/output rule:
+- follow the shared **registry-analysis context split** from [SPEC.md](../SPEC.md): early `package-audit` does **not** take package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
 - unlike `kali effects` and `kali package-effects`, `kali package-audit` is an **envelope-only JSON command** in schema v1 rather than a **native-JSON command**
 - follow the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md) for the exact envelope-only machine-output contract instead of restating it here
 - because of that envelope-only model, `kali package-audit --pretty <pkg>` without `--output json` is invalid command usage (`E5008`) rather than an implicit request for JSON mode

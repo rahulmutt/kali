@@ -427,6 +427,7 @@ To keep schema v1 small and avoid undocumented config surface area, early-phase 
 
 - Default npm registry: `https://registry.npmjs.org`
 - Early override path for the npm registry: `KALI_REGISTRY` environment variable
+- `KALI_REGISTRY` is a transport-endpoint override for **npm** package fetch/metadata workflows only; it may affect `install` and registry-analysis commands that talk to npm, but it does **not** change package identity spelling, the shared stable-release selection rule, lockfile identifier ordering, or the meaning of bare package names as npm identities
 - The `jsr:` package namespace keeps using the JSR service; `KALI_REGISTRY` does **not** rewrite `jsr:` package identity into a second configurable registry family
 - Per-project registry override fields in `kali.json` are **not** part of schema v1; specs must not imply a config key that the schema does not define
 - Private-registry auth/config workflows are a later tooling extension unless/until a schema/CLI revision documents the exact contract
@@ -495,8 +496,8 @@ Canonical output simplification:
 
 Simplification rules:
 - keep it **single-package** in early phases so it does not overlap with a future whole-project dependency-health workflow
-- follow the shared **registry-analysis context split** from [SPEC.md](../SPEC.md) and the summary table above: like `package-effects`, early `package-audit` does **not** take package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
-- unlike `package-effects`, early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md), whether the command runs under discovered config or in configless project mode, so inherited host-analysis/runtime config does not gate or rewrite its semantics
+- follow the shared **registry-analysis context split** from [SPEC.md](../SPEC.md): early `package-audit` does **not** take package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
+- early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md): whether the command runs under discovered config or in configless project mode, inherited host-analysis/runtime config does not gate or rewrite its semantics
 - in schema v1, its package target is selected by the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md) rather than from any ambient project lockfile selection
 - if unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee
 - `package-audit --output json` follows the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md); keep this chapter focused on command semantics instead of restating the envelope contract here
