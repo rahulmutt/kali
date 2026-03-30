@@ -24,13 +24,20 @@ These stay fixed across phases unless the top-level spec is intentionally change
 ## Phase 1 snapshot
 Phase 1 is intentionally narrow:
 - **Deno-first** standalone execution
-- browser support is limited to the shared **Phase-1 browser-targeted command set**: browser-targeted `check` and browser-targeted `build --bundle`
+- browser support is limited to the shared **Phase-1 browser-targeted command set**: browser-targeted `check [files...]` plus its supported `--sandbox` variants, and browser-targeted `build --bundle <file>` plus its supported `--sandbox` variants, in both explicit-flag and equivalent inherited-config forms when the effective `apiSurface` is `browser`
 - broader `--api node` support comes later
-- internal effect bookkeeping may exist, but the stable public effect-report surface (`kali effects`, `kali package-effects`, inferred-effect-vs-policy validation on `check/build --sandbox`) is later
-- `kali build --lib` ships only as a Phase-1 **base library artifact** for exact-version/internal consumers; the stable public embedding surface comes later
-- verification in Phase 1 is **proof-ready**, not automatically **proof-backed**
+- internal effect bookkeeping may exist, but the stable public effect-report surface is later and intentionally split into a **reporting** half (`kali effects`, `kali package-effects`) and a **policy-comparison** half (compile/check-time inferred-effect-vs-policy validation on `check/build --sandbox`)
+- `kali build --lib` ships only as a Phase-1 **base library artifact** for exact-version/internal consumers in the shared **Deno-oriented build context (schema v1)**; the stable public embedding surface comes later
+- verification in Phase 1 is **proof-ready**, not automatically **proof-backed**; the current published boundary is still empty, so no mechanized proof coverage is claimed yet
 
 For the compact shipped/not-shipped answer, see the **Phase-1 Shipped Surface Summary** in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
+
+## Bootstrap normalization highlights
+A few broad bootstrap asks are intentionally normalized into smaller cross-spec contracts:
+- **“supports browser APIs”** means browser-targeted analysis/build first, not standalone browser `run`/`test`
+- **“supports all features including eval”** means parser acceptance and later compatibility planning now, but executable `eval`/`Function()` only in the later gated compatibility path
+- **“static JSON effect reporting”** means Phase 1 enforcement/policy validation first, with the stable public reporting surface opening later
+- **“embeddable / C API / WIT / Component Model”** means a Phase-1 base `--lib` artifact first, then the stable public WIT-first embedding surface later
 
 ## Reading shortcuts
 Use these shortcuts before interpreting any broad bootstrap aspiration as shipped support:
@@ -50,6 +57,7 @@ Useful normalized reminders:
 This repository is currently spec-first:
 - the checked-in source of truth today is the spec set plus [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md)
 - example crate trees, CI layouts, Lean project layouts, and command examples in the spec describe the intended target shape, not necessarily files that already exist in the repo
+- today the verification artifact that actually exists is the published proof-boundary manifest; the Lean project tree described in the verification chapter is still target-state documentation, not a checked-in proof implementation yet
 
 ## Specification map
 - Top-level normalization and terminology: [`SPEC.md`](./SPEC.md)

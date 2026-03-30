@@ -30,6 +30,7 @@ Practical rule:
 
 Current repository status rule:
 - `proofs/BOUNDARY.md` is the single source of truth for the repository's current verification state
+- at the current repository revision, that manifest is still the shared **placeholder proof-boundary manifest**, so the honest repository claim is still **proof-ready but not proof-backed**, with **no mechanized proof coverage claimed yet**
 - chapter summaries, release notes, and README copy should cite that manifest rather than inferring proof coverage from the existence of the Lean plan alone
 - [19 — Feature Maturity](19-feature-maturity.md) makes the same guardrail explicit: proof-backed release/support claims while the published boundary is still empty are **Rejected by default**
 
