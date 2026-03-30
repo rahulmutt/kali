@@ -106,7 +106,7 @@ To keep the bootstrap brief ambitious without making the MVP blurry, Phase 1 sho
 - no standalone `run --api browser` or `test --api browser` runtime contract yet;
 - no supported `--api node` command path yet;
 - no stable public `kali effects` / `kali package-effects` workflow yet;
-- no compile/check-time inferred-effect-vs-policy validation yet on `kali check --sandbox` / `kali build --sandbox` beyond policy schema/config validation;
+- no compile/check-time inferred-effect-vs-policy validation yet on `kali check --sandbox` / `kali build --sandbox` beyond policy-schema/config validation;
 - no stable public `kali package-audit` workflow yet;
 - no stable public embedding ABI/WIT/C-ABI contract yet beyond the Phase-1 **base library artifact**;
 - no executable project-local sandbox policy code;
@@ -762,7 +762,7 @@ Kali keeps one canonical owner for each of the easy-to-confuse analysis/policy/i
 
 In schema v1 this means:
 - `kali effects` and `kali package-effects` are **observational reporting** commands only: they report inferred effects and do not accept `--sandbox`
-- `kali check --sandbox ...` and `kali build --sandbox ...` are the **static sandbox-policy** path: Phase 1 validates policy/schema/config, and Phase 2 extends that same path with inferred-effect-vs-policy validation
+- `kali check --sandbox ...` and `kali build --sandbox ...` are the **static sandbox-policy** path: Phase 1 validates policy-schema/config, and Phase 2 extends that same path with inferred-effect-vs-policy validation
 - `kali run --sandbox ...` and `kali test --sandbox ...` are the **runtime enforcement** path for **Kali-hosted execution**
 - `kali install --allow-scripts` is the **install-time npm-package hook path** only and stays outside the normal source-program sandbox/effect-report contract
 - `kali package-audit` is the **context-free registry-analysis/security-audit** path and does not become a second host-context-aware effect/policy command
@@ -777,7 +777,7 @@ Attaching `--sandbox <policy>` never changes the base command family or its exis
 
 In schema v1 this means:
 - on `run` / `test`, `--sandbox` adds runtime policy enforcement for the same executable command/profile request,
-- on `check` / `build`, `--sandbox` adds the static sandbox-policy workflow step owned by those commands: Phase 1 policy/schema/config validation first, then Phase 2 inferred-effect-vs-policy validation on that same path,
+- on `check` / `build`, `--sandbox` adds the static sandbox-policy workflow step owned by those commands: Phase 1 policy-schema/config validation first, then Phase 2 inferred-effect-vs-policy validation on that same path,
 - it does **not** change `check` from a hybrid/set-oriented command into a single-entry command,
 - it does **not** change `build` compile intent, artifact selection, or browser-vs-non-browser build-shape rules,
 - it does **not** bypass API-surface or feature-maturity gates, whether the participating context came from CLI flags or inherited config.

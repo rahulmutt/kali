@@ -651,7 +651,7 @@ Base-gate clarification:
 - output-format flags do not create a second availability path for the command itself
 
 Audit rule:
-- following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command follows the bundled **registry-analysis target contract (schema v1)** and is the context-free registry-metadata/security-audit path rather than a second host-context-aware effect/policy command
+- following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command follows the bundled **registry-analysis target contract (schema v1)** and is the context-free registry-analysis/security-audit path rather than a second host-context-aware effect/policy command
 - as the `package-audit` half of the shared **registry-analysis command split**, early `package-audit` follows **context-free registry analysis (schema v1)** and therefore does **not** inherit the shared **inherited analysis context** or accept package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
 - in schema v1 it is an **envelope-only JSON command**, not a **native-JSON command**; because of that envelope-only model, `kali package-audit --pretty <pkg>` without `--output json` is invalid command usage (`E5008`) rather than an implicit request for JSON mode
 - once available, audit findings are reported through the standard envelope `errors` / `warnings` arrays; a clean audit is therefore `success: true` with `payload: null` and no findings rather than a separate payload object

@@ -18,7 +18,7 @@ Command-behavior simplification:
 | Command family | `--sandbox` meaning in schema v1 | Runtime enforcement after command returns? |
 |---|---|---|
 | `run`, `test` | Attach policy, validate schema/ranges, and enforce it during **Kali-hosted execution** | Yes, for the documented Kali-hosted capability/resource contract |
-| `check`, `build` | Static validation only: Phase 1 validates policy/schema/config; starting in the Phase 2 target window, the same path also checks inferred effects against policy. If the effective `apiSurface` is `browser`, this same row is narrowed by the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) rather than becoming a separate sandbox workflow. | No |
+| `check`, `build` | Static validation only: Phase 1 validates policy-schema/config; starting in the Phase 2 target window, the same path also checks inferred effects against policy. If the effective `apiSurface` is `browser`, this same row is narrowed by the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) rather than becoming a separate sandbox workflow. | No |
 | `effects`, `package-effects` | No sandbox-comparison mode; `--sandbox` is invalid usage (`E5008`) | N/A |
 | `package-audit` | No sandbox mode; `--sandbox` is invalid usage (`E5008`) because this remains the separate context-free registry-analysis/security-audit workflow | N/A |
 

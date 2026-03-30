@@ -31,7 +31,7 @@ Compact workflow comparison:
 | **source-graph commands** (`check` / `effects` / `build` / `run` / `test`) | “Can Kali analyze/build/run this local project graph in the selected command context?” | No | full effective command context for the participating axes |
 | **install workflow** (`install`) | “What dependency state should be recorded/materialized for this project?” | Yes | intentionally profile-agnostic in Phase 1 |
 | **registry-analysis: `package-effects`** | “What effects would one registry package report under the inherited analysis context?” | No | inherits semantic analysis context once the command exists |
-| **registry-analysis: `package-audit`** | “What context-free registry audit result is reported for one package?” | No | context-free in schema v1 |
+| **registry-analysis: `package-audit`** | “What context-free registry-analysis/security-audit result is reported for one package?” | No | context-free in schema v1 |
 
 Bootstrap-reading shortcut:
 - the bootstrap's package goal should not be read as one yes/no answer to “does Kali support npm?”
@@ -585,7 +585,7 @@ Package-effects rule:
 
 Package-audit rule:
 - keep `kali package-audit` **single-package** in early phases so it does not overlap with a future whole-project dependency-health workflow
-- following the shared **workflow-owner split** and the context-free half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md), it is a registry-metadata / security-audit workflow rather than a second host-context-sensitive execution, effect-reporting, or policy-validation command
+- following the shared **workflow-owner split** and the context-free half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md), it is a registry-analysis/security-audit workflow rather than a second host-context-sensitive execution, effect-reporting, or policy-validation command
 - early `package-audit` therefore does **not** take package-analysis-specific `--api`, runtime-profile, `--compat`, or `--sandbox` flags
 - early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md): whether the command runs under discovered config or in configless project mode, inherited host-analysis/runtime config does not gate or rewrite its semantics
 - if unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee
