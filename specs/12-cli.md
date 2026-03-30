@@ -531,6 +531,7 @@ Additional flag-surface rule:
 Output simplification rule:
 - unlike `kali effects` and `kali package-effects`, `kali package-audit` does **not** define a native bare-JSON payload in schema v1
 - if `package-audit` supports `--output json` before a dedicated audit payload schema exists, it uses the canonical **envelope-only JSON support** model from [SPEC.md](../SPEC.md): the stable contract is the standard command envelope itself, with `payload` omitted or `null`
+- `--output json` and `--pretty --output json` are therefore only output-format variants of the same later-compatibility command; they do **not** create a separate availability path, separate payload schema, or separate context model
 - because of that envelope-only model, `kali package-audit --pretty <pkg>` without `--output json` is invalid command usage (`E5008`) rather than an implicit request for JSON mode
 - in that envelope-only phase, `package-audit` must not smuggle audit/package/version result metadata through `stdout`, `stderr`, or other prose-bearing envelope fields just because no dedicated payload exists yet
 - if/when a dedicated machine-readable audit payload is added later, it should still travel through the standard `--output json` command envelope instead of inventing a second ad hoc top-level format
@@ -581,7 +582,7 @@ Pretty-print interaction rule:
 - for any command with `--output json`, including envelope-only JSON commands such as early `package-audit --output json`, `--pretty` reformats the outer command envelope
 - if a command is not otherwise emitting JSON (for example `kali check --pretty` without `--output json`, or early `kali package-audit --pretty lodash` without `--output json`), `--pretty` is invalid command usage (`E5008`) rather than a silent no-op
 - `--pretty` changes formatting only; it must not change field names, ordering guarantees, or whether stderr/human diagnostics are emitted outside JSON mode
-- JSON-selection flags do **not** bypass command maturity: if `kali effects`, `kali package-effects`, or `kali package-audit` is still unavailable in the current phase, invocations such as `--pretty` / `--output json` still fail on the command's normal availability gate after any earlier command-shape checks
+- JSON-selection flags do **not** bypass command maturity or create a second command surface: if `kali effects`, `kali package-effects`, or `kali package-audit` is still unavailable in the current phase, invocations such as `--pretty` / `--output json` still fail on the command's normal availability gate after any earlier command-shape checks
 
 Feature gating is part of the machine contract too: phase/profile rejections should serialize the same stable diagnostic code and note structure as human output. When the failure depends on merged CLI/config state (for example a config-selected API surface or a contradictory artifact-mode combination), JSON diagnostics should also populate the optional structured `context` metadata from [specs/18-schemas.md](18-schemas.md) so tools can see the effective value without scraping prose.
 

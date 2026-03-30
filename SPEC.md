@@ -594,7 +594,8 @@ Some commands may support `--output json` even when schema v1 defines no dedicat
 Rules:
 - the stable machine-readable contract is the standard command envelope itself,
 - `payload` should be omitted or `null` rather than populated with ad hoc command-specific objects,
-- `stdout` / `stderr` fields are for captured text streams only, not hidden structured result channels.
+- `stdout` / `stderr` fields are for captured text streams only, not hidden structured result channels,
+- this is an output-format rule only: it must not be treated as a separate command surface, a second context model, or an alternate availability path.
 
 Canonical schema-v1 example once that later command exists:
 - `package-audit --output json`
