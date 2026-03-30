@@ -38,12 +38,10 @@ That manifest should enumerate, at minimum:
 
 Before the first proofs land, the manifest may truthfully publish an **empty current proof boundary**. That is still preferable to omitting the file, because it prevents the rest of the spec from accidentally implying proof coverage that does not yet exist.
 
-Release-gate clarification:
+Follow the shared **proof activation split** from [SPEC.md](../SPEC.md):
 - an empty manifest is acceptable during spec-first iteration and early implementation bootstrapping
 - it is **not** enough for a release to market Kali as already formally verified in Phase 1
 - any Phase-1 release note or support claim that leans on formal verification should first replace the empty boundary with at least one concrete modeled subsystem plus named theorem/property claims
-
-Activation rule:
 - while the published proof boundary is empty, proof CI is required only for changes under `proofs/`
 - once the manifest names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas
 - release notes and support wording should describe that activation state plainly instead of implying that a placeholder manifest already proves part of the implementation

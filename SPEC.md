@@ -34,7 +34,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Effects | Internal effect bookkeeping may exist, but stable `kali effects` / `package-effects` reporting waits for Phase 2 |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib`; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging |
-| Formal verification | Phase-1 published **proof-boundary manifest** plus proof-CI wiring over the currently modeled subset; no proof-backed support claims beyond that boundary |
+| Formal verification | Phase-1 published **proof-boundary manifest** plus proof-CI wiring over the currently modeled subset, following the shared **proof activation split**; no proof-backed support claims beyond that boundary |
 | Tooling | Deno-like CLI, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports |
 
 Use this table as a reading aid only. Detailed behavior still belongs to the owning chapters and the maturity matrix.
@@ -542,6 +542,18 @@ Rules:
 - `proofs/BOUNDARY.md` is the canonical file for that manifest in this repository; other docs may summarize it, but should not replace it with ad hoc proof-scope prose
 - this manifest scopes confidence claims; it does **not** by itself promote maturity or replace command/profile evidence from [`specs/16-testing.md`](./specs/16-testing.md)
 - when the implementation grows beyond the currently published proof boundary, the unsupported remainder must stay outside the manifest rather than being described as informally covered
+
+### Proof activation split
+Kali keeps one explicit split between **publishing the proof boundary** and **advertising proof-backed support**:
+- **boundary publication state** — `proofs/BOUNDARY.md` exists and truthfully declares the currently modeled proof boundary; during spec-first or pre-proof iteration this boundary may still be empty
+- **proof-backed support state** — release notes or support claims actively rely on formal verification as shipped evidence for some Kali behavior
+
+Rules:
+- boundary publication may happen earlier than proof-backed support so the repo has one honest place to say “no mechanized coverage yet”
+- an empty published boundary is acceptable only while Kali is still avoiding proof-backed support claims
+- before a release or support summary advertises formal verification as a shipped capability, the boundary must be non-empty, name at least one concrete modeled subsystem, and list the claimed theorem/property inventory
+- proof CI follows the activation rule declared by the published boundary; when the boundary is empty, proof jobs are required only for `proofs/`, and once covered implementation/spec areas are named they also become proof-CI triggers
+- chapters should reuse this term instead of re-explaining the same placeholder-versus-shipped-proof distinction in slightly different prose
 
 ### Canonical browser-applicable mediated subset (schema v1)
 When a chapter says browser-targeted policy/effect reasoning uses the browser-applicable part of the **Kali-mediated capability subset**, it means:
