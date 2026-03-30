@@ -952,10 +952,13 @@ Rules:
 - docs should reuse this term instead of restating a near-duplicate “envelope but no payload schema” rule per command
 
 ### Direct-input command
-A command that requires exactly one explicit primary source input in early phases:
+A command whose schema-v1 shape requires exactly one explicit primary source input once that command is available:
 - `run`
 - `build`
 - `effects`
+
+Rule:
+- this is a command-shape property, not an availability promise; for example `effects` keeps this one-input shape even while the command itself remains Phase 2-gated
 
 ### Hybrid analysis command
 A command that accepts explicit files or falls back to project discovery:

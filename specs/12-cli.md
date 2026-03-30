@@ -29,7 +29,7 @@ Command-family terminology used in this chapter:
 - **JSON-producing mode**: use the shared term from [SPEC.md](../SPEC.md); in schema v1 this means either a **native-JSON command** in its default success mode or any invocation with `--output json`
 
 Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
-- `run`, `build`, and `effects` are **direct-input commands** in early phases: they require exactly one explicit primary source input and do not guess `main.ts` or invent a project-default file
+- `run`, `build`, and `effects` are schema-v1 **direct-input commands**: once available, they require exactly one explicit primary source input and do not guess `main.ts` or invent a project-default file
 - for `run`, that source input is an executable/analyzable entrypoint
 - for `build`, that source input is one explicit primary module input whose artifact role depends on the selected artifact mode
 - for `effects`, that source input is one explicit analysis root
@@ -41,7 +41,7 @@ Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - `init` is not a direct-input source command
 
 Canonical early-phase direct-input arity rule:
-- `run`, `build`, and `effects` each take **exactly one** explicit primary source input in early phases
+- `run`, `build`, and `effects` each take **exactly one** explicit primary source input in schema v1
 - zero explicit source inputs for those commands is the canonical invalid-usage diagnostic `E5008`
 - more than one explicit source input for those commands is also `E5008` unless a later spec introduces a documented multi-input mode
 - `check`, `fmt`, `lint`, and `test` are the canonical **set-oriented explicit-file commands** from [SPEC.md](../SPEC.md): when explicit files are supplied, those paths are treated as one file set rather than as separate single-entry invocations
@@ -404,7 +404,7 @@ Sandbox-interaction rule:
 - that rejection is `E5008`, not a feature-maturity error: the command intentionally has no sandbox-comparison mode
 
 Input-kind and host-selection rules:
-- `kali effects` is a direct-input command in early phases: it requires exactly one explicit executable/analyzable source-file analysis root and does not fall back to project-wide discovery
+- once available, `kali effects` keeps that schema-v1 direct-input shape: it requires exactly one explicit executable/analyzable source-file analysis root and does not fall back to project-wide discovery
 - `kali effects` accepts only the shared **executable/analyzable source-file class** from [SPEC.md](../SPEC.md); declaration-only files are type inputs, not effect-report primary inputs
 - unless overridden by CLI/config, `kali effects` uses the same default API-surface selection as `kali check` (`apiSurface = deno`)
 - `--api browser` follows the same browser API-surface analysis context as `kali check --api browser`; in Phase 2 this extends browser-targeted analysis to `effects` without implying standalone browser execution
