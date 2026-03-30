@@ -286,7 +286,7 @@ Use `E5008` for cases such as:
 
 Registry-analysis shorthand:
 - any violation of the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md) is also `E5008`
-- schema-v1 registry-analysis commands also keep one intentionally small flag surface: `package-effects` and `package-audit` accept only their documented package selector plus output-format flags, so package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` are invalid usage unless a later spec adds them
+- schema-v1 registry-analysis commands also keep one intentionally small **semantic/context flag surface**: `package-effects` and `package-audit` accept only their documented package selector plus output-format flags for command semantics, while ordinary shared presentation/control flags still follow the shared CLI rules. Package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` are invalid usage unless a later spec adds them
 
 Examples:
 - `kali run` with no explicit entrypoint
