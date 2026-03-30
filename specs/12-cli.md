@@ -197,6 +197,11 @@ It is the default interpretation of examples such as `kali run main.ts`, `kali t
 
 ## Commands
 
+Reading rule for the examples below:
+- command examples in this chapter define **shape, flags, and output contracts** first
+- examples that mention later-phase commands or contexts (for example `effects`, `package-effects`, `package-audit`, `--capi`, `--component`, `--api node`, or standalone browser `run` / `test`) do **not** override the availability owner in [19 — Feature Maturity](19-feature-maturity.md)
+- when an example is both well-formed and phase-gated, read it as "this is the stable command spelling once that maturity row opens" rather than as an implied Phase-1 promise
+
 ### `kali run <file>`
 Compile and execute a TypeScript/JavaScript file.
 ```bash

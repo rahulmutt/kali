@@ -17,6 +17,7 @@ Bootstrap-normalized headline assumptions:
 - verification is **proof-ready** before it is **proof-backed**: an empty published proof boundary is acceptable early, but releases must not market formal verification as shipped until that boundary names real modeled subsystems and theorem claims
 - current repository verification status: see [proofs/BOUNDARY.md](./proofs/BOUNDARY.md); it currently declares an empty modeled boundary, so this repo is **proof-ready** but not yet **proof-backed**
 - package installation stays context-agnostic in Phase 1, while package support claims use the shared **package-support decision order**: package shape first, then host/API fit for the active context, then command maturity, all under the **published-artifact-first package reading**
+- dependency mutability is intentionally simple: `kali install` owns manifest/lock/materialized dependency state, while non-install commands fail with the canonical `E5004` path instead of auto-installing or silently repairing dependency state
 
 Quick Phase-1 non-goals:
 - no general `--api node` command support yet across `check` / `effects` / `build` / `run` / `test`
