@@ -363,7 +363,7 @@ Canonical discovery rule:
 ### `kali lint [files...]`
 Lint source files (implemented in `kali_lint`).
 ```bash
-kali lint                                  # Lint the canonical project file set for linting
+kali lint                                  # Lint the canonical project file set
 kali lint --fix                            # Auto-fix where possible
 kali lint src/a.ts src/b.ts                # Lint an explicit file set
 ```
@@ -500,9 +500,8 @@ Analysis scope rule:
 - in schema v1, that analysis starts from the package version selected by the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md) rather than from any already-installed project copy or lockfile entry
 - the nested `report.entryPoints` field should name that package-analysis logical root using the same canonical registry identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than an opaque tarball URL or cache path
 - follow the shared **registry-analysis context split** and **effective inherited analysis context** terms from [SPEC.md](../SPEC.md): `package-effects` inherits its semantic analysis context from defaults/discovered config rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox` in schema v1
-- practical consequence: non-default `package-effects` contexts currently come only from that **effective inherited analysis context**. In configless mode, the command therefore stays on the schema-v1 defaults (`apiSurface = deno`, `runtimeProfiles = []`, `compat.features = []`) instead of offering package-analysis-only CLI escape hatches
-- inherited-context maturity follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is still unavailable, the command should fail with `E5006` rather than silently analyzing under some other context
-- inherited `apiSurface = browser` is the intended browser-targeted package-analysis path once `kali package-effects` exists in Phase 2; that keeps package analysis aligned with the same browser ambient typing layer and browser **package-resolution context** used by `kali check --api browser`
+- in configless mode, that inherited context is just the schema-v1 defaults (`apiSurface = deno`, `runtimeProfiles = []`, `compat.features = []`)
+- inherited-context availability follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is unavailable, the command fails with `E5006` rather than silently falling back to some smaller context
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
 
 ### `kali package-audit <package>`
@@ -528,8 +527,7 @@ kali package-audit --pretty --output json lodash # Pretty-print that envelope; p
 ```
 Additional flag-surface rule:
 - follow the shared **registry-analysis context split** from [SPEC.md](../SPEC.md): like `package-effects`, early `package-audit` does **not** take package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
-- unlike `package-effects`, early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md)
-- therefore config-selected host-analysis/runtime values such as `apiSurface = node`, `apiSurface = browser`, `runtimeProfiles = ["wasm-threads"]`, or `compat.features = ["eval"]` do **not** by themselves gate or rewrite `package-audit`; the command either remains unavailable by its own maturity row or runs with the same context-free semantics once implemented
+- unlike `package-effects`, early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md), so inherited host-analysis/runtime config does not gate or rewrite the command's semantics
 
 Output simplification rule:
 - unlike `kali effects` and `kali package-effects`, `kali package-audit` does **not** define a native bare-JSON payload in schema v1

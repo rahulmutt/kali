@@ -189,7 +189,7 @@ This resolves a common ambiguity: browser-targeted analysis may know about `docu
 - browser-targeted build shapes requested with the wrong artifact combination use `E5008` rather than `E5006`; examples include `kali build --api browser ...`, `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...`
 - `kali run --api browser ...` and `kali test --api browser ...` use `E5006` in early phases because Kali does not yet define a standalone browser runtime/test contract
 
-**Note**: For supported command/profile combinations, the Phase 1 baseline Web Platform APIs are available regardless of `--api` mode. The `--api` flag controls which *additional* platform-specific APIs are loaded. Early unsupported command/surface combinations should follow that same split rather than silently falling back.
+**Note**: For supported command/profile combinations, the Phase 1 **Web baseline** APIs are available regardless of `--api` mode. The `--api` flag controls which *additional* platform-specific APIs are loaded. Early unsupported command/surface combinations should follow that same split rather than silently falling back.
 
 ## Phase 1 Host API Exit Criteria
 
