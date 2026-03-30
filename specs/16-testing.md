@@ -56,7 +56,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | Package compatibility | curated package corpus results recorded per shipped source-graph command/context **and per claimed rung of the shared package-support ladder** from [SPEC.md](../SPEC.md) (for example standalone `check` / `build` / `run` / `test`, plus browser-targeted `check` / `build --bundle` when those package claims are made) |
 | CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |
 | Artifact reproducibility | repeated-build tests over pinned inputs/toolchains + normalized artifact-byte comparisons + stable emitted-metadata assertions |
-| Proof-backed claims | passing Lean proof jobs for the currently modeled subset, scoped by the published **proof-boundary manifest** and the shared **proof state split**; Phase 1 may be merely **proof-ready** earlier, but proof-backed release claims require moving beyond the shared **placeholder proof-boundary manifest** |
+| Proof-backed claims | passing Lean proof jobs for the currently modeled subset, scoped by the published **proof-boundary manifest** and the shared **proof state split**; Phase 1 may be merely **proof-ready** earlier, but proof-backed release claims require a non-empty published boundary with named theorem/property claims |
 
 Interpretation rule:
 - a feature can stay listed as a future phase target before these tests exist
@@ -200,7 +200,7 @@ Proof-job consistency rule:
 - Lean verification is **not** an all-or-nothing claim that the whole language/runtime is already modeled.
 - CI should follow the published proof state in `proofs/BOUNDARY.md`: while the boundary is empty, proof CI is required for changes under `proofs/`; once the manifest names covered Rust/spec subsystems, the proof job also runs for changes to those covered areas.
 - Changes outside that modeled subset do not need to block on unrelated proof jobs, but they still must not weaken the documented proof boundary accidentally.
-- A release should not treat the shared **placeholder proof-boundary manifest** as evidence of shipped proof coverage; proof-backed release claims require moving beyond that placeholder state with a concrete modeled subset and theorem inventory.
+- A release should not treat a still-empty published proof boundary as evidence of shipped proof coverage; proof-backed release claims require a concrete modeled subset and theorem inventory.
 
 ### Test Data
 Current-state clarification:

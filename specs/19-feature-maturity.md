@@ -56,8 +56,9 @@ Promotion rule:
 
 Verification-baseline clarification:
 - the Phase-1 **proof-ready** baseline is intentionally a repository/process claim first, not automatically a claim that hosted proof automation already exists
-- before concrete proof workflow files land, the minimum evidence for that **proof-ready** row is the published `proofs/BOUNDARY.md` manifest plus its explicit proof-CI trigger policy; in the current repo that manifest is still the shared **placeholder proof-boundary manifest** from [SPEC.md](../SPEC.md)
-- stronger **proof-backed** release/support claims still require moving beyond that placeholder state with actual modeled theorems plus the corresponding proof jobs/evidence for the covered subset
+- before concrete proof workflow files land, the minimum evidence for that **proof-ready** row is the published `proofs/BOUNDARY.md` manifest plus its explicit proof-CI trigger policy
+- the current repository proof state should be read from `proofs/BOUNDARY.md`, not from duplicated chapter prose
+- stronger **proof-backed** release/support claims still require a non-empty published boundary with actual modeled theorems plus the corresponding proof jobs/evidence for the covered subset
 
 This keeps “Phase 1 MVP” and later status labels tied to measurable behavior rather than intent alone.
 

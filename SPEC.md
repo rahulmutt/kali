@@ -720,14 +720,13 @@ Rules:
 - the repo should reach the **proof-ready state** early so it has one honest place to say “no mechanized coverage yet”
 - the **placeholder proof-boundary manifest** is acceptable only while Kali is still avoiding proof-backed support claims
 - before a release or support summary advertises formal verification as a shipped capability, the boundary must move beyond the **placeholder proof-boundary manifest**, name at least one concrete modeled subsystem, and list the claimed theorem/property inventory so the claim is genuinely proof-backed rather than merely proof-ready
-- proof CI follows the proof-CI trigger policy declared by the published boundary; while the manifest is still the **placeholder proof-boundary manifest**, proof jobs are required only for `proofs/`, and once covered implementation/spec areas are named they also become proof-CI triggers
+- proof CI follows the proof-CI trigger policy declared by the published boundary; an empty modeled boundary requires proof jobs only for `proofs/`, and once covered implementation/spec areas are named they also become proof-CI triggers
 - that proof-CI trigger policy is normative even before concrete CI workflow files land; until automation is wired up, docs must describe it as policy rather than implying that proof jobs already run in hosted CI
 - chapters should reuse this term instead of re-explaining the same empty-boundary-versus-proof-backed distinction in slightly different prose
 
 Current repository note:
 - [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) is the single source of truth for the repository's current verification state
-- at the time of this spec revision, that manifest is still the **placeholder proof-boundary manifest**, so the repository is **proof-ready** but not yet **proof-backed**
-- README summaries, release notes, and support tables should therefore link to that manifest instead of paraphrasing formal-verification status from memory
+- README summaries, release notes, and support tables should link to that manifest instead of paraphrasing formal-verification status from memory
 
 ### Canonical browser-applicable mediated subset (schema v1)
 When a chapter says browser-targeted policy/effect reasoning uses the browser-applicable part of the **Kali-mediated capability subset**, it means:

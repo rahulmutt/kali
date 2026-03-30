@@ -26,12 +26,10 @@ Practical rule:
 - the Phase-1 contract is therefore repository/process hygiene first: published boundary, an honest proof-CI trigger policy, and explicit no-overclaim discipline
 - **proof-backed** is not itself a blanket Phase-1 requirement; it becomes required only for release/support wording that wants to market formal verification as shipped evidence rather than as future-facing process readiness
 
-Current repository status:
+Current repository status rule:
 - `proofs/BOUNDARY.md` is the single source of truth for the repository's current verification state
-- at this spec revision, that manifest is still the shared **placeholder proof-boundary manifest** from [SPEC.md](../SPEC.md)
-- therefore the repository is currently **proof-ready** but not **proof-backed**
 - chapter summaries, release notes, and README copy should cite that manifest rather than inferring proof coverage from the existence of the Lean plan alone
-- [19 — Feature Maturity](19-feature-maturity.md) makes the same current-state guardrail explicit: proof-backed release/support claims while the published boundary is still empty are **Rejected by default**
+- [19 — Feature Maturity](19-feature-maturity.md) makes the same guardrail explicit: proof-backed release/support claims while the published boundary is still empty are **Rejected by default**
 
 ### First proof-backed milestone
 
@@ -75,7 +73,7 @@ That manifest should enumerate, at minimum:
 - which implementation/spec subsystems are expected to remain aligned with the model,
 - and the CI trigger rule for when the proof job must run.
 
-Before the first proofs land, the manifest may truthfully stay in the shared **placeholder proof-boundary manifest** state from [SPEC.md](../SPEC.md). That is still preferable to omitting the file, because it prevents the rest of the spec from accidentally implying proof coverage that does not yet exist.
+Before the first proofs land, the manifest may truthfully stay in the shared **placeholder proof-boundary manifest** state from [SPEC.md](../SPEC.md). That is still preferable to omitting the file, because it prevents the rest of the spec from accidentally implying proof coverage that does not yet exist. The current repository state should always be read from `proofs/BOUNDARY.md`, not inferred from this chapter's examples or milestone plan.
 
 Manifest simplification rule:
 - the manifest should state the current verification state explicitly using the same two-way split as this chapter: **proof-ready** vs **proof-backed**
