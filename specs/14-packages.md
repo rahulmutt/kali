@@ -136,6 +136,22 @@ Terminology simplification:
 - use the cross-spec term **package-resolution context** from [SPEC.md](../SPEC.md) for the normalized package-selection inputs: `apiSurface` plus module edge kind (`import` vs `require`)
 - supported browser-targeted commands should therefore reuse one browser package-resolution context instead of describing near-duplicate browser condition ladders per command
 
+Package-resolution quick summary:
+
+| Step | Canonical rule |
+|---|---|
+| import-map rewrite | Apply `kali.json#imports` first |
+| package branch selection | Prefer `package.json#exports`; evaluate it with the current **package-resolution context** |
+| legacy fallback | Only if `exports` does not resolve the entry; still respect edge kind |
+| browser refinement | In the shared browser-targeted context, apply `package.json#browser` rewrites **after** branch/entry selection, not as a second parallel condition-order system |
+| file classification | Classify the resolved file once and share that ESM/CJS decision across resolution, checking, and lowering |
+
+Simplification rule:
+- `exports` picks the package-published branch
+- browser replacement maps refine that chosen browser-targeted path
+- legacy fallback happens only when `exports` did not resolve the edge at all
+- Kali must not bounce between those stages heuristically looking for "something that works"
+
 Canonical early-phase code-resolution ladder:
 1. Apply import-map rewrites from `kali.json#imports` before package resolution.
 2. Preserve any explicit registry qualifier on the package specifier (for example `jsr:@std/path`) so later resolution, lockfile lookup, and diagnostics keep the same package identity.
