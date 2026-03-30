@@ -37,7 +37,7 @@ Until Lean proofs land, this file should be kept explicit rather than omitted so
   - conservative built-in effect-soundness theorems for the modeled capability subset,
   - and the declarative sandbox-policy decision/enforcement theorem family for that same subset.
 
-## Current activation state
+## Current proof-CI trigger policy
 - The current proof boundary is **empty**.
 - Therefore proof CI is required only for changes under `proofs/`.
 - If this manifest later names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas.

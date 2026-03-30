@@ -187,7 +187,7 @@ Target implementation-phase CI pipeline:
 6. TypeScript test suite
 7. Fuzz testing (time-limited)
 8. Benchmarks (compare to baseline)
-9. Lean proof verification per `proofs/BOUNDARY.md` activation rule
+9. Lean proof verification per the `proofs/BOUNDARY.md` proof-CI trigger policy
 ```
 
 Current spec-first repo baseline:

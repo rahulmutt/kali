@@ -18,12 +18,12 @@ Important simplification rule: Lean proofs target a **core Kali calculus**, not 
 
 To keep the bootstrap's Lean requirement aligned with the rest of the phased spec, Kali distinguishes two verification states that were easy to blur together in earlier wording:
 
-- **proof-ready** — the repository has the published **proof-boundary manifest**, the CI activation rule, and the discipline to avoid overclaiming beyond that boundary
+- **proof-ready** — the repository has the published **proof-boundary manifest**, the proof-CI trigger policy, and the discipline to avoid overclaiming beyond that boundary
 - **proof-backed** — the manifest is non-empty and names at least one concrete modeled subsystem plus theorem/property inventory that support claims can actually cite
 
 Practical rule:
 - Phase 1 should be **proof-ready** from the start
-- the Phase-1 contract is therefore repository/process hygiene first: published boundary, honest proof-CI activation, and explicit no-overclaim discipline
+- the Phase-1 contract is therefore repository/process hygiene first: published boundary, an honest proof-CI trigger policy, and explicit no-overclaim discipline
 - Phase-1 releases may only call verification a shipped capability once they are also **proof-backed**
 
 Current repository status:
@@ -54,7 +54,7 @@ Promotion rule:
 
 | Phase | Verification focus |
 |---|---|
-| Phase 1 MVP | Reach and maintain the **proof-ready** state: published proof boundary, honest CI activation, and no proof-backed marketing beyond the manifest. A Phase-1 release may advertise formal verification only once it becomes **proof-backed** with at least one concrete modeled theorem family over the core typed calculus or sandbox-policy core. |
+| Phase 1 MVP | Reach and maintain the **proof-ready** state: published proof boundary, honest proof-CI trigger policy, and no proof-backed marketing beyond the manifest. A Phase-1 release may advertise formal verification only once it becomes **proof-backed** with at least one concrete modeled theorem family over the core typed calculus or sandbox-policy core. |
 | Phase 2 target | Built-in effect inference conservativity, ownership/escape/reference-counting model, and selected lowering-preservation lemmas |
 | Phase 3 target | Specialization/layout-preservation lemmas for the proved fragment, plus stronger package/runtime-model correspondence where the host contract is already stable |
 | Phase 4 compatibility | Late dynamic compatibility paths only after their semantics are frozen enough to model honestly; `eval`/dynamic loading remain outside the currently published proof boundary until then |
@@ -84,7 +84,7 @@ Follow the shared **proof activation split** from [SPEC.md](../SPEC.md):
 - an empty manifest is acceptable during spec-first iteration and early implementation bootstrapping because it still preserves the **proof-ready** state
 - it is **not** enough for a release to market Kali as already formally verified in Phase 1
 - any Phase-1 release note or support claim that leans on formal verification should first replace the empty boundary with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed** rather than merely proof-ready
-- while the published proof boundary is empty, proof CI is required only for changes under `proofs/`; that still satisfies the Phase-1 **proof-ready** baseline because the activation rule is explicit and honest about the empty modeled subset
+- while the published proof boundary is empty, proof CI is required only for changes under `proofs/`; that still satisfies the Phase-1 **proof-ready** baseline because the proof-CI trigger policy is explicit and honest about the empty modeled subset
 - once the manifest names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas
 - until concrete CI workflow files are actually present, that trigger rule is still the repository's normative proof-CI policy rather than evidence that hosted proof automation already exists
 - release notes and support wording should describe that activation state plainly instead of implying that a placeholder manifest already proves part of the implementation

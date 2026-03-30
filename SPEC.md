@@ -35,7 +35,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Registry audit | `kali package-audit` is a separate context-free registry-analysis workflow and remains later compatibility |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib` for exact-version/internal consumers; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public `--lib` + WIT, C ABI, and Component Model packaging |
-| Formal verification | Phase-1 **proof-ready** repository baseline: published **proof-boundary manifest** plus the matching proof-CI activation rule for the currently modeled subset; the modeled subset may still be empty while Kali is only **proof-ready**, and no proof-backed release/support claims may extend beyond the published boundary |
+| Formal verification | Phase-1 **proof-ready** repository baseline: published **proof-boundary manifest** plus the proof-CI trigger policy for the currently modeled subset; the modeled subset may still be empty while Kali is only **proof-ready**, and no proof-backed release/support claims may extend beyond the published boundary |
 | Tooling | Deno-inspired CLI workflow, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports |
 
 Use this table as a reading aid only. Detailed behavior still belongs to the owning chapters and the maturity matrix.
@@ -96,7 +96,7 @@ To keep the bootstrap brief actionable and avoid trying to build every aspiratio
 3. **Kali-hosted execution foundation** — one AOT pipeline to one linked WASM payload, `run`/`test` on the Deno-oriented standalone surface, and the Phase-1 runtime/resource sandbox contract.
 4. **Build/artifact foundation** — default executable builds, the browser-bundle half of the shared **Phase-1 browser-targeted command set**, and the Phase-1 `build --lib` base library artifact.
 5. **Developer workflow foundation** — `init`, `check`, `fmt`, `lint`, AI-friendly diagnostics, and stable schema-v1 JSON envelopes/artifact metadata.
-6. **Phase-1 evidence hardening** — conformance tests, package corpus coverage, browser-bundle smoke tests, determinism checks required by the maturity matrix, and the Phase-1 **proof-ready** baseline artifacts (the published `proofs/BOUNDARY.md` manifest plus the matching proof-CI activation rule).
+6. **Phase-1 evidence hardening** — conformance tests, package corpus coverage, browser-bundle smoke tests, determinism checks required by the maturity matrix, and the Phase-1 **proof-ready** baseline artifacts (the published `proofs/BOUNDARY.md` manifest plus the proof-CI trigger policy).
 
 Sequencing rule:
 - later Phase-1 work may deepen earlier layers, but should not bypass them with feature-specific shortcuts
@@ -166,7 +166,7 @@ It intentionally merges three questions in one place so readers do not have to b
 | Latest published ECMA-262 boundary | Phase contract with explicit exclusion boundary | Phase 1 MVP for latest published grammar; later/explicit for draft or proposal semantics | Kali tracks the latest **published** ECMA-262 edition; draft or proposal semantics stay explicitly experimental rather than implied | [`specs/02-lexer-parser.md`](./specs/02-lexer-parser.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | Pure Rust implementation / no embedded C or C++ | Hard invariant | Phase 1 MVP | Implementation choices must preserve the pure-Rust host/runtime/toolchain contract rather than smuggling in embedded C/C++ dependencies | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/10-runtime.md`](./specs/10-runtime.md) |
 | AI-friendly CLI and diagnostics | Hard invariant | Phase 1 MVP | Human output stays concise; JSON contracts, stable codes, and AI-friendly machine payloads are explicit product requirements | [`specs/12-cli.md`](./specs/12-cli.md), [`specs/15-errors.md`](./specs/15-errors.md), [`specs/18-schemas.md`](./specs/18-schemas.md) |
-| Lean-backed verification | Phase contract with an explicit proof-boundary rule | Phase 1 for the **proof-ready** baseline (published proof boundary + matching CI activation rule); deeper proof coverage later | Formal verification is phased and model-based rather than implied for the full implementation on day one, and proof-backed release/support claims require a non-empty published boundary | [`specs/17-verification.md`](./specs/17-verification.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| Lean-backed verification | Phase contract with an explicit proof-boundary rule | Phase 1 for the **proof-ready** baseline (published proof boundary + proof-CI trigger policy); deeper proof coverage later | Formal verification is phased and model-based rather than implied for the full implementation on day one, and proof-backed release/support claims require a non-empty published boundary | [`specs/17-verification.md`](./specs/17-verification.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 
 Use this table as a navigation aid only. The owning chapters and the maturity matrix remain normative.
 
@@ -682,8 +682,8 @@ Rules:
 - the repo should reach the **proof-ready state** early so it has one honest place to say “no mechanized coverage yet”
 - an empty published boundary is acceptable only while Kali is still avoiding proof-backed support claims
 - before a release or support summary advertises formal verification as a shipped capability, the boundary must be non-empty, name at least one concrete modeled subsystem, and list the claimed theorem/property inventory so the claim is genuinely proof-backed rather than merely proof-ready
-- proof CI follows the activation rule declared by the published boundary; when the boundary is empty, proof jobs are required only for `proofs/`, and once covered implementation/spec areas are named they also become proof-CI triggers
-- the published activation rule is normative even before concrete CI workflow files land; until automation is wired up, docs must describe it as the repository's proof-CI policy rather than implying that proof jobs already run in hosted CI
+- proof CI follows the proof-CI trigger policy declared by the published boundary; when the boundary is empty, proof jobs are required only for `proofs/`, and once covered implementation/spec areas are named they also become proof-CI triggers
+- that proof-CI trigger policy is normative even before concrete CI workflow files land; until automation is wired up, docs must describe it as policy rather than implying that proof jobs already run in hosted CI
 - chapters should reuse this term instead of re-explaining the same placeholder-versus-shipped-proof distinction in slightly different prose
 
 Current repository note:
