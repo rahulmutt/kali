@@ -21,7 +21,8 @@ The type checker operates on the raw AST and produces a `TypedAST` (AST with res
 Plain JavaScript input is a first-class compilation target, not a second-class compatibility mode.
 
 Early-phase rules:
-- `.ts` / `.tsx` / `.mts` / `.cts` and `.js` / `.mjs` / `.cjs` / `.jsx` files go through the same parser, resolver, and checker pipeline, with module-kind interpretation following the canonical resolver/runtime rules instead of ad hoc extension-specific shortcuts
+- the shared **executable/analyzable source-file class** from [SPEC.md](../SPEC.md) goes through one parser, resolver, and checker pipeline, with module-kind interpretation following the canonical resolver/runtime rules instead of ad hoc extension-specific shortcuts
+- declaration-only files remain side inputs only, per the shared **canonical source-file classes** rule in [SPEC.md](../SPEC.md)
 - missing annotations generate inference variables rather than immediate `any`
 - inference prefers stable, local conclusions over clever whole-program guesses
 - when inference cannot prove a precise representation cheaply, the compiler keeps the program valid by using `unknown`, unions, or dynamic/tagged layouts instead of inventing fragile static assumptions

@@ -1015,7 +1015,7 @@ Several early package workflows intentionally take only a registry **identity**,
 - `kali package-effects lodash`
 - `kali package-audit jsr:@std/path`
 
-The command then applies the package chapter's stable-release selection rules. This keeps early CLI/package flows deterministic and simple.
+The command then applies the shared **stable-release selection rule (schema v1)**. This keeps early CLI/package flows deterministic and simple.
 
 ## Registry Package Identifier
 
