@@ -26,6 +26,11 @@ Compact workflow comparison:
 | **registry-analysis: `package-effects`** | “What effects would one registry package report under the inherited analysis context?” | No | inherits semantic analysis context once the command exists |
 | **registry-analysis: `package-audit`** | “What context-free registry audit result is reported for one package?” | No | context-free in schema v1 |
 
+Bootstrap-reading shortcut:
+- the bootstrap's package goal should not be read as one yes/no answer to “does Kali support npm?”
+- package claims should name both the **decision order** (package shape → host/API fit → command maturity) and the **support rung** being claimed (`installable/materializable`, `checkable`, `buildable`, `executable`, or `deployable-through-host`)
+- this keeps Phase-1 ecosystem claims honest: many pure JS/TS packages are already in scope early, while Node-host-heavy or native/binary/bootstrap-heavy packages remain clearly outside the same promise
+
 ### Supported Packages
 Kali supports registry packages (npm/JSR) that stay inside the shared **pure JS/TS package contract** from [SPEC.md](../SPEC.md).
 

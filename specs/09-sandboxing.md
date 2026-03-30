@@ -24,6 +24,14 @@ Command-behavior simplification:
 
 This table is a reading aid only. The normative command-shape and phase-gating rules still live in [specs/12-cli.md](12-cli.md), [specs/19-feature-maturity.md](19-feature-maturity.md), and the shared terminology in [SPEC.md](../SPEC.md).
 
+Bootstrap-reading shortcut:
+- treat sandbox policy as one vocabulary reused by three different workflow owners rather than one giant "sandbox mode"
+- `run/test --sandbox` are the **runtime-enforcement** owner
+- `check/build --sandbox` are the **static policy-validation** owner
+- `effects` / `package-effects` are the **reporting** owner and therefore do **not** become policy-comparison commands just because they talk about effects
+
+This keeps the bootstrap's sandbox/effect goals aligned with one small command split instead of encouraging parallel dry-run or audit-style command families.
+
 ## Static Effect Analysis
 
 The static effect system is intentionally scoped around **sandbox-relevant capabilities** first. The goal is a conservative summary of possible effects, not a full research-grade effect calculus.

@@ -147,6 +147,16 @@ Canonical examples of that normalization:
 - **“Take inspiration from Boa / V8 / JavaScriptCore / SpiderMonkey / Deno / tsc / Porffor / Hermes / Bun”** → treat these as design references and benchmarking/comparison inputs, not as promises to copy their architecture wholesale, match their extension surfaces, or inherit their implementation dependencies; Kali still resolves trade-offs through its own AOT-only, sandbox-first, and pure-Rust constraints.
 - **“No GC”** → no tracing/background GC is allowed; deterministic ownership/reference-counted strategies are acceptable where the owning chapters permit them.
 
+### Bootstrap wording shortcuts
+
+A few bootstrap phrases are easy to overread as one broad yes/no promise when Kali actually needs a smaller cross-spec split:
+- **“supports browser APIs”** should be read through three separate questions: browser ambient typing, browser-targeted bundle/deploy path, and standalone browser execution. Phase 1 ships only the first two inside the shared **Phase-1 browser-targeted command set**.
+- **“supports npm packages”** should be read through the shared **package-support decision order** plus the **package-support ladder**: package shape first, then host/API fit, then command maturity, then the exact rung being claimed (`installable/materializable`, `checkable`, `buildable`, `executable`, or `deployable-through-host`).
+- **“sandbox policy passed in when running”** should be read through the shared **workflow-owner split**: `run/test --sandbox` enforce at runtime, `check/build --sandbox` validate statically, and `effects` / `package-effects` report only.
+- **“latest ECMA-262 support”** should be read through the shared **compatibility delivery ladder**: parser breadth, checker support, executable support, and deployable-host support are related but intentionally distinct claims.
+
+Use these shortcuts before treating any remaining broad bootstrap sentence as an undifferentiated Phase-1 support promise.
+
 ## Bootstrap Traceability Matrix
 
 This table is the compact “where did each bootstrap ask land?” view.
