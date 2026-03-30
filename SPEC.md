@@ -275,7 +275,8 @@ Use this checklist:
 - library/export-oriented build wording should reuse the **compile intent**, **embedding-stability split**, **library-oriented instantiation rule**, **statically known export surface**, and **host ABI header vs program-specific exports header** terms
 - source-command versus package-command wording should reuse the **source-graph command**, **dependency-graph command**, **discovery-driven command**, and **registry-analysis command** terms instead of re-listing the same command families ad hoc
 - single-package registry-analysis wording should reuse the **single-package registry-analysis command**, **registry-analysis availability boundary**, **registry-analysis context split**, **registry-analysis command split**, **registry-analysis project-independence rule**, **identity-only registry target**, and **stable-release selection rule (schema v1)**
-- JSON machine-output wording should reuse the canonical **native-JSON command**, **envelope-only JSON command**, **JSON-producing mode**, and **registry-analysis command split** terms instead of restating near-duplicate output-mode rules
+- shared-flag wording should reuse the **shared flag buckets**, **semantic/context flag surface**, and **JSON-mode selectors** terms instead of letting command-local prose accidentally treat output-format controls as semantic context or vice versa
+- JSON machine-output wording should reuse the canonical **native-JSON command**, **envelope-only JSON command**, **JSON-producing mode**, **JSON-mode selectors**, and **registry-analysis command split** terms instead of restating near-duplicate output-mode rules
 - schema-v1 `package-audit` machine-output wording should point to [specs/18-schemas.md](./specs/18-schemas.md)'s **Package Audit JSON Output (schema v1)** section instead of restating a near-duplicate envelope-only rule
 - project-install/discovery interactions for raw URL dependency state should reuse the **install-time declaration graph** term
 - config-discovery/install interactions without a discovered `kali.json` should reuse the **configless install split** term
@@ -1012,6 +1013,38 @@ Rules:
 - `payload` should be omitted or `null` rather than populated with ad hoc command-specific objects
 - `stdout` / `stderr` remain captured text-stream fields only, not hidden structured result channels
 - docs should reuse this term instead of restating a near-duplicate “envelope but no payload schema” rule per command
+
+### Shared flag buckets
+The canonical split between broad CLI flag categories.
+
+In schema v1:
+- **presentation/control flags** affect output formatting, verbosity, color, or other non-semantic command presentation/control behavior (for example `--verbose`, `--quiet`, `--color`, `--output json`, and mode-appropriate `--pretty`)
+- **semantic/context flags** affect command meaning, selected analysis/runtime context, sandbox attachment, resource envelopes, or other semantic command behavior (for example `--api`, `--compat`, `--wasm-threads`, `--sandbox`, resource-cap flags, and command-specific semantic selectors)
+
+Rules:
+- docs should reuse this split instead of informally alternating between “global flags”, “shared flags”, and “semantic flags” when they mean the same two buckets
+- output-format controls stay in the presentation/control bucket even when some commands place extra command-shape constraints on them
+- a command chapter may still define a smaller accepted subset of either bucket for one command family, but it should say which bucket is being narrowed
+
+### Semantic/context flag surface
+The subset of **semantic/context flags** that a given command family accepts in schema v1.
+
+Rules:
+- this term is about semantic/context participation only; it does **not** include ordinary shared presentation/control flags
+- use it when a chapter wants to say a command keeps a deliberately small semantic surface without implying that normal presentation controls such as `--quiet`, `--verbose`, or `--color` suddenly stop working
+- command-local JSON/output controls belong to the separate **JSON-mode selectors** term below rather than being folded into semantic/context vocabulary
+
+### JSON-mode selectors
+The command-local presentation/output selectors that participate in schema-v1 JSON behavior.
+
+In schema v1 this means:
+- `--output json`
+- mode-appropriate `--pretty`
+
+Rules:
+- these selectors affect presentation/envelope behavior, not semantic analysis context
+- they may still be command-shape constrained: for example an **envelope-only JSON command** may require `--output json` before `--pretty` is meaningful
+- use this term when a chapter needs to talk about command-local JSON/output acceptance without accidentally treating those flags as semantic/context inputs
 
 ### Direct-input command
 A command whose schema-v1 shape requires exactly one explicit primary source input once that command is available:

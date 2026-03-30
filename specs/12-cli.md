@@ -18,8 +18,8 @@ Current repository-state note:
 These flags are shared across the CLI, but some apply only to specific command families. For the canonical meaning of **API surface**, **build mode**, **runtime profile**, and **availability context**, see [SPEC.md](../SPEC.md). For maturity/availability rules, see [19 — Feature Maturity](19-feature-maturity.md).
 
 Global-flag simplification:
-- shared flags intentionally split into two buckets: **presentation/control flags** (`--verbose`, `--quiet`, `--color`, `--output json`, and mode-appropriate `--pretty`) versus **semantic/context flags** (`--api`, `--compat`, `--wasm-threads`, `--sandbox`, resource caps, and command-specific semantic selectors)
-- when later command sections say a command accepts only its documented selector/arity plus JSON-formatting flags, that is narrowing the command's **semantic/context flag surface**; it does **not** implicitly ban ordinary shared presentation/control flags that already make sense for that command/output mode
+- follow the canonical **shared flag buckets** in [SPEC.md](../SPEC.md): **presentation/control flags** (`--verbose`, `--quiet`, `--color`, `--output json`, and mode-appropriate `--pretty`) versus **semantic/context flags** (`--api`, `--compat`, `--wasm-threads`, `--sandbox`, resource caps, and command-specific semantic selectors)
+- when later command sections say a command keeps a deliberately small **semantic/context flag surface** or accepts only specific **JSON-mode selectors**, that does **not** implicitly ban ordinary shared presentation/control flags that already make sense for that command/output mode
 - this keeps registry-analysis commands small without accidentally contradicting the shared-flag table's ordinary global controls
 
 Ownership rule:
@@ -606,7 +606,7 @@ kali package-effects --output json lodash  # Command envelope + package-effect p
 Base-gate clarification:
 - follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-effects lodash` reaches the command's own availability gate (`E5006`) until Phase 2 opens
 - once the base command exists, inherited-context gating follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) rather than a package-analysis-specific shadow matrix
-- practical simplification: schema-v1 `package-effects` keeps a very small **semantic/context flag surface**: one package selector plus JSON-formatting flags (`--output json`, optionally `--pretty`). Ordinary shared presentation/control flags still follow the shared-flag rules, but package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of forming a second CLI vocabulary
+- practical simplification: schema-v1 `package-effects` keeps a very small **semantic/context flag surface**: the package selector only. Its command-local presentation/output knobs are the usual **JSON-mode selectors** (`--output json`, optionally `--pretty`). Ordinary shared presentation/control flags still follow the shared-flag rules, but package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of forming a second CLI vocabulary
 
 Machine-output rule:
 - this command is the `package-effects` half of the shared **registry-analysis command split**: once available, it is a schema-v1 **native-JSON command**
@@ -636,7 +636,7 @@ kali package-audit --pretty --output json lodash # Pretty-print that envelope; p
 
 Base-gate clarification:
 - follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-audit lodash` or `kali package-audit --output json lodash` reaches the command's own availability gate (`E5006`) until this later command exists
-- practical simplification: schema-v1 `package-audit` keeps a very small **semantic/context flag surface**: one package selector plus its envelope-format flags (`--output json`, optionally `--pretty`). Ordinary shared presentation/control flags still follow the shared-flag rules, but package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of growing a second context model
+- practical simplification: schema-v1 `package-audit` keeps a very small **semantic/context flag surface**: the package selector only. Its command-local presentation/output knobs are the envelope-oriented **JSON-mode selectors** (`--output json`, optionally `--pretty`). Ordinary shared presentation/control flags still follow the shared-flag rules, but package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of growing a second context model
 - output-format flags do not create a second availability path for the command itself
 
 Audit rule:
