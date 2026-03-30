@@ -84,6 +84,18 @@ It is intentionally narrower than the full command/profile matrix below:
 
 Use this summary to avoid broad bootstrap overreads, then drop to the canonical matrix below for exact command/context rows.
 
+Release-note/support-claim shortcut:
+- prefer naming the exact command/context/rung instead of saying a subsystem is simply “supported”
+- the table below is a writing aid for summaries and release notes; the canonical matrix still owns exact status
+
+| Vague claim | Preferred precise phrasing |
+|---|---|
+| “browser support ships in Phase 1” | “Phase 1 ships the shared **Phase-1 browser-targeted command set**: browser-targeted `check [files...]` plus browser-targeted `build --bundle <file>`, including supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`.” |
+| “packages work in browser mode” | “For the shared **Phase-1 browser-targeted command set**, package claims are usually **checkable** or **deployable-through-host**, not standalone-browser **executable** support.” |
+| “embedding ships in Phase 1” | “Phase 1 ships only the **base library artifact** via `kali build --lib` for exact-version/internal consumers; the stable public embedding surface remains Phase 2.” |
+| “effects support ships in Phase 1” | “Phase 1 may use internal sandbox-oriented effect bookkeeping and ships policy validation/runtime enforcement where documented, but the stable public effect-report surface is still gated.” |
+| “formal verification ships in Phase 1” | “Kali is **proof-ready**, not **proof-backed**; read `proofs/BOUNDARY.md` for the current claim boundary.” |
+
 Browser-build simplification note:
 - `--bundle` is the browser-only executable packaging path in schema v1, not a generic multi-artifact build switch
 - therefore `kali build --bundle --api node ...` stays an `E5008` command-shape contradiction rather than an early Node build lane, and `kali build --lib --api browser ...` stays an `E5008` browser-library contradiction rather than a hidden browser embedding path
