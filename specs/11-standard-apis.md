@@ -62,6 +62,7 @@ Interpretation rules:
 - this is a command/API-surface snapshot only; the owning CLI shape still lives in [12 — CLI](12-cli.md), and exact phase labels still live in [19 — Feature Maturity](19-feature-maturity.md)
 - `browser` in this table means **checkable** / **deployable-through-host** support where noted, not a hidden standalone DOM runtime promise
 - `node` stays gated across these command families until the documented Node subset exists; package-compatibility work must not imply an undocumented partial `--api node` mode earlier
+- registry-analysis commands are intentionally outside this snapshot: later `package-effects` may reuse the same inherited browser/Node analysis context once its own maturity row opens, while `package-audit` remains context-free in schema v1
 
 ## API Layers
 
