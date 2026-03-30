@@ -168,7 +168,7 @@ Configuration precedence is intentionally simple:
 That means command-line resource flags can tighten a run relative to policy/config, but they must not silently widen a sandbox policy. If no policy is attached, those direct invocation flags simply become the effective cap for the current command instead of being compared against an implicit allow-all policy. In Phase 1 this tightening path applies directly to `--max-memory`, `--max-cpu`, and `--max-open-files`. For later-gated caps such as `--max-spawned-processes` and `--max-threads`, the same tightening rule applies once the underlying capability exists; before then, `0` remains a valid explicit deny/tightening value while non-zero values stay phase/profile-gated.
 
 Interpretation rule:
-- the resulting merged values are the command's one **effective context** for validation, lowering, and reporting
+- the resulting merged values are the command's one **effective command context** for validation, lowering, and reporting
 - unsupported inherited config values do not get ignored just because the user omitted the matching CLI flag
 
 Canonical path-resolution rule:

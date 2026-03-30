@@ -297,11 +297,11 @@ Optional fields:
 - `role: string` — canonical artifact role when the same `kind` can appear in multiple build modes
 
 Canonical schema-v1 `role` values:
-- `primary-executable` — the main executable-style artifact from `kali build foo.ts`
-- `primary-library` — the main export-oriented library artifact from `kali build --lib foo.ts`, following the shared **library-oriented instantiation rule** and using the build's **statically known export surface** as defined in [SPEC.md](../SPEC.md)
-- `primary-component` — the main Component Model wrapper artifact from `kali build --component foo.ts`
-- `browser-glue` — browser-targeted JS glue emitted alongside a browser bundle
-- `interface-wit` — canonical WIT interface description emitted for public library/embedding/component outputs
+- `primary-executable` — the main executable-oriented core artifact for one build, used by both the default executable path (`kali build foo.ts`) and the browser-bundle path (`kali build --bundle --api browser foo.ts`)
+- `primary-library` — the main export-oriented core artifact for one library-oriented build, used by `kali build --lib foo.ts` and by the shared linked core inside later `--capi` / `--component` outputs, following the shared **library-oriented instantiation rule** and using the build's **statically known export surface** as defined in [SPEC.md](../SPEC.md)
+- `primary-component` — the main outer Component Model wrapper artifact from `kali build --component foo.ts`
+- `browser-glue` — browser-targeted JS glue emitted alongside a browser bundle; this is the browser host adapter companion to the bundle's `primary-executable` core module
+- `interface-wit` — canonical WIT interface description emitted for the stable public library/component/embedding flows once that Phase-2 public contract exists
 - `embedding-header` — generated program-specific C exports header from `kali build --capi`
 - `embedding-metadata` — generated C-ABI/embedding metadata from `kali build --capi`
 - `debug-source-map` — source-map/debug companion artifact
@@ -310,6 +310,8 @@ Interpretation rules:
 - `kind` stays the primary cross-command type discriminator (`wasm-module`, `wasm-component`, `js-glue`, `wit`, `c-header`, `cabi-metadata`, `source-map`)
 - `debug-source-map` is a `role`, not a second source-map `kind`; the matching artifact `kind` remains `source-map`
 - `role` exists so tools do not have to infer semantic intent from filenames alone when multiple artifact modes reuse the same `kind`
+- within one emitted artifact list, `primary-executable`, `primary-library`, and `primary-component` are each unique roles: at most one artifact may carry each of those roles
+- browser-bundle outputs therefore normally contain one `primary-executable` core `wasm-module` plus one `browser-glue` JS companion, rather than two competing "primary" artifacts of the same executable flow
 - in component-oriented outputs, the wrapped core `wasm-module` normally keeps role `primary-library` while the outer `wasm-component` carries role `primary-component`; this avoids making tools guess which artifact is the deployable wrapper versus the linked core payload
 - adding a new stable `role` value is a schema-contract change and should get the same review discipline as new artifact `kind` values
 
