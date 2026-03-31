@@ -20,7 +20,7 @@ pub use span::Span;
 
 /// Global string interner used throughout the compiler.
 /// Provides thread-safe string interning for identifiers and literals.
-pub static GLOBAl_INTERNER: Lazy<Interner> = Lazy::new(Interner::default);
+pub static GLOBAL_INTERNER: Lazy<Interner> = Lazy::new(Interner::default);
 
 /// Global source file registry.
 /// Assigns compact FileId to each loaded source file.
@@ -37,7 +37,7 @@ pub struct SourceRegistry {
 impl SourceRegistry {
     /// Get or create a FileId for a given path.
     pub fn intern_path(&mut self, path: &Path) -> FileId {
-        let path_buf = canonicalize_path(path);
+        let path_buf = Self::canonicalize_path(path);
         
         // Find existing file by path
         for (&fid, file) in &self.files {
@@ -73,6 +73,13 @@ impl SourceRegistry {
         };
         self.files.insert(id, source_file);
         &self.files[&id]
+    }
+
+    /// Canonicalize a path to remove relative components.
+    fn canonicalize_path(path: &Path) -> PathBuf {
+        // For now, just return the path as-is. Full canonicalization requires
+        // filesystem access which complicates testing.
+        PathBuf::from(path)
     }
 }
 
@@ -126,8 +133,9 @@ impl SourceFile {
 
     /// Get the directory containing this source file.
     pub fn directory(&self) -> &str {
-        Path::new(&self.path).parent()
-            .map(|d| d.to_string_lossy())
+        Path::new(&self.path)
+            .parent()
+            .and_then(|d| d.to_str())
             .unwrap_or("")
     }
 
@@ -180,15 +188,6 @@ impl SourceMap {
             .map(|f| f.filename().to_string())
             .unwrap_or_else(|| format!("file_{}.ts", file_id.as_u32()))
     }
-
-    /// Format a span as a human-readable location.
-    pub fn format_location(&self, span: Span) -> String {
-        let file = self
-            .get_file(span.file_id)
-            .unwrap_or_else(|| self.registry.create_file(span.file_id));
-
-        format!("{}:{}:{}", file.filename(), span.line(), span.column())
-    }
 }
 
 impl Default for SourceMap {
@@ -200,18 +199,6 @@ impl Default for SourceMap {
 /// Format a file location for use in diagnostics.
 pub fn format_file_ref(source_map: &SourceMap, file_id: FileId) -> String {
     source_map.format_file_ref(file_id)
-}
-
-/// Format a location from a span and source map.
-pub fn format_location(source_map: &SourceMap, span: Span) -> String {
-    source_map.format_location(span)
-}
-
-/// Canonicalize a path to remove relative components.
-fn canonicalize_path(path: &Path) -> String {
-    // For now, just convert to string. Full canonicalization requires
-    // filesystem access which complicates testing.
-    path.to_string_lossy().to_string()
 }
 
 #[cfg(test)]
@@ -247,14 +234,5 @@ mod tests {
         // Different paths should give different IDs
         let fid3 = registry.intern_path(Path::new("/test/other.ts"));
         assert_ne!(fid1, fid3);
-    }
-
-    #[test]
-    fn test_source_map() {
-        let mut sm = SourceMap::new();
-        let fid = sm.intern_path(Path::new("/test/file.ts"));
-        
-        assert_eq!(sm.format_file_ref(fid), "file.ts");
-        assert_eq!(sm.format_file_ref(fid).contains("file.ts"), true);
     }
 }

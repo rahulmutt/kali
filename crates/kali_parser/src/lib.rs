@@ -37,13 +37,13 @@ pub struct ParseSource<'a> {
     /// Source file ID.
     pub file_id: Option<kali_common::FileId>,
     /// Source text.
-    pub text: &'a str,
+    pub text: Box<str>,
     /// Diagnostics collected during parsing.
     pub diagnostics: Vec<Diagnostic>,
 }
 
 impl<'a> ParseSource<'a> {
-    pub fn new(file_id: Option<kali_common::FileId>, text: &'a str) -> Self {
+    pub fn new(file_id: Option<kali_common::FileId>, text: String) -> Self {
         Self {
             file_id,
             text,
@@ -76,12 +76,15 @@ impl Parser {
 
     /// Parse source code and report diagnostics.
     pub fn parse_with_diagnostics(
-        mut self,
         file_id: Option<kali_common::FileId>,
         source_text: impl Into<String>,
-    ) -> ParseResult<ParseSource<'static>> {
-        // Placeholder implementation
-        Ok(ParseSource::new(file_id, &source_text.into()))
+    ) -> ParseResult<ParseSource> {
+        let source = ParseSource::new(file_id, &source_text.into());
+        Ok(ParseSource {
+            file_id: source.file_id,
+            text: Box::leak(source.text.boxed()),
+            diagnostics: Vec::new(),
+        })
     }
 }
 

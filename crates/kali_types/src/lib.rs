@@ -93,7 +93,7 @@ impl TypeContext {
     /// Pop the current scope.
     pub fn pop_scope(&mut self) {
         if let Some(scope_id) = self.scope_stack.pop() {
-            self.type_env.remove(&scope_id);
+            self.type_env.shift_remove(&scope_id);
         }
     }
 
@@ -167,8 +167,9 @@ impl TypeContext {
 
     /// Define a name in the global scope.
     pub fn define<'a>(&'a mut self, name: impl Into<String>) -> ScopeRef<'a> {
-        self.global_scope.bind(name, NodeId::new(0));
-        ScopeRef { scope: &self.global_scope, name: name.into() }
+        let name_str = name.into();
+        self.global_scope.bind(&name_str, NodeId::new(0));
+        ScopeRef { scope: &self.global_scope, name: name_str }
     }
 }
 

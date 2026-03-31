@@ -13,6 +13,7 @@ pub enum Severity {
 
 impl Severity {
     /// Parse a severity from a string.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "error" => Some(Severity::Error),
@@ -38,6 +39,7 @@ impl std::fmt::Display for Severity {
     }
 }
 
+#[cfg(feature = "serde")]
 impl serde::Serialize for Severity {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -47,7 +49,8 @@ impl serde::Serialize for Severity {
     }
 }
 
-impl serde::de::DeserializeOwned for Severity {}
+// Disable this impl - DeserializeOwned is not a valid trait implementation
+// impl serde::de::DeserializeOwned for Severity {}
 
 #[cfg(test)]
 mod tests {

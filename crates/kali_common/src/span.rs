@@ -84,12 +84,9 @@ impl Span {
             .map(|l| l.chars().count() + 1)
             .unwrap_or(1);
 
-        if src.chars().any(c => c == '\n') {
-            // Multi-line span
-            Some(LocationInfo { line, column, multi_line: true })
-        } else {
-            Some(LocationInfo { line, column, multi_line: false })
-        }
+        let multi_line = src.chars().any(|c| c == '\n');
+
+        Some(LocationInfo { line, column, multi_line })
     }
 
     /// Return a self-referential span (alias).
