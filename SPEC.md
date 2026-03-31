@@ -1039,6 +1039,22 @@ The semantic context that materially affects static analysis results:
 - `runtimeProfiles`
 - compatibility-feature selection (`compat.features` in config, `compatFeatures` in emitted JSON)
 
+### Default source-graph analysis context (schema v1)
+The default analysis-context tuple reused by source-graph analysis commands when none of their participating analysis axes are overridden by discovered config or CLI flags.
+
+In schema v1 this is:
+- `apiSurface = deno`
+- `runtimeProfiles = []`
+- `compat.features = []`
+
+Canonical early uses:
+- `kali check ...` for its participating analysis axes
+- `kali effects ...` once that command exists
+
+Rules:
+- use this term instead of repeating only part of the default tuple (for example just `apiSurface = deno`) when the command actually participates in all three analysis axes
+- build/run/test should still prefer the more specific **Default standalone context (schema v1)** and **Deno-oriented build context (schema v1)** terms when those execution/build contexts are what matter
+
 ### Inherited analysis context
 The final analysis context used by schema-v1 inherited-analysis workflows that do not take their own package-analysis-specific context flags.
 

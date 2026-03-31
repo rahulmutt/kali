@@ -213,7 +213,7 @@ Canonical resource-literal rule:
 Default standalone context (schema v1):
 - reuse the canonical term from [SPEC.md](../SPEC.md)
 
-It is the default interpretation of examples such as `kali run main.ts` and `kali test` unless the example explicitly overrides a field. Plain non-browser `kali build ...` examples instead use the derived **Deno-oriented build context (schema v1)** from [SPEC.md](../SPEC.md). `kali check main.ts` and `kali effects main.ts` reuse the same baseline only for the axes that actually participate in those commands, while inherited package analysis uses the narrower **default inherited analysis context (schema v1)** from [SPEC.md](../SPEC.md).
+It is the default interpretation of examples such as `kali run main.ts` and `kali test` unless the example explicitly overrides a field. Plain non-browser `kali build ...` examples instead use the derived **Deno-oriented build context (schema v1)** from [SPEC.md](../SPEC.md). `kali check main.ts` and `kali effects main.ts` instead reuse the shared **default source-graph analysis context (schema v1)** for the axes that actually participate in those commands, while inherited package analysis uses the narrower **default inherited analysis context (schema v1)** from [SPEC.md](../SPEC.md).
 
 ## Commands
 
@@ -404,7 +404,7 @@ Output static effect analysis as JSON.
 
 Status: Phase 2 target. This section documents a **defined command family** in schema v1; in Phase 1 the command remains unavailable while the internal effect infrastructure stabilizes. JSON-formatting selectors do not create an earlier path: before the command itself ships, `kali effects --pretty ...`, `kali effects --output json ...`, and `kali effects --pretty --output json ...` stay on the same base command gate as plain `kali effects ...`.
 ```bash
-kali effects main.ts                       # Compact effect report JSON to stdout (default API surface: deno)
+kali effects main.ts                       # Compact effect report JSON to stdout (default source-graph analysis context)
 kali effects --api browser main.ts         # Browser-targeted effect analysis once the Phase 2 command exists
 kali effects --api node main.ts            # Phase 3 target: Node API surface remains gated here too
 kali effects --compat eval main.ts         # Phase 4 compatibility: dynamic-eval path reflected in effect analysis too
@@ -429,7 +429,7 @@ Sandbox-interaction rule:
 Input-kind and host-selection rules:
 - once available, `kali effects` keeps that schema-v1 direct-input shape: it requires exactly one explicit executable/analyzable source-file analysis root and does not fall back to project-wide discovery
 - `kali effects` accepts only the shared **executable/analyzable source-file class** from [SPEC.md](../SPEC.md); declaration-only files are type inputs, not effect-report primary inputs
-- unless overridden by CLI/config, `kali effects` uses the same default API-surface selection as `kali check` (`apiSurface = deno`)
+- unless overridden by CLI/config, `kali effects` uses the shared **default source-graph analysis context (schema v1)** from [SPEC.md](../SPEC.md)
 - `--api browser` follows the same browser API-surface analysis context as `kali check --api browser`; in Phase 2 this extends browser-targeted analysis to `effects` without implying standalone browser execution
 - `--api node` remains phase-gated until the documented Node surface exists
 - `--compat ...` affects effect analysis too: enabled compatibility paths such as `eval` change the reported effect set/dynamic reasons only when that compatibility feature is actually implemented for the selected phase/profile
