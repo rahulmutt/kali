@@ -41,7 +41,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 
 | Axis | Phase 1 MVP contract |
 |---|---|
-| Language/frontend | Latest published ECMA-262 grammar, TypeScript compatibility where implemented, and first-class `.js` compilation with bounded conservative inference |
+| Language/frontend | Latest published ECMA-262 grammar, TypeScript compatibility where implemented, and first-class `.js` compilation under the shared **bounded inference contract** |
 | Runtime model | guest-language AOT-only, one linked WASM payload, no tracing/background GC, Rust implementation, standardized on wasmtime for Kali-hosted execution |
 | Host support | the shared **Default standalone context (schema v1)** is the default non-browser execution context in Phase 1, the shared **Deno-oriented build context (schema v1)** is the default non-browser build context, `--api browser` is limited to the shared **Phase-1 browser-targeted command set**, and `--api node` remains gated |
 | Sandboxing | Declarative policy files, runtime enforcement for Kali-hosted execution, policy-schema/config validation for the shared **Phase-1 static policy-validation surface**, no project-executed policy code |
@@ -63,7 +63,7 @@ For quick bootstrap-review work, use this compact triage before dropping into th
 | Bucket | Read it as | Canonical Kali answer |
 |---|---|---|
 | **Hard invariants** | must remain true across all phases unless the top-level spec changes | guest-language AOT only; pure-Rust implementation contract; no tracing/background GC; sandbox-first honesty; deterministic machine-readable contracts |
-| **Phase 1 promises** | what the first dependable release may actually claim | first-class TS/JS compilation with bounded JS inference; Deno-first standalone execution/builds; the shared **Phase-1 browser-targeted command set**; runtime sandbox enforcement plus the shared **Phase-1 static policy-validation surface**; deterministic install/lock behavior; the Phase-1 **base library artifact** for **exact-version consumers**; proof-ready repository state |
+| **Phase 1 promises** | what the first dependable release may actually claim | first-class TS/JS compilation under the shared **bounded inference contract**; Deno-first standalone execution/builds; the shared **Phase-1 browser-targeted command set**; runtime sandbox enforcement plus the shared **Phase-1 static policy-validation surface**; deterministic install/lock behavior; the Phase-1 **base library artifact** for **exact-version consumers**; proof-ready repository state |
 | **Later-phase breadth** | important direction, but not an MVP overread | stable public effect-report commands; inferred-effect-vs-policy rejection; stable public embedding/WIT/C ABI/component flows; broad Node compatibility; executable `eval` / `Function()`; proof-backed release/support claims |
 
 Shortcut:
@@ -174,7 +174,7 @@ Guardrail:
 
 To keep the bootstrap brief actionable and avoid trying to build every aspiration at once, Phase 1 should be implemented in this order:
 
-1. **Frontend + checking foundation** — lexer, parser, AST, name resolution, TypeScript-compatible checking, first-class JavaScript handling, and the bounded conservative inference promised for Phase 1.
+1. **Frontend + checking foundation** — lexer, parser, AST, name resolution, TypeScript-compatible checking, first-class JavaScript handling, and the shared **bounded inference contract** promised for Phase 1.
 2. **Deterministic package/install foundation** — `kali install`, shared lock/materialization rules, package resolution, and strict non-mutating behavior for non-install commands.
 3. **Kali-hosted execution foundation** — one AOT pipeline to one linked WASM payload, `run`/`test` on the Deno-oriented standalone surface, and the Phase-1 runtime/resource sandbox contract.
 4. **Build/artifact foundation** — default executable builds, the browser-bundle half of the shared **Phase-1 browser-targeted command set**, and the Phase-1 `build --lib` base library artifact.
