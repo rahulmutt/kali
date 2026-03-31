@@ -73,7 +73,7 @@ Header-split simplification:
 
 Phase-1 practical-use rule for `--lib`:
 - the Phase-1 **base library artifact** exists only on the export-surface-known path and may then be consumed by **exact-version consumers** or explicitly unstable experiments
-- it must **not** be described as a stable cross-version/public embedding ABI until the Phase-2 public library/WIT contract is frozen
+- it must **not** be described as part of the stable public embedding surface until the Phase-2 public library/WIT contract is frozen
 - docs and tooling should therefore avoid implying that plain Phase-1 `--lib` output alone guarantees long-term host-call compatibility across Kali releases
 
 Preferred short support wording:
@@ -93,7 +93,7 @@ Compact Phase-1 support-claim table for library-oriented builds:
 |---|---|
 | What is actually shipped in Phase 1? | One export-oriented path is **buildable for exact-version consumers**: `kali build --lib <file>` emits the **base library artifact** when Kali can determine a **statically known export surface**. |
 | Can that same build take `--sandbox`? | Yes: `kali build --lib --sandbox <policy> <file>` stays the same library-oriented build plus static policy-schema/config validation. |
-| Does that make plain `--lib` a stable public embedding ABI? | No: Phase 1 support stops at **exact-version consumers**; the stable public embedding surface is still later. |
+| Does that make plain `--lib` part of the stable public embedding surface? | No: Phase 1 support stops at **exact-version consumers**; the stable public embedding surface is still later. |
 | Does plain `--lib` emit WIT by default? | No: default WIT emission belongs to the Phase-2 stable public **WIT-first** contract. |
 | Do browser or early Node library builds become supported through embedding wording? | No: browser/library combinations stay command-shape contradictions, and Node/library combinations stay on the ordinary Node maturity gate. |
 
@@ -361,7 +361,7 @@ const char* kali_error_code(const KaliError* error); // stable string code such 
 const char* kali_error_json(const KaliError* error);
 
 // Effects analysis (Phase 2 target; part of the same stabilized effect-report pipeline
-// as `kali effects` once the public embedding ABI exists)
+// as `kali effects` once the stable public embedding surface exists)
 const char* kali_analyze_effects_file(KaliRuntime* runtime, const char* path);
 const char* kali_analyze_effects_string(KaliRuntime* runtime, const char* filename, const char* source);
 void kali_free_string(const char* s);

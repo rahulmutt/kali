@@ -35,7 +35,7 @@ Support-rung clarification for that shorthand:
 - on the Deno-oriented standalone surface, early package claims may be **installable/materializable**, **checkable**, **buildable**, or **executable** depending on the command being discussed
 - on the shared **Phase-1 browser-targeted command set** — including equivalent inherited-config forms whenever the effective `apiSurface` resolves to `browser` — early package claims are normally **checkable** and sometimes **deployable-through-host** via `build --bundle`; they are not standalone-browser **executable** claims in Kali itself
 - practical simplification: if a browser-targeted package claim sounds like “browser support,” rewrite it as either **checkable** or **deployable-through-host** before deciding whether it is actually in scope
-- when package support wording is ambiguous, prefer naming the exact command/context and rung instead of saying only that a package is “supported in browser mode”
+- when package support wording is ambiguous, prefer naming the exact command/context and rung instead of saying only that a package is “supported in the browser-targeted context”
 
 This shorthand is only a triage aid. The full answer still uses one fixed decision order, always read against the published artifact Kali actually installs rather than against an upstream repo's source tree, build pipeline, or optional install-time side effects:
 

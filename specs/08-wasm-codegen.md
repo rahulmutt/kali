@@ -148,7 +148,7 @@ Illustrative artifact sets by valid build mode *(reading aid only; filenames are
 | C-ABI embedding build (`kali build --capi lib.ts`) | Phase 2 target | Basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) + `lib.wit` (`kind: wit`, `role: interface-wit`) + generated `lib.exports.h` (`kind: c-header`, `role: embedding-header`) + generated `lib.cabi.json` (`kind: cabi-metadata`, `role: embedding-metadata`). The generated exports header is distinct from the stable host ABI header `kali.h`. |
 | Component Model build (`kali build --component lib.ts`) | Phase 2 target | Basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) + `lib.wit` (`kind: wit`, `role: interface-wit`) + `lib.component.wasm` (`kind: wasm-component`, `role: primary-component`) |
 
-For invalid or unavailable combinations such as `--bundle` without browser mode, browser + library-oriented modes, or early `--api node`, follow the canonical validation/gating rules in [SPEC.md](../SPEC.md), [12 — CLI](12-cli.md), and [19 — Feature Maturity](19-feature-maturity.md) instead of reading this table as a second normative artifact-mode matrix.
+For invalid or unavailable combinations such as `--bundle` without an effective browser API surface, browser-targeted + library-oriented modes, or early `--api node`, follow the canonical validation/gating rules in [SPEC.md](../SPEC.md), [12 — CLI](12-cli.md), and [19 — Feature Maturity](19-feature-maturity.md) instead of reading this table as a second normative artifact-mode matrix.
 
 Availability reminder:
 - this table defines artifact **shapes** once a build mode is valid; it does not promote later build modes into earlier phases just because their `kind` / `role` pairs are documented here

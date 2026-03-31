@@ -215,7 +215,7 @@ Canonical rule:
 - when Kali emits browser-targeted artifacts, DOM/Web APIs come from the real browser host at deployment time; the browser host adapter is for runtime bootstrap plus Kali-mediated capability wiring, not a promise that every ambient browser API is individually wrapped by Kali
 - schema-v1 sandbox policies and stable effect reports still cover only the **Kali-mediated capability subset** from [SPEC.md](../SPEC.md): browser-targeted contexts keep only the documented **canonical browser-applicable mediated subset (schema v1)** — notably `effects.network.fetch` plus `effects.network.maxConnections`, `effects.timer.*`, `effects.random`, `effects.console`, and later `effects.eval` when enabled — while Deno/Node-only keys remain unavailable there
 - `--sandbox` on a browser-targeted build therefore follows the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md), not automatic post-deployment browser-permission enforcement by Kali itself
-- no Deno or Node globals are exposed in browser mode unless a later compatibility spec explicitly says so
+- no Deno or Node globals are exposed in the browser-targeted context unless a later compatibility spec explicitly says so
 - any lightweight DOM test shim is a separate testing utility, not part of the core browser compatibility contract
 
 This resolves a common ambiguity: browser-targeted analysis may know about `document`/`window`, while standalone execution still rejects browser-runtime assumptions because Kali does not embed a browser engine.
