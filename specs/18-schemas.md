@@ -19,6 +19,11 @@ Ownership rule:
 - [19 — Feature Maturity](19-feature-maturity.md) owns whether a command/profile is available in a given phase
 - [15 — Errors](15-errors.md) owns diagnostic-code meaning and error-boundary guidance
 
+JSON-model shortcut:
+- schema v1 later **native-JSON commands** are `kali effects` and `kali package-effects` once those commands are actually available in the current phase
+- schema v1 later **envelope-only JSON command** is `kali package-audit`; when it eventually ships, `--output json` exposes the standard command envelope with `payload: null` rather than a second audit-specific success payload
+- JSON selectors/output modes do **not** change feature maturity: read command shape from [12 — CLI](12-cli.md), availability from [19 — Feature Maturity](19-feature-maturity.md), and payload shape from this chapter
+
 ## Versioning Rules
 
 - Every top-level machine-readable **JSON** document carries `schemaVersion`
