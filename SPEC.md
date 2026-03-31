@@ -355,7 +355,9 @@ Shortcut:
 - if a change would alter what a release note could honestly claim, it is almost never a one-file edit
 - prefer this minimum update set over adding a second explanatory paragraph in a non-owning chapter
 
-## Support-Claim Reading Order
+## Support-Claim Authoring Checklist
+
+This writer-facing checklist complements the later reader-facing **Support-Claim Reading Order** section.
 
 To keep broad bootstrap asks from turning back into fuzzy “support” wording, any new support claim should answer these five questions explicitly before it lands in chapter prose, README summaries, or release notes:
 1. **Which command or artifact shape?**
@@ -1618,6 +1620,8 @@ Interpretation rules:
 Use this ladder when reading or editing any “support” claim in the spec set.
 
 ## Support-Claim Reading Order
+
+This reader-facing order pairs with the earlier **Support-Claim Authoring Checklist**.
 
 To keep feature claims short without making them ambiguous, interpret every “Kali supports X” statement in this order:
 
