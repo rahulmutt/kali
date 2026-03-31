@@ -2,7 +2,7 @@
 
 This document is the canonical matrix for features that are easy to describe inconsistently across architecture, runtime, package, and CLI specs.
 
-If another spec needs to mention one of these features, it should link here for phase/status rather than restating a different maturity decision. When another chapter talks about whether a request is supported yet, it should prefer the shared **availability context** term from [SPEC.md](../SPEC.md) instead of re-explaining the whole command/API-surface/runtime-profile/compatibility combination each time.
+If another spec needs to mention one of these features, it should link here for phase/status rather than restating a different maturity decision. When another chapter talks about whether a request is supported yet, it should prefer the shared **support-claim reading order** and **availability context** terms from [SPEC.md](../SPEC.md) instead of re-explaining the whole command/rung/API-surface/runtime-profile/compatibility combination each time.
 
 Status-label spelling rule:
 - docs should use the canonical labels from this chapter verbatim (`Phase 1 MVP`, `Phase 2 target`, `Phase 3 target`, `Phase 4 compatibility`, `Later compatibility`, `Opt-in only`, `Later compatibility (opt-in only)`, `Rejected by default`) rather than near-duplicates such as `later-compatibility`

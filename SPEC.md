@@ -2042,7 +2042,7 @@ This keeps manifest edits deterministic and AI-friendly while avoiding a second 
 
 ## Registry-Analysis Mutability/Version-Selection Reading Aid
 
-This is a non-normative reminder that points back to the earlier canonical **Registry-analysis project-independence rule** instead of redefining it with a second identical heading.
+This is a non-normative reminder that points back to the earlier canonical **registry-analysis independence split** instead of redefining it with a second identical heading.
 
 For `package-effects` and `package-audit` in schema v1:
 - version selection follows the **stable-release selection rule (schema v1)**,
