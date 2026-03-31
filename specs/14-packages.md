@@ -36,6 +36,13 @@ This shorthand is only a triage aid. The full answer still uses one fixed decisi
 | 3. command maturity | Is the requested command/context actually shipped for that host/API combination? | for example, browser-targeted `check` / `build --bundle` are in scope, but standalone browser `run` / `test` are not |
 | 4. claimed support rung | Are you claiming `installable/materializable`, `checkable`, `buildable`, `executable`, or `deployable-through-host`? | name the rung explicitly instead of saying only “supported” |
 
+Canonical answer template:
+- prefer answering package-support questions in one sentence using this order: **`<package>` is `<rung>` for `<command/context>` because it `<does/does not>` fit the package-shape and host/API requirements.**
+- examples:
+  - `lodash` is **executable** for `kali run` in the default Deno-oriented standalone context because its published package stays inside the pure JS/TS contract and does not require broader Node-only host APIs.
+  - a browser-only UI helper may be **checkable** and **deployable-through-host** for browser-targeted `check` / `build --bundle`, while still not being standalone-browser **executable** in Kali itself.
+  - a package with N-API bindings is **rejected by default** in Phase 1 because it falls outside the pure JS/TS package contract before command maturity is even considered.
+
 Compact workflow comparison:
 
 | Workflow bucket | Primary question | Mutates manifest/lock/materialized state? | Context participation |

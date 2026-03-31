@@ -2,7 +2,7 @@
 An ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembly, designed for sandboxed execution, strong static analysis, and AI-friendly tooling.
 
 ## Read this repo in the right order
-- [`BOOTSTRAP.md`](./BOOTSTRAP.md) — original input brief
+- [`BOOTSTRAP.md`](./BOOTSTRAP.md) — original input brief and background, not the post-normalization source of truth
 - [`SPEC.md`](./SPEC.md) — normalized cross-spec rules and shared terminology
 - [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) — what is actually shipped in each phase
 - owning chapter in [`specs/`](./specs) — subsystem details
@@ -64,6 +64,12 @@ Examples:
 Rule of thumb:
 - read **shape** from the owning chapter
 - read **availability** from [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
+
+Quick support-answer formula:
+- **command/artifact** → what exact thing is being asked for?
+- **context** → which effective `apiSurface` / runtime-profile / compatibility setting applies?
+- **rung** → is the claim about `installable/materializable`, `checkable`, `buildable`, `executable`, or `deployable-through-host`?
+- **phase** → confirm it in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) before treating it as shipped
 
 ## Repository posture
 This repository is currently spec-first:

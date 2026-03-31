@@ -21,6 +21,19 @@ Practical simplification:
 - `--capi` and `--component` then project/package that same **statically known export surface** for specific host interop workflows rather than redefining what the library exports mean
 - Component Model packaging remains an explicit `--component` choice rather than an implicit default for every public library build; the default stable public library path is plain `--lib` + WIT
 
+Consumer lanes at a glance:
+
+| Consumer type | Phase-1 `--lib` base artifact | Phase-2 public embedding surface |
+|---|---|---|
+| Repository-local tooling / pinned host integration | Yes, as an **exact-version consumer** | Yes |
+| Independently versioned public host loading | No | Yes, once the public contract is frozen |
+| Stable Rust embedding API consumers | No stable public API yet | Yes |
+| Stable C ABI / Component Model consumers | No | Yes via `--capi` / `--component` |
+
+Reading shortcut:
+- if the consumer pins the exact producing Kali toolchain/runtime and upgrades with it, the Phase-1 **base library artifact** is in scope
+- if the consumer expects a stable cross-version contract or a language-neutral public ABI, wait for the Phase-2 **public embedding surface**
+
 Artifact-progression shorthand:
 - `--lib` is the earliest export-oriented build path: Phase 1 emits the core `wasm-module` only, and Phase 2 keeps the same selector but adds the stable default WIT sidecar.
 - `--capi` is not a second export model; it is the Phase-2 C-facing projection of that same **statically known export surface** (`wasm-module` + `wit` + generated exports header + C-ABI metadata).
@@ -95,7 +108,7 @@ Kali is designed to be used as a Rust library, similar to Deno's embedding API, 
 
 Availability rule:
 - the Rust embedding API described in this section is the intended **Phase 2 public surface**
-- Phase 1 may already have internal reusable crates and unstable embedding helpers, but those do **not** yet count as the stable public Rust API promised by the maturity matrix
+- Phase 1 may already have internal reusable crates, exact-version-consumer flows, and unstable embedding helpers, but those do **not** yet count as the stable public Rust API promised by the maturity matrix
 
 ### Core API
 The API below describes the intended stable shape for the Phase 2 public surface; earlier internal versions may differ.

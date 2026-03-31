@@ -35,6 +35,9 @@ Current repository status rule:
 - in that placeholder state, repository summaries should reuse the canonical short summary from `proofs/BOUNDARY.md` verbatim: **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
 - [19 — Feature Maturity](19-feature-maturity.md) makes the same guardrail explicit: proof-backed release/support claims while the published boundary is still empty are **Rejected by default**
 
+Copy-paste wording shortcut:
+- when a summary needs one sentence about current verification status, use the manifest's canonical short summary verbatim rather than paraphrasing it into a second near-duplicate status line
+
 Claim-reading shortcut:
 - to answer **what proof coverage is claimed today**, read `proofs/BOUNDARY.md` first
 - to answer **what Phase 1 must guarantee**, read this chapter's **proof-ready vs proof-backed** split together with [19 — Feature Maturity](19-feature-maturity.md)
