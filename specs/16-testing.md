@@ -21,7 +21,7 @@ End-to-end tests in `tests/`:
 - Source file → compile → execute → check output
 - Source file → compile → check errors
 - Plain `.js` source → check/build/run across representative inference tiers → confirm the shared **first-class JavaScript compilation** contract: precise local inference when cheap, conservative `unknown`/union/dynamic fallbacks when needed, and no silent invention of fresh `any`
-- Source file → effects analysis → check effect-report JSON output and the one-root explicit-input contract for `kali effects <file>` *(Phase 2 target; this belongs to the shared **public effect-report surface** from [SPEC.md](../SPEC.md), so earlier phases should assert that the command is unavailable or explicitly experimental even if internal effect bookkeeping tests already exist)*
+- Source file → effects analysis → check effect-report JSON output and the one-root explicit-input contract for `kali effects <file>` *(Phase 2 target; this belongs to the shared **public effect-report surface** from [SPEC.md](../SPEC.md), so earlier phases should assert that the command is unavailable even if internal effect bookkeeping tests already exist)*
 - Source file + policy → `kali run --sandbox` / `kali test --sandbox` → check runtime enforcement result *(Phase 1 MVP runtime-enforcement owner)*
 - Source graph + policy → the shared **Phase-1 static policy-validation surface** → check static policy-schema/config validation result *(Phase 1 MVP static-policy-validation owner; Phase 2 target adds inferred effect-vs-policy rejection on those same command paths rather than a second dry-run workflow)*
 - Test source set → `kali test [files...]` / `kali test --filter ...` → correct discovery-vs-explicit-file selection behavior, stable post-selection filtering, and expected invalid-entrypoint rejection for declaration-only test inputs
@@ -32,7 +32,7 @@ End-to-end tests in `tests/`:
 ### Phase-Correct Testing Rule
 To keep tests from accidentally widening support claims, the repository should treat each workflow family according to its phase owner:
 - **Phase 1-shipped workflows** must have positive integration coverage for their supported command/context combinations.
-- **Later documented workflows** may already have schemas, CLI spellings, fixtures, or experimental plumbing, but CI should assert unavailability/gating until their maturity rows open.
+- **Later documented workflows** may already have schemas, CLI spellings, fixtures, or internal plumbing, but CI should assert unavailability/gating until their maturity rows open.
 - **Internal-only machinery** (for example Phase-1 effect bookkeeping) should be tested through unit/integration helpers without being mislabeled as the stable public CLI/API surface.
 
 Practical shortcut:
@@ -184,7 +184,7 @@ Kali's own test runner for discovered test files, supporting:
 - declaration-only files are excluded from test discovery even if they match the naming pattern
 - explicit file arguments to `kali test` bypass the naming-pattern discovery filter and are treated as one explicit test-module set, but they must still belong to that same shared source-file class; passing a declaration-only file is the canonical invalid-entrypoint error (`E5007`) rather than a silent skip
 - `--filter` should be tested as a post-selection narrowing step over both discovered tests and explicit test-module sets so it cannot drift into a second discovery mode
-- coverage reporting is a **Phase 2 target** so Phase 1 may reject `--coverage` or mark it experimental until the report contract is stabilized
+- coverage reporting is a **Phase 2 target** so Phase 1 should reject `--coverage` until the report contract is stabilized
 - `describe`, `it`, `test` blocks
 - `expect` assertions
 - `beforeEach`, `afterEach`, `beforeAll`, `afterAll`

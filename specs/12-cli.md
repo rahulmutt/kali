@@ -160,7 +160,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--fix` | `lint` | Apply only structured, tool-generated safe fixes for lint diagnostics in the selected file/project set |
 | `--check` | `fmt` | Report formatting drift without rewriting files |
 | `--filter <pattern>` | `test` | Run only matching tests |
-| `--coverage` | `test` | Emit test coverage data once the coverage report contract is stabilized; before then this flag is phase-gated or explicitly experimental |
+| `--coverage` | `test` | Emit test coverage data once the coverage report contract is stabilized; before then this flag is phase-gated |
 | `--dev` | `install` | Add the named registry dependency to `devDependencies` instead of `dependencies` |
 | `--allow-scripts` | `install` | Opt into the schema-v1 **install-time npm-package hook path** for that install invocation only; meaningful only when the invocation has non-empty **effective npm-scriptable install work** from [SPEC.md](../SPEC.md) |
 
@@ -402,7 +402,7 @@ Checker diagnostics may still carry structured `SuggestedFix` metadata for edito
 ### `kali effects <file>`
 Output static effect analysis as JSON.
 
-Status: Phase 2 target. This section documents a **defined command family** in schema v1; in Phase 1 the command may still be unavailable or explicitly marked experimental while the internal effect infrastructure stabilizes. JSON-formatting selectors do not create an earlier path: before the command itself ships, `kali effects --pretty ...`, `kali effects --output json ...`, and `kali effects --pretty --output json ...` stay on the same base command gate as plain `kali effects ...`.
+Status: Phase 2 target. This section documents a **defined command family** in schema v1; in Phase 1 the command remains unavailable while the internal effect infrastructure stabilizes. JSON-formatting selectors do not create an earlier path: before the command itself ships, `kali effects --pretty ...`, `kali effects --output json ...`, and `kali effects --pretty --output json ...` stay on the same base command gate as plain `kali effects ...`.
 ```bash
 kali effects main.ts                       # Compact effect report JSON to stdout (default API surface: deno)
 kali effects --api browser main.ts         # Browser-targeted effect analysis once the Phase 2 command exists

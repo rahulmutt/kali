@@ -605,7 +605,7 @@ Registry-analysis cache rule:
 - cache identity is keyed by at least the canonical registry identifier plus the resolved concrete version
 - `package-effects` also keys on the **inherited analysis context** so distinct inherited analysis modes cannot collide accidentally, while early context-free `package-audit` does not add those inherited axes to the cache key
 
-`kali package-effects` remains clearly unavailable or explicitly experimental until the shared effect-report pipeline lands; it should not return a partial bespoke format before then.
+`kali package-effects` remains clearly unavailable until the shared effect-report pipeline lands; it should not return a partial bespoke format before then.
 
 Package-effects rule:
 - `kali package-effects <pkg>` should reuse the same effect vocabulary, conservative-upper-bound interpretation, and `dynamicReasons` contract as `kali effects`
