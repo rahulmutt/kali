@@ -61,7 +61,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | Registry-analysis commands (`package-effects`, `package-audit`) | command-shape/arity negatives, deterministic single-package version-selection tests, context-participation tests (`package-effects` inherited analysis context vs `package-audit` context-free behavior), and JSON-contract assertions for native-JSON vs envelope-only output |
 | CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |
 | Artifact reproducibility | repeated-build tests over pinned inputs/toolchains + normalized artifact-byte comparisons + stable emitted-metadata assertions |
-| Proof-backed claims | passing Lean proof jobs for the currently modeled subset, scoped by the published **proof-boundary manifest** and the shared **proof-ready vs proof-backed split**; Phase 1 may be merely **proof-ready** earlier, but proof-backed release claims require a non-empty published boundary with named theorem/property claims |
+| Proof-backed claims | passing Lean proof jobs for the current published proof boundary, scoped by the published **proof-boundary manifest** and the shared **proof-ready vs proof-backed split**; Phase 1 may be merely **proof-ready** earlier, but proof-backed release claims require a non-empty published boundary with named theorem/property claims |
 
 Interpretation rule:
 - a feature can stay listed as a future phase target before these tests exist
@@ -213,8 +213,8 @@ Current spec-first repo baseline:
 Proof-job consistency rule:
 - Lean verification is **not** an all-or-nothing claim that the whole language/runtime is already modeled.
 - CI should follow the published proof state in `proofs/BOUNDARY.md`: while the boundary is empty, proof CI is required for changes under `proofs/`; once the manifest names covered Rust/spec subsystems, the proof job also runs for changes to those covered areas.
-- Changes outside that modeled subset do not need to block on unrelated proof jobs, but they still must not weaken the documented proof boundary accidentally.
-- A release should not treat a still-empty published proof boundary as evidence of shipped proof coverage; proof-backed release claims require a concrete modeled subset and theorem inventory.
+- Changes outside that published boundary do not need to block on unrelated proof jobs, but they still must not weaken the documented proof boundary accidentally.
+- A release should not treat a still-empty published proof boundary as evidence of shipped proof coverage; proof-backed release claims require a concrete published boundary with named theorem/property claims.
 
 ### Test Data
 Current-state clarification:

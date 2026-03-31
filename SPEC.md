@@ -49,7 +49,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Registry audit | `kali package-audit` is a separate context-free registry-analysis/security-audit workflow and remains later compatibility |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, no implicit dependency repair outside `kali install`, opt-in npm lifecycle scripts only via `kali install --allow-scripts`, coverage across the Deno-first standalone path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib` for **exact-version consumers** in the shared **Deno-oriented build context (schema v1)**, and only when frontend lowering can determine a **statically known export surface**; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public **WIT-first** `--lib` contract, with `--capi` and `--component` as explicit projections/packaging flows over that same export surface |
-| Formal verification | Phase-1 **proof-ready** repository baseline: published **proof-boundary manifest** plus the proof-CI trigger policy for the currently modeled subset; the modeled subset may still be empty while Kali is only **proof-ready**, and no proof-backed release/support claims may extend beyond the published boundary |
+| Formal verification | Phase-1 **proof-ready** repository baseline: published **proof-boundary manifest** plus the proof-CI trigger policy for the current published proof boundary; that boundary may still be empty while Kali is only **proof-ready**, and no proof-backed release/support claims may extend beyond the published boundary |
 | Tooling | Deno-inspired CLI workflow, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports, and minimal `init` / `init --lib` scaffold contracts that do not blur into install/materialization |
 
 Use this table as a reading aid only. Detailed behavior still belongs to the owning chapters and the maturity matrix.
@@ -888,7 +888,7 @@ Rules:
 
 ### Proof-ready vs proof-backed split
 Kali keeps one explicit split between **being proof-ready** and **advertising proof-backed support**:
-- **proof-ready state** — `proofs/BOUNDARY.md` exists and truthfully declares the currently modeled proof boundary
+- **proof-ready state** — `proofs/BOUNDARY.md` exists and truthfully declares the current published proof boundary
 - **proof-backed support state** — release notes or support claims actively rely on formal verification as shipped evidence for some Kali behavior
 - **placeholder proof-boundary manifest** — a published **proof-boundary manifest** whose modeled boundary is still empty; this is acceptable for the **proof-ready state**, but not for **proof-backed support state** claims
 
