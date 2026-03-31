@@ -110,7 +110,7 @@ the user can exercise at least one new capability.
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 1.14 | [Evidence Hardening](plan/phase-1/14-evidence-hardening.md) | Conformance suite, package corpus, browser smoke tests, determinism checks, proof-ready baseline |
+| 1.14 | [Evidence Hardening](plan/phase-1/14-evidence-hardening.md) | Conformance suite, package corpus, browser smoke tests, determinism checks, proof-ready baseline and proof-ready CI pipeline |
 
 ### Phase 1 parallelism
 
@@ -191,15 +191,17 @@ monomorphization work is a prerequisite for the full layout-specialization benef
 | Spec chapter | Plan stage | Key deliverable |
 |---|---|---|
 | [`05 — IR`](./specs/05-ir.md) | 3.1 | Layout specialization via MIR layout descriptors |
-| [`07 — Specialisation`](./specs/07-specialization.md) | 3.1 | Monomorphisation; `--release` / `--release-advanced` optimization passes |
-| [`08 — WASM Codegen`](./specs/08-wasm-codegen.md) | 3.3 | Code splitting; tree-shaking; dynamic `import()` bundle boundaries |
-| [`11 — Standard APIs`](./specs/11-standard-apis.md) | 3.2 | Node compatibility surface; common Node built-ins |
-| [`14 — Packages`](./specs/14-packages.md) | 3.2, 3.3 | Broader npm corpus; Node-assuming package support |
+| [`07 — Optimization & Specialization`](./specs/07-specialization.md) | 3.1 | Monomorphisation; `--release` / `--release-advanced` optimization passes |
+| [`08 — WASM Code Generation`](./specs/08-wasm-codegen.md) | 3.3 | Code splitting; tree-shaking; dynamic `import()` bundle boundaries |
+| [`10 — Runtime`](./specs/10-runtime.md) | 3.2 | Node compatibility surface; common Node built-ins |
+| [`11 — Standard APIs`](./specs/11-standard-apis.md) | 3.2 | Node compatibility surface; broader Node built-ins |
+| [`12 — CLI`](./specs/12-cli.md) | 3.2 | CLI flag wiring for `--api node` command path |
+| [`14 — Package Management`](./specs/14-packages.md) | 3.2, 3.3 | Broader npm corpus; Node-assuming package support |
 | [`19 — Feature Maturity`](./specs/19-feature-maturity.md) | all | Phase-3 maturity rows open |
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 3.1 | [Optimization and Specialization](plan/phase-3/01-specialization-and-optimization.md) | `--release` and `--release-advanced` produce measurably faster WASM; monomorphization pipeline stable; incremental compilation reduces rebuild times |
+| 3.1 | [Optimization & Specialization](plan/phase-3/01-specialisation-and-optimisation.md) | `--release` and `--release-advanced` produce measurably faster WASM; monomorphization pipeline stable; incremental compilation reduces rebuild times |
 | 3.2 | [Node Compatibility](plan/phase-3/02-node-compatibility.md) | `--api node` command path supported; broader Node built-ins available; Node-assuming packages executable |
 | 3.3 | [Ecosystem Breadth](plan/phase-3/03-ecosystem-breadth.md) | Incremental compilation; broader npm / JSR package corpus; open-ended cross-module constraint solving for the bounded inference contract |
 
@@ -271,5 +273,5 @@ rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are upd
   - Command shape consistency — CLI subcommand definitions and flags must align across parallel
     development streams
 * **Spec chapter alignment.** References to spec chapters should use the exact chapter headings
-  from [`specs/`](./specs/) (e.g., "Optimization & Specialization", "Package Management", etc.)
+  from [`specs/`](./specs/) (e.g., "Optimization & Specialization", "Package Management", "WASM Code Generation", etc.)
   to ensure consistent navigation across documents.
