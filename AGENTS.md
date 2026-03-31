@@ -5,14 +5,74 @@
 
 # Development Methodology
 
-## Phased Implementation
-Kali follows a strict phased implementation strategy. Each phase must leave the project in a **workable state**:  
-1. **Compiles** — `cargo build` succeeds with no warnings that would block merge
-2. **Passes tests** — Existing test suite passes (`cargo test --workspace`)
-3. **Provides end-user value** — At least one new capability is demonstrable via CLI
-4. **Maintains invariants** — AOT-only, pure Rust, no tracing GC, sandbox-first, deterministic
+## Document Roles: SPEC.md vs PLAN.md
 
-**Critical path awareness**: Within Phase 1, stages 1.1–1.8 form the critical path that must complete before 1.9–1.14 begin. Parallel development (stages 1.9–1.14) requires coordination on shared schemas and diagnostics.
+**Understand these two documents first** - they serve distinctly different purposes:
+
+### [`SPEC.md`](./SPEC.md) — The Normative Spec Set
+**Purpose:** The authoritative source of truth for Kali's design and behavior.
+
+**What it owns:**
+- Cross-spec normalization rules and shared vocabulary
+- Phase-1 explicit non-goals and guardrail splits
+- Bootstrap → Phase contract normalization (maps BOOTSTRAP.md aspirations to concrete promises)
+- Feature maturity matrix and phase contracts
+- Every subsystem's concrete ownership (chapters 01-19)
+- Verification boundary discipline
+
+**When to read SPEC.md:**
+- For cross-spec terminology or conflict resolution
+- To determine whether a claim is a hard invariant vs. phase contract vs. phase-gated target
+- For the canonical "whether supported yet" answer (followed by 19-feature-maturity)
+- When editing introduces new shared terms or command families
+
+**Reading shortcut:** `SPEC.md` defines **what Kali is and what phases it promises**. Chapters reference this for normalization rules.
+
+---
+
+### [`PLAN.md`](./PLAN.md) — The Implementation Playbook
+**Purpose:** A concrete, incrementally workable sequence for implementing the spec.
+
+**What it owns:**
+- Mapping from spec phases to 20 concrete stage documents
+- Recommended engineering order (may differ from spec's theoretical order for workability)
+- Workable milestones for each stage
+- Parallel development opportunities within phases
+- Critical path dependencies between stages
+- Completion gates for each phase
+
+**When to read PLAN.md:**
+- Before implementing a stage: understand the workable milestone and dependencies
+- Before starting parallel development: check if you're safe to proceed
+- To understand the "why" behind stage ordering (e.g., packages after execution for workability)
+- To find stage documents with specific implementation tasks
+- For phase completion gates and evidence requirements
+
+**Reading shortcut:** `PLAN.md` defines **how to get Kali implemented**. It translates speculative promises into concrete engineering steps.
+
+---
+
+### How They Work Together
+
+```
+BOOTSTRAP.md (raw goals)
+        ↓
+SPEC.md (normalization → phase contracts)
+        ↓
+PLAN.md (implementation stages → workable milestones)
+```
+
+**Practical workflow:**
+1. A bootstrap ask needs translation → Check SPEC.md for normalization rules and owning chapters
+2. Need to implement a feature → Find corresponding stage in PLAN.md for tasks and milestones
+3. Unclear about whether something is Phase 1 or later → Read 19-feature-maturity in SPEC.md (PLAN.md does not override this)
+4. Planning parallel work → Check PLAN.md stage dependencies, ensure SPEC.md contracts stay intact
+
+**Key distinction:**
+- SPEC.md may define command shapes "early" for stability (before they ship)
+- PLAN.md tracks actual implementation sequencing (not all documented commands are Phase 1)
+- Neither document overrides [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) for actual availability
+- Never let early documentation imply earlier shipping than maturity matrix permits
 
 ## Hard Invariants - Never Compromise
 These invariants must hold across all phases. They may deepen but never bend:
