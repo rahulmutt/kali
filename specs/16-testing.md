@@ -57,6 +57,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | The **Phase-1 browser-targeted command set** | browser-targeted `check` tests + browser-targeted `build --bundle` tests + emitted-bundle smoke runs in a real browser harness |
 | Base library/export artifact support (`kali build --lib`) | library-build integration tests + artifact-manifest/schema assertions + deterministic rebuild checks |
 | Package compatibility | curated package corpus results recorded per shipped source-graph command/context **and per claimed rung of the shared package-support ladder** from [SPEC.md](../SPEC.md) (for example standalone `check` / `build` / `run` / `test`, plus browser-targeted `check` / `build --bundle` when those package claims are made) |
+| Registry-analysis commands (`package-effects`, `package-audit`) | command-shape/arity negatives, deterministic single-package version-selection tests, context-participation tests (`package-effects` inherited analysis context vs `package-audit` context-free behavior), and JSON-contract assertions for native-JSON vs envelope-only output |
 | CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |
 | Artifact reproducibility | repeated-build tests over pinned inputs/toolchains + normalized artifact-byte comparisons + stable emitted-metadata assertions |
 | Proof-backed claims | passing Lean proof jobs for the currently modeled subset, scoped by the published **proof-boundary manifest** and the shared **proof-ready vs proof-backed split**; Phase 1 may be merely **proof-ready** earlier, but proof-backed release claims require a non-empty published boundary with named theorem/property claims |
@@ -66,6 +67,7 @@ Interpretation rule:
 - but the spec set should only describe the feature as **supported** once the matching evidence track is in place and runs in CI
 - grammar-coverage claims and semantic-support claims are intentionally separate: accepting syntax from the latest ECMA-262 edition is not, by itself, evidence that every such construct already executes in every Kali mode
 - one passing demo or anecdotal package success is useful for exploration, but it is not enough to upgrade the canonical maturity wording
+- evidence for later single-package registry-analysis commands is separate from package-corpus evidence for ordinary project/source-graph command support; a good `package-effects` or `package-audit` test lane does **not** by itself prove that the same package is runnable in Kali-hosted `run` / `test`
 
 #### ECMAScript (test262)
 Run against the [test262](https://github.com/tc39/test262) conformance suite:

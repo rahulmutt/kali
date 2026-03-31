@@ -364,6 +364,10 @@ To keep broad bootstrap asks from turning back into fuzzy “support” wording,
 Practical rule:
 - if a sentence cannot answer those five questions cheaply, it is probably too vague to be normative and should be rewritten or moved behind a cross-reference.
 
+Preferred one-line support template:
+- **`<thing>` is `<rung>` for `<command/artifact>` in `<effective context>` starting in `<phase/status>` because `<package/API/artifact fit>`; evidence belongs to `<testing/proof track>`.**
+- reuse this when summarizing browser support, package support, embedding support, or verification support so broad bootstrap asks do not collapse back into one vague “supported” sentence.
+
 ## Cross-Spec Simplification Rules
 
 To keep the spec set implementable and reduce drift between chapters, Kali intentionally standardizes on a few cross-cutting simplifications:

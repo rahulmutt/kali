@@ -54,10 +54,12 @@ Promotion rule:
   - language/runtime semantics → conformance + integration coverage
   - type-system behavior → checker/inference baselines
   - package compatibility → curated package corpus results for the claimed source-graph command/context combinations **and the claimed rung of the shared package-support ladder** from [SPEC.md](../SPEC.md) (including browser-targeted `check` / `build --bundle` when those package claims are made)
+  - registry-analysis commands (`package-effects`, `package-audit`) → command-shape/arity negatives, deterministic single-package version-selection tests, context-participation assertions, and JSON-contract coverage for native-JSON vs envelope-only output
   - host/runtime APIs → integration + sandbox/resource-limit coverage
   - the shared **Phase-1 browser-targeted command set** → browser-targeted `check` tests + browser-targeted `build --bundle` tests + emitted-bundle smoke runs in a real browser harness
   - CLI/JSON contracts → golden/snapshot/schema tests
 - isolated demos or one package anecdote do **not** by themselves justify raising a feature's maturity wording
+- likewise, later `package-effects` / `package-audit` coverage does **not** by itself justify broader package-compatibility wording for ordinary source-graph commands such as `check`, `build`, `run`, or `test`
 
 Verification-baseline clarification:
 - the Phase-1 **proof-ready** baseline is intentionally a repository/process claim first, not automatically a claim that hosted proof automation already exists
