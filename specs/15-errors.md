@@ -102,6 +102,18 @@ Terminology note:
 - `E5010`: Invalid sandbox policy file
 - `E5011`: Cannot determine a statically known export surface for a library-oriented build
 
+Quick boundary table for the most common E5xxx choice:
+
+| If the problem is primarily... | Use | Why |
+|---|---|---|
+| missing/stale lock/materialized dependency state | `E5004` | install/materialization state is missing or out of sync |
+| a real documented feature/profile/context that exists in the spec but is unavailable here | `E5006` | this is availability gating, not malformed usage |
+| the supplied primary input kind is wrong for an otherwise valid command shape | `E5007` | this is an input-kind mismatch |
+| CLI/config usage shape is contradictory or malformed before a meaningful availability check | `E5008` | this is command-shape/arity/output-mode misuse |
+| `kali.json` itself is malformed or semantically invalid | `E5009` | config schema/content failure |
+| `kali.policy.json` itself is malformed or semantically invalid | `E5010` | policy schema/content failure |
+| a library-oriented build is otherwise valid but Kali cannot prove one fixed export surface | `E5011` | export-surface determination failure |
+
 Use `E5004` for dependency-state problems such as:
 - project dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports from the install-time project discovery set) have not been installed/materialized yet
 - `kali.lock`, `node_modules/`, or `.kali/cache/urls/` is missing/stale for the dependency kinds the project uses
