@@ -544,7 +544,7 @@ Boundary rule:
 - follow the shared **workflow-owner split** from [SPEC.md](../SPEC.md): `kali install --allow-scripts` stays an install-time hook path only and does not become a second runtime/effect/policy workflow
 - read package support through the shared **published-artifact-first package reading** from [SPEC.md](../SPEC.md): the presence of a repository build pipeline or optional lifecycle metadata does not by itself make a package unsupported if the published artifact Kali installs already contains the ordinary JS/TS files it needs
 - `--allow-scripts` selects the schema-v1 **install-time npm-package hook path** from [SPEC.md](../SPEC.md), not a runtime/API-surface feature
-- plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; an explicit npm target such as `kali install --allow-scripts lodash` is the canonical valid shape, while a URL-only, JSR-only, clean already-synchronized, or otherwise no-npm-scriptable install graph should fail with `E5008` instead of silently degenerating into plain `install`
+- plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; an explicit npm target such as `kali install --allow-scripts lodash` is the canonical valid shape, and when that install work is empty the flag should fail with `E5008` instead of silently degenerating into plain `install`
 - that install work is **invocation-scoped**: it covers only the npm package work the current install actually reconciles in a lifecycle-hook-relevant way, including any directly requested npm target and any transitively touched npm dependencies in the same invocation
 - a clean no-op install therefore keeps that install work empty even if the project already depends on npm packages; `--allow-scripts` does not ask Kali to re-run lifecycle hooks just because npm dependencies exist in the lockfile
 - pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
@@ -556,7 +556,7 @@ Boundary rule:
 kali install lodash                        # Add/install registry dependency from npm
 kali install jsr:@std/path                 # Add/install registry dependency from JSR
 kali install                               # Materialize all declared dependencies for the project
-kali install --allow-scripts               # Permit lifecycle hooks only when this invocation actually has effective npm-scriptable install work; otherwise invalid usage (E5008)
+kali install --allow-scripts               # Permit lifecycle hooks only when this invocation actually has effective npm-scriptable install work; if that work is empty, this is invalid usage (E5008)
 kali install --dev vitest                  # Add/install dev dependency
 kali install --allow-scripts lodash        # Opt into lifecycle scripts for one npm package install; invalid for explicit `jsr:` or raw-URL targets; still not a promise that the excluded native/binary/bootstrap-heavy package contract is supported
 kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency

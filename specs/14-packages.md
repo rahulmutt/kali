@@ -363,7 +363,7 @@ Canonical `--allow-scripts` triage:
 |---|---|---|
 | `kali install --allow-scripts lodash` (or another explicit npm target) | Valid opt-in path | The invocation has non-empty **effective npm-scriptable install work** if it reaches the normal npm install path |
 | plain `kali install --allow-scripts` with non-empty **effective npm-scriptable install work** in the shared **install-time declaration graph** | Valid opt-in path | Hooks may run only for the npm subset the current install actually reconciles |
-| plain `kali install --allow-scripts` when that effective npm install work is empty | Invalid usage (`E5008`) | The flag must not silently degenerate into plain `install` on a clean/no-npm-work graph |
+| plain `kali install --allow-scripts` when that effective npm install work is empty | Invalid usage (`E5008`) | The flag must not silently degenerate into plain `install` when the current invocation has no hook-relevant npm work |
 | `kali install --allow-scripts jsr:@std/path` | Invalid usage (`E5008`) | JSR packages do not participate in npm lifecycle-script execution in schema v1 |
 | `kali install --allow-scripts https://...` | Invalid usage (`E5008`) | Raw URLs do not expose an npm lifecycle-script surface |
 | mixed install work (npm + JSR and/or raw URLs) | Valid, but npm-only hook execution | Lifecycle scripts may run only for the npm install-work subset while the rest stays on the normal script-free path |
