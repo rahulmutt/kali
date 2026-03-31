@@ -122,6 +122,9 @@ Within Phase 1 the following parallel opportunities exist:
   the runtime-enforcement portion of 1.9 once 1.8 is complete, since neither stage depends on
   the other.
 - **1.12 and 1.13** are largely independent and may be worked on in parallel once 1.11 is complete.
+- **1.14 evidence infrastructure** (conformance test harness, corpus CI scaffolding) may be
+  set up in parallel with 1.12–1.13 once 1.11 is complete; the evidence-hardening *runs* still
+  require all prior stages to be complete before sign-off.
 
 All other Phase 1 stages should be treated as sequential unless noted above.
 
@@ -137,11 +140,13 @@ by a passing evidence track from stage 1.14.
 
 Goal: MIR-backed memory management with deterministic ownership/escape analysis; the stable public
 effect-report surface (`kali effects`, `kali package-effects`); compile-time inferred-effect-vs-policy
-validation; and the stable public embedding surface (Rust API, WIT-first `--lib`, `--capi`,
-`--component`).
+validation; the stable public embedding surface (Rust API, WIT-first `--lib`, `--capi`,
+`--component`); and the Lean 4 core-type-calculus model that begins the formal verification
+programme.
 
-Stages 2.2 and 2.3 both depend on the MIR pipeline from 2.1; they can proceed in parallel once
-2.1 is complete.
+Stages 2.2, 2.3, and 2.4 all depend on the MIR pipeline from 2.1 (2.4's memory-safety proof
+work requires 2.1; its type-calculus and type-soundness work can proceed in parallel with 2.1
+once Phase 1 is complete). Stages 2.2 and 2.3 can proceed in parallel once 2.1 is complete.
 
 ### Spec chapter mapping
 
@@ -151,6 +156,7 @@ Stages 2.2 and 2.3 both depend on the MIR pipeline from 2.1; they can proceed in
 | [`06 — Memory Management`](./specs/06-memory.md) | 2.1 | Escape analysis; deterministic ownership classes (`stack`, `owned heap`, `shared heap`, `borrowed`) |
 | [`09 — Sandboxing & Effects`](./specs/09-sandboxing.md) | 2.2 | Public effect-report surface (reporting half + policy-comparison half) |
 | [`13 — Embedding, WIT & C ABI`](./specs/13-embedding.md) | 2.3 | Stable Rust embedding API; WIT-first `--lib`; `--capi`; `--component` |
+| [`17 — Formal Verification`](./specs/17-verification.md) | 2.4 | Lean 4 workspace; core type-calculus model; progress + preservation proved; real CI proof jobs |
 | [`19 — Feature Maturity`](./specs/19-feature-maturity.md) | all | Phase-2 maturity rows open |
 
 | Stage | Document | Workable milestone |
@@ -158,13 +164,15 @@ Stages 2.2 and 2.3 both depend on the MIR pipeline from 2.1; they can proceed in
 | 2.1 | [MIR & Ownership Analysis](plan/phase-2/01-mir-and-ownership.md) | MIR is the canonical mid-stage; escape analysis drives stack/heap/shared decisions |
 | 2.2 | [Public Effect Reporting](plan/phase-2/02-public-effect-reporting.md) | `kali effects <file>` and `kali package-effects <pkg>` emit stable JSON; `check/build --sandbox` adds inferred-effect-vs-policy rejection |
 | 2.3 | [Public Embedding Surface](plan/phase-2/03-public-embedding-surface.md) | Stable Rust embedding API; WIT sidecar on `--lib`; `--capi` and `--component` artifact modes |
+| 2.4 | [Lean Model Foundation](plan/phase-2/04-lean-model-foundation.md) | Core type calculus modelled in Lean 4; progress + preservation proved; CI runs real Lean jobs |
 
 ### Phase 2 completion gate
 
-Phase 2 is complete when stages 2.1–2.3 have passed their Definitions of Done, the public
-effect-report surface and public embedding surface are stable (stable semver published), and the
-Phase-2 maturity rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are
-updated to reflect passing evidence.
+Phase 2 is complete when stages 2.1–2.4 have passed their Definitions of Done, the public
+effect-report surface and public embedding surface are stable (stable semver published), the Lean
+type-soundness proof is in CI, and the Phase-2 maturity rows in
+[`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated to reflect passing
+evidence.
 
 ---
 
@@ -174,7 +182,7 @@ Goal: generic/function/layout specialisation at compile time; stronger optimisat
 incremental compilation; broader npm/Node compatibility beyond the Phase-1 pure-JS/TS baseline;
 and broader browser packaging.
 
-Stages 3.2 and 3.3 can be developed in parallel with 3.1 once Phase 1 is complete; 3.1's
+Stages 3.2 and 3.3 can be developed in parallel with 3.1 once Phase 2 is complete; 3.1's
 monomorphisation work is a prerequisite for the full layout-specialisation benefits in 3.3.
 
 ### Spec chapter mapping
@@ -209,11 +217,11 @@ evidence.
 Goal: hardest dynamic features (`eval`, `Function()`, non-literal dynamic imports); deeper API
 coverage; and proof-backed release claims with a non-empty published Lean boundary.
 
-Stage 4.2 (formal verification) can be started in parallel with earlier phases — the Lean model
-can be developed alongside the implementation, but **proof-backed** claims require a non-empty
-published boundary in `proofs/BOUNDARY.md` before they may appear in release notes or support
-summaries. In practice, Lean modelling of the type system can begin once the type checker design
-is stable (after Stage 1.5), even while Phases 2–3 are still in progress.
+Stage 4.2 (formal verification depth) depends on Stage 2.4 (Lean Model Foundation), which
+establishes the Lean workspace, core type-calculus model, and CI proof jobs during Phase 2.
+Stage 4.2 deepens that foundation to achieve the **proof-backed** milestone: a non-empty,
+non-provisional published boundary in `proofs/BOUNDARY.md`. **Proof-backed** claims may not
+appear in release notes or support summaries until Stage 4.2 delivers that published boundary.
 
 ### Spec chapter mapping
 
@@ -227,7 +235,7 @@ is stable (after Stage 1.5), even while Phases 2–3 are still in progress.
 | Stage | Document | Workable milestone |
 |---|---|---|
 | 4.1 | [Dynamic Compatibility](plan/phase-4/01-dynamic-compatibility.md) | `eval`/`Function()` executable behind `compat.features.eval`; non-literal dynamic loading gated similarly |
-| 4.2 | [Formal Verification Depth](plan/phase-4/02-formal-verification-depth.md) | Published Lean boundary names concrete modelled subsystems; CI runs proof jobs; repository is proof-backed |
+| 4.2 | [Formal Verification Depth](plan/phase-4/02-formal-verification-depth.md) | Non-provisional Lean boundary published; memory-safety + lowering-correctness proofs complete; repository is proof-backed |
 
 ### Phase 4 completion gate
 

@@ -2,58 +2,38 @@
 
 **Phase:** 4 — Advanced Compatibility & Deep Verification  
 **Spec refs:** [`specs/17-verification.md`](../../specs/17-verification.md), [`specs/16-testing.md`](../../specs/16-testing.md), [`proofs/BOUNDARY.md`](../../proofs/BOUNDARY.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
-**Depends on:** [1.1 — Workspace & Crate Scaffold](../phase-1/01-workspace-scaffold.md) (proof-ready baseline must exist from Stage 1.1; Lean modelling can begin once the type system design is stable, i.e. after Stage 1.5); proof-*backed* claims require a non-empty published boundary, which this stage delivers
+**Depends on:** [2.4 — Lean Model Foundation](../phase-2/04-lean-model-foundation.md) (Lean workspace, core type-calculus model, type-soundness proof, and real CI proof jobs must exist before this stage deepens them); proof-*backed* claims require a non-empty, non-provisional published boundary in `proofs/BOUNDARY.md`, which this stage delivers
 
 ## Goal
 
-Advance from **proof-ready** (the repository baseline from Stage 1.1) to **proof-backed**: publish
-a non-empty Lean 4 proof boundary that names at least one concrete modelled subsystem with actual
-mechanized theorems. Enable **proof-backed** release/support claims once the published boundary
-is non-empty.
+Advance from the **provisional Lean model** established in Stage 2.4 to a full **proof-backed**
+state: complete the memory-safety and lowering-correctness proofs, replace all `sorry`
+placeholders in the type-soundness theorems, publish a non-provisional, non-empty proof boundary
+in `proofs/BOUNDARY.md`, and enable **proof-backed** release/support claims.
 
 ## Workable Milestone
 
-- `proofs/BOUNDARY.md` names at least one modelled subsystem (e.g. the type checker's
-  core soundness properties) with a concrete theorem inventory.
-- CI runs Lean proof jobs that verify those theorems on every commit touching `proofs/`.
+- Every `sorry` placeholder from Stage 2.4's type-soundness proofs is replaced by a complete
+  mechanised proof.
+- Memory-safety (no-dangling-reference) and HIR → LIR lowering-correctness proofs are
+  complete for the bounded core calculus.
+- `proofs/BOUNDARY.md` is updated from provisional to non-provisional, naming the concrete
+  modelled subsystems with a full theorem inventory.
+- CI proof jobs continue to run and block on failure; the boundary is now non-empty.
 - Release notes and documentation may cite formal verification for the published boundary.
 
 ## Tasks
 
-### 1. Lean 4 proof tree setup
+### 1. Complete the type-soundness proofs
 
-Create the `proofs/` Lean 4 workspace following the target structure from `specs/17-verification.md`:
+Stage 2.4 establishes the Lean 4 workspace, core type-calculus model, and initial progress +
+preservation proofs, but may leave `sorry` placeholders in complex proof branches. This task
+replaces every `sorry` in `KaliCore/Soundness.lean` with a complete mechanised proof:
 
-```
-proofs/
-├── BOUNDARY.md               — updated to non-empty boundary
-├── lakefile.lean             — Lean 4 build file
-├── KaliCore/
-│   ├── Types.lean            — core type calculus model
-│   ├── Semantics.lean        — operational semantics
-│   ├── Soundness.lean        — type soundness proof
-│   └── Safety.lean           — memory safety properties
-└── KaliIR/
-    ├── HIRModel.lean         — HIR model
-    └── LoweringCorrectness.lean — HIR → LIR lowering correctness
-```
-
-The Lean proofs target a **core Kali calculus** — not the full surface language. Exclude
-late-compatibility features (`eval`, dynamic loading, browser/OS host details) which are handled
-by phase gates in the implementation.
-
-### 2. First proof-backed milestone: type soundness
-
-Following `specs/17-verification.md`'s **First proof-backed milestone** guidance:
-
-Model the core type system in Lean 4:
-
-- Define the value set, type set, and typing judgements.
-- Define small-step operational semantics for the core calculus.
-- Prove **progress**: a well-typed program either is a value or can take a step.
-- Prove **preservation**: if a well-typed term takes a step, the result is well-typed.
-
-This is the standard type-soundness proof ("well-typed programs don't get stuck").
+- Close all remaining cases in the **progress** theorem.
+- Close all remaining cases in the **preservation** theorem.
+- Ensure no `sorry` remains in the type-soundness files; the sorry-free gate that was a CI
+  warning in Stage 2.4 becomes a CI block in this stage.
 
 ### 3. Memory safety properties
 
