@@ -6,7 +6,7 @@ Kali emits several machine-consumed JSON formats:
 - CLI command envelopes
 - diagnostics
 - effect reports
-- package-effect reports
+- `package-effects` reports
 - schema-v1 envelope-only package-audit output
 - project configuration (`kali.json`)
 - sandbox policies
@@ -447,9 +447,12 @@ Simplification rule:
 - To keep reports diff-friendly and AI-friendly, producers should emit a deterministic order: sort `effects` by `kind`, then sort each occurrence list by normalized `file`, `line`, `column`, and `function` when present
 - `dynamicReasons` should be deduplicated and emitted in stable lexical order
 
-## Package Effect Report Schema
+## `package-effects` Report Schema
 
 Produced by `kali package-effects` once that Phase-2 command is available; before then, this schema remains reserved rather than a promise of partial ad hoc output.
+
+Naming note:
+- this section uses the command-aligned label **`package-effects` report** to reduce drift between the CLI surface (`kali package-effects`), the nested schema field names, and the surrounding docs; individual payload objects may still be described in singular when talking about one concrete report value
 
 ```json
 {
