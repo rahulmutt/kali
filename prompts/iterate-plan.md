@@ -1,0 +1,1 @@
+From @SPEC.md, generate a top-level PLAN.md that points to plan/**/*.md choosing a sensible directory structure. The plan should be such that at each stage of development the project should be in a workable state and start from simple features to more complex features.
