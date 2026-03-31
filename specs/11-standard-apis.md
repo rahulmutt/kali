@@ -221,9 +221,8 @@ This resolves a common ambiguity: browser-targeted analysis may know about `docu
 
 **Canonical early-phase rule**:
 - follow the **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md)
-- `kali check --api browser ...` is allowed for browser-targeted analysis
-- `kali build --bundle ...` is allowed for browser-targeted artifacts when the **effective API surface** is `browser`
-- browser-targeted build shapes requested with the wrong artifact combination use `E5008` rather than `E5006`; examples include `kali build --api browser ...`, `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...`
+- the only Phase-1 supported browser-targeted paths are the shared **Phase-1 browser-targeted command set** from [SPEC.md](../SPEC.md)
+- browser-targeted build shapes requested outside that canonical boundary use `E5008` rather than `E5006`; examples include `kali build --api browser ...`, `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...`
 - `kali run --api browser ...` and `kali test --api browser ...` use `E5006` in early phases because Kali does not yet define a standalone browser runtime/test contract
 
 **Note**: For supported command/profile combinations, the Phase 1 **Web baseline** APIs are available regardless of `--api` mode. Follow the shared **API-loading rule** from [SPEC.md](../SPEC.md): on analysis/build commands, `--api` chooses ambient typing, package-resolution, and policy/effect-modeling context; on executable commands, it also chooses the runtime host surface. Browser-targeted bundle output is the deployment-host path for the real browser rather than evidence of a hidden Kali browser runtime. Early unsupported command/surface combinations should follow that same split rather than silently falling back.
