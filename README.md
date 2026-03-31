@@ -68,12 +68,12 @@ Rule of thumb:
 Quick support-answer formula:
 - **command/artifact** → what exact thing is being asked for?
 - **rung** → is the claim about `installable/materializable`, `checkable`, `buildable`, `executable`, or `deployable-through-host`?
-- **context** → which resulting effective/availability context applies for that rung?
+- **availability context** → which resulting command/profile/API-surface/compatibility combination applies for that rung?
 - **phase** → confirm it in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) before treating it as shipped
 - **evidence** → which testing/proof track owns the claim?
 
 Preferred one-line answer:
-- **`<thing>` is `<rung>` for `<command/artifact>` in `<effective/availability context>` starting in `<phase/status>` because `<fit/gating reason>`.**
+- **`<thing>` is `<rung>` for `<command/artifact>` in `<availability context>` starting in `<phase/status>` because `<fit/gating reason>`.**
 
 ## Repository posture
 This repository is currently spec-first:

@@ -355,12 +355,12 @@ Shortcut:
 - if a change would alter what a release note could honestly claim, it is almost never a one-file edit
 - prefer this minimum update set over adding a second explanatory paragraph in a non-owning chapter
 
-## Support-Claim Checklist
+## Support-Claim Reading Order
 
 To keep broad bootstrap asks from turning back into fuzzy “support” wording, any new support claim should answer these five questions explicitly before it lands in chapter prose, README summaries, or release notes:
 1. **Which command or artifact shape?**
-2. **Which effective context?** (the participating axes of the **effective command context** — typically `apiSurface`, command-relevant `buildMode`, relevant `runtimeProfiles`, `compat.features`, and whether `--sandbox` participates)
-3. **Which delivery rung?** Reuse the shared **compatibility delivery ladder** instead of saying only “supported”.
+2. **Which delivery rung?** Reuse the shared **compatibility delivery ladder** instead of saying only “supported”.
+3. **Which availability context?** This is the maturity-relevant projection of the broader **effective command context** after command-shape validation succeeds — typically the selected command plus participating axes such as `apiSurface`, command-relevant artifact/build mode, relevant `runtimeProfiles`, compatibility-feature selection, and whether `--sandbox` participates where that axis affects availability.
 4. **Which earliest phase/status?** The answer must line up with [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 5. **Which evidence track owns the claim?** Reuse the testing/proof tracks instead of relying on one-off examples.
 
@@ -368,7 +368,7 @@ Practical rule:
 - if a sentence cannot answer those five questions cheaply, it is probably too vague to be normative and should be rewritten or moved behind a cross-reference.
 
 Preferred one-line support template:
-- **`<thing>` is `<rung>` for `<command/artifact>` in `<effective context>` starting in `<phase/status>` because `<package/API/artifact fit>`; evidence belongs to `<testing/proof track>`.**
+- **`<thing>` is `<rung>` for `<command/artifact>` in `<availability context>` starting in `<phase/status>` because `<package/API/artifact fit>`; evidence belongs to `<testing/proof track>`.**
 - reuse this when summarizing browser support, package support, embedding support, or verification support so broad bootstrap asks do not collapse back into one vague “supported” sentence.
 
 ## Cross-Spec Simplification Rules
