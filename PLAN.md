@@ -112,20 +112,23 @@ the user can exercise at least one new capability.
 |---|---|---|
 | 1.14 | [Evidence Hardening](plan/phase-1/14-evidence-hardening.md) | Conformance suite, package corpus, browser smoke tests, determinism checks, proof-ready baseline and proof-ready CI pipeline |
 
-### Phase 1 parallelism
+### Phase 1 parallelism and coordination
 
 Within Phase 1, the following parallel development opportunities exist. **Important:** Parallel development requires coordination to ensure each stream maintains a workable state:
 
-- **1.9 static-validation** (policy parsing, schema validation) can begin after stage 1.5 (type checker) is complete, independently of stages 1.6–1.8 (execution pipeline). The runtime enforcement portion still requires 1.8.
-- **1.06 (HIR/LIR)** and **1.07 (WASM codegen)** may proceed in parallel with early static-validation (1.9) once the compiler frontend (1.4–1.5) is stable, since these components feed the lowering pipeline that sandbox validation eventually uses.
-- **1.10 package management** depends on stages 1.4 and 1.8. Once 1.8 (runtime) is complete, 1.10 may proceed in parallel with the runtime-enforcement portion of 1.9.
-- **1.12 (developer workflow)** and **1.13 (diagnostics/schemas)** are largely independent and may be developed in parallel once 1.11 (build artifacts) provides the CLI surface.
-- **1.14 evidence infrastructure** (test harness, CI scaffolding) may be set up in parallel with 1.12–1.13 once 1.11 is complete; the evidence *runs* still require all prior stages to be complete.
+| Parallel Group | Stages | Can begin after | Coordination requirements |
+|---|---|---|---|
+| Static validation | 1.9 | 1.5 (type checker) | Coordinate on sandbox policy schema version (specs/18-schemas.md) |
+| Lowering pipeline (early) | 1.6, 1.7 | 1.5 (type checker) | Share intermediate IR definitions; pass-through tests for HIR/LIR round-tripping |
+| Package management | 1.10 | 1.8 (runtime) | Coordinate on diagnostic codes (E6xxx namespace); share package-resolution interfaces |
+| Developer workflow | 1.12 | 1.11 (CLI) | Independent but must pass existing fixture suite |
+| Diagnostics & schemas | 1.13 | 1.11 (CLI surface) | Share diagnostic code registry (E5xxx, E9xxx); finalize JSON envelopes together |
+| Evidence infrastructure | 1.14 | 1.11 (CLI surface) | Share test fixtures; coordinate on failure classification criteria |
 
 **Workability coordination notes:**
-- When working on parallel stages (1.6–1.9 or 1.10–1.14), maintain a shared understanding of which commands are currently workable. For example, if 1.08 (runtime) is incomplete, 1.10 (packages) may work internally but cannot demonstrate end-to-end testing.
-- Coordinate on schema versions and diagnostic definitions—error codes and JSON envelopes should not diverge between parallel streams.
-- Always validate changes against the passing test suite from prior sequential stages before proceeding.
+- When working on parallel stages, maintain a shared understanding of which commands are currently workable. For example, if 1.8 (runtime) is incomplete, 1.10 (packages) may work internally but cannot demonstrate end-to-end testing.
+- Coordinate on schema versions and diagnostic definitions: error codes and JSON envelopes should not diverge between parallel streams. The canonical definitions in [specs/18-schemas.md](specs/18-schemas.md) and [specs/15-errors.md](specs/15-errors.md) are the source of truth.
+- Always validate changes against the passing test suite from prior sequential stages before proceeding. Use `cargo test --workspace` as a pre-commit check.
 
 All other Phase 1 stages should be treated as sequential unless explicitly noted above.
 
@@ -191,7 +194,7 @@ monomorphization work is a prerequisite for the full layout-specialization benef
 | Spec chapter | Plan stage | Key deliverable |
 |---|---|---|
 | [`05 — IR`](./specs/05-ir.md) | 3.1 | Layout specialization via MIR layout descriptors |
-| [`07 — Optimization & Specialization`](./specs/07-specialization.md) | 3.1 | Monomorphisation; `--release` / `--release-advanced` optimization passes |
+| [`07 — Optimization & Specialization`](./specs/07-specialization.md) | 3.1 | Monomorphization; `--release` / `--release-advanced` optimization passes |
 | [`08 — WASM Code Generation`](./specs/08-wasm-codegen.md) | 3.3 | Code splitting; tree-shaking; dynamic `import()` bundle boundaries |
 | [`10 — Runtime`](./specs/10-runtime.md) | 3.2 | Node compatibility surface; common Node built-ins |
 | [`11 — Standard APIs`](./specs/11-standard-apis.md) | 3.2 | Node compatibility surface; broader Node built-ins |
@@ -201,7 +204,7 @@ monomorphization work is a prerequisite for the full layout-specialization benef
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 3.1 | [Optimization & Specialization](plan/phase-3/01-specialisation-and-optimisation.md) | `--release` and `--release-advanced` produce measurably faster WASM; monomorphization pipeline stable; incremental compilation reduces rebuild times |
+| 3.1 | [Optimization & Specialization](plan/phase-3/01-specialization-and-optimisation.md) | `--release` and `--release-advanced` produce measurably faster WASM; monomorphization pipeline stable; incremental compilation reduces rebuild times |
 | 3.2 | [Node Compatibility](plan/phase-3/02-node-compatibility.md) | `--api node` command path supported; broader Node built-ins available; Node-assuming packages executable |
 | 3.3 | [Ecosystem Breadth](plan/phase-3/03-ecosystem-breadth.md) | Incremental compilation; broader npm / JSR package corpus; open-ended cross-module constraint solving for the bounded inference contract |
 
