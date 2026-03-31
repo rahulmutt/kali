@@ -74,6 +74,8 @@ the user can exercise at least one new capability.
 |---|---|---|
 | 1.1 | [Workspace & Crate Scaffold](plan/phase-1/01-workspace-scaffold.md) | `cargo build` succeeds; `kali --version` prints a version string; `proofs/BOUNDARY.md` exists with proof-ready placeholder |
 
+**NOTE:** Stage 1.1 establishes the **proof-ready** baseline. The repository may claim proof-ready status from day one, but proof-backed claims require a non-empty `proofs/BOUNDARY.md` published boundary.
+
 ### Spec Step 1 — Frontend + checking foundation
 
 | Stage | Document | Workable milestone |
@@ -95,9 +97,9 @@ the user can exercise at least one new capability.
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 1.9 | [Sandbox & Policy](plan/phase-1/09-sandbox-and-policy.md) | `--sandbox` flag enforced at runtime; policy files validated statically |
-| 1.10 | [Package Management](plan/phase-1/10-package-management.md) | `kali install` resolves npm/JSR/raw-URL deps; lock file is deterministic |
-| 1.11 | [Build Artifacts](plan/phase-1/11-build-artifacts.md) | `kali build` emits executables; `--bundle` emits browser bundles; `--lib` emits base library artifacts |
+| 1.9 | [Sandbox & Policy](plan/phase-1/09-sandbox-and-policy.md) | `--sandbox` flag enforced at runtime; policy files validated at check/build time on the **Phase-1 static policy-validation surface** |
+| 1.10 | [Package Management](plan/phase-1/10-package-management.md) | `kali install` resolves npm/JSR/raw-URL deps; lock file is deterministic; package compatibility follows the **package-support decision order** |
+| 1.11 | [Build Artifacts](plan/phase-1/11-build-artifacts.md) | `kali build` emits executables; `--bundle` emits browser bundles in the **Phase-1 browser-targeted command set**; `--lib` emits the **base library artifact** for exact-version consumers |
 
 ### Spec Step 5 — Developer workflow foundation
 
@@ -110,7 +112,7 @@ the user can exercise at least one new capability.
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 1.14 | [Evidence Hardening](plan/phase-1/14-evidence-hardening.md) | Conformance suite, package corpus, browser smoke tests, determinism checks, proof-ready baseline and proof-ready CI pipeline |
+| 1.14 | [Evidence Hardening](plan/phase-1/14-evidence-hardening.md) | Conformance suite (unit/integration), TypeScript/JavaScript checker baseline, package-corpus checks under the **linked-artifact model**, browser-targeted smoke tests, determinism checks, and a passing proof-ready CI pipeline |
 
 ### Phase 1 parallelism and coordination
 
@@ -204,9 +206,9 @@ monomorphization work is a prerequisite for the full layout-specialization benef
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 3.1 | [Optimization & Specialization](plan/phase-3/01-specialization-and-optimisation.md) | `--release` and `--release-advanced` produce measurably faster WASM; monomorphization pipeline stable; incremental compilation reduces rebuild times |
-| 3.2 | [Node Compatibility](plan/phase-3/02-node-compatibility.md) | `--api node` command path supported; broader Node built-ins available; Node-assuming packages executable |
-| 3.3 | [Ecosystem Breadth](plan/phase-3/03-ecosystem-breadth.md) | Incremental compilation; broader npm / JSR package corpus; open-ended cross-module constraint solving for the bounded inference contract |
+| 3.1 | [Optimization & Specialization](plan/phase-3/01-optimization-and-specialization.md) | `--release` and `--release-advanced` produce measurably faster WASM; monomorphization pipeline stable; incremental compilation reduces rebuild times |
+| 3.2 | [Node Compatibility](plan/phase-3/02-node-compatibility.md) | `--api node` command path supported; **Node compatibility surface** available; Node-assuming packages that fit the **pure JS/TS package contract** become executable |
+| 3.3 | [Ecosystem Breadth](plan/phase-3/03-ecosystem-breadth.md) | Incremental compilation; broader npm / JSR package corpus; open-ended cross-module constraint solving within the **bounded inference contract**; deeper browser-bundle tooling |
 
 ### Phase 3 completion gate
 

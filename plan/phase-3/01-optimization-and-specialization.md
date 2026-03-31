@@ -1,21 +1,21 @@
-# Stage 3.1 — Specialisation & Optimisation
+# Stage 3.1 — Optimization & Specialization
 
-**Phase:** 3 — Specialisation, Optimisation & Ecosystem Breadth  
+**Phase:** 3 — Specialization, Optimization & Ecosystem Breadth  
 **Spec refs:** [`specs/07-specialization.md`](../../specs/07-specialization.md), [`specs/05-ir.md`](../../specs/05-ir.md), [`specs/01-architecture.md`](../../specs/01-architecture.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
-**Depends on:** [2.1 — MIR & Ownership Analysis](../phase-2/01-mir-and-ownership.md) (MIR layout descriptors are the foundation for layout specialisation)
+**Depends on:** [2.1 — MIR & Ownership Analysis](../phase-2/01-mir-and-ownership.md) (MIR layout descriptors are the foundation for layout specialization)
 
 ## Goal
 
-Implement `kali_optimize` — the specialisation and optimisation passes that make `--release` and
+Implement `kali_optimize` — the specialization and optimization passes that make `--release` and
 `--release-advanced` meaningfully faster than `--fast`. Introduce generic/function/layout
-specialisation so the `TaggedVal` uniform representation is replaced with unboxed scalars wherever
+specialization so the `TaggedVal` uniform representation is replaced with unboxed scalars wherever
 types are statically known.
 
 ## Workable Milestone
 
 - `kali build --release` produces measurably faster/smaller WASM than `--fast` on representative
   compute benchmarks.
-- Monomorphisation eliminates `TaggedVal` tagging/untagging in statically-typed hot paths.
+- Monomorphization eliminates `TaggedVal` tagging/untagging in statically-typed hot paths.
 - Incremental compilation reduces re-compile time for projects with unchanged modules.
 - Open-ended cross-module constraint solving is available for the **bounded inference contract**
   within the Phase-3 budget.
