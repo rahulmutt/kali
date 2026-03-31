@@ -357,6 +357,18 @@ Shortcut:
 - if a change would alter what a release note, README summary, or bootstrap-review answer could honestly claim, it is almost never a one-file edit
 - prefer this minimum update set over adding a second explanatory paragraph in a non-owning chapter
 
+## Common Maintenance Packets
+
+For the highest-drift areas, prefer these short update packets over ad hoc edits:
+- **browser-targeted support packet** → [`SPEC.md`](./SPEC.md) canonical browser terms, [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/12-cli.md`](./specs/12-cli.md) if command examples/flags change, [`specs/16-testing.md`](./specs/16-testing.md), and [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
+- **registry-analysis packet** → [`specs/14-packages.md`](./specs/14-packages.md), [`specs/12-cli.md`](./specs/12-cli.md), [`specs/15-errors.md`](./specs/15-errors.md), [`specs/18-schemas.md`](./specs/18-schemas.md), and [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
+- **embedding packet** → [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/08-wasm-codegen.md`](./specs/08-wasm-codegen.md), [`specs/12-cli.md`](./specs/12-cli.md), [`specs/18-schemas.md`](./specs/18-schemas.md), and [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
+- **verification packet** → [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md), [`specs/17-verification.md`](./specs/17-verification.md), [`specs/16-testing.md`](./specs/16-testing.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md), and any root-level status summaries in [`README.md`](./README.md)
+
+Shortcut:
+- if an edit lands in one of those four areas and does **not** update the rest of its packet, pause and confirm the omitted files are intentionally unaffected
+- this keeps the anti-drift rule lightweight without forcing every change through the full long checklist below
+
 ## Support-Claim Authoring Checklist
 
 This writer-facing checklist complements the later reader-facing **Support-Claim Reading Order** section.

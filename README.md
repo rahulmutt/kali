@@ -38,7 +38,7 @@ Phase 1 is intentionally narrow. For exact boundaries, read the **Phase-1 Shippe
 - **Browser support**: Phase 1 browser support is exactly the shared **Phase-1 browser-targeted command set** from [`SPEC.md`](./SPEC.md). Read that term there for the exact command boundary, supported `--sandbox` variants, and inherited-config equivalence rules. In support-ladder terms, browser APIs are **checkable** there and browser bundles are **deployable-through-host** there; this is not standalone browser-runtime **executable** support.
 - **Sandboxing/effects**: `run/test --sandbox` enforce at runtime; the shared **Phase-1 static policy-validation surface** from [`SPEC.md`](./SPEC.md) does static policy-schema/config validation only in Phase 1, and only for the otherwise-valid `check`/build shapes that surface names; later public effect reporting stays on the explicit `kali effects <file>` / `kali package-effects <package>` commands rather than a `run/test --dry` side path.
 - **Packages**: early support is broad only inside the shared **pure JS/TS package contract** plus the documented raw-URL workflow, and every package claim should still be read through the same order: package shape → host/API fit → command maturity, all against the published artifact Kali actually installs, and only then the exact support rung. In practice, Phase-1 Deno-oriented claims may be **installable/materializable**, **checkable**, **buildable**, or **executable**, while browser-targeted claims are usually **checkable** or **deployable-through-host**.
-- **Registry analysis**: no stable public `kali package-effects` or `kali package-audit` command ships in Phase 1. Once it does ship, `kali package-effects` follows the shared **`package-effects` dual classification** from [`SPEC.md`](./SPEC.md): it is a registry-analysis command by input shape and part of the public effect-report surface by output contract.
+- **Registry analysis**: no stable public registry-analysis command ships in Phase 1. The documented next steps stay split on purpose: `kali package-effects <package>` is the Phase-2 registry-analysis/effect-report command, while `kali package-audit <package>` remains **Later compatibility**. Once `package-effects` ships, it follows the shared **`package-effects` dual classification** from [`SPEC.md`](./SPEC.md): it is a registry-analysis command by input shape and part of the public effect-report surface by output contract.
 - **Verification**: reuse the canonical repository summary from [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md): **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
 
 ## Important normalization highlights
@@ -57,7 +57,7 @@ Some command families and artifact flows are documented before they ship so name
 
 Examples:
 - `kali effects` and `kali package-effects` are defined early but remain Phase-2 surfaces
-- `kali package-audit` is defined early but is not a Phase-1 command
+- `kali package-audit` is defined early but remains **Later compatibility**, not a Phase-1 command
 - plain `--lib` is documented early as the future stable public WIT-first path, but in Phase 1 it is still only the export-oriented **base library artifact**
 - `kali build --capi` and `kali build --component` are defined early but remain later public embedding artifact flows
 - artifact/schema vocabulary such as `kind: wasm-component`, `role: interface-wit`, or `role: embedding-metadata` may be reserved before those flows ship; stable names do not imply earlier availability

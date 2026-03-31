@@ -38,6 +38,10 @@ Current repository status rule:
 Copy-paste wording shortcut:
 - when a summary needs one sentence about current verification status, use the manifest's canonical short summary verbatim rather than paraphrasing it into a second near-duplicate status line
 
+Verification maintenance packet:
+- treat verification edits as one small packet rather than scattered wording cleanup: update `proofs/BOUNDARY.md` first for current-state claims, then sync this chapter for roadmap/discipline wording, then sync any affected summary/evidence owners (`README.md`, `specs/16-testing.md`, and `specs/19-feature-maturity.md` when a maturity row or release-claim boundary changes)
+- practical shortcut: if an edit would change what the repository may honestly claim **today**, it is almost never a one-file change inside `specs/17-verification.md` alone
+
 Claim-reading shortcut:
 - to answer **what proof coverage is claimed today**, read `proofs/BOUNDARY.md` first
 - to answer **what Phase 1 must guarantee**, read this chapter's **proof-ready vs proof-backed** split together with [19 — Feature Maturity](19-feature-maturity.md)
