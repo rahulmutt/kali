@@ -46,6 +46,11 @@ This shorthand is only a triage aid. The full answer still uses one fixed decisi
 | 3. command maturity | Is the requested command/context actually shipped for that host/API combination? | for example, browser-targeted `check` / `build --bundle` are in scope, but standalone browser `run` / `test` are not |
 | 4. claimed support rung | Are you claiming `installable/materializable`, `checkable`, `buildable`, `executable`, or `deployable-through-host`? | name the rung explicitly instead of saying only “supported” |
 
+Fast reject checklist for “does this npm package work?”
+- if the published package still needs `node-gyp`, N-API/native addons, prebuilt native binaries, postinstall-downloaded executables, or another bootstrap-heavy runtime dependency, stop at **package shape**: it is outside the shared **pure JS/TS package contract**.
+- if the published package is pure JS/TS but assumes broader Node-only host APIs than the selected command/context exposes, stop at **host/API fit**: it is not an early Deno/browser-targeted claim.
+- only after those two checks pass should support wording move on to command maturity and the exact rung being claimed.
+
 Canonical answer template:
 - prefer answering package-support questions in one sentence using this order: **`<package>` is `<rung>` for `<command/context>` because the published artifact Kali actually installs `<does/does not>` fit the package-shape and host/API requirements for that command/context.**
 - examples:

@@ -81,6 +81,10 @@ When reviewing a new bootstrap-driven ask, answer these four questions in order 
 
 If one of those questions cannot be answered cheaply, the proposed wording is probably still too broad to be normative.
 
+One-line bootstrap answer template:
+- **`<thing>` is `<rung>` for `<command/artifact>` in `<availability context>` starting in `<phase/status>`; it is not broader than that.**
+- prefer this answer shape over broad sentences such as “Kali supports X” when the real claim is only about one command/context/rung combination.
+
 ## Spec Editing Checklist
 
 Use this before considering a spec edit complete:
