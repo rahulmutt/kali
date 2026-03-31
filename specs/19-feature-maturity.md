@@ -264,7 +264,7 @@ Interpretation rule:
 | non-install command auto-repair of missing/stale dependency state | Rejected by default | `check` / `effects` / `build` / `run` / `test` must fail with `E5004` and point users to `kali install` instead of mutating dependency state opportunistically |
 | `kali run` with no explicit entrypoint | Rejected by default | `run` is a direct-input command in early phases; omitting the entrypoint should fail with `E5008` rather than guessing `main.ts` or scanning the project |
 | `kali run a.ts b.ts` | Rejected by default | Early phases accept exactly one primary runtime entrypoint; multi-entry execution requires a later explicit mode, so this should fail with `E5008` |
-| `kali run main.ts` | Phase 1 MVP | Compile and execute with the shared **default standalone context (schema v1)** from [SPEC.md](../SPEC.md) |
+| `kali run main.ts` | Phase 1 MVP | Compile and execute with the shared **Default standalone context (schema v1)** from [SPEC.md](../SPEC.md) |
 | `kali run --sandbox kali.policy.json main.ts` | Phase 1 MVP | Runtime sandbox enforcement path; policy schema/ranges must validate before execution starts |
 | `kali run --api deno main.ts` | Phase 1 MVP | Supported standalone runtime path |
 | `kali run --api node main.ts` | Phase 3 target | Reject with `E5006` until the documented Node subset lands |
@@ -351,7 +351,7 @@ Interpretation rule:
 | `kali build --capi --api browser --sandbox kali.policy.json lib.ts` | Rejected by default | Same browser-embedding contradiction as `kali build --capi --api browser lib.ts`; attaching `--sandbox` adds only static policy validation and does not create a browser C-embedding artifact mode. |
 | `kali build --component --api browser lib.ts` | Rejected by default | Early browser support is limited to the shared **Phase-1 browser-targeted command set** from [SPEC.md](../SPEC.md); browser-component artifact modes remain outside that canonical boundary |
 | `kali build --component --api browser --sandbox kali.policy.json lib.ts` | Rejected by default | Same browser-component contradiction as `kali build --component --api browser lib.ts`; attaching `--sandbox` adds only static policy validation and does not create a browser component artifact mode. |
-| `kali test` / `kali test --api deno` | Phase 1 MVP | Compile and run tests with the shared **default standalone context (schema v1)** from [SPEC.md](../SPEC.md) unless overridden |
+| `kali test` / `kali test --api deno` | Phase 1 MVP | Compile and run tests with the shared **Default standalone context (schema v1)** from [SPEC.md](../SPEC.md) unless overridden |
 | `kali test a.test.ts b.test.ts` | Phase 1 MVP | Explicit test files bypass naming-pattern discovery and are treated as one explicit test-module set, provided every file is from the executable/analyzable source set |
 | `kali test --filter "math"` | Phase 1 MVP | `--filter` narrows the selected test cases after discovery or explicit-file-set selection; it does not create a second discovery mode or change API-surface/runtime gating |
 | declaration-only file passed to `run` / `effects` / `build` / `test` as a primary input | Rejected by default | Declaration files are analysis/type inputs, not executable entrypoints or build/effect primary inputs; use the canonical invalid-entrypoint diagnostic (`E5007`) rather than treating this as general CLI misuse |

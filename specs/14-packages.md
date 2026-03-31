@@ -14,7 +14,7 @@ Reading shortcut:
 - this chapter uses three package-workflow buckets on purpose, because the bootstrap brief's broad package goal is easy to overread if they blur together
 - **source-graph commands** (`check` / `effects` / `build` / `run` / `test`) analyze a local source/import graph plus its resolved dependencies under the selected command context
 - **install workflow** (`install`) is the only early command family allowed to mutate manifest/lock/materialized dependency state
-- **registry-analysis commands** (`package-effects` / `package-audit`) are later single-package workflows with documented command/schema shapes, but their actual availability still comes from [19 — Feature Maturity](19-feature-maturity.md)
+- **registry-analysis commands** (`package-effects` / `package-audit`) are later single-package workflows with documented command/schema shapes, but their actual availability still comes from [19 — Feature Maturity](19-feature-maturity.md) (`package-effects` is **Phase 2 target**; `package-audit` is **Later compatibility**)
 - use that split before reading any sentence that says a package is “supported”, so package-shape support, install behavior, and later registry-analysis tooling do not get conflated
 
 Canonical dependency-source shorthand:
@@ -23,7 +23,7 @@ Canonical dependency-source shorthand:
 |---|---|---|
 | Registry packages (`npm`, `jsr:`) | first-class | participate in manifest + lock + materialization, and may be installed/analyzed through the ordinary project workflow when they fit the package-support decision order |
 | Raw URL imports | first-class | participate in the same lock/cache discipline, but stay on the ordinary source-graph/install workflow rather than becoming registry-analysis targets |
-| Registry-analysis commands (`package-effects`, `package-audit`) | later tooling only | registry-only by input shape; these answer a different question from whether a project dependency is installable/checkable/buildable/executable |
+| Registry-analysis commands (`package-effects`, `package-audit`) | documented later-phase command family only | registry-only by input shape; these answer a different question from whether a project dependency is installable/checkable/buildable/executable |
 
 Phase-1 shorthand answer:
 - **Yes** for pure JS/TS npm/JSR packages and raw URL imports that fit the shared **linked-artifact model** and whose host assumptions match either the default Deno-oriented standalone surface or the shared **Phase-1 browser-targeted command set**.

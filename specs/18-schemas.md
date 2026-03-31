@@ -321,6 +321,8 @@ Interpretation rules:
 
 ## Effect Report Schema
 
+This section defines the reusable schema-v1 **EffectReport** payload.
+
 Produced by `kali effects` once that Phase-2 command is available; Phase 1 may still use compatible internal effect data without exposing this as a stable public CLI contract.
 
 ```json
@@ -357,6 +359,10 @@ Produced by `kali effects` once that Phase-2 command is available; Phase 1 may s
 - `effects: EffectOccurrence[]`
 - `dynamicEffects: boolean`
 - `dynamicReasons: string[]` — canonical reason codes explaining why the report is conservative/incomplete; empty when `dynamicEffects` is `false`
+
+Naming shortcut:
+- other chapters may refer to this payload as **EffectReport** instead of repeating “the exact effect-report payload shape defined in `18-schemas`”
+- schema v1 intentionally keeps one reusable effect-report object so `kali effects`, nested `package-effects.report`, and later embedding/tooling reuse do not drift into near-duplicate JSON contracts
 
 Early-phase interpretation rule:
 - `entryPoints` is a historical stable field name for logical roots, not a promise that every producer is describing a runtime entrypoint
@@ -466,7 +472,7 @@ Produced by `kali package-effects` once that Phase-2 command is available; befor
 ### Required fields
 - `schemaVersion: number`
 - `package: PackageCoordinate`
-- `report: object` — the exact effect-report payload shape defined in the previous section
+- `report: EffectReport` — the exact reusable effect-report payload shape defined in the previous section
 
 ### `PackageCoordinate`
 ```json
