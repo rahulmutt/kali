@@ -430,7 +430,7 @@ Simplification rule:
 - `dynamicReasons` must be empty when `dynamicEffects` is `false`
 - If `dynamicReasons` contains `eval` or `function-constructor`, the report should also include the built-in `Eval` effect in `effects`
 - Effect `kind` names must match the canonical built-in names derived from the type system and sandbox policy model
-- the reserved public effect-report schemas that start in the Phase 2 target window, together with the Phase-1/2 policy/config machine contracts, are limited to built-in sandbox-relevant effect kinds; later experimental user-defined effects, if exposed, should use a reserved `Custom.<name>` namespace rather than overloading built-in policy keys
+- the reserved public effect-report schemas that start in the Phase 2 target window, together with the Phase-1/2 policy/config machine contracts, are limited to built-in sandbox-relevant effect kinds; later user-defined/algebraic effects, if exposed, should use a reserved `Custom.<name>` namespace rather than overloading built-in policy keys
 - Effect locations use `SourceLocation` fields and the same 1-based `line` / `column` convention as diagnostics so tools do not need separate coordinate systems for errors vs effect reports
 - If a consumer needs a full range instead of a point location, it should use the same `SourceSpan` shape rather than inventing a command-specific span format
 - To keep reports diff-friendly and AI-friendly, producers should emit a deterministic order: sort `effects` by `kind`, then sort each occurrence list by normalized `file`, `line`, `column`, and `function` when present
@@ -542,7 +542,7 @@ This table is the normative mapping for the cross-spec distinction from [SPEC.md
 
 Rules:
 - Phase 1-2 stable machine-readable contracts are limited to these built-in names.
-- Later experimental user-defined effects, if exposed, must use the reserved `Custom.<name>` namespace.
+- Later user-defined/algebraic effects, if exposed, must use the reserved `Custom.<name>` namespace.
 - Coarse policy keys may match a namespace prefix. In schema v1, `effects.random` matches any `Random.*` built-in effect, and `effects.console` matches any `Console.*` built-in effect.
 - existing host APIs should map onto these names before the spec adds new built-in effect families: for example `Deno.stat*` / `Deno.readDir*` map to `FileSystem.Read`, `Deno.env.get` / `Deno.env.toObject` map to `Process.EnvRead`, and query-only `Deno.permissions` observation remains effect-free rather than adding a new `Permissions.Query` effect
 - New built-in effect names must be added here before they appear in diagnostics, effect reports, or policy examples elsewhere in the spec set.
@@ -745,7 +745,7 @@ Canonical filename: `kali.policy.json`
 - Per-invocation CLI resource overrides (`--max-memory`, `--max-cpu`, `--max-open-files`, later `--max-spawned-processes`, and later `--max-threads`) may only tighten these policy limits; they must not widen them
 - Policy keys use the canonical built-in effect naming table above rather than redefining a separate namespace here
 - In schema v1, `random` and `console` are intentionally coarse-grained booleans. Any built-in effect report entry whose kind starts with `Random.` matches `random`, and any kind starting with `Console.` matches `console`.
-- Later experimental user-defined effects are outside the policy schema unless/until a future spec revision adds an explicit extension point
+- Later user-defined/algebraic effects are outside the policy schema unless/until a future spec revision adds an explicit extension point
 
 ### Canonical Capability Field Shapes (schema v1)
 

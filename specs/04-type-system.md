@@ -168,7 +168,7 @@ Narrowing state is forked at branches and merged at join points (union of narrow
 Effect tracking follows the shared **effect-surface split** from [SPEC.md](../SPEC.md):
 - **Phase 1** may maintain conservative built-in effect facts internally for sandbox-first implementation, lowering, and diagnostics
 - the stable user-facing effect-report commands, explicit effect annotations, and policy-comparison workflow start in the Phase 2 target window
-- later experimental/user-defined effect syntax must not accidentally leak into the stable Phase-1/2 machine contract just because the compiler has an internal representation for it
+- later reserved user-defined/algebraic effect syntax must not accidentally leak into the stable Phase-1/2 machine contract just because the compiler has an internal representation for it
 
 ### Effect Types
 
@@ -187,14 +187,14 @@ enum Effect {
     Random(RandomAccess),        // e.g. Random.GetBytes
     Eval,                        // eval, Function constructor
     Console(ConsoleAccess),      // e.g. Console.Write
-    Custom(InternedString),      // User-defined effects (later/experimental `effect` declarations)
+    Custom(InternedString),      // User-defined effects (later reserved `effect` declarations)
 }
 
 // Note: There is no `IO` super-effect. Each effect is tracked individually.
 // Sandbox policies in specs/09-sandboxing.md map directly only to the built-in variants above.
 // FsAccess, NetAccess, ProcAccess, TimerAccess, RandomAccess, and ConsoleAccess
 // are sub-enums for finer-grained control and stable JSON names.
-// `Custom(...)` is reserved for the later experimental algebraic/user-defined effect surface;
+// `Custom(...)` is reserved for the later algebraic/user-defined effect surface;
 // it must not become part of the Phase 1-2 stable report/policy contract by accident.
 ```
 
@@ -267,7 +267,7 @@ Target feature families include:
 - **Boundary fidelity over guesswork**: cross-module/package types must follow the exact resolved import subpath rather than a package-wide shortcut; see the canonical declaration-resolution rules in [specs/14-packages.md](14-packages.md)
 - **Effect annotations** *(Phase 2 target)*: `function read(path: string): string ! FileSystem.Read`
 - **Purity checking** *(Phase 2 target)*: `pure function add(a: number, b: number): number`
-- **User-defined/algebraic effects** *(later experimental surface)*: kept out of the MVP and introduced only after the sandbox capability model is stable
+- **User-defined/algebraic effects** *(later compatibility surface)*: kept out of the MVP and introduced only after the sandbox capability model is stable
 - **Refined types** (future): `type PositiveInt = number & { __brand: "positive" }`
 - **Constraint propagation**: more aggressive generic resolution than tsc where compile-time cost stays bounded
 

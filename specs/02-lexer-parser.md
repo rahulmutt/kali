@@ -6,7 +6,7 @@
 - Full lexical grammar support for the latest published ECMA-262 edition
 - TypeScript syntax extensions (type annotations, generics, enums, etc.)
 - Grammar tracking and semantic support are intentionally separate: Phase 1 tracks the latest **published** grammar, while current-edition non-Annex-B semantics apply only to the features Kali marks as supported in the current command/profile; Annex B corners and Stage-3+/draft proposals remain explicitly gated by [specs/19-feature-maturity.md](19-feature-maturity.md)
-- Kali-specific syntax extensions, kept intentionally small in early phases (effect annotations first; advanced effect syntax behind an experimental flag)
+- Kali-specific syntax extensions, kept intentionally small in early phases (effect annotations first; advanced algebraic-effect syntax reserved for a later explicit parser experiment and still phase-gated semantically)
 - Zero-copy where possible — tokens reference source via spans
 - Streaming/lazy tokenization — parser pulls tokens on demand
 
@@ -17,7 +17,7 @@ Canonical rule:
 - parsing a construct does **not** by itself mark it as supported for execution or lowering
 - semantic enablement is decided later by checking/lowering against [specs/19-feature-maturity.md](19-feature-maturity.md)
 - acceptance of a current-edition syntax form also does **not** imply Annex B behavior or proposal semantics unless the maturity matrix or an explicit experimental flag says so
-- this applies especially to syntax-bearing compatibility paths such as `import()`, `eval`, `Function()`-adjacent compatibility behavior, and Kali effect syntax (`pure`, effect annotations, later experimental effect-handler forms)
+- this applies especially to syntax-bearing compatibility paths such as `import()`, `eval`, `Function()`-adjacent compatibility behavior, and Kali effect syntax (`pure`, effect annotations, and the later reserved algebraic-effect forms)
 - therefore parser breadth should track the latest published grammar, while feature maturity still controls which accepted constructs are executable, lowerable, or only diagnosable in a given phase/profile
 
 ### Token Design
@@ -31,7 +31,7 @@ struct Token {
 `TokenKind` covers:
 - All ECMAScript keywords, punctuators, literals
 - TypeScript keywords: `type`, `interface`, `as`, `is`, `keyof`, `infer`, `readonly`, etc.
-- Kali contextual keywords: `pure` and effect annotations are parsed so the AST can represent them, but semantic use is phase-gated; `effect`, `perform`, `handle` are reserved for experimental effect-handler syntax
+- Kali contextual keywords: `pure` and effect annotations are parsed so the AST can represent them, but semantic use is phase-gated; `effect`, `perform`, `handle` are reserved for the later algebraic-effect syntax surface and any parser-only experiments around it
 - Template literal parts (head, middle, tail)
 - RegExp literals (context-sensitive — parser assists disambiguation)
 - Numeric literals (all formats: decimal, hex, octal, binary, bigint, separators)
@@ -67,7 +67,7 @@ struct Token {
 - Kali extensions:
   - Effect type annotations: `function foo(): number ! FileSystem.Read | Console.Write` *(parsed early, semantically enabled in Phase 2 per [specs/19-feature-maturity.md](19-feature-maturity.md))*
   - `pure` function modifier *(parsed early, semantically enabled in Phase 2 per [specs/19-feature-maturity.md](19-feature-maturity.md))*
-  - `effect` declarations, `perform` expressions, `handle` blocks *(later experimental surface; parsing them early does not grant semantic support or create a separate canonical status label)*
+  - `effect` declarations, `perform` expressions, `handle` blocks *(reserved later algebraic-effect surface; parsing them early does not grant semantic support or create a separate canonical status label)*
 - JSX/TSX grammar:
   - JSX elements, fragments, expressions, spread attributes
   - Disambiguated from TypeScript generics via context (same approach as tsc)
