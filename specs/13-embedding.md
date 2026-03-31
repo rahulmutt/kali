@@ -86,15 +86,15 @@ Compact Phase-1 support-claim table for library-oriented builds:
 
 | Question | Phase-1 answer |
 |---|---|
-| Can Kali build one export-oriented library artifact? | Yes: `kali build --lib <file>` emits the **base library artifact** when Kali can determine a **statically known export surface**. |
+| What is actually shipped in Phase 1? | One export-oriented path is **buildable for exact-version consumers**: `kali build --lib <file>` emits the **base library artifact** when Kali can determine a **statically known export surface**. |
 | Can that same build take `--sandbox`? | Yes: `kali build --lib --sandbox <policy> <file>` stays the same library-oriented build plus static policy-schema/config validation. |
-| Does that make plain `--lib` a stable public embedding ABI? | No: Phase 1 support stops at **exact-version consumers**. |
+| Does that make plain `--lib` a stable public embedding ABI? | No: Phase 1 support stops at **exact-version consumers**; the stable public embedding surface is still later. |
 | Does plain `--lib` emit WIT by default? | No: default WIT emission belongs to the Phase-2 stable public **WIT-first** contract. |
 | Do browser or early Node library builds become supported through embedding wording? | No: browser/library combinations stay command-shape contradictions, and Node/library combinations stay on the ordinary Node maturity gate. |
 
 API-surface gating simplification for library-oriented embedding builds:
 - `--lib`, `--capi`, and `--component` all reuse the same exported-library contract rather than defining separate host families
-- the Phase-1 **base library artifact** is supported only in the shared **Deno-oriented build context (schema v1)** from [SPEC.md](../SPEC.md); browser/library combinations stay command-shape contradictions and Node/library combinations stay on the ordinary Node maturity gate
+- the Phase-1 **base library artifact** is only **buildable for exact-version consumers** in the shared **Deno-oriented build context (schema v1)** from [SPEC.md](../SPEC.md); browser/library combinations stay command-shape contradictions and Node/library combinations stay on the ordinary Node maturity gate
 - in that sentence, `apiSurface = deno` is a build/analysis-context choice (ambient typing, package resolution, and command gating), not a claim that the emitted exported-library interface is itself a Deno-specific public ABI
 - effective `apiSurface = browser` therefore remains a command-shape contradiction for those library-oriented modes in early phases rather than a second browser embedding profile
 - effective `apiSurface = node` follows the ordinary Node build gate; embedding-oriented selectors do not create an earlier Node availability path

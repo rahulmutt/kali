@@ -53,10 +53,10 @@ Phase-1 reading aid:
 
 | Command family | `deno` | `browser` | `node` |
 |---|---|---|---|
-| `check` | standalone/default analysis context, including the supported static `--sandbox` validation variants and equivalent inherited-config forms | browser-targeted analysis context, including the supported static `--sandbox` validation variants and equivalent inherited-config forms | gated |
-| `build` | standalone/default executable build plus the supported static `--sandbox` validation variants, and the Phase-1 **base library artifact** path for **exact-version consumers** in the shared **Deno-oriented build context (schema v1)** including `build --lib --sandbox`; here, that Deno-oriented build context is the build/analysis default rather than a claim that Phase-1 library outputs expose a Deno-specific public ABI | browser-targeted bundle only (`--bundle`), with supported `--sandbox` variants and equivalent inherited-config forms remaining static validation only | gated |
-| `run`, `test` | standalone execution | not yet a standalone browser runtime/test contract | gated |
-| later analysis/reporting commands that participate in semantic analysis context (`effects`, inherited-context `package-effects`, and later browser-context analysis reuse) | later Deno-oriented analysis/reporting reuse once those commands exist | the same browser-targeted analysis context is reused later without widening the exact **Phase-1 browser-targeted command set** | gated |
+| `check` | standalone/default analysis context; in support-ladder terms this is the ordinary **checkable** path, including the supported static `--sandbox` validation variants and equivalent inherited-config forms | browser-targeted analysis context; in support-ladder terms this is the browser **checkable** path, including the supported static `--sandbox` validation variants and equivalent inherited-config forms | gated |
+| `build` | standalone/default executable build plus the supported static `--sandbox` validation variants, and the Phase-1 **base library artifact** path for **exact-version consumers** in the shared **Deno-oriented build context (schema v1)** including `build --lib --sandbox`; here, that Deno-oriented build context is the build/analysis default rather than a claim that Phase-1 library outputs expose a Deno-specific public ABI | browser-targeted bundle only (`--bundle`); in support-ladder terms this is the browser **deployable-through-host** path, and supported `--sandbox` variants plus equivalent inherited-config forms remain static validation only | gated |
+| `run`, `test` | standalone **executable** path | not yet a standalone browser-runtime/test **executable** contract | gated |
+| later analysis/reporting commands that participate in semantic analysis context (`effects`, inherited-context `package-effects`, and later browser-context analysis reuse) | later Deno-oriented analysis/reporting reuse once those commands exist | the same browser-targeted analysis context is reused later without widening the shared **Phase-1 browser-targeted command set** | gated |
 
 Interpretation rules:
 - this is a command/API-surface snapshot only; the owning CLI shape still lives in [12 — CLI](12-cli.md), and exact phase labels still live in [19 — Feature Maturity](19-feature-maturity.md)
@@ -70,6 +70,7 @@ Support-claim phrasing shortcut:
 - when this chapter says a surface is available for a command family, read that through the shared **compatibility delivery ladder** from [SPEC.md](../SPEC.md) rather than as one broad yes/no promise
 - for early browser-facing claims, prefer wording such as **checkable** or **deployable-through-host** over vague “browser support” prose
 - reserve **executable** for Kali-hosted runtime/test contracts only
+- for Phase-1 `build --lib`, prefer wording such as **buildable for exact-version consumers** over generic “embedding support” prose so the Phase-1 **base library artifact** does not get overread as the later **public embedding surface**
 
 ## API Layers
 
