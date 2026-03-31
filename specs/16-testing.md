@@ -226,6 +226,6 @@ In addition to compiler tests, run compiled WASM programs and verify:
 - Exit codes are correct
 - Resource limits are enforced (sandbox tests)
 - Async operations complete correctly
-- API compatibility with the documented Phase 1 Web + Deno baseline
-- browser-targeted bundle smoke tests execute through the real browser host via the browser host adapter rather than only through mocked DOM/unit harnesses
+- API compatibility with the documented Phase 1 standalone surface: the shared **Web baseline** plus the Deno-oriented standalone host surface
+- browser-targeted compatibility is evidenced separately through emitted-bundle smoke tests in a real browser host via the browser host adapter rather than by treating browser APIs as part of the standalone runtime baseline
 - phase-gated features produce the canonical `E5006` diagnostic instead of silent fallback
