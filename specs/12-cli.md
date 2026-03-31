@@ -218,7 +218,7 @@ It is the default interpretation of examples such as `kali run main.ts` and `kal
 
 Reading rule for the examples below:
 - command examples in this chapter define **shape, flags, and output contracts** first
-- unless an example comment explicitly says otherwise, bare command spellings should be read under the command's canonical default effective context rather than as secretly assuming inherited config
+- unless an example comment explicitly says otherwise, bare command spellings should be read under the command's canonical default **availability context** (derived from its canonical default effective context) rather than as secretly assuming inherited config
 - inherited-context behavior is still documented, but it is summarized in the dedicated shorthand tables so identical bare spellings do not acquire two different meanings inside one example block
 - examples that mention later-phase commands or contexts (for example `effects`, `package-effects`, `package-audit`, `--capi`, `--component`, `--api node`, or standalone browser `run` / `test`) do **not** override the availability owner in [19 — Feature Maturity](19-feature-maturity.md)
 - when an example is both well-formed and phase-gated, read it as "this is the stable command spelling once that maturity row opens" rather than as an implied Phase-1 promise

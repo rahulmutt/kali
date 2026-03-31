@@ -131,6 +131,7 @@ Shared artifact-shape rules:
 - omitting `--bundle`, `--lib`, `--capi`, and `--component` yields the default executable artifact: one `wasm-module` with role `primary-executable`
 - `--bundle` under an effective `apiSurface` of `browser` keeps executable compile intent and adds browser JS glue (`kind: js-glue`, `role: browser-glue`) beside that same executable core module
 - that browser-bundle artifact shape is selected by the fully merged effective context, so explicit `--api browser` and equivalent inherited-config browser forms emit the same artifact set
+- when summarizing whether that browser-bundle path is actually supported, prefer the resulting **availability context** term from [SPEC.md](../SPEC.md) rather than re-expanding the raw merged axes in prose
 - `--lib`, `--capi`, and `--component` are the library-oriented artifact modes: they all reuse the same **statically known export surface** and the shared **library-oriented instantiation rule** from [SPEC.md](../SPEC.md)
 - plain Phase-1 `--lib` emits only the **base library artifact** (`kind: wasm-module`, `role: primary-library`); that early artifact is for **exact-version consumers** rather than a stable public cross-version embedding contract. Phase 2 promotes that same selector into the stable public library/WIT contract and adds `kind: wit`, `role: interface-wit` by default
 - `--capi` and `--component` are later **public embedding artifact flows** layered on top of that same linked core library payload rather than separate export semantics
