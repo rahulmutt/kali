@@ -622,7 +622,7 @@ kali package-effects --pretty --output json lodash # Pretty-printed command enve
 ```
 
 Base-gate clarification:
-- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-effects lodash`, `kali package-effects --output json lodash`, or `kali package-effects --pretty --output json lodash` reaches the command's own availability gate (`E5006`) until Phase 2 opens
+- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-effects lodash`, `kali package-effects --pretty lodash`, `kali package-effects --output json lodash`, or `kali package-effects --pretty --output json lodash` reaches the command's own availability gate (`E5006`) until Phase 2 opens
 - once the base command exists, inherited-context gating follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) rather than a package-analysis-specific shadow matrix
 - practical simplification: schema-v1 `package-effects` keeps a very small **semantic/context flag surface**: the package selector only. Its command-local presentation/output knobs are the usual **JSON-mode selectors** (`--output json`, optionally `--pretty`). Ordinary shared presentation/control flags still follow the shared-flag rules, but package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of forming a second CLI vocabulary
 

@@ -702,7 +702,7 @@ Execution where Kali or an embedding host owns the runtime/import boundary, incl
 The implementation layer that satisfies Kali's one guest-facing host ABI/capability model for a concrete deployment mode.
 
 Canonical early adapters:
-- **native host adapter** — used for Kali-hosted execution (`run`, `test`, and host-side execution of Phase-1 `--lib` outputs by exact-version consumers, followed later by the public embedding surface)
+- **native host adapter** — used for **Kali-hosted execution**
 - **browser host adapter** — generated JS glue used by `build --bundle --api browser`
 
 Rule:
@@ -988,7 +988,7 @@ It is derived from:
 Rules:
 - CLI/runtime overrides may only tighten this envelope; they must not widen a stricter attached policy.
 - when no sandbox policy is attached, direct invocation caps still contribute to the envelope without implying a synthesized allow-all policy file.
-- this term applies to Kali-hosted execution (`run`, `test`, and host-side execution of Phase-1 `--lib` outputs by exact-version consumers, followed later by the public embedding surface), not to deployed browser bundles.
+- this term applies to **Kali-hosted execution**, not to deployed browser bundles.
 
 ### Browser-targeted static sandbox contract
 The canonical early-phase meaning of `--sandbox` in a browser-targeted context.
