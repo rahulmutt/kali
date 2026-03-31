@@ -1,48 +1,52 @@
 # RALPH
 
-- Iteration: 1 of 1
+- Iteration: 1 of 10
 - Prompt file: /workspace/prompts/iterate-plan.md
-- Updated: 2026-03-31T08:49:10.072Z
+- Updated: 2026-03-31T08:58:42.339Z
 
 ## Last emitted message
 
 ```text
-All 22 links resolve. Here's a summary of what was created:
+Done. Here's a summary of what's already in place (all committed and now pushed):
 
 ---
 
 ## What was generated
 
 ### `PLAN.md` (top-level)
-A one-page navigator with a table for each phase mapping stage numbers → plan file → workable milestone. Closes with cross-cutting rules (hard invariants, evidence-before-promotion, proof-ready-from-day-one).
+A concise index table for all four phases and their stages, with a one-line "Workable milestone" per stage and links to the owning document in `plan/`.
 
-### `plan/phase-1/` — 14 stages (Core Compiler MVP)
+### `plan/` directory structure
 
-Each stage leaves the project in a usable state, ordered from simplest to most complex:
+``\`
+plan/
+├── phase-1/   (14 stages — Core Compiler & Toolchain MVP)
+│   ├── 01-workspace-scaffold.md   → cargo build + kali --version works
+│   ├── 02-lexer.md                → tokenises valid TS/JS
+│   ├── 03-parser-and-ast.md       → full ECMA-262 + TS grammar
+│   ├── 04-name-resolution.md      → kali check reports import/name errors
+│   ├── 05-type-checker.md         → bounded-inference type checking
+│   ├── 06-hir-lir-lowering.md     → HIR → LIR pipeline inspectable
+│   ├── 07-wasm-codegen.md         → simple programs compile to WASM
+│   ├── 08-runtime-execution.md    → kali run / kali test in Default context
+│   ├── 09-sandbox-and-policy.md   → --sandbox enforced; policy validated
+│   ├── 10-package-management.md   → kali install + deterministic lock file
+│   ├── 11-build-artifacts.md      → build / --bundle / --lib artifacts
+│   ├── 12-developer-workflow.md   → kali init / fmt / lint
+│   ├── 13-diagnostics-and-schemas.md → stable error codes + --output json
+│   └── 14-evidence-hardening.md   → conformance suite, determinism CI
+├── phase-2/   (3 stages — Ownership, Effects & Public Embedding)
+│   ├── 01-mir-and-ownership.md
+│   ├── 02-public-effect-reporting.md
+│   └── 03-public-embedding-surface.md
+├── phase-3/   (3 stages — Specialisation, Optimisation & Ecosystem Breadth)
+│   ├── 01-specialisation-and-optimisation.md
+│   ├── 02-node-compatibility.md
+│   └── 03-ecosystem-breadth.md
+└── phase-4/   (2 stages — Advanced Compatibility & Deep Verification)
+    ├── 01-dynamic-compatibility.md
+    └── 02-formal-verification-depth.md
+``\`
 
-| # | Stage | Workable milestone |
-|---|---|---|
-| 1.1 | Workspace scaffold | `kali --version` works; CI runs; `proofs/BOUNDARY.md` exists |
-| 1.2 | Lexer | Tokenises TS/JS; all `E1xxx` lex errors |
-| 1.3 | Parser & AST | Full ECMA-262 + TypeScript + JSX grammar; snapshot tests |
-| 1.4 | Name resolution | `kali check` reports unresolved names |
-| 1.5 | Type checker | `kali check` reports type errors under bounded inference |
-| 1.6 | HIR & LIR lowering | Full pipeline exists; LIR dump for inspection |
-| 1.7 | WASM codegen | `kali build` produces valid, validated `.wasm` files |
-| 1.8 | Runtime & execution | `kali run` and `kali test` work in the Default standalone context |
-| 1.9 | Sandbox & policy | `--sandbox` enforced at runtime; policy schema validated statically |
-| 1.10 | Package management | `kali install` with deterministic lock file; npm/JSR/raw-URL |
-| 1.11 | Build artifacts | `--bundle` (browser) and `--lib` (base library) artifact modes |
-| 1.12 | Developer workflow | `kali init`, `kali fmt`, `kali lint` |
-| 1.13 | Diagnostics & schemas | `--output json` schema-v1 envelopes; stable error codes |
-| 1.14 | Evidence hardening | test262 conformance, checker baselines, package corpus, browser smoke tests, determinism |
-
-### `plan/phase-2/` — 3 stages (Ownership, Effects & Embedding)
-MIR + escape analysis → public effect reporting (`kali effects`, `kali package-effects`, inferred-effect-vs-policy on `check/build --sandbox`) → stable public embedding surface (WIT `--lib`, `--capi`, `--component`).
-
-### `plan/phase-3/` — 3 stages (Specialisation & Ecosystem)
-Monomorphisation + optimisation passes → `--api node` + Node built-ins → package corpus expansion + browser packaging improvements + cross-module constraint solving.
-
-### `plan/phase-4/` — 2 stages (Dynamic Compatibility & Deep Verification)
-`eval`/`Function()` AOT-interpreter gate + non-literal `import()` + `kali package-audit` → Lean 4 proof tree, type soundness + memory safety proofs, proof-backed repository status.
+**Design principle:** each stage leaves the project in a workable, compilable, testable state — starting from the simplest possible skeleton (a `cargo build` stub) and layering in complexity only once the foundation below it is solid.
 ```
