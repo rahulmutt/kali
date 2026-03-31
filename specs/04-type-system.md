@@ -6,7 +6,7 @@ Kali's type system is a superset of TypeScript's, combining:
 1. **Flow-sensitive typing** (like tsc) — narrowing through control flow
 2. **Bounded inference beyond plain TypeScript** — inference for unannotated code where it improves on TypeScript without sacrificing predictable compile times
 3. **Effect summaries** — tracking side effects for sandboxing
-4. **Constraint solving** — for advanced generic inference
+4. **Budgeted constraint solving** — for advanced generic inference where compile-time cost stays predictable
 
 Bootstrap-normalization note:
 - the bootstrap's references to Haskell, Idris, Agda, Lean, and Rust are interpreted here as **design guidance**, not as an immediate promise of dependent types, totality checking, proof terms, or theorem-prover-style user workflows in Phase 1
@@ -123,6 +123,24 @@ For the type checker, that means:
 
 This is the main simplification that keeps stronger-than-`tsc` inference compatible with blazing-fast compilation: Kali supports a strong bounded fragment early and grows outward only where cost remains measurable and testable.
 
+### Constraint-Solving Budget Rule
+
+Constraint solving follows the same bounded-cost philosophy as inference generally.
+
+Phase-normalized rule:
+- **Phase 1**: allow only budgeted local/intra-module constraint solving that fits the shared **bounded inference contract**
+- **exported/public boundaries** still follow the shared **annotation-required inference boundary** when solving would otherwise require unstable or open-ended cross-module search
+- **Phase 3 target**: deepen higher-cost generic/constraint reasoning only where compile-time budgets remain explicit and evidence-backed
+
+Operational requirements:
+- solve constraints with a deterministic worklist/fixed-point algorithm rather than unbounded backtracking
+- keep explicit per-binding / per-function budgets on solver iterations, speculative instantiations, and deferred obligations
+- when the budget is exceeded, stop the advanced path early and fall back conservatively: require an annotation, keep `unknown`, preserve a wider union, or reject the unsupported precision claim rather than guessing
+- unsolved constraints at a public API boundary should prefer an explicit annotation or conservative exported type over a phase-dependent inferred signature
+- compiler diagnostics may explain that a more precise inferred type was abandoned due to the bounded solver budget, but the checker must not silently invent fresh `any`
+
+This rule is what makes “constraint solving is on the table” compatible with Kali's fast-by-default frontend/checker goals.
+
 ## Hindley-Milner Integration
 
 ### Unification
@@ -149,7 +167,7 @@ enum Constraint {
 }
 ```
 
-Constraints are collected during inference and solved iteratively. Unsolved constraints become type errors.
+Constraints are collected during inference and solved iteratively under the **Constraint-Solving Budget Rule** above. Unsolved constraints become type errors unless the surrounding rule explicitly prefers the conservative fallback path (for example an annotation-required public boundary or a bounded-inference downgrade to `unknown` / a wider union).
 
 ## Flow-Sensitive Narrowing
 

@@ -138,6 +138,8 @@ Maintenance note:
 | Current-edition non-Annex-B semantics for features Kali marks as supported in a given command/profile | Phase 1 MVP | "Latest standard support" is not parser-only: once Kali claims a feature is supported for a command/profile, the supported path should aim at faithful current-edition semantics and be backed by the matching evidence track rather than by syntax acceptance alone |
 | Static ESM `import` / `export` | Phase 1 MVP | Core module system |
 | First-class JavaScript compilation with bounded inference | Phase 1 MVP | Required so `.js` projects are not forced to migrate to TypeScript before benefiting from Kali; this uses the shared **first-class JavaScript compilation** contract plus the shared **bounded inference contract** rather than open-ended whole-program search |
+| Budgeted local/intra-module constraint solving inside the shared bounded inference contract | Phase 1 MVP | Early stronger-than-`tsc` inference may use deterministic bounded constraint solving where compile-time budgets stay predictable |
+| Open-ended or unstable cross-module/public-API constraint solving | Phase 3 target | Exported/public boundaries should keep the shared **annotation-required inference boundary** until higher-cost solver work has an explicit later-phase contract |
 | CommonJS module lowering | Phase 1 MVP | Needed for early npm package compatibility within the linked-artifact model |
 | `require("literal")` | Phase 1 MVP | Rewritten during compilation when statically resolvable |
 | Dynamic `require()` | Rejected by default | Conflicts with the early **linked-artifact model** |
