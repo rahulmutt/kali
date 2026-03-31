@@ -48,7 +48,7 @@ This shorthand is only a triage aid. The full answer still uses one fixed decisi
 Canonical answer template:
 - prefer answering package-support questions in one sentence using this order: **`<package>` is `<rung>` for `<command/context>` because the published artifact Kali actually installs `<does/does not>` fit the package-shape and host/API requirements for that command/context.**
 - examples:
-  - `lodash` is **executable** for `kali run` in the default Deno-oriented standalone context because its published package stays inside the pure JS/TS contract and does not require broader Node-only host APIs.
+  - `lodash` is **executable** for `kali run` in the shared **Default standalone context (schema v1)** because its published package stays inside the pure JS/TS contract and does not require broader Node-only host APIs.
   - a browser-only UI helper may be **checkable** and **deployable-through-host** for browser-targeted `check` / `build --bundle`, while still not being standalone-browser **executable** in Kali itself.
   - a package with N-API bindings is **rejected by default** in Phase 1 because it falls outside the pure JS/TS package contract before command maturity is even considered.
 
@@ -267,7 +267,7 @@ Canonical `exports` condition order:
 
 | Analysis/runtime context | Condition order |
 |---|---|
-| Deno-oriented standalone API surface (`--api deno`, Phase 1 default) | `deno`, then edge kind (`import` or `require`), then `default` |
+| Deno-oriented standalone surface (`--api deno`, Phase 1 default) | `deno`, then edge kind (`import` or `require`), then `default` |
 | browser-targeted context | `browser`, then edge kind, then `default` |
 | later Node API surface | `node`, then edge kind, then `default` |
 
@@ -443,7 +443,7 @@ Scope note:
 
 - `kali install` is **context-agnostic** in Phases 1-3. It locks package versions, fetches/materializes package contents, and records reproducibility data, but it does **not** pre-resolve one permanent `exports`/`browser`/`deno` branch for every future command.
 - `check`, `effects`, `build`, `run`, and `test` perform the final **command-time package edge selection** from the already-installed package metadata using the active analysis/runtime context.
-- therefore one `kali.lock` and one materialized package tree can serve both the default Deno-oriented standalone path and the shared **Phase-1 browser-targeted command set** without requiring separate per-context installs.
+- therefore one `kali.lock` and one materialized package tree can serve both the Deno-oriented standalone surface and the shared **Phase-1 browser-targeted command set** without requiring separate per-context installs.
 - this is possible because early-phase context differences choose between files that are already present inside the installed package contents; they do not require separate version solves for each supported context.
 - if a later feature truly requires context-specific solving or materially different dependency graphs, that complexity must be introduced explicitly in a future lockfile/versioning revision rather than being implied accidentally by Phase 1 package wording.
 

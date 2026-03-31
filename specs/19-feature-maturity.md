@@ -182,7 +182,7 @@ Maintenance note:
 | `SharedArrayBuffer` / `Atomics` | Later compatibility (opt-in only) | Requires a separate threaded runtime profile and should not be implied by the Phase 1 single-threaded runtime |
 | `--wasm-threads` | Later compatibility (opt-in only) | Enables the threaded runtime profile once that profile exists; must fail explicitly before then and on unsupported targets/engines |
 | Real browser ambient surface for the **Phase-1 browser-targeted command set**, including ambient DOM typings | Phase 1 MVP | Phase 1 exposes the real browser ambient surface only through the shared **Phase-1 browser-targeted command set**, including the DOM typings normally expected in browser programs, without claiming DOM support in Kali's standalone runtime; this status requires its own browser-targeted evidence track rather than inference from standalone runtime tests, and later analysis commands may reuse that same browser context only once their own maturity rows allow it |
-| `package.json#exports` condition `deno` for `--api deno` resolution | Phase 1 MVP | Aligns package resolution with the default Deno-oriented standalone API surface |
+| `package.json#exports` condition `deno` for `--api deno` resolution | Phase 1 MVP | Aligns package resolution with the Deno-oriented standalone surface |
 | `package.json#browser` replacement maps and `exports` condition `browser` for the **Phase-1 browser-targeted command set** | Phase 1 MVP | Needed for practical browser-targeted npm compatibility without widening standalone runtime claims; the shared **Phase-1 browser-targeted command set** should use one browser **package-resolution context** (browser `exports` condition order plus any applicable `package.json#browser` rewrites) rather than inventing per-command ladders |
 | `run --api browser` | Later compatibility | Early standalone runtime does not emulate a browser host; reject with `E5006` until a real browser-execution contract exists |
 | npm lifecycle scripts (`kali install --allow-scripts`) | Phase 1 MVP (opt-in only) | Disabled by default for sandbox-first behavior; this uses the shared **install-time npm-package hook path** from [SPEC.md](../SPEC.md), not evidence of `--api node` support or participation in the normal sandbox/effect-report contract |
@@ -485,11 +485,11 @@ This appendix separates the broad compatibility story into smaller tables so lan
 
 | Concern | Early canonical status | Notes |
 |---|---|---|
-| Deno-oriented standalone API surface (`--api deno`) | Phase 1 MVP | Default API surface for standalone execution; typically paired with the baseline single-threaded runtime profile |
+| Deno-oriented standalone surface (`--api deno`) | Phase 1 MVP | Default API surface for standalone execution; typically paired with the baseline single-threaded runtime profile |
 | Invocation arguments in the standalone surface (`Deno.args`) | Phase 1 MVP | Part of the execution context rather than a separately policy-gated capability in schema v1 |
 | Read-only `Deno.permissions` facade over resolved policy state | Phase 1 MVP | Canonical **observation-only compatibility facade**: query-only over the shared **Deno-compatible permission descriptor subset (schema v1)**, returning only the shared **stable permission status subset (schema v1)**, with no interactive `request()` / `revoke()` escalation flows; Phase 1 `net` remains fetch-only because socket/listener networking is still later-phase |
 | Interactive permission escalation / revocation APIs | Rejected by default | The Phase 1 Deno-compatibility story is query-only; runtime prompt/escalation flows are outside the sandbox model |
-| Read-only environment access in the Deno standalone surface | Phase 1 MVP | Exposes only the sandbox-permitted environment view |
+| Read-only environment access on the Deno-oriented standalone surface | Phase 1 MVP | Exposes only the sandbox-permitted environment view |
 | Web-baseline randomness subset (`crypto.getRandomValues`) | Phase 1 MVP | Covers the schema-v1 `effects.random` / `Random.GetBytes` capability without implying full Web Crypto support |
 | Mutable environment access / process-environment mutation | Phase 3 target | Policy-controlled host mutation, not part of the Phase 1 baseline |
 | Subprocess spawning and socket/listener networking | Phase 3 target | Shares the same sandbox/process/network maturity path as the corresponding capability rows above |

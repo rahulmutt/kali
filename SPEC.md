@@ -393,7 +393,7 @@ To keep the spec set implementable and reduce drift between chapters, Kali inten
 - **one guest-facing host ABI** realized through different host adapters, rather than separate guest contracts for standalone execution, browser bundles, and embedding;
 - **one linked-artifact model**, with one linked core payload per build/analysis root and any companion artifacts such as JS glue, WIT, headers, or component wrappers layered on top rather than becoming separate runtime-linked guest graphs;
 - **one browser-targeted context model** reused across the shared **Phase-1 browser-targeted command set** and later browser-context analysis commands that explicitly opt into it, with browser-context `package-effects` inheriting that context from config/defaults instead of growing a package-analysis-specific `--api` flag family;
-- **one install/lock state** shared across the default Deno-oriented standalone path and the shared **Phase-1 browser-targeted command set** in schema v1;
+- **one install/lock state** shared across the Deno-oriented standalone surface and the shared **Phase-1 browser-targeted command set** in schema v1;
 - **one package-support decision order**: decide package shape first, then host/API fit for the active context, then command/profile maturity, all under the same published-artifact reading;
 - **one static-analysis workflow split**: the bootstrap's “statically run a command and get JSON output of all potential effects” request maps to `effects` / `package-effects` for reporting and `check/build --sandbox` for policy comparison, rather than adding dry-run variants of `run` / `test`;
 - **one explicit-root reporting shape**: schema-v1 `effects` stays a one-root source-graph reporting command, while schema-v1 `package-effects` / `package-audit` stay one-package registry-analysis commands instead of growing project-discovery or batch shortcuts;
@@ -511,6 +511,7 @@ Kali's host/API story is intentionally staged as one small staircase rather than
 Rule:
 - chapters should prefer this staircase when explaining how Web baseline, Deno, browser-targeted support, and later Node compatibility relate
 - when a sentence needs the concrete Phase-1 execution/build defaults, prefer the canonical terms **Default standalone context (schema v1)**, **Deno-oriented standalone surface**, and **Deno-oriented build context (schema v1)** over looser shorthand such as “Deno-first standalone”
+- when a chapter means the `--api deno` host/API layer specifically, prefer **Deno-oriented standalone surface** over near-duplicates such as “Deno-oriented standalone API surface”, “Deno standalone surface”, or “default Deno-oriented standalone path”; reserve **Default standalone context (schema v1)** for the full execution context instead
 - docs should avoid phrasing Node and browser support as though they were simply two more Phase-1 peers of the Deno standalone runtime
 - browser-targeted support and Node compatibility may both expand later, but they start from different contracts and should not be described as one generic "compatibility layer"
 
@@ -2000,7 +2001,7 @@ Kali uses one deliberate simplification for early package management:
 - later commands choose the final package edge at command time from that already-installed metadata using the effective analysis/runtime context.
 
 Consequences:
-- one `kali.lock` plus one materialized package tree serves both the default Deno-oriented standalone path and the shared **Phase-1 browser-targeted command set** in Phase 1,
+- one `kali.lock` plus one materialized package tree serves both the Deno-oriented standalone surface and the shared **Phase-1 browser-targeted command set** in Phase 1,
 - changing `apiSurface` between `deno` and that shared browser-targeted context changes package entry selection, not whether the project is considered installed,
 - separate per-surface installs/lockfiles must not be implied unless a later lockfile revision explicitly introduces that complexity.
 
