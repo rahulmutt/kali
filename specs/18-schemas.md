@@ -366,7 +366,7 @@ Early-phase interpretation rule:
 - the report covers the command's full analysis graph under that recorded analysis context, not a file-local AST scan of only the named source file
 - for source-graph producers such as `kali effects`, that graph is the same **resolved source graph** defined in [SPEC.md](../SPEC.md)
 - the report is a conservative upper bound for that analyzed graph: it may over-approximate, but it must not omit already-known built-in sandbox-relevant effects just because some paths remained dynamic
-- the field stays an array so the same schema can later cover package-wide, test-runner, or other report producers without inventing a second effect-report shape
+- the field stays an array so the same schema can later cover single-package-rooted, test-runner, or other report producers without inventing a second effect-report shape
 
 ### `EffectAnalysisContext`
 ```json
@@ -494,8 +494,9 @@ Interpretation rules:
 - as the analysis-context-aware half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md), `kali package-effects` inherits that analysis context through the shared **inherited analysis context** rather than introducing a second package-analysis-only flag family; the schema records the chosen context, regardless of how it was selected
 - inherited-context maturity follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) rather than a package-only shadow rule set
 - the recorded context reflects the command's successfully selected analysis mode; it does **not** relax feature-maturity rules, so an inherited context that is still unavailable for package analysis still causes `E5006` instead of producing a report under a fallback surface
-- `entryPoints` names the package-analysis logical roots (for example the canonical package root specifier) and the summarized effects still cover the command's full analysis graph for that package root, not only the top-level `package.json` metadata file
-- for schema-v1 CLI package analysis, that root label should use the same canonical registry package identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than a tarball URL, cache path, or opaque internal package handle
+- `entryPoints` names the package-analysis logical roots and, in schema-v1 CLI package analysis, should contain exactly one logical root because `kali package-effects <package>` follows the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
+- that one root label should use the same canonical registry package identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than a tarball URL, cache path, or opaque internal package handle
+- the summarized effects still cover the command's full analysis graph for that one package root, not only the top-level `package.json` metadata file
 - `schemaVersion` at the outer package-effect layer versions the package-analysis payload; the nested `report.schemaVersion` continues to version the shared effect-report schema independently
 - by default, `kali package-effects` may emit this payload directly; with `--output json`, it is wrapped in the standard CLI command envelope with this object under `payload`
 
