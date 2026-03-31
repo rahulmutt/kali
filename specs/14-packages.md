@@ -15,6 +15,7 @@ Reading shortcut:
 - **source-graph commands** (`check` / `effects` / `build` / `run` / `test`) analyze a local source/import graph plus its resolved dependencies under the selected command context
 - **install workflow** (`install`) is the only early command family allowed to mutate manifest/lock/materialized dependency state
 - **registry-analysis commands** (`package-effects` / `package-audit`) are later single-package workflows with documented command/schema shapes, but their actual availability still comes from [19 — Feature Maturity](19-feature-maturity.md) (`package-effects` is **Phase 2 target**; `package-audit` is **Later compatibility**)
+- follow the shared **`package-effects` dual classification** from [SPEC.md](../SPEC.md): `package-effects` is still a registry-analysis command in this chapter even though, by output contract, it also belongs to the later public effect-report surface
 - use that split before reading any sentence that says a package is “supported”, so package-shape support, install behavior, and later registry-analysis tooling do not get conflated
 
 Canonical dependency-source shorthand:
@@ -62,6 +63,7 @@ Compact workflow comparison:
 
 Registry-analysis independence reminder:
 - later `package-effects` / `package-audit` are intentionally **not** alternate views over the current project's installed dependency graph
+- that remains true even under the shared **`package-effects` dual classification**: its effect-report role does not change its one-package registry target, stable-release selection rule, or project independence
 - they analyze one explicit registry package identity using the shared schema-v1 stable-release selection rule unless a later revision adds an explicit version coordinate
 - this keeps project support questions (`check` / `build` / `run` / `test`) separate from single-package registry questions and prevents the current `kali.lock` or `node_modules/` state from silently changing what a registry-analysis command means
 

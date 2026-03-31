@@ -857,6 +857,21 @@ Rules:
 - docs should reuse this split instead of describing the same command family as partly “reporting”, partly “validation”, and partly “runtime sandboxing” depending on chapter prose
 - later phases may deepen a workflow owner's capabilities, but should not create a second near-duplicate command path unless the maturity matrix opens it explicitly
 
+### `package-effects` dual classification
+Kali keeps one explicit rule for the command that most often looks contradictory when chapters summarize it too casually.
+
+`kali package-effects` belongs to two stories at once:
+- by **command/input workflow**, it is a registry-analysis command and follows the shared **registry-analysis target contract (schema v1)**, **registry-analysis availability boundary**, **registry-analysis context split**, and **registry-analysis independence split**
+- by **report/output contract**, it belongs to the reporting half of the later **public effect-report surface** and reuses the same effect vocabulary, conservative-upper-bound interpretation, and schema-owned effect-report payload rules as `kali effects`
+
+Reading rule:
+- if the question is about package selector shape, version selection, project independence, inherited analysis context, or well-formed-vs-gated command handling, read the registry-analysis terms first
+- if the question is about effect vocabulary, `dynamicEffects` / `dynamicReasons`, conservative report meaning, or nested effect-report JSON shape, read the effect-report owners first
+- appearing in both places is therefore intentional and should not be treated as two different commands or a spec inconsistency
+
+Authoring shortcut:
+- reuse the phrase **`package-effects` dual classification** instead of re-explaining this split from scratch whenever a chapter needs to say why the command appears in both the registry-analysis and effect-report stories
+
 ### Sandbox-attachment orthogonality
 Attaching `--sandbox <policy>` never changes the base command family or its existing input/artifact semantics.
 

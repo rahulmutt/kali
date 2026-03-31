@@ -9,6 +9,7 @@ Sandboxing is a first-class concern in Kali. The system combines:
 
 Cross-spec workflow rule:
 - follow the shared **workflow-owner split** from [SPEC.md](../SPEC.md)
+- follow the shared **`package-effects` dual classification** too: in this chapter `package-effects` is grouped with reporting because of its output contract, while its one-package registry-analysis input workflow remains owned by the package/CLI chapters
 - this chapter therefore treats `effects` / `package-effects` as reporting-only surfaces, `check/build --sandbox` as the static policy-validation path, `run/test --sandbox` as the runtime-enforcement path, and `package-audit` as the separate context-free registry-analysis/security-audit workflow instead of letting those workflows blur together
 
 Command-behavior simplification:
@@ -72,7 +73,7 @@ This example is intentionally descriptive, not a promise that Phase 1 already ex
 kali effects program.ts
 ```
 
-`kali effects` is part of the Phase-2 **public effect-report surface**. `kali package-effects` joins that same surface for registry-package analysis and reuses the shared effect vocabulary/report contract with package-specific metadata layered on top. Before then, equivalent internal analysis may exist only as **internal effect bookkeeping** and does not need to be exposed as a stable user-facing command.
+`kali effects` is part of the Phase-2 **public effect-report surface**. Under the shared **`package-effects` dual classification** from [SPEC.md](../SPEC.md), `kali package-effects` joins that same surface by report contract while still remaining a one-package registry-analysis command by input shape; it reuses the shared effect vocabulary/report contract with package-specific metadata layered on top. Before then, equivalent internal analysis may exist only as **internal effect bookkeeping** and does not need to be exposed as a stable user-facing command.
 
 The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md). This chapter treats that schema as the single source of truth for field names and payload shape.
 
