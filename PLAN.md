@@ -1,13 +1,56 @@
 # Kali — Implementation Plan
 
-This document is the top-level implementation plan. It maps the spec's four phases onto concrete,
-incrementally workable stages. After every stage the project should be in a state that compiles,
-passes its current tests, and provides a meaningful subset of end-user value.
+This document is the top-level implementation plan that maps the spec's four phases onto concrete,
+incrementally workable stages. After every stage the project should be in a workable state that:
+
+1. **Compiles** — `cargo build` succeeds with no warnings that would block merge
+2. **Passes tests** — Existing test suite passes (`cargo test --workspace`)
+3. **Provides end-user value** — At least one new capability is demonstrable via CLI
+4. **Maintains invariants** — AOT-only, pure Rust, no tracing GC, sandbox-first, deterministic
 
 **Spec authority:** [`SPEC.md`](./SPEC.md) and the owning chapters in [`specs/`](./specs/) are the
 normative source of truth. This plan translates their *Recommended Phase-1 Implementation Order*
 and the phase contracts from [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) into
 a concrete build sequence.
+
+---
+
+## Directory Structure
+
+This plan uses a flat directory structure under `plan/<phase>/` where each stage is a numbered file:
+
+```
+plan/
+├── phase-1/  (Core Compiler & Toolchain MVP)
+│   ├── 01-workspace-scaffold.md
+│   ├── 02-lexer.md
+│   ├── 03-parser-and-ast.md
+│   ├── 04-name-resolution.md
+│   ├── 05-type-checker.md
+│   ├── 06-hir-lir-lowering.md
+│   ├── 07-wasm-codegen.md
+│   ├── 08-runtime-execution.md
+│   ├── 09-sandbox-and-policy.md
+│   ├── 10-package-management.md
+│   ├── 11-build-artifacts.md
+│   ├── 12-developer-workflow.md
+│   ├── 13-diagnostics-and-schemas.md
+│   └── 14-evidence-hardening.md
+├── phase-2/  (Ownership, Effects & Public Embedding)
+│   ├── 01-mir-and-ownership.md
+│   ├── 02-public-effect-reporting.md
+│   ├── 03-public-embedding-surface.md
+│   └── 04-lean-model-foundation.md
+├── phase-3/  (Specialization, Optimization and Ecosystem Breadth)
+│   ├── 01-optimization-and-specialization.md
+│   ├── 02-node-compatibility.md
+│   └── 03-ecosystem-breadth.md
+└── phase-4/  (Advanced Compatibility & Deep Verification)
+    ├── 01-dynamic-compatibility.md
+    └── 02-formal-verification-depth.md
+```
+
+Total: **20 stage documents** across **4 phases** with **4 stage groups** explicitly noting parallelizable work.
 
 ---
 
@@ -39,6 +82,28 @@ The stages in this plan map onto those spec steps as follows:
 
 Stage 1.1 (workspace scaffold) is a prerequisite shared across all steps.
 
+The same pattern continues into Phases 2-4, though with fewer stages per phase:
+
+| Spec Focus | Plan Phases |
+|---|---|
+| Core compiler MVP | Phase 1 (14 stages) |
+| Ownership, Effects, Embedding, Verification baseline | Phase 2 (4 stages) |
+| Specialization, Optimization, Ecosystem | Phase 3 (3 stages) |
+| Dynamic Compatibility, Deep Verification | Phase 4 (2 stages) |
+
+### Definition of "Workable State"
+
+The meaning of "workable" evolves across phases:
+
+| Phase | Workable State Criteria |
+|---|---|
+| **Phase 1** | Can compile .ts/.js files to WASM; `run`, `check`, `build`, `test` work for local file-based programs; basic package install works |
+| **Phase 2** | Can produce verifiable ownership semantics; public effect-reporting commands work; can generate embedding artifacts (WIT/CABI) |
+| **Phase 3** | Can produce optimized builds with measurable perf gains; can run programs with Node APIs; cross-module optimization works |
+| **Phase 4** | Supports `eval`/`Function()` safely; has non-empty published verification boundary; can make proof-backed claims |
+
+
+
 ### Ordering note: package management after execution
 
 `SPEC.md`'s recommended order places the package/install foundation (spec step 2) *before*
@@ -60,13 +125,14 @@ within Phase 1.
 
 ## Phase 1 — Core Compiler & Toolchain MVP
 
-Goal: a dependable, end-to-end TypeScript/JavaScript → WebAssembly compiler that can check, run,
-test, and bundle real programs in the Deno-oriented standalone context and the Phase-1
+**Goal:** a dependable, end-to-end TypeScript/JavaScript → WebAssembly compiler that can check,
+run, test, and bundle real programs in the Deno-oriented standalone context and the Phase-1
 browser-targeted command set, with sandbox enforcement, basic package management, and a
 proof-ready repository baseline.
 
-Each stage below leaves the project in a *workable* state — it compiles, existing tests pass, and
-the user can exercise at least one new capability.
+**Workable state:** Can compile local .ts/.js files to WASM; `run`, `check`, `build`, `test` work for local file-based programs; sandbox policies enforce at runtime; basic package install works for npm/JSR packages under the pure JS/TS contract. All Phase 1 commands work in the **Default standalone context** or **browser-targeted** variants.
+
+**Dependencies to complete Phase 1:** Stages 1.1–1.8 must complete before 1.9–1.14 begin, as later stages depend on the execution capability. Parallel development groups exist but require careful coordination on shared schemas and diagnostics registry.
 
 ### Foundation
 
@@ -116,43 +182,55 @@ the user can exercise at least one new capability.
 
 ### Phase 1 parallelism and coordination
 
-Within Phase 1, the following parallel development opportunities exist. **Important:** Parallel development requires coordination to ensure each stream maintains a workable state:
+Within Phase 1, certain stages can be developed in parallel **after the critical path** (1.1-1.8) is complete. This allows teams to work on independent streams while maintaining a coherent project state.
 
-| Parallel Group | Stages | Can begin after | Coordination requirements |
+**Critical path (sequential):** 1.1 → 1.2 → 1.3 → 1.4 → 1.5 → 1.6 → 1.7 → 1.8
+
+**Parallelizable after critical path:** 1.9-1.14 can begin once 1.8 completes, with the following coordination requirements:
+
+| Parallel Group | Stages | Dependency | Coordination requirements |
 |---|---|---|---|
-| Static validation | 1.9 | 1.5 (type checker) | Coordinate on sandbox policy schema version (specs/18-schemas.md) |
-| Lowering pipeline (early) | 1.6, 1.7 | 1.5 (type checker) | Share intermediate IR definitions; pass-through tests for HIR/LIR round-tripping |
-| Package management | 1.10 | 1.8 (runtime) | Coordinate on diagnostic codes (E6xxx namespace); share package-resolution interfaces |
-| Developer workflow | 1.12 | 1.11 (CLI) | Independent but must pass existing fixture suite |
-| Diagnostics & schemas | 1.13 | 1.11 (CLI surface) | Share diagnostic code registry (E5xxx, E9xxx); finalize JSON envelopes together |
-| Evidence infrastructure | 1.14 | 1.11 (CLI surface) | Share test fixtures; coordinate on failure classification criteria |
+| Static validation | 1.9 | 1.5, 1.8 | Sandbox policy schema in 18-schemas.md; E9xx diagnostics |
+| Lowering pipeline (early) | 1.6, 1.7 | 1.5 | Share IR definitions; HIR/LIR round-trip tests pass |
+| Package management | 1.10 | 1.8, 1.6-1.7 | E6xx diagnostics; package-resolution interfaces in 14-packages.md |
+| Build artifacts | 1.11 | 1.9, 1.6-1.7 | Artifact modes in 11-build-artifacts.md; WIT output schema |
+| Developer workflow | 1.12 | 1.11 | CLI flags in 12-cli.md; must pass fixture suite |
+| Diagnostics & schemas | 1.13 | 1.11 | E5xx/E9xx registry; JSON envelopes in 18-schemas.md |
+| Evidence infrastructure | 1.14 | 1.11, 1.12 | Conformance suite; determinism checks; CI pipeline config |
 
 **Workability coordination notes:**
-- When working on parallel stages, maintain a shared understanding of which commands are currently workable. For example, if 1.8 (runtime) is incomplete, 1.10 (packages) may work internally but cannot demonstrate end-to-end testing.
-- Coordinate on schema versions and diagnostic definitions: error codes and JSON envelopes should not diverge between parallel streams. The canonical definitions in [specs/18-schemas.md](specs/18-schemas.md) and [specs/15-errors.md](specs/15-errors.md) are the source of truth.
-- Always validate changes against the passing test suite from prior sequential stages before proceeding. Use `cargo test --workspace` as a pre-commit check.
-
-All other Phase 1 stages should be treated as sequential unless explicitly noted above.
+- **Critical path awareness:** All parallel work waits for 1.8 (runtime execution) because packages (1.10) cannot demonstrate end-to-end without execution; build artifacts (1.11) cannot validate without sandbox (1.9); evidence (1.14) cannot measure without CLI surface (1.11-1.12).
+- **Schema coordination:** All parallel streams must reference the canonical diagnostic registry (E5xx, E6xx, E9xx namespaces) from [specs/15-errors.md](./specs/15-errors.md) and JSON envelopes from [specs/18-schemas.md](./specs/18-schemas.md). Changes to shared definitions require cross-review.
+- **Test suite validation:** Before any parallel stream commits work, run `cargo test --workspace` to ensure it does not break existing functionality. Parallel streams may add tests but must not remove or modify existing test expectations.
+- **CLI command registry:** Each parallel stream must update the canonical command surface in [specs/12-cli.md](./specs/12-cli.md) with matching implementations. A command documented as "defined early" before it ships must not claim phase availability in [specs/19-feature-maturity.md](./specs/19-feature-maturity.md).
 
 ### Phase 1 completion gate
 
-Phase 1 is complete when all stages 1.1–1.14 have passed their Definitions of Done *and* every
-Phase-1 maturity label in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) is backed
-by a passing evidence track from stage 1.14.
+Phase 1 is complete when **all** of the following conditions are met:
+
+- [ ] All stages 1.1–1.14 have passed their individual Definitions of Done
+- [ ] Every Phase-1 maturity label in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) is backed by a passing evidence track from stage 1.14
+- [ ] `cargo test --workspace` passes with no regressions
+- [ ] End-to-end smoke tests for `kali check`, `build`, `run`, `test`, `init`, `fmt`, `lint`, `install` succeed on at least one real-world TypeScript project
+- [ ] `proofs/BOUNDARY.md` exists with the Phase-1 proof-ready boundary (non-empty for proof-backed claims)
+- [ ] Phase-1 browser-targeted smoke tests pass for the **Phase-1 browser-targeted command set**
+- [ ] Determinism checks pass for all CLI outputs and generated artifacts
 
 ---
 
 ## Phase 2 — Ownership, Effects & Public Embedding
 
-Goal: MIR-backed memory management with deterministic ownership/escape analysis; the stable public
-effect-report surface (`kali effects`, `kali package-effects`); compile-time inferred-effect-vs-policy
-validation; the stable public embedding surface (Rust API, WIT-first `--lib`, `--capi`,
-`--component`); and the Lean 4 core-type-calculus model that begins the formal verification
-programme.
+**Goal:** MIR-backed memory management with deterministic ownership/escape analysis; the stable public effect-report surface (`kali effects`, `kali package-effects`); compile-time inferred-effect-vs-policy validation; the stable public embedding surface (Rust API, WIT-first `--lib`, `--capi`, `--component`); and the Lean 4 core-type-calculus model that begins the formal verification programme.
 
-Stages 2.2, 2.3, and 2.4 all depend on the MIR pipeline from 2.1 (2.4's memory-safety proof
-work requires 2.1; its type-calculus and type-soundness work can proceed in parallel with 2.1
-once Phase 1 is complete). Stages 2.2 and 2.3 can proceed in parallel once 2.1 is complete.
+**Workable state:** Can produce WASM with verifiable ownership semantics; public effect-reporting commands work (`kali effects <file>`, `kali package-effects <pkg>`); can generate embedding artifacts (WIT sidecar, C ABI headers, Component Model); check/build with `--sandbox` rejects programs that would violate policy at runtime.
+
+**Critical path:** 2.1 (MIR/ownership) must complete before 2.2 and 2.3 can proceed. Stage 2.4 (Lean foundation) has a dependency on 2.1 for the memory-safety proof, but the type-calculus model can begin as soon as Phase 1 completes since it models the type system rather than implementation specifics.
+
+**Stage dependencies:**
+- 2.1 → 2.2 (effect reporting needs ownership semantics to analyze)
+- 2.1 → 2.3 (embedding artifacts need stable export surface from ownership analysis)
+- 2.1 → 2.4 (memory-safety proofs depend on the ownership model)
+- 1.4 → 2.4 (type-calculus model depends on Phase 1's type system implementation)
 
 ### Spec chapter mapping
 
@@ -174,22 +252,33 @@ once Phase 1 is complete). Stages 2.2 and 2.3 can proceed in parallel once 2.1 i
 
 ### Phase 2 completion gate
 
-Phase 2 is complete when stages 2.1–2.4 have passed their Definitions of Done, the public
-effect-report surface and public embedding surface are stable (stable semver published), the Lean
-type-soundness proof is in CI, and the Phase-2 maturity rows in
-[`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated to reflect passing
-evidence.
+Phase 2 is complete when **all** of the following conditions are met:
+
+- [ ] All stages 2.1–2.4 have passed their individual Definitions of Done
+- [ ] Public effect-report surface is stable: `kali effects` and `kali package-effects` produce schema-v2 JSON
+- [ ] Public embedding surface is stable: `kali build --lib` emits WIT; `--capi` and `--component` artifact modes work
+- [ ] The stable semver boundary has been published for embedding APIs
+- [ ] Lean type-soundness proof (progress + preservation) is implemented and CI runs proof jobs
+- [ ] Phase-2 maturity rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated to reflect passing evidence
+- [ ] `cargo test --workspace` passes with no regressions
 
 ---
 
-## Phase 3 — Specialization, Optimization and Ecosystem Breadth
+## Phase 3 — Specialization, Optimization & Ecosystem Breadth
 
-Goal: generic/function/layout specialization at compile time; stronger optimization tiers;
-incremental compilation; broader npm/Node compatibility beyond the Phase-1 pure-JS/TS baseline;
-and broader browser packaging.
+**Goal:** generic/function/layout specialization at compile time; stronger optimization tiers; incremental compilation; broader npm/Node compatibility beyond the Phase-1 pure-JS/TS baseline; and broader browser packaging.
 
-Stages 3.2 and 3.3 can be developed in parallel with 3.1 once Phase 2 is complete; 3.1's
-monomorphization work is a prerequisite for the full layout-specialization benefits in 3.3.
+**Workable state:** `--release` and `--release-advanced` produce measurably faster WASM than `--fast`; monomorphization pipeline produces specialized code; can run programs with Node APIs via `--api node`; can build with incremental compilation for faster rebuilds; broader npm/JSR packages work beyond the pure JS/TS baseline.
+
+**Critical path:** 3.1 (optimization/specialization) is the foundational work — 3.3's code splitting and tree-shaking depend on 3.1's monomorphization being stable.
+
+**Stage dependencies:**
+- 3.1 → 3.3 (code splitting needs monomorphization for safe export analysis)
+- Phase 2 → 3.2 (Node compatibility can begin after Phase 2; has fewer dependencies on Phase 3 internals)
+
+**Parallel development:** 3.1, 3.2, and 3.3 **cannot** all run in parallel. The correct sequence is:
+1. Complete 3.1 first (optimization infrastructure)
+2. Then begin 3.2 **or** 3.3 in parallel (Node compatibility and Ecosystem breadth are independent once specialization works)
 
 ### Spec chapter mapping
 
@@ -212,24 +301,28 @@ monomorphization work is a prerequisite for the full layout-specialization benef
 
 ### Phase 3 completion gate
 
-Phase 3 is complete when stages 3.1–3.3 have passed their Definitions of Done, `--release` and
-`--release-advanced` are measurably better than `--fast` on the CI benchmark suite, `--api node`
-is no longer gated, and the Phase-3 maturity rows in
-[`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated to reflect passing
-evidence.
+Phase 3 is complete when **all** of the following conditions are met:
+
+- [ ] All stages 3.1–3.3 have passed their individual Definitions of Done
+- [ ] `--release` and `--release-advanced` modes produce measurably better performance than `--fast` on CI benchmark suite
+- [ ] `--api node` command path is available and stable
+- [ ] The optimization/specialization pipeline (3.1) is stable and incremental compilation reduces rebuild times
+- [ ] Phase-3 maturity rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated to reflect passing evidence
+- [ ] `cargo test --workspace` passes with no regressions
 
 ---
 
 ## Phase 4 — Advanced Compatibility & Deep Verification
 
-Goal: hardest dynamic features (`eval`, `Function()`, non-literal dynamic imports); deeper API
-coverage; and proof-backed release claims with a non-empty published Lean boundary.
+**Goal:** hardest dynamic features (`eval`, `Function()`, non-literal dynamic imports); deeper API coverage; and proof-backed release claims with a non-empty published Lean boundary.
 
-Stage 4.2 (formal verification depth) depends on Stage 2.4 (Lean Model Foundation), which
-establishes the Lean workspace, core type-calculus model, and CI proof jobs during Phase 2.
-Stage 4.2 deepens that foundation to achieve the **proof-backed** milestone: a non-empty,
-non-provisional published boundary in `proofs/BOUNDARY.md`. **Proof-backed** claims may not
-appear in release notes or support summaries until Stage 4.2 delivers that published boundary.
+**Workable state:** `eval`/`Function()` work safely behind `compat.features.eval`; can use non-literal dynamic imports with gated availability; `kali package-audit` is stable without `--preview` gate; can make **proof-backed** release claims for a non-empty published verification boundary in `proofs/BOUNDARY.md`.
+
+**Critical path:** 4.2 (formal verification depth) depends on 2.4 (Lean Model Foundation from Phase 2), which establishes the Lean workspace and CI proof jobs. Stage 2.4 must complete before 4.2 can produce **proof-backed** claims.
+
+**Stage dependencies:**
+- 2.4 → 4.2 (4.2 builds on the Lean foundation from 2.4; the proof CI jobs and core calculus model must exist first)
+- 4.1 depends on no other Phase 4 stage, but `eval` support requires the type system from Phase 1 and the CLI framework developed throughout
 
 ### Spec chapter mapping
 
@@ -248,10 +341,16 @@ appear in release notes or support summaries until Stage 4.2 delivers that publi
 
 ### Phase 4 completion gate
 
-Phase 4 is complete when stages 4.1–4.2 have passed their Definitions of Done,
-`proofs/BOUNDARY.md` names a non-empty modelled subsystem with passing Lean proof jobs, and the
-repository may honestly claim **proof-backed** status for the published boundary. Phase-4 maturity
-rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated accordingly.
+Phase 4 is complete when **all** of the following conditions are met:
+
+- [ ] All stages 4.1–4.2 have passed their individual Definitions of Done
+- [ ] `eval`/`Function()` support works safely behind `compat.features.eval` compatibility flag
+- [ ] `kali package-audit` is stable and no longer gated behind `--preview`
+- [ ] `proofs/BOUNDARY.md` documents a non-empty modelled subsystem with passing Lean proof jobs
+- [ ] Repository may claim **proof-backed** status for the published boundary (not merely proof-ready)
+- [ ] The type-soundness proof (progress + preservation) is fully implemented for the Phase-1 core
+- [ ] Phase-4 maturity rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated to reflect passing evidence
+- [ ] `cargo test --workspace` passes with no regressions
 
 ---
 
