@@ -57,6 +57,7 @@ Examples:
 - `kali package-audit` is defined early but is not a Phase-1 command
 - plain `--lib` is documented early as the future stable public WIT-first path, but in Phase 1 it is still only the export-oriented **base library artifact**
 - `kali build --capi` and `kali build --component` are defined early but remain later public embedding artifact flows
+- artifact/schema vocabulary such as `kind: wasm-component`, `role: interface-wit`, or `role: embedding-metadata` may be reserved before those flows ship; stable names do not imply earlier availability
 - browser-targeted `check` / `build --bundle` availability does not imply standalone browser `run` / `test`
 
 Rule of thumb:

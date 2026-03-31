@@ -139,15 +139,19 @@ Shared artifact-shape rules:
 
 Illustrative artifact sets by valid build mode *(reading aid only; filenames are basename-derived examples, while the normative machine contract is the emitted artifact list's `kind` + `role` metadata plus the availability/gating rules in [12 — CLI](12-cli.md), [18 — Schemas](18-schemas.md), and [19 — Feature Maturity](19-feature-maturity.md))*:
 
-| Valid build mode | Illustrative emitted artifacts |
-|---|---|
-| default executable build (`kali build foo.ts`) | `foo.wasm` (`kind: wasm-module`, `role: primary-executable`) |
-| browser bundle (`kali build --bundle foo.ts` when the effective `apiSurface` is `browser`) | `foo.wasm` (`kind: wasm-module`, `role: primary-executable`) + `foo.js` (`kind: js-glue`, `role: browser-glue`) |
-| base library build (`kali build --lib lib.ts`) | Phase 1: basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) as the **base library artifact** for **exact-version consumers** only. From the Phase 2 target onward, add basename-derived `lib.wit` (`kind: wit`, `role: interface-wit`) by default once the public library/WIT contract is stable. |
-| C-ABI embedding build (`kali build --capi lib.ts`) | Basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) + `lib.wit` (`kind: wit`, `role: interface-wit`) + generated `lib.exports.h` (`kind: c-header`, `role: embedding-header`) + generated `lib.cabi.json` (`kind: cabi-metadata`, `role: embedding-metadata`). The generated exports header is distinct from the stable host ABI header `kali.h`. |
-| Component Model build (`kali build --component lib.ts`) | Basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) + `lib.wit` (`kind: wit`, `role: interface-wit`) + `lib.component.wasm` (`kind: wasm-component`, `role: primary-component`) |
+| Valid build mode | Earliest phase | Illustrative emitted artifacts |
+|---|---|---|
+| default executable build (`kali build foo.ts`) | Phase 1 MVP | `foo.wasm` (`kind: wasm-module`, `role: primary-executable`) |
+| browser bundle (`kali build --bundle foo.ts` when the effective `apiSurface` is `browser`) | Phase 1 MVP | `foo.wasm` (`kind: wasm-module`, `role: primary-executable`) + `foo.js` (`kind: js-glue`, `role: browser-glue`) |
+| base library build (`kali build --lib lib.ts`) | Phase 1 MVP | Phase 1: basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) as the **base library artifact** for **exact-version consumers** only. From the Phase 2 target onward, add basename-derived `lib.wit` (`kind: wit`, `role: interface-wit`) by default once the public library/WIT contract is stable. |
+| C-ABI embedding build (`kali build --capi lib.ts`) | Phase 2 target | Basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) + `lib.wit` (`kind: wit`, `role: interface-wit`) + generated `lib.exports.h` (`kind: c-header`, `role: embedding-header`) + generated `lib.cabi.json` (`kind: cabi-metadata`, `role: embedding-metadata`). The generated exports header is distinct from the stable host ABI header `kali.h`. |
+| Component Model build (`kali build --component lib.ts`) | Phase 2 target | Basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) + `lib.wit` (`kind: wit`, `role: interface-wit`) + `lib.component.wasm` (`kind: wasm-component`, `role: primary-component`) |
 
 For invalid or unavailable combinations such as `--bundle` without browser mode, browser + library-oriented modes, or early `--api node`, follow the canonical validation/gating rules in [SPEC.md](../SPEC.md), [12 — CLI](12-cli.md), and [19 — Feature Maturity](19-feature-maturity.md) instead of reading this table as a second normative artifact-mode matrix.
+
+Availability reminder:
+- this table defines artifact **shapes** once a build mode is valid; it does not promote later build modes into earlier phases just because their `kind` / `role` pairs are documented here
+- in particular, `--capi` and `--component` keep their Phase-2 gating even though schema-v1 already reserves their artifact vocabulary
 
 ## Source Maps
 

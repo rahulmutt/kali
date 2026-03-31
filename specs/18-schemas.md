@@ -313,6 +313,7 @@ Interpretation rules:
 - `kind` stays the primary cross-command type discriminator (`wasm-module`, `wasm-component`, `js-glue`, `wit`, `c-header`, `cabi-metadata`, `source-map`)
 - `debug-source-map` is a `role`, not a second source-map `kind`; the matching artifact `kind` remains `source-map`
 - `role` exists so tools do not have to infer semantic intent from filenames alone when multiple artifact modes reuse the same `kind`
+- schema-v1 reserves these `kind` / `role` names for stable machine readability even when the owning command/artifact flow is still phase-gated; read actual availability from [19 — Feature Maturity](19-feature-maturity.md) rather than inferring it from the presence of a schema value alone
 - within one emitted artifact list, `primary-executable`, `primary-library`, and `primary-component` are each unique roles: at most one artifact may carry each of those roles
 - browser-bundle outputs therefore normally contain one `primary-executable` core `wasm-module` plus one `browser-glue` JS companion, rather than two competing "primary" artifacts of the same executable flow
 - in component-oriented outputs, the wrapped core `wasm-module` normally keeps role `primary-library` while the outer `wasm-component` carries role `primary-component`; this avoids making tools guess which artifact is the deployable wrapper versus the linked core payload
