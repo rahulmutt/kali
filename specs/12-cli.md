@@ -593,7 +593,7 @@ Determinism rules:
 - Registry packages (npm/JSR) are materialized into `node_modules/`; raw URL imports are materialized under `.kali/cache/urls/`. Non-install commands consume whichever of those stores are relevant to the current project instead of assuming every project must have both.
 
 ### Registry-analysis commands
-These commands follow the shared **registry-analysis command split** from [SPEC.md](../SPEC.md) while sharing the bundled **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md): one explicit canonical registry package identifier, stable-release selection for versionless CLI targets, and project-independent analysis that does not mutate project-managed dependency state.
+These commands follow the shared **registry-analysis command split** from [SPEC.md](../SPEC.md), and both use the shared **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md): one explicit canonical registry package identifier, stable-release selection for versionless CLI targets, and project-independent analysis that does not mutate project-managed dependency state.
 
 Practical consequences:
 - malformed target forms (missing package, multiple packages, raw URL, or local path) fail with `E5008`
@@ -659,7 +659,7 @@ Base-gate clarification:
 - output-format flags do not create a second availability path for the command itself
 
 Audit rule:
-- following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command follows the bundled **registry-analysis target contract (schema v1)** and is the context-free registry-analysis/security-audit path rather than a second host-context-aware effect/policy command
+- following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command follows the shared **registry-analysis target contract (schema v1)** and is the context-free registry-analysis/security-audit path rather than a second host-context-aware effect/policy command
 - as the `package-audit` half of the shared **registry-analysis command split**, early `package-audit` follows **context-free registry analysis (schema v1)** and therefore does **not** inherit the shared **inherited analysis context** or accept package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
 - in schema v1 it is an **envelope-only JSON command**, not a **native-JSON command**; because of that envelope-only model, `kali package-audit --pretty <pkg>` without `--output json` is invalid command usage (`E5008`) rather than an implicit request for JSON mode
 - once available, audit findings are reported through the standard envelope `errors` / `warnings` arrays; a clean audit is therefore `success: true` with `payload: null` and no findings rather than a separate payload object
