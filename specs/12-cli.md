@@ -324,20 +324,20 @@ kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue)
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
-kali build --api browser main.ts           # Invalid usage (E5008) in early phases; browser build path requires --bundle
+kali build --api browser main.ts           # Invalid usage (E5008) in early phases; the shared **Phase-1 browser-targeted command set** keeps browser builds on the explicit `--bundle` path
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early for builds either
 kali build --lib lib.ts                    # Phase-1 base library artifact for exact-version consumers, following the shared library-oriented instantiation rule and embedding-stability split from SPEC.md (kind=wasm-module, role=primary-library; from the Phase 2 target onward the same plain --lib path becomes the stable public WIT-first library contract and adds kind=wit, role=interface-wit by default)
 kali build --lib --sandbox kali.policy.json lib.ts # Same Phase-1 base library artifact plus static policy validation; `--sandbox` does not change library compile intent
 kali build --lib --api node lib.ts         # Phase 3 target: Node API surface remains build-gated for library-oriented modes too
-kali build --lib --api browser lib.ts      # Invalid usage (E5008) in early phases; the browser-targeted context is tied to `check` and `build --bundle`, not a library artifact mode
+kali build --lib --api browser lib.ts      # Invalid usage (E5008) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser library artifact modes
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + lib.cabi.json (artifacts: wasm-module + wit + c-header + cabi-metadata; roles: primary-library + interface-wit + embedding-header + embedding-metadata; `lib.exports.h` is the program-specific exports header, and `lib.cabi.json` is the generated `cabi-metadata` file, not the host ABI header `kali.h`; see specs/13-embedding.md)
 kali build --capi --sandbox kali.policy.json lib.ts # Phase 2 target: same C-embedding artifact flow plus static policy validation; `--sandbox` stays orthogonal to artifact mode
 kali build --capi --api node lib.ts        # Phase 3 target: still gated by the Node build surface even after the public embedding artifact flow exists
-kali build --capi --api browser lib.ts     # Invalid usage (E5008) in early phases; the browser-targeted context remains the bundle-only path rather than an embedding artifact mode
+kali build --capi --api browser lib.ts     # Invalid usage (E5008) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser embedding artifact modes
 kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit + lib.component.wasm (artifacts: lib.wasm kind=wasm-module role=primary-library; lib.wit kind=wit role=interface-wit; lib.component.wasm kind=wasm-component role=primary-component)
 kali build --component --sandbox kali.policy.json lib.ts # Phase 2 target: same component-oriented packaging path plus static policy validation; `--sandbox` stays orthogonal to artifact mode
 kali build --component --api node lib.ts   # Phase 3 target: still gated by the Node build surface even after component packaging exists
-kali build --component --api browser lib.ts # Invalid usage (E5008) in early phases; the browser-targeted context remains the bundle-only path rather than a component artifact mode
+kali build --component --api browser lib.ts # Invalid usage (E5008) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser component artifact modes
 kali build --sandbox kali.policy.json main.ts # Phase 1: policy-schema/config validation; from the Phase 2 target onward also validate inferred effects
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Phase 1: browser-targeted static policy-schema/config validation only; no automatic browser-runtime enforcement is implied after deployment
 kali build --validate-ir main.ts           # Run IR validators (debug aid)

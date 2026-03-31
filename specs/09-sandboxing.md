@@ -19,7 +19,7 @@ Command-behavior simplification:
 | Command family | `--sandbox` meaning in schema v1 | Runtime enforcement after command returns? |
 |---|---|---|
 | `run`, `test` | Attach policy, validate schema/ranges, and enforce it during **Kali-hosted execution** | Yes, for the documented Kali-hosted capability/resource contract |
-| `check`, `build` | Static validation only: Phase 1 validates policy-schema/config over the shared **Phase-1 static policy-validation surface** from [SPEC.md](../SPEC.md); starting in the Phase 2 target window, that same path also checks inferred effects against policy. This row applies only to otherwise-valid `check`/`build` shapes; if the effective `apiSurface` is `browser`, it narrows to the supported browser-targeted `check` and `build --bundle` cases under the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) rather than creating a second sandbox workflow or repairing unsupported browser build modes. | No |
+| `check`, `build` | Static validation only: Phase 1 validates policy-schema/config over the shared **Phase-1 static policy-validation surface** from [SPEC.md](../SPEC.md); starting in the Phase 2 target window, that same path also checks inferred effects against policy. This row applies only to otherwise-valid `check`/`build` shapes; if the effective `apiSurface` is `browser`, it narrows to the browser-facing members of that same shared surface under the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) rather than creating a second sandbox workflow or repairing unsupported browser build modes. | No |
 | `effects`, `package-effects` | No sandbox-comparison mode; `--sandbox` is invalid usage (`E5008`) | N/A |
 | `package-audit` | No sandbox mode; `--sandbox` is invalid usage (`E5008`) because this remains the separate context-free registry-analysis/security-audit workflow | N/A |
 
@@ -172,7 +172,7 @@ Compile-time policy handling is intentionally split to keep Phase 1 smaller and 
 - For the hybrid `kali check` command, `kali check --sandbox <policy>` without explicit file arguments still uses the canonical project-discovery result; `--sandbox` adds policy validation, not a new input-selection mode.
 - With explicit `check` file arguments, `--sandbox` keeps the same **set-oriented explicit-file command** behavior as plain `kali check`: it validates the supplied file set as graph roots, and it does not collapse `check` into a one-entrypoint command just because a policy was attached.
 - For direct-input `build`, `kali build --sandbox <policy> <file>` validates that command's **resolved source graph** rather than only the root file in isolation.
-- Browser-targeted static policy validation follows that same graph-scope rule for the supported browser-targeted `check` and `build --bundle` paths.
+- Browser-targeted static policy validation follows that same graph-scope rule for the browser-facing members of the shared **Phase-1 static policy-validation surface** from [SPEC.md](../SPEC.md).
 
 Availability rule for policy validation:
 - a policy may always **deny** a capability, even if that capability's corresponding API/feature is later-phase

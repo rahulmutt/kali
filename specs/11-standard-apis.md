@@ -63,7 +63,7 @@ Phase-1 reading aid:
 Interpretation rules:
 - this is a command/API-surface snapshot only; the owning CLI shape still lives in [12 — CLI](12-cli.md), and exact phase labels still live in [19 — Feature Maturity](19-feature-maturity.md)
 - explicit CLI spellings and equivalent inherited-config forms mean the same effective request once `apiSurface` resolves to `deno`, `browser`, or `node`; inherited config must not silently widen or narrow support
-- practical Phase-1 simplification: browser-targeted support here means only browser-targeted `check` plus `build --bundle`; it does **not** mean standalone `run` / `test`, and it does **not** open browser library/embed artifact lanes
+- practical Phase-1 simplification: browser-targeted support here means only the shared **Phase-1 browser-targeted command set** from [SPEC.md](../SPEC.md); it does **not** mean standalone `run` / `test`, and it does **not** open browser library/embed artifact lanes
 - `browser` in this table means **checkable** / **deployable-through-host** support where noted, not a hidden standalone DOM runtime promise
 - for browser-only artifact selectors such as `build --bundle`, both non-browser columns describe the same schema-v1 contradiction path (`E5008`) rather than two different maturity stories
 - `node` stays gated across these command families until the documented Node subset exists; package-compatibility work must not imply an undocumented partial `--api node` mode earlier
