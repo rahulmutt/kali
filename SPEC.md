@@ -289,7 +289,7 @@ If a bootstrap aspiration and a detailed chapter seem in tension, prefer:
 
 For most bootstrap-review questions, the normalized answer reduces to five decisions:
 - **host breadth**: Phase 1 is Deno-first plus the shared **Phase-1 browser-targeted command set**; broad Node support is later.
-- **effects split**: Phase 1 may keep internal effect bookkeeping, while the stable public effect surface opens later in two explicit halves — reporting (`kali effects`, `kali package-effects`) and policy comparison (`check/build --sandbox`).
+- **effects split**: Phase 1 may keep internal effect bookkeeping, while the stable public effect-report surface opens later in two explicit halves — reporting (`kali effects`, `kali package-effects`) and policy comparison (`check/build --sandbox`).
 - **embedding split**: Phase 1 ships only the **base library artifact** for **exact-version consumers**; the stable public Rust/WIT/C ABI/component surface is later.
 - **verification split**: Phase 1 must be **proof-ready**; **proof-backed** claims start only once [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) names a non-empty modeled boundary.
 - **package-support reading**: answer package questions in this order — package shape, then host/API fit, then command maturity, all against the published artifact Kali actually installs, and only then the exact rung being claimed.
