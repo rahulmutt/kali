@@ -229,4 +229,4 @@ CI consistency rules:
 - A proof that every TypeScript-compatible surface feature has principal types or a simple soundness theorem; the proof target is the explicitly modeled core fragment
 - Verification of the WASM binary encoder (rely on `wasm-validate` + testing)
 - Full verification of concrete host integrations (OS/filesystem/network behavior is tested, not mechanically proved end-to-end)
-- Real-time proof checking during development (Lean builds run in CI)
+- Real-time proof checking during development; proof checking is a CI/policy concern rather than an every-edit requirement, and until a real Lean project exists in `proofs/` the repository only carries the published proof-boundary manifest plus its trigger policy

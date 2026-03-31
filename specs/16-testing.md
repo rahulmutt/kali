@@ -38,7 +38,7 @@ To keep tests from accidentally widening support claims, the repository should t
 
 Practical shortcut:
 - `run` / `test` sandbox enforcement, the shared **Phase-1 static policy-validation surface**, and the **Phase-1 browser-targeted command set** need positive Phase-1 coverage.
-- `kali effects` / `kali package-effects`, inferred-effect-vs-policy rejection on `check/build --sandbox`, stable public embedding flows (`--capi`, `--component`, stable public `--lib` + WIT), and proof-backed release claims stay negative/gated until their owning phase opens.
+- later command families and later proof claims stay negative/gated until their owning phase opens: `kali effects`, `kali package-effects`, `kali package-audit`, inferred-effect-vs-policy rejection on `check/build --sandbox`, stable public embedding flows (`--capi`, `--component`, stable public `--lib` + WIT), and proof-backed release claims.
 
 Support-claim maintenance rule:
 - if a test/evidence change would justify promoting or narrowing a public support claim, update the owning chapter, [`specs/19-feature-maturity.md`](./19-feature-maturity.md), and any affected root-level summaries such as [`README.md`](../README.md) in the same change.

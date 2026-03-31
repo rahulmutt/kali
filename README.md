@@ -46,8 +46,10 @@ These are the most common bootstrap overreads to reject up front:
 - no standalone browser `run` / `test` contract yet
 - no supported `--api node` command path yet
 - no stable public `kali effects` / `kali package-effects` workflow yet
+- no stable public `kali package-audit` workflow yet
 - no compile/check-time inferred-effect-vs-policy rejection yet on `check/build --sandbox`
 - no stable public embedding surface yet beyond the Phase-1 **base library artifact** (so no stable public WIT/C ABI/component flow yet)
+- no executable project-local sandbox policy code
 - no executable `eval` / `Function()` compatibility path yet
 - no threaded runtime profile yet
 
