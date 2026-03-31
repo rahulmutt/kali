@@ -16,7 +16,7 @@ The lexer/parser should accept the syntax Kali intends to understand even when t
 Canonical rule:
 - parsing a construct does **not** by itself mark it as supported for execution or lowering
 - semantic enablement is decided later by checking/lowering against [specs/19-feature-maturity.md](19-feature-maturity.md)
-- acceptance of a current-edition syntax form also does **not** imply Annex B behavior or proposal semantics unless the maturity matrix or an explicit experimental flag says so
+- acceptance of a current-edition syntax form also does **not** imply Annex B behavior or proposal semantics unless the maturity matrix or an explicit proposal opt-in says so
 - this applies especially to syntax-bearing compatibility paths such as `import()`, `eval`, `Function()`-adjacent compatibility behavior, and Kali effect syntax (`pure`, effect annotations, and the later reserved algebraic-effect forms)
 - therefore parser breadth should track the latest published grammar, while feature maturity still controls which accepted constructs are executable, lowerable, or only diagnosable in a given phase/profile
 

@@ -16,7 +16,7 @@ This is a deliberate simplification for Phases 1-3, not a forever-exclusive back
 
 Preferred execution modes:
 - **Development**: instantiate emitted WASM directly in wasmtime for fast iteration; any engine-managed translation here is part of the host-engine execution detail, not a second Kali compilation tier
-- **Production/embedding**: prefer wasmtime's precompiled/serialized module support where available when avoiding launch-time translation matters, but treat those cached/precompiled blobs as an implementation/deployment optimization rather than as a stable Phase-1 public artifact contract; cross-version/public loading guarantees still belong to the later **public embedding surface**
+- **Production/embedding**: prefer wasmtime's precompiled/serialized module support where available when avoiding launch-time translation matters, but treat those cached/precompiled blobs as an implementation/deployment optimization rather than as a stable Phase-1 public artifact contract; in Phase 1 this is an internal/exact-version-consumer deployment story only, and cross-version/public loading guarantees still belong to the later **public embedding surface**
 
 ### Optional Alternative Backend (Later Phase)
 An engine abstraction may be added later to support backends such as `wasmer` when there is a demonstrated embedding or platform need. This must not complicate the initial runtime design, and any added backend must preserve the same externally visible sandbox/resource/diagnostic contracts rather than introducing backend-specific semantics into user-facing behavior.
@@ -30,7 +30,7 @@ Engine-choice simplification rule:
 
 ### Host Adapter Modes
 Using the canonical term from [SPEC.md](../SPEC.md), Kali keeps one guest-facing host ABI, but early phases allow more than one **host adapter** to implement it:
-- **native host adapter** — used for Kali-hosted execution (`kali run`, `kali test`, and host-side instantiation/calls of Kali-built library artifacts) via native Rust/wasmtime host functions
+- **native host adapter** — used for Kali-hosted execution (`kali run`, `kali test`, and host-side execution of Phase-1 base-library artifacts by exact-version consumers, followed later by the public embedding surface) via native Rust/wasmtime host functions
 - **browser host adapter** — used by browser-targeted bundle output in the shared **Phase-1 browser-targeted command set** (`kali build --bundle <file>` when the effective `apiSurface` is `browser`) via generated JS glue that maps the same guest-facing capability model onto the real browser host
 
 Cross-spec consistency rule:

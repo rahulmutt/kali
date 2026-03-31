@@ -695,13 +695,14 @@ Rule:
 Execution where Kali or an embedding host owns the runtime/import boundary, including:
 - `kali run`
 - `kali test`
-- embedding hosts using Kali-controlled imports
+- host-side execution of Phase-1 `--lib` outputs by **exact-version consumers**
+- later public embedding hosts using Kali-controlled imports
 
 ### Host adapter
 The implementation layer that satisfies Kali's one guest-facing host ABI/capability model for a concrete deployment mode.
 
 Canonical early adapters:
-- **native host adapter** — used for Kali-hosted execution (`run`, `test`, and host-side instantiation/calls of Kali-built library artifacts)
+- **native host adapter** — used for Kali-hosted execution (`run`, `test`, and host-side execution of Phase-1 `--lib` outputs by exact-version consumers, followed later by the public embedding surface)
 - **browser host adapter** — generated JS glue used by `build --bundle --api browser`
 
 Rule:
@@ -987,7 +988,7 @@ It is derived from:
 Rules:
 - CLI/runtime overrides may only tighten this envelope; they must not widen a stricter attached policy.
 - when no sandbox policy is attached, direct invocation caps still contribute to the envelope without implying a synthesized allow-all policy file.
-- this term applies to Kali-hosted execution (`run`, `test`, and host-side instantiation/calls of Kali-built library artifacts), not to deployed browser bundles.
+- this term applies to Kali-hosted execution (`run`, `test`, and host-side execution of Phase-1 `--lib` outputs by exact-version consumers, followed later by the public embedding surface), not to deployed browser bundles.
 
 ### Browser-targeted static sandbox contract
 The canonical early-phase meaning of `--sandbox` in a browser-targeted context.
@@ -2110,7 +2111,7 @@ It does not implicitly include:
 - Stage-3+ proposals,
 - proposal semantics not yet in the published standard.
 
-Proposal support, if any, must be explicit and experimental.
+Proposal support, if any, must be explicit and opt-in; parser acceptance alone is not a support claim.
 
 ## Canonical Dynamic-Loading Boundary
 

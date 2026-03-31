@@ -103,7 +103,7 @@ Interpretation rule:
 - this chapter intentionally does not restate the full reason-code list so schema-v1 machine strings stay owned in one place
 
 When `true`, the static analysis is incomplete, but the reported `effects` list still remains a conservative upper bound for the effects Kali could already classify.
-- for **Kali-hosted execution** (`run`, `test`, and host-side instantiation/calls of Kali-built library artifacts), runtime sandbox enforcement remains the authoritative backstop for any operations the static report could not fully classify
+- for **Kali-hosted execution** (`run`, `test`, and host-side execution of Phase-1 base-library artifacts by exact-version consumers, followed later by the public embedding surface), runtime sandbox enforcement remains the authoritative backstop for any operations the static report could not fully classify
 - for the shared **Phase-1 browser-targeted command set** and later browser-context analysis commands that explicitly reuse that same context, this flag is still valuable as a static warning signal, but it does **not** imply that deployed browser bundles automatically inherit Kali runtime enforcement after deployment
 
 ## Sandbox Policies
@@ -269,7 +269,7 @@ Quick browser-targeted examples:
 
 ## Runtime Resource Limits
 
-For **Kali-hosted execution** (`kali run`, `kali test`, and host-side instantiation/calls of Kali-built library artifacts), runtime resource limits are enforced by the execution host (wasmtime in early phases).
+For **Kali-hosted execution** (`kali run`, `kali test`, and host-side execution of Phase-1 base-library artifacts by exact-version consumers, followed later by the public embedding surface), runtime resource limits are enforced by the execution host (wasmtime in early phases).
 
 Embedding clarification:
 - this includes library-oriented instantiation too: top-level module initialization performed at instantiate time and later export calls both run inside the same **effective execution envelope** as other Kali-hosted execution paths
