@@ -1,7 +1,7 @@
 # Stage 1.8 — Runtime & Execution
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/10-runtime.md`](../../specs/10-runtime.md), [`specs/11-standard-apis.md`](../../specs/11-standard-apis.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)  
+**Spec refs:** [`specs/10-runtime.md`](../../specs/10-runtime.md), [`specs/11-standard-apis.md`](../../specs/11-standard-apis.md), [`specs/09-sandboxing.md`](../../specs/09-sandboxing.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)  
 **Depends on:** [1.7 — WASM Code Generation](07-wasm-codegen.md)
 
 ## Goal

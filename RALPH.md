@@ -1,52 +1,32 @@
 # RALPH
 
-- Iteration: 1 of 10
+- Iteration: 2 of 10
 - Prompt file: /workspace/prompts/iterate-plan.md
-- Updated: 2026-03-31T08:58:42.339Z
+- Updated: 2026-03-31T09:12:25.450Z
 
 ## Last emitted message
 
 ```text
-Done. Here's a summary of what's already in place (all committed and now pushed):
+Here's a summary of every improvement made and why:
 
 ---
 
-## What was generated
+### Improvements made
 
-### `PLAN.md` (top-level)
-A concise index table for all four phases and their stages, with a one-line "Workable milestone" per stage and links to the owning document in `plan/`.
+**`PLAN.md` — 4 additions**
 
-### `plan/` directory structure
+| Addition | Rationale |
+|---|---|
+| **Phase 1 parallelism note** | Phases 2 and 3 already had explicit parallelism notes; Phase 1 was missing one. Stage 1.9's static-validation work (policy parsing, `kali check --sandbox`) only needs stage 1.5 — not 1.8 — so it can overlap with the execution stages. 1.12 and 1.13 are also independent of each other. |
+| **Phase 1 completion gate** | No phase had an explicit "done means X" criterion. Now each phase names the concrete evidence (passing DoDs + maturity matrix updates) required to formally close it. |
+| **Spec chapter mapping tables for Phases 2–4** | Phase 1 had a mapping table showing how plan stages relate to spec steps. Phases 2–4 had none, making it harder to cross-reference with the owning chapters in `specs/`. |
+| **Phase completion gates for Phases 2–4** | Same rationale as Phase 1; each phase now has a concise closing criterion. |
 
-``\`
-plan/
-├── phase-1/   (14 stages — Core Compiler & Toolchain MVP)
-│   ├── 01-workspace-scaffold.md   → cargo build + kali --version works
-│   ├── 02-lexer.md                → tokenises valid TS/JS
-│   ├── 03-parser-and-ast.md       → full ECMA-262 + TS grammar
-│   ├── 04-name-resolution.md      → kali check reports import/name errors
-│   ├── 05-type-checker.md         → bounded-inference type checking
-│   ├── 06-hir-lir-lowering.md     → HIR → LIR pipeline inspectable
-│   ├── 07-wasm-codegen.md         → simple programs compile to WASM
-│   ├── 08-runtime-execution.md    → kali run / kali test in Default context
-│   ├── 09-sandbox-and-policy.md   → --sandbox enforced; policy validated
-│   ├── 10-package-management.md   → kali install + deterministic lock file
-│   ├── 11-build-artifacts.md      → build / --bundle / --lib artifacts
-│   ├── 12-developer-workflow.md   → kali init / fmt / lint
-│   ├── 13-diagnostics-and-schemas.md → stable error codes + --output json
-│   └── 14-evidence-hardening.md   → conformance suite, determinism CI
-├── phase-2/   (3 stages — Ownership, Effects & Public Embedding)
-│   ├── 01-mir-and-ownership.md
-│   ├── 02-public-effect-reporting.md
-│   └── 03-public-embedding-surface.md
-├── phase-3/   (3 stages — Specialisation, Optimisation & Ecosystem Breadth)
-│   ├── 01-specialisation-and-optimisation.md
-│   ├── 02-node-compatibility.md
-│   └── 03-ecosystem-breadth.md
-└── phase-4/   (2 stages — Advanced Compatibility & Deep Verification)
-    ├── 01-dynamic-compatibility.md
-    └── 02-formal-verification-depth.md
-``\`
+**`plan/phase-1/09-sandbox-and-policy.md`**
 
-**Design principle:** each stage leaves the project in a workable, compilable, testable state — starting from the simplest possible skeleton (a `cargo build` stub) and layering in complexity only once the foundation below it is solid.
+The `Depends on` field incorrectly implied the entire stage needed stage 1.8 (runtime). In reality only the *runtime enforcement* portion needs 1.8; the *static policy validation* portion (`kali check --sandbox`, policy schema parsing) depends only on stage 1.5. Corrected and cross-referenced with the new parallelism note.
+
+**`plan/phase-2/01-03`, `plan/phase-3/01-03`, `plan/phase-4/01` — 7 stage files**
+
+All Phase 1 stages (14 files) have a `## Definition of Done` checklist; none of the Phase 2–4 stages (7 files) did. Added concrete, checkable DoD items to every missing stage so the plan's structure is now uniform across all 22 stage documents.
 ```

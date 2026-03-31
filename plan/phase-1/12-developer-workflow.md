@@ -1,7 +1,7 @@
 # Stage 1.12 — Developer Workflow
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Spec refs:** [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/15-errors.md`](../../specs/15-errors.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
 **Depends on:** [1.5 — Type Checker](05-type-checker.md) (for `kali lint`), [1.8 — Runtime & Execution](08-runtime-execution.md) (for `kali init` project validation), [1.11 — Build Artifacts](11-build-artifacts.md) (all prior pipeline stages complete)
 
 ## Goal
@@ -61,9 +61,8 @@ named `<name>` if provided):
 ```
 <name>/
 ├── kali.json          — project manifest with lib markers
-├── src/
-│   └── lib.ts         — exported library entry point
 └── src/
+    ├── lib.ts         — exported library entry point
     └── lib.test.ts    — minimal test stub
 ```
 

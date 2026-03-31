@@ -1,7 +1,7 @@
 # Stage 1.7 — WASM Code Generation
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/08-wasm-codegen.md`](../../specs/08-wasm-codegen.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)  
+**Spec refs:** [`specs/08-wasm-codegen.md`](../../specs/08-wasm-codegen.md), [`specs/18-schemas.md`](../../specs/18-schemas.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)  
 **Depends on:** [1.6 — HIR & LIR Lowering](06-hir-lir-lowering.md)
 
 ## Goal

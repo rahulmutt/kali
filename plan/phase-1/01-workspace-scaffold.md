@@ -54,8 +54,19 @@ Implement the first real functionality:
 Introduce the `Diagnostic` type and the `Diagnostics` collector that accumulates errors/warnings
 without aborting compilation (resilient-compilation strategy from `specs/01-architecture.md`).
 
-Define the top-level error-code namespaces (`E1xxx` lex, `E2xxx` parse, `E3xxx` type, `E4xxx`
-runtime, `E5xxx` CLI/command-shape) as empty enums — concrete codes land in later stages.
+Define the top-level error-code namespaces as empty enums — concrete codes land in later stages:
+
+| Namespace | Owner |
+|---|---|
+| `E1xxx` | Lex errors (`kali_lexer`) |
+| `E2xxx` | Parse errors (`kali_parser`) |
+| `E3xxx` | Type/name-resolution errors (`kali_types`) |
+| `E4xxx` | Runtime errors (`kali_runtime`) |
+| `E5xxx` | CLI / command-shape errors (`kali_cli`) |
+| `E6xxx` | Package management errors (`kali_npm`) |
+| `E7xxx` | WASM validation errors (`kali_codegen` — validator-phase) |
+| `E8xxx` | Internal codegen errors (`kali_codegen` — emitter-phase bugs) |
+| `E9xxx` | Sandbox / policy errors (`kali_sandbox`) |
 
 ### 4. CLI binary stub (`kali_cli`)
 

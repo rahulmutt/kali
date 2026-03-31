@@ -1,7 +1,7 @@
 # Stage 1.9 — Sandbox & Policy
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/09-sandboxing.md`](../../specs/09-sandboxing.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Spec refs:** [`specs/09-sandboxing.md`](../../specs/09-sandboxing.md), [`specs/18-schemas.md`](../../specs/18-schemas.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
 **Depends on:** [1.8 — Runtime & Execution](08-runtime-execution.md) for runtime enforcement;
 the static policy-validation portion (policy parsing, schema validation, `kali check --sandbox`)
 depends only on [1.5 — Type Checker](05-type-checker.md) and may begin while stages 1.6–1.8
@@ -49,7 +49,9 @@ canonical format choice). A minimal v1 policy has these top-level sections:
   },
   "resourceLimits": {
     "memoryMb": null,
-    "cpuTimeSec": null
+    "cpuTimeSec": null,
+    "maxSpawnedProcesses": 0,
+    "maxThreads": 0
   }
 }
 ```
@@ -109,6 +111,14 @@ On a policy violation:
 If `resourceLimits.memoryMb` is set, configure the `wasmtime::Engine` memory limit accordingly
 before instantiation. If `resourceLimits.cpuTimeSec` is set, use wasmtime's fuel-based execution
 to enforce a rough CPU-time budget.
+
+`maxSpawnedProcesses` and `maxThreads` are **feature-gated zero-capable execution budgets**
+(using the `SPEC.md` canonical term). `0` is a valid value meaning "disallow entirely"; any
+positive value requires a later-phase capability gate. In Phase 1, both fields must be validated
+as present and set to `0`; a non-zero value emits `E9006` (resource limit out of range) because
+the underlying platform capability is not yet wired. This reserves the field names and the
+zero-vs-positive distinction from the start without implying Phase-1 multi-process or threaded
+execution support.
 
 ### 5. Phase-1 static policy-validation surface
 

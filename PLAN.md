@@ -118,6 +118,9 @@ Within Phase 1 the following parallel opportunities exist:
 - **1.9 static-validation work** (policy parsing, schema validation, `kali check --sandbox`) depends
   only on stage 1.5 and may begin while stages 1.6–1.8 are still in progress; the runtime
   enforcement portion of 1.9 still requires 1.8.
+- **1.10 package management** depends on stages 1.4 and 1.8; it may proceed in parallel with
+  the runtime-enforcement portion of 1.9 once 1.8 is complete, since neither stage depends on
+  the other.
 - **1.12 and 1.13** are largely independent and may be worked on in parallel once 1.11 is complete.
 
 All other Phase 1 stages should be treated as sequential unless noted above.
@@ -209,7 +212,8 @@ coverage; and proof-backed release claims with a non-empty published Lean bounda
 Stage 4.2 (formal verification) can be started in parallel with earlier phases — the Lean model
 can be developed alongside the implementation, but **proof-backed** claims require a non-empty
 published boundary in `proofs/BOUNDARY.md` before they may appear in release notes or support
-summaries.
+summaries. In practice, Lean modelling of the type system can begin once the type checker design
+is stable (after Stage 1.5), even while Phases 2–3 are still in progress.
 
 ### Spec chapter mapping
 
