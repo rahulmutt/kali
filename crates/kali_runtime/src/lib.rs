@@ -7,7 +7,7 @@ pub struct RuntimeCtx {
 }
 
 impl RuntimeCtx {
-    pub fn new(_policy: Option<kali_sandbox::SandboxPolicy>) -> Self {
+    pub fn new(policy: Option<kali_sandbox::SandboxPolicy>) -> Self {
         Self { policy }
     }
 

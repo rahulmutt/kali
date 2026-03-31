@@ -17,6 +17,12 @@ pub enum LirNodeKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct LirNodeId(pub u32);
 
+impl LirNodeId {
+    pub fn new(id: u32) -> Self {
+        Self(id)
+    }
+}
+
 /// LIR node.
 #[derive(Debug, Clone)]
 pub struct LirNode {

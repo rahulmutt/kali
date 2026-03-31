@@ -33,7 +33,7 @@ impl std::fmt::Display for ParseError {
 impl std::error::Error for ParseError {}
 
 /// Source for parser input.
-pub struct ParseSource<'a> {
+pub struct ParseSource {
     /// Source file ID.
     pub file_id: Option<kali_common::FileId>,
     /// Source text.
@@ -42,11 +42,11 @@ pub struct ParseSource<'a> {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-impl<'a> ParseSource<'a> {
+impl ParseSource {
     pub fn new(file_id: Option<kali_common::FileId>, text: String) -> Self {
         Self {
             file_id,
-            text,
+            text: text.into_boxed_str(),
             diagnostics: Vec::new(),
         }
     }
@@ -54,13 +54,13 @@ impl<'a> ParseSource<'a> {
 
 /// Parser skeleton for TypeScript/JavaScript grammar.
 pub struct Parser {
-    source: ParseSource<'static>,
+    source: ParseSource,
     position: usize,
 }
 
 impl Parser {
     /// Create a new parser for the given source.
-    pub fn new(source: ParseSource<'static>) -> Self {
+    pub fn new(source: ParseSource) -> Self {
         Self {
             source,
             position: 0,
@@ -68,7 +68,7 @@ impl Parser {
     }
 
     /// Parse source code and return syntax tree.
-    pub fn parse(mut self) -> ParseResult<ParseSource<'static>> {
+    pub fn parse(mut self) -> ParseResult<ParseSource> {
         // Placeholder implementation
         // TODO: implement actual parsing
         Ok(self.source)
@@ -79,10 +79,10 @@ impl Parser {
         file_id: Option<kali_common::FileId>,
         source_text: impl Into<String>,
     ) -> ParseResult<ParseSource> {
-        let source = ParseSource::new(file_id, &source_text.into());
+        let source_text = source_text.into();
         Ok(ParseSource {
-            file_id: source.file_id,
-            text: Box::leak(source.text.boxed()),
+            file_id,
+            text: source_text.into_boxed_str(),
             diagnostics: Vec::new(),
         })
     }
@@ -94,7 +94,7 @@ mod tests {
 
     #[test]
     fn test_parser_create() {
-        let source = ParseSource::new(None, "let x = 1;");
+        let source = ParseSource::new(None, "let x = 1;".to_string());
         let mut parser = Parser::new(source);
         let result = parser.parse();
         assert!(result.is_ok());
@@ -102,11 +102,7 @@ mod tests {
 
     #[test]
     fn test_parse_basic_syntax() {
-        let result = Parser::parse_with_diagnostics(
-            Parser::new(ParseSource::new(None, "")),
-            None,
-            "let x = 1;",
-        );
+        let result = Parser::parse_with_diagnostics(None, "let x = 1;");
         assert!(result.is_ok());
     }
 }

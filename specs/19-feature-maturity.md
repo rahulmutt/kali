@@ -137,7 +137,7 @@ Maintenance note:
 
 | Feature | Status | Rationale |
 |---|---|---|
-| Latest published ECMA-262 lexical/parser grammar | Phase 1 MVP | Front-end coverage should track the latest published standard grammar even when some semantics remain phase-gated |
+| Latest published ECMA-262 lexical grammar (tokenization) | Phase 1 MVP; parser pending | Lexer fully implemented and tested; tokenization of all ECMA-262 forms supported; parser implementation in progress |
 | Stage-3+/draft TC39 proposals beyond the latest published ECMA-262 edition | Rejected by default | Keep the “latest ECMA-262” promise scoped to published editions; proposal support needs an explicit proposal opt-in or its own maturity row instead of being implied by grammar tracking |
 | Current-edition non-Annex-B semantics for features Kali marks as supported in a given command/profile | Phase 1 MVP | "Latest standard support" is not parser-only: once Kali claims a feature is supported for a command/profile, the supported path should aim at faithful current-edition semantics and be backed by the matching evidence track rather than by syntax acceptance alone |
 | Static ESM `import` / `export` | Phase 1 MVP | Core module system |

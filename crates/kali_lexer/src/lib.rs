@@ -451,10 +451,17 @@ mod tests {
 
     #[test]
     fn test_lexer_eof() {
-        let mut lexer = Lexer::new(FileId::new(0), String::new());
+        let lexer = Lexer::new(FileId::new(0), String::new());
         let result = lexer.lex_all();
         assert_eq!(result.tokens.len(), 1);
         assert_eq!(result.tokens[0].kind, TokenType::Eof);
+    }
+
+    #[test]
+    fn test_lexer_function() {
+        let mut lexer = Lexer::new(FileId::new(0), "function".to_string());
+        let token = lexer.next_token().unwrap();
+        assert_eq!(token.kind, TokenType::Function);
     }
 
     #[test]
@@ -469,13 +476,6 @@ mod tests {
         let mut lexer = Lexer::new(FileId::new(0), "42".to_string());
         let token = lexer.next_token().unwrap();
         assert_eq!(token.kind, TokenType::NumericLiteral);
-    }
-
-    #[test]
-    fn test_lexer_function() {
-        let mut lexer = Lexer::new(FileId::new(0), "function".to_string());
-        let token = lexer.next_token().unwrap();
-        assert_eq!(token.kind, TokenType::Function);
     }
 
     #[test]
