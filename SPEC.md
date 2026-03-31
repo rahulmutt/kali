@@ -96,6 +96,7 @@ To keep the bootstrap brief implementable, the chapter set is intentionally grou
 
 Strata note:
 - [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) is intentionally a cross-cutting availability overlay rather than a fourth product-only chapter; read it alongside whichever owning chapter defines the command, artifact, or subsystem contract.
+- [`specs/13-embedding.md`](./specs/13-embedding.md) is grouped with the product/tooling stratum for delivery planning even though it cross-cuts runtime and host-adapter concerns; this keeps all public artifact/embedding contracts in one reader-facing cluster instead of splitting them between runtime and CLI chapters.
 
 ### Chapter Map
 
