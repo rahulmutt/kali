@@ -5,7 +5,7 @@ This document is the canonical matrix for features that are easy to describe inc
 If another spec needs to mention one of these features, it should link here for phase/status rather than restating a different maturity decision. When another chapter talks about whether a request is supported yet, it should prefer the shared **support-claim reading order** and **availability context** terms from [SPEC.md](../SPEC.md) instead of re-explaining the whole command/rung/API-surface/runtime-profile/compatibility combination each time.
 
 Status-label spelling rule:
-- docs should use the canonical labels from this chapter verbatim (`Phase 1 MVP`, `Phase 2 target`, `Phase 3 target`, `Phase 4 compatibility`, `Later compatibility`, `Opt-in only`, `Later compatibility (opt-in only)`, `Rejected by default`) rather than near-duplicates such as `later-compatibility`
+- docs should use the canonical labels from this chapter verbatim (`Phase 1 MVP`, `Phase 1 MVP (opt-in only)`, `Phase 2 target`, `Phase 3 target`, `Phase 4 compatibility`, `Later compatibility`, `Opt-in only`, `Later compatibility (opt-in only)`, `Rejected by default`) rather than near-duplicates such as `later-compatibility`
 
 Phase-label reading rule:
 - these labels name the **earliest support contract**, not the recommended implementation sequence
@@ -22,11 +22,12 @@ Bootstrap-triage note:
 ## Status Labels
 
 - **Phase 1 MVP** — required for the first practically useful implementation
+- **Phase 1 MVP (opt-in only)** — required in the first practically useful implementation, but intentionally disabled by default and available only behind an explicit flag/config
 - **Phase 2 target** — planned once ownership/effects infrastructure lands
 - **Phase 3 target** — planned once specialization/ecosystem work lands
 - **Phase 4 compatibility** — supported only in the advanced compatibility phase
 - **Later compatibility** — intentionally deferred until semantics and cost are justified
-- **Opt-in only** — supported only behind an explicit flag or config
+- **Opt-in only** — supported only behind an explicit flag or config; when the earliest phase matters, prefer a phase-qualified label instead of leaving the phase implicit
 - **Later compatibility (opt-in only)** — deferred until a later phase and, even then, enabled only behind an explicit runtime/profile switch
 - **Rejected by default** — Kali may still recognize the surface (for example syntax, config, policy, flag, or command shape), but normal compile/run/command handling should fail unless a documented compatibility or availability path is enabled in a phase that actually implements it
 
@@ -35,9 +36,10 @@ Bootstrap-triage note:
 | Status label | Meaning in practice |
 |---|---|
 | Phase 1 MVP | Must ship in the first dependable end-to-end release |
+| Phase 1 MVP (opt-in only) | Must exist in the first dependable release, but only behind an explicit flag/config and with a default-off posture |
 | Phase 2 target / Phase 3 target / Phase 4 compatibility | Planned work for that phase; before then, reject with the canonical gating path rather than partially emulating it |
 | Later compatibility | Intentionally deferred with no near-phase promise |
-| Opt-in only | Implemented only behind an explicit flag/config even after support exists |
+| Opt-in only | Implemented only behind an explicit flag/config once it exists; use this only when the surrounding row/table already makes the earliest phase obvious |
 | Later compatibility (opt-in only) | Both deferred and explicitly gated when it eventually lands |
 | Rejected by default | The surface may still be recognized or parsed, but normal compile/run/command handling rejects it unless a documented compatibility or availability path exists and is implemented |
 
@@ -180,7 +182,7 @@ Maintenance note:
 | `package.json#exports` condition `deno` for `--api deno` resolution | Phase 1 MVP | Aligns package resolution with the default Deno-oriented standalone API surface |
 | `package.json#browser` replacement maps and `exports` condition `browser` for the **Phase-1 browser-targeted command set** | Phase 1 MVP | Needed for practical browser-targeted npm compatibility without widening standalone runtime claims; the shared **Phase-1 browser-targeted command set** should use one browser **package-resolution context** (browser `exports` condition order plus any applicable `package.json#browser` rewrites) rather than inventing per-command ladders |
 | `run --api browser` | Later compatibility | Early standalone runtime does not emulate a browser host; reject with `E5006` until a real browser-execution contract exists |
-| npm lifecycle scripts (`kali install --allow-scripts`) | Opt-in only | Disabled by default for sandbox-first behavior; this uses the shared **install-time npm-package hook path** from [SPEC.md](../SPEC.md), not evidence of `--api node` support or participation in the normal sandbox/effect-report contract |
+| npm lifecycle scripts (`kali install --allow-scripts`) | Phase 1 MVP (opt-in only) | Disabled by default for sandbox-first behavior; this uses the shared **install-time npm-package hook path** from [SPEC.md](../SPEC.md), not evidence of `--api node` support or participation in the normal sandbox/effect-report contract |
 | Automatic dependency installation or lockfile/materialization repair during `check` / `effects` / `build` / `run` / `test` | Rejected by default | Keeps dependency state deterministic and makes `kali install` the single mutating dependency-management command; missing/stale state should fail with `E5004` instead of being repaired implicitly |
 | Packages whose normal install/runtime path falls into the shared **native/binary/bootstrap-heavy package contract** | Rejected by default | Use the shared **published-artifact-first package reading** from [SPEC.md](../SPEC.md): this row applies when the published package Kali installs still depends on native/binary/bootstrap steps for normal install/runtime behavior. That falls outside the shared **pure JS/TS package contract**, weakens deterministic install expectations, and must not be implied by `--allow-scripts` |
 | npm packages that require unsupported Node core modules | Phase 3 target | Depends on broader `--api node` compatibility work |
@@ -253,8 +255,8 @@ Interpretation rule:
 | `kali install --sandbox kali.policy.json` | Rejected by default | `install` is sandbox-agnostic in early phases; top-level config sandbox is ignored for it, but the CLI `--sandbox` flag is not accepted here and should fail with `E5008` |
 | `kali install https://...` | Phase 1 MVP | Explicitly pin/materialize a raw URL dependency into the shared lock/materialization model; in configless mode this follows the shared **configless install split** from [SPEC.md](../SPEC.md): it may still create `kali.lock` and `.kali/cache/urls/` state, but it does not scaffold a placeholder manifest |
 | `kali install --dev https://...` | Rejected by default | `--dev` applies only to explicit registry-package targets in early phases; pairing it with a raw URL is invalid command usage (`E5008`) rather than a second raw-URL manifest mode |
-| `kali install --allow-scripts` | Opt-in only | Valid when the invocation has non-empty **effective npm-scriptable install work** from [SPEC.md](../SPEC.md); that invocation-scoped npm install work is the only part of the command allowed onto the shared **install-time npm-package hook path** |
-| `kali install --allow-scripts lodash` (or another explicit npm package target) | Opt-in only | Canonical explicit npm-target shape for the shared **install-time npm-package hook path**; still does not broaden support beyond otherwise eligible npm install work |
+| `kali install --allow-scripts` | Phase 1 MVP (opt-in only) | Valid when the invocation has non-empty **effective npm-scriptable install work** from [SPEC.md](../SPEC.md); that invocation-scoped npm install work is the only part of the command allowed onto the shared **install-time npm-package hook path** |
+| `kali install --allow-scripts lodash` (or another explicit npm package target) | Phase 1 MVP (opt-in only) | Canonical explicit npm-target shape for the shared **install-time npm-package hook path**; still does not broaden support beyond otherwise eligible npm install work |
 | `kali install --allow-scripts` on a URL-only / JSR-only / clean already-synchronized / otherwise no-npm graph | Rejected by default | If the invocation has no effective npm-scriptable install work for the flag to affect, fail with `E5008` instead of silently behaving like plain `install` |
 | `kali install --allow-scripts https://...` | Rejected by default | Raw URLs do not have npm lifecycle hooks, so pairing `--allow-scripts` with a raw URL is invalid command usage (`E5008`) rather than a second install mode |
 | `kali install --allow-scripts jsr:@std/path` | Rejected by default | JSR packages do not participate in npm lifecycle-script execution in schema v1, so this flag/target combination is invalid command usage (`E5008`) |
@@ -502,7 +504,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Raw URL imports in the shared lock/materialization model | Phase 1 MVP | Pin in `kali.lock`, materialize under `.kali/cache/urls/`, and keep ordinary commands deterministic |
 | Deno-condition package resolution in the default standalone surface | Phase 1 MVP | Honor `exports` condition `deno` when `--api deno` is selected |
 | Browser-condition package resolution for the **Phase-1 browser-targeted command set** | Phase 1 MVP | Reuse one shared browser package-resolution context for the **Phase-1 browser-targeted command set**: honor `exports` condition `browser` plus applicable `package.json#browser` replacement maps consistently |
-| npm lifecycle scripts | Opt-in only | `kali install --allow-scripts`; install-time package hooks stay outside the normal runtime API-surface and project-policy contracts |
+| npm lifecycle scripts | Phase 1 MVP (opt-in only) | `kali install --allow-scripts`; install-time package hooks stay outside the normal runtime API-surface and project-policy contracts |
 | Packages in the native/binary/bootstrap-heavy package contract | Rejected by default | The excluded shared package contract stays unsupported; `--allow-scripts` must not silently broaden support to it |
 | Broader Node-host-heavy npm compatibility | Phase 3 target | Depends on meaningful Node API support |
 
