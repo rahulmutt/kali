@@ -76,7 +76,7 @@ Bootstrap-reading shortcut:
 - this keeps Phase-1 ecosystem claims honest: many pure JS/TS packages are already in scope early, while Node-host-heavy or native/binary/bootstrap-heavy packages remain clearly outside the same promise
 
 ### Supported Packages
-Kali supports registry packages (npm/JSR) that stay inside the shared **pure JS/TS package contract** from [SPEC.md](../SPEC.md).
+Kali can support registry packages (npm/JSR) that stay inside the shared **pure JS/TS package contract** from [SPEC.md](../SPEC.md), but every concrete support claim still needs the full package reading order: package shape → host/API fit → command maturity → claimed support rung.
 
 Phase-1 source-kind clarification:
 - supported **raw URL imports** are also first-class dependency inputs in Phase 1

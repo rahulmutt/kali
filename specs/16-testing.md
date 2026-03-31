@@ -40,6 +40,10 @@ Practical shortcut:
 - `run` / `test` sandbox enforcement, the shared **Phase-1 static policy-validation surface**, and the **Phase-1 browser-targeted command set** need positive Phase-1 coverage.
 - `kali effects` / `kali package-effects`, inferred-effect-vs-policy rejection on `check/build --sandbox`, stable public embedding flows (`--capi`, `--component`, stable public `--lib` + WIT), and proof-backed release claims stay negative/gated until their owning phase opens.
 
+Support-claim maintenance rule:
+- if a test/evidence change would justify promoting or narrowing a public support claim, update the owning chapter, [`specs/19-feature-maturity.md`](./19-feature-maturity.md), and any affected root-level summaries such as [`README.md`](../README.md) in the same change.
+- negative/gating tests are part of the support contract too: removing them without opening the matching maturity row is drift, not simplification.
+
 ### Conformance Test Suites
 
 The conformance strategy is intentionally split by concern area so language support, typing, packages, and sandbox behavior can advance at different rates without muddying pass/fail claims.

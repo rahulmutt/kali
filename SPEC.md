@@ -71,6 +71,16 @@ Shortcut:
 - if a proposed change would widen a Phase-1 public claim, update the owning chapter plus [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
 - if a proposed change would widen verification claims, update [`specs/17-verification.md`](./specs/17-verification.md) and [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) together, then sync any proof-status summaries that repeat the repository claim boundary (at minimum [`README.md`](./README.md) and [`specs/16-testing.md`](./specs/16-testing.md), plus [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) if a maturity row changes)
 
+## Bootstrap Review Quick Questions
+
+When reviewing a new bootstrap-driven ask, answer these four questions in order before editing any chapter:
+1. **Is this a hard invariant, a Phase-1 promise, or later-phase breadth?** Use the table above first.
+2. **What exact command, artifact, or support rung is being claimed?** Avoid broad verbs like “supports” until the rung is named.
+3. **Which availability context applies?** Reuse the effective command/profile/API-surface split instead of assuming one default host.
+4. **Which evidence owner must move with it?** At minimum: owning chapter, [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md), and any summary/proof owners that restate the claim.
+
+If one of those questions cannot be answered cheaply, the proposed wording is probably still too broad to be normative.
+
 ## Spec Editing Checklist
 
 Use this before considering a spec edit complete:
