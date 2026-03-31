@@ -1,7 +1,8 @@
 # Stage 3.2 — Node Compatibility
 
 **Phase:** 3 — Specialisation, Optimisation & Ecosystem Breadth  
-**Spec refs:** [`specs/11-standard-apis.md`](../../specs/11-standard-apis.md), [`specs/14-packages.md`](../../specs/14-packages.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+**Spec refs:** [`specs/11-standard-apis.md`](../../specs/11-standard-apis.md), [`specs/14-packages.md`](../../specs/14-packages.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** Phase 1 complete; can proceed in parallel with Phase 2 stages
 
 ## Goal
 

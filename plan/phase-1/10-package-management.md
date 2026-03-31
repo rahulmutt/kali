@@ -1,7 +1,9 @@
 # Stage 1.10 — Package Management
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/14-packages.md`](../../specs/14-packages.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+**Spec refs:** [`specs/14-packages.md`](../../specs/14-packages.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** [1.4 — Name Resolution](04-name-resolution.md) (for bare-specifier module resolution), [1.8 — Runtime & Execution](08-runtime-execution.md) (to exercise installed packages end-to-end)  
+**Ordering note:** `SPEC.md` recommends the package/install foundation (spec step 2) before the execution foundation (spec step 3). This plan reverses them — see the [ordering note in PLAN.md](../../PLAN.md#ordering-note-package-management-after-execution) for the rationale.
 
 ## Goal
 

@@ -1,7 +1,8 @@
 # Stage 1.2 — Lexer
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/02-lexer-parser.md`](../../specs/02-lexer-parser.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)
+**Spec refs:** [`specs/02-lexer-parser.md`](../../specs/02-lexer-parser.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)  
+**Depends on:** [1.1 — Workspace & Crate Scaffold](01-workspace-scaffold.md)
 
 ## Goal
 

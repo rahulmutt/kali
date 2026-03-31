@@ -1,7 +1,8 @@
 # Stage 2.1 — MIR & Ownership Analysis
 
 **Phase:** 2 — Ownership, Effects & Public Embedding  
-**Spec refs:** [`specs/05-ir.md`](../../specs/05-ir.md), [`specs/06-memory.md`](../../specs/06-memory.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)
+**Spec refs:** [`specs/05-ir.md`](../../specs/05-ir.md), [`specs/06-memory.md`](../../specs/06-memory.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)  
+**Depends on:** Phase 1 complete (all stages 1.1–1.14)
 
 ## Goal
 

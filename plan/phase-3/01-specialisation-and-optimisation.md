@@ -1,7 +1,8 @@
 # Stage 3.1 — Specialisation & Optimisation
 
 **Phase:** 3 — Specialisation, Optimisation & Ecosystem Breadth  
-**Spec refs:** [`specs/07-specialization.md`](../../specs/07-specialization.md), [`specs/05-ir.md`](../../specs/05-ir.md), [`specs/01-architecture.md`](../../specs/01-architecture.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+**Spec refs:** [`specs/07-specialization.md`](../../specs/07-specialization.md), [`specs/05-ir.md`](../../specs/05-ir.md), [`specs/01-architecture.md`](../../specs/01-architecture.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** [2.1 — MIR & Ownership Analysis](../phase-2/01-mir-and-ownership.md) (MIR layout descriptors are the foundation for layout specialisation)
 
 ## Goal
 

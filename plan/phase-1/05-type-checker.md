@@ -1,7 +1,8 @@
 # Stage 1.5 — Type Checker
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/04-type-system.md`](../../specs/04-type-system.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+**Spec refs:** [`specs/04-type-system.md`](../../specs/04-type-system.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** [1.4 — Name Resolution](04-name-resolution.md)
 
 ## Goal
 

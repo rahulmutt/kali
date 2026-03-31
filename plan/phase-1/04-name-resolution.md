@@ -1,7 +1,8 @@
 # Stage 1.4 — Name Resolution
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/04-type-system.md`](../../specs/04-type-system.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)
+**Spec refs:** [`specs/04-type-system.md`](../../specs/04-type-system.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)  
+**Depends on:** [1.3 — Parser & AST](03-parser-and-ast.md)
 
 ## Goal
 

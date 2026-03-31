@@ -1,7 +1,8 @@
 # Stage 2.2 — Public Effect Reporting
 
 **Phase:** 2 — Ownership, Effects & Public Embedding  
-**Spec refs:** [`specs/09-sandboxing.md`](../../specs/09-sandboxing.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/18-schemas.md`](../../specs/18-schemas.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+**Spec refs:** [`specs/09-sandboxing.md`](../../specs/09-sandboxing.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/18-schemas.md`](../../specs/18-schemas.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** [2.1 — MIR & Ownership Analysis](01-mir-and-ownership.md) (effect inference runs over the MIR graph)
 
 ## Goal
 

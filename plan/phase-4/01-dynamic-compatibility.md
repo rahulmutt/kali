@@ -1,7 +1,8 @@
 # Stage 4.1 — Dynamic Compatibility
 
 **Phase:** 4 — Advanced Compatibility & Deep Verification  
-**Spec refs:** [`specs/10-runtime.md`](../../specs/10-runtime.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+**Spec refs:** [`specs/10-runtime.md`](../../specs/10-runtime.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** Phase 3 complete (all stages 3.1–3.3)
 
 ## Goal
 

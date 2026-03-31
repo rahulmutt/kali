@@ -1,7 +1,8 @@
 # Stage 1.11 — Build Artifacts
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/08-wasm-codegen.md`](../../specs/08-wasm-codegen.md), [`specs/13-embedding.md`](../../specs/13-embedding.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+**Spec refs:** [`specs/08-wasm-codegen.md`](../../specs/08-wasm-codegen.md), [`specs/13-embedding.md`](../../specs/13-embedding.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** [1.9 — Sandbox & Policy](09-sandbox-and-policy.md), [1.10 — Package Management](10-package-management.md)
 
 ## Goal
 

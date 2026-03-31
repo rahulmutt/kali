@@ -1,7 +1,8 @@
 # Stage 1.1 — Workspace & Crate Scaffold
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/01-architecture.md`](../../specs/01-architecture.md), [`specs/17-verification.md`](../../specs/17-verification.md), [`proofs/BOUNDARY.md`](../../proofs/BOUNDARY.md)
+**Spec refs:** [`specs/01-architecture.md`](../../specs/01-architecture.md), [`specs/17-verification.md`](../../specs/17-verification.md), [`proofs/BOUNDARY.md`](../../proofs/BOUNDARY.md)  
+**Depends on:** *(none — this is the foundation stage)*
 
 ## Goal
 

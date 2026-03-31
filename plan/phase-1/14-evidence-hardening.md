@@ -1,7 +1,8 @@
 # Stage 1.14 — Evidence Hardening
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/16-testing.md`](../../specs/16-testing.md), [`specs/17-verification.md`](../../specs/17-verification.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+**Spec refs:** [`specs/16-testing.md`](../../specs/16-testing.md), [`specs/17-verification.md`](../../specs/17-verification.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** [1.13 — Diagnostics & Schemas](13-diagnostics-and-schemas.md) (all Stage 1.1–1.13 features must exist to be evidenced)
 
 ## Goal
 

@@ -1,7 +1,8 @@
 # Stage 2.3 — Public Embedding Surface
 
 **Phase:** 2 — Ownership, Effects & Public Embedding  
-**Spec refs:** [`specs/13-embedding.md`](../../specs/13-embedding.md), [`specs/08-wasm-codegen.md`](../../specs/08-wasm-codegen.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+**Spec refs:** [`specs/13-embedding.md`](../../specs/13-embedding.md), [`specs/08-wasm-codegen.md`](../../specs/08-wasm-codegen.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** [2.1 — MIR & Ownership Analysis](01-mir-and-ownership.md) (stable MIR-backed export surfaces needed for WIT generation); can proceed in parallel with 2.2
 
 ## Goal
 

@@ -1,7 +1,8 @@
 # Stage 1.9 — Sandbox & Policy
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/09-sandboxing.md`](../../specs/09-sandboxing.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+**Spec refs:** [`specs/09-sandboxing.md`](../../specs/09-sandboxing.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** [1.8 — Runtime & Execution](08-runtime-execution.md)
 
 ## Goal
 

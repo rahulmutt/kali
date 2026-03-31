@@ -1,7 +1,8 @@
 # Stage 1.6 — HIR & LIR Lowering
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/05-ir.md`](../../specs/05-ir.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)
+**Spec refs:** [`specs/05-ir.md`](../../specs/05-ir.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)  
+**Depends on:** [1.5 — Type Checker](05-type-checker.md)
 
 ## Goal
 

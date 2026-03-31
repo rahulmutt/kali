@@ -1,7 +1,8 @@
 # Stage 3.3 — Ecosystem Breadth
 
 **Phase:** 3 — Specialisation, Optimisation & Ecosystem Breadth  
-**Spec refs:** [`specs/14-packages.md`](../../specs/14-packages.md), [`specs/11-standard-apis.md`](../../specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+**Spec refs:** [`specs/14-packages.md`](../../specs/14-packages.md), [`specs/11-standard-apis.md`](../../specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** [3.1 — Specialisation & Optimisation](01-specialisation-and-optimisation.md) (for layout-specialised package builds), [3.2 — Node Compatibility](02-node-compatibility.md) (for Node-assuming package corpus)
 
 ## Goal
 

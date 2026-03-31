@@ -1,7 +1,8 @@
 # Stage 1.3 — Parser & AST
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/02-lexer-parser.md`](../../specs/02-lexer-parser.md), [`specs/03-ast.md`](../../specs/03-ast.md)
+**Spec refs:** [`specs/02-lexer-parser.md`](../../specs/02-lexer-parser.md), [`specs/03-ast.md`](../../specs/03-ast.md)  
+**Depends on:** [1.2 — Lexer](02-lexer.md)
 
 ## Goal
 

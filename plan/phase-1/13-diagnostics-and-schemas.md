@@ -1,7 +1,8 @@
 # Stage 1.13 — Diagnostics & Schemas
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/15-errors.md`](../../specs/15-errors.md), [`specs/18-schemas.md`](../../specs/18-schemas.md), [`specs/12-cli.md`](../../specs/12-cli.md)
+**Spec refs:** [`specs/15-errors.md`](../../specs/15-errors.md), [`specs/18-schemas.md`](../../specs/18-schemas.md), [`specs/12-cli.md`](../../specs/12-cli.md)  
+**Depends on:** [1.12 — Developer Workflow](12-developer-workflow.md) (all Phase-1 commands must exist before their JSON schemas are finalised)
 
 ## Goal
 

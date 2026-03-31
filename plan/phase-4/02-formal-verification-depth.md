@@ -1,7 +1,8 @@
 # Stage 4.2 — Formal Verification Depth
 
 **Phase:** 4 — Advanced Compatibility & Deep Verification  
-**Spec refs:** [`specs/17-verification.md`](../../specs/17-verification.md), [`specs/16-testing.md`](../../specs/16-testing.md), [`proofs/BOUNDARY.md`](../../proofs/BOUNDARY.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+**Spec refs:** [`specs/17-verification.md`](../../specs/17-verification.md), [`specs/16-testing.md`](../../specs/16-testing.md), [`proofs/BOUNDARY.md`](../../proofs/BOUNDARY.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** [1.1 — Workspace & Crate Scaffold](../phase-1/01-workspace-scaffold.md) (proof-ready baseline must exist from Stage 1.1; Lean modelling can begin once the type system design is stable, i.e. after Stage 1.5); proof-*backed* claims require a non-empty published boundary, which this stage delivers
 
 ## Goal
 
