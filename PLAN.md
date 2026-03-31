@@ -35,7 +35,7 @@ The stages in this plan map onto those spec steps as follows:
 | 3 — Kali-hosted execution foundation | 1.6 → 1.8 | HIR/LIR pipeline, WASM codegen, runtime |
 | 4 — Build/artifact foundation | 1.9, 1.11 | Sandbox + policy, build artifacts |
 | 5 — Developer workflow foundation | 1.12 → 1.13 | `init`/`fmt`/`lint`, diagnostics & schemas |
-| 6 — Phase-1 evidence hardening | 1.14 | Conformance, corpus, determinism, proof-ready |
+| 6 — Evidence hardening | 1.14 | Conformance, corpus, determinism, proof-ready, proof-ready CI pipeline |
 
 Stage 1.1 (workspace scaffold) is a prerequisite shared across all steps.
 
@@ -114,19 +114,20 @@ the user can exercise at least one new capability.
 
 ### Phase 1 parallelism
 
-Within Phase 1 the following parallel opportunities exist:
-- **1.9 static-validation work** (policy parsing, schema validation, `kali check --sandbox`) depends
-  only on stage 1.5 and may begin while stages 1.6–1.8 are still in progress; the runtime
-  enforcement portion of 1.9 still requires 1.8.
-- **1.10 package management** depends on stages 1.4 and 1.8; it may proceed in parallel with
-  the runtime-enforcement portion of 1.9 once 1.8 is complete, since neither stage depends on
-  the other.
-- **1.12 and 1.13** are largely independent and may be worked on in parallel once 1.11 is complete.
-- **1.14 evidence infrastructure** (conformance test harness, corpus CI scaffolding) may be
-  set up in parallel with 1.12–1.13 once 1.11 is complete; the evidence-hardening *runs* still
-  require all prior stages to be complete before sign-off.
+Within Phase 1, the following parallel development opportunities exist. **Important:** Parallel development requires coordination to ensure each stream maintains a workable state:
 
-All other Phase 1 stages should be treated as sequential unless noted above.
+- **1.9 static-validation** (policy parsing, schema validation) can begin after stage 1.5 (type checker) is complete, independently of stages 1.6–1.8 (execution pipeline). The runtime enforcement portion still requires 1.8.
+- **1.06 (HIR/LIR)** and **1.07 (WASM codegen)** may proceed in parallel with early static-validation (1.9) once the compiler frontend (1.4–1.5) is stable, since these components feed the lowering pipeline that sandbox validation eventually uses.
+- **1.10 package management** depends on stages 1.4 and 1.8. Once 1.8 (runtime) is complete, 1.10 may proceed in parallel with the runtime-enforcement portion of 1.9.
+- **1.12 (developer workflow)** and **1.13 (diagnostics/schemas)** are largely independent and may be developed in parallel once 1.11 (build artifacts) provides the CLI surface.
+- **1.14 evidence infrastructure** (test harness, CI scaffolding) may be set up in parallel with 1.12–1.13 once 1.11 is complete; the evidence *runs* still require all prior stages to be complete.
+
+**Workability coordination notes:**
+- When working on parallel stages (1.6–1.9 or 1.10–1.14), maintain a shared understanding of which commands are currently workable. For example, if 1.08 (runtime) is incomplete, 1.10 (packages) may work internally but cannot demonstrate end-to-end testing.
+- Coordinate on schema versions and diagnostic definitions—error codes and JSON envelopes should not diverge between parallel streams.
+- Always validate changes against the passing test suite from prior sequential stages before proceeding.
+
+All other Phase 1 stages should be treated as sequential unless explicitly noted above.
 
 ### Phase 1 completion gate
 
@@ -176,21 +177,21 @@ evidence.
 
 ---
 
-## Phase 3 — Specialisation, Optimisation & Ecosystem Breadth
+## Phase 3 — Specialization, Optimization and Ecosystem Breadth
 
-Goal: generic/function/layout specialisation at compile time; stronger optimisation tiers;
+Goal: generic/function/layout specialization at compile time; stronger optimization tiers;
 incremental compilation; broader npm/Node compatibility beyond the Phase-1 pure-JS/TS baseline;
 and broader browser packaging.
 
 Stages 3.2 and 3.3 can be developed in parallel with 3.1 once Phase 2 is complete; 3.1's
-monomorphisation work is a prerequisite for the full layout-specialisation benefits in 3.3.
+monomorphization work is a prerequisite for the full layout-specialization benefits in 3.3.
 
 ### Spec chapter mapping
 
 | Spec chapter | Plan stage | Key deliverable |
 |---|---|---|
-| [`05 — IR`](./specs/05-ir.md) | 3.1 | Layout specialisation via MIR layout descriptors |
-| [`07 — Specialisation`](./specs/07-specialization.md) | 3.1 | Monomorphisation; `--release` / `--release-advanced` optimisation passes |
+| [`05 — IR`](./specs/05-ir.md) | 3.1 | Layout specialization via MIR layout descriptors |
+| [`07 — Specialisation`](./specs/07-specialization.md) | 3.1 | Monomorphisation; `--release` / `--release-advanced` optimization passes |
 | [`08 — WASM Codegen`](./specs/08-wasm-codegen.md) | 3.3 | Code splitting; tree-shaking; dynamic `import()` bundle boundaries |
 | [`11 — Standard APIs`](./specs/11-standard-apis.md) | 3.2 | Node compatibility surface; common Node built-ins |
 | [`14 — Packages`](./specs/14-packages.md) | 3.2, 3.3 | Broader npm corpus; Node-assuming package support |
@@ -198,9 +199,9 @@ monomorphisation work is a prerequisite for the full layout-specialisation benef
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 3.1 | [Specialisation & Optimisation](plan/phase-3/01-specialisation-and-optimisation.md) | `--release` and `--release-advanced` produce measurably faster WASM; monomorphisation pipeline stable |
-| 3.2 | [Node Compatibility](plan/phase-3/02-node-compatibility.md) | `--api node` command path supported; broader Node built-ins available |
-| 3.3 | [Ecosystem Breadth](plan/phase-3/03-ecosystem-breadth.md) | Incremental compilation; broader package corpus; open-ended cross-module constraint solving |
+| 3.1 | [Optimization and Specialization](plan/phase-3/01-specialization-and-optimization.md) | `--release` and `--release-advanced` produce measurably faster WASM; monomorphization pipeline stable; incremental compilation reduces rebuild times |
+| 3.2 | [Node Compatibility](plan/phase-3/02-node-compatibility.md) | `--api node` command path supported; broader Node built-ins available; Node-assuming packages executable |
+| 3.3 | [Ecosystem Breadth](plan/phase-3/03-ecosystem-breadth.md) | Incremental compilation; broader npm / JSR package corpus; open-ended cross-module constraint solving for the bounded inference contract |
 
 ### Phase 3 completion gate
 
@@ -227,14 +228,15 @@ appear in release notes or support summaries until Stage 4.2 delivers that publi
 
 | Spec chapter | Plan stage | Key deliverable |
 |---|---|---|
-| [`10 — Runtime`](./specs/10-runtime.md) | 4.1 | `eval`/`Function()` behind `compat.features.eval`; non-literal dynamic imports |
-| [`14 — Packages`](./specs/14-packages.md) | 4.1 | `kali package-audit` publicly available (no `--preview` gate) |
+| [`10 — Runtime`](./specs/10-runtime.md) | 4.1 | `eval` / `Function()` behind `compat.features.eval`; non-literal dynamic imports |
+| [`12 — CLI`](./specs/12-cli.md) | 4.1 | CLI flag wiring for `compat.features` system |
+| [`14 — Package Management`](./specs/14-packages.md) | 4.1 | `kali package-audit` publicly available (no `--preview` gate) |
 | [`17 — Formal Verification`](./specs/17-verification.md) | 4.2 | Non-empty Lean proof boundary; proof CI passes; repository may claim proof-backed |
 | [`19 — Feature Maturity`](./specs/19-feature-maturity.md) | all | Phase-4 maturity rows open |
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 4.1 | [Dynamic Compatibility](plan/phase-4/01-dynamic-compatibility.md) | `eval`/`Function()` executable behind `compat.features.eval`; non-literal dynamic loading gated similarly |
+| 4.1 | [Dynamic Compatibility](plan/phase-4/01-dynamic-compatibility.md) | `eval` / `Function()` executable behind `compat.features.eval`; non-literal dynamic loading gated similarly; `package-audit` command stable |
 | 4.2 | [Formal Verification Depth](plan/phase-4/02-formal-verification-depth.md) | Non-provisional Lean boundary published; memory-safety + lowering-correctness proofs complete; repository is proof-backed |
 
 ### Phase 4 completion gate
@@ -251,11 +253,23 @@ rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are upd
 * **Hard invariants never bend.** AOT-only, pure-Rust implementation, no tracing/background GC,
   sandbox-first honesty, and deterministic machine contracts hold across all phases.
 * **Each stage must leave the project workable.** No stage may break existing tests or make a
-  previously-functional CLI command regress.
+  previously-functional CLI command regress. A feature may land internally before it is marked
+  as available in the maturity table — the public availability surface always reads from
+  [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 * **Availability follows `specs/19-feature-maturity.md`.** A stage completing its implementation
   work does not automatically promote a feature's maturity label — that requires the matching
   evidence from the canonical testing tracks in `specs/16-testing.md`.
 * **Proof-ready from day one.** `proofs/BOUNDARY.md` and the proof-CI trigger policy must exist
   from Stage 1.1 onward; proof-backed claims require a non-empty published boundary.
 * **Stage parallelism is opt-in.** Unless a stage document explicitly notes that its work can
-  proceed in parallel with another, assume sequential ordering within each phase.
+  proceed in parallel with another, assume sequential ordering within each phase. When working
+  in parallel, coordinate on:
+  - Shared schema definitions (18-schemas.md) — diagnostic codes, JSON envelopes must not diverge
+  - Command availability tracking — know which features are internally implemented vs. publicly
+    available according to the maturity matrix
+  - Existing test suite — validate changes against passing tests from prior sequential stages
+  - Command shape consistency — CLI subcommand definitions and flags must align across parallel
+    development streams
+* **Spec chapter alignment.** References to spec chapters should use the exact chapter headings
+  from [`specs/`](./specs/) (e.g., "Optimization & Specialization", "Package Management", etc.)
+  to ensure consistent navigation across documents.
