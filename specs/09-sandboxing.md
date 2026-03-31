@@ -200,7 +200,8 @@ Phase-1 capability snapshot for supported surfaces:
 
 | Policy capability | Early availability | Notes |
 |---|---|---|
-| `effects.fileSystem.read` / `write` | Available with `--api deno` | Enforced for the documented Deno file APIs; schema v1 also treats metadata/read-dir APIs such as `Deno.stat*` and `Deno.readDir*` as part of `fileSystem.read` rather than separate metadata keys |
+| `effects.fileSystem.read` | Available with `--api deno` | Enforced for the documented Deno file/metadata read APIs; schema v1 treats metadata/read-dir APIs such as `Deno.stat*` and `Deno.readDir*` as part of `fileSystem.read` rather than separate metadata keys |
+| `effects.fileSystem.write` | Available with `--api deno` | Enforced for the documented Deno file-write APIs only; it does not imply broader host-mutation capability families |
 | `effects.process.envRead` | Available with `--api deno` | Read-only environment view only; covers both `Deno.env.get` and `Deno.env.toObject` |
 | `effects.network.fetch` | Available in the Web baseline | Shared across supported surfaces |
 | `effects.timer.*` | Available in the Web baseline | Covers timers, not CPU-limit enforcement itself |

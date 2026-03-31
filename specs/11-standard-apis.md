@@ -135,8 +135,18 @@ Implementation simplification:
   - `Deno.permissions.query(...)` is the only **stable callable path** in the facade
   - `Deno.permissions.request(...)` / `revoke(...)` remain **recognized-but-unavailable compatibility members** and therefore fail with the canonical availability path (`E5006`) instead of disappearing as ordinary missing properties
   - this compatibility-visible rejection is intentional simplification, not a hidden Phase-2/3 promise: unless a future sandbox model explicitly reopens interactive escalation, these members stay documented as unavailable rather than silently graduating into a roadmap lane
-- accepted `query(...)` descriptor names follow the shared **Deno-compatible permission descriptor subset (schema v1)** from [SPEC.md](../SPEC.md); in Phase 1 that effectively means the `read` / `write` / `net` / `env` subset, with `net` reflecting only the documented network capability surface that actually exists for the active phase/API surface
-- practical consequence: in the Phase 1 standalone contract, `Deno.permissions.query({ name: "net" })` observes the modeled `fetch` capability state only; it must not imply that future socket/listener permissions already exist just because the descriptor name is broadly spelled `net`
+- accepted `query(...)` descriptor names follow the shared **Deno-compatible permission descriptor subset (schema v1)** from [SPEC.md](../SPEC.md); in Phase 1 that effectively means the `read` / `write` / `net` / `env` subset, but each descriptor still projects only the capability slice that actually exists for the active phase/API surface
+
+Phase-1 descriptor projection shorthand:
+
+| `Deno.permissions.query(...)` descriptor | What it observes in Phase 1 | Must **not** imply |
+|---|---|---|
+| `read` | the documented file/metadata read slice (`effects.fileSystem.read`) | a second metadata-only permission family |
+| `write` | the documented file-write slice (`effects.fileSystem.write`) | unrelated host-mutation capabilities |
+| `env` | the read-only environment slice (`effects.process.envRead`) | Phase-3 environment mutation support |
+| `net` | the modeled fetch-only network slice (`effects.network.fetch`) | future socket/listener permissions |
+
+- practical consequence: in the Phase 1 standalone contract, `Deno.permissions.query({ name: "env" })` reports only the read-only environment capability state, and `Deno.permissions.query({ name: "net" })` observes the modeled `fetch` capability state only; neither descriptor implies that the broader later-phase mutation/socket/listener surfaces already exist just because the descriptor name is broad
 - Kali's broader schema-v1 capability/effect vocabulary still includes the `timer` family, random, console, and later `eval`, but those are **not** surfaced as synthetic `Deno.permissions.query({ name: ... })` descriptor kinds in schema v1. This keeps the Deno-compat API smaller and avoids implying non-standard Deno permission names.
 - returned states follow the shared **stable permission status subset (schema v1)** from [SPEC.md](../SPEC.md)
 - to keep checker and runtime behavior aligned, unsupported `query(...)` descriptor kinds should also fail with `E5006` rather than degrading into silent `denied`, fake `prompt`, or missing-surface drift
