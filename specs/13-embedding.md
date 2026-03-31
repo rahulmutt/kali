@@ -38,6 +38,7 @@ Artifact-progression shorthand:
 - `--lib` is the earliest export-oriented build path: Phase 1 emits the core `wasm-module` only, and Phase 2 keeps the same selector but adds the stable default WIT sidecar.
 - `--capi` is not a second export model; it is the Phase-2 C-facing projection of that same **statically known export surface** (`wasm-module` + `wit` + generated exports header + C-ABI metadata).
 - `--component` is likewise packaging over that same **statically known export surface** rather than a different library contract (`wasm-module` + `wit` + outer component wrapper).
+- all three library-oriented selectors share one export-surface gate: if frontend lowering cannot determine one fixed host-callable export set, `--lib` / `--capi` / `--component` all fail on the same canonical `E5011` path instead of diverging into selector-specific fallback rules.
 - Because plain public `--lib` is the canonical stable default once Phase 2 lands, callers should choose `--component` only when they explicitly want Component Model packaging semantics.
 
 ## Phase 1 — Base library artifact
@@ -98,6 +99,7 @@ Compact Phase-1 support-claim table for library-oriented builds:
 
 API-surface gating simplification for library-oriented embedding builds:
 - `--lib`, `--capi`, and `--component` all reuse the same exported-library contract rather than defining separate host families
+- they also reuse the same **statically known export surface** gate described above, so selector changes do not change the underlying `E5011` boundary
 - the Phase-1 **base library artifact** is only **buildable for exact-version consumers** in the shared **Deno-oriented build context (schema v1)** from [SPEC.md](../SPEC.md); browser/library combinations stay command-shape contradictions and Node/library combinations stay on the ordinary Node maturity gate
 - in that sentence, `apiSurface = deno` is a build/analysis-context choice (ambient typing, package resolution, and command gating), not a claim that the emitted exported-library interface is itself a Deno-specific public ABI
 - effective `apiSurface = browser` therefore remains a command-shape contradiction for those library-oriented modes in early phases rather than a second browser embedding profile

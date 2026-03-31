@@ -497,6 +497,7 @@ Interpretation rules:
 - the emitted payload must still record the exact resolved version so caches, diffs, and audit trails stay reproducible.
 - the nested `report` is the same shared effect-report payload shape documented above; tools should not expect a second package-specific effect vocabulary or a package-only variant of the effect schema
 - inside that nested report, `analysisContext` records which API surface / runtime-profile / compatibility-feature selection the package was analyzed under
+- schema v1 intentionally keeps that nested `analysisContext` to the same three participating semantic axes shown above — `apiSurface`, `runtimeProfiles`, and `compatFeatures` — so tools do not infer that `buildMode` or `sandbox` participate in `package-effects`
 - as the analysis-context-aware half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md), `kali package-effects` inherits that analysis context through the shared **inherited analysis context** rather than introducing a second package-analysis-only flag family; the schema records the chosen context, regardless of how it was selected
 - inherited-context maturity follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) rather than a package-only shadow rule set
 - the recorded context reflects the command's successfully selected analysis mode; it does **not** relax feature-maturity rules, so an inherited context that is still unavailable for package analysis still causes `E5006` instead of producing a report under a fallback surface
