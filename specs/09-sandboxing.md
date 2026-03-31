@@ -337,9 +337,9 @@ Effective-limit rule:
 - Once threading exists, the runtime must enforce the cap across worker/thread creation
 - A per-invocation thread-limit override may only reduce the effective cap; it must never increase a stricter policy limit
 
-## Sandbox Policy Predicates (Later Embedding-Only Extension)
+## Host-Registered Sandbox Policy Predicates (Later compatibility)
 
-The canonical maturity decision for this feature lives in [specs/19-feature-maturity.md](19-feature-maturity.md): the initial sandbox model is intentionally **declarative**.
+The canonical maturity decision for this feature lives in [specs/19-feature-maturity.md](19-feature-maturity.md): the initial sandbox model is intentionally **declarative**, and the programmable narrowing path is the later **host-registered sandbox policy predicates** surface.
 
 Phase 1-2 policies are limited to path globs, URL patterns, booleans, and numeric resource limits. This keeps policy evaluation simple, auditable, portable, and easy to validate before any untrusted code runs.
 
@@ -355,9 +355,9 @@ If policy predicates are added, they must:
 - Receive a small canonical operation-context object rather than raw host handles, so policy checks stay auditable and portable
 - Use one canonical operation vocabulary aligned with the schema-v1 capability model (`effects.*` / `resources.*`) instead of inventing a second unrelated predicate namespace
 
-## Algebraic Effect Handlers (Advanced, Experimental)
+## Algebraic Effect Handlers (Later compatibility)
 
-Algebraic effects are a later-phase feature. They are explicitly optional for the initial implementation and should not block delivery of capability summaries, policy validation/comparison, or runtime enforcement.
+Algebraic effects are a reserved later surface. Parser/AST support may reserve the syntax earlier, but semantic support stays phase-gated by [specs/19-feature-maturity.md](19-feature-maturity.md) and does not create a second public maturity label. They are explicitly optional for the initial implementation and should not block delivery of capability summaries, policy validation/comparison, or runtime enforcement.
 
 Illustrative syntax:
 
