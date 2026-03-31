@@ -212,7 +212,7 @@ Canonical resource-literal rule:
 Default standalone context (schema v1):
 - reuse the canonical term from [SPEC.md](../SPEC.md)
 
-It is the default interpretation of examples such as `kali run main.ts`, `kali test`, and `kali build main.ts` unless the example explicitly overrides a field. `kali check main.ts` and `kali effects main.ts` reuse the same baseline only for the axes that actually participate in those commands, while inherited package analysis uses the narrower **default inherited analysis context (schema v1)** from [SPEC.md](../SPEC.md).
+It is the default interpretation of examples such as `kali run main.ts` and `kali test` unless the example explicitly overrides a field. Plain non-browser `kali build ...` examples instead use the derived **Deno-oriented build context (schema v1)** from [SPEC.md](../SPEC.md). `kali check main.ts` and `kali effects main.ts` reuse the same baseline only for the axes that actually participate in those commands, while inherited package analysis uses the narrower **default inherited analysis context (schema v1)** from [SPEC.md](../SPEC.md).
 
 ## Commands
 

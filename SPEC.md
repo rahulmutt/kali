@@ -573,7 +573,8 @@ The canonical no-overrides command context for early standalone-style commands:
 - `compat.features = []`
 
 Rules:
-- when docs show plain standalone-oriented examples such as `kali run main.ts`, `kali build main.ts`, or `kali test` without extra context, this is the implied starting point
+- when docs show plain standalone-oriented examples such as `kali run main.ts` or `kali test` without extra context, this is the implied starting point
+- plain non-browser `kali build ...` examples use the derived **Deno-oriented build context (schema v1)** below rather than reusing the standalone term loosely
 - only participating axes matter for a given command: for example `check` and Phase-2 `effects` still default their analysis context from this same baseline, but they do not suddenly become build-mode-sensitive just because `buildMode = fast` exists in the shared default tuple
 - inherited config or explicit CLI flags may still replace any participating axis; this term exists to avoid repeating the same four-field default tuple in multiple chapters
 
