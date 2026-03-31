@@ -57,6 +57,7 @@ Promotion rule:
   - language/runtime semantics → conformance + integration coverage
   - type-system behavior → checker/inference baselines
   - package compatibility → curated package corpus results for the claimed source-graph command/context combinations **and the claimed rung of the shared package-support ladder** from [SPEC.md](../SPEC.md) (including browser-targeted `check` / `build --bundle` when those package claims are made)
+  - install workflow / opt-in npm lifecycle hooks → install-command integration tests for manifest/lock/materialization updates, explicit npm-target hook execution, clean/no-op rejection when **effective npm-scriptable install work** is empty, and invalid-combination coverage for raw-URL / JSR targets
   - registry-analysis commands (`package-effects`, `package-audit`) → command-shape/arity negatives, deterministic single-package version-selection tests, context-participation assertions, and JSON-contract coverage for native-JSON vs envelope-only output
   - host/runtime APIs → integration + sandbox/resource-limit coverage
   - the shared **Phase-1 browser-targeted command set** → browser-targeted `check` tests + browser-targeted `build --bundle` tests + emitted-bundle smoke runs in a real browser harness
@@ -83,7 +84,7 @@ It is intentionally narrower than the full command/profile matrix below:
 
 | Area | Phase 1 shipped surface | Not yet shipped in Phase 1 |
 |---|---|---|
-| Project workflow | `kali init`, `kali init --lib`, `kali install`, `kali fmt` *(including `--check`)*, `kali lint` *(including `--fix`)*, `kali check [files...]` *(including the project-discovery no-file form and explicit file sets)*, plus first-class `.js` source support under the bounded-inference contract | no automatic dependency repair outside `kali install` |
+| Project workflow | `kali init`, `kali init --lib`, `kali install`, opt-in npm lifecycle hooks only via `kali install --allow-scripts` when the invocation has non-empty **effective npm-scriptable install work**, `kali fmt` *(including `--check`)*, `kali lint` *(including `--fix`)*, `kali check [files...]` *(including the project-discovery no-file form and explicit file sets)*, plus first-class `.js` source support under the bounded-inference contract | no automatic dependency repair outside `kali install` |
 | Execution | `kali run <file>` and `kali test [files...]` in the shared **Default standalone context (schema v1)**, with supported `--sandbox` runtime enforcement on the Deno-oriented standalone surface | no standalone browser runtime/test contract; no Node execution path yet |
 | Executable build | `kali build <file>` in the shared **Deno-oriented build context (schema v1)**, with shipped static policy validation on the supported `kali build --sandbox <policy> <file>` path | no non-bundle browser build mode; no Node executable build path yet |
 | Export-oriented build / embedding | Phase-1 **base library artifact** via `kali build --lib <file>` in the shared **Deno-oriented build context (schema v1)** for **exact-version consumers**, only when Kali can determine a **statically known export surface**; shipped static policy validation also covers `kali build --lib --sandbox <policy> <file>`. Here, the Deno-oriented build context is the build/analysis default, not a claim that Phase-1 library outputs expose a Deno-specific public ABI. | no stable public Rust embedding API; no stable public WIT sidecar for plain `--lib`; no stable public C ABI or Component Model flow; no cross-version host-loading guarantee yet |
@@ -110,6 +111,7 @@ Release-note/support-claim shortcut:
 | “packages work in browser mode” | “For the shared **Phase-1 browser-targeted command set**, package claims are usually **checkable** or **deployable-through-host**, not standalone-browser **executable** support.” |
 | “embedding ships in Phase 1” | “Phase 1 ships only the export-oriented **base library artifact** via `kali build --lib` for **exact-version consumers**; the stable public embedding surface remains Phase 2.” |
 | “effects support ships in Phase 1” | “Phase 1 may use internal sandbox-oriented effect bookkeeping and ships policy validation/runtime enforcement where documented, but the stable public effect-report surface is still gated; when it opens, reporting is through explicit commands (`kali effects <file>`, `kali package-effects <package>`), not a hidden project-discovery or `run --dry` workflow.” |
+| “npm lifecycle scripts ship in Phase 1” | “Phase 1 ships only the opt-in install-time hook path `kali install --allow-scripts`, and only when the invocation has non-empty **effective npm-scriptable install work**; this does not widen ordinary package/runtime support or imply early `--api node` compatibility.” |
 | “formal verification ships in Phase 1” | “Kali is **proof-ready**, not **proof-backed**; read `proofs/BOUNDARY.md` for the current claim boundary.” |
 
 Browser-build simplification note:
