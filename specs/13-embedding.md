@@ -77,7 +77,7 @@ Phase-1 practical-use rule for `--lib`:
 - docs and tooling should therefore avoid implying that plain Phase-1 `--lib` output alone guarantees long-term host-call compatibility across Kali releases
 
 Preferred short support wording:
-- **`kali build --lib <file>` is buildable for exact-version consumers in the shared Deno-oriented build context (schema v1), provided Kali can determine a statically known export surface.`**
+- **`kali build --lib <file>` is buildable for exact-version consumers in the shared Deno-oriented build context (schema v1), provided Kali can determine a statically known export surface.**
 - avoid shorter summaries such as **"embedding ships in Phase 1"** or **"plain --lib is a stable ABI"**, because they blur the Phase-1 base-artifact path into the later public embedding surface
 
 Practical non-promises for plain Phase-1 `--lib`:
