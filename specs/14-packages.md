@@ -57,8 +57,13 @@ Compact workflow comparison:
 |---|---|---|---|
 | **source-graph commands** (`check` / `effects` / `build` / `run` / `test`) | “Can Kali analyze/build/run this local project graph in the selected command context?” | No | resulting **availability context** (derived from the full effective command context for the participating axes) |
 | **install workflow** (`install`) | “What dependency state should be recorded/materialized for this project?” | Yes | intentionally profile-agnostic in Phase 1 |
-| **registry-analysis: `package-effects`** | “What effects would one registry package report under the inherited analysis context?” | No | inherits semantic analysis context once the command exists |
-| **registry-analysis: `package-audit`** | “What context-free registry-analysis/security-audit result is reported for one package?” | No | context-free in schema v1 |
+| **registry-analysis: `package-effects`** | “What effects would one registry package report under the inherited analysis context?” | No | inherits semantic analysis context once the command exists; version selection still follows the shared **identity-only registry target** + **stable-release selection rule (schema v1)** rather than the current project's installed version |
+| **registry-analysis: `package-audit`** | “What context-free registry-analysis/security-audit result is reported for one package?” | No | context-free in schema v1; version selection still follows the shared **identity-only registry target** + **stable-release selection rule (schema v1)** rather than the current project's installed version |
+
+Registry-analysis independence reminder:
+- later `package-effects` / `package-audit` are intentionally **not** alternate views over the current project's installed dependency graph
+- they analyze one explicit registry package identity using the shared schema-v1 stable-release selection rule unless a later revision adds an explicit version coordinate
+- this keeps project support questions (`check` / `build` / `run` / `test`) separate from single-package registry questions and prevents the current `kali.lock` or `node_modules/` state from silently changing what a registry-analysis command means
 
 Bootstrap-reading shortcut:
 - the bootstrap's package goal should not be read as one yes/no answer to “does Kali support npm?”
@@ -432,7 +437,7 @@ This is the canonical package-management simplification for early phases: Kali k
 Scope note:
 - this boundary is about **project commands** that consume project-managed dependency state (`check`, `effects`, `build`, `run`, `test`)
 - single-package registry-analysis commands such as later `package-effects` / `package-audit` stay project-independent for version selection and do not consult the current project's installed dependency state
-
+- those registry-analysis commands instead follow the shared schema-v1 **identity-only registry target** + **stable-release selection** rule unless a later revision adds an explicit version coordinate
 
 - `kali install` is **context-agnostic** in Phases 1-3. It locks package versions, fetches/materializes package contents, and records reproducibility data, but it does **not** pre-resolve one permanent `exports`/`browser`/`deno` branch for every future command.
 - `check`, `effects`, `build`, `run`, and `test` perform the final **command-time package edge selection** from the already-installed package metadata using the active analysis/runtime context.
