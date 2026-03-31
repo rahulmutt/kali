@@ -27,13 +27,14 @@ Canonical dependency-source shorthand:
 | Registry-analysis commands (`package-effects`, `package-audit`) | documented later-phase command family only | registry-only by input shape; these answer a different question from whether a project dependency is installable/checkable/buildable/executable |
 
 Phase-1 shorthand answer:
-- **Yes** for pure JS/TS npm/JSR packages and raw URL imports that fit the shared **linked-artifact model** and whose host assumptions match either the Deno-oriented standalone surface or the shared **Phase-1 browser-targeted command set**.
+- **Potentially yes**, depending on the exact support rung being claimed, for pure JS/TS npm/JSR packages and raw URL imports that fit the shared **linked-artifact model** and whose host assumptions match either the Deno-oriented standalone surface or the shared **Phase-1 browser-targeted command set**.
 - **Not yet** for package support that depends on the broader `node` API surface.
 - **No by default** for packages whose normal published install/runtime path falls into the shared **native/binary/bootstrap-heavy package contract**.
 
 Support-rung clarification for that shorthand:
 - on the Deno-oriented standalone surface, early package claims may be **installable/materializable**, **checkable**, **buildable**, or **executable** depending on the command being discussed
 - on the shared **Phase-1 browser-targeted command set** — including equivalent inherited-config forms whenever the effective `apiSurface` resolves to `browser` — early package claims are normally **checkable** and sometimes **deployable-through-host** via `build --bundle`; they are not standalone-browser **executable** claims in Kali itself
+- practical simplification: if a browser-targeted package claim sounds like “browser support,” rewrite it as either **checkable** or **deployable-through-host** before deciding whether it is actually in scope
 - when package support wording is ambiguous, prefer naming the exact command/context and rung instead of saying only that a package is “supported in browser mode”
 
 This shorthand is only a triage aid. The full answer still uses one fixed decision order, always read against the published artifact Kali actually installs rather than against an upstream repo's source tree, build pipeline, or optional install-time side effects:
@@ -65,6 +66,7 @@ Registry-analysis independence reminder:
 - later `package-effects` / `package-audit` are intentionally **not** alternate views over the current project's installed dependency graph
 - that remains true even under the shared **`package-effects` dual classification**: its effect-report role does not change its one-package registry target, stable-release selection rule, or project independence
 - they analyze one explicit registry package identity using the shared schema-v1 stable-release selection rule unless a later revision adds an explicit version coordinate
+- practical simplification: answer registry-analysis questions and project-command support questions separately, even when they mention the same package name
 - this keeps project support questions (`check` / `build` / `run` / `test`) separate from single-package registry questions and prevents the current `kali.lock` or `node_modules/` state from silently changing what a registry-analysis command means
 
 Bootstrap-reading shortcut:
