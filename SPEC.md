@@ -128,7 +128,7 @@ To make the bootstrap brief easier to navigate, each detailed spec chapter owns 
 | [`08 — WebAssembly Code Generation`](./specs/08-wasm-codegen.md) | artifact shapes, code generation, host adapter outputs | fast AOT WebAssembly generation, bundle/lib/component artifact boundaries |
 | [`09 — Sandboxing & Effects`](./specs/09-sandboxing.md) | sandbox policy model, runtime enforcement, effect/policy workflow split | sandbox-first execution, static effect reporting roadmap, resource limits |
 | [`10 — Runtime`](./specs/10-runtime.md) | Kali-hosted runtime behavior and dynamic-compatibility execution boundaries | runtime model, engine choice, no language-level JIT, later `eval` execution path |
-| [`11 — Standard APIs`](./specs/11-standard-apis.md) | Deno/Web/Node API layering and host-surface delivery | standalone execution in the shared **Default standalone context (schema v1)**, browser-targeted analysis/build, later Node support |
+| [`11 — Standard APIs`](./specs/11-standard-apis.md) | Deno/Web/Node API layering and host-surface delivery | standalone execution in the shared **Default standalone context (schema v1)**, the shared **Phase-1 browser-targeted command set**, later Node support |
 | [`12 — CLI`](./specs/12-cli.md) | command shapes, flags, arity, output behavior, exit-code ownership | Deno-inspired workflow, concise AI-friendly CLI behavior |
 | [`13 — Embedding, WIT & C ABI`](./specs/13-embedding.md) | embedding surface, WIT-first library contract, C ABI, component packaging | embeddability, Rust API, C API, WIT, Component Model |
 | [`14 — Package Management`](./specs/14-packages.md) | dependency resolution, install/lock rules, package-shape support, raw URLs | npm/JSR/raw-URL support, pure-JS/TS package contract |
@@ -675,7 +675,7 @@ Later commands may reuse the same browser-targeted context only when their own m
 It does **not** mean:
 - a standalone Kali-hosted browser runtime,
 - DOM emulation inside `kali run`/`kali test`,
-- permission to expose Deno/Node globals during browser-targeted analysis/build.
+- permission to expose Deno/Node globals during the shared **Phase-1 browser-targeted command set** or later browser-context analysis reuse.
 
 ### Phase-1 browser-targeted command set
 The exact Phase-1 command families that expose the browser-targeted context after effective-context resolution:
@@ -740,7 +740,7 @@ Canonical early adapters:
 Rule:
 - Kali keeps one guest-facing host ABI and capability vocabulary across adapters
 - adapters may differ in implementation technique, but they must not silently widen the documented command/profile contract
-- browser-targeted analysis/build exposing browser ambient typings does not imply one adapter entry or one sandbox key per DOM API
+- the shared **Phase-1 browser-targeted command set** — and later browser-context analysis commands that explicitly reuse that same context — exposing browser ambient typings does not imply one adapter entry or one sandbox key per DOM API
 
 ### Pure-Rust implementation contract
 The cross-spec interpretation of “implemented in Rust” / “no embedded C or C++ libraries”.
@@ -1710,7 +1710,7 @@ This section is a non-normative summary that points back to the earlier canonica
 The earlier canonical term **Browser ambient typing vs mediated capability split** remains normative.
 
 Practical reminder:
-- browser-targeted analysis/build may expose the real browser ambient typing layer (`window`, `document`, DOM types, browser globals),
+- the shared **Phase-1 browser-targeted command set** — and later browser-context analysis commands that explicitly reuse that same context — may expose the real browser ambient typing layer (`window`, `document`, DOM types, browser globals),
 - while schema-v1 effects and sandbox policy still reason only about the documented **Kali-mediated capability subset**,
 - and deployed browser bundles still run through a real browser host rather than through a standalone Kali-hosted browser runtime.
 

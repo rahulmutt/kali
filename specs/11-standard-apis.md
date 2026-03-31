@@ -10,7 +10,7 @@ Current repository-state note:
 Using the canonical **host-support staircase** from [SPEC.md](../SPEC.md), compatibility is delivered in layers:
 1. **Web baseline**: shared platform primitives needed by modern JS libraries.
 2. **Primary standalone host**: Deno-style APIs, since they align well with explicit permissions and sandboxing.
-3. **Browser-targeted context**: ambient typing plus bundle/build support that targets the real browser host rather than a standalone Kali browser runtime.
+3. **Browser-targeted context**: in Phase 1, the shared **Phase-1 browser-targeted command set** plus the ambient typing/build support needed to target the real browser host rather than a standalone Kali browser runtime.
 4. **Node compatibility surface**: later package-driven compatibility work, added incrementally and tested against real packages.
 
 The spec goal is broad compatibility, but the implementation should prefer a smaller, dependable surface over a shallow imitation of every host API.
@@ -20,7 +20,7 @@ A key simplification rule applies throughout this section: Phase 1 should target
 Consistency note:
 - browser work in Phase 1 is limited to the shared **Phase-1 browser-targeted command set** from [SPEC.md](../SPEC.md), whose exact command boundary is owned there rather than re-expanded ad hoc in each chapter
 - Node work is a later compatibility surface, not a second Phase-1 standalone host peer
-- references to browser support in this chapter should therefore prefer the cross-spec **browser-targeted context** wording instead of implying one broad "browser runtime" milestone
+- references to browser support in this chapter should therefore prefer the cross-spec **browser-targeted context** wording, and in Phase 1 usually the exact **Phase-1 browser-targeted command set**, instead of implying one broad "browser runtime" milestone
 
 For dynamic or semantically expensive APIs (for example `Proxy`, weak references, and threaded primitives), the canonical phase/status lives in [specs/19-feature-maturity.md](19-feature-maturity.md). This section should describe API layering, not restate a conflicting maturity decision.
 
@@ -236,7 +236,7 @@ This section turns the broad API story into a small implementation checklist so 
 - **Deno baseline must work end to end**: file read/write, metadata/read-dir, invocation arguments, and read-only env access all execute through the host ABI and obey the documented sandbox/execution contract.
 - **Every Phase 1 host call is sandbox-contract-aware**: the runtime may not expose an unchecked host backdoor just because the API itself is part of the MVP. When a policy file is attached, host calls must consult it; when no policy file is attached, the same host-call path must still honor intrinsic phase/API gating plus any direct invocation resource caps instead of bypassing the sandbox machinery entirely.
 - **Node mode is not partially implied**: `--api node` remains phase-gated across `check` / `effects` / `build` / `run` / `test` until its documented subset is implemented; package compatibility must not depend on undocumented fallback behavior.
-- **Browser mode stays API-surface-oriented**: browser-targeted analysis/build can expose browser ambient typings, but standalone runtime does not pretend to provide DOM APIs; browser-specific behavior comes from bundle/glue output and the real browser host.
+- **Browser mode stays API-surface-oriented**: the shared **Phase-1 browser-targeted command set** can expose browser ambient typings, but standalone runtime does not pretend to provide DOM APIs; browser-specific behavior comes from bundle/glue output and the real browser host.
 - **Browser-targeted Web-baseline overlap is evidenced through the browser host, not through a hidden browser runtime**: the subset of the Web baseline that intersects browser-targeted bundle behavior must survive emitted-bundle smoke tests in a real browser harness, while broader ambient DOM coverage is evidenced through browser-targeted type-checking plus bundle/deploy smoke rather than through Kali-hosted runtime tests.
 - **Browser-targeted support is evidenced separately**: Phase 1 browser claims require dedicated coverage for the shared **Phase-1 browser-targeted command set**, including smoke execution of emitted bundles in a real browser harness rather than only DOM mocks/unit shims.
 
