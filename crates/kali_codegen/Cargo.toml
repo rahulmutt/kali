@@ -1,0 +1,11 @@
+[package]
+name = "kali_codegen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kali_common = { workspace = true }
+kali_error = { workspace = true }
+kali_lir = { workspace = true }
+serde = { workspace = true }

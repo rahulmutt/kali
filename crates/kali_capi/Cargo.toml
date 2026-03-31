@@ -1,0 +1,8 @@
+[package]
+name = "kali_capi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kali_common = { workspace = true }

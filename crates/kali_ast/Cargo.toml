@@ -1,0 +1,9 @@
+[package]
+name = "kali_ast"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kali_common = { workspace = true }
+kali_error = { workspace = true }

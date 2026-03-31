@@ -1,0 +1,13 @@
+[package]
+name = "kali_cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[[bin]]
+name = "kali"
+path = "src/bin/kali.rs"
+
+[dependencies]
+clap = { workspace = true }
+kali_common = { workspace = true }
+kali_error = { workspace = true }

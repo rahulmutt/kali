@@ -1,0 +1,11 @@
+[package]
+name = "kali_hir"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kali_common = { workspace = true }
+kali_error = { workspace = true }
+kali_ast = { workspace = true }
+kali_types = { workspace = true }

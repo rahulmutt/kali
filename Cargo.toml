@@ -1,0 +1,86 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/kali_common",
+    "crates/kali_error",
+    "crates/kali_lexer",
+    "crates/kali_parser",
+    "crates/kali_ast",
+    "crates/kali_types",
+    "crates/kali_hir",
+    "crates/kali_mir",
+    "crates/kali_lir",
+    "crates/kali_codegen",
+    "crates/kali_optimize",
+    "crates/kali_sandbox",
+    "crates/kali_runtime",
+    "crates/kali_api_deno",
+    "crates/kali_api_node",
+    "crates/kali_api_web",
+    "crates/kali_fmt",
+    "crates/kali_lint",
+    "crates/kali_cli",
+    "crates/kali_embed",
+    "crates/kali_capi",
+    "crates/kali_npm",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Kali Contributors"]
+repository = "https://github.com/kalo-compiler/kali"
+homepage = "https://kalo-lang.dev"
+
+[workspace.dependencies]
+# Core crates
+kali_common = { path = "crates/kali_common" }
+kali_error = { path = "crates/kali_error" }
+kali_lexer = { path = "crates/kali_lexer" }
+kali_parser = { path = "crates/kali_parser" }
+kali_ast = { path = "crates/kali_ast" }
+kali_types = { path = "crates/kali_types" }
+kali_hir = { path = "crates/kali_hir" }
+kali_mir = { path = "crates/kali_mir" }
+kali_lir = { path = "crates/kali_lir" }
+kali_codegen = { path = "crates/kali_codegen" }
+kali_optimize = { path = "crates/kali_optimize" }
+kali_sandbox = { path = "crates/kali_sandbox" }
+kali_runtime = { path = "crates/kali_runtime" }
+kali_api_deno = { path = "crates/kali_api_deno" }
+kali_api_node = { path = "crates/kali_api_node" }
+kali_api_web = { path = "crates/kali_api_web" }
+kali_fmt = { path = "crates/kali_fmt" }
+kali_lint = { path = "crates/kali_lint" }
+kali_cli = { path = "crates/kali_cli" }
+kali_embed = { path = "crates/kali_embed" }
+kali_capi = { path = "crates/kali_capi" }
+kali_npm = { path = "crates/kali_npm" }
+
+# External dependencies
+ahash = "0.8"
+clap = { version = "4.4", features = ["derive", "cargo"] }
+indexmap = "2.2"
+log = "0.4"
+thiserror = "1.0"
+once_cell = "1.19"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[profile.dev]
+opt-level = 1
+debug = true
+debug-assertions = true
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+debug = false
+debug-assertions = false
+
+[profile.release-advanced]
+inherits = "release"
+opt-level = 3
+lto = "fat"
+codegen-units = 1

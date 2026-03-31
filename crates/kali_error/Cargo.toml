@@ -1,0 +1,7 @@
+[package]
+name = "kali_error"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
