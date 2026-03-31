@@ -85,7 +85,7 @@ impl SourceRegistry {
 
 /// Unique identifier for a source file.
 /// Compact 32-bit ID that is safe to copy and use in Span.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct FileId(u32);
 
 impl FileId {

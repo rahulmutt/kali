@@ -7,3 +7,4 @@ license.workspace = true
 [dependencies]
 ahash = { workspace = true }
 once_cell = { workspace = true }
+serde = { workspace = true }

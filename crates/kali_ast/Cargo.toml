@@ -7,3 +7,8 @@ license.workspace = true
 [dependencies]
 kali_common = { workspace = true }
 kali_error = { workspace = true }
+bumpalo = "3.16"
+serde = { workspace = true }
+
+[dev-dependencies]
+insta = "1.41"

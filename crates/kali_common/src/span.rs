@@ -6,7 +6,7 @@ use super::FileId;
 ///
 /// Spans are cheap to copy and are used throughout the compiler to track
 /// source positions in AST nodes and IR.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Span {
     /// File ID where this span originates.
     pub file_id: FileId,
