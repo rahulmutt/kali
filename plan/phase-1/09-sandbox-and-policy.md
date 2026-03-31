@@ -2,7 +2,10 @@
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
 **Spec refs:** [`specs/09-sandboxing.md`](../../specs/09-sandboxing.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
-**Depends on:** [1.8 — Runtime & Execution](08-runtime-execution.md)
+**Depends on:** [1.8 — Runtime & Execution](08-runtime-execution.md) for runtime enforcement;
+the static policy-validation portion (policy parsing, schema validation, `kali check --sandbox`)
+depends only on [1.5 — Type Checker](05-type-checker.md) and may begin while stages 1.6–1.8
+are still in progress (see Phase 1 parallelism note in [`PLAN.md`](../../PLAN.md))
 
 ## Goal
 

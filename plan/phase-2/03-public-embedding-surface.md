@@ -124,3 +124,16 @@ Publish `kali_embed` as a public crate on crates.io with a stable semver version
 - `kali package-audit` (Later compatibility).
 - Cross-language component composition beyond the WIT sidecar (later compatibility).
 - Node.js compatibility (Phase 3 target).
+
+## Definition of Done
+
+- [ ] `kali build --lib <file>` emits a WIT sidecar alongside the WASM artifact; WIT content
+  matches a committed golden snapshot.
+- [ ] `kali build --capi <file>` emits WASM + C header; header compiles with `clang` without
+  warnings.
+- [ ] `kali build --component <file>` emits a valid Component Model WASM artifact; validated
+  by `wasm-tools component validate`.
+- [ ] `kali_embed` published as a public crate on crates.io with a stable semver version;
+  Rust embedding API integration test passes.
+- [ ] Phase-1 gating tests for `--capi` and `--component` updated to positive coverage.
+- [ ] All Phase-1 tests continue to pass without regression.

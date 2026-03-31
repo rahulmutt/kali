@@ -93,3 +93,15 @@ Lift the **annotation-required inference boundary** for well-typed public APIs:
 - LTO across Kali + user-provided native libraries (later compatibility).
 - Profile-guided optimisation (later compatibility).
 - `eval` / dynamic code generation (Phase 4 target).
+
+## Definition of Done
+
+- [ ] `kali build --release` produces measurably faster or smaller WASM than `--fast` on the
+  CI benchmark suite.
+- [ ] `kali build --release-advanced` produces a further improvement over `--release`.
+- [ ] Monomorphisation tests confirm no `TagCheck` / `Untag` instructions in specialised
+  hot paths.
+- [ ] `compilerOptions.maxSpecializations` enforced; code-size explosion test passes.
+- [ ] Incremental compilation: a second build of an unchanged module is a cache hit (no
+  recompile).
+- [ ] All Phase-1 and Phase-2 tests continue to pass without regression.

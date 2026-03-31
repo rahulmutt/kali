@@ -93,3 +93,14 @@ Update the `MIR → LIR` lowering (replacing the old `HIR → LIR` path):
 - LLVM-style alias analysis (Phase 3 depth).
 - Effect inference changes (Stage 2.2).
 - Public embedding surface changes (Stage 2.3).
+
+## Definition of Done
+
+- [ ] `kali_mir` crate compiles and all crate unit tests pass.
+- [ ] Escape analysis correctly classifies locals; LIR diff tests confirm stack-allocated values
+  no longer emit `Alloc` / `RcIncref` / `RcDecref`.
+- [ ] Full `TypedAST → HIR → MIR → LIR → WASM` pipeline produces runnable output for all
+  Phase-1 fixtures.
+- [ ] Benchmark shows measurable reduction in WASM module size or instruction count over the
+  Phase-1 direct-lowering baseline.
+- [ ] All Phase-1 integration tests continue to pass without regression.

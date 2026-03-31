@@ -125,3 +125,15 @@ the same `check/build --sandbox` command paths that existed in Phase 1.
 - `kali package-audit` (Later compatibility).
 - Effects on `--api node` surface (Phase 3 target).
 - Programmable policy predicates (later compatibility).
+
+## Definition of Done
+
+- [ ] `kali effects <file>` emits a valid schema-v1 effect JSON report; golden snapshot committed
+  and CI-enforced.
+- [ ] `kali package-effects <pkg>` emits a valid schema-v1 effect JSON report for a registry
+  package.
+- [ ] `kali check --sandbox <policy> <file>` emits `E9007` for inferred effects not covered by
+  the active policy.
+- [ ] Phase-1 gating tests for `kali effects` and `kali package-effects` updated to positive
+  coverage.
+- [ ] All Phase-1 tests continue to pass without regression.

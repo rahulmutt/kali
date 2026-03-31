@@ -112,6 +112,22 @@ the user can exercise at least one new capability.
 |---|---|---|
 | 1.14 | [Evidence Hardening](plan/phase-1/14-evidence-hardening.md) | Conformance suite, package corpus, browser smoke tests, determinism checks, proof-ready baseline |
 
+### Phase 1 parallelism
+
+Within Phase 1 the following parallel opportunities exist:
+- **1.9 static-validation work** (policy parsing, schema validation, `kali check --sandbox`) depends
+  only on stage 1.5 and may begin while stages 1.6–1.8 are still in progress; the runtime
+  enforcement portion of 1.9 still requires 1.8.
+- **1.12 and 1.13** are largely independent and may be worked on in parallel once 1.11 is complete.
+
+All other Phase 1 stages should be treated as sequential unless noted above.
+
+### Phase 1 completion gate
+
+Phase 1 is complete when all stages 1.1–1.14 have passed their Definitions of Done *and* every
+Phase-1 maturity label in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) is backed
+by a passing evidence track from stage 1.14.
+
 ---
 
 ## Phase 2 — Ownership, Effects & Public Embedding
@@ -124,11 +140,28 @@ validation; and the stable public embedding surface (Rust API, WIT-first `--lib`
 Stages 2.2 and 2.3 both depend on the MIR pipeline from 2.1; they can proceed in parallel once
 2.1 is complete.
 
+### Spec chapter mapping
+
+| Spec chapter | Plan stage | Key deliverable |
+|---|---|---|
+| [`05 — IR`](./specs/05-ir.md) | 2.1 | MIR as canonical mid-stage; `HIR → MIR → LIR` path replaces direct lowering |
+| [`06 — Memory Management`](./specs/06-memory.md) | 2.1 | Escape analysis; deterministic ownership classes (`stack`, `owned heap`, `shared heap`, `borrowed`) |
+| [`09 — Sandboxing & Effects`](./specs/09-sandboxing.md) | 2.2 | Public effect-report surface (reporting half + policy-comparison half) |
+| [`13 — Embedding, WIT & C ABI`](./specs/13-embedding.md) | 2.3 | Stable Rust embedding API; WIT-first `--lib`; `--capi`; `--component` |
+| [`19 — Feature Maturity`](./specs/19-feature-maturity.md) | all | Phase-2 maturity rows open |
+
 | Stage | Document | Workable milestone |
 |---|---|---|
 | 2.1 | [MIR & Ownership Analysis](plan/phase-2/01-mir-and-ownership.md) | MIR is the canonical mid-stage; escape analysis drives stack/heap/shared decisions |
 | 2.2 | [Public Effect Reporting](plan/phase-2/02-public-effect-reporting.md) | `kali effects <file>` and `kali package-effects <pkg>` emit stable JSON; `check/build --sandbox` adds inferred-effect-vs-policy rejection |
 | 2.3 | [Public Embedding Surface](plan/phase-2/03-public-embedding-surface.md) | Stable Rust embedding API; WIT sidecar on `--lib`; `--capi` and `--component` artifact modes |
+
+### Phase 2 completion gate
+
+Phase 2 is complete when stages 2.1–2.3 have passed their Definitions of Done, the public
+effect-report surface and public embedding surface are stable (stable semver published), and the
+Phase-2 maturity rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are
+updated to reflect passing evidence.
 
 ---
 
@@ -141,11 +174,30 @@ and broader browser packaging.
 Stages 3.2 and 3.3 can be developed in parallel with 3.1 once Phase 1 is complete; 3.1's
 monomorphisation work is a prerequisite for the full layout-specialisation benefits in 3.3.
 
+### Spec chapter mapping
+
+| Spec chapter | Plan stage | Key deliverable |
+|---|---|---|
+| [`05 — IR`](./specs/05-ir.md) | 3.1 | Layout specialisation via MIR layout descriptors |
+| [`07 — Specialisation`](./specs/07-specialization.md) | 3.1 | Monomorphisation; `--release` / `--release-advanced` optimisation passes |
+| [`08 — WASM Codegen`](./specs/08-wasm-codegen.md) | 3.3 | Code splitting; tree-shaking; dynamic `import()` bundle boundaries |
+| [`11 — Standard APIs`](./specs/11-standard-apis.md) | 3.2 | Node compatibility surface; common Node built-ins |
+| [`14 — Packages`](./specs/14-packages.md) | 3.2, 3.3 | Broader npm corpus; Node-assuming package support |
+| [`19 — Feature Maturity`](./specs/19-feature-maturity.md) | all | Phase-3 maturity rows open |
+
 | Stage | Document | Workable milestone |
 |---|---|---|
 | 3.1 | [Specialisation & Optimisation](plan/phase-3/01-specialisation-and-optimisation.md) | `--release` and `--release-advanced` produce measurably faster WASM; monomorphisation pipeline stable |
 | 3.2 | [Node Compatibility](plan/phase-3/02-node-compatibility.md) | `--api node` command path supported; broader Node built-ins available |
 | 3.3 | [Ecosystem Breadth](plan/phase-3/03-ecosystem-breadth.md) | Incremental compilation; broader package corpus; open-ended cross-module constraint solving |
+
+### Phase 3 completion gate
+
+Phase 3 is complete when stages 3.1–3.3 have passed their Definitions of Done, `--release` and
+`--release-advanced` are measurably better than `--fast` on the CI benchmark suite, `--api node`
+is no longer gated, and the Phase-3 maturity rows in
+[`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated to reflect passing
+evidence.
 
 ---
 
@@ -159,10 +211,26 @@ can be developed alongside the implementation, but **proof-backed** claims requi
 published boundary in `proofs/BOUNDARY.md` before they may appear in release notes or support
 summaries.
 
+### Spec chapter mapping
+
+| Spec chapter | Plan stage | Key deliverable |
+|---|---|---|
+| [`10 — Runtime`](./specs/10-runtime.md) | 4.1 | `eval`/`Function()` behind `compat.features.eval`; non-literal dynamic imports |
+| [`14 — Packages`](./specs/14-packages.md) | 4.1 | `kali package-audit` publicly available (no `--preview` gate) |
+| [`17 — Formal Verification`](./specs/17-verification.md) | 4.2 | Non-empty Lean proof boundary; proof CI passes; repository may claim proof-backed |
+| [`19 — Feature Maturity`](./specs/19-feature-maturity.md) | all | Phase-4 maturity rows open |
+
 | Stage | Document | Workable milestone |
 |---|---|---|
 | 4.1 | [Dynamic Compatibility](plan/phase-4/01-dynamic-compatibility.md) | `eval`/`Function()` executable behind `compat.features.eval`; non-literal dynamic loading gated similarly |
 | 4.2 | [Formal Verification Depth](plan/phase-4/02-formal-verification-depth.md) | Published Lean boundary names concrete modelled subsystems; CI runs proof jobs; repository is proof-backed |
+
+### Phase 4 completion gate
+
+Phase 4 is complete when stages 4.1–4.2 have passed their Definitions of Done,
+`proofs/BOUNDARY.md` names a non-empty modelled subsystem with passing Lean proof jobs, and the
+repository may honestly claim **proof-backed** status for the published boundary. Phase-4 maturity
+rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated accordingly.
 
 ---
 
