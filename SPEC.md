@@ -74,7 +74,7 @@ Shortcut:
 ## Spec Editing Checklist
 
 Use this before considering a spec edit complete:
-- **availability change** → update the owning chapter and [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) together
+- **availability change** → update the owning chapter and [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) together, then sync any affected root-level support summaries (at minimum [`README.md`](./README.md), and [`BOOTSTRAP.md`](./BOOTSTRAP.md) only if its reading note or surrounding framing needs to keep pointing readers back to the normalized owners)
 - **shared terminology or cross-spec split change** → update `SPEC.md` first, then clean up any chapter-local wording that reuses that term
 - **proof-boundary / verification claim change** → update [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) and [`specs/17-verification.md`](./specs/17-verification.md) together, then sync summary docs that restate current proof status
 - **browser-targeted support change** → check all four places that commonly drift: the canonical term in `SPEC.md`, [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/16-testing.md`](./specs/16-testing.md), and [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
@@ -345,8 +345,8 @@ This loop is intentionally shorter than the full anti-drift checklist. Use it fi
 ## Minimum Cross-File Update Set
 
 To keep spec edits small and still prevent drift, apply this minimum update set whenever a user-visible rule changes:
-- **phase/support change** → update the owning chapter **and** [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
-- **CLI shape/flag/arity/output change** → update [`specs/12-cli.md`](./specs/12-cli.md), then sync any affected diagnostics in [`specs/15-errors.md`](./specs/15-errors.md) and any affected JSON/schema contracts in [`specs/18-schemas.md`](./specs/18-schemas.md)
+- **phase/support change** → update the owning chapter **and** [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md), then sync any affected root-level support summaries in [`README.md`](./README.md)
+- **CLI shape/flag/arity/output change** → update [`specs/12-cli.md`](./specs/12-cli.md), then sync any affected diagnostics in [`specs/15-errors.md`](./specs/15-errors.md) and any affected JSON/schema contracts in [`specs/18-schemas.md`](./specs/18-schemas.md), plus [`README.md`](./README.md) if its overview bullets/examples mention that CLI surface
 - **sandbox/effect workflow change** → update [`specs/09-sandboxing.md`](./specs/09-sandboxing.md), then sync the corresponding command, diagnostic, schema, and maturity owners (`12`, `15`, `18`, `19`)
 - **embedding/artifact change** → update [`specs/13-embedding.md`](./specs/13-embedding.md) plus any affected artifact/schema/CLI owners (`08`, `12`, `18`, `19`)
 - **host/API-surface change** → update [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), then sync any affected command/package/sandbox/schema/availability owners (`09`, `12`, `14`, `18`, `19`)
@@ -354,7 +354,7 @@ To keep spec edits small and still prevent drift, apply this minimum update set 
 - **package workflow / registry-analysis change** → update [`specs/14-packages.md`](./specs/14-packages.md), then sync any affected command/output/error/availability owners (`12`, `15`, `18`, `19`)
 
 Shortcut:
-- if a change would alter what a release note could honestly claim, it is almost never a one-file edit
+- if a change would alter what a release note, README summary, or bootstrap-review answer could honestly claim, it is almost never a one-file edit
 - prefer this minimum update set over adding a second explanatory paragraph in a non-owning chapter
 
 ## Support-Claim Authoring Checklist

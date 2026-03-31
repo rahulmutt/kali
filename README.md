@@ -12,10 +12,12 @@ Shortcuts:
 - **Is this supported yet?** → `SPEC.md` → `specs/19-feature-maturity.md` → owning chapter
 - **How does it work?** → owning chapter first, then `SPEC.md`
 - **What proof coverage is claimed today?** → `proofs/BOUNDARY.md`
+- **How did the bootstrap brief get normalized?** → `SPEC.md`'s **Bootstrap Acceptance Snapshot**, **Bootstrap Normalization Rule**, and **Bootstrap Traceability Matrix**
 
 README scope note:
 - this file is overview-first and intentionally non-normative
 - `SPEC.md` owns shared terminology/normalization, `specs/19-feature-maturity.md` owns shipped availability, owning chapters own subsystem details, and `proofs/BOUNDARY.md` owns the repository's current verification-claim boundary
+- `BOOTSTRAP.md` remains the original brief, not the post-normalization source of truth
 - when README summary bullets and the detailed specs differ, prefer the specs
 
 ## Hard invariants
