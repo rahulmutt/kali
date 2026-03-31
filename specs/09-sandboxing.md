@@ -13,12 +13,12 @@ Cross-spec workflow rule:
 
 Command-behavior simplification:
 - follow the shared **sandbox-attachment orthogonality** rule from [SPEC.md](../SPEC.md): `--sandbox` adds the owning sandbox workflow step without changing command family, file-arity behavior, compile intent, artifact mode, or API-surface gating
-
+- follow the SPEC-level guardrail too: `--sandbox` never rescues an otherwise-invalid command shape or phase-gated API/artifact combination; it only attaches sandbox handling to a command/context pair that is already valid on its own
 
 | Command family | `--sandbox` meaning in schema v1 | Runtime enforcement after command returns? |
 |---|---|---|
 | `run`, `test` | Attach policy, validate schema/ranges, and enforce it during **Kali-hosted execution** | Yes, for the documented Kali-hosted capability/resource contract |
-| `check`, `build` | Static validation only: Phase 1 validates policy-schema/config over the shared **Phase-1 static policy-validation surface** from [SPEC.md](../SPEC.md); starting in the Phase 2 target window, that same path also checks inferred effects against policy. If the effective `apiSurface` is `browser`, this same row is narrowed by the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) rather than becoming a separate sandbox workflow. | No |
+| `check`, `build` | Static validation only: Phase 1 validates policy-schema/config over the shared **Phase-1 static policy-validation surface** from [SPEC.md](../SPEC.md); starting in the Phase 2 target window, that same path also checks inferred effects against policy. This row applies only to otherwise-valid `check`/`build` shapes; if the effective `apiSurface` is `browser`, it narrows to the supported browser-targeted `check` and `build --bundle` cases under the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) rather than creating a second sandbox workflow or repairing unsupported browser build modes. | No |
 | `effects`, `package-effects` | No sandbox-comparison mode; `--sandbox` is invalid usage (`E5008`) | N/A |
 | `package-audit` | No sandbox mode; `--sandbox` is invalid usage (`E5008`) because this remains the separate context-free registry-analysis/security-audit workflow | N/A |
 
@@ -32,7 +32,7 @@ Bootstrap-reading shortcut:
 
 Practical reading rule:
 - Phase 1 ships only the **runtime-enforcement** and **static policy-validation** owners
-- for the static-policy-validation owner, the shipped Phase-1 command surface is the shared **Phase-1 static policy-validation surface** from [SPEC.md](../SPEC.md)
+- for the static-policy-validation owner, the shipped Phase-1 command surface is the shared **Phase-1 static policy-validation surface** from [SPEC.md](../SPEC.md), meaning only the otherwise-valid `check`/build shapes listed there rather than every syntax form that happens to contain `--sandbox`
 - the reporting owner stays part of the later Phase-2 **public effect-report surface** and remains an explicit `kali effects` / `kali package-effects` workflow rather than a dry-run variant of `run` or `test`
 - `package-audit` remains outside all three because it is the separate context-free registry-analysis/security-audit workflow
 

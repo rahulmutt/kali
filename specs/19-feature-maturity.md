@@ -91,7 +91,7 @@ It is intentionally narrower than the full command/profile matrix below:
 
 Interpretation shortcut:
 - `kali package-effects` appears in both the **Effects/sandbox** and **Registry analysis** stories on purpose: by command shape it is a registry-analysis command, and by user-facing contract it is also part of the later **public effect-report surface**.
-- the shared **Phase-1 static policy-validation surface** likewise appears here on purpose: it is the whole static-policy-validation surface in Phase 1 — `check --sandbox` over the selected source roots plus the three supported build-intent lanes (`build --sandbox`, `build --lib --sandbox`, and browser-targeted `build --bundle --sandbox`) — while `run/test --sandbox` remain the runtime-enforcement surface.
+- the shared **Phase-1 static policy-validation surface** likewise appears here on purpose: it is the whole static-policy-validation surface in Phase 1 — `check --sandbox` over the selected source roots plus the three otherwise-valid supported build lanes (`build --sandbox`, `build --lib --sandbox`, and browser-targeted `build --bundle --sandbox`) — while `run/test --sandbox` remain the runtime-enforcement surface. Attaching `--sandbox` to some other invalid or phase-gated build shape does not widen that surface.
 - reading rule: use the effect row to answer **what kind of reporting surface it belongs to**, and the registry-analysis row to answer **what kind of command/input workflow it is**.
 
 Use this summary to avoid broad bootstrap overreads, then drop to the canonical matrix below for exact command/context rows.
