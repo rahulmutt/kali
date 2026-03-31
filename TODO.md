@@ -1,50 +1,55 @@
-# Next Tasks
+# Kali Compiler - TODO and Task Tracking
 
-## Current State Analysis
+## Current Status
 
-### Complete:
-1. ✅ **Phase 1 Core Compilation Foundation** - Workspace scaffold, error handling, common utilities
-2. ✅ **Stage 1.2 - Lexer (kali_lexer)** - Fully implemented, tests pass, clippy clean (except dependencies)
+### ✅ Phase 1 Foundation - COMPLETE
+1. **Workspace Scaffold (Stage 1.1)** ✅
+   - All core crates created
+   - Workspace Cargo.toml configured
+   - Proof-ready baseline established
 
-### Next Task: Stage 1.3 - Parser & AST (kali_parser, kali_ast)
+2. **Error Handling & Common Utilities** ✅
+   - `kali_common`: FileId, Span, SourceMap implementation
+   - `kali_error`: Diagnostic system with full error code registry
+   - **FIXED**: Serde support added to all diagnostic types
 
-**Dependencies**: lexer (1.2)
+3. **Stage 1.2 - Lexer (kali_lexer)** ✅
+   - Token enumeration complete
+   - Lexing implementation functional
+   - Unit tests passing (7 tests)
+   - Span propagation working
 
-**Goal**: Implement a complete TypeScript/JavaScript parser that produces a full AST from tokenized source.
+### 🚧 Phase 1 Core Implementation - IN PROGRESS
+1. **Stage 1.3 - Parser & AST (kali_parser, kali_ast)** 🚧
+   - Parser skeleton exists with stub implementation
+   - AST has basic node types but needs expansion
+   - Arena allocation not yet implemented
+   - Needs: Full ECMA-262 + TypeScript parsing
+   - Priority: 🔴 HIGH - Next immediate task
 
-**Key Implementation Points**:
+### 📋 Backlog (Phase 1)
+1. Stage 1.4 - Name Resolution
+2. Stage 1.5 - Type Checker
+3. Stage 1.6 - HIR & LIR Lowering
+4. Stage 1.7 - WASM Code Generation
+5. Stage 1.8 - Runtime & Execution
+6. Stage 1.9-1.14 - Supporting infrastructure
 
-1. **Full ECMA-262 Parser** - Complete recursive descent parser handling:
-   - All statement types (variable, function, class, if, for, while, switch, try, etc.)
-   - All expression types (arithmetic, logical, relational, conditional, etc.)
-   - Destructuring (patterns with defaults)
-   - Generators and async generators
-   - Optional chaining (`?.`), nullish coalescing (`??`)
-   - Dynamic `import()`
-   - Template literals with expressions
+## Next Task: Stage 1.3 - Parser & AST
 
-2. **TypeScript Extensions** - Parse TS-specific syntax:
-   - Type annotations on variables, parameters, return types
-   - Interfaces, type aliases, enums, mapped types
-   - Generic type parameters
-   - `as`, `satisfies`, non-null assertion (`!`)
-   - JSX/TSX grammar
+**Blocked by:** ✅ All dependencies satisfied (lexer is complete)
 
-3. **ASI Handling** - Automatic semicolon insertion per ECMA-262 spec
-4. **Error Recovery** - Synchronization tokens to continue parsing after errors
-5. **Span Propagation** - All AST nodes carry source spans from lexer
+**Dependencies:**
+- `kalI_lexer` output tokens
 
-**Testing Strategy**:
-- Comprehensive unit tests for each statement/expression type
-- Fixture tests with real TypeScript/JavaScript source files
-- Error case tests for various parse failures
-- Round-trip: tokenize → parse → verify structure
+**Key Requirements:**
+1. Update ParseSource to accept Token stream
+2. Expand NodeKind enum (~80 variants needed)
+3. Implement arena-based AST allocation
+4. Add recursive descent parser
+5. Implement error recovery
+6. Write comprehensive tests
 
-**Files to Update**:
-- `/workspace/specs/19-feature-maturity.md` - Mark parser support as implemented for Phase 1
-- `/workspace/specs/02-lexer-parser.md` - Update to reflect actual implementation status
+## Notes
 
-**Phase 1 Completion Tracking**:
-- Stage 1.2 is complete - can mark lexer feature as implemented in maturity matrix
-- Next focus: Stage 1.3 parser implementation
-- After parser: Stage 1.4 name resolution, Stage 1.5 type checker
+Serde fix was a foundational requirement - without it, the entire pipeline is unusable. All diagnostic types now support JSON output as required by the spec.

@@ -36,7 +36,7 @@ homepage = "https://kalo-lang.dev"
 [workspace.dependencies]
 # Core crates
 kali_common = { path = "crates/kali_common" }
-kali_error = { path = "crates/kali_error" }
+kali_error = { path = "crates/kali_error", features = ["serde"] }
 kali_lexer = { path = "crates/kali_lexer" }
 kali_parser = { path = "crates/kali_parser" }
 kali_ast = { path = "crates/kali_ast" }

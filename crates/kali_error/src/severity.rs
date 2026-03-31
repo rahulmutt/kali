@@ -1,7 +1,10 @@
 //! Diagnostic severity levels.
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// Severity level for compiler diagnostics.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
     /// Error-level diagnostics prevent compilation.
     Error,
@@ -9,6 +12,64 @@ pub enum Severity {
     Warning,
     /// Info-level diagnostics are informational only.
     Info,
+}
+
+impl PartialOrd for Severity {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Severity {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // Semantically: Error > Warning > Info
+        match (self, other) {
+            (Severity::Error, Severity::Warning) => std::cmp::Ordering::Greater,
+            (Severity::Error, Severity::Info) => std::cmp::Ordering::Greater,
+            (Severity::Warning, Severity::Error) => std::cmp::Ordering::Less,
+            (Severity::Info, Severity::Error) => std::cmp::Ordering::Less,
+            (Severity::Warning, Severity::Info) => std::cmp::Ordering::Greater,
+            (Severity::Info, Severity::Warning) => std::cmp::Ordering::Less,
+            _ => std::cmp::Ordering::Equal,
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for Severity {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for Severity {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct SeverityVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for SeverityVisitor {
+            type Value = Severity;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a string: error, warning, or info")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Severity::from_str(value).ok_or_else(|| E::custom(format!("invalid severity: {}", value)))
+            }
+        }
+
+        deserializer.deserialize_str(SeverityVisitor)
+    }
 }
 
 impl Severity {
@@ -38,19 +99,6 @@ impl std::fmt::Display for Severity {
         write!(f, "{}", self.as_str())
     }
 }
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for Severity {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(self.as_str())
-    }
-}
-
-// Disable this impl - DeserializeOwned is not a valid trait implementation
-// impl serde::de::DeserializeOwned for Severity {}
 
 #[cfg(test)]
 mod tests {
