@@ -1398,6 +1398,7 @@ Kali intentionally keeps the two schema-v1 single-package registry-analysis comm
 
 In schema v1 this means:
 - `package-effects` is the **Phase 2 target** analysis-context-aware effect-report command: it inherits the shared **inherited analysis context**, follows **axis-aligned inherited analysis gating**, and is a **native-JSON command** once available.
+- `package-effects` reuses the shared effect-report payload contract for its nested report rather than defining a second package-only effect vocabulary or alternate root schema.
 - `package-audit` is the **Later compatibility** context-free security-audit command: it follows **context-free registry analysis (schema v1)** and is an **envelope-only JSON command** in schema v1.
 - both commands still share the same **registry-analysis target contract (schema v1)**.
 

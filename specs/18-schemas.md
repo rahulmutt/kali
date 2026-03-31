@@ -353,20 +353,20 @@ Produced by `kali effects` once that Phase-2 command is available; Phase 1 may s
 ### Required fields
 - `schemaVersion: number`
 - `analysisContext: EffectAnalysisContext`
-- `entryPoints: string[]` — shared schema-v1 field for the report's **logical roots** (see the naming bridge in [SPEC.md](../SPEC.md)); examples include a normalized CLI input path such as `src/main.ts`, a discovered test label, or a package root specifier such as `lodash`
+- `entryPoints: string[]` — shared schema-v1 field for the report's **logical roots** (see the naming bridge in [SPEC.md](../SPEC.md)); the exact label form is producer-dependent: `kali effects <file>` uses normalized source-root paths such as `src/main.ts`, while nested/shared reuse of this same payload shape may use other logical-root labels such as a package identifier
 - `effects: EffectOccurrence[]`
 - `dynamicEffects: boolean`
 - `dynamicReasons: string[]` — canonical reason codes explaining why the report is conservative/incomplete; empty when `dynamicEffects` is `false`
 
 Early-phase interpretation rule:
 - `entryPoints` is a historical stable field name for logical roots, not a promise that every producer is describing a runtime entrypoint
-- for the Phase 2 CLI command `kali effects <file>`, `entryPoints` normally contains exactly one element because schema v1 keeps the command at one explicit primary analysis root
-- for direct CLI analysis inputs, the canonical label should be the normalized user-facing entry path (preferably project-root-relative when that root is known) rather than an implementation-specific symbol ID or opaque internal module handle
+- for the Phase 2 CLI command `kali effects <file>`, `entryPoints` normally contains exactly one element because schema v1 keeps that command at one explicit primary analysis root
+- for direct CLI source-graph analysis inputs, the canonical label should be the normalized user-facing root path (preferably project-root-relative when that root is known) rather than an implementation-specific symbol ID or opaque internal module handle
 - `analysisContext` records the semantic knobs that materially affect the report: selected `apiSurface`, enabled `runtimeProfiles`, and enabled `compatFeatures`
-- the report covers the command's full analysis graph under that recorded analysis context, not a file-local AST scan of only the named source file
+- the report covers the producer's full analysis graph under that recorded analysis context, not a file-local AST scan of only one named file or manifest
 - for source-graph producers such as `kali effects`, that graph is the same **resolved source graph** defined in [SPEC.md](../SPEC.md)
 - the report is a conservative upper bound for that analyzed graph: it may over-approximate, but it must not omit already-known built-in sandbox-relevant effects just because some paths remained dynamic
-- the field stays an array so the same schema can later cover single-package-rooted, test-runner, or other report producers without inventing a second effect-report shape
+- the field stays an array so the same payload shape can be reused by nested package-effect reports or later test-runner/other report producers without inventing a second near-duplicate effect-report schema
 
 ### `EffectAnalysisContext`
 ```json
@@ -489,7 +489,7 @@ Interpretation rules:
 - `package.version` is the concrete resolved version actually analyzed. The CLI package argument is versionless in schema v1; for `package-effects`, that resolved version follows the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md) unless a later spec adds an explicit version/range selector.
 - follow the shared **registry-analysis independence split** from [SPEC.md](../SPEC.md): this resolved version is not inferred from the current project's manifest or lockfile, even though `package-effects` may still inherit semantic analysis context from defaults/discovered config.
 - the emitted payload must still record the exact resolved version so caches, diffs, and audit trails stay reproducible.
-- the nested `report` is the same canonical effect-report payload shape documented above; tools should not expect a package-specific effect vocabulary
+- the nested `report` is the same shared effect-report payload shape documented above; tools should not expect a second package-specific effect vocabulary or a package-only variant of the effect schema
 - inside that nested report, `analysisContext` records which API surface / runtime-profile / compatibility-feature selection the package was analyzed under
 - as the analysis-context-aware half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md), `kali package-effects` inherits that analysis context through the shared **inherited analysis context** rather than introducing a second package-analysis-only flag family; the schema records the chosen context, regardless of how it was selected
 - inherited-context maturity follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) rather than a package-only shadow rule set
