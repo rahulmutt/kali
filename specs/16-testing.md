@@ -3,6 +3,7 @@
 Current repository-state note:
 - this repository is still spec-first; the crate names, test directories, and CI lanes below define the target implementation/testing contract, not a claim that every Rust crate, fixture tree, or hosted CI job already exists today
 - current repo obligations are therefore narrower: keep the spec/docs internally consistent, keep phase-gated workflows honestly marked as unavailable until their maturity rows open, and follow the shared **proof-ready vs proof-backed split** from [SPEC.md](../SPEC.md) plus the published proof-boundary policy in `proofs/BOUNDARY.md`
+- when this chapter needs a one-line statement about the repository's current verification posture, reuse the manifest's canonical short summary verbatim: **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
 
 ## Test Strategy
 
@@ -24,7 +25,7 @@ End-to-end tests in `tests/`:
 - Source file + policy → `kali run --sandbox` / `kali test --sandbox` → check runtime enforcement result *(Phase 1 MVP runtime-enforcement owner)*
 - Source graph + policy → the shared **Phase-1 static policy-validation surface** → check static policy-schema/config validation result *(Phase 1 MVP static-policy-validation owner; Phase 2 target adds inferred effect-vs-policy rejection on those same command paths rather than a second dry-run workflow)*
 - Test source set → `kali test [files...]` / `kali test --filter ...` → correct discovery-vs-explicit-file selection behavior, stable post-selection filtering, and expected invalid-entrypoint rejection for declaration-only test inputs
-- Library source → `kali build --lib` → export-oriented **base library artifact** + deterministic artifact metadata *(Phase 1 MVP for the base library artifact; the stable public embedding surface remains a Phase 2 target)*
+- Library source → `kali build --lib` → export-oriented **base library artifact** + deterministic artifact metadata for **exact-version consumers** *(Phase 1 MVP for the base library artifact; the stable public embedding surface remains a Phase 2 target)*
 - Browser-targeted source → the shared **Phase-1 browser-targeted command set** → expected diagnostics/type success for `check` and emitted artifact + smoke execution in a real browser harness for `build --bundle`, including equivalent inherited-config forms and supported `--sandbox` variants where applicable
 - Repeated build of the same pinned input/context → byte-stable artifacts and stable machine-readable metadata by default
 
@@ -55,7 +56,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | First-class JavaScript compilation | dedicated `.js` fixtures across `check` / `build` / `run`, JSDoc-hint coverage, and golden cases for the canonical fallback ladder (`precise` → `small union` → `unknown` / dynamic layout) so `.js` support does not regress into parse-only compatibility or implicit-`any` drift |
 | Host APIs / runtime behavior | integration tests that execute the API path + sandbox/resource-limit tests where relevant |
 | The **Phase-1 browser-targeted command set** | browser-targeted `check` tests + browser-targeted `build --bundle` tests + emitted-bundle smoke runs in a real browser harness |
-| Base library/export artifact support (`kali build --lib`) | library-build integration tests + artifact-manifest/schema assertions + deterministic rebuild checks |
+| Base library/export artifact support (`kali build --lib`) | library-build integration tests + artifact-manifest/schema assertions + deterministic rebuild checks, all scoped to the Phase-1 **base library artifact** consumption story for **exact-version consumers** rather than the later stable public embedding surface |
 | Package compatibility | curated package corpus results recorded per shipped source-graph command/context **and per claimed rung of the shared package-support ladder** from [SPEC.md](../SPEC.md) (for example standalone `check` / `build` / `run` / `test`, plus browser-targeted `check` / `build --bundle` when those package claims are made) |
 | Registry-analysis commands (`package-effects`, `package-audit`) | command-shape/arity negatives, deterministic single-package version-selection tests, context-participation tests (`package-effects` inherited analysis context vs `package-audit` context-free behavior), and JSON-contract assertions for native-JSON vs envelope-only output |
 | CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |
@@ -114,7 +115,13 @@ Because Phase 1 already promises the shared **Phase-1 browser-targeted command s
 - keep this track separate from any lightweight DOM/unit-test shim so Kali does not accidentally overclaim browser-runtime support from mock-only tests
 
 #### Base-Library Artifact Evidence Track
-Because Phase 1 already promises the export-oriented base `kali build --lib` mode, that artifact needs its own explicit evidence lane too:
+Because Phase 1 already promises the export-oriented base `kali build --lib` mode, that artifact needs its own explicit evidence lane too.
+
+Preferred reading:
+- this lane proves that plain `kali build --lib` is **buildable for exact-version consumers** in Phase 1
+- it does **not** prove the later stable public embedding/WIT/C-ABI/Component-Model surface
+
+Required checks:
 - run library-build fixtures that verify the expected exported-library artifact shape without implying the later stable public embedding/WIT contract yet
 - treat any host-consumption smoke coverage for this lane as an **exact-version consumer** test only: pin the producing Kali toolchain/runtime version and do not present those fixtures as evidence of cross-version/public ABI stability
 - include negative tests for library inputs that do **not** have a statically known export surface so the build fails with `E5011` instead of synthesizing reflective exports
