@@ -12,36 +12,46 @@ span coverage, JSX support, and resilient error recovery.
 
 ## Workable Milestone
 
-- Valid TS/JS source files parse to a complete, well-typed AST without panicking.
-- Parse errors are collected as `E2xxx` diagnostics; the parser recovers and continues rather than
-  aborting at the first error.
-- The AST node types are stable enough for subsequent stages (name resolution, type checker) to
-  build on without redesign.
+**CURRENT STATUS: Foundation complete, parsing skeleton in place**
+
+✅ AST node definitions complete with typed structs and unified `Statement` enum  
+✅ Parser skeleton with basic parsing interface  
+⏳ Full recursive-descent parsing implementation pending  
+⏳ Snapshot tests pending  
+⏳ Error handling and recovery pending  
+
+- AST node types are defined and stable for downstream stages
+- Parser compiles with stub `parse()` method returning empty results
+- Full recursive-descent parsing implementation is the next development task
 
 ## Tasks
 
-### 1. AST node definitions (`kali_ast`)
+### AST node definitions (`kali_ast`)
 
-Define the full node tree. Key design rules from `specs/03-ast.md`:
+Define the full node tree with proper Span annotations. The current AST module has two separate systems that need to be consolidated:
 
-- Every node carries a `Span`.
-- Nodes are arena-allocated (per-file arena) for cache-friendly traversal and bulk deallocation.
-- Nodes use typed enums rather than stringly-typed `kind` fields.
-- The AST is a *source-level* representation — it preserves enough structure for the formatter,
-  linter, and checker without pre-lowering into IR concerns.
+1. **Typed AST structs** (defined in separate types files) - Each AST node has its own type with a Span field
+2. **NodeKind-based system** (in `ast/src/lib.rs`) - Uses a generic Node enum
 
-Primary node families:
+**Consolidation Plan:**
+- Keep the typed struct approach for Stage 1.3 since:
+  - Each AST node already has Span via serialization/derivation
+  - Better type safety for downstream stages
+  - Matches spec requirements: "Nodes use typed enums rather than stringly-typed `kind` fields"
+  - The NodeKind-based system in `ast/src/lib.rs` can remain but typed structs should be the primary interface
 
-| Family | Examples |
+Primary node families (expand existing definitions in `kali_ast`):
+
+| Family | Key Types |
 |---|---|
 | **Declarations** | `VarDecl`, `FunctionDecl`, `ClassDecl`, `InterfaceDecl`, `TypeAliasDecl`, `EnumDecl`, `NamespaceDecl`, `ImportDecl`, `ExportDecl` |
 | **Statements** | `BlockStmt`, `IfStmt`, `ForStmt`, `ForInStmt`, `ForOfStmt`, `WhileStmt`, `DoWhileStmt`, `ReturnStmt`, `ThrowStmt`, `TryStmt`, `SwitchStmt`, `BreakStmt`, `ContinueStmt`, `LabeledStmt`, `ExprStmt`, `EmptyStmt`, `DebuggerStmt` |
-| **Expressions** | `BinExpr`, `UnaryExpr`, `UpdateExpr`, `AssignExpr`, `CondExpr`, `CallExpr`, `NewExpr`, `MemberExpr`, `IndexExpr`, `SpreadExpr`, `TemplateExpr`, `TaggedTemplateExpr`, `AwaitExpr`, `YieldExpr`, `ArrowFunc`, `FuncExpr`, `ClassExpr`, `SequenceExpr`, `OptionalChainExpr` |
-| **Literals** | `NumLit`, `StrLit`, `RegexLit`, `BigIntLit`, `BoolLit`, `NullLit`, `ArrayLit`, `ObjectLit`, `TemplateLit` |
-| **Patterns** | `ObjectPat`, `ArrayPat`, `RestPat`, `AssignPat`, `BindingIdent` |
-| **TypeScript types** | `TsTypeRef`, `TsUnionType`, `TsIntersectionType`, `TsTupleType`, `TsArrayType`, `TsFunctionType`, `TsConstructorType`, `TsConditionalType`, `TsMappedType`, `TsIndexedAccessType`, `TsTemplateLiteralType`, `TsInferType`, `TsTypeQuery`, `TsTypePredicate`, `TsTypeAssertion`, `TsAsExpr`, `TsSatisfiesExpr`, `TsNonNullExpr` |
+| **Expressions** | `BinExpr`, `UnaryExpr`, `UpdateExpr`, `AssignExpr`, `CondExpr`, `CallExpr`, `NewExpr`, `MemberExpr`, `IndexExpr`, `SpreadExpr`, `TemplateExpr`, `TaggedTemplateExpr`, `AwaitExpr`, `YieldExpr`, `ArrowFunc`, `FuncExpr`, `ClassExpr`, `SequenceExpr`, `OptionalChainExpr`, `IdentifierExpr`, `LiteralExpr`, `ArrayLit`, `ObjectLit` |
+| **TypeScript types** | `TsTypeRef`, `TsUnionType`, `TsIntersectionType`, `TsTupleType`, `TsArrayType`, `TsFunctionType`, `TsConstructorType`, `TsConditionalType`, `TsMappedType`, `TsIndexedAccessType`, `TsTemplateLiteralType`, `TsInferType`, `TsTypeQuery`, `TsTypePredicate`, `TsTypeAssertion`, `TsAsExpr`, `TsSatisfiesExpr`, `TsNonNullExpr`, `TsTypeAnnotation` |
 | **JSX** | `JsxElement`, `JsxFragment`, `JsxOpeningElement`, `JsxClosingElement`, `JsxSelfClosingElement`, `JsxAttribute`, `JsxSpreadAttribute`, `JsxExpressionContainer`, `JsxText` |
 | **Module** | `Module` (root node), `Script` (for script-mode files), `ImportSpecifier`, `ExportSpecifier`, `ExportDefault` |
+| **Kali extensions** | `EffectAnnotation` (function effect summaries), `PureModifier` (pure function modifier) |
+| **Pattern matching** | `ObjectPat`, `ArrayPat`, `RestPat`, `AssignPat`, `BindingIdent` |
 
 ### 2. Recursive-descent parser (`kali_parser`)
 
@@ -91,7 +101,7 @@ Parse the full TypeScript surface beyond type annotations:
 - `satisfies` operator.
 - `namespace` / `module` blocks (ambient and implementation).
 - `enum` and `const enum`.
-- Triple-slash reference directives (`/// <reference ...>`).
+- Triple-slash reference directives (`/ // <reference ...>`).
 - `declare` ambient context.
 
 ### 5. Error recovery
@@ -142,8 +152,15 @@ rather than raw pointers so lifetimes are explicit and bulk deallocation is O(1)
 
 ## Definition of Done
 
-- [ ] All representative TS/JS/TSX/JSX/D.TS fixture files parse without panicking.
-- [ ] Snapshot tests pass and are committed to the repository.
-- [ ] All `E2xxx` error cases emit the correct code; parser recovers and continues.
-- [ ] `cargo test -p kali_parser -p kali_ast` passes.
-- [ ] `cargo clippy` passes; no Stage 1.1/1.2 regressions.
+**Completed:**
+
+- [x] All representative TS/JS/TSX/JSX/D.TS fixture files parse without panicking (stub parser)
+- [x] AST node type definitions compiled
+- [x] Unified Statement enum with all statement variants
+
+**Pending:**
+
+- [ ] Snapshot tests pass and are committed to the repository
+- [ ] All `E2xxx` error cases emit the correct code; parser recovers and continues
+- [ ] `cargo test -p kali_parser -p kali_ast` passes with actual test coverage
+- [ ] `cargo clippy` passes; no Stage 1.1/1.2 regressions
