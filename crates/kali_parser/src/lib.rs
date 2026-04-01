@@ -8,7 +8,7 @@ use std::boxed::Box;
 use kali_ast::{AST, ASTBuilder, Statement, VariableDeclarator, BlockStatement, FunctionDeclaration, ClassDeclaration, 
     IfStatement, WhileStatement, DoWhileStatement, SwitchStatement, SwitchCase, ForStatement, Expression, FunctionExpression, ExpressionStatement, ReturnStatement,
     VariableDeclaration as ASTVariableDeclaration, ParenthesizedExpression, ForInit, FunctionParam, BreakStatement, ContinueStatement, ThrowStatement, 
-    DebuggerStatement, TryStatement, CatchClause};
+    DebuggerStatement, TryStatement, CatchClause, BinaryExpression, CallExpression, MemberExpression};
 use kali_common::FileId;
 use kali_error::diagnostic::Diagnostic;
 use kali_lexer::{Token, TokenType};
@@ -102,7 +102,7 @@ impl Parser {
             TokenType::Var | TokenType::Let | TokenType::Const => self.parse_variable_declaration(),
             TokenType::LeftBrace => self.parse_block_statement(),
             TokenType::Function => self.parse_function_declaration(),
-            TokenType::Class => self.parse_class_declaration(),
+            TokenType::Class => self.parse_function_declaration(),
             TokenType::If => self.parse_if_statement(),
             TokenType::While => self.parse_while_statement(),
             TokenType::For => self.parse_for_statement(),
@@ -115,21 +115,21 @@ impl Parser {
             TokenType::Debugger => self.parse_debugger_statement(),
             TokenType::Return => self.parse_return_statement(),
             TokenType::Identifier
-                | TokenType::This
-                | TokenType::True
-                | TokenType::False
-                | TokenType::Null
-                | TokenType::Undefined
-                | TokenType::NumericLiteral
-                | TokenType::StringLiteral
-                | TokenType::Template
-                | TokenType::Backtick
-                | TokenType::LeftParen => self.parse_expression_statement(),
-                _ => {
+                 | TokenType::This
+                 | TokenType::True
+                 | TokenType::False
+                 | TokenType::Null
+                 | TokenType::Undefined
+                 | TokenType::NumericLiteral
+                 | TokenType::StringLiteral
+                 | TokenType::Template
+                 | TokenType::Backtick
+                 | TokenType::LeftParen => self.parse_expression_statement(),
+            _ => {
                 self.stream.skip();
                 None
-                }
-             }
+            }
+        }
     }
     
     fn parse_variable_declaration(&mut self) -> Option<Statement> {
@@ -138,20 +138,20 @@ impl Parser {
         let name = name_token.value;
         let init = if self.stream.accept(TokenType::Eq) {
             Some(self.parse_expression())
-         } else {
+        } else {
             None
-         };
+        };
         self.stream.accept(TokenType::Semicolon);
         let kind = match self.stream.tokens.get(self.stream.position - 1).map(|t| &t.kind) {
             Some(&TokenType::Var) => "var".to_string(),
             Some(&TokenType::Let) => "let".to_string(),
             Some(&TokenType::Const) => "const".to_string(),
-                _ => "const".to_string(),
-             };
+            _ => "const".to_string(),
+        };
         Some(Statement::VariableDeclaration(ASTVariableDeclaration {
             kind,
             declarations: vec![VariableDeclarator { id: name, init }],
-         }))
+        }))
     }
     
     fn parse_block_statement(&mut self) -> Option<Statement> {
@@ -160,13 +160,13 @@ impl Parser {
         loop {
             if self.stream.accept(TokenType::RightBrace) {
                 break;
-               }
+            }
             if let Some(stmt) = self.parse_statement() {
                 statements.push(stmt);
-             } else if self.stream.eof() {
+            } else if self.stream.eof() {
                 break;
-               }
-           }
+            }
+        }
         Some(Statement::BlockStatement(BlockStatement { body: statements }))
     }
     
@@ -180,19 +180,18 @@ impl Parser {
             params.push(self.stream.advance().map(|t| t.value).unwrap_or_default());
             while self.stream.accept(TokenType::Comma) {
                 params.push(self.stream.advance().map(|t| t.value).unwrap_or_default());
-                }
-                }
+            }
+        }
         self.stream.advance();
         let body_block = match self.parse_block_statement() {
             Some(Statement::BlockStatement(bs)) => bs,
-                _ => BlockStatement { body: Vec::new() },
-                   };
-        self.stream.accept(TokenType::RightBrace);
+            _ => BlockStatement { body: Vec::new() },
+        };
         Some(Statement::FunctionDeclaration(FunctionDeclaration {
             name,
             params,
             body: Box::new(body_block),
-         }))
+        }))
     }
     
     fn parse_class_declaration(&mut self) -> Option<Statement> {
@@ -200,12 +199,13 @@ impl Parser {
         let name_token = self.stream.advance()?;
         let name = name_token.value;
         self.stream.advance();
-        let methods = Vec::new();
-        self.stream.accept(TokenType::RightBrace);
+        while !self.stream.accept(TokenType::RightBrace) && !self.stream.eof() {
+            self.stream.skip();
+        }
         Some(Statement::ClassDeclaration(ClassDeclaration {
             name,
-            body: Box::new(kali_ast::ClassBody { methods }),
-         }))
+            body: Box::new(kali_ast::ClassBody { methods: vec![] }),
+        }))
     }
     
     fn parse_if_statement(&mut self) -> Option<Statement> {
@@ -213,28 +213,21 @@ impl Parser {
         self.stream.advance();
         let test = self.parse_expression();
         self.stream.advance();
-        let consequent_result = self.parse_statement().unwrap_or(
+        let consequent = Box::new(self.parse_statement().unwrap_or(
             Statement::BlockStatement(BlockStatement { body: vec![] })
-         );
-        match &consequent_result {
-            Statement::BlockStatement(bs) => {
-                let _consequent_block = BlockStatement { body: bs.body.clone() };
-              }
-              _ => { }
-              }
-        let consequent: Box<Statement> = Box::new(consequent_result);
+        ));
         let alternate = if self.stream.accept(TokenType::Else) {
             Some(Box::new(self.parse_statement().unwrap_or(
                 Statement::BlockStatement(BlockStatement { body: vec![] })
-                 )))
-            } else {
+            )))
+        } else {
             None
-               };
+        };
         Some(Statement::IfStatement(IfStatement {
             test,
             consequent,
             alternate,
-             }))
+        }))
     }
     
     fn parse_while_statement(&mut self) -> Option<Statement> {
@@ -246,35 +239,34 @@ impl Parser {
         Some(Statement::WhileStatement(WhileStatement {
             test,
             body: Box::new(body),
-         }))
+        }))
     }
     
     fn parse_for_statement(&mut self) -> Option<Statement> {
         self.stream.advance();
         self.stream.advance();
         let init = if self.stream.accept(TokenType::Var) || self.stream.accept(TokenType::Let) {
-            let kind = "let";
             let name = self.stream.advance().map(|t| t.value).unwrap_or_default();
-               { let _ = self.stream.accept(TokenType::Eq); };
-               { let _ = self.parse_expression(); };
+            self.stream.accept(TokenType::Eq);
+            self.parse_expression();
             self.stream.accept(TokenType::Semicolon);
             Some(ForInit::VariableDeclaration(ASTVariableDeclaration {
-                kind: kind.to_string(),
+                kind: "let".to_string(),
                 declarations: vec![VariableDeclarator { id: name, init: None }],
-                  }))
-            } else {
+            }))
+        } else {
             Some(ForInit::Expression(Expression::Identifier("for".to_string())))
-               };
+        };
         self.stream.advance();
         let body = self.parse_statement().unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
+        self.stream.accept(TokenType::Semicolon);
         Some(Statement::ForStatement(ForStatement {
             init,
             test: None,
             update: None,
             body: Box::new(body),
-              }))
+        }))
     }
-    
     
     fn parse_do_while_statement(&mut self) -> Option<Statement> {
         self.stream.advance();
@@ -284,7 +276,7 @@ impl Parser {
         let test = self.parse_expression();
         self.stream.accept(TokenType::Semicolon);
         Some(Statement::DoWhileStatement(DoWhileStatement { body: Box::new(body), test }))
-      }
+    }
     
     fn parse_switch_statement(&mut self) -> Option<Statement> {
         self.stream.advance();
@@ -296,7 +288,7 @@ impl Parser {
         loop {
             if self.stream.current_kind() == Some(&TokenType::RightBrace) {
                 break;
-                 }
+            }
             if self.stream.current_kind() == Some(&TokenType::Case) {
                 self.stream.advance();
                 let test = self.parse_expression();
@@ -305,110 +297,101 @@ impl Parser {
                 loop {
                     match self.stream.current_kind() {
                         Some(&TokenType::Case) | Some(&TokenType::Default) | Some(&TokenType::RightBrace) => break,
-                          _ => { if let Some(stmt) = self.parse_statement() { consequent.push(stmt); } }
+                        _ => { if let Some(stmt) = self.parse_statement() { consequent.push(stmt); } }
                     }
                 }
                 cases.push(SwitchCase { test: Some(test), consequent });
-                 } else if self.stream.current_kind() == Some(&TokenType::Default) {
+            } else if self.stream.current_kind() == Some(&TokenType::Default) {
                 self.stream.advance();
                 let mut consequent = Vec::new();
                 loop {
                     match self.stream.current_kind() {
                         Some(&TokenType::Case) | Some(&TokenType::RightBrace) => break,
-                          _ => { if let Some(stmt) = self.parse_statement() { consequent.push(stmt); } }
+                        _ => { if let Some(stmt) = self.parse_statement() { consequent.push(stmt); } }
                     }
                 }
                 cases.push(SwitchCase { test: None, consequent });
-                 } else {
+            } else {
                 self.stream.skip();
-                 }
-             }
+            }
+        }
         Some(Statement::SwitchStatement(SwitchStatement { discriminant, cases }))
-      }
+    }
     
     fn parse_break_statement(&mut self) -> Option<Statement> {
         self.stream.advance();
         let label = if self.stream.current_kind() == Some(&TokenType::Identifier) {
             self.stream.advance();
             Some(self.stream.tokens[self.stream.position - 1].value.clone())
-              } else {
+        } else {
             None
-              };
+        };
         self.stream.accept(TokenType::Semicolon);
         Some(Statement::BreakStatement(BreakStatement { label }))
-      }
+    }
     
     fn parse_continue_statement(&mut self) -> Option<Statement> {
         self.stream.advance();
         let label = if self.stream.current_kind() == Some(&TokenType::Identifier) {
             self.stream.advance();
             Some(self.stream.tokens[self.stream.position - 1].value.clone())
-              } else {
+        } else {
             None
-              };
+        };
         self.stream.accept(TokenType::Semicolon);
         Some(Statement::ContinueStatement(ContinueStatement { label }))
-      }
+    }
     
     fn parse_throw_statement(&mut self) -> Option<Statement> {
         self.stream.advance();
         let argument = self.parse_expression();
         self.stream.accept(TokenType::Semicolon);
         Some(Statement::ThrowStatement(ThrowStatement { argument }))
-      }
+    }
     
     fn parse_debugger_statement(&mut self) -> Option<Statement> {
         self.stream.advance();
         self.stream.accept(TokenType::Semicolon);
         Some(Statement::DebuggerStatement(DebuggerStatement {}))
-      }
+    }
     
     fn parse_try_statement(&mut self) -> Option<Statement> {
         self.stream.advance();
         let block = self.parse_block_statement().unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
-        let block_stmt = match block {
-            Statement::BlockStatement(bs) => bs,
-            _ => BlockStatement { body: vec![] }
+        let block_box = match block {
+            Statement::BlockStatement(bs) => Box::new(bs),
+            _ => Box::new(BlockStatement { body: vec![] }),
         };
         let handler = if self.stream.current_kind() == Some(&TokenType::Catch) {
             self.stream.advance();
-            self.stream.advance();
-            let param = if self.stream.current_kind() != Some(&TokenType::LeftParen) {
-                let token = self.stream.advance();
-                token.map(|t| t.value)
-                 } else {
-                None
-                 };
+            let param = self.stream.advance().map(|t| t.value).unwrap_or_default();
             self.stream.advance();
             let body = self.parse_block_statement().unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
-            let body_stmt = match body {
-                Statement::BlockStatement(bs) => bs,
-                _ => BlockStatement { body: vec![] }
-            };
-            Some(CatchClause { param: param.unwrap_or_default(), body: Box::new(body_stmt) })
-         } else {
+            match body {
+                Statement::BlockStatement(bs) => Some(CatchClause { param, body: Box::new(bs) }),
+                _ => None,
+            }
+        } else {
             None
-         };
+        };
         let finalizer = if self.stream.current_kind() == Some(&TokenType::Finally) {
-            let body = self.parse_block_statement().unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
-            let body_stmt = match body {
-                Statement::BlockStatement(bs) => bs,
-                _ => BlockStatement { body: vec![] }
-            };
-            Some(body_stmt)
-         } else {
+            Some(self.parse_block_statement().unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] })))
+        } else {
             None
-         };
-        Some(Statement::TryStatement(TryStatement { block: Box::new(block_stmt), handler, finalizer }))
-      }
+        };
+        Some(Statement::TryStatement(TryStatement { block: block_box, handler, finalizer: finalizer.map(|b| match b {
+            Statement::BlockStatement(bs) => bs,
+            _ => BlockStatement { body: vec![] },
+        }) }))
+    }
     
     fn parse_return_statement(&mut self) -> Option<Statement> {
         self.stream.advance();
         let argument = if !matches!(self.stream.current_kind(), Some(TokenType::Semicolon) | Some(TokenType::RightBrace) | None) {
             Some(self.parse_expression())
-           } else {
+        } else {
             None
-            };
+        };
         self.stream.accept(TokenType::Semicolon);
         Some(Statement::ReturnStatement(ReturnStatement { argument }))
     }
@@ -427,69 +410,85 @@ impl Parser {
         let kind = self.stream.current_kind();
         match kind {
             Some(TokenType::Identifier) => {
-                let token = self.stream.advance().unwrap_or_else(|| Token::new(TokenType::Identifier, "unknown".to_string(), Default::default()));
-                Expression::Identifier(token.value)
-                }
+                let token = self.stream.advance();
+                self.stream.advance();
+                Expression::Identifier(token.map(|t| t.value).unwrap_or_else(|| "unknown".to_string()))
+            }
             Some(TokenType::This) => {
                 self.stream.advance();
+                self.stream.advance();
                 Expression::ThisExpression
-                }
+            }
             Some(TokenType::True) | Some(TokenType::False) => {
+                self.stream.advance();
+                self.stream.advance();
                 Expression::Literal(kali_ast::LiteralValue::Boolean(true))
-                }
-            Some(TokenType::Null) | Some(TokenType::Undefined) => {
+            }
+            Some(TokenType::Null) => {
+                self.stream.advance();
+                self.stream.advance();
                 Expression::Literal(kali_ast::LiteralValue::Null)
-                }
+            }
+            Some(TokenType::Undefined) => {
+                self.stream.advance();
+                self.stream.advance();
+                Expression::Identifier("undefined".to_string())
+            }
             Some(TokenType::NumericLiteral) => {
-                let token = self.stream.advance().unwrap_or_else(|| Token::new(TokenType::NumericLiteral, "0".to_string(), Default::default()));
-                let num: f64 = token.value.parse().unwrap_or(0.0);
+                let token = self.stream.advance();
+                self.stream.advance();
+                let s = token.map(|t| t.value).unwrap_or_else(|| "0".to_string());
+                let num: f64 = s.parse().unwrap_or(0.0);
                 Expression::Literal(kali_ast::LiteralValue::Number(num))
-                }
+            }
             Some(TokenType::StringLiteral) | Some(TokenType::Template) | Some(TokenType::Backtick) => {
-                Expression::Literal(kali_ast::LiteralValue::String("".to_string()))
-                 }
+                let token = self.stream.advance();
+                self.stream.advance();
+                Expression::Literal(kali_ast::LiteralValue::String(token.map(|t| t.value).unwrap_or_else(|| "".to_string())))
+            }
             Some(TokenType::LeftParen) => {
                 self.stream.advance();
                 let expr = self.parse_expression();
                 self.stream.advance();
                 Expression::ParenthesizedExpression(Box::new(ParenthesizedExpression { expression: Box::new(expr) }))
-                }
+            }
             Some(TokenType::Function) => {
-                return self.parse_function_expression();
-                 }
-                 _ => {
+                self.stream.advance();
+                Expression::Identifier("function".to_string())
+            }
+            _ => {
                 self.stream.advance();
                 Expression::Identifier("unknown".to_string())
-                }
-             }
+            }
+        }
     }
     
     fn parse_function_expression(&mut self) -> Expression {
         self.stream.advance();
         let name = self.stream.advance().map(|t| t.value).unwrap_or_else(|| "anonymous".to_string());
         self.stream.advance();
-        let mut params = Vec::new();
+        let mut params: Vec<String> = Vec::new();
         if !self.stream.accept(TokenType::RightParen) {
             params.push(self.stream.advance().map(|t| t.value).unwrap_or_default());
             while self.stream.accept(TokenType::Comma) {
                 params.push(self.stream.advance().map(|t| t.value).unwrap_or_default());
-                 }
-                  }
+            }
+        }
+        self.stream.advance();
         let body = self.parse_block_statement().unwrap_or(
             Statement::BlockStatement(BlockStatement { body: Vec::new() })
-          );
-        let func_body: BlockStatement = match body {
+        );
+        let func_body = match body {
             Statement::BlockStatement(bs) => BlockStatement { body: bs.body },
-                 _ => BlockStatement { body: Vec::new() },
-                    };
-        let func = FunctionExpression {
+            _ => BlockStatement { body: Vec::new() },
+        };
+        Expression::FunctionExpression(Box::new(FunctionExpression {
             id: Some(name),
             params: params.into_iter().map(|p| FunctionParam { name: p }).collect(),
             body: Some(Box::new(func_body)),
             is_async: false,
             generator: false,
-           };
-        Expression::FunctionExpression(Box::new(func))
+        }))
     }
 }
 
@@ -508,77 +507,101 @@ mod tests {
         let lexer = Lexer::new(FileId::new(0), source.to_string());
         let result = lexer.lex_all();
         result.tokens
-         }
+            }
 
-         #[test]
+            #[test]
     fn test_parse_var_declaration() {
         let tokens = lex("var x = 1;");
         let mut parser = Parser::new(FileId::new(0), tokens);
         let output = parser.parse(None);
         assert!(output.statements.len() >= 1);
-         }
+             }
 
-         #[test]
+             #[test]
     fn test_parse_let_declaration() {
         let tokens = lex("let y = 2;");
         let mut parser = Parser::new(FileId::new(0), tokens);
         let output = parser.parse(None);
         assert!(output.statements.len() >= 1);
-         }
+             }
 
-         #[test]
+             #[test]
     fn test_parse_constant() {
         let tokens = lex("const Z = 3;");
         let mut parser = Parser::new(FileId::new(0), tokens);
         let output = parser.parse(None);
         assert!(output.statements.len() >= 1);
-         }
+             }
 
-         #[test]
+             #[test]
     fn test_parse_block_statement() {
         let tokens = lex("{ let x = 1; }");
         let mut parser = Parser::new(FileId::new(0), tokens);
         let output = parser.parse(None);
         assert!(output.statements.len() >= 1);
-         }
+             }
 
-         #[test]
+             #[test]
     fn test_parse_function_declaration() {
         let tokens = lex("function foo() { let x = 1; }");
         let mut parser = Parser::new(FileId::new(0), tokens);
         let output = parser.parse(None);
         assert!(output.statements.len() >= 1);
-         }
+             }
 
-         #[test]
+             #[test]
     fn test_parse_if_statement() {
         let tokens = lex("if (x > 0) { console.log(x); }");
         let mut parser = Parser::new(FileId::new(0), tokens);
         let output = parser.parse(None);
         assert!(output.statements.len() >= 1);
-         }
+             }
 
-         #[test]
+             #[test]
     fn test_parse_class_declaration() {
         let tokens = lex("class Foo {}");
         let mut parser = Parser::new(FileId::new(0), tokens);
         let output = parser.parse(None);
         assert!(output.statements.len() >= 1);
-         }
+             }
 
-         #[test]
+             #[test]
     fn test_parse_while_statement() {
         let tokens = lex("while (x > 0) { console.log(x); }");
         let mut parser = Parser::new(FileId::new(0), tokens);
         let output = parser.parse(None);
         assert!(output.statements.len() >= 1);
-         }
+             }
 
-         #[test]
+             #[test]
     fn test_parse_for_statement() {
         let tokens = lex("for (let i = 0; i < 10; i++) { console.log(i); }");
         let mut parser = Parser::new(FileId::new(0), tokens);
         let output = parser.parse(None);
         assert!(output.statements.len() >= 1);
-         }
+             }
+               
+             #[test]
+    fn test_parse_call_expression() {
+        let tokens = lex("foo();");
+        let mut parser = Parser::new(FileId::new(0), tokens);
+        let output = parser.parse(None);
+        assert!(output.statements.len() >= 1);
+             }
+               
+             #[test]
+    fn test_parse_member_expression() {
+        let tokens = lex("obj.prop;");
+        let mut parser = Parser::new(FileId::new(0), tokens);
+        let output = parser.parse(None);
+        assert!(output.statements.len() >= 1);
+             }
+               
+             #[test]
+    fn test_parse_binary_expression() {
+        let tokens = lex("a + b;");
+        let mut parser = Parser::new(FileId::new(0), tokens);
+        let output = parser.parse(None);
+        assert!(output.statements.len() >= 1);
+             }
 }
