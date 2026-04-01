@@ -497,8 +497,8 @@ impl Parser {
         match kind {
             Some(TokenType::Identifier) => {
                 let token = self.stream.advance();
-                self.stream.advance();
-                Expression::Identifier(token.map(|t| t.value).unwrap_or_else(|| "unknown".to_string()))
+                let val = token.map(|t| t.value).unwrap_or_else(|| "unknown".to_string());
+                Expression::Identifier(val)
              }
             Some(TokenType::This) => {
                 self.stream.advance();
