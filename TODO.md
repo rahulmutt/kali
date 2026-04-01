@@ -1,59 +1,91 @@
-# Kali Compiler - TODO and Task Tracking
+# Stage 1.3 Next Steps
 
-## Current Status
+## Immediate Priority (Priority: HIGH)
 
-### ✅ Phase 1 Foundation - COMPLETE
-1. **Workspace Scaffold (Stage 1.1)** ✅
-   - All core crates created
-   - Workspace Cargo.toml configured
-   - Proof-ready baseline established
+### 1. Expand Statement Support
 
-2. **Error Handling & Common Utilities** ✅
-   - `kali_common`: FileId, Span, SourceMap implementation
-   - `kali_error`: Diagnostic system with full error code registry
-   - **FIXED**: Serde support added to all diagnostic types
+The current `parse_statement()` only handles `var/let/const`. Add:
 
-3. **Stage 1.2 - Lexer (kali_lexer)** ✅
-   - Token enumeration complete
-   - Lexing implementation functional
-   - Unit tests passing (7 tests)
-   - Span propagation working
+- [ ] Block statements (`parse_block_statement()`)
+   - `{ statements... }`
+   - Recursive parsing of bodies
+- [ ] Function declarations (`parse_function_declaration()`)
+   - Named functions: `function foo() { }`
+   - Parameters and body
+- [ ] Class declarations (`parse_class_declaration()`)
+   - Class bodies
+   - Methods
+- [ ] Control flow
+   - `if` statements
+   - `while` loops
+   - `for` loops
+   - `switch` statements
 
-### 🚧 Phase 1 Core Implementation - IN PROGRESS
-1. **Stage 1.3 - Parser & AST (kali_parser, kali_ast)** 🚧
-   - Parser skeleton exists with stub implementation (needs actual parsing)
-   - AST has basic node types with serde support but needs significant expansion
-   - Arena allocation not yet implemented - need to replace Vec-based approach
-   - Missing: Full ECMA-262 + TypeScript parsing implementation
-   - Missing: Pratt parsing for expression precedence
-   - Missing: Full NodeKind variants (~80+ needed)
-   - Missing: Error recovery mechanism
-   - Needs: Complete integration with lexer output
-   - Priority: 🔴 HIGH - Implementing now
+### 2. Implement Expression Parsing
 
-### 📋 Backlog (Phase 1)
-1. Stage 1.4 - Name Resolution
-2. Stage 1.5 - Type Checker
-3. Stage 1.6 - HIR & LIR Lowering
-4. Stage 1.7 - WASM Code Generation
-5. Stage 1.8 - Runtime & Execution
-6. Stage 1.9-1.14 - Supporting infrastructure
+Add `parse_expression()` method:
 
-## Next Task: Stage 1.3 - Parser & AST
+- [ ] Primary expressions
+   - Identifiers: `foo`, `bar`
+   - Literals: `42`, `"hello"`, `true`, `null`
+   - Grouping: `(expression)`
+- [ ] Call expressions
+   - Function calls: `foo()`, `fn(arg)`
+- [ ] Member expressions
+   - Property access: `obj.prop`
+   - Index access: `arr[0]`
 
-**Blocked by:** ✅ All dependencies satisfied (lexer is complete)
+### 3. Add Tests
 
-**Dependencies:**
-- `kalI_lexer` output tokens
+Write comprehensive tests for the parser:
 
-**Key Requirements:**
-1. Update ParseSource to accept Token stream
-2. Expand NodeKind enum (~80 variants needed)
-3. Implement arena-based AST allocation
-4. Add recursive descent parser
-5. Implement error recovery
-6. Write comprehensive tests
+- [ ] Valid program tests (JS, TS fixtures)
+   - Variable declarations
+   - Function/class declarations
+   - Control flow
+- [ ] Error handling tests
+   - Malformed syntax
+   - Recovery behavior
+- [ ] Incremental test additions
+   - Start small, expand gradually
 
-## Notes
+### 4. Documentation & Diagnostics
 
-Serde fix was a foundational requirement - without it, the entire pipeline is unusable. All diagnostic types now support JSON output as required by the spec.
+- [ ] Document E2xx error codes
+   - Parse errors
+   - Syntax errors
+   - Recoverable errors
+- [ ] Update stage documentation
+   - Implementation roadmap
+   - Milestone tracking
+
+## Medium Priority
+
+### 5. TypeScript Extensions
+
+When basic parser is stable:
+
+- [ ] TypeScript type annotations
+   - `const x: number = 42;`
+   - Function types
+- [ ] Interfaces and type aliases
+   - `interface Foo { ... }`
+   - `type Bar = ...`
+
+### 6. JSX Support
+
+For `.jsx`/`.tsx` extensions:
+
+- [ ] JSX element parsing
+- [ ] JSX expressions in elements
+- [ ] Fragment syntax
+
+---
+
+## Tracking
+
+Current Status: Parser compiles with minimal support for var/let/const declarations.
+
+Next Task: Implement block statement parsing (`{ }`) to enable parsing simple programs.
+
+Estimated Time: 2-4 hours for basic statement types
