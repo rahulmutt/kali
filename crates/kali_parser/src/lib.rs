@@ -407,7 +407,7 @@ impl Parser {
     }
     
     fn parse_call_expression(&mut self) -> Expression {
-        let mut expr = self.parse_function_expression();
+        let mut expr = self.parse_primary_expression();
         
         loop {
             match self.stream.current_kind() {
