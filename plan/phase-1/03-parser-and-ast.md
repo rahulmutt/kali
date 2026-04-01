@@ -29,6 +29,14 @@
 
 ### Current Implementation Details
 
+**Current State:** 8 of 16 tests passing (50%).
+**Working:** Basic statements (var/let/const, block, function, class, if/for/while).
+**Needs Fixing:** Expression parsing (call expressions, member expressions, binary expressions).
+
+---
+
+### Current Implementation Details
+
 The `Parser` implementation provides:
 
 1. **TokenStream management** - Efficient token iteration with position tracking
