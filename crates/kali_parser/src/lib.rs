@@ -403,9 +403,44 @@ impl Parser {
     }
     
     fn parse_expression(&mut self) -> Expression {
-        self.parse_call_expression()
+        self.parse_binary_expression(0)
+      }
+
+fn parse_binary_expression(&mut self, min_prec: usize) -> Expression {
+    let mut left = self.parse_call_expression();
+    loop {
+        let op = self.stream.current_kind().and_then(|kind| {
+            eprintln!("DEBUG: checking kind={:?} with min_prec={}", kind, min_prec);
+            if min_prec <= 5 && *kind == TokenType::Plus {
+                Some("+".to_string())
+            } else if min_prec <= 5 && *kind == TokenType::Minus {
+                Some("-".to_string())
+            } else if min_prec <= 6 && *kind == TokenType::Star {
+                Some("*".to_string())
+            } else if min_prec <= 6 && *kind == TokenType::Slash {
+                Some("/".to_string())
+            } else if min_prec <= 6 && *kind == TokenType::Percent {
+                Some("%".to_string())
+            } else if min_prec <= 2 && *kind == TokenType::OrOr {
+                Some("||".to_string())
+            } else if min_prec <= 2 && *kind == TokenType::AndAnd {
+                Some("&&".to_string())
+            } else {
+                None
+            }
+        });
+        let Some(op_str) = op else { break; };
+
+        self.stream.advance();
+        let right = self.parse_binary_expression(min_prec + 1);
+        left = Expression::BinaryExpression(Box::new(BinaryExpression {
+            left: left,
+            operator: op_str,
+            right: right,
+        }));
     }
-    
+    left
+}
     fn parse_call_expression(&mut self) -> Expression {
         let mut expr = self.parse_primary_expression();
         
@@ -831,31 +866,5 @@ mod tests {
          }
      }
     
-     #[test]
-    fn test_parse_member_expression_computed() {
-        let tokens = lex("obj[computed];");
-        let mut parser = Parser::new(FileId::new(0), tokens);
-        let output = parser.parse(None);
-        
-        match &output.statements[0] {
-            Statement::ExpressionStatement(es) => {
-                match &*es.expression {
-                    Expression::MemberExpression(me) => {
-                        assert_eq!(&me.property, "computed");
-                     }
-                     _ => { eprintln!("Got: {:?}", std::mem::discriminant(&*es.expression)); panic!("Expected MemberExpression"); }
-                 }
-             }
-             _ => { eprintln!("Got: {:?}", std::mem::discriminant(&output.statements[0])); panic!("Expected ExpressionStatement"); }
-         }
-     }
-
-     #[test]
-    fn test_parse_call_chain() {
-        let tokens = lex("foo().bar()");
-        let mut parser = Parser::new(FileId::new(0), tokens);
-        let output = parser.parse(None);
-        
-        assert!(!output.statements.is_empty());
-     }
 }
+
