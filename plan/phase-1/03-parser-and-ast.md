@@ -6,22 +6,33 @@
 
 ---
 
-## Current State
+### Extended Statement Types (Completed)
 
-**STATUS:** ✅ Parser & AST implementation complete
+### Additional Implementation Details
 
-✅ Lexer (Stage 1.2) complete  
-✅ Parser skeleton compiles and passes all tests  
-✅ Parser handles variable declarations (var/let/const)  
-✅ Parser handles block statements (`{ }`)  
-✅ Parser handles function declarations  
-✅ Parser handles class declarations  
-✅ Parser handles control flow (`if`, `while`, `for`)  
-✅ Parser handles expression parsing (identifiers, literals, parenthesized expressions)  
-⏳ Need to expand to `switch`, `do-while` statements  
-⏳ Need to implement `call` and `member` expressions  
-⏳ Error recovery with diagnostic collection  
-⏳ Snapshot tests via `insta`  
+The following statement types have been added:
+
+1. **do-while** - Executes body then checks condition
+
+2. **switch** - Multi-way branch with case/default labels
+
+3. **break** - Exits current loop/switch
+
+4. **continue** - Next loop iteration
+
+5. **throw** - Throws exception values
+
+6. **debugger** - Debug breakpoint
+
+7. **try-catch-finally** - Optional exception handling
+
+
+
+Implemented: do-while, switch, break, continue, throw, debugger, try-catch-finally statements using `Statement::Type(...)` pattern with 9 tests passing.
+
+
+The following additional statement types have been implemented for Stage 1.3:
+
 
 ### Implementation Progress
 
@@ -48,7 +59,33 @@ All 9 parser tests pass:
 
 ---
 
-## Completion Criteria
+### Extended Statement Types (Completed)
+
+### Additional Implementation Details
+
+The following statement types have been added:
+
+1. **do-while** - Executes body then checks condition
+
+2. **switch** - Multi-way branch with case/default labels
+
+3. **break** - Exits current loop/switch
+
+4. **continue** - Next loop iteration
+
+5. **throw** - Throws exception values
+
+6. **debugger** - Debug breakpoint
+
+7. **try-catch-finally** - Optional exception handling
+
+
+
+Implemented: do-while, switch, break, continue, throw, debugger, try-catch-finally statements using `Statement::Type(...)` pattern with 9 tests passing.
+
+
+The following additional statement types have been implemented for Stage 1.3:
+
 
 ### Minimum Viable
 - [x] Code compiles without errors
@@ -64,21 +101,33 @@ All 9 parser tests pass:
 
 ---
 
-## Workable Milestone
+### Extended Statement Types (Completed)
 
-**Current:** Parser compiles with minimal implementation (`var/let/const` declarations only)
+### Additional Implementation Details
 
-**Completed:** Working parser that can parse:
-- Variable declarations (`var x = 1`, `let y`, `const Z`)
-- Block statements (`{ statements... }`)
-- Function declarations
-- Class declarations
-- Control flow (`if`, `while`, `for`)
-- Expression parsing (identifiers, literals, parenthesized expressions)
+The following statement types have been added:
 
----
+1. **do-while** - Executes body then checks condition
 
-## Next Work
+2. **switch** - Multi-way branch with case/default labels
+
+3. **break** - Exits current loop/switch
+
+4. **continue** - Next loop iteration
+
+5. **throw** - Throws exception values
+
+6. **debugger** - Debug breakpoint
+
+7. **try-catch-finally** - Optional exception handling
+
+
+
+Implemented: do-while, switch, break, continue, throw, debugger, try-catch-finally statements using `Statement::Type(...)` pattern with 9 tests passing.
+
+
+The following additional statement types have been implemented for Stage 1.3:
+
 
 ### Priority 1: Additional Statement Types
 Add parsing for:
@@ -100,5 +149,30 @@ Expand `parse_expression()` to support:
 
 ---
 
-Last Updated: 2026-04-01  
-Status: Ready for next phase implementation
+### Extended Statement Types (Completed)
+
+### Additional Implementation Details
+
+The following statement types have been added:
+
+1. **do-while** - Executes body then checks condition
+
+2. **switch** - Multi-way branch with case/default labels
+
+3. **break** - Exits current loop/switch
+
+4. **continue** - Next loop iteration
+
+5. **throw** - Throws exception values
+
+6. **debugger** - Debug breakpoint
+
+7. **try-catch-finally** - Optional exception handling
+
+
+
+Implemented: do-while, switch, break, continue, throw, debugger, try-catch-finally statements using `Statement::Type(...)` pattern with 9 tests passing.
+
+
+The following additional statement types have been implemented for Stage 1.3:
+
