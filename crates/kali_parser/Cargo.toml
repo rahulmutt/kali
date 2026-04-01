@@ -8,3 +8,4 @@ license.workspace = true
 kali_common = { workspace = true }
 kali_error = { workspace = true }
 kali_lexer = { workspace = true }
+kali_ast = { workspace = true }
