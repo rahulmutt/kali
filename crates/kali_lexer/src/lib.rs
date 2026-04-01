@@ -302,11 +302,11 @@ impl Lexer {
     }
 
     fn lex_punct(&mut self, initial: char) -> Option<Token> {
-        self.position += 1;
         let mut value = initial.to_string();
         
         let kind = match initial {
             '&' if self.next_is('&') => {
+                self.position += 1;
                 self.position += 1;
                 return Some(Token::new(TokenType::AndAnd, "&&".into(), self.span()));
             }
@@ -498,4 +498,17 @@ mod tests {
         let result = lexer.lex_all();
         assert!(result.diagnostics.iter().any(|d| d.code == Some(e1::UNTERMINATED_STRING as u32)));
     }
+}
+
+#[cfg(test)]
+mod test_and_and {
+    use super::*;
+    #[test]
+    fn test_peek_and_and() {
+        let lexer = Lexer::new(FileId::new(0), "x && y;".to_string());
+        let result = lexer.lex_all();
+        let tokens: Vec<_> = result.tokens.into_iter().filter(|t| t.kind != TokenType::Eof).collect();
+        assert_eq!(tokens.len(), 4);
+        assert_eq!(tokens[1].kind, TokenType::AndAnd);
+     }
 }

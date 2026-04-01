@@ -149,7 +149,7 @@ impl Parser {
         };
         self.stream.accept(TokenType::Semicolon);
         Some(Statement::VariableDeclaration(VariableDeclaration {
-            kind: "var".to_string(),
+            kind,
             declarations: vec![VariableDeclarator { id: name, init }],
         }))
     
@@ -245,27 +245,46 @@ impl Parser {
     fn parse_for_statement(&mut self) -> Option<Statement> {
         self.stream.advance();
         self.stream.advance();
-        let init = if self.stream.accept(TokenType::Var) || self.stream.accept(TokenType::Let) {
+        let init = if self.stream.current_kind() == Some(&TokenType::Var) ||
+                     self.stream.current_kind() == Some(&TokenType::Let) {
             let name = self.stream.advance().map(|t| t.value).unwrap_or_default();
-            self.stream.accept(TokenType::Eq);
-            self.parse_expression();
-            self.stream.accept(TokenType::Semicolon);
-            Some(ForInit::VariableDeclaration(VariableDeclaration {
-                kind: "let".to_string(),
-                declarations: vec![VariableDeclarator { id: name, init: None }],
-            }))
-        } else {
-            Some(ForInit::Expression(Expression::Identifier("for".to_string())))
-        };
+            let init_expr = if self.stream.accept(TokenType::Eq) {
+                Some(self.parse_expression())
+              } else {
+                None
+              };
+             self.stream.accept(TokenType::Semicolon);
+             Some(ForInit::VariableDeclaration(VariableDeclaration {
+                 kind: "var".to_string(),
+                 declarations: vec![VariableDeclarator { id: name, init: init_expr }],
+               }))
+          } else {
+             let expr = self.parse_expression();
+             self.stream.accept(TokenType::Semicolon);
+             Some(ForInit::Expression(expr))
+          };
+         let test = if !self.stream.eof() &&
+                      self.stream.current_kind() != Some(&TokenType::Semicolon) &&
+                      self.stream.current_kind() != Some(&TokenType::RightParen) {
+             Some(self.parse_expression())
+          } else {
+             None
+          };
+         let update = if test.is_some() &&
+                          !self.stream.eof() &&
+                         self.stream.current_kind() != Some(&TokenType::RightParen) {
+             Some(self.parse_expression())
+          } else {
+             None
+          };
         self.stream.advance();
         let body = self.parse_statement().unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
-        self.stream.accept(TokenType::Semicolon);
         Some(Statement::ForStatement(ForStatement {
             init,
-            test: None,
-            update: None,
+            test,
+            update,
             body: Box::new(body),
-        }))
+          }))
     }
     
     fn parse_do_while_statement(&mut self) -> Option<Statement> {
