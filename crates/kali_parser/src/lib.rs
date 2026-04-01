@@ -6,8 +6,9 @@
 
 use std::boxed::Box;
 use kali_ast::{AST, ASTBuilder, Statement, VariableDeclarator, BlockStatement, FunctionDeclaration, ClassDeclaration, 
-    IfStatement, WhileStatement, ForStatement, Expression, FunctionExpression, ExpressionStatement, ReturnStatement,
-    VariableDeclaration as ASTVariableDeclaration, ParenthesizedExpression, ForInit, FunctionParam};
+    IfStatement, WhileStatement, DoWhileStatement, SwitchStatement, SwitchCase, ForStatement, Expression, FunctionExpression, ExpressionStatement, ReturnStatement,
+    VariableDeclaration as ASTVariableDeclaration, ParenthesizedExpression, ForInit, FunctionParam, BreakStatement, ContinueStatement, ThrowStatement, 
+    DebuggerStatement, TryStatement, CatchClause};
 use kali_common::FileId;
 use kali_error::diagnostic::Diagnostic;
 use kali_lexer::{Token, TokenType};
@@ -105,6 +106,13 @@ impl Parser {
             TokenType::If => self.parse_if_statement(),
             TokenType::While => self.parse_while_statement(),
             TokenType::For => self.parse_for_statement(),
+            TokenType::Do => self.parse_do_while_statement(),
+            TokenType::Switch => self.parse_switch_statement(),
+            TokenType::Break => self.parse_break_statement(),
+            TokenType::Continue => self.parse_continue_statement(),
+            TokenType::Throw => self.parse_throw_statement(),
+            TokenType::Try => self.parse_try_statement(),
+            TokenType::Debugger => self.parse_debugger_statement(),
             TokenType::Return => self.parse_return_statement(),
             TokenType::Identifier
                 | TokenType::This
@@ -266,6 +274,133 @@ impl Parser {
             body: Box::new(body),
               }))
     }
+    
+    
+    fn parse_do_while_statement(&mut self) -> Option<Statement> {
+        self.stream.advance();
+        let body = self.parse_statement().unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
+        self.stream.advance();
+        self.stream.advance();
+        let test = self.parse_expression();
+        self.stream.accept(TokenType::Semicolon);
+        Some(Statement::DoWhileStatement(DoWhileStatement { body: Box::new(body), test }))
+      }
+    
+    fn parse_switch_statement(&mut self) -> Option<Statement> {
+        self.stream.advance();
+        self.stream.advance();
+        let discriminant = self.parse_expression();
+        self.stream.advance();
+        self.stream.advance();
+        let mut cases = Vec::new();
+        loop {
+            if self.stream.current_kind() == Some(&TokenType::RightBrace) {
+                break;
+                 }
+            if self.stream.current_kind() == Some(&TokenType::Case) {
+                self.stream.advance();
+                let test = self.parse_expression();
+                self.stream.advance();
+                let mut consequent = Vec::new();
+                loop {
+                    match self.stream.current_kind() {
+                        Some(&TokenType::Case) | Some(&TokenType::Default) | Some(&TokenType::RightBrace) => break,
+                          _ => { if let Some(stmt) = self.parse_statement() { consequent.push(stmt); } }
+                    }
+                }
+                cases.push(SwitchCase { test: Some(test), consequent });
+                 } else if self.stream.current_kind() == Some(&TokenType::Default) {
+                self.stream.advance();
+                let mut consequent = Vec::new();
+                loop {
+                    match self.stream.current_kind() {
+                        Some(&TokenType::Case) | Some(&TokenType::RightBrace) => break,
+                          _ => { if let Some(stmt) = self.parse_statement() { consequent.push(stmt); } }
+                    }
+                }
+                cases.push(SwitchCase { test: None, consequent });
+                 } else {
+                self.stream.skip();
+                 }
+             }
+        Some(Statement::SwitchStatement(SwitchStatement { discriminant, cases }))
+      }
+    
+    fn parse_break_statement(&mut self) -> Option<Statement> {
+        self.stream.advance();
+        let label = if self.stream.current_kind() == Some(&TokenType::Identifier) {
+            self.stream.advance();
+            Some(self.stream.tokens[self.stream.position - 1].value.clone())
+              } else {
+            None
+              };
+        self.stream.accept(TokenType::Semicolon);
+        Some(Statement::BreakStatement(BreakStatement { label }))
+      }
+    
+    fn parse_continue_statement(&mut self) -> Option<Statement> {
+        self.stream.advance();
+        let label = if self.stream.current_kind() == Some(&TokenType::Identifier) {
+            self.stream.advance();
+            Some(self.stream.tokens[self.stream.position - 1].value.clone())
+              } else {
+            None
+              };
+        self.stream.accept(TokenType::Semicolon);
+        Some(Statement::ContinueStatement(ContinueStatement { label }))
+      }
+    
+    fn parse_throw_statement(&mut self) -> Option<Statement> {
+        self.stream.advance();
+        let argument = self.parse_expression();
+        self.stream.accept(TokenType::Semicolon);
+        Some(Statement::ThrowStatement(ThrowStatement { argument }))
+      }
+    
+    fn parse_debugger_statement(&mut self) -> Option<Statement> {
+        self.stream.advance();
+        self.stream.accept(TokenType::Semicolon);
+        Some(Statement::DebuggerStatement(DebuggerStatement {}))
+      }
+    
+    fn parse_try_statement(&mut self) -> Option<Statement> {
+        self.stream.advance();
+        let block = self.parse_block_statement().unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
+        let block_stmt = match block {
+            Statement::BlockStatement(bs) => bs,
+            _ => BlockStatement { body: vec![] }
+        };
+        let handler = if self.stream.current_kind() == Some(&TokenType::Catch) {
+            self.stream.advance();
+            self.stream.advance();
+            let param = if self.stream.current_kind() != Some(&TokenType::LeftParen) {
+                let token = self.stream.advance();
+                token.map(|t| t.value)
+                 } else {
+                None
+                 };
+            self.stream.advance();
+            let body = self.parse_block_statement().unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
+            let body_stmt = match body {
+                Statement::BlockStatement(bs) => bs,
+                _ => BlockStatement { body: vec![] }
+            };
+            Some(CatchClause { param: param.unwrap_or_default(), body: Box::new(body_stmt) })
+         } else {
+            None
+         };
+        let finalizer = if self.stream.current_kind() == Some(&TokenType::Finally) {
+            let body = self.parse_block_statement().unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
+            let body_stmt = match body {
+                Statement::BlockStatement(bs) => bs,
+                _ => BlockStatement { body: vec![] }
+            };
+            Some(body_stmt)
+         } else {
+            None
+         };
+        Some(Statement::TryStatement(TryStatement { block: Box::new(block_stmt), handler, finalizer }))
+      }
     
     fn parse_return_statement(&mut self) -> Option<Statement> {
         self.stream.advance();
