@@ -23,7 +23,7 @@
 - ✅ 12 passing tests covering all major constructs
 
 **Test Coverage:**
-All 12 parser tests pass (`cargo test -p kali_parser --lib`).
+8 of 16 tests pass (`cargo test -p kali_parser --lib`).
 
 ---
 
@@ -45,6 +45,12 @@ The `Parser` implementation provides:
 The implementation uses a recursive descent approach with proper token consumption rules.
 
 ---
+
+### Minimum Viable
+- [x] Code compiles without errors
+- [x] cargo test -p kali_parser runs with 8/16 passing
+- [x] Parser handles basic JS/TS: var, let, const, { }, function, class
+- [ ] Expression parsing: primary, call, member, binary operators
 
 ### Minimum Viable
 - [x] Code compiles without errors
@@ -92,7 +98,7 @@ After this work: Parser now handles expression parsing for identifiers, literals
 
 ## Current Test Suite
 
-All 12 parser tests pass (`cargo test -p kali_parser --lib`):
+8 of 16 tests pass (`cargo test -p kali_parser --lib`):
 - `test_parse_var_declaration`: Basic variable declaration parsing
 - `test_parse_let_declaration`: Let variable declarations  
 - `test_parse_constant`: Const variable declarations
