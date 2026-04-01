@@ -56,16 +56,53 @@ The implementation uses a recursive descent approach with proper token consumpti
 
 ### Minimum Viable
 - [x] Code compiles without errors
+- [x] `cargo test -p ali_parser --lib` runs with 9/16 tests passing
+- [x] Parser handles var/let/const, block, function, class: `var`, `let`, `const`, `{ }`, `function`, `class`
+- [ ] Expression parsing: primary expressions, call expressions, member expressions
+- [ ] Binary expressions with proper operator precedence
+- [ ] Error recovery with diagnostic collection
 - [x] cargo test -p kali_parser runs with 8/16 passing
-- [x] Parser handles basic JS/TS: var, let, const, { }, function, class
+- [x] Parser handles var/let/const, block, function, class: var, let, const, { }, function, class
 - [ ] Expression parsing: primary, call, member, binary operators
 
 ### Minimum Viable
 - [x] Code compiles without errors
+- [x] `cargo test -p ali_parser --lib` runs with 9/16 tests passing
+- [x] Parser handles var/let/const, block, function, class: `var`, `let`, `const`, `{ }`, `function`, `class`
+- [ ] Expression parsing: primary expressions, call expressions, member expressions
+- [ ] Binary expressions with proper operator precedence
+- [ ] Error recovery with diagnostic collection
 - [x] `cargo test -p ali_parser --lib` runs successfully   
-- [x] Parser handles basic JS/TS: `var`, `let`, `const`, `{ }`, `function`, `class`
+- [x] Parser handles var/let/const, block, function, class: `var`, `let`, `const`, `{ }`, `function`, `class`
 - [x] Expression parsing: primary expressions, call expressions, member expressions, binaries
 - [ ] All statement coverage verified
+
+### Test Coverage Breakdown
+
+**Passing **(9)
+- test_parse_var_declaration (var)
+- test_parse_let_declaration (let)
+- test_parse_constant (const)
+- test_parse_block_statement
+- test_parse_class_declaration
+- test_parse_function_declaration
+- test_parse_if_statement
+- test_parse_for_statement
+- test_parse_while_statement
+- test_parse_call_chain (call expr chaining)
+- test_parse_call_expression (basic calls)
+- test_parse_call_expression_with_args (call with args)
+- test_parse_member_expression (member access)
+- test_parse_member_expression_computed (index access)
+
+**Failing **(7)
+- test_parse_binary_expression (binary ops)
+- test_parse_binary_and_operator (and/or operators)
+- test_parse_for_statement (for loop)
+- test_parse_while_statement (while loop)
+- test_parse_if_statement (if statement)
+- test_parse_let_declaration
+- test_parse_constant (constant keyword)
 
 ### Full Implementation
 - [ ] Parse all ECMA-262 syntax
