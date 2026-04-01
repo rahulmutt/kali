@@ -8,35 +8,52 @@
 
 ## Current State
 
-**STATUS:** ✅ Parser compiles successfully — working minimum implementation ready
+**STATUS:** ✅ Parser & AST implementation complete
 
 ✅ Lexer (Stage 1.2) complete  
-✅ Parser skeleton compiles with minimal implementation  
-✅ Parser can parse variable declarations (var/let/const)  
-⏳ Need to expand parser to handle more statement types  
-⏳ Need to implement expression parsing (primary expressions, call expressions)  
-⏳ Snapshot tests and error recovery pending  
+✅ Parser skeleton compiles and passes all tests  
+✅ Parser handles variable declarations (var/let/const)  
+✅ Parser handles block statements (`{ }`)  
+✅ Parser handles function declarations  
+✅ Parser handles class declarations  
+✅ Parser handles control flow (`if`, `while`, `for`)  
+✅ Parser handles expression parsing (identifiers, literals, parenthesized expressions)  
+⏳ Need to expand to `switch`, `do-while` statements  
+⏳ Need to implement `call` and `member` expressions  
+⏳ Error recovery with diagnostic collection  
+⏳ Snapshot tests via `insta`  
 
 ### Implementation Progress
 
 The current `parse_statement()` implementation handles:
 - `var`, `let`, `const` declarations (returns `Some(Statement::VariableDeclaration)`)
-
-Future implementation will add:
-- Block statements (`{ }`)
-- Function declarations  
+- Block statements (`{ statements... }`)
+- Function declarations
 - Class declarations
-- Control flow (`if`, `for`, `while`, `switch`)
-- Expression parsing (`parse_expression()`)
+- Control flow (`if/else`, `while`, `for`)
+- Expression parsing (identifiers, literals, parenthesized expressions)
+
+### Test Coverage
+
+All 9 parser tests pass:
+- `test_parse_var_declaration`: Basic variable declaration parsing
+- `test_parse_let_declaration`: Let variable declarations
+- `test_parse_constant`: Const variable declarations  
+- `test_parse_block_statement`: Block statement parsing
+- `test_parse_function_declaration`: Function declaration parsing
+- `test_parse_if_statement`: If statement parsing
+- `test_parse_class_declaration`: Class declaration parsing
+- `test_parse_while_statement`: While loop parsing
+- `test_parse_for_statement`: For loop parsing
 
 ---
 
 ## Completion Criteria
 
 ### Minimum Viable
-- [ ] Code compiles without errors
-- [ ] `cargo test -p kali_parser --lib` runs successfully
-- [ ] Parser handles basic JS/TS: `var`, `let`, `const`, `{ }`, `function`, `class`
+- [x] Code compiles without errors
+- [x] `cargo test -p kali_parser --lib` runs successfully   
+- [x] Parser handles basic JS/TS: `var`, `let`, `const`, `{ }`, `function`, `class`
 
 ### Full Implementation
 - [ ] Parse all ECMA-262 syntax
@@ -51,35 +68,37 @@ Future implementation will add:
 
 **Current:** Parser compiles with minimal implementation (`var/let/const` declarations only)
 
-**Target:** Working parser that can parse:
+**Completed:** Working parser that can parse:
 - Variable declarations (`var x = 1`, `let y`, `const Z`)
 - Block statements (`{ statements... }`)
 - Function declarations
-- Control flow (`if/else`)
-- Expression parsing (identifiers, literals, member access)
+- Class declarations
+- Control flow (`if`, `while`, `for`)
+- Expression parsing (identifiers, literals, parenthesized expressions)
 
 ---
 
-## Next Tasks
+## Next Work
 
-### Priority 1: Expand Statement Support
+### Priority 1: Additional Statement Types
 Add parsing for:
-- Block statements (`{ }`)
-- Function declarations
-- Class declarations
-- Control flow (`if`, `while`, `for`)
+- `switch` statements
+- `do-while` statements
+- `return` statements (already implemented)
 
 ### Priority 2: Expression Parsing
-Implement `parse_expression()`:
-- Primary expressions (identifiers, literals)
-- Call expressions (`fn()`)
-- Member expressions (`obj.prop`)
+Expand `parse_expression()` to support:
+- Binary expressions (`a + b`, `a === b`)
+- Call expressions (`fn()`, `obj.method()`)
+- Member expressions (`obj.prop`, `arr[0]`)
+- Arrow functions
 
-### Priority 3: Testing
-- Write snapshot tests
-- Verify with real JS/TS fixtures
+### Priority 3: Testing & Error Handling
+- Write comprehensive snapshot tests via `insta`
+- Implement error recovery for malformed constructs
+- Document E2xx error codes
 
 ---
 
 Last Updated: 2026-04-01  
-Status: Ready for implementation
+Status: Ready for next phase implementation

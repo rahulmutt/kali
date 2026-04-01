@@ -18,7 +18,7 @@ pub enum TokenType {
     Question, NullCoalesce, Eof, Comment, Identifier,
     NumericLiteral, StringLiteral, Template, Unknown,
     If, Else, For, While, Do, Switch, Case, Default,
-    Break, Continue, Return, Throw, Try, Catch, Finally,
+    Break, Continue, Return, Throw, Try, Catch, Finally, Debugger,
     New, Function, Var, Let, Const, Class, Interface,
     Type, Enum, Import, Export, From, As, This, Super,
     Extends, Implements, Async, Await, Yield, InstanceOf,
