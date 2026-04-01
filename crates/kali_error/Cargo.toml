@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
+kali_common = { workspace = true }
 
 [features]
 default = []

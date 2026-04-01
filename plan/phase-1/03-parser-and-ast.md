@@ -12,17 +12,28 @@ span coverage, JSX support, and resilient error recovery.
 
 ## Workable Milestone
 
-**CURRENT STATUS: Foundation complete, parsing skeleton in place**
+**CURRENT STATUS: Parser & AST in progress - AST skeleton exists, needs expansion**
 
-✅ AST node definitions complete with typed structs and unified `Statement` enum  
-✅ Parser skeleton with basic parsing interface  
-⏳ Full recursive-descent parsing implementation pending  
+✅ Lexer (Stage 1.2) complete  
+⏳ AST node definitions - skeleton exists, needs comprehensive expansion  
+⏳ AST Builder pattern exists, needs refinement  
+⏳ Parser skeleton exists, needs full implementation  
 ⏳ Snapshot tests pending  
 ⏳ Error handling and recovery pending  
 
-- AST node types are defined and stable for downstream stages
-- Parser compiles with stub `parse()` method returning empty results
-- Full recursive-descent parsing implementation is the next development task
+**NEXT DEVELOPMENT TASK:**
+1. Expand AST Expression enum (~50 variants: literals, identifiers, binary/unary/logical operators, member/call expressions, array/object literals, template expressions, function expressions, arrow functions, class expressions, etc.)
+2. Expand AST Statement enum (~20 variants: do-while, switch cases, labeled statements, empty statements, debugger statements)
+3. Add all TypeScript type annotation nodes (~15 variants: union types, intersection types, tuple types, array types, function types, conditional types, mapped types, etc.)
+4. Add JSX node types (~8 variants: elements, fragments, attributes, expressions, text)
+5. Add Kali-specific annotations (EffectAnnotation, PureModifier, ErrorNode)
+6. Implement parser core infrastructure (token iteration, lookahead, ASI, strict mode tracking)
+7. Implement expression parsing via Pratt parsing (precedence climbing)
+8. Implement statement parsing (declarations, control flow, try-catch, etc.)
+9. Implement TypeScript type annotation handling
+10. Implement JSX mode parsing with ambiguity resolution
+11. Implement error recovery (panic-mode, synchronization points, ErrorNode)
+12. Write snapshot tests for JS, TS, TSX fixtures
 
 ## Tasks
 
@@ -109,7 +120,7 @@ Parse the full TypeScript surface beyond type annotations:
 On a syntax error:
 
 - Emit the appropriate `E2xxx` diagnostic.
-- Attempt *panic-mode* recovery: skip tokens until a synchronisation point (statement boundary,
+- Attempt *panic-mode* recovery: skip tokens until a synchronization point (statement boundary,
   closing delimiter, or end of file) and resume parsing.
 - Produce an `ErrorNode` placeholder so downstream stages see a complete tree.
 
@@ -154,13 +165,27 @@ rather than raw pointers so lifetimes are explicit and bulk deallocation is O(1)
 
 **Completed:**
 
-- [x] All representative TS/JS/TSX/JSX/D.TS fixture files parse without panicking (stub parser)
-- [x] AST node type definitions compiled
-- [x] Unified Statement enum with all statement variants
+- [x] Lexer (Stage 1.2) complete
+- [x] Parser skeleton with TokenStream wrapper created
+- [x] AST struct with nodes/root split from builder created
+- [x] Unified Statement enum with basic statement variants
+- [x] Basic Expression enum with 4 variants (Identifier, Literal, BinaryExpr, UnaryExpr)
+- [x] Import/Export declaration types created
+- [ ] AST Builder with arena-like Vec storage completed
 
 **Pending:**
 
-- [ ] Snapshot tests pass and are committed to the repository
-- [ ] All `E2xxx` error cases emit the correct code; parser recovers and continues
-- [ ] `cargo test -p kali_parser -p kali_ast` passes with actual test coverage
-- [ ] `cargo clippy` passes; no Stage 1.1/1.2 regressions
+- [ ] Expand Expression enum to ~50 variants (all expression forms)
+- [ ] Expand AST Statement enum to ~20 variants (all statement forms)
+- [ ] Add all TypeScript type annotation nodes (~15 variants)
+- [ ] Add JSX node types (~8 variants)
+- [ ] Add Kali-specific annotations (EffectAnnotation, PureModifier, ErrorNode)
+- [ ] Implement comprehensive parser (expressions, statements, types, JSX)
+- [ ] Implement operator precedence parsing (Pratt parsing)
+- [ ] Implement ASI (Automatic Semicolon Insertion)
+- [ ] Implement error recovery with panic-mode
+- [ ] Add E2xxx error codes (E2001-E2009 minimum)
+- [ ] Create snapshot tests (JS, TS, TSX, D.TS fixtures)
+- [ ] Error recovery tests with deliberate syntax errors
+- [ ] `cargo test -p kali_parser -p kali_ast` passes
+- [ ] `cargo clippy` passes with no regressions

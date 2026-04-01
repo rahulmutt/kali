@@ -138,7 +138,9 @@ proof-ready repository baseline.
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 1.1 | [Workspace & Crate Scaffold](plan/phase-1/01-workspace-scaffold.md) | `cargo build` succeeds; `kali --version` prints a version string; `proofs/BOUNDARY.md` exists with proof-ready placeholder |
+| 1.1 | [Workspace & Crate Scaffold](plan/phase-1/01-workspace-scaffold.md) | `cargo build` succeeds; `kali --version` prints a version string; `proofs/BOUNDARY.md` exists with proof-ready placeholder *
+| 1.2 | [Lexer](plan/phase-1/02-lexer.md) | Tokenises valid TS/JS source; emits stable `E1xxx` lex errors **✅ COMPLETE** |
+| **1.3** | [Parser & AST](plan/phase-1/03-parser-and-ast.md) | Parses full ECMA-262 + TypeScript grammar; AST node types defined **🚧 IN PROGRESS - Parser stub exists, AST needs expansion**|
 
 **NOTE:** Stage 1.1 establishes the **proof-ready** baseline. The repository may claim proof-ready status from day one, but proof-backed claims require a non-empty `proofs/BOUNDARY.md` published boundary.
 

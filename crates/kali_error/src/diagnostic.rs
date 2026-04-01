@@ -2,6 +2,7 @@
 
 use super::severity::Severity;
 use std::fmt;
+use kali_common::{Span, FileId};
 
 #[cfg(feature = "serde")]
 use serde::Deserialize;
@@ -25,56 +26,6 @@ pub struct Diagnostic {
     pub suggestion: Option<String>,
     /// Additional notes or context.
     pub notes: Vec<String>,
-}
-
-/// Represents a span of source code with start and end positions.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Span {
-    pub start: u32,
-    pub end: u32,
-    pub file_id: FileId,
-}
-
-impl Span {
-    pub fn new(start: u32, end: u32) -> Self {
-        Self { start, end, file_id: FileId::default() }
-    }
-
-    pub fn new_with_file(start: u32, end: u32, file_id: FileId) -> Self {
-        Self { start, end, file_id }
-    }
-
-    pub fn start(&self) -> u32 {
-        self.start
-    }
-
-    pub fn end(&self) -> u32 {
-        self.end
-    }
-
-    pub fn line(&self) -> u32 {
-        self.start / 80  // Simplified line calculation
-    }
-
-    pub fn column(&self) -> u32 {
-        self.start % 80  // Simplified column calculation
-    }
-}
-
-/// Represents a file identifier for diagnostics.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct FileId(u32);
-
-impl FileId {
-    pub fn new(id: u32) -> Self {
-        Self(id)
-    }
-
-    pub fn as_u32(&self) -> u32 {
-        self.0
-    }
 }
 
 impl Diagnostic {
@@ -223,14 +174,11 @@ impl fmt::Display for Diagnostic {
 
 /// Format a span for display.
 fn format_span(span: &Span) -> Option<String> {
-    let file = format_file_ref(&span.file_id);
-    Some(format!("{}:{}:{}", file, span.line(), span.column()))
+    Some(format!("file_{}:{}:{}", span.file_id.as_u32(), span.start, span.end))
 }
 
 /// Format a file reference for display.
 fn format_file_ref(file_id: &FileId) -> String {
-    // In a real implementation, this would look up the file in a source map.
-    // For now, return a placeholder.
     format!("file_{}", file_id.as_u32())
 }
 

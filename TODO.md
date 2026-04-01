@@ -21,11 +21,15 @@
 
 ### 🚧 Phase 1 Core Implementation - IN PROGRESS
 1. **Stage 1.3 - Parser & AST (kali_parser, kali_ast)** 🚧
-   - Parser skeleton exists with stub implementation
-   - AST has basic node types but needs expansion
-   - Arena allocation not yet implemented
-   - Needs: Full ECMA-262 + TypeScript parsing
-   - Priority: 🔴 HIGH - Next immediate task
+   - Parser skeleton exists with stub implementation (needs actual parsing)
+   - AST has basic node types with serde support but needs significant expansion
+   - Arena allocation not yet implemented - need to replace Vec-based approach
+   - Missing: Full ECMA-262 + TypeScript parsing implementation
+   - Missing: Pratt parsing for expression precedence
+   - Missing: Full NodeKind variants (~80+ needed)
+   - Missing: Error recovery mechanism
+   - Needs: Complete integration with lexer output
+   - Priority: 🔴 HIGH - Implementing now
 
 ### 📋 Backlog (Phase 1)
 1. Stage 1.4 - Name Resolution

@@ -1,80 +1,98 @@
-# Plan Mailbox - Stage 1.3 Fixes Complete
+# PLAN-MAILBOX - Stage 1.3 Notes
 
-## Issues Found
+## Current Status
 
-While implementing Stage 1.3 (Parser & AST), I discovered critical code issues blocking compilation:
+Stage 1.3 (Parser & AST) is **IN PROGRESS**. The lexer (Stage 1.2) is complete, and the AST skeleton and parser skeleton exist but need expansion.
 
-### Issue 1: Parser lib.rs was truncated/incomplete
-**File:** `crates/kali_parser/src/lib.rs` (line 98)
-- The `Parser::new()` method had incomplete implementation ending with `lexer.`
+## Findings
 
-### Issue 2: AST `Statement` enum was missing
-**File:** `crates/kali_ast/src/lib.rs`
-- No `enum Statement` definition despite many individual statement structs being defined
-- Recursive type issues between `Statement` and statement structs (e.g., `IfStatement.body: Statement`)
+### What Exists
+1. **AST Definitions** (`crates/kali_ast/src/lib.rs`):
+   - Basic typed structs for statements (Statement enum with ~20 variants)
+   - Basic expression types (Expression enum with 4 variants)
+   - NodeKind-based legacy system (still present, not removed)
+   - ASTBuilder and AST types with basic builder pattern
+   - Import/Export declaration types
+   - Some TypeScript type aliases (simplified)
 
-### Issue 3: Duplicate NodeKind definitions
-- Two `pub enum NodeKind` definitions in the AST file
-- One with `Eq`/`PartialEq` derive, another with manual impl
-- `NodeKind::Module` had `body: Vec<ModuleItem>` where `ModuleItem` didn't exist
+2. **Parser Skeleton** (`crates/kali_parser/src/lib.rs`):
+   - TokenStream wrapper
+   - Parser struct with basic fields (file_id, stream, diagnostics, jsx_mode)
+   - parse() stub returning empty result
 
-### Issue 4: Missing dependencies
-- `crates/kali_parser/Cargo.toml` missing `kali_ast` dependency
-- Duplicate import aliases (`FileId` from both `kali_common` and `kali_lexer`)
+3. **Lexer** (`crates/kali_lexer/src/lib.rs`):
+   - **COMPLETE** - Full lexical grammar supporting ECMA-262 + TypeScript
+   - Token types cover keywords, punctuators, literals
+   - Error handling for unterminated strings/templates
 
-## Fixes Applied
+### What Needs to Happen
 
-### 1. Fixed Parser
-- Completed `Parser::new()` method implementation
-- Added `parse()` stub method (returns empty parse - placeholder for Stage 1.3 full implementation)
-- Fixed imports (removed unused `Lexer`, corrected `FileId` usage)
+1. **Expand Expression enum** from 4 variants to ~50:
+   - Basic literals: Identifier, Literal, This, Super
+   - Member: MemberExpr, CallExpr, NewExpr, MetaProperty
+   - Unary: UnaryExpr (Delete, Void, Typeof, +, -, ~, !, ++)
+   - Binary: BinaryExpr (all operators)
+   - Advanced: ArrayLit, ObjectLit, SpreadExpr, TemplateExpr, TaggedTemplateExpr
+   - Control: AwaitExpr, YieldExpr, ClassExpr, ArrowFunc
+   - Logical: LogicalExpr (&&, ||, ??)
+   - Assignment: AssignExpr (all assignment operators)
+   - Update: UpdateExpr (++, --)
+   - Others: SequenceExpr, ConditionalExpr, OptionalChainExpr
 
-### 2. Fixed AST
-- Added complete `Statement` enum with all statement variants
-- Added `ModuleItem = Node` type alias
-- Added `Box` indirection to fix recursive types:
-  - `WithStatement.body: Box<Statement>`
-  - `LabeledStatement.body: Box<Statement>`
-  - `IfStatement.consequent: Box<Statement>`, `alternate: Option<Box<Statement>>`
-  - `ForStatement.body: Box<Statement>`
-  - `ForInStatement.body: Box<Statement>`
-  - `ForOfStatement.body: Box<Statement>`
-  - `WhileStatement.body: Box<Statement>`
-  - `DoWhileStatement.body: Box<Statement>`
-- Added `PartialEq` derive to `Node` struct (needed for `NodeKind::Module.body: Vec<Node>` PartialEq impl)
-- Removed duplicate `NodeId` impl blocks
-- Removed duplicate `NodeKind` enum (kept one with manual `PartialEq`/`Eq` impls)
-  - Manually implemented `PartialEq` for `NodeKind` (can't use derive due to nested Vec inside Module)
-  - Implemented `Eq` for `NodeKind`
+2. **Expand TypeScript type nodes**:
+   - TsTypeRef, TsUnionType, TsIntersectionType, TsTupleType
+   - TsArrayType, TsFunctionType, TsConstructorType
+   - TsConditionalType, TsMappedType, TsIndexedAccessType
+   - TsInferType, TsTypeQuery, TsTypePredicate, TsLiteralType
 
-### 3. Fixed Dependencies
-- Added `kali_ast = { workspace = true }` to `crates/kali_parser/Cargo.toml`
-- Fixed unused imports removed
+3. **Add JSX node types**:
+   - JsxElement, JsxFragment, JsxOpeningElement, JsxClosingElement
+   - JsxSelfClosingElement, JsxAttribute, JsxSpreadAttribute
+   - JsxExpressionContainer, JsxText
 
-## Build Status
+4. **Add Kali-specific annotations**:
+   - EffectAnnotation, PureModifier, ErrorNode (for error recovery)
 
-```
-cargo build -p kali_ast ✓ Compiles successfully
-cargo build -p kali_parser ✓ Compiles successfully  
-cargo test --workspace ✓ Passes (no test failures)
-```
+5. **Refactor/remove legacy system**:
+   - Consider removing NodeKind enum (not needed for typed AST approach)
+   - Consolidate into single typed AST representation
 
-## Summary
+6. **Implement parser core**:
+   - Token iterator with proper lookahead
+   - ASI (Automatic Semicolon Insertion)
+   - Primary expression parsing
+   - Member call expression parsing
+   - Pratt/precedence climbing for operators
+   - Statement parsing
+   - TypeScript type annotation handling
+   - JSX mode handling
 
-The foundational AST and parser infrastructure for Stage 1.3 is now in place:
-- ✅ AST definitions complete with typed structs and unified Statement enum
-- ✅ Recursive type issues resolved with Box indirection
-- ✅ Parser skeleton in place with basic parsing interface
-- ⏳ Full recursive-descent parsing still needs implementation
-- ✅ Module graph foundation in place (AST nodes can form program trees)
+7. **Error recovery**:
+   - Panic-mode recovery with synchronization points
+   - Error node creation for recovery
 
-## Next Steps
+8. **Tests**:
+   - Snapshot tests for various fixtures
+   - Error recovery tests
 
-The foundation is now ready for actual recursive-descent parsing implementation:
-1. Implement `parse()` method to process token stream
-2. Add expression parsing methods (binop precedence handling)
-3. Add statement parsing methods
-4. Add declaration parsing methods
-5. Implement error recovery
-6. Add snapshot tests with test fixtures
-7. Implement full parse pipeline (lexer → parser → AST)
+## Decision: Continue with current approach
+
+The typed AST approach (separate structs for each node type) is correct for Stage 1.3. The NodeKind enum-based system in `node.rs` is legacy and can be left for later migration or removal. The typed approach:
+
+- Has better type safety
+- Makes spans straightforward (each struct has a span field)
+- Matches the spec requirements
+
+## Next Task
+
+**Expand the Expression enum in `crates/kali_ast/src/lib.rs` with comprehensive node types.**
+
+This is the foundation - the parser implementation depends on all these types existing first. I'll implement:
+
+1. All basic expression types (~15 types)
+2. All statement types that are missing or simplified (~10 types)
+3. All TypeScript type annotation types (~15 types)
+4. JSX node types (~8 types)
+5. Kali-specific annotations (3 types)
+
+This will take several edits to the same file due to the size of changes.

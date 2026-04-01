@@ -309,6 +309,7 @@ dependencies = [
 name = "kali_error"
 version = "0.1.0"
 dependencies = [
+ "kali_common",
  "serde",
 ]
 
@@ -388,6 +389,7 @@ dependencies = [
 name = "kali_parser"
 version = "0.1.0"
 dependencies = [
+ "kali_ast",
  "kali_common",
  "kali_error",
  "kali_lexer",
