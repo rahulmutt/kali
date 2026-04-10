@@ -1,4 +1,4 @@
-Study @SPEC.md and @PLAN.md and implement the next best task on the list. 
+Study SPEC.md and PLAN.md and implement the next best task on the list. 
 
 If while implementing something, you find that you need to update the spec, write your notes to SPEC-MAILBOX.md
 
