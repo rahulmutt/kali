@@ -86,8 +86,8 @@ pub struct LabeledStatement {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct IfStatement {
     pub test: Expression,
-    pub consequent: Box<Statement>,
-    pub alternate: Option<Box<Statement>>,
+    pub consequent: Box<BlockStatement>,
+    pub alternate: Option<Box<BlockStatement>>,
 }
 
 /// Switch statement
@@ -141,7 +141,7 @@ pub struct ForStatement {
     pub init: Option<ForInit>,
     pub test: Option<Expression>,
     pub update: Option<Expression>,
-    pub body: Box<Statement>,
+    pub body: Box<BlockStatement>,
 }
 
 /// For init
@@ -185,13 +185,13 @@ pub enum ForOfLefthand {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct WhileStatement {
     pub test: Expression,
-    pub body: Box<Statement>,
+    pub body: Box<BlockStatement>,
 }
 
 /// Do-while statement
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DoWhileStatement {
-    pub body: Box<Statement>,
+    pub body: Box<BlockStatement>,
     pub test: Expression,
 }
 
@@ -237,8 +237,6 @@ pub struct VariableDeclarator {
     pub id: String,
     pub init: Option<Expression>,
 }
-
-
 
 // Type alias declaration
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -380,36 +378,59 @@ impl PartialEq for NodeKind {
     fn eq(&self, other: &Self) -> bool {
         use NodeKind::*;
         match (self, other) {
-            (Program, Program) | (Script, Script) | (Block, Block) |
-            (ExpressionStatement, ExpressionStatement) | (EmptyStatement, EmptyStatement) |
-            (BreakStatement, BreakStatement) | (ContinueStatement, ContinueStatement) |
-            (DebuggerStatement, DebuggerStatement) | (ReturnStatement, ReturnStatement) |
-            (ThrowStatement, ThrowStatement) | (LabeledStatement, LabeledStatement) |
-            (IfStatement, IfStatement) | (SwitchStatement, SwitchStatement) |
-            (TryStatement, TryStatement) | (WhileStatement, WhileStatement) |
-            (DoWhileStatement, DoWhileStatement) | (ForStatement, ForStatement) |
-            (ForInStatement, ForInStatement) | (ForOfStatement, ForOfStatement) |
-            (WithStatement, WithStatement) | (FunctionDeclaration, FunctionDeclaration) |
-            (FunctionExpression, FunctionExpression) | (ClassDeclaration, ClassDeclaration) |
-            (ClassExpression, ClassExpression) | (VariableDeclaration, VariableDeclaration) |
-            (VariableDeclarator, VariableDeclarator) | (ImportDeclaration, ImportDeclaration) |
-            (ImportDefaultSpecifier, ImportDefaultSpecifier) | (ImportNamespaceSpecifier, ImportNamespaceSpecifier) |
-            (ImportSpecifier, ImportSpecifier) | (ExportAllDeclaration, ExportAllDeclaration) |
-            (ExportDefaultDeclaration, ExportDefaultDeclaration) | (ExportNamedDeclaration, ExportNamedDeclaration) |
-            (ExportSpecifier, ExportSpecifier) | (InterfaceDeclaration, InterfaceDeclaration) |
-            (TypeAliasDeclaration, TypeAliasDeclaration) | (EnumDeclaration, EnumDeclaration) |
-            (EnumMember, EnumMember) | (TypeLiteral, TypeLiteral) |
-            (TsTypeAnnotation, TsTypeAnnotation) |
-            (TsTypeParameterDeclaration, TsTypeParameterDeclaration) |
-            (TsTypeParameter, TsTypeParameter) | (TsConstraint, TsConstraint) |
-            (TsTypeParameterConstraint, TsTypeParameterConstraint) |
-            (TsTypeParameterDefault, TsTypeParameterDefault) |
-            (TsInterfaceBody, TsInterfaceBody) | (TsPropertySignature, TsPropertySignature) |
-            (TsMethodSignature, TsMethodSignature) | (TsIndexSignature, TsIndexSignature) |
-            (TsIndexSignatureAnnotation, TsIndexSignatureAnnotation) |
-            (TsCallSignatureDeclaration, TsCallSignatureDeclaration) |
-            (TsConstructSignatureDeclaration, TsConstructSignatureDeclaration) |
-            (TsPropertyParameter, TsPropertyParameter) => true,
+            (Program, Program)
+            | (Script, Script)
+            | (Block, Block)
+            | (ExpressionStatement, ExpressionStatement)
+            | (EmptyStatement, EmptyStatement)
+            | (BreakStatement, BreakStatement)
+            | (ContinueStatement, ContinueStatement)
+            | (DebuggerStatement, DebuggerStatement)
+            | (ReturnStatement, ReturnStatement)
+            | (ThrowStatement, ThrowStatement)
+            | (LabeledStatement, LabeledStatement)
+            | (IfStatement, IfStatement)
+            | (SwitchStatement, SwitchStatement)
+            | (TryStatement, TryStatement)
+            | (WhileStatement, WhileStatement)
+            | (DoWhileStatement, DoWhileStatement)
+            | (ForStatement, ForStatement)
+            | (ForInStatement, ForInStatement)
+            | (ForOfStatement, ForOfStatement)
+            | (WithStatement, WithStatement)
+            | (FunctionDeclaration, FunctionDeclaration)
+            | (FunctionExpression, FunctionExpression)
+            | (ClassDeclaration, ClassDeclaration)
+            | (ClassExpression, ClassExpression)
+            | (VariableDeclaration, VariableDeclaration)
+            | (VariableDeclarator, VariableDeclarator)
+            | (ImportDeclaration, ImportDeclaration)
+            | (ImportDefaultSpecifier, ImportDefaultSpecifier)
+            | (ImportNamespaceSpecifier, ImportNamespaceSpecifier)
+            | (ImportSpecifier, ImportSpecifier)
+            | (ExportAllDeclaration, ExportAllDeclaration)
+            | (ExportDefaultDeclaration, ExportDefaultDeclaration)
+            | (ExportNamedDeclaration, ExportNamedDeclaration)
+            | (ExportSpecifier, ExportSpecifier)
+            | (InterfaceDeclaration, InterfaceDeclaration)
+            | (TypeAliasDeclaration, TypeAliasDeclaration)
+            | (EnumDeclaration, EnumDeclaration)
+            | (EnumMember, EnumMember)
+            | (TypeLiteral, TypeLiteral)
+            | (TsTypeAnnotation, TsTypeAnnotation)
+            | (TsTypeParameterDeclaration, TsTypeParameterDeclaration)
+            | (TsTypeParameter, TsTypeParameter)
+            | (TsConstraint, TsConstraint)
+            | (TsTypeParameterConstraint, TsTypeParameterConstraint)
+            | (TsTypeParameterDefault, TsTypeParameterDefault)
+            | (TsInterfaceBody, TsInterfaceBody)
+            | (TsPropertySignature, TsPropertySignature)
+            | (TsMethodSignature, TsMethodSignature)
+            | (TsIndexSignature, TsIndexSignature)
+            | (TsIndexSignatureAnnotation, TsIndexSignatureAnnotation)
+            | (TsCallSignatureDeclaration, TsCallSignatureDeclaration)
+            | (TsConstructSignatureDeclaration, TsConstructSignatureDeclaration)
+            | (TsPropertyParameter, TsPropertyParameter) => true,
             (Module { body: b1, .. }, Module { body: b2, .. }) => b1 == b2,
             _ => false,
         }
@@ -453,7 +474,6 @@ pub enum Expression {
     LogicalExpression(Box<LogicalExpression>),
     ConditionalExpression(Box<ConditionalExpression>),
 
-
     // Sequence and group
     SequenceExpression(Box<SequenceExpression>),
     ParenthesizedExpression(Box<ParenthesizedExpression>),
@@ -490,6 +510,12 @@ pub enum Expression {
     SuperExpression,
     PrivateIdentifier(String),
     BigIntLiteral(String),
+}
+
+impl Expression {
+    pub fn as_ref(&self) -> &Self {
+        self
+    }
 }
 
 // Binary expression
@@ -861,6 +887,7 @@ pub struct FunctionParam {
 }
 
 /// Arrow function expression
+#[allow(non_snake_case)]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ArrowFunctionExpression {
     pub params: Vec<FunctionParam>,
@@ -1007,7 +1034,7 @@ pub enum OptionalChainInner {
     NonNull {
         object: Box<Expression>,
         optional: bool,
-    }
+    },
 }
 
 /// Chain expression

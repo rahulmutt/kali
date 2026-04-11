@@ -1,28 +1,112 @@
 //! Tokenizer/lexer for TypeScript and JavaScript.
 
-use kali_error::diagnostic::Diagnostic;
-use kali_error::_error_codes::e1;
 use kali_common::{FileId, Span};
+use kali_error::_error_codes::e1;
+use kali_error::diagnostic::Diagnostic;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenType {
-    Plus, Minus, Star, Slash, Caret, Percent,
-    And, Or, Not, EqEquals, EqEqEq, Neq, NeqNeq,
-    Lt, Gt, LtEq, GtEq, LtLt, GtGt,
-    PlusEq, MinusEq, StarEq, SlashEq, 
-    AndAnd, OrOr, QuestionDot, Arrow,
-    Colon, Eq, Ampersand, Pipe, Tilde, At,
-    Bang, Dot, DotDotDot, Hash, LeftParen,
-    RightParen, LeftBrace, RightBrace, LeftBracket,
-    RightBracket, Semicolon, Comma, Backtick,
-    Question, NullCoalesce, Eof, Comment, Identifier,
-    NumericLiteral, StringLiteral, Template, Unknown,
-    If, Else, For, While, Do, Switch, Case, Default,
-    Break, Continue, Return, Throw, Try, Catch, Finally, Debugger,
-    New, Function, Var, Let, Const, Class, Interface,
-    Type, Enum, Import, Export, From, As, This, Super,
-    Extends, Implements, Async, Await, Yield, InstanceOf,
-    In, Of, True, False, Null, Undefined, Void, Delete, Typeof,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Caret,
+    Percent,
+    And,
+    Or,
+    Not,
+    EqEquals,
+    EqEqEq,
+    Neq,
+    NeqNeq,
+    Lt,
+    Gt,
+    LtEq,
+    GtEq,
+    LtLt,
+    GtGt,
+    PlusEq,
+    MinusEq,
+    StarEq,
+    SlashEq,
+    AndAnd,
+    OrOr,
+    QuestionDot,
+    Arrow,
+    Colon,
+    Eq,
+    Ampersand,
+    Pipe,
+    Tilde,
+    At,
+    Bang,
+    Dot,
+    DotDotDot,
+    Hash,
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    LeftBracket,
+    RightBracket,
+    Semicolon,
+    Comma,
+    Backtick,
+    Question,
+    NullCoalesce,
+    Eof,
+    Comment,
+    Identifier,
+    NumericLiteral,
+    StringLiteral,
+    Template,
+    Unknown,
+    If,
+    Else,
+    For,
+    While,
+    Do,
+    Switch,
+    Case,
+    Default,
+    Break,
+    Continue,
+    Return,
+    Throw,
+    Try,
+    Catch,
+    Finally,
+    Debugger,
+    New,
+    Function,
+    Var,
+    Let,
+    Const,
+    Class,
+    Interface,
+    Type,
+    Enum,
+    Import,
+    Export,
+    From,
+    As,
+    This,
+    Super,
+    Extends,
+    Implements,
+    Async,
+    Await,
+    Yield,
+    InstanceOf,
+    In,
+    Of,
+    True,
+    False,
+    Null,
+    Undefined,
+    Void,
+    Delete,
+    Typeof,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,7 +157,10 @@ impl Lexer {
             }
             tokens.push(token);
         }
-        LexerResult { tokens, diagnostics: std::mem::take(&mut self.diagnostics) }
+        LexerResult {
+            tokens,
+            diagnostics: std::mem::take(&mut self.diagnostics),
+        }
     }
 
     pub fn next_token(&mut self) -> Option<Token> {
@@ -96,7 +183,7 @@ impl Lexer {
 
     fn collect_token(&mut self) -> Option<Token> {
         let c = self.peek().unwrap();
-        
+
         if c.is_ascii_alphabetic() || c == '_' || c == '$' {
             return Some(self.lex_identifier());
         }
@@ -126,28 +213,51 @@ impl Lexer {
         }
         let value: String = self.source[_start..self.position].iter().collect();
         let kind = match value.as_str() {
-            "if" => TokenType::If, "else" => TokenType::Else,
-            "for" => TokenType::For, "while" => TokenType::While,
-            "do" => TokenType::Do, "switch" => TokenType::Switch,
-            "case" => TokenType::Case, "default" => TokenType::Default,
-            "break" => TokenType::Break, "continue" => TokenType::Continue,
-            "return" => TokenType::Return, "throw" => TokenType::Throw,
-            "try" => TokenType::Try, "catch" => TokenType::Catch,
-            "new" => TokenType::New, "function" => TokenType::Function,
-            "var" => TokenType::Var, "let" => TokenType::Let,
-            "const" => TokenType::Const, "class" => TokenType::Class,
-            "interface" => TokenType::Interface, "type" => TokenType::Type,
-            "enum" => TokenType::Enum, "import" => TokenType::Import,
-            "export" => TokenType::Export, "from" => TokenType::From,
-            "as" => TokenType::As, "this" => TokenType::This,
-            "super" => TokenType::Super, "extends" => TokenType::Extends,
-            "implements" => TokenType::Implements, "async" => TokenType::Async,
-            "await" => TokenType::Await, "yield" => TokenType::Yield,
-            "instanceof" => TokenType::InstanceOf, "in" => TokenType::In,
-            "of" => TokenType::Of, "true" => TokenType::True,
-            "false" => TokenType::False, "null" => TokenType::Null,
-            "undefined" => TokenType::Undefined, "void" => TokenType::Void,
-            "delete" => TokenType::Delete, "typeof" => TokenType::Typeof,
+            "if" => TokenType::If,
+            "else" => TokenType::Else,
+            "for" => TokenType::For,
+            "while" => TokenType::While,
+            "do" => TokenType::Do,
+            "switch" => TokenType::Switch,
+            "case" => TokenType::Case,
+            "default" => TokenType::Default,
+            "break" => TokenType::Break,
+            "continue" => TokenType::Continue,
+            "return" => TokenType::Return,
+            "throw" => TokenType::Throw,
+            "try" => TokenType::Try,
+            "catch" => TokenType::Catch,
+            "debugger" => TokenType::Debugger,
+            "new" => TokenType::New,
+            "function" => TokenType::Function,
+            "var" => TokenType::Var,
+            "let" => TokenType::Let,
+            "const" => TokenType::Const,
+            "class" => TokenType::Class,
+            "interface" => TokenType::Interface,
+            "type" => TokenType::Type,
+            "enum" => TokenType::Enum,
+            "import" => TokenType::Import,
+            "export" => TokenType::Export,
+            "from" => TokenType::From,
+            "as" => TokenType::As,
+            "this" => TokenType::This,
+            "super" => TokenType::Super,
+            "extends" => TokenType::Extends,
+            "implements" => TokenType::Implements,
+            "async" => TokenType::Async,
+            "await" => TokenType::Await,
+            "yield" => TokenType::Yield,
+            "instanceof" => TokenType::InstanceOf,
+            "in" => TokenType::In,
+            "of" => TokenType::Of,
+            "true" => TokenType::True,
+            "false" => TokenType::False,
+            "null" => TokenType::Null,
+            "undefined" => TokenType::Undefined,
+            "void" => TokenType::Void,
+            "delete" => TokenType::Delete,
+            "typeof" => TokenType::Typeof,
             _ => TokenType::Identifier,
         };
         Token::new(kind, self.slice(_start), self.span())
@@ -170,7 +280,7 @@ impl Lexer {
         self.position += 1; // skip quote
         let mut value = String::new();
         value.push(quote);
-        
+
         loop {
             match self.source.get(self.position) {
                 Some(&c) if c == quote => {
@@ -208,7 +318,7 @@ impl Lexer {
         self.position += 1; // skip backtick
         let mut value = String::new();
         value.push('`');
-        
+
         loop {
             match self.source.get(self.position) {
                 Some(&'`') => {
@@ -244,10 +354,7 @@ impl Lexer {
         match self.source.get(self.position) {
             Some(&'*') => self.lex_block_comment(),
             Some(&'/') => self.lex_line_comment(),
-            _ => {
-                self.position -= 1;
-                Token::new(TokenType::Slash, "/".into(), self.span())
-            }
+            _ => Token::new(TokenType::Slash, "/".into(), self.span()),
         }
     }
 
@@ -256,7 +363,7 @@ impl Lexer {
         self.position += 1; // skip *
         let mut value = String::new();
         value.push('*');
-        
+
         loop {
             match self.source.get(self.position) {
                 Some(&'*') => {
@@ -284,7 +391,7 @@ impl Lexer {
         let _start = self.position;
         let mut value = String::new();
         value.push('/');
-        
+
         loop {
             match self.source.get(self.position) {
                 Some(&'\n') => {
@@ -302,111 +409,61 @@ impl Lexer {
     }
 
     fn lex_punct(&mut self, initial: char) -> Option<Token> {
-        let mut value = initial.to_string();
-        
-        let kind = match initial {
-            '&' if self.next_is('&') => {
-                self.position += 1;
-                self.position += 1;
-                return Some(Token::new(TokenType::AndAnd, "&&".into(), self.span()));
+        let (kind, lexeme, len) = match initial {
+            '&' if self.nth(1) == Some('&') => (TokenType::AndAnd, "&&".to_string(), 2),
+            '|' if self.nth(1) == Some('|') => (TokenType::OrOr, "||".to_string(), 2),
+            '=' if self.nth(1) == Some('=') && self.nth(2) == Some('=') => {
+                (TokenType::EqEqEq, "===".to_string(), 3)
             }
-            '|' if self.next_is('|') => {
-                self.position += 1;
-                return Some(Token::new(TokenType::OrOr, "||".into(), self.span()));
+            '=' if self.nth(1) == Some('=') => (TokenType::EqEquals, "==".to_string(), 2),
+            '!' if self.nth(1) == Some('=') && self.nth(2) == Some('=') => {
+                (TokenType::NeqNeq, "!==".to_string(), 3)
             }
-            '=' if self.next_is('=') => {
-                self.position += 1;
-                if self.next_is('=') {
-                    self.position += 1;
-                    return Some(Token::new(TokenType::EqEqEq, "===".into(), self.span()));
-                }
-                return Some(Token::new(TokenType::EqEquals, "==".into(), self.span()));
+            '!' if self.nth(1) == Some('=') => (TokenType::Neq, "!=".to_string(), 2),
+            '<' if self.nth(1) == Some('=') => (TokenType::LtEq, "<=".to_string(), 2),
+            '<' if self.nth(1) == Some('<') => (TokenType::LtLt, "<<".to_string(), 2),
+            '>' if self.nth(1) == Some('=') => (TokenType::GtEq, ">=".to_string(), 2),
+            '>' if self.nth(1) == Some('>') && self.nth(2) == Some('>') => {
+                (TokenType::GtGt, ">>>".to_string(), 3)
             }
-            '!' if self.next_is('=') => {
-                self.position += 1;
-                if self.next_is('=') {
-                    self.position += 1;
-                    return Some(Token::new(TokenType::NeqNeq, "!==".into(), self.span()));
-                }
-                return Some(Token::new(TokenType::Neq, "!=".into(), self.span()));
+            '>' if self.nth(1) == Some('>') => (TokenType::GtGt, ">>".to_string(), 2),
+            '?' if self.nth(1) == Some('?') => (TokenType::NullCoalesce, "??".to_string(), 2),
+            '.' if self.nth(1) == Some('.') && self.nth(2) == Some('.') => {
+                (TokenType::DotDotDot, "...".to_string(), 3)
             }
-            '<' if self.next_is('=') => {
-                self.position += 1;
-                return Some(Token::new(TokenType::LtEq, "<=".into(), self.span()));
-            }
-            '<' if self.next_is('<') => {
-                self.position += 1;
-                return Some(Token::new(TokenType::LtLt, "<<".into(), self.span()));
-            }
-            '>' if self.next_is('=') => {
-                self.position += 1;
-                return Some(Token::new(TokenType::GtEq, ">=".into(), self.span()));
-            }
-            '>' if self.next_is('>') => {
-                self.position += 1;
-                if self.next_is('>') {
-                    self.position += 1;
-                    return Some(Token::new(TokenType::GtGt, ">>>".into(), self.span()));
-                }
-                return Some(Token::new(TokenType::GtGt, ">>".into(), self.span()));
-            }
-            '?' if self.next_is('=') => {
-                self.position += 1;
-                return Some(Token::new(TokenType::NullCoalesce, "??".into(), self.span()));
-            }
-            '?' if self.next_is('?') => {
-                self.position += 1;
-                return Some(Token::new(TokenType::NullCoalesce, "??".into(), self.span()));
-            }
-            '.' if self.next_is('.') && self.nth_is(2, '.') => {
-                self.position += 1;
-                self.position += 1;
-                return Some(Token::new(TokenType::DotDotDot, "...".into(), self.span()));
-            }
-            '=' if self.next_is('>') => {
-                self.position += 1;
-                return Some(Token::new(TokenType::Arrow, "=>".into(), self.span()));
-            }
-            '+' if self.next_is('+') => {
-                self.position += 1;
-                value.push('+');
-                TokenType::Plus
-            }
-            '-' if self.next_is('-') => {
-                self.position += 1;
-                value.push('-');
-                TokenType::Minus
-            }
-            _ => match initial {
-                '+' => TokenType::Plus,
-                '-' => TokenType::Minus,
-                '*' => TokenType::Star,
-                '/' => TokenType::Slash,
-                '&' => TokenType::Ampersand,
-                '|' => TokenType::Pipe,
-                '!' => TokenType::Not,
-                '<' => TokenType::Lt,
-                '>' => TokenType::Gt,
-                '?' => TokenType::Question,
-                '=' => TokenType::Eq,
-                ':' => TokenType::Colon,
-                '.' => TokenType::Dot,
-                '#' => TokenType::Hash,
-                '@' => TokenType::At,
-                '~' => TokenType::Tilde,
-                '(' => TokenType::LeftParen,
-                ')' => TokenType::RightParen,
-                '{' => TokenType::LeftBrace,
-                '}' => TokenType::RightBrace,
-                '[' => TokenType::LeftBracket,
-                ']' => TokenType::RightBracket,
-                ';' => TokenType::Semicolon,
-                ',' => TokenType::Comma,
-                '`' => TokenType::Backtick,
-                _ => TokenType::Unknown,
-            }
+            '=' if self.nth(1) == Some('>') => (TokenType::Arrow, "=>".to_string(), 2),
+            '+' if self.nth(1) == Some('+') => (TokenType::Plus, "++".to_string(), 2),
+            '-' if self.nth(1) == Some('-') => (TokenType::Minus, "--".to_string(), 2),
+            '+' => (TokenType::Plus, "+".to_string(), 1),
+            '-' => (TokenType::Minus, "-".to_string(), 1),
+            '*' => (TokenType::Star, "*".to_string(), 1),
+            '/' => (TokenType::Slash, "/".to_string(), 1),
+            '&' => (TokenType::Ampersand, "&".to_string(), 1),
+            '|' => (TokenType::Pipe, "|".to_string(), 1),
+            '!' => (TokenType::Not, "!".to_string(), 1),
+            '<' => (TokenType::Lt, "<".to_string(), 1),
+            '>' => (TokenType::Gt, ">".to_string(), 1),
+            '?' => (TokenType::Question, "?".to_string(), 1),
+            '=' => (TokenType::Eq, "=".to_string(), 1),
+            ':' => (TokenType::Colon, ":".to_string(), 1),
+            '.' => (TokenType::Dot, ".".to_string(), 1),
+            '#' => (TokenType::Hash, "#".to_string(), 1),
+            '@' => (TokenType::At, "@".to_string(), 1),
+            '~' => (TokenType::Tilde, "~".to_string(), 1),
+            '(' => (TokenType::LeftParen, "(".to_string(), 1),
+            ')' => (TokenType::RightParen, ")".to_string(), 1),
+            '{' => (TokenType::LeftBrace, "{".to_string(), 1),
+            '}' => (TokenType::RightBrace, "}".to_string(), 1),
+            '[' => (TokenType::LeftBracket, "[".to_string(), 1),
+            ']' => (TokenType::RightBracket, "]".to_string(), 1),
+            ';' => (TokenType::Semicolon, ";".to_string(), 1),
+            ',' => (TokenType::Comma, ",".to_string(), 1),
+            '`' => (TokenType::Backtick, "`".to_string(), 1),
+            _ => (TokenType::Unknown, initial.to_string(), 1),
         };
-        Some(Token::new(kind, value, self.span()))
+
+        self.position += len;
+        Some(Token::new(kind, lexeme, self.span()))
     }
 
     fn peek(&self) -> Option<char> {
@@ -415,14 +472,6 @@ impl Lexer {
 
     fn nth(&self, n: usize) -> Option<char> {
         self.source.get(self.position + n).copied()
-    }
-
-    fn next_is(&self, c: char) -> bool {
-        self.nth(1) == Some(c)
-    }
-
-    fn nth_is(&self, n: usize, c: char) -> bool {
-        self.nth(n) == Some(c)
     }
 
     fn is_eof(&self) -> bool {
@@ -494,9 +543,12 @@ mod tests {
 
     #[test]
     fn test_lexer_unterminated_string() {
-        let mut lexer = Lexer::new(FileId::new(0), "\"hello".to_string());
+        let lexer = Lexer::new(FileId::new(0), "\"hello".to_string());
         let result = lexer.lex_all();
-        assert!(result.diagnostics.iter().any(|d| d.code == Some(e1::UNTERMINATED_STRING as u32)));
+        assert!(result
+            .diagnostics
+            .iter()
+            .any(|d| d.code == Some(e1::UNTERMINATED_STRING as u32)));
     }
 }
 
@@ -507,8 +559,12 @@ mod test_and_and {
     fn test_peek_and_and() {
         let lexer = Lexer::new(FileId::new(0), "x && y;".to_string());
         let result = lexer.lex_all();
-        let tokens: Vec<_> = result.tokens.into_iter().filter(|t| t.kind != TokenType::Eof).collect();
+        let tokens: Vec<_> = result
+            .tokens
+            .into_iter()
+            .filter(|t| t.kind != TokenType::Eof)
+            .collect();
         assert_eq!(tokens.len(), 4);
         assert_eq!(tokens[1].kind, TokenType::AndAnd);
-     }
+    }
 }
