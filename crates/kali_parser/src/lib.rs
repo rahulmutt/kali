@@ -493,23 +493,29 @@ impl Parser {
     fn parse_binary_expression(&mut self, min_prec: usize) -> Expression {
         let mut left = self.parse_call_expression();
         
-         loop {
+        loop {
             let op_kind = self.stream.current_kind().copied().unwrap_or(TokenType::Unknown);
-            let prec: Option<usize> = match op_kind {
-                TokenType::OrOr if min_prec <= 1 => Some(1),
-                TokenType::AndAnd if min_prec <= 2 => Some(2),
-                TokenType::Pipe if min_prec <= 3 => Some(3),
-                TokenType::Caret if min_prec <= 4 => Some(4),
-                TokenType::And if min_prec <= 5 => Some(5),
-                TokenType::EqEquals if min_prec <= 6 => Some(6),
-                TokenType::Not | TokenType::Lt | TokenType::Gt |
-                TokenType::LtEq | TokenType::GtEq if min_prec <= 6 => Some(6),
-                TokenType::Plus | TokenType::Minus if min_prec <= 7 => Some(7),
-                TokenType::Star | TokenType::Slash | TokenType::Percent if min_prec <= 8 => Some(8),
-                 _ => None,
-             };
             
-             if let Some(op_prec) = prec {
+            // Get operator precedence (higher number = tighter binding)
+            let op_prec: Option<usize> = match op_kind {
+                TokenType::OrOr => Some(1),
+                TokenType::AndAnd => Some(2),
+                TokenType::Pipe => Some(3),
+                TokenType::Caret => Some(4),
+                TokenType::And => Some(5),
+                TokenType::EqEquals | TokenType::Not | TokenType::Lt | TokenType::Gt | TokenType::LtEq | TokenType::GtEq 
+                    => Some(6),
+                TokenType::Plus | TokenType::Minus => Some(7),
+                TokenType::Star | TokenType::Slash | TokenType::Percent => Some(8),
+                _ => None,
+            };
+            
+            // If operator has lower precedence than min_prec, we're done
+            if let Some(prec) = op_prec {
+                if prec < min_prec {
+                    break;
+                }
+                
                 let op_str = match op_kind {
                     TokenType::Plus => "+",
                     TokenType::Minus => "-",
@@ -527,22 +533,26 @@ impl Parser {
                     TokenType::Gt => ">",
                     TokenType::LtEq => "<=",
                     TokenType::GtEq => ">=",
-                     _ => break,
-                 };
-                let _ = self.stream.advance();
+                    _ => {
+                        // Not a binary operator we handle
+                        break;
+                    }
+                };
                 
-                 left = Expression::BinaryExpression(Box::new(BinaryExpression {
+                let _ = self.stream.advance();
+                // Parse right side with higher precedence to get next operand
+                left = Expression::BinaryExpression(Box::new(BinaryExpression {
                     left: left,
                     operator: op_str.to_string(),
-                    right: self.parse_binary_expression(op_prec + 1),
-                 }));
-             } else {
+                    right: self.parse_binary_expression(prec + 1),
+                }));
+            } else {
                 break;
-             }
-         }
+            }
+        }
         
-         left
-     }
+        left
+    }
     
     fn parse_call_expression(&mut self) -> Expression {
         let mut expr = self.parse_primary_expression();
@@ -558,8 +568,8 @@ impl Parser {
                         while self.stream.accept(TokenType::Comma) {
                             let arg = self.parse_expression();
                             args.push(arg);
-                         }
-                         let _ = self.stream.advance();
+                        }
+                        let _ = self.stream.accept(TokenType::RightParen);
                       }
                     expr = Expression::CallExpression(Box::new(CallExpression {
                         callee: expr,
@@ -569,7 +579,7 @@ impl Parser {
                 Some(TokenType::LeftBracket) => {
                     let _ = self.stream.advance();
                     let index = self.parse_expression();
-                    let _ = self.stream.advance();
+                    let _ = self.stream.accept(TokenType::RightBracket);
                     let index_str = match &index {
                         Expression::Identifier(s) => s.clone(),
                          _ => "index".to_string(),
@@ -580,27 +590,35 @@ impl Parser {
                      }));
                   }
                 Some(TokenType::Dot) => {
-                    if self.stream.current_kind() == Some(&TokenType::LeftParen) {
-                        break;
-                     }
-                     let _ = self.stream.advance();
-                     if let Some(TokenType::Identifier) = self.stream.current_kind() {
-                        if let Some(token) = self.stream.tokens.get(self.stream.position) {
-                            let prop_name = token.value.clone();
-                            expr = Expression::MemberExpression(Box::new(MemberExpression {
-                                object: expr,
-                                property: prop_name,
-                             }));
-                          }
-                      }
-                     break;
-                   }
-                   _ => break,
+                    let _ = self.stream.advance();
+                    match self.stream.current_kind() {
+                        Some(TokenType::Identifier) => {
+                            let _ = self.stream.advance();
+                            if let Some(token) = self.stream.tokens.get(self.stream.position - 1) {
+                                let prop_name = token.value.clone();
+                                expr = Expression::MemberExpression(Box::new(MemberExpression {
+                                    object: expr,
+                                    property: prop_name,
+                                }));
+                            } else {
+                                expr = Expression::MemberExpression(Box::new(MemberExpression {
+                                    object: expr,
+                                    property: "unknown".to_string(),
+                                }));
+                            }
+                        }
+                        _ => {
+                            // No identifier after dot, stop the chain
+                            break;
+                        }
+                    }
                 }
-             }
+                _ => break,
+            }
+        }
         
-         expr
-     }
+        expr
+    }
     
     fn parse_function_expression(&mut self) -> Expression {
         let _ = self.stream.advance();
@@ -635,8 +653,8 @@ impl Parser {
             body: Some(Box::new(func_body)),
             is_async: false,
             generator: false,
-         }))
-     }
+        }))
+    }
     
     fn parse_primary_expression(&mut self) -> Expression {
         let kind = self.stream.current_kind().copied().unwrap_or(TokenType::Unknown);
@@ -697,8 +715,8 @@ impl Parser {
                 let _ = self.stream.advance();
                 Expression::Identifier("unknown".to_string())
              }
-         }
-     }
+        }
+    }
 }
 
 pub struct ParserOutput {
