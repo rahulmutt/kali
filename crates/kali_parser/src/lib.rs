@@ -130,7 +130,7 @@ impl Parser {
             _ => return None,
          };
         
-         // Advance past the keyword and parse name
+        // Advance past the keyword
         let _ = self.stream.advance();
         let name_token = self.stream.advance()?;
         let name = name_token.value;
@@ -141,7 +141,8 @@ impl Parser {
             None
          };
         
-         let _ = self.stream.accept(TokenType::Semicolon);
+        // Accept optional semicolon
+        let _ = self.stream.accept(TokenType::Semicolon);
         
          Some(Statement::VariableDeclaration(VariableDeclaration {
             kind,
@@ -218,7 +219,6 @@ impl Parser {
         
         let test = self.parse_expression();
         let _ = self.stream.accept(TokenType::RightParen);
-        let _ = self.stream.advance();
         
         let consequent = Box::new(self.parse_statement().unwrap_or(
             Statement::BlockStatement(BlockStatement { body: vec![] })
@@ -232,7 +232,7 @@ impl Parser {
             None
          };
         
-         let _ = self.stream.accept(TokenType::Semicolon);
+        let _ = self.stream.accept(TokenType::Semicolon);
         
          Some(Statement::IfStatement(IfStatement {
             test,
@@ -247,10 +247,9 @@ impl Parser {
         
         let test = self.parse_expression();
         let _ = self.stream.accept(TokenType::RightParen);
-        let _ = self.stream.advance();
         
         let body = self.parse_statement().unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
-         let _ = self.stream.accept(TokenType::Semicolon);
+        let _ = self.stream.accept(TokenType::Semicolon);
         
          Some(Statement::WhileStatement(WhileStatement {
             test,
@@ -299,11 +298,11 @@ impl Parser {
             None
          };
         
-         let _ = self.stream.advance();
-         let _ = self.stream.accept(TokenType::RightParen);
+        let _ = self.stream.advance();
+        let _ = self.stream.accept(TokenType::RightParen);
         
         let body = self.parse_statement().unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
-         let _ = self.stream.accept(TokenType::Semicolon);
+        let _ = self.stream.accept(TokenType::Semicolon);
         
          Some(Statement::ForStatement(ForStatement {
             init,
