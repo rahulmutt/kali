@@ -9,3 +9,7 @@ kali_common = { workspace = true }
 kali_error = { workspace = true }
 kali_ast = { workspace = true }
 kali_types = { workspace = true }
+
+[dev-dependencies]
+kali_lexer = { workspace = true }
+kali_parser = { workspace = true }

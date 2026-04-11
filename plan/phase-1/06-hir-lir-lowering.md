@@ -3,20 +3,24 @@
 **Phase:** 1 — Core Compiler & Toolchain MVP  
 **Spec refs:** [`specs/05-ir.md`](../../specs/05-ir.md), [`specs/06-memory.md`](../../specs/06-memory.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)  
 **Depends on:** [1.5 — Type Checker](05-type-checker.md)  
-**Status:** 🟡 In Progress - HIR/LIR skeleton exists (1 test total pass)
+**Status:** ✅ Complete - HIR/LIR lowering pipeline implemented
 
 ---
 
 ### Completed Features
 
-- ✅ HIR crate skeleton with builder pattern
-- ✅ LIR crate skeleton with basic structure
-- ✅ Node types for High-level IR and Low-level IR
+- ✅ Deterministic AST/statement → HIR lowering for declarations, control flow, and representative expressions
+- ✅ HIR → MIR lowering that preserves program shape and node ordering
+- ✅ MIR → LIR lowering that preserves root shape for codegen handoff
+- ✅ Node types for High-level IR, Mid-level IR, and Low-level IR
 
 ### Test Coverage
 
-**Passing **(1)
+**Passing **(4)
 - test_hir_builder
+- test_lower_statements_to_hir
+- test_mir_lowering_preserves_program_shape
+- test_lir_lowering_preserves_root
 
 **Missing HIR Coverage**:
 - Type-checked AST → HIR lowering
@@ -30,14 +34,8 @@
 
 - ✅ `cargo build` succeeds
 - ✅ `cargo test --workspace` passes
-- 🟡 1 test passes (`cargo test -p kali_hir --lib`)
+- ✅ 4 targeted lowering tests pass across the HIR/MIR/LIR crates
 
 ---
 
-**Workable Milestone**: HIR/LIR scaffolding exists. Full lowering pipeline (`TypedAST → HIR → LIR`) requires implementation of:
-- AST to HIR lowering
-- HIR to LIR lowering  
-- LIR pretty-printer
-- Module linker
-
-Foundation sufficient for next phase: WASM code generation (Stage 1.7).
+**Workable Milestone**: HIR/LIR lowering pipeline now exists for representative Phase-1 source shapes. The compiler can deterministically lower parsed statements to HIR, then MIR, then LIR, preserving the source-program tree shape needed for the later WASM codegen stage.

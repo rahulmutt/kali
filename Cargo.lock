@@ -329,6 +329,8 @@ dependencies = [
  "kali_ast",
  "kali_common",
  "kali_error",
+ "kali_lexer",
+ "kali_parser",
  "kali_types",
 ]
 
@@ -354,7 +356,10 @@ version = "0.1.0"
 dependencies = [
  "kali_common",
  "kali_error",
+ "kali_hir",
+ "kali_lexer",
  "kali_mir",
+ "kali_parser",
 ]
 
 [[package]]
@@ -364,6 +369,8 @@ dependencies = [
  "kali_common",
  "kali_error",
  "kali_hir",
+ "kali_lexer",
+ "kali_parser",
 ]
 
 [[package]]

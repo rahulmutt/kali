@@ -8,3 +8,8 @@ license.workspace = true
 kali_common = { workspace = true }
 kali_error = { workspace = true }
 kali_mir = { workspace = true }
+
+[dev-dependencies]
+kali_hir = { workspace = true }
+kali_lexer = { workspace = true }
+kali_parser = { workspace = true }
