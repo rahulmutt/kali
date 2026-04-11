@@ -19,7 +19,7 @@
 
 ## Next Work
 
-### Stage 1.7 - WASM Code Generation
-- [ ] Lower LIR to runnable WASM modules
-- [ ] Add codegen tests for representative JS/TS snippets
+### Stage 1.8 - Runtime Execution
+- [ ] Wire wasmtime execution to the emitted WASM modules
+- [ ] Add smoke tests for `kali run` and `kali test`
 - [ ] Keep the compiler pipeline deterministic and runnable end-to-end

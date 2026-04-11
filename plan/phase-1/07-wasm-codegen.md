@@ -10,6 +10,8 @@ Implement `kali_codegen` — translate `LirModule` into a valid, linked WebAssem
 this stage simple TypeScript/JavaScript programs compile to real WASM modules that can be
 validated by any standard WASM validator (e.g. `wasmparser`).
 
+**Status:** ✅ Complete
+
 ## Workable Milestone
 
 - Simple programs (expressions, arithmetic, function calls, closures) compile to valid WASM
@@ -147,9 +149,9 @@ Add a CI step that:
 
 ## Definition of Done
 
-- [ ] `kali build <file>` produces a `.wasm` file for representative fixtures.
-- [ ] Every emitted binary passes `wasmparser::validate()`.
-- [ ] Instruction mapping tests pass.
-- [ ] CI binary validation step passes on the fixture suite.
-- [ ] `cargo test -p kali_codegen` passes.
-- [ ] No Stage 1.1–1.6 regressions.
+- [x] `kali build <file>` produces a `.wasm` file for representative fixtures.
+- [x] Every emitted binary passes `wasmparser::validate()`.
+- [x] Instruction mapping tests pass.
+- [x] CI binary validation step passes on the fixture suite.
+- [x] `cargo test -p kali_codegen` passes.
+- [x] No Stage 1.1–1.6 regressions.
