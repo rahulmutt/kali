@@ -82,9 +82,9 @@ impl Parser {
         while !self.stream.eof() {
             if let Some(stmt) = self.parse_statement() {
                 statements.push(stmt);
-                // parse_statement already advanced past the statement
             } else {
-                self.stream.advance();   // Skip token on parse failure
+                // Statement parsing failed, advance to avoid infinite loop
+                let _ = self.stream.advance();
             }
         }
         
@@ -130,7 +130,7 @@ impl Parser {
             _ => return None,
          };
         
-         // Ensure we advance at least once
+         // Advance past the keyword and parse name
         let _ = self.stream.advance();
         let name_token = self.stream.advance()?;
         let name = name_token.value;
@@ -147,7 +147,7 @@ impl Parser {
             kind,
             declarations: vec![VariableDeclarator { id: name, init }],
          }))
-     }
+    }
     
     fn parse_block_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
@@ -158,7 +158,7 @@ impl Parser {
             if let Some(stmt) = self.parse_statement() {
                 statements.push(stmt);
              } else {
-                self.stream.advance();
+                let _ = self.stream.advance();
              }
          }
         Some(Statement::BlockStatement(BlockStatement { body: statements }))
@@ -182,7 +182,6 @@ impl Parser {
              }
          }
         
-        let _ = self.stream.advance();
         let body_block = match self.parse_block_statement() {
             Some(Statement::BlockStatement(bs)) => bs,
              _ => BlockStatement { body: Vec::new() },
@@ -487,12 +486,15 @@ impl Parser {
      }
     
     fn parse_expression(&mut self) -> Expression {
+        eprintln!("parse_expression called, current = {:?}", self.stream.current_kind());
         self.parse_binary_expression(0)
-     }
+    }
     
     fn parse_binary_expression(&mut self, min_prec: usize) -> Expression {
+        eprintln!("parse_binary_expression(min_prec={}): position={}, current={:?}", min_prec, self.stream.position, self.stream.current_kind());
         let mut left = self.parse_call_expression();
         
+        let mut iterations = 0;
         loop {
             let op_kind = self.stream.current_kind().copied().unwrap_or(TokenType::Unknown);
             
@@ -512,7 +514,9 @@ impl Parser {
             
             // If operator has lower precedence than min_prec, we're done
             if let Some(prec) = op_prec {
+                eprintln!("  operator {:?} with prec={}, min_prec={}, advancing", op_kind, prec, min_prec);
                 if prec < min_prec {
+                    eprintln!("  breaking: prec < min_prec");
                     break;
                 }
                 
@@ -534,19 +538,27 @@ impl Parser {
                     TokenType::LtEq => "<=",
                     TokenType::GtEq => ">=",
                     _ => {
-                        // Not a binary operator we handle
-                        break;
-                    }
+                    eprintln!("  breaking: not a binary operator, current = {:?}", op_kind);
+                    // Not a binary operator we handle
+                    break;
+                }
                 };
                 
                 let _ = self.stream.advance();
                 // Parse right side with higher precedence to get next operand
+                // Using prec + 1 ensures left-associativity for same-precedence operators
                 left = Expression::BinaryExpression(Box::new(BinaryExpression {
                     left: left,
                     operator: op_str.to_string(),
                     right: self.parse_binary_expression(prec + 1),
                 }));
             } else {
+                eprintln!("  breaking: no operator precedence, current = {:?}", op_kind);
+                break;
+            }
+            iterations += 1;
+            if iterations > 100 {
+                eprintln!("BREAKING: too many iterations, current = {:?}", self.stream.current_kind());
                 break;
             }
         }
@@ -555,8 +567,10 @@ impl Parser {
     }
     
     fn parse_call_expression(&mut self) -> Expression {
+        eprintln!("parse_call_expression called, current = {:?}", self.stream.current_kind());
         let mut expr = self.parse_primary_expression();
         
+        let mut iterations = 0;
         loop {
              match self.stream.current_kind() {
                 Some(TokenType::LeftParen) => {
@@ -615,8 +629,14 @@ impl Parser {
                 }
                 _ => break,
             }
+            iterations += 1;
+            if iterations > 100 {
+                eprintln!("BREAKING: call expression too many iterations");
+                break;
+            }
         }
         
+        eprintln!("parse_call_expression returning, expr = {:?}", expr);
         expr
     }
     
@@ -694,7 +714,8 @@ impl Parser {
             TokenType::LeftParen => {
                 let _ = self.stream.advance();
                 let expr = self.parse_expression();
-                let _ = self.stream.advance();
+                // Expect closing paren
+                let _ = self.stream.accept(TokenType::RightParen);
                 Expression::ParenthesizedExpression(Box::new(ParenthesizedExpression { 
                     expression: Box::new(expr) 
                  }))
