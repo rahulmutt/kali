@@ -79,14 +79,14 @@ impl Parser {
     
     pub fn parse(&mut self, _path: Option<String>) -> ParserOutput {
         let mut statements = Vec::new();
-        while !self.stream.eof() && self.stream.position < self.stream.tokens.len() {
+        while !self.stream.eof() {
             if let Some(stmt) = self.parse_statement() {
                 statements.push(stmt);
-                self.stream.position += 1;   // Force advancement after successful parse
+                // parse_statement already advanced past the statement
             } else {
                 self.stream.advance();   // Skip token on parse failure
             }
-         }
+        }
         
         let root = ASTBuilder::new().into_ast();
         ParserOutput {
@@ -94,7 +94,7 @@ impl Parser {
             statements,
             diagnostics: self.diagnostics.clone(),
         }
-     }
+    }
     
     fn parse_statement(&mut self) -> Option<Statement> {
         let kind = self.stream.current_kind().copied().unwrap_or(TokenType::Unknown);
@@ -215,9 +215,10 @@ impl Parser {
     
     fn parse_if_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
-        let _ = self.stream.advance();
+        let _ = self.stream.accept(TokenType::LeftParen);
         
         let test = self.parse_expression();
+        let _ = self.stream.accept(TokenType::RightParen);
         let _ = self.stream.advance();
         
         let consequent = Box::new(self.parse_statement().unwrap_or(
@@ -243,9 +244,10 @@ impl Parser {
     
     fn parse_while_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
-        let _ = self.stream.advance();
+        let _ = self.stream.accept(TokenType::LeftParen);
         
         let test = self.parse_expression();
+        let _ = self.stream.accept(TokenType::RightParen);
         let _ = self.stream.advance();
         
         let body = self.parse_statement().unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
@@ -259,7 +261,7 @@ impl Parser {
     
     fn parse_for_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
-        let _ = self.stream.advance();
+        let _ = self.stream.accept(TokenType::LeftParen);
         
         let init = if self.stream.current_kind() == Some(&TokenType::Var) ||
                          self.stream.current_kind() == Some(&TokenType::Let) {
@@ -508,35 +510,35 @@ impl Parser {
              };
             
              if let Some(op_prec) = prec {
-                let _ = self.stream.advance();
-                let op_str = match self.stream.current_kind() {
-                    Some(&TokenType::Plus) => "+",
-                    Some(&TokenType::Minus) => "-",
-                    Some(&TokenType::Star) => "*",
-                    Some(&TokenType::Slash) => "/",
-                    Some(&TokenType::Percent) => "%",
-                    Some(&TokenType::AndAnd) => "&&",
-                    Some(&TokenType::OrOr) => "||",
-                    Some(&TokenType::Pipe) => "|",
-                    Some(&TokenType::Caret) => "^",
-                    Some(&TokenType::And) => "&",
-                    Some(&TokenType::EqEquals) => "==",
-                    Some(&TokenType::Not) => "!=",
-                    Some(&TokenType::Lt) => "<",
-                    Some(&TokenType::Gt) => ">",
-                    Some(&TokenType::LtEq) => "<=",
-                    Some(&TokenType::GtEq) => ">=",
+                let op_str = match op_kind {
+                    TokenType::Plus => "+",
+                    TokenType::Minus => "-",
+                    TokenType::Star => "*",
+                    TokenType::Slash => "/",
+                    TokenType::Percent => "%",
+                    TokenType::AndAnd => "&&",
+                    TokenType::OrOr => "||",
+                    TokenType::Pipe => "|",
+                    TokenType::Caret => "^",
+                    TokenType::And => "&",
+                    TokenType::EqEquals => "==",
+                    TokenType::Not => "!=",
+                    TokenType::Lt => "<",
+                    TokenType::Gt => ">",
+                    TokenType::LtEq => "<=",
+                    TokenType::GtEq => ">=",
                      _ => break,
                  };
+                let _ = self.stream.advance();
                 
                  left = Expression::BinaryExpression(Box::new(BinaryExpression {
                     left: left,
                     operator: op_str.to_string(),
                     right: self.parse_binary_expression(op_prec + 1),
                  }));
+             } else {
+                break;
              }
-            
-             let _ = self.stream.advance();  // Ensure we advance
          }
         
          left
@@ -640,16 +642,18 @@ impl Parser {
         let kind = self.stream.current_kind().copied().unwrap_or(TokenType::Unknown);
         match kind {
             TokenType::Identifier => {
-                let _ = self.stream.advance();
-                Expression::Identifier("x".to_string())
+                let token = self.stream.advance();
+                let name = token.map(|t| t.value).unwrap_or_else(|| "unknown".to_string());
+                Expression::Identifier(name)
              }
             TokenType::This => {
                 let _ = self.stream.advance();
                 Expression::ThisExpression
              }
             TokenType::True | TokenType::False => {
+                let is_true = self.stream.current_kind().copied() == Some(TokenType::True);
                 let _ = self.stream.advance();
-                Expression::Literal(kali_ast::LiteralValue::Boolean(true))
+                Expression::Literal(kali_ast::LiteralValue::Boolean(is_true))
              }
             TokenType::Null => {
                 let _ = self.stream.advance();
@@ -660,12 +664,14 @@ impl Parser {
                 Expression::Identifier("undefined".to_string())
              }
             TokenType::NumericLiteral => {
-                let _ = self.stream.advance();
-                Expression::Literal(kali_ast::LiteralValue::Number(0.0))
+                let token = self.stream.advance();
+                let value = token.map(|t| t.value.parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0);
+                Expression::Literal(kali_ast::LiteralValue::Number(value))
              }
             TokenType::StringLiteral | TokenType::Template | TokenType::Backtick => {
-                let _ = self.stream.advance();
-                Expression::Literal(kali_ast::LiteralValue::String("".to_string()))
+                let token = self.stream.advance();
+                let value = token.map(|t| t.value).unwrap_or_else(|| "".to_string());
+                Expression::Literal(kali_ast::LiteralValue::String(value))
              }
             TokenType::LeftParen => {
                 let _ = self.stream.advance();
