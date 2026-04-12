@@ -18,9 +18,10 @@
 - Added a deterministic intra-procedural ownership analyzer that classifies locals, parameters, returned bindings, and closure-captured bindings.
 - Promoted `CallExpr` lowering to MIR `Call` nodes so the existing LIR/codegen path can recognize call sites directly.
 - Added targeted MIR tests covering stack-local, owned-heap, shared-heap, and call-node lowering behavior.
+- Refined codegen to treat transparent single-child wrappers as layout-preserving pass-through nodes and to use a boolean-shaped branch fast path when the condition is already canonical 0/1, reducing a small amount of redundant truthiness coercion.
 
 **Date:** 2026-04-12  
-**Status:** Processed — Stage 2.1 ownership/layout groundwork landed in `kali_mir`
+**Status:** Processed — Stage 2.1 ownership/layout groundwork landed in `kali_mir` and the codegen refinement follow-up tightened
 
 ---
 

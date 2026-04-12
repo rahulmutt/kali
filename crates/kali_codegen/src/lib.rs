@@ -50,6 +50,19 @@ struct FunctionPlan {
     is_entry: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ValueShape {
+    Unknown,
+    Scalar,
+    Boolean,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct EmittedValue {
+    produced: bool,
+    shape: ValueShape,
+}
+
 struct FunctionEmitter<'a> {
     program: &'a LirProgram,
     node_lookup: &'a [LirNode],
@@ -90,7 +103,7 @@ impl<'a> FunctionEmitter<'a> {
         returns_value: bool,
     ) {
         let produced = self.emit_node(function, body, returns_value);
-        if returns_value && !produced {
+        if returns_value && !produced.produced {
             function.instruction(&Instruction::I64Const(0));
         }
     }
@@ -100,20 +113,38 @@ impl<'a> FunctionEmitter<'a> {
         function: &mut Function,
         children: &[LirNodeId],
         want_value: bool,
-    ) -> bool {
-        let mut produced = false;
+    ) -> EmittedValue {
+        let mut final_value = EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
+        };
         for (idx, child) in children.iter().enumerate() {
             let child_want_value = want_value && idx + 1 == children.len();
-            let child_produced = self.emit_node(function, *child, child_want_value);
-            if child_produced && !child_want_value {
+            let child_result = self.emit_node(function, *child, child_want_value);
+            if child_result.produced && !child_want_value {
                 function.instruction(&Instruction::Drop);
             }
-            produced = child_produced && child_want_value;
+            if child_want_value {
+                final_value = child_result;
+            }
         }
-        produced
+
+        if want_value {
+            final_value
+        } else {
+            EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            }
+        }
     }
 
-    fn emit_node(&mut self, function: &mut Function, id: LirNodeId, want_value: bool) -> bool {
+    fn emit_node(
+        &mut self,
+        function: &mut Function,
+        id: LirNodeId,
+        want_value: bool,
+    ) -> EmittedValue {
         let node = self.node(id).clone();
         match node.kind {
             LirNodeKind::Program | LirNodeKind::Block => {
@@ -122,33 +153,50 @@ impl<'a> FunctionEmitter<'a> {
             LirNodeKind::Instruction => {
                 if is_function_like(&self.program.nodes, id) {
                     // Function declarations are emitted separately from the body scan.
-                    return false;
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
                 }
                 self.emit_sequence(function, &node.children, false)
             }
             LirNodeKind::Literal => emit_literal(function, node.text.as_deref()),
-            LirNodeKind::Value => self.emit_value(function, &node),
+            LirNodeKind::Value => self.emit_value(function, &node, want_value),
             LirNodeKind::Call => self.emit_call(function, &node),
             LirNodeKind::Branch => self.emit_branch(function, &node, want_value),
             LirNodeKind::Unknown => {
                 function.instruction(&Instruction::Unreachable);
-                false
+                EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                }
             }
         }
     }
 
-    fn emit_value(&mut self, function: &mut Function, node: &LirNode) -> bool {
+    fn emit_value(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+        want_value: bool,
+    ) -> EmittedValue {
         match node.children.len() {
             0 => {
                 if let Some(text) = node.text.as_deref() {
                     if let Some(index) = self.locals.get(text).copied() {
                         function.instruction(&Instruction::LocalGet(index));
-                        return true;
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Unknown,
+                        };
                     }
 
                     if let Some(constant) = parse_number_literal(text) {
                         function.instruction(&Instruction::I64Const(constant));
-                        return true;
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
                     }
 
                     self.diagnostics.push(Diagnostic::warning(
@@ -156,19 +204,34 @@ impl<'a> FunctionEmitter<'a> {
                         format!("unresolved identifier '{}' lowered as 0", text),
                     ));
                     function.instruction(&Instruction::I64Const(0));
-                    true
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Unknown,
+                    }
                 } else {
                     function.instruction(&Instruction::I64Const(0));
-                    true
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Unknown,
+                    }
                 }
             }
-            1 => self.emit_unary(function, node),
+            1 => {
+                if node.text.as_deref().unwrap_or_default().is_empty() {
+                    self.emit_node(function, node.children[0], want_value)
+                } else {
+                    self.emit_unary(function, node)
+                }
+            }
             2 => self.emit_binary(function, node),
-            _ => false,
+            _ => EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            },
         }
     }
 
-    fn emit_unary(&mut self, function: &mut Function, node: &LirNode) -> bool {
+    fn emit_unary(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         let op = node.text.as_deref().unwrap_or_default();
         let arg = node.children[0];
         match op {
@@ -176,25 +239,34 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::I64Const(0));
                 let _ = self.emit_node(function, arg, true);
                 function.instruction(&Instruction::I64Sub);
-                true
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                }
             }
             "!" => {
                 let _ = self.emit_node(function, arg, true);
                 function.instruction(&Instruction::I64Eqz);
                 function.instruction(&Instruction::I64ExtendI32U);
-                true
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                }
             }
             _ => {
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,
                     format!("unsupported unary operator '{}'", op),
                 ));
-                false
+                EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                }
             }
         }
     }
 
-    fn emit_binary(&mut self, function: &mut Function, node: &LirNode) -> bool {
+    fn emit_binary(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         let op = node.text.as_deref().unwrap_or_default();
         let left = node.children[0];
         let right = node.children[1];
@@ -204,25 +276,53 @@ impl<'a> FunctionEmitter<'a> {
         match op {
             "+" => {
                 function.instruction(&Instruction::I64Add);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                }
             }
             "-" => {
                 function.instruction(&Instruction::I64Sub);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                }
             }
             "*" => {
                 function.instruction(&Instruction::I64Mul);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                }
             }
             "/" => {
                 function.instruction(&Instruction::I64DivS);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                }
             }
             "==" => {
                 function.instruction(&Instruction::I64Eq);
                 function.instruction(&Instruction::I64ExtendI32U);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                }
             }
             "&&" => {
                 function.instruction(&Instruction::I64And);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                }
             }
             "||" => {
                 function.instruction(&Instruction::I64Or);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                }
             }
             _ => {
                 self.diagnostics.push(Diagnostic::warning(
@@ -230,16 +330,21 @@ impl<'a> FunctionEmitter<'a> {
                     format!("unsupported binary operator '{}'", op),
                 ));
                 function.instruction(&Instruction::I64Add);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                }
             }
         }
-
-        true
     }
 
-    fn emit_call(&mut self, function: &mut Function, node: &LirNode) -> bool {
+    fn emit_call(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         let Some(callee) = node.children.first().copied() else {
             function.instruction(&Instruction::I64Const(0));
-            return true;
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
         };
 
         let callee_node = self.node(callee).clone();
@@ -247,14 +352,20 @@ impl<'a> FunctionEmitter<'a> {
             if let Some(callback_index) = self.kali_test_callback_index(node) {
                 function.instruction(&Instruction::I32Const(callback_index as i32));
                 function.instruction(&Instruction::Call(TEST_REGISTER_IMPORT_INDEX));
-                return false;
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
             }
 
             self.diagnostics.push(Diagnostic::warning(
                 e8::IR_UNREADABLE as u32,
                 "`Kali.test(...)` requires a function callback lowered as an exported function",
             ));
-            return false;
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
         }
 
         let callee_name = callee_node.text.as_deref().unwrap_or_default();
@@ -266,7 +377,10 @@ impl<'a> FunctionEmitter<'a> {
 
         if let Some(index) = resolved.take() {
             function.instruction(&Instruction::Call(index));
-            true
+            EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            }
         } else {
             self.diagnostics.push(Diagnostic::warning(
                 e8::IR_UNREADABLE as u32,
@@ -276,7 +390,10 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::Drop);
             }
             function.instruction(&Instruction::I64Const(0));
-            true
+            EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            }
         }
     }
 
@@ -297,18 +414,33 @@ impl<'a> FunctionEmitter<'a> {
         self.functions.get(callback_name).copied()
     }
 
-    fn emit_branch(&mut self, function: &mut Function, node: &LirNode, want_value: bool) -> bool {
+    fn emit_branch(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+        want_value: bool,
+    ) -> EmittedValue {
         let Some(cond) = node.children.first().copied() else {
             function.instruction(&Instruction::I64Const(0));
-            return true;
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
         };
 
         let then_branch = node.children.get(1).copied();
         let else_branch = node.children.get(2).copied();
 
-        let _ = self.emit_node(function, cond, true);
-        function.instruction(&Instruction::I64Eqz);
-        function.instruction(&Instruction::I32Eqz);
+        let condition = self.emit_node(function, cond, true);
+        match condition.shape {
+            ValueShape::Boolean => {
+                function.instruction(&Instruction::I32WrapI64);
+            }
+            ValueShape::Scalar | ValueShape::Unknown => {
+                function.instruction(&Instruction::I64Eqz);
+                function.instruction(&Instruction::I32Eqz);
+            }
+        }
         function.instruction(&Instruction::If(if want_value {
             BlockType::Result(ValType::I64)
         } else {
@@ -317,7 +449,7 @@ impl<'a> FunctionEmitter<'a> {
 
         if let Some(then_branch) = then_branch {
             let produced = self.emit_node(function, then_branch, want_value);
-            if want_value && !produced {
+            if want_value && !produced.produced {
                 function.instruction(&Instruction::I64Const(0));
             }
         } else if want_value {
@@ -327,7 +459,7 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(else_branch) = else_branch {
             function.instruction(&Instruction::Else);
             let produced = self.emit_node(function, else_branch, want_value);
-            if want_value && !produced {
+            if want_value && !produced.produced {
                 function.instruction(&Instruction::I64Const(0));
             }
         } else if want_value {
@@ -336,7 +468,10 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         function.instruction(&Instruction::End);
-        want_value
+        EmittedValue {
+            produced: want_value,
+            shape: ValueShape::Unknown,
+        }
     }
 }
 
@@ -526,16 +661,28 @@ fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {
     children
 }
 
-fn emit_literal(function: &mut Function, text: Option<&str>) -> bool {
+fn emit_literal(function: &mut Function, text: Option<&str>) -> EmittedValue {
     match text {
         Some("true") => {
             function.instruction(&Instruction::I64Const(1));
+            EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            }
         }
         Some("false") => {
             function.instruction(&Instruction::I64Const(0));
+            EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            }
         }
         Some("null") | Some("undefined") => {
             function.instruction(&Instruction::I64Const(0));
+            EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            }
         }
         Some(text) => {
             if let Some(number) = parse_number_literal(text) {
@@ -543,12 +690,19 @@ fn emit_literal(function: &mut Function, text: Option<&str>) -> bool {
             } else {
                 function.instruction(&Instruction::I64Const(0));
             }
+            EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            }
         }
         None => {
             function.instruction(&Instruction::I64Const(0));
+            EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            }
         }
     }
-    true
 }
 
 fn parse_number_literal(text: &str) -> Option<i64> {
@@ -627,7 +781,7 @@ mod tests {
         let mut ctx = CodegenCtx::new(TargetConfig { optimize: false });
         let result = lower_lir_to_wasm(&mut ctx, &program);
 
-        assert!(result.diagnostics.is_empty());
+        assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
         Validator::new()
             .validate_all(&result.wasm_bytes)
             .expect("generated wasm should validate");
@@ -644,6 +798,29 @@ mod tests {
         assert_eq!(plans.len(), 1);
         assert_eq!(plans[0].name, "add");
         assert_eq!(plans[0].params, vec!["a", "b"]);
+    }
+
+    fn parse_and_lower_lir(source: &str) -> LirProgram {
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+        let mut hir_lowerer = kali_hir::HirLowerer::new();
+        let hir = hir_lowerer.lower_statements(&statements);
+        let mir = kali_mir::MirLowerer::new().lower_hir_result(&hir);
+        kali_lir::LirLowerer::new().lower_program(&mir)
+    }
+
+    #[test]
+    fn boolean_branches_use_the_layout_fast_path() {
+        let program = parse_and_lower_lir("if (1 == 1) { 7; } else { 9; }");
+        let mut ctx = CodegenCtx::new(TargetConfig { optimize: false });
+        let result = lower_lir_to_wasm(&mut ctx, &program);
+
+        assert!(result.diagnostics.is_empty());
+        let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+        assert!(printed.contains("i32.wrap_i64"));
+        assert!(!printed.contains("i64.eqz"));
     }
 
     fn legacy_phase1_baseline(program: &LirProgram, mir: &kali_mir::MirProgram) -> LirProgram {

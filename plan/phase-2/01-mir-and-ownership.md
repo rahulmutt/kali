@@ -27,8 +27,9 @@ counting placeholder with deterministic compile-time ownership decisions: `stack
   analyzer. Call-expression lowering now emits MIR `Call` nodes as part of the Phase-2 bridge.
   The codebase now also includes a MIR-backed LIR diff/benchmark harness that simulates the Phase-1
   conservative direct-lowering overhead on a stable legacy baseline so the stage can measure the
-  smaller MIR-backed output against the legacy shape-preserving path. The remaining work for this
-  stage is the deeper layout-aware codegen refinement itself.
+  smaller MIR-backed output against the legacy shape-preserving path. Layout-aware codegen now
+  also recognizes transparent single-child wrappers and boolean-shaped branch conditions so it can
+  skip the redundant truthiness cast when the shape is already known to be canonical 0/1.
 
 ## Tasks
 
