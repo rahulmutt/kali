@@ -282,10 +282,8 @@ fn check_command(
             if success { 0 } else { 1 },
             output,
         );
-    } else if success {
-        if !output.quiet {
-            println!("Checked {} file(s)", checked);
-        }
+    } else if success && !output.quiet {
+        println!("Checked {} file(s)", checked);
     }
 
     if success {
@@ -295,6 +293,7 @@ fn check_command(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_command(
     files: Vec<String>,
     sandbox: Option<PathBuf>,
@@ -1301,11 +1300,7 @@ fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Res
         if fix {
             println!("Fixed {} file(s)", fixed);
         }
-        if had_error {
-            println!("Linted {} file(s)", processed);
-        } else {
-            println!("Linted {} file(s)", processed);
-        }
+        println!("Linted {} file(s)", processed);
     }
 
     if had_error {
@@ -1520,6 +1515,7 @@ fn matches_test_filter(file: &str, pattern: &str) -> bool {
     file.contains(pattern) || name.contains(pattern)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn print_envelope(
     command: &str,
     success: bool,

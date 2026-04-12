@@ -231,9 +231,8 @@ pub fn build_mode_from_flags(fast: bool, release: bool, release_advanced: bool) 
         BuildMode::ReleaseAdvanced
     } else if release {
         BuildMode::Release
-    } else if fast {
-        BuildMode::Fast
     } else {
+        let _ = fast;
         BuildMode::Fast
     }
 }

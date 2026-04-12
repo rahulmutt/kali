@@ -24,6 +24,11 @@ impl Optimizer {
     }
 
     pub fn optimize(&self, _lir: LirNodeId) -> LirNodeId {
-        LirNodeId::new(0)
+        match self.level {
+            OptimizationLevel::Fast
+            | OptimizationLevel::Release
+            | OptimizationLevel::ReleaseAdvanced
+            | OptimizationLevel::Default => LirNodeId::new(0),
+        }
     }
 }

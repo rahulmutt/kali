@@ -118,7 +118,7 @@ mod tests {
     #[test]
     fn test_interner_deduplicates() {
         let mut interned = Interner::new();
-        let s1 = interned.intern("world");
+        let _s1 = interned.intern("world");
 
         assert!(interned.is_interned("world"));
         assert!(!interned.is_interned("not_world"));

@@ -682,17 +682,15 @@ fn walk_statement_for_var_rules(
             }
         }
         Statement::ForStatement(stmt) => {
-            if let Some(init) = &stmt.init {
-                if let kali_ast::ForInit::VariableDeclaration(decl) = init {
-                    check_variable_declaration_kind(
-                        &decl.kind,
-                        decl.declarations.iter().any(|item| item.init.is_some()),
-                        let_tokens,
-                        declaration_index,
-                        diagnostics,
-                        fix_plan,
-                    );
-                }
+            if let Some(kali_ast::ForInit::VariableDeclaration(decl)) = &stmt.init {
+                check_variable_declaration_kind(
+                    &decl.kind,
+                    decl.declarations.iter().any(|item| item.init.is_some()),
+                    let_tokens,
+                    declaration_index,
+                    diagnostics,
+                    fix_plan,
+                );
             }
             walk_statement_for_var_rules(
                 &Statement::BlockStatement((*stmt.body).clone()),

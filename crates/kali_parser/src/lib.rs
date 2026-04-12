@@ -450,7 +450,7 @@ impl Parser {
 
                 let mut consequent = Vec::new();
                 loop {
-                    let stop = self.stream.current_kind().map_or(true, |k| {
+                    let stop = self.stream.current_kind().is_none_or(|k| {
                         matches!(
                             k,
                             TokenType::Case | TokenType::Default | TokenType::RightBrace
@@ -475,9 +475,10 @@ impl Parser {
 
                 let mut consequent = Vec::new();
                 loop {
-                    let stop = self.stream.current_kind().map_or(true, |k| {
-                        matches!(k, TokenType::Case | TokenType::RightBrace)
-                    });
+                    let stop = self
+                        .stream
+                        .current_kind()
+                        .is_none_or(|k| matches!(k, TokenType::Case | TokenType::RightBrace));
                     if stop {
                         break;
                     }
@@ -689,7 +690,7 @@ impl Parser {
                 // Parse right side with higher precedence to get next operand
                 // Using prec + 1 ensures left-associativity for same-precedence operators
                 left = Expression::BinaryExpression(Box::new(BinaryExpression {
-                    left: left,
+                    left,
                     operator: op_str.to_string(),
                     right: self.parse_binary_expression(prec + 1),
                 }));
@@ -723,10 +724,8 @@ impl Parser {
                         }
                         let _ = self.stream.accept(TokenType::RightParen);
                     }
-                    expr = Expression::CallExpression(Box::new(CallExpression {
-                        callee: expr,
-                        args: args,
-                    }));
+                    expr =
+                        Expression::CallExpression(Box::new(CallExpression { callee: expr, args }));
                 }
                 Some(TokenType::LeftBracket) => {
                     let _ = self.stream.advance();
@@ -853,7 +852,7 @@ impl Parser {
             }
             TokenType::StringLiteral | TokenType::Template | TokenType::Backtick => {
                 let token = self.stream.advance();
-                let value = token.map(|t| t.value).unwrap_or_else(|| "".to_string());
+                let value = token.map(|t| t.value).unwrap_or_default();
                 Expression::Literal(kali_ast::LiteralValue::String(value))
             }
             TokenType::LeftParen => {
@@ -870,14 +869,14 @@ impl Parser {
                 let _ = self.stream.advance();
                 let callee = self.parse_call_expression();
                 let mut args = Vec::new();
-                if self.stream.accept(TokenType::LeftParen) {
-                    if !self.stream.accept(TokenType::RightParen) {
+                if self.stream.accept(TokenType::LeftParen)
+                    && !self.stream.accept(TokenType::RightParen)
+                {
+                    args.push(self.parse_expression());
+                    while self.stream.accept(TokenType::Comma) {
                         args.push(self.parse_expression());
-                        while self.stream.accept(TokenType::Comma) {
-                            args.push(self.parse_expression());
-                        }
-                        let _ = self.stream.accept(TokenType::RightParen);
                     }
+                    let _ = self.stream.accept(TokenType::RightParen);
                 }
                 Expression::NewExpression(Box::new(kali_ast::NewExpression { callee, args }))
             }

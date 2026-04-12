@@ -603,7 +603,7 @@ fn resolve_import_map_specifier(
             specifier == key
         };
 
-        if matched && best.map_or(true, |(best_key, _)| key.len() > best_key.len()) {
+        if matched && best.is_none_or(|(best_key, _)| key.len() > best_key.len()) {
             best = Some((key.as_str(), target.as_str()));
         }
     }
@@ -1001,6 +1001,7 @@ fn record_install_path(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn install_registry_package(
     root: &Path,
     lock: &mut LockFile,
@@ -2087,7 +2088,7 @@ fn raw_url_file_name(url: &str) -> Option<String> {
         .and_then(|parsed| {
             parsed
                 .path_segments()?
-                .last()
+                .next_back()
                 .map(|segment| segment.to_string())
         })
         .filter(|name| !name.is_empty())

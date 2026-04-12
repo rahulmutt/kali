@@ -79,7 +79,7 @@ impl Span {
 
         let column = source[..self.start as usize]
             .split('\n')
-            .last()
+            .next_back()
             .map(|l| l.chars().count() + 1)
             .unwrap_or(1);
 
@@ -125,11 +125,7 @@ pub struct LocationInfo {
 impl LocationInfo {
     /// Format this location information for display.
     pub fn display(&self) -> String {
-        if self.multi_line {
-            format!("line {}:{}", self.line, self.column)
-        } else {
-            format!("line {}:{}", self.line, self.column)
-        }
+        format!("line {}:{}", self.line, self.column)
     }
 }
 

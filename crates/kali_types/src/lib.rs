@@ -319,7 +319,7 @@ impl TypeContext {
                 self.resolve_block_statement(block);
                 if let Some(CatchClause { param, body }) = handler {
                     self.push_scope(ScopeType::Catch);
-                    let _ = self.bind_current_scope(param.clone());
+                    self.bind_current_scope(param.clone());
                     self.resolve_block_body(body);
                     self.pop_scope();
                 }
@@ -386,14 +386,14 @@ impl TypeContext {
                 self.resolve_expression(test);
             }
             Statement::FunctionDeclaration(FunctionDeclaration { name, params, body }) => {
-                let _ = self.bind_current_scope(name.clone());
+                self.bind_current_scope(name.clone());
                 self.push_scope(ScopeType::Function);
-                let _ = self.bind_name_list(params);
+                self.bind_name_list(params);
                 self.resolve_block_body(body);
                 self.pop_scope();
             }
             Statement::ClassDeclaration(ClassDeclaration { name, body }) => {
-                let _ = self.bind_current_scope(name.clone());
+                self.bind_current_scope(name.clone());
                 self.resolve_class_body(body);
             }
             Statement::VariableDeclaration(declaration) => {
@@ -405,10 +405,10 @@ impl TypeContext {
             Statement::ExportNamed(declaration) => self.resolve_export_named(declaration),
             Statement::ExportDefault(declaration) => self.resolve_export_default(declaration),
             Statement::EnumDeclaration(EnumDeclaration { name, members }) => {
-                let _ = self.bind_current_scope(name.clone());
+                self.bind_current_scope(name.clone());
                 self.push_scope(ScopeType::Class);
                 for EnumMember { name, value } in members {
-                    let _ = self.bind_current_scope(name.clone());
+                    self.bind_current_scope(name.clone());
                     if let Some(value) = value {
                         self.resolve_expression(value);
                     }
@@ -420,17 +420,17 @@ impl TypeContext {
                 type_params,
                 type_annotation,
             }) => {
-                let _ = self.bind_current_scope(name.clone());
+                self.bind_current_scope(name.clone());
                 self.push_scope(ScopeType::TypeAlias);
-                let _ = self.bind_type_params(type_params);
+                self.bind_type_params(type_params);
                 self.resolve_type_annotation_text(type_annotation);
                 self.pop_scope();
             }
             Statement::InterfaceDeclaration(InterfaceDeclaration { name, properties }) => {
-                let _ = self.bind_current_scope(name.clone());
+                self.bind_current_scope(name.clone());
                 self.push_scope(ScopeType::Interface);
                 for property in properties {
-                    let _ = self.bind_current_scope(property.name.clone());
+                    self.bind_current_scope(property.name.clone());
                     self.resolve_type_annotation_text(&property.type_annotation);
                 }
                 self.pop_scope();
@@ -473,7 +473,7 @@ impl TypeContext {
     fn resolve_variable_declaration(&mut self, declaration: &VariableDeclaration) {
         let target_scope = self.variable_binding_scope(&declaration.kind);
         for declarator in &declaration.declarations {
-            let _ = self.bind_in_scope(target_scope, declarator.id.clone());
+            self.bind_in_scope(target_scope, declarator.id.clone());
         }
         for declarator in &declaration.declarations {
             if let Some(init) = &declarator.init {
@@ -511,15 +511,13 @@ impl TypeContext {
             Expression::CallExpression(expr) => self.resolve_call_expression(expr),
             Expression::MemberExpression(expr) => self.resolve_member_expression(expr),
             Expression::ArrayExpression(ArrayExpression { elements }) => {
-                for element in elements {
-                    if let Some(element) = element {
-                        match element {
-                            ExpressionOrSpread::Expression(expr) => self.resolve_expression(expr),
-                            ExpressionOrSpread::Spread(spread) => {
-                                self.resolve_expression(&spread.argument)
-                            }
-                            ExpressionOrSpread::Empty => {}
+                for element in elements.iter().flatten() {
+                    match element {
+                        ExpressionOrSpread::Expression(expr) => self.resolve_expression(expr),
+                        ExpressionOrSpread::Spread(spread) => {
+                            self.resolve_expression(&spread.argument)
                         }
+                        ExpressionOrSpread::Empty => {}
                     }
                 }
             }
@@ -617,9 +615,9 @@ impl TypeContext {
     fn resolve_function_expression(&mut self, expr: &FunctionExpression) {
         self.push_scope(ScopeType::Function);
         if let Some(name) = &expr.id {
-            let _ = self.bind_current_scope(name.clone());
+            self.bind_current_scope(name.clone());
         }
-        let _ = self.bind_function_params(&expr.params);
+        self.bind_function_params(&expr.params);
         if let Some(body) = &expr.body {
             self.resolve_block_body(body);
         }
@@ -628,7 +626,7 @@ impl TypeContext {
 
     fn resolve_arrow_function(&mut self, expr: &ArrowFunctionExpression) {
         self.push_scope(ScopeType::Function);
-        let _ = self.bind_function_params(&expr.params);
+        self.bind_function_params(&expr.params);
         self.resolve_expression(&expr.body);
         self.pop_scope();
     }
@@ -636,7 +634,7 @@ impl TypeContext {
     fn resolve_class_expression(&mut self, expr: &ClassExpression) {
         self.push_scope(ScopeType::Class);
         if let Some(name) = &expr.id {
-            let _ = self.bind_current_scope(name.clone());
+            self.bind_current_scope(name.clone());
         }
         self.resolve_class_body(&expr.body);
         self.pop_scope();
@@ -645,9 +643,9 @@ impl TypeContext {
     fn resolve_class_body(&mut self, body: &ClassBody) {
         self.push_scope(ScopeType::Class);
         for method in &body.methods {
-            let _ = self.bind_current_scope(method.name.clone());
+            self.bind_current_scope(method.name.clone());
             self.push_scope(ScopeType::Function);
-            let _ = self.bind_name_list(&method.params);
+            self.bind_name_list(&method.params);
             if let Some(body) = &method.body {
                 self.resolve_block_body(body);
             }
@@ -674,15 +672,15 @@ impl TypeContext {
         for specifier in &declaration.specifiers {
             match specifier {
                 ImportSpecifier::Default(local) => {
-                    let _ = self.bind_current_scope(local.clone());
+                    self.bind_current_scope(local.clone());
                 }
                 ImportSpecifier::Named(specifiers) | ImportSpecifier::Type(specifiers) => {
                     for specifier in specifiers {
-                        let _ = self.bind_current_scope(specifier.local.clone());
+                        self.bind_current_scope(specifier.local.clone());
                     }
                 }
                 ImportSpecifier::Namespace(local) => {
-                    let _ = self.bind_current_scope(local.clone());
+                    self.bind_current_scope(local.clone());
                 }
                 ImportSpecifier::SideEffect => {}
             }
@@ -713,8 +711,8 @@ impl TypeContext {
             kali_ast::ExportDefaultDeclaration::Expression(expr) => self.resolve_expression(expr),
             kali_ast::ExportDefaultDeclaration::FunctionDeclaration(func) => {
                 self.push_scope(ScopeType::Function);
-                let _ = self.bind_current_scope(func.name.clone());
-                let _ = self.bind_function_params(
+                self.bind_current_scope(func.name.clone());
+                self.bind_function_params(
                     &func
                         .params
                         .iter()
@@ -727,7 +725,7 @@ impl TypeContext {
             }
             kali_ast::ExportDefaultDeclaration::ClassDeclaration(class) => {
                 self.push_scope(ScopeType::Class);
-                let _ = self.bind_current_scope(class.name.clone());
+                self.bind_current_scope(class.name.clone());
                 self.resolve_class_body(&class.body);
                 self.pop_scope();
             }

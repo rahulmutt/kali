@@ -19,6 +19,7 @@ impl CliOutputOptions {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn emit_envelope_value(
     command: &str,
     success: bool,
@@ -48,6 +49,7 @@ pub fn emit_envelope_value(
     Value::Object(envelope)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn emit_envelope(
     command: &str,
     success: bool,

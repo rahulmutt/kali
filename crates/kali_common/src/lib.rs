@@ -41,7 +41,7 @@ impl SourceRegistry {
 
         // Find existing file by path
         for (&fid, file) in &self.files {
-            if PathBuf::from(&file.path) == path_buf {
+            if Path::new(&file.path) == path_buf.as_path() {
                 return fid;
             }
         }

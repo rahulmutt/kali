@@ -14,9 +14,7 @@ use url::Url;
 static TIME_ORIGIN: OnceLock<Instant> = OnceLock::new();
 
 /// Initialize the Web API compatibility surface.
-pub fn web_api_init() -> Result<(), ()> {
-    Ok(())
-}
+pub fn web_api_init() {}
 
 /// Encode text as UTF-8 bytes for the Web baseline text encoder.
 pub fn text_encode(input: &str) -> Vec<u8> {
@@ -155,10 +153,13 @@ impl CustomEvent {
     }
 }
 
+type EventListener = Box<dyn FnMut(&Event) + Send + 'static>;
+type ListenerMap = BTreeMap<String, Vec<EventListener>>;
+
 /// A minimal event target used by the support library.
 #[derive(Default, Clone)]
 pub struct EventTarget {
-    listeners: Arc<Mutex<BTreeMap<String, Vec<Box<dyn FnMut(&Event) + Send + 'static>>>>>,
+    listeners: Arc<Mutex<ListenerMap>>,
 }
 
 impl EventTarget {

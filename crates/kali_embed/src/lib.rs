@@ -1,6 +1,7 @@
 //! Embedding interfaces for Kali.
 
 /// Embedding context.
+#[derive(Default)]
 pub struct EmbeddingCtx;
 
 impl EmbeddingCtx {
@@ -9,7 +10,7 @@ impl EmbeddingCtx {
     }
 
     /// Build a library artifact.
-    pub fn build_library(&self, _source: &str) -> Result<Vec<u8>, ()> {
-        Ok(vec![])
+    pub fn build_library(&self, _source: &str) -> Vec<u8> {
+        Vec::new()
     }
 }

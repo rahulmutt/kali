@@ -512,8 +512,8 @@ pub enum Expression {
     BigIntLiteral(String),
 }
 
-impl Expression {
-    pub fn as_ref(&self) -> &Self {
+impl AsRef<Expression> for Expression {
+    fn as_ref(&self) -> &Expression {
         self
     }
 }
