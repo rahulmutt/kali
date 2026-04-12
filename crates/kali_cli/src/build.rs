@@ -197,14 +197,23 @@ pub fn executable_output_path_for(source_path: &Path, out_dir: Option<&Path>) ->
     }
 }
 
-pub fn library_output_paths_for(source_path: &Path, out_dir: Option<&Path>) -> (PathBuf, PathBuf) {
+pub fn library_output_paths_for(
+    source_path: &Path,
+    out_dir: Option<&Path>,
+) -> (PathBuf, PathBuf, PathBuf) {
     let stem = source_stem(source_path);
     let wasm_name = format!("{}.lib.wasm", stem);
+    let wit_name = format!("{}.lib.wit", stem);
     let meta_name = format!("{}.lib.meta.json", stem);
     match out_dir {
-        Some(dir) => (dir.join(&wasm_name), dir.join(&meta_name)),
+        Some(dir) => (
+            dir.join(&wasm_name),
+            dir.join(&wit_name),
+            dir.join(&meta_name),
+        ),
         None => (
             source_path.with_file_name(wasm_name),
+            source_path.with_file_name(wit_name),
             source_path.with_file_name(meta_name),
         ),
     }
@@ -224,6 +233,53 @@ pub fn bundle_output_paths_for(
         root.join(format!("{}.js", stem)),
         root.join(format!("{}.meta.json", stem)),
     )
+}
+
+pub fn capi_output_paths_for(
+    source_path: &Path,
+    out_dir: Option<&Path>,
+) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
+    let stem = source_stem(source_path);
+    let wasm_name = format!("{}.capi.wasm", stem);
+    let wit_name = format!("{}.wit", stem);
+    let header_name = format!("{}.h", stem);
+    let meta_name = format!("{}.capi.meta.json", stem);
+    match out_dir {
+        Some(dir) => (
+            dir.join(&wasm_name),
+            dir.join(&wit_name),
+            dir.join(&header_name),
+            dir.join(&meta_name),
+        ),
+        None => (
+            source_path.with_file_name(wasm_name),
+            source_path.with_file_name(wit_name),
+            source_path.with_file_name(header_name),
+            source_path.with_file_name(meta_name),
+        ),
+    }
+}
+
+pub fn component_output_paths_for(
+    source_path: &Path,
+    out_dir: Option<&Path>,
+) -> (PathBuf, PathBuf, PathBuf) {
+    let stem = source_stem(source_path);
+    let wasm_name = format!("{}.component.wasm", stem);
+    let wit_name = format!("{}.wit", stem);
+    let meta_name = format!("{}.component.meta.json", stem);
+    match out_dir {
+        Some(dir) => (
+            dir.join(&wasm_name),
+            dir.join(&wit_name),
+            dir.join(&meta_name),
+        ),
+        None => (
+            source_path.with_file_name(wasm_name),
+            source_path.with_file_name(wit_name),
+            source_path.with_file_name(meta_name),
+        ),
+    }
 }
 
 pub fn build_mode_from_flags(fast: bool, release: bool, release_advanced: bool) -> BuildMode {
@@ -297,6 +353,20 @@ pub fn append_metadata_section(
     }
     .append_to(wasm_bytes);
     Ok(())
+}
+
+pub fn library_wit_for(module_name: &str, exports: &[LibraryExport]) -> String {
+    let mut wit = String::from("package kali:embed;\n\nworld library {\n");
+    wit.push_str(&format!("  // module: {}\n", module_name));
+    for export in exports {
+        wit.push_str(&format!(
+            "  // signature: {}\n  export {}: func();\n",
+            export.signature,
+            sanitize_wit_identifier(&export.name)
+        ));
+    }
+    wit.push_str("}\n");
+    wit
 }
 
 pub fn collect_library_exports(
@@ -435,6 +505,27 @@ fn source_stem(source_path: &Path) -> String {
         .and_then(|stem| stem.to_str())
         .unwrap_or("main")
         .to_string()
+}
+
+fn sanitize_wit_identifier(name: &str) -> String {
+    let mut out = String::new();
+    for (index, ch) in name.chars().enumerate() {
+        let keep = ch.is_ascii_alphanumeric() || ch == '_';
+        if index == 0 && ch.is_ascii_digit() {
+            out.push('_');
+            out.push(ch);
+        } else if keep {
+            out.push(ch);
+        } else {
+            out.push('_');
+        }
+    }
+
+    if out.is_empty() {
+        "_".to_string()
+    } else {
+        out
+    }
 }
 
 fn has_errors(diagnostics: &[Diagnostic]) -> bool {

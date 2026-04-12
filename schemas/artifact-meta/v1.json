@@ -22,7 +22,9 @@
       "enum": [
         "executable",
         "lib",
-        "bundle"
+        "bundle",
+        "capi",
+        "component"
       ]
     },
     "entrypoint": {

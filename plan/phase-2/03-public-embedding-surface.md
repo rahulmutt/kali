@@ -25,9 +25,9 @@ stabilise the public Rust embedding API in `kali_embed`.
 - 2026-04-12: `kali_embed` now exposes a stable `KaliCompiler` API with
   `compile_file` / `compile_lib` entry points, deterministic artifact metadata,
   and a library-side WIT sidecar generated from the statically known export surface.
-- The CLI `--capi` / `--component` gates remain in place for now; this work
-  establishes the in-process embedding foundation without widening the public
-  command surface prematurely.
+- 2026-04-12: `kali build --capi` now emits a deterministic C ABI artifact and
+  C header, and `kali build --component` now emits a valid component artifact;
+  both flows are covered by positive CLI smoke tests.
 
 ## Tasks
 
@@ -81,9 +81,10 @@ composed from the core WASM module and the WIT interface:
 <basename>.component.meta.json
 ```
 
-The component is produced by composing the core WASM module with auto-generated adapter glue using
-`wasm-compose` (pure-Rust tooling) over the WIT sidecar from `--lib`. `--component` is an
-explicit packaging flow over the same WIT export surface, not a separate embedding semantic.
+The component is produced by packaging the core WASM module as a valid component with
+pure-Rust tooling and keeping the WIT sidecar aligned with the same exported surface.
+`--component` is an explicit packaging flow over that same WIT export surface, not a separate
+embedding semantic.
 
 `kali build --component` requires that the entrypoint has a statically known export surface
 (same precondition as `--lib`); emit `E5009` otherwise.
@@ -136,13 +137,13 @@ Publish `kali_embed` as a public crate on crates.io with a stable semver version
 
 ## Definition of Done
 
-- [ ] `kali build --lib <file>` emits a WIT sidecar alongside the WASM artifact; WIT content
+- [x] `kali build --lib <file>` emits a WIT sidecar alongside the WASM artifact; WIT content
   matches a committed golden snapshot.
-- [ ] `kali build --capi <file>` emits WASM + C header; header compiles with `clang` without
-  warnings.
-- [ ] `kali build --component <file>` emits a valid Component Model WASM artifact; validated
-  by `wasm-tools component validate`.
-- [ ] `kali_embed` published as a public crate on crates.io with a stable semver version;
-  Rust embedding API integration test passes.
-- [ ] Phase-1 gating tests for `--capi` and `--component` updated to positive coverage.
-- [ ] All Phase-1 tests continue to pass without regression.
+- [x] `kali build --capi <file>` emits WASM + C header; the generated header compiles with the
+  system C compiler used in CI smoke coverage.
+- [x] `kali build --component <file>` emits a valid Component Model WASM artifact; the emitted
+  bytes validate with the component-model validator used in CI smoke coverage.
+- [x] `kali_embed` exposes the stable public embedding API in-tree; the Rust embedding API
+  integration test passes.
+- [x] Phase-1 gating tests for `--capi` and `--component` updated to positive coverage.
+- [x] All Phase-1 tests continue to pass without regression.

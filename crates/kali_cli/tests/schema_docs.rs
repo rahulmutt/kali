@@ -70,7 +70,7 @@ fn core_schema_documents_match_current_cli_contracts() {
         &fs::read_to_string(root.join("schemas/result/build/v1.json")).expect("read build schema"),
     )
     .expect("parse build schema");
-    assert!(build["anyOf"].as_array().expect("anyOf array").len() >= 4);
+    assert_eq!(build["anyOf"].as_array().expect("anyOf array").len(), 6);
 
     let artifact_meta: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/artifact-meta/v1.json"))
@@ -83,7 +83,7 @@ fn core_schema_documents_match_current_cli_contracts() {
         .iter()
         .map(|value| value.as_str().expect("enum string"))
         .collect::<Vec<_>>();
-    assert_eq!(enum_values, vec!["executable", "lib", "bundle"]);
+    assert_eq!(enum_values, vec!["executable", "lib", "bundle", "capi", "component"]);
 }
 
 #[test]

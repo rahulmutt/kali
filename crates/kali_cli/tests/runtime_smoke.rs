@@ -571,9 +571,15 @@ fn build_emits_library_artifacts_and_metadata() {
     );
 
     let wasm_path = dir.path().join("math.lib.wasm");
+    let wit_path = dir.path().join("math.lib.wit");
     let meta_path = dir.path().join("math.lib.meta.json");
     assert!(wasm_path.exists(), "missing {}", wasm_path.display());
+    assert!(wit_path.exists(), "missing {}", wit_path.display());
     assert!(meta_path.exists(), "missing {}", meta_path.display());
+
+    let wit = fs::read_to_string(&wit_path).expect("read wit sidecar");
+    assert!(wit.contains("package kali:embed;"));
+    assert!(wit.contains("export add: func();"));
 
     let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
         .expect("parse metadata json");
@@ -1387,7 +1393,7 @@ fn test_rejects_browser_api_surface_in_phase_one() {
 }
 
 #[test]
-fn build_rejects_capi_artifact_mode_in_phase_one() {
+fn build_emits_capi_artifacts_and_header_compiles() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("lib.ts");
     fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
@@ -1400,13 +1406,56 @@ fn build_rejects_capi_artifact_mode_in_phase_one() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let wasm_path = source_path.with_file_name("lib.capi.wasm");
+    let wit_path = source_path.with_file_name("lib.wit");
+    let header_path = source_path.with_file_name("lib.h");
+    let meta_path = source_path.with_file_name("lib.capi.meta.json");
+    assert!(wasm_path.exists(), "missing {}", wasm_path.display());
+    assert!(wit_path.exists(), "missing {}", wit_path.display());
+    assert!(header_path.exists(), "missing {}", header_path.display());
+    assert!(meta_path.exists(), "missing {}", meta_path.display());
+
+    let wit = fs::read_to_string(&wit_path).expect("read wit sidecar");
+    assert!(wit.contains("package kali:embed;"));
+
+    let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
+        .expect("parse metadata json");
+    assert_eq!(metadata["schemaVersion"], 1);
+    assert_eq!(metadata["kind"], "cabi-metadata");
+    assert_eq!(metadata["hostAbiVersion"], 2);
+    assert_eq!(metadata["artifacts"]["wasmModule"], "lib.capi.wasm");
+    assert_eq!(metadata["artifacts"]["wit"], "lib.wit");
+    assert_eq!(metadata["artifacts"]["exportsHeader"], "lib.h");
+
+    let header_check = dir.path().join("header-check.c");
+    fs::write(
+        &header_check,
+        "#include \"lib.h\"\nint main(void) { return 0; }\n",
+    )
+    .expect("write header check");
+    let compile = Command::new("cc")
+        .current_dir(dir.path())
+        .arg("-fsyntax-only")
+        .arg(&header_check)
+        .output()
+        .expect("run cc");
+    assert!(
+        compile.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&compile.stdout),
+        String::from_utf8_lossy(&compile.stderr)
+    );
 }
 
 #[test]
-fn build_rejects_component_artifact_mode_in_phase_one() {
+fn build_emits_component_artifacts_and_valid_component_bytes() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("lib.ts");
     fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
@@ -1419,9 +1468,27 @@ fn build_rejects_component_artifact_mode_in_phase_one() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let component_path = source_path.with_file_name("lib.component.wasm");
+    let wit_path = source_path.with_file_name("lib.wit");
+    let meta_path = source_path.with_file_name("lib.component.meta.json");
+    assert!(component_path.exists(), "missing {}", component_path.display());
+    assert!(wit_path.exists(), "missing {}", wit_path.display());
+    assert!(meta_path.exists(), "missing {}", meta_path.display());
+
+    let wit = fs::read_to_string(&wit_path).expect("read wit sidecar");
+    assert!(wit.contains("package kali:embed;"));
+
+    let component_bytes = fs::read(&component_path).expect("read component bytes");
+    wasmparser::Validator::new()
+        .validate_all(&component_bytes)
+        .expect("generated component should validate");
 }
 
 #[test]

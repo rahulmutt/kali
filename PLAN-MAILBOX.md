@@ -1,17 +1,17 @@
-# Plan Mailbox — Stage 2.2 Public Effect-Reporting Notes
+# Plan Mailbox — Stage 2.3 Public Embedding Surface Notes
 
 ## Observations and Required Plan Updates
 
-### 1. Stage 2.2 is the next active implementation target
+### 1. Stage 2.3 public embedding artifacts are now implemented in-tree
 
-The current codebase is ready for the Phase-2 public effect-report surface work:
-- `kali effects` should move from a gated placeholder to a real native-JSON analysis command.
-- `kali package-effects` should follow with the single-package registry-analysis path over installed package materialization.
-- `check/build --sandbox` should gain compile-time inferred-effect-vs-policy rejection on the same command paths.
+The CLI now ships positive Phase-2 embedding coverage:
+- `kali build --capi` emits a deterministic C ABI artifact plus header output.
+- `kali build --component` emits a valid component artifact.
+- The runtime smoke suite now exercises both flows positively instead of treating them as gated placeholders.
 
-### 2. Stage progress updates needed after implementation
+### 2. Plan progress update requested
 
-Once the code lands, the relevant plan docs should be updated to reflect that Stage 2.2 has moved from planned to implemented work, while leaving Stage 2.3 and later Phase-2 items open.
+The Phase-2 stage 2.3 progress note and completion marker in `PLAN.md` were updated to reflect the implemented embedding surface and the passing workspace test run.
 
 **Date:** 2026-04-12  
-**Status:** Processed — Stage 2.2 implementation landed and the plan docs now reflect the completed public effect-report work
+**Status:** Processed — embedding artifact flows landed and plan progress was updated

@@ -12,6 +12,10 @@ use kali_npm::{
     discover_project_root, ensure_project_ready, install_project, load_manifest, InstallOptions,
     ProjectManifest,
 };
+use kali_capi::{
+    arity_from_signature, generate_header, generate_metadata as generate_capi_metadata,
+    Export as CApiExport,
+};
 use kali_runtime::RuntimeCtx;
 use kali_sandbox::{
     compare_effects_to_policy, effect_report_from_inference, infer_effects_from_roots,
@@ -23,7 +27,7 @@ use std::{
     path::{Path, PathBuf},
     time::Instant,
 };
-use wasm_encoder::{CustomSection, Section};
+use wasm_encoder::{Component, ComponentSectionId, CustomSection, RawSection, Section};
 
 fn main() {
     let args = Args::parse();
@@ -345,18 +349,6 @@ fn build_command(
         }
     }
 
-    if capi || component {
-        let diagnostic = Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            if capi {
-                "`kali build --capi` is unavailable in this phase"
-            } else {
-                "`kali build --component` is unavailable in this phase"
-            },
-        );
-        return emit_diagnostics_and_exit("build", vec![diagnostic], 1, output, None, None);
-    }
-
     let effective_api = match resolve_effective_api_surface(api) {
         Ok(api) => api,
         Err(diagnostics) => {
@@ -394,6 +386,10 @@ fn build_command(
     let out_dir_path = out_dir.as_deref();
     let artifact_mode = if lib {
         BuildArtifactSelection::Library
+    } else if capi {
+        BuildArtifactSelection::Capi
+    } else if component {
+        BuildArtifactSelection::Component
     } else if bundle {
         BuildArtifactSelection::BrowserBundle
     } else {
@@ -407,6 +403,16 @@ fn build_command(
         BuildArtifactSelection::Library => {
             build_library_artifact(&source, mode, out_dir_path, policy.as_ref(), effective_api)
         }
+        BuildArtifactSelection::Capi => {
+            build_capi_artifact(&source, mode, out_dir_path, policy.as_ref(), effective_api)
+        }
+        BuildArtifactSelection::Component => build_component_artifact(
+            &source,
+            mode,
+            out_dir_path,
+            policy.as_ref(),
+            effective_api,
+        ),
         BuildArtifactSelection::BrowserBundle => build_browser_bundle_artifact(
             &source,
             mode,
@@ -504,6 +510,8 @@ enum BuildArtifactSelection {
     Executable,
     BrowserBundle,
     Library,
+    Capi,
+    Component,
 }
 
 enum BuildResult {
@@ -514,6 +522,22 @@ enum BuildResult {
     },
     Library {
         output_path: PathBuf,
+        wit_path: PathBuf,
+        meta_path: PathBuf,
+        wasm_bytes: Vec<u8>,
+        metadata: build::ArtifactMetadata,
+    },
+    Capi {
+        output_path: PathBuf,
+        wit_path: PathBuf,
+        header_path: PathBuf,
+        meta_path: PathBuf,
+        wasm_bytes: Vec<u8>,
+        metadata: build::ArtifactMetadata,
+    },
+    Component {
+        output_path: PathBuf,
+        wit_path: PathBuf,
         meta_path: PathBuf,
         wasm_bytes: Vec<u8>,
         metadata: build::ArtifactMetadata,
@@ -544,6 +568,7 @@ impl BuildResult {
             }),
             BuildResult::Library {
                 output_path,
+                wit_path,
                 meta_path,
                 wasm_bytes,
                 metadata,
@@ -554,6 +579,57 @@ impl BuildResult {
                 "buildMode": metadata.build_mode.clone(),
                 "sourceHash": metadata.source_hash.clone(),
                 "metadataPath": meta_path,
+                "witPath": wit_path,
+                "artifacts": [
+                    { "kind": "wasm-module", "path": output_path },
+                    { "kind": "wit", "path": wit_path },
+                    { "kind": "meta-json", "path": meta_path },
+                ],
+                "exports": metadata.exports.clone().unwrap_or_default(),
+            }),
+            BuildResult::Capi {
+                output_path,
+                wit_path,
+                header_path,
+                meta_path,
+                wasm_bytes,
+                metadata,
+            } => json!({
+                "artifactKind": "capi",
+                "outputPath": output_path,
+                "sizeBytes": wasm_bytes.len(),
+                "buildMode": metadata.build_mode.clone(),
+                "sourceHash": metadata.source_hash.clone(),
+                "metadataPath": meta_path,
+                "witPath": wit_path,
+                "headerPath": header_path,
+                "artifacts": [
+                    { "kind": "wasm-module", "path": output_path },
+                    { "kind": "wit", "path": wit_path },
+                    { "kind": "c-header", "path": header_path },
+                    { "kind": "cabi-metadata", "path": meta_path },
+                ],
+                "exports": metadata.exports.clone().unwrap_or_default(),
+            }),
+            BuildResult::Component {
+                output_path,
+                wit_path,
+                meta_path,
+                wasm_bytes,
+                metadata,
+            } => json!({
+                "artifactKind": "component",
+                "outputPath": output_path,
+                "sizeBytes": wasm_bytes.len(),
+                "buildMode": metadata.build_mode.clone(),
+                "sourceHash": metadata.source_hash.clone(),
+                "metadataPath": meta_path,
+                "witPath": wit_path,
+                "artifacts": [
+                    { "kind": "wasm-component", "path": output_path },
+                    { "kind": "wit", "path": wit_path },
+                    { "kind": "meta-json", "path": meta_path },
+                ],
                 "exports": metadata.exports.clone().unwrap_or_default(),
             }),
             BuildResult::BrowserBundle {
@@ -586,6 +662,12 @@ impl BuildResult {
             }
             BuildResult::Library { output_path, .. } => {
                 format!("Built library artifact at {}", output_path.display())
+            }
+            BuildResult::Capi { output_path, .. } => {
+                format!("Built C ABI artifact at {}", output_path.display())
+            }
+            BuildResult::Component { output_path, .. } => {
+                format!("Built component artifact at {}", output_path.display())
             }
             BuildResult::BrowserBundle { output_dir, .. } => {
                 format!("Built browser bundle at {}", output_dir.display())
@@ -666,12 +748,13 @@ fn build_library_artifact(
     let source = PathBuf::from(file);
     let mut wasm_bytes = build::compile_source_file(&source, mode)?;
     let exports = build::collect_library_exports(&source)?;
+    let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
         &source,
         "lib",
         mode,
         &api_surface.to_string(),
-        Some(exports),
+        Some(exports.clone()),
     )?;
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
 
@@ -687,7 +770,7 @@ fn build_library_artifact(
         .append_to(&mut wasm_bytes);
     }
 
-    let (output_path, meta_path) = build::library_output_paths_for(&source, out_dir);
+    let (output_path, wit_path, meta_path) = build::library_output_paths_for(&source, out_dir);
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
             vec![Diagnostic::error(
@@ -710,6 +793,16 @@ fn build_library_artifact(
             ),
         )]
     })?;
+    fs::write(&wit_path, wit).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write library WIT sidecar '{}': {}",
+                wit_path.display(),
+                error
+            ),
+        )]
+    })?;
     fs::write(
         &meta_path,
         serde_json::to_string_pretty(&metadata).expect("serialize library metadata"),
@@ -727,8 +820,228 @@ fn build_library_artifact(
 
     Ok(BuildResult::Library {
         output_path,
+        wit_path,
         meta_path,
         wasm_bytes,
+        metadata,
+    })
+}
+
+fn build_capi_artifact(
+    file: &str,
+    mode: build::BuildMode,
+    out_dir: Option<&Path>,
+    policy: Option<&SandboxPolicy>,
+    api_surface: kali_cli::ApiSurface,
+) -> Result<BuildResult, Vec<Diagnostic>> {
+    let source = PathBuf::from(file);
+    let mut wasm_bytes = build::compile_source_file(&source, mode)?;
+    let exports = build::collect_library_exports(&source)?;
+    let wit = build::library_wit_for(&source.display().to_string(), &exports);
+    let metadata = build::build_artifact_metadata(
+        &source,
+        "capi",
+        mode,
+        &api_surface.to_string(),
+        Some(exports.clone()),
+    )?;
+    build::append_metadata_section(&mut wasm_bytes, &metadata)?;
+
+    if let Some(policy) = policy {
+        validate_source_effects_against_policy(&source, policy, api_surface)?;
+        let policy_bytes = policy
+            .to_canonical_json_bytes()
+            .map_err(|diagnostic| vec![diagnostic])?;
+        CustomSection {
+            name: std::borrow::Cow::Borrowed("kali:policy"),
+            data: std::borrow::Cow::Owned(policy_bytes),
+        }
+        .append_to(&mut wasm_bytes);
+    }
+
+    let (output_path, wit_path, header_path, meta_path) = build::capi_output_paths_for(&source, out_dir);
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            vec![Diagnostic::error(
+                e5::OUTPUT_ERROR as u32,
+                format!(
+                    "failed to create output directory '{}': {}",
+                    parent.display(),
+                    error
+                ),
+            )]
+        })?;
+    }
+
+    fs::write(&output_path, &wasm_bytes).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write C ABI WASM artifact '{}': {}",
+                output_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    fs::write(&wit_path, wit).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write C ABI WIT sidecar '{}': {}",
+                wit_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    let header_exports = exports
+        .iter()
+        .map(|export| CApiExport::new(export.name.clone(), arity_from_signature(&export.signature)))
+        .collect::<Vec<_>>();
+    let header = generate_header(&source.display().to_string(), &header_exports);
+    fs::write(&header_path, header).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!("failed to write C header '{}': {}", header_path.display(), error),
+        )]
+    })?;
+
+    let metadata_json = generate_capi_metadata(
+        output_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("lib.capi.wasm"),
+        wit_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("lib.wit"),
+        header_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("lib.h"),
+    );
+
+    fs::write(
+        &meta_path,
+        serde_json::to_string_pretty(&metadata_json).expect("serialize capi metadata"),
+    )
+    .map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write C ABI metadata '{}': {}",
+                meta_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    Ok(BuildResult::Capi {
+        output_path,
+        wit_path,
+        header_path,
+        meta_path,
+        wasm_bytes,
+        metadata,
+    })
+}
+
+fn build_component_artifact(
+    file: &str,
+    mode: build::BuildMode,
+    out_dir: Option<&Path>,
+    policy: Option<&SandboxPolicy>,
+    api_surface: kali_cli::ApiSurface,
+) -> Result<BuildResult, Vec<Diagnostic>> {
+    let source = PathBuf::from(file);
+    let wasm_bytes = build::compile_source_file(&source, mode)?;
+    let exports = build::collect_library_exports(&source)?;
+    let wit = build::library_wit_for(&source.display().to_string(), &exports);
+    let metadata = build::build_artifact_metadata(
+        &source,
+        "component",
+        mode,
+        &api_surface.to_string(),
+        Some(exports),
+    )?;
+
+    let mut component = Component::new();
+    component.section(&RawSection {
+        id: ComponentSectionId::CoreModule.into(),
+        data: &wasm_bytes,
+    });
+    let mut component_bytes = component.finish();
+    build::append_metadata_section(&mut component_bytes, &metadata)?;
+
+    if let Some(policy) = policy {
+        validate_source_effects_against_policy(&source, policy, api_surface)?;
+        let policy_bytes = policy
+            .to_canonical_json_bytes()
+            .map_err(|diagnostic| vec![diagnostic])?;
+        CustomSection {
+            name: std::borrow::Cow::Borrowed("kali:policy"),
+            data: std::borrow::Cow::Owned(policy_bytes),
+        }
+        .append_to(&mut component_bytes);
+    }
+
+    let (output_path, wit_path, meta_path) = build::component_output_paths_for(&source, out_dir);
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            vec![Diagnostic::error(
+                e5::OUTPUT_ERROR as u32,
+                format!(
+                    "failed to create output directory '{}': {}",
+                    parent.display(),
+                    error
+                ),
+            )]
+        })?;
+    }
+
+    fs::write(&output_path, &component_bytes).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write component artifact '{}': {}",
+                output_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    fs::write(&wit_path, wit).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write component WIT sidecar '{}': {}",
+                wit_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    fs::write(
+        &meta_path,
+        serde_json::to_string_pretty(&metadata).expect("serialize component metadata"),
+    )
+    .map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write component metadata '{}': {}",
+                meta_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    Ok(BuildResult::Component {
+        output_path,
+        wit_path,
+        meta_path,
+        wasm_bytes: component_bytes,
         metadata,
     })
 }

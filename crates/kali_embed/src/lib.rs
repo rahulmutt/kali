@@ -85,7 +85,7 @@ impl KaliCompiler {
         )
         .map_err(CompileError::from)?;
         build::append_metadata_section(&mut wasm_bytes, &metadata).map_err(CompileError::from)?;
-        let wit = wit_from_exports(&exports);
+        let wit = build::library_wit_for(&path.display().to_string(), &exports);
 
         Ok(LibArtifact {
             wasm_bytes,
@@ -210,40 +210,6 @@ impl EmbeddingCtx {
 
 pub use build::LibraryExport;
 pub use kali_cli::build::ArtifactMetadata;
-
-fn wit_from_exports(exports: &[LibraryExport]) -> String {
-    let mut wit = String::from("package kali:embed;\n\nworld library {\n");
-    for export in exports {
-        wit.push_str(&format!(
-            "  // signature: {}\n  export {}: func();\n",
-            export.signature,
-            sanitize_wit_identifier(&export.name)
-        ));
-    }
-    wit.push_str("}\n");
-    wit
-}
-
-fn sanitize_wit_identifier(name: &str) -> String {
-    let mut out = String::new();
-    for (index, ch) in name.chars().enumerate() {
-        let keep = ch.is_ascii_alphanumeric() || ch == '_';
-        if index == 0 && ch.is_ascii_digit() {
-            out.push('_');
-            out.push(ch);
-        } else if keep {
-            out.push(ch);
-        } else {
-            out.push('_');
-        }
-    }
-
-    if out.is_empty() {
-        "_".to_string()
-    } else {
-        out
-    }
-}
 
 fn temporary_source_path() -> PathBuf {
     let nonce = SystemTime::now()

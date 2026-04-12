@@ -1159,6 +1159,7 @@ name = "kali_capi"
 version = "0.1.0"
 dependencies = [
  "kali_common",
+ "serde_json",
 ]
 
 [[package]]
@@ -1169,6 +1170,7 @@ dependencies = [
  "globset",
  "ignore",
  "kali_ast",
+ "kali_capi",
  "kali_codegen",
  "kali_common",
  "kali_error",

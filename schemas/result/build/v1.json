@@ -126,6 +126,92 @@
       "type": "object",
       "additionalProperties": true,
       "required": [
+        "artifactKind",
+        "outputPath",
+        "sizeBytes",
+        "buildMode",
+        "sourceHash",
+        "metadataPath",
+        "headerPath",
+        "artifacts",
+        "exports"
+      ],
+      "properties": {
+        "artifactKind": {
+          "const": "capi"
+        },
+        "outputPath": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "buildMode": {
+          "type": "string"
+        },
+        "sourceHash": {
+          "type": "string"
+        },
+        "metadataPath": {
+          "type": "string"
+        },
+        "headerPath": {
+          "type": "string"
+        },
+        "artifacts": {
+          "type": "array"
+        },
+        "exports": {
+          "type": "array"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "artifactKind",
+        "outputPath",
+        "sizeBytes",
+        "buildMode",
+        "sourceHash",
+        "metadataPath",
+        "artifacts",
+        "exports"
+      ],
+      "properties": {
+        "artifactKind": {
+          "const": "component"
+        },
+        "outputPath": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "buildMode": {
+          "type": "string"
+        },
+        "sourceHash": {
+          "type": "string"
+        },
+        "metadataPath": {
+          "type": "string"
+        },
+        "artifacts": {
+          "type": "array"
+        },
+        "exports": {
+          "type": "array"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
         "artifacts"
       ],
       "properties": {
