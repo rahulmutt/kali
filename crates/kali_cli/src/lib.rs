@@ -1,6 +1,6 @@
 //! CLI interface for the Kali compiler.
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use ignore::WalkBuilder;
 use serde_json::Value;
@@ -14,6 +14,7 @@ use kali_sandbox::SandboxPolicy;
 
 pub mod build;
 pub mod init;
+pub mod output;
 
 pub fn discover_source_files(root: impl AsRef<Path>) -> Vec<PathBuf> {
     discover_project_files(root.as_ref(), DiscoveryKind::Source)
@@ -33,7 +34,9 @@ fn discover_project_files(root: &Path, kind: DiscoveryKind) -> Vec<PathBuf> {
 
     for entry in walk.build().filter_map(Result::ok) {
         let path = entry.path();
-        if entry.file_type().map(|ty| ty.is_file()).unwrap_or(false) && matches_discovery_kind(path, kind) {
+        if entry.file_type().map(|ty| ty.is_file()).unwrap_or(false)
+            && matches_discovery_kind(path, kind)
+        {
             discovered.push(path.to_path_buf());
         }
     }
@@ -72,10 +75,57 @@ fn is_source_file(path: &Path) -> bool {
         || name.ends_with(".d.cts")
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum OutputFormat {
+    Text,
+    Json,
+}
+
+impl std::fmt::Display for OutputFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OutputFormat::Text => f.write_str("text"),
+            OutputFormat::Json => f.write_str("json"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum ColorChoice {
+    Auto,
+    Always,
+    Never,
+}
+
+impl std::fmt::Display for ColorChoice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ColorChoice::Auto => f.write_str("auto"),
+            ColorChoice::Always => f.write_str("always"),
+            ColorChoice::Never => f.write_str("never"),
+        }
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "kali")]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
+    #[arg(long, global = true, default_value_t = OutputFormat::Text)]
+    pub output: OutputFormat,
+
+    #[arg(long, global = true)]
+    pub pretty: bool,
+
+    #[arg(long, global = true)]
+    pub verbose: bool,
+
+    #[arg(long, global = true)]
+    pub quiet: bool,
+
+    #[arg(long, global = true, value_enum, default_value_t = ColorChoice::Auto)]
+    pub color: ColorChoice,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
@@ -282,10 +332,7 @@ fn load_exclude_set(root: &Path) -> GlobSet {
         return GlobSetBuilder::new().build().expect("empty globset");
     };
 
-    let Some(patterns) = manifest
-        .get("exclude")
-        .and_then(|value| value.as_array())
-    else {
+    let Some(patterns) = manifest.get("exclude").and_then(|value| value.as_array()) else {
         return GlobSetBuilder::new().build().expect("empty globset");
     };
 
@@ -299,7 +346,9 @@ fn load_exclude_set(root: &Path) -> GlobSet {
         }
     }
 
-    builder.build().unwrap_or_else(|_| GlobSetBuilder::new().build().expect("empty globset"))
+    builder
+        .build()
+        .unwrap_or_else(|_| GlobSetBuilder::new().build().expect("empty globset"))
 }
 
 #[cfg(test)]
@@ -314,10 +363,22 @@ mod tests {
         fs::write(dir.path().join("main.ts"), "const main = 1;").unwrap();
         fs::write(dir.path().join("types.d.ts"), "declare const x: number;").unwrap();
         fs::create_dir_all(dir.path().join(".hidden")).unwrap();
-        fs::write(dir.path().join(".hidden").join("skip.ts"), "const skip = 1;").unwrap();
+        fs::write(
+            dir.path().join(".hidden").join("skip.ts"),
+            "const skip = 1;",
+        )
+        .unwrap();
         fs::create_dir_all(dir.path().join("child")).unwrap();
-        fs::write(dir.path().join("child").join("kali.json"), r#"{"schemaVersion":1}"#).unwrap();
-        fs::write(dir.path().join("child").join("nested.ts"), "const nested = 1;").unwrap();
+        fs::write(
+            dir.path().join("child").join("kali.json"),
+            r#"{"schemaVersion":1}"#,
+        )
+        .unwrap();
+        fs::write(
+            dir.path().join("child").join("nested.ts"),
+            "const nested = 1;",
+        )
+        .unwrap();
 
         let files = discover_source_files(dir.path());
         assert!(files.contains(&dir.path().join("main.ts")));

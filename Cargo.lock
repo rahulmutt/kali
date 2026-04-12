@@ -1184,6 +1184,7 @@ dependencies = [
  "kali_sandbox",
  "kali_types",
  "serde_json",
+ "sha2",
  "tempfile",
  "wasm-encoder 0.240.0",
  "wasmparser 0.240.0",

@@ -25,6 +25,7 @@ kali_npm = { workspace = true }
 kali_runtime = { workspace = true }
 kali_sandbox = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 ignore = "0.4"
 globset = "0.4"
 wasm-encoder = { workspace = true }

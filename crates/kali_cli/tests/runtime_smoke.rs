@@ -4,6 +4,7 @@ use std::{
     process::Command,
 };
 
+use serde_json::Value;
 use wasmparser::{Parser, Payload};
 
 use tempfile::tempdir;
@@ -20,6 +21,10 @@ fn fixture_root() -> PathBuf {
 
 fn fixture_path(relative: impl AsRef<Path>) -> PathBuf {
     fixture_root().join(relative)
+}
+
+fn parse_json_stdout(output: &std::process::Output) -> Value {
+    serde_json::from_slice(&output.stdout).expect("valid json stdout")
 }
 
 fn write_valid_policy(path: &Path) {
@@ -348,6 +353,60 @@ fn build_embeds_sandbox_policy_custom_section() {
         }
     }
     assert!(seen_policy, "custom section 'kali:policy' was not embedded");
+}
+
+#[test]
+fn json_init_emits_a_command_envelope() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("init")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "init");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["library"], false);
+    assert_eq!(json["exitCode"], 0);
+}
+
+#[test]
+fn json_check_emits_diagnostic_envelope() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "missing;").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["payload"]["filesChecked"], 1);
+    assert!(json["errors"].as_array().expect("errors array").len() > 0);
 }
 
 #[test]

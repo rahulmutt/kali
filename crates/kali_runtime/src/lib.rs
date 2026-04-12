@@ -7,7 +7,6 @@ use reqwest::blocking;
 use std::{
     collections::{BTreeMap, HashSet, VecDeque},
     fs,
-    io::Write,
     path::{Path, PathBuf},
     thread,
     time::{Duration, Instant},
@@ -40,6 +39,10 @@ pub struct KaliHostState {
     pub env: BTreeMap<String, String>,
     /// Current working directory used for relative host-path resolution.
     pub cwd: PathBuf,
+    /// Captured guest stdout.
+    pub stdout: String,
+    /// Captured guest stderr.
+    pub stderr: String,
     /// Pending one-shot and repeating timers.
     pub pending_timers: BTreeMap<u32, ScheduledTimer>,
     /// Pending microtask callbacks.
@@ -80,6 +83,10 @@ pub struct RuntimeOutcome {
     pub tests_run: usize,
     /// Number of failing tests during `kali test`.
     pub tests_failed: usize,
+    /// Captured guest stdout.
+    pub stdout: String,
+    /// Captured guest stderr.
+    pub stderr: String,
 }
 
 impl RuntimeCtx {
@@ -150,8 +157,17 @@ impl RuntimeCtx {
                 args: self.args.clone(),
                 env: self.env.clone(),
                 cwd: self.cwd.clone(),
+                stdout: String::new(),
+                stderr: String::new(),
+                pending_timers: BTreeMap::new(),
+                pending_microtasks: VecDeque::new(),
+                cancelled_timers: HashSet::new(),
+                next_timer_id: 0,
+                registered_tests: Vec::new(),
                 store_limits,
-                ..Default::default()
+                pending_diagnostic: None,
+                active_file_handles: 0,
+                active_network_connections: 0,
             },
         );
         store.limiter(|state| &mut state.store_limits);
@@ -200,10 +216,13 @@ impl RuntimeCtx {
         drain_event_loop(&instance, &mut store).map_err(|diagnostic| vec![diagnostic])?;
 
         if !run_registered_tests {
+            let state = store.data();
             return Ok(RuntimeOutcome {
                 exit_code: 0,
                 tests_run: 0,
                 tests_failed: 0,
+                stdout: state.stdout.clone(),
+                stderr: state.stderr.clone(),
             });
         }
 
@@ -213,10 +232,13 @@ impl RuntimeCtx {
         };
 
         if registered_tests.is_empty() {
+            let state = store.data();
             return Ok(RuntimeOutcome {
                 exit_code: 0,
                 tests_run: 1,
                 tests_failed: 0,
+                stdout: state.stdout.clone(),
+                stderr: state.stderr.clone(),
             });
         }
 
@@ -227,7 +249,9 @@ impl RuntimeCtx {
             match invoke_callback(&instance, &mut store, callback_id) {
                 Ok(()) => {}
                 Err(diagnostic) => {
-                    eprintln!("{}", diagnostic);
+                    let rendered = diagnostic.to_string();
+                    store.data_mut().stderr.push_str(&rendered);
+                    store.data_mut().stderr.push('\n');
                     tests_failed += 1;
                 }
             }
@@ -235,10 +259,13 @@ impl RuntimeCtx {
             drain_event_loop(&instance, &mut store).map_err(|diagnostic| vec![diagnostic])?;
         }
 
+        let state = store.data();
         Ok(RuntimeOutcome {
             exit_code: if tests_failed == 0 { 0 } else { 1 },
             tests_run,
             tests_failed,
+            stdout: state.stdout.clone(),
+            stderr: state.stderr.clone(),
         })
     }
 }
@@ -250,8 +277,7 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
             "console_log",
             |mut caller: Caller<'_, KaliHostState>, val: i64| -> wasmtime::Result<()> {
                 enforce_operation(caller.data_mut(), HostOperation::Console)?;
-                let mut stdout = std::io::stdout().lock();
-                let _ = writeln!(stdout, "{}", format_tagged_val(val));
+                append_stdout(caller.data_mut(), format_tagged_val(val));
                 Ok(())
             },
         )
@@ -263,8 +289,7 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
             "console_error",
             |mut caller: Caller<'_, KaliHostState>, val: i64| -> wasmtime::Result<()> {
                 enforce_operation(caller.data_mut(), HostOperation::Console)?;
-                let mut stderr = std::io::stderr().lock();
-                let _ = writeln!(stderr, "{}", format_tagged_val(val));
+                append_stderr(caller.data_mut(), format_tagged_val(val));
                 Ok(())
             },
         )
@@ -276,8 +301,10 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
             "console_warn",
             |mut caller: Caller<'_, KaliHostState>, val: i64| -> wasmtime::Result<()> {
                 enforce_operation(caller.data_mut(), HostOperation::Console)?;
-                let mut stderr = std::io::stderr().lock();
-                let _ = writeln!(stderr, "[warn] {}", format_tagged_val(val));
+                append_stderr(
+                    caller.data_mut(),
+                    format!("[warn] {}", format_tagged_val(val)),
+                );
                 Ok(())
             },
         )
@@ -796,6 +823,16 @@ fn resolve_host_path(state: &KaliHostState, path: &Path) -> PathBuf {
     } else {
         state.cwd.join(path)
     }
+}
+
+fn append_stdout(state: &mut KaliHostState, text: String) {
+    state.stdout.push_str(&text);
+    state.stdout.push('\n');
+}
+
+fn append_stderr(state: &mut KaliHostState, text: String) {
+    state.stderr.push_str(&text);
+    state.stderr.push('\n');
 }
 
 fn format_tagged_val(value: i64) -> String {
