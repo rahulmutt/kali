@@ -454,6 +454,32 @@ fn build_emits_browser_bundle_artifacts() {
 }
 
 #[test]
+fn build_rejects_multiple_source_files() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    let extra_path = dir.path().join("extra.ts");
+    fs::write(&source_path, "console.log(1);").expect("write source");
+    fs::write(&extra_path, "console.log(2);").expect("write extra source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&source_path)
+        .arg(&extra_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("only one primary source file"),
+        "stderr: {stderr}"
+    );
+    assert!(!dir.path().join("main.wasm").exists());
+}
+
+#[test]
 fn json_init_emits_a_command_envelope() {
     let dir = tempdir().expect("tempdir");
 

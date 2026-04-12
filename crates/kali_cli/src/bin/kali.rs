@@ -261,31 +261,11 @@ fn build_command(
         }
     }
 
-    let selected_files = if files.is_empty() { vec![] } else { files };
-    if selected_files.is_empty() {
-        let diagnostic = Diagnostic::error(
-            e5::MISSING_REQUIRED_ARGUMENT as u32,
-            "build requires at least one source file",
-        );
-        if output.is_json() {
-            let (errors, warnings) = single_diagnostic_to_values(diagnostic, None, None);
-            print_envelope(
-                "build",
-                false,
-                errors,
-                warnings,
-                Value::Null,
-                None,
-                None,
-                1,
-                output,
-            );
-        } else {
-            eprintln!("{}", diagnostic);
-        }
+    let Some(source) = single_or_error(files, "build", output)? else {
         return Err(1);
-    }
+    };
 
+    let source = source.to_string_lossy().to_string();
     let mode = build::build_mode_from_flags(fast, release, release_advanced);
     let out_dir_path = out_dir.as_deref();
     let artifact_mode = if lib {
@@ -295,67 +275,47 @@ fn build_command(
     } else {
         BuildArtifactSelection::Executable
     };
-    let mut artifacts = Vec::new();
-    let mut errors = Vec::new();
 
-    for file in selected_files {
-        let build_result = match artifact_mode {
-            BuildArtifactSelection::Executable => {
-                build_executable_artifact(&file, mode, out_dir_path, policy.as_ref())
-            }
-            BuildArtifactSelection::Library => {
-                build_library_artifact(&file, mode, out_dir_path, policy.as_ref())
-            }
-            BuildArtifactSelection::BrowserBundle => {
-                build_browser_bundle_artifact(&file, mode, out_dir_path, policy.as_ref())
-            }
-        };
-
-        match build_result {
-            Ok(build_result) => {
-                let artifact_json = build_result.artifact_json();
-                if output.is_json() {
-                    artifacts.push(artifact_json);
-                } else if !output.quiet {
-                    println!("{}", build_result.human_message());
-                }
-            }
-            Err(diagnostics) => {
-                errors.extend(diagnostics.iter().cloned());
-                if !output.is_json() {
-                    for diagnostic in diagnostics {
-                        eprintln!("{}", diagnostic);
-                    }
-                }
-            }
+    let build_result = match artifact_mode {
+        BuildArtifactSelection::Executable => {
+            build_executable_artifact(&source, mode, out_dir_path, policy.as_ref())
         }
-    }
+        BuildArtifactSelection::Library => {
+            build_library_artifact(&source, mode, out_dir_path, policy.as_ref())
+        }
+        BuildArtifactSelection::BrowserBundle => {
+            build_browser_bundle_artifact(&source, mode, out_dir_path, policy.as_ref())
+        }
+    };
 
-    let success = errors.is_empty();
-    if output.is_json() {
-        let payload = if artifacts.len() == 1 {
-            artifacts.into_iter().next().unwrap()
-        } else {
-            json!({ "artifacts": artifacts })
-        };
-        let (error_values, warning_values) = split_and_convert_diagnostics(&errors, None, None);
-        print_envelope(
+    match build_result {
+        Ok(build_result) => {
+            if output.is_json() {
+                let payload = build_result.artifact_json();
+                print_envelope(
+                    "build",
+                    true,
+                    vec![],
+                    vec![],
+                    payload,
+                    None,
+                    None,
+                    0,
+                    output,
+                );
+            } else if !output.quiet {
+                println!("{}", build_result.human_message());
+            }
+            Ok(())
+        }
+        Err(diagnostics) => emit_diagnostics_and_exit(
             "build",
-            success,
-            error_values,
-            warning_values,
-            payload,
-            None,
-            None,
-            if success { 0 } else { 1 },
+            diagnostics,
+            1,
             output,
-        );
-    }
-
-    if success {
-        Ok(())
-    } else {
-        Err(1)
+            Some(Path::new(&source)),
+            fs::read_to_string(&source).ok().as_deref(),
+        ),
     }
 }
 

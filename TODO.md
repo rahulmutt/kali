@@ -51,3 +51,5 @@
   - Added host-fit coverage for `node:fs` and `require("child_process")` package entrypoints.
 - [x] CLI integration coverage for install repair/prune scenarios
   - Added CLI smoke coverage for pruning stale registry layouts back to an empty install state.
+- [x] Build direct-input shape enforcement
+  - `kali build` now rejects multi-file invocations with the canonical `E5008` usage diagnostic and remains a single-primary-input command.
