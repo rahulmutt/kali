@@ -13,7 +13,10 @@ pub fn format(source: &str) -> Option<String> {
 /// This helper is primarily used by higher-level tooling; each input string is
 /// treated as source text and formatted independently.
 pub fn format_files(files: &[String]) -> Vec<Result<String, ()>> {
-    files.iter().map(|source| Ok(format_source(source))).collect()
+    files
+        .iter()
+        .map(|source| Ok(format_source(source)))
+        .collect()
 }
 
 /// Format a Kali source snippet into the canonical Phase-1 style.
@@ -108,9 +111,11 @@ impl Formatter {
             | TokenType::GtEq
             | TokenType::NullCoalesce
             | TokenType::Eq => self.emit_operator(token.value.as_str()),
-            TokenType::Bang | TokenType::Not | TokenType::Tilde | TokenType::At | TokenType::Hash => {
-                self.emit_prefix_operator(token.value.as_str())
-            }
+            TokenType::Bang
+            | TokenType::Not
+            | TokenType::Tilde
+            | TokenType::At
+            | TokenType::Hash => self.emit_prefix_operator(token.value.as_str()),
             TokenType::StringLiteral => self.emit_string_literal(token.value.as_str()),
             TokenType::Template | TokenType::Backtick => self.emit_raw(token.value.as_str()),
             TokenType::Identifier
@@ -221,7 +226,12 @@ impl Formatter {
                 self.output.push('}');
                 self.prev_kind = Some(TokenType::RightBrace);
 
-                if matches!(next_kind, Some(TokenType::Else | TokenType::Catch | TokenType::Finally | TokenType::While)) {
+                if matches!(
+                    next_kind,
+                    Some(
+                        TokenType::Else | TokenType::Catch | TokenType::Finally | TokenType::While
+                    )
+                ) {
                     self.output.push(' ');
                     self.line_start = false;
                 } else {
@@ -254,7 +264,10 @@ impl Formatter {
 
     fn emit_comma(&mut self, next_kind: Option<TokenType>) {
         self.output.push(',');
-        if !matches!(next_kind, Some(TokenType::RightParen | TokenType::RightBracket | TokenType::RightBrace)) {
+        if !matches!(
+            next_kind,
+            Some(TokenType::RightParen | TokenType::RightBracket | TokenType::RightBrace)
+        ) {
             self.output.push(' ');
         }
         self.prev_kind = Some(TokenType::Comma);
@@ -327,7 +340,10 @@ impl Formatter {
     fn emit_prefix_operator(&mut self, op: &str) {
         if self.line_start {
             self.write_indent();
-        } else if !self.output.ends_with(' ') && !self.output.ends_with('\n') && !self.output.ends_with('(') {
+        } else if !self.output.ends_with(' ')
+            && !self.output.ends_with('\n')
+            && !self.output.ends_with('(')
+        {
             self.output.push(' ');
         }
         self.output.push_str(op);
@@ -402,8 +418,7 @@ impl Formatter {
             && !self.output.ends_with('[')
             && !matches!(
                 self.prev_kind,
-                None
-                    | Some(TokenType::LeftParen)
+                None | Some(TokenType::LeftParen)
                     | Some(TokenType::LeftBracket)
                     | Some(TokenType::LeftBrace)
                     | Some(TokenType::Dot)

@@ -22,7 +22,8 @@ commands, versioned artifact metadata schemas, and the `kali.json` config schema
 - `kali --output json` now works across the shipped Phase-1 command surface (`check`, `build`, `run`, `test`, `init`, `install`, `fmt`, `lint`) and emits a single schema-v1 envelope instead of interleaving raw text with machine output.
 - Runtime execution now captures guest stdout/stderr so `run` and `test` can surface program streams through the JSON envelope as well as the human CLI path.
 - Added regression coverage for JSON-mode `init` and `check` envelopes so the command metadata and payload fields stay deterministic.
-- Remaining follow-up for this stage: richer human diagnostic formatting, final schema document commits under `schemas/`, and any additional envelope/result shapes that need to be frozen before the phase gate closes.
+- Committed the repository `schemas/` documents for the command envelope, diagnostics, manifests, lockfiles, policies, artifact metadata, and the current shipped result payloads, including reserved later-phase shapes.
+- Tightened the default human diagnostic renderer so severity labels and help/note lines follow the canonical `error[...]` / `= help:` / `= note:` style.
 
 ## Tasks
 

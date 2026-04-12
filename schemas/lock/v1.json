@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kali-lang.org/schemas/lock/v1",
+  "title": "Kali Lockfile v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "version"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer"
+    },
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    },
+    "packages": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "registry",
+          "integrity",
+          "resolved",
+          "dependencies"
+        ],
+        "properties": {
+          "registry": {
+            "type": "string"
+          },
+          "integrity": {
+            "type": "string"
+          },
+          "resolved": {
+            "type": "string"
+          },
+          "dependencies": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "rawUrls": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "integrity",
+          "cached"
+        ],
+        "properties": {
+          "integrity": {
+            "type": "string"
+          },
+          "cached": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

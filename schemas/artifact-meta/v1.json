@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kali-lang.org/schemas/artifact-meta/v1",
+  "title": "Kali Artifact Metadata v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schemaVersion",
+    "artifactKind",
+    "entrypoint",
+    "buildMode",
+    "apiSurface",
+    "kaliVersion",
+    "sourceHash"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "artifactKind": {
+      "type": "string",
+      "enum": [
+        "executable",
+        "lib",
+        "bundle"
+      ]
+    },
+    "entrypoint": {
+      "type": "string"
+    },
+    "buildMode": {
+      "type": "string",
+      "enum": [
+        "fast",
+        "release",
+        "release-advanced"
+      ]
+    },
+    "apiSurface": {
+      "type": "string"
+    },
+    "kaliVersion": {
+      "type": "string"
+    },
+    "sourceHash": {
+      "type": "string"
+    },
+    "exports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "signature"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

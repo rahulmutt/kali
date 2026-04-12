@@ -30,7 +30,7 @@ fn main() {
     };
 
     if output.pretty && !output.is_json() {
-        eprintln!("Error[E5008]: `--pretty` is only meaningful when JSON output is active");
+        eprintln!("error[E5008]: `--pretty` is only meaningful when JSON output is active");
         std::process::exit(1);
     }
 

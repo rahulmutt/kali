@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kali-lang.org/schemas/result/install/v1",
+  "title": "Kali Install Result v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "installed",
+    "updated",
+    "removed"
+  ],
+  "properties": {
+    "manifestPath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lockPath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "installed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "updated": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "removed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

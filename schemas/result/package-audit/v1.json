@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kali-lang.org/schemas/result/package-audit/v1",
+  "title": "Kali Package Audit Result v1",
+  "type": "null",
+  "description": "Envelope-only JSON command payload for the later package-audit surface."
+}

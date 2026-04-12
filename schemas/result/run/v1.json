@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kali-lang.org/schemas/result/run/v1",
+  "title": "Kali Run Result v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "exitCode",
+    "runtimeMs"
+  ],
+  "properties": {
+    "exitCode": {
+      "type": "integer"
+    },
+    "runtimeMs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

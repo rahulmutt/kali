@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kali-lang.org/schemas/result/lint/v1",
+  "title": "Kali Lint Result v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "filesLinted",
+    "errorCount",
+    "warningCount",
+    "fixedCount"
+  ],
+  "properties": {
+    "filesLinted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "errorCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "warningCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "fixedCount": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

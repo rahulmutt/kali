@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kali-lang.org/schemas/result/fmt/v1",
+  "title": "Kali Fmt Result v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "filesFormatted",
+    "filesChecked"
+  ],
+  "properties": {
+    "filesFormatted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "filesChecked": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kali-lang.org/schemas/artifact-meta/lib-wit/v1",
+  "title": "Kali Library WIT Artifact Metadata v1",
+  "allOf": [
+    {
+      "$ref": "https://kali-lang.org/schemas/artifact-meta/v1"
+    }
+  ],
+  "description": "Reserved schema shape for a later embedding projection."
+}

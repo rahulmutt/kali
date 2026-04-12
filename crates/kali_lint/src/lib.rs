@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use kali_ast::{BlockStatement, Statement};
 use kali_common::FileId;
-use kali_error::{_error_codes::w2, Diagnostic};
+use kali_error::{Diagnostic, _error_codes::w2};
 use kali_fmt::format_source;
 use kali_lexer::{Lexer, Token, TokenType};
 use kali_parser::Parser;
@@ -160,14 +160,15 @@ impl Analyzer {
                 && window[0].value == "console"
                 && window[1].kind == TokenType::Dot
                 && window[2].kind == TokenType::Identifier
-                && matches!(window[2].value.as_str(), "log" | "warn" | "error" | "info" | "debug")
+                && matches!(
+                    window[2].value.as_str(),
+                    "log" | "warn" | "error" | "info" | "debug"
+                )
             {
-                self.diagnostics.push(
-                    Diagnostic::warning(
-                        w2::NO_CONSOLE as u32,
-                        format!("avoid console.{} in checked source", window[2].value),
-                    ),
-                );
+                self.diagnostics.push(Diagnostic::warning(
+                    w2::NO_CONSOLE as u32,
+                    format!("avoid console.{} in checked source", window[2].value),
+                ));
             }
         }
     }
@@ -225,12 +226,10 @@ impl Analyzer {
         for (name, decl_count) in declared {
             let used_count = identifier_counts.get(name).copied().unwrap_or(0);
             if used_count <= *decl_count {
-                self.diagnostics.push(
-                    Diagnostic::warning(
-                        w2::UNUSED_VARIABLE as u32,
-                        format!("`{}` is declared but never used", name),
-                    ),
-                );
+                self.diagnostics.push(Diagnostic::warning(
+                    w2::UNUSED_VARIABLE as u32,
+                    format!("`{}` is declared but never used", name),
+                ));
             }
         }
     }
@@ -248,12 +247,10 @@ impl Analyzer {
             for name in names {
                 let count = identifier_counts.get(&name).copied().unwrap_or(0);
                 if count <= 1 {
-                    self.diagnostics.push(
-                        Diagnostic::warning(
-                            w2::UNUSED_IMPORT as u32,
-                            format!("import `{}` is never used", name),
-                        ),
-                    );
+                    self.diagnostics.push(Diagnostic::warning(
+                        w2::UNUSED_IMPORT as u32,
+                        format!("import `{}` is never used", name),
+                    ));
                     self.fix_plan.unused_import_ranges.push(import_range);
                 }
             }
@@ -271,37 +268,43 @@ impl Analyzer {
                 continue;
             }
 
-            if matches!(self.tokens.get(index.wrapping_sub(1)).map(|t| t.kind), Some(TokenType::Dot)) {
+            if matches!(
+                self.tokens.get(index.wrapping_sub(1)).map(|t| t.kind),
+                Some(TokenType::Dot)
+            ) {
                 continue;
             }
-            if matches!(self.tokens.get(index + 1).map(|t| t.kind), Some(TokenType::Colon)) {
+            if matches!(
+                self.tokens.get(index + 1).map(|t| t.kind),
+                Some(TokenType::Colon)
+            ) {
                 continue;
             }
             if matches!(
                 self.tokens.get(index.wrapping_sub(1)).map(|t| t.kind),
-                Some(TokenType::Import
-                    | TokenType::Export
-                    | TokenType::From
-                    | TokenType::As
-                    | TokenType::Function
-                    | TokenType::Class
-                    | TokenType::Var
-                    | TokenType::Let
-                    | TokenType::Const
-                    | TokenType::Catch
-                    | TokenType::Type
-                    | TokenType::Interface
-                    | TokenType::Enum)
+                Some(
+                    TokenType::Import
+                        | TokenType::Export
+                        | TokenType::From
+                        | TokenType::As
+                        | TokenType::Function
+                        | TokenType::Class
+                        | TokenType::Var
+                        | TokenType::Let
+                        | TokenType::Const
+                        | TokenType::Catch
+                        | TokenType::Type
+                        | TokenType::Interface
+                        | TokenType::Enum
+                )
             ) {
                 continue;
             }
 
-            self.diagnostics.push(
-                Diagnostic::warning(
-                    w2::NO_UNDEF as u32,
-                    format!("`{}` is not defined in this scope", token.value),
-                ),
-            );
+            self.diagnostics.push(Diagnostic::warning(
+                w2::NO_UNDEF as u32,
+                format!("`{}` is not defined in this scope", token.value),
+            ));
         }
     }
 }
@@ -372,26 +375,22 @@ fn collect_statement_declarations(statement: &Statement, counts: &mut HashMap<St
             }
             collect_block_declarations(&stmt.body, counts);
         }
-        Statement::ForInStatement(stmt) => {
-            match &stmt.left {
-                kali_ast::ForInLefthand::VariableDeclaration(decl) => {
-                    for item in &decl.declarations {
-                        *counts.entry(item.id.clone()).or_insert(0) += 1;
-                    }
+        Statement::ForInStatement(stmt) => match &stmt.left {
+            kali_ast::ForInLefthand::VariableDeclaration(decl) => {
+                for item in &decl.declarations {
+                    *counts.entry(item.id.clone()).or_insert(0) += 1;
                 }
-                kali_ast::ForInLefthand::Expression(_) => {}
             }
-        }
-        Statement::ForOfStatement(stmt) => {
-            match &stmt.left {
-                kali_ast::ForOfLefthand::VariableDeclaration(decl) => {
-                    for item in &decl.declarations {
-                        *counts.entry(item.id.clone()).or_insert(0) += 1;
-                    }
+            kali_ast::ForInLefthand::Expression(_) => {}
+        },
+        Statement::ForOfStatement(stmt) => match &stmt.left {
+            kali_ast::ForOfLefthand::VariableDeclaration(decl) => {
+                for item in &decl.declarations {
+                    *counts.entry(item.id.clone()).or_insert(0) += 1;
                 }
-                kali_ast::ForOfLefthand::Expression(_) => {}
             }
-        }
+            kali_ast::ForOfLefthand::Expression(_) => {}
+        },
         _ => {}
     }
 }
@@ -400,17 +399,26 @@ fn collect_block_declarations(block: &BlockStatement, counts: &mut HashMap<Strin
     collect_statements_declarations(&block.body, counts);
 }
 
-fn check_statement_for_empty_and_unreachable(statement: &Statement, diagnostics: &mut Vec<Diagnostic>) {
+fn check_statement_for_empty_and_unreachable(
+    statement: &Statement,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     match statement {
         Statement::BlockStatement(block) => {
             if block.body.is_empty() {
-                diagnostics.push(Diagnostic::warning(w2::NO_EMPTY as u32, "empty block statement"));
+                diagnostics.push(Diagnostic::warning(
+                    w2::NO_EMPTY as u32,
+                    "empty block statement",
+                ));
             }
             check_block_for_unreachable(block, diagnostics);
         }
         Statement::FunctionDeclaration(func) => {
             if func.body.body.is_empty() {
-                diagnostics.push(Diagnostic::warning(w2::NO_EMPTY as u32, "empty function body"));
+                diagnostics.push(Diagnostic::warning(
+                    w2::NO_EMPTY as u32,
+                    "empty function body",
+                ));
             }
             check_block_for_unreachable(&func.body, diagnostics);
         }
@@ -418,16 +426,25 @@ fn check_statement_for_empty_and_unreachable(statement: &Statement, diagnostics:
             for method in &class_decl.body.methods {
                 if let Some(body) = &method.body {
                     if body.body.is_empty() {
-                        diagnostics.push(Diagnostic::warning(w2::NO_EMPTY as u32, "empty method body"));
+                        diagnostics.push(Diagnostic::warning(
+                            w2::NO_EMPTY as u32,
+                            "empty method body",
+                        ));
                     }
                     check_block_for_unreachable(body, diagnostics);
                 }
             }
         }
         Statement::IfStatement(stmt) => {
-            check_statement_for_empty_and_unreachable(&Statement::BlockStatement(stmt.consequent.as_ref().clone()), diagnostics);
+            check_statement_for_empty_and_unreachable(
+                &Statement::BlockStatement(stmt.consequent.as_ref().clone()),
+                diagnostics,
+            );
             if let Some(alternate) = &stmt.alternate {
-                check_statement_for_empty_and_unreachable(&Statement::BlockStatement(alternate.as_ref().clone()), diagnostics);
+                check_statement_for_empty_and_unreachable(
+                    &Statement::BlockStatement(alternate.as_ref().clone()),
+                    diagnostics,
+                );
             }
         }
         Statement::TryStatement(stmt) => {
@@ -437,13 +454,19 @@ fn check_statement_for_empty_and_unreachable(statement: &Statement, diagnostics:
             check_block_for_unreachable(&stmt.block, diagnostics);
             if let Some(handler) = &stmt.handler {
                 if handler.body.body.is_empty() {
-                    diagnostics.push(Diagnostic::warning(w2::NO_EMPTY as u32, "empty catch block"));
+                    diagnostics.push(Diagnostic::warning(
+                        w2::NO_EMPTY as u32,
+                        "empty catch block",
+                    ));
                 }
                 check_block_for_unreachable(&handler.body, diagnostics);
             }
             if let Some(finalizer) = &stmt.finalizer {
                 if finalizer.body.is_empty() {
-                    diagnostics.push(Diagnostic::warning(w2::NO_EMPTY as u32, "empty finally block"));
+                    diagnostics.push(Diagnostic::warning(
+                        w2::NO_EMPTY as u32,
+                        "empty finally block",
+                    ));
                 }
                 check_block_for_unreachable(finalizer, diagnostics);
             }
@@ -451,7 +474,10 @@ fn check_statement_for_empty_and_unreachable(statement: &Statement, diagnostics:
         Statement::SwitchStatement(stmt) => {
             for case in &stmt.cases {
                 if case.consequent.is_empty() {
-                    diagnostics.push(Diagnostic::warning(w2::NO_EMPTY as u32, "empty switch case"));
+                    diagnostics.push(Diagnostic::warning(
+                        w2::NO_EMPTY as u32,
+                        "empty switch case",
+                    ));
                 }
                 let mut terminated = false;
                 for inner in &case.consequent {
@@ -516,8 +542,11 @@ fn walk_statement_for_var_rules(
                 match decl.kind.as_str() {
                     "var" => {
                         diagnostics.push(
-                            Diagnostic::warning(w2::NO_VAR as u32, "avoid `var`; use `let` or `const`")
-                                .with_suggestion("replace `var` with `let`"),
+                            Diagnostic::warning(
+                                w2::NO_VAR as u32,
+                                "avoid `var`; use `let` or `const`",
+                            )
+                            .with_suggestion("replace `var` with `let`"),
                         );
                         fix_plan.var_tokens.insert(token_index);
                     }
@@ -540,52 +569,115 @@ fn walk_statement_for_var_rules(
         }
         Statement::BlockStatement(block) => {
             for inner in &block.body {
-                walk_statement_for_var_rules(inner, tokens, let_tokens, declaration_index, diagnostics, fix_plan);
+                walk_statement_for_var_rules(
+                    inner,
+                    tokens,
+                    let_tokens,
+                    declaration_index,
+                    diagnostics,
+                    fix_plan,
+                );
             }
         }
         Statement::FunctionDeclaration(func) => {
             for inner in &func.body.body {
-                walk_statement_for_var_rules(inner, tokens, let_tokens, declaration_index, diagnostics, fix_plan);
+                walk_statement_for_var_rules(
+                    inner,
+                    tokens,
+                    let_tokens,
+                    declaration_index,
+                    diagnostics,
+                    fix_plan,
+                );
             }
         }
         Statement::ClassDeclaration(class_decl) => {
             for method in &class_decl.body.methods {
                 if let Some(body) = &method.body {
                     for inner in &body.body {
-                        walk_statement_for_var_rules(inner, tokens, let_tokens, declaration_index, diagnostics, fix_plan);
+                        walk_statement_for_var_rules(
+                            inner,
+                            tokens,
+                            let_tokens,
+                            declaration_index,
+                            diagnostics,
+                            fix_plan,
+                        );
                     }
                 }
             }
         }
         Statement::IfStatement(stmt) => {
             for inner in &stmt.consequent.body {
-                walk_statement_for_var_rules(inner, tokens, let_tokens, declaration_index, diagnostics, fix_plan);
+                walk_statement_for_var_rules(
+                    inner,
+                    tokens,
+                    let_tokens,
+                    declaration_index,
+                    diagnostics,
+                    fix_plan,
+                );
             }
             if let Some(alternate) = &stmt.alternate {
                 for inner in &alternate.body {
-                    walk_statement_for_var_rules(inner, tokens, let_tokens, declaration_index, diagnostics, fix_plan);
+                    walk_statement_for_var_rules(
+                        inner,
+                        tokens,
+                        let_tokens,
+                        declaration_index,
+                        diagnostics,
+                        fix_plan,
+                    );
                 }
             }
         }
         Statement::TryStatement(stmt) => {
             for inner in &stmt.block.body {
-                walk_statement_for_var_rules(inner, tokens, let_tokens, declaration_index, diagnostics, fix_plan);
+                walk_statement_for_var_rules(
+                    inner,
+                    tokens,
+                    let_tokens,
+                    declaration_index,
+                    diagnostics,
+                    fix_plan,
+                );
             }
             if let Some(handler) = &stmt.handler {
                 for inner in &handler.body.body {
-                    walk_statement_for_var_rules(inner, tokens, let_tokens, declaration_index, diagnostics, fix_plan);
+                    walk_statement_for_var_rules(
+                        inner,
+                        tokens,
+                        let_tokens,
+                        declaration_index,
+                        diagnostics,
+                        fix_plan,
+                    );
                 }
             }
             if let Some(finalizer) = &stmt.finalizer {
                 for inner in &finalizer.body {
-                    walk_statement_for_var_rules(inner, tokens, let_tokens, declaration_index, diagnostics, fix_plan);
+                    walk_statement_for_var_rules(
+                        inner,
+                        tokens,
+                        let_tokens,
+                        declaration_index,
+                        diagnostics,
+                        fix_plan,
+                    );
                 }
             }
         }
         Statement::SwitchStatement(stmt) => {
             for case in &stmt.cases {
                 for inner in &case.consequent {
-                    walk_statement_for_var_rules(inner, tokens, let_tokens, declaration_index, diagnostics, fix_plan);
+                    walk_statement_for_var_rules(
+                        inner,
+                        tokens,
+                        let_tokens,
+                        declaration_index,
+                        diagnostics,
+                        fix_plan,
+                    );
                 }
             }
         }
@@ -791,10 +883,18 @@ mod tests {
     #[test]
     fn reports_basic_lint_issues() {
         let diagnostics = lint("var x = 1; let y = 2; debugger; if (x == y) { }");
-        assert!(diagnostics.iter().any(|diag| diag.code == Some(w2::NO_VAR as u32)));
-        assert!(diagnostics.iter().any(|diag| diag.code == Some(w2::PREFER_CONST as u32)));
-        assert!(diagnostics.iter().any(|diag| diag.code == Some(w2::DEBUGGER as u32)));
-        assert!(diagnostics.iter().any(|diag| diag.code == Some(w2::EQEQEQ as u32)));
+        assert!(diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(w2::NO_VAR as u32)));
+        assert!(diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(w2::PREFER_CONST as u32)));
+        assert!(diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(w2::DEBUGGER as u32)));
+        assert!(diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(w2::EQEQEQ as u32)));
     }
 
     #[test]

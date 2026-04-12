@@ -17,13 +17,7 @@ use tar::Archive;
 const MANIFEST_SCHEMA: u32 = 1;
 const LOCK_VERSION: u32 = 1;
 const DEFAULT_NPM_REGISTRY: &str = "https://registry.npmjs.org";
-const NODE_ONLY_HOST_APIS: &[&str] = &[
-    "fs",
-    "fs/promises",
-    "path",
-    "os",
-    "child_process",
-];
+const NODE_ONLY_HOST_APIS: &[&str] = &["fs", "fs/promises", "path", "os", "child_process"];
 
 /// Top-level Kali project manifest.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -1683,9 +1677,7 @@ fn validate_package_host_fit(package_dir: &Path) -> Result<(), Diagnostic> {
     Ok(())
 }
 
-fn scan_for_node_only_host_api(
-    root: &Path,
-) -> Result<Option<(PathBuf, &'static str)>, Diagnostic> {
+fn scan_for_node_only_host_api(root: &Path) -> Result<Option<(PathBuf, &'static str)>, Diagnostic> {
     let mut stack = vec![root.to_path_buf()];
 
     while let Some(dir) = stack.pop() {
@@ -2426,9 +2418,7 @@ export default fs;
         let error = validate_package_host_fit(dir.path()).unwrap_err();
         assert_eq!(error.code, Some(e6::NODE_ONLY_HOST_APIS as u32));
         assert!(error.message.contains("fs"));
-        assert!(error
-            .message
-            .contains("Phase-3 Node compatibility target"));
+        assert!(error.message.contains("Phase-3 Node compatibility target"));
     }
 
     #[test]

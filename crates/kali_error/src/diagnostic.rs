@@ -1,7 +1,7 @@
 //! Diagnostic types and collection.
 
 use super::severity::Severity;
-use kali_common::{FileId, Span};
+use kali_common::Span;
 use std::fmt;
 
 #[cfg(feature = "serde")]
@@ -129,15 +129,13 @@ impl Diagnostic {
     pub fn format_terminal(&self) -> String {
         let mut output = String::new();
 
-        // Severity prefix
-        let prefix = match self.severity {
-            Severity::Error => "Error",
-            Severity::Warning => "Warning",
-            Severity::Info => "Info",
+        let severity = match self.severity {
+            Severity::Error => "error",
+            Severity::Warning => "warning",
+            Severity::Info => "info",
         };
 
-        // Code and message
-        output.push_str(prefix);
+        output.push_str(severity);
         if let Some(code) = self.code {
             output.push_str(&format!("[E{:04}]", code));
         }
@@ -145,21 +143,18 @@ impl Diagnostic {
         output.push_str(": ");
         output.push_str(&self.message);
 
-        // Span information
         if let Some(span) = self.span {
             if let Some(span_info) = format_span(&span) {
-                output.push_str(&format!("\n  at {}", span_info));
+                output.push_str(&format!("\n  --> {}", span_info));
             }
         }
 
-        // Suggestions
         if let Some(suggestion) = &self.suggestion {
-            output.push_str(&format!("\n  help: {}", suggestion));
+            output.push_str(&format!("\n  = help: {}", suggestion));
         }
 
-        // Notes
         for note in &self.notes {
-            output.push_str(&format!("\n  note: {}", note));
+            output.push_str(&format!("\n  = note: {}", note));
         }
 
         output
@@ -175,16 +170,11 @@ impl fmt::Display for Diagnostic {
 /// Format a span for display.
 fn format_span(span: &Span) -> Option<String> {
     Some(format!(
-        "file_{}:{}:{}",
+        "file_{}:{}..{}",
         span.file_id.as_u32(),
         span.start,
         span.end
     ))
-}
-
-/// Format a file reference for display.
-fn format_file_ref(file_id: &FileId) -> String {
-    format!("file_{}", file_id.as_u32())
 }
 
 #[cfg(test)]
@@ -197,5 +187,19 @@ mod tests {
 
         assert_eq!(diag.severity, Severity::Error);
         assert_eq!(diag.code, Some(1000));
+    }
+
+    #[test]
+    fn test_terminal_format_uses_canonical_prefixes() {
+        let diag = Diagnostic::error(3021, "type 'string' is not assignable to type 'number'")
+            .with_suggestion("change the value or the type annotation")
+            .note("strict null checks are enabled");
+
+        let formatted = diag.format_terminal();
+        assert!(
+            formatted.starts_with("error[E3021]: type 'string' is not assignable to type 'number'")
+        );
+        assert!(formatted.contains("= help: change the value or the type annotation"));
+        assert!(formatted.contains("= note: strict null checks are enabled"));
     }
 }

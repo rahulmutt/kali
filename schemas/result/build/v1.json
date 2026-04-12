@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kali-lang.org/schemas/result/build/v1",
+  "title": "Kali Build Result v1",
+  "anyOf": [
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "artifactKind",
+        "outputPath",
+        "sizeBytes",
+        "buildMode",
+        "sourceHash"
+      ],
+      "properties": {
+        "artifactKind": {
+          "const": "executable"
+        },
+        "outputPath": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "buildMode": {
+          "type": "string"
+        },
+        "sourceHash": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "artifactKind",
+        "outputPath",
+        "sizeBytes",
+        "buildMode",
+        "sourceHash",
+        "metadataPath",
+        "exports"
+      ],
+      "properties": {
+        "artifactKind": {
+          "const": "lib"
+        },
+        "outputPath": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "buildMode": {
+          "type": "string"
+        },
+        "sourceHash": {
+          "type": "string"
+        },
+        "metadataPath": {
+          "type": "string"
+        },
+        "exports": {
+          "type": "array"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "artifactKind",
+        "outputPath",
+        "sizeBytes",
+        "buildMode",
+        "sourceHash",
+        "artifacts",
+        "exports"
+      ],
+      "properties": {
+        "artifactKind": {
+          "const": "bundle"
+        },
+        "outputPath": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "buildMode": {
+          "type": "string"
+        },
+        "sourceHash": {
+          "type": "string"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "kind",
+              "path"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "exports": {
+          "type": "array"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "artifacts"
+      ],
+      "properties": {
+        "artifacts": {
+          "type": "array"
+        }
+      }
+    }
+  ]
+}
