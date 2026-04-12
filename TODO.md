@@ -57,6 +57,7 @@
 - ✅ Object-literal properties now lower through a dedicated `ObjectProperty` HIR node
 - ✅ Property keys lower as literals, so MIR escape analysis no longer mistakes them for bindings
 - ✅ Stable heap-store shapes now feed the ownership analyzer for object-literal value escapes
+- ✅ Array-element and member-assignment heap-store flows now have explicit MIR ownership coverage
 
 ## Next Work
 - [x] Broader package-shape / host-fit diagnostics matrix coverage
