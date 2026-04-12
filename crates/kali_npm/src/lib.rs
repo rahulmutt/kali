@@ -4,7 +4,7 @@ use base64::Engine;
 use flate2::read::GzDecoder;
 use kali_error::{Diagnostic, _error_codes::e6};
 use reqwest::blocking::Client;
-use semver::Version;
+use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
 use std::{
@@ -253,30 +253,36 @@ pub fn ensure_project_ready(root: impl AsRef<Path>) -> Result<(), Diagnostic> {
         None => return Ok(()),
     };
 
-    let requires_install =
-        !manifest.dependencies.is_empty() || !manifest.dev_dependencies.is_empty();
-    if !requires_install {
-        return Ok(());
-    }
+    let root_keys = manifest_registry_package_keys(&manifest);
+    let Some(lock) = load_lock(root)? else {
+        if root_keys.is_empty() {
+            return Ok(());
+        }
 
-    let lock = load_lock(root)?;
-    let Some(lock) = lock else {
         return Err(Diagnostic::error(
             e6::INSTALL_REQUIRED as u32,
             "package installation is required before this command can proceed",
         ));
     };
 
-    for (name, version) in manifest
-        .dependencies
-        .iter()
-        .chain(manifest.dev_dependencies.iter())
-    {
-        let key = package_key(name, version);
-        let install_dir = root
-            .join("node_modules")
-            .join(name.trim_start_matches("jsr:"));
-        if !lock.packages.contains_key(&key) || !install_dir.exists() {
+    let reachable = collect_reachable_registry_packages(&lock, &root_keys)?;
+    if reachable.len() != lock.packages.len() {
+        return Err(Diagnostic::error(
+            e6::INSTALL_REQUIRED as u32,
+            "package installation is required before this command can proceed",
+        ));
+    }
+
+    for key in reachable {
+        let Some((name, _version)) = split_package_key(&key) else {
+            return Err(Diagnostic::error(
+                e6::INVALID_LOCK_FILE as u32,
+                format!("invalid package key '{}' in lock file", key),
+            ));
+        };
+        let install_name = install_name_from_package(name);
+        let install_dir = root.join("node_modules").join(&install_name);
+        if !install_dir.exists() {
             return Err(Diagnostic::error(
                 e6::INSTALL_REQUIRED as u32,
                 format!(
@@ -284,6 +290,158 @@ pub fn ensure_project_ready(root: impl AsRef<Path>) -> Result<(), Diagnostic> {
                     name
                 ),
             ));
+        }
+
+        let cache_dir = root.join(".kali-cache").join("packages").join(&key);
+        if !cache_dir.exists() {
+            return Err(Diagnostic::error(
+                e6::INSTALL_REQUIRED as u32,
+                format!(
+                    "package '{}' cache must be materialized before this command can proceed",
+                    name
+                ),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn manifest_registry_package_keys(manifest: &ProjectManifest) -> Vec<String> {
+    manifest
+        .dependencies
+        .iter()
+        .chain(manifest.dev_dependencies.iter())
+        .map(|(name, version)| package_key(name, version))
+        .collect()
+}
+
+fn split_package_key(key: &str) -> Option<(&str, &str)> {
+    key.rsplit_once('@')
+}
+
+fn ensure_lock_install_name_unique(
+    install_names: &mut BTreeMap<String, String>,
+    key: &str,
+) -> Result<(), Diagnostic> {
+    let Some((name, _version)) = split_package_key(key) else {
+        return Err(Diagnostic::error(
+            e6::INVALID_LOCK_FILE as u32,
+            format!("invalid package key '{}' in lock file", key),
+        ));
+    };
+
+    let install_name = install_name_from_package(name);
+    match install_names.entry(install_name) {
+        std::collections::btree_map::Entry::Vacant(entry) => {
+            entry.insert(key.to_string());
+            Ok(())
+        }
+        std::collections::btree_map::Entry::Occupied(entry) if entry.get() == key => Ok(()),
+        std::collections::btree_map::Entry::Occupied(entry) => Err(Diagnostic::error(
+            e6::VERSION_MISMATCH as u32,
+            format!(
+                "packages '{}' and '{}' would both materialize to node_modules/{}",
+                entry.get(),
+                key,
+                entry.key()
+            ),
+        )),
+    }
+}
+
+fn collect_reachable_registry_packages(
+    lock: &LockFile,
+    root_keys: &[String],
+) -> Result<BTreeSet<String>, Diagnostic> {
+    let mut reachable = BTreeSet::new();
+    let mut install_names = BTreeMap::new();
+    let mut stack = root_keys.to_vec();
+
+    while let Some(key) = stack.pop() {
+        if !reachable.insert(key.clone()) {
+            continue;
+        }
+
+        let package = lock.packages.get(&key).ok_or_else(|| {
+            Diagnostic::error(
+                e6::INSTALL_REQUIRED as u32,
+                format!(
+                    "package '{}' must be installed before this command can proceed",
+                    key
+                ),
+            )
+        })?;
+
+        ensure_lock_install_name_unique(&mut install_names, &key)?;
+
+        for (dep_name, dep_version) in &package.dependencies {
+            stack.push(package_key(dep_name, dep_version));
+        }
+    }
+
+    Ok(reachable)
+}
+
+fn prune_unreachable_registry_packages(
+    root: &Path,
+    lock: &mut LockFile,
+    reachable: &BTreeSet<String>,
+) -> Result<(), Vec<Diagnostic>> {
+    let unreachable = lock
+        .packages
+        .keys()
+        .filter(|key| !reachable.contains(*key))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    if unreachable.is_empty() {
+        return Ok(());
+    }
+
+    let remaining_install_names = lock
+        .packages
+        .keys()
+        .filter(|key| reachable.contains(*key))
+        .filter_map(|key| {
+            split_package_key(key).map(|(name, _version)| install_name_from_package(name))
+        })
+        .collect::<BTreeSet<_>>();
+
+    for key in unreachable {
+        lock.packages.remove(&key);
+
+        let cache_dir = root.join(".kali-cache").join("packages").join(&key);
+        if cache_dir.exists() {
+            fs::remove_dir_all(&cache_dir).map_err(|error| {
+                vec![Diagnostic::error(
+                    e6::INSTALL_FAILED as u32,
+                    format!(
+                        "failed to remove stale package cache '{}': {}",
+                        cache_dir.display(),
+                        error
+                    ),
+                )]
+            })?;
+        }
+
+        if let Some((name, _version)) = split_package_key(&key) {
+            let install_name = install_name_from_package(name);
+            if !remaining_install_names.contains(&install_name) {
+                let install_path = root.join("node_modules").join(&install_name);
+                if install_path.exists() {
+                    fs::remove_dir_all(&install_path).map_err(|error| {
+                        vec![Diagnostic::error(
+                            e6::INSTALL_FAILED as u32,
+                            format!(
+                                "failed to remove stale install path '{}': {}",
+                                install_path.display(),
+                                error
+                            ),
+                        )]
+                    })?;
+                }
+            }
         }
     }
 
@@ -329,6 +487,7 @@ pub fn install_project(
     };
 
     let mut installed = BTreeSet::new();
+    let mut installed_paths = BTreeMap::new();
     let mut diagnostics = Vec::new();
 
     if let Some(target) = options.target.as_deref() {
@@ -363,6 +522,7 @@ pub fn install_project(
                     &resolved,
                     options.allow_scripts,
                     &mut installed,
+                    &mut installed_paths,
                     &mut diagnostics,
                 )?;
             }
@@ -398,10 +558,16 @@ pub fn install_project(
                 &resolved,
                 options.allow_scripts,
                 &mut installed,
+                &mut installed_paths,
                 &mut diagnostics,
             )?;
         }
     }
+
+    let root_keys = manifest_registry_package_keys(&manifest);
+    let reachable = collect_reachable_registry_packages(&lock, &root_keys)
+        .map_err(|diagnostic| vec![diagnostic])?;
+    prune_unreachable_registry_packages(root, &mut lock, &reachable)?;
 
     let manifest_path = if manifest.is_minimal()
         && manifest.dependencies.is_empty()
@@ -430,37 +596,168 @@ pub fn install_project(
     })
 }
 
+fn record_install_path(
+    installed_paths: &mut BTreeMap<String, String>,
+    install_name: &str,
+    key: &str,
+) -> Result<(), Vec<Diagnostic>> {
+    match installed_paths.entry(install_name.to_string()) {
+        std::collections::btree_map::Entry::Vacant(entry) => {
+            entry.insert(key.to_string());
+            Ok(())
+        }
+        std::collections::btree_map::Entry::Occupied(entry) if entry.get() == key => Ok(()),
+        std::collections::btree_map::Entry::Occupied(entry) => Err(vec![Diagnostic::error(
+            e6::VERSION_MISMATCH as u32,
+            format!(
+                "packages '{}' and '{}' would both materialize to node_modules/{}",
+                entry.get(),
+                key,
+                entry.key()
+            ),
+        )]),
+    }
+}
+
 fn install_registry_package(
     root: &Path,
     lock: &mut LockFile,
     resolved: &ResolvedRegistryPackage,
     allow_scripts: bool,
     installed: &mut BTreeSet<String>,
+    installed_paths: &mut BTreeMap<String, String>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<(), Vec<Diagnostic>> {
     let _ = diagnostics;
     let key = package_key(&resolved.name, &resolved.version);
-    if lock.packages.contains_key(&key) {
-        installed.insert(key);
+    let package_dir = root.join(".kali-cache").join("packages").join(&key);
+    let node_modules_dir = root.join("node_modules");
+    let install_path = node_modules_dir.join(&resolved.install_name);
+
+    record_install_path(installed_paths, &resolved.install_name, &key)?;
+
+    let locked = lock.packages.contains_key(&key);
+    let verification_integrity = lock
+        .packages
+        .get(&key)
+        .map(|package| package.integrity.clone())
+        .or_else(|| resolved.integrity.clone());
+    let package_dir_ready = package_dir.exists();
+    let install_ready = install_path.exists();
+    if locked && package_dir_ready && install_ready {
+        installed.insert(key.clone());
+        if let Some(package) = lock.packages.get(&key) {
+            let dependencies = package.dependencies.clone();
+            for (dep_name, dep_spec) in dependencies {
+                if installed.contains(&package_key(&dep_name, &dep_spec)) {
+                    continue;
+                }
+                let dep_registry = if dep_name.starts_with("jsr:") {
+                    "jsr"
+                } else {
+                    "npm"
+                };
+                let dep_resolved =
+                    resolve_registry_package(dep_registry, &dep_name, Some(dep_spec.as_str()))
+                        .map_err(|diagnostic| vec![diagnostic])?;
+                install_registry_package(
+                    root,
+                    lock,
+                    &dep_resolved,
+                    allow_scripts,
+                    installed,
+                    installed_paths,
+                    diagnostics,
+                )?;
+            }
+        }
         return Ok(());
     }
 
-    let package_dir = root.join(".kali-cache").join("packages").join(&key);
-    fs::create_dir_all(&package_dir).map_err(|error| {
-        vec![Diagnostic::error(
-            e6::INSTALL_FAILED as u32,
-            format!(
-                "failed to create package cache '{}': {}",
-                package_dir.display(),
-                error
-            ),
-        )]
-    })?;
+    if !package_dir_ready {
+        fs::create_dir_all(&package_dir).map_err(|error| {
+            vec![Diagnostic::error(
+                e6::INSTALL_FAILED as u32,
+                format!(
+                    "failed to create package cache '{}': {}",
+                    package_dir.display(),
+                    error
+                ),
+            )]
+        })?;
 
-    let tarball_bytes =
-        download_bytes(&resolved.resolved).map_err(|diagnostic| vec![diagnostic])?;
-    let integrity = verify_tarball_integrity(&tarball_bytes, resolved.integrity.as_deref())?;
-    extract_tarball(&tarball_bytes, &package_dir)?;
+        let tarball_bytes =
+            download_bytes(&resolved.resolved).map_err(|diagnostic| vec![diagnostic])?;
+        let integrity = verify_tarball_integrity(&tarball_bytes, verification_integrity.as_deref())?;
+        extract_tarball(&tarball_bytes, &package_dir)?;
+
+        let extracted_root = if package_dir.join("package").is_dir() {
+            package_dir.join("package")
+        } else {
+            package_dir.clone()
+        };
+
+        if let Some(parent) = install_path.parent() {
+            fs::create_dir_all(parent).map_err(|error| {
+                vec![Diagnostic::error(
+                    e6::INSTALL_FAILED as u32,
+                    format!(
+                        "failed to create node_modules path '{}': {}",
+                        parent.display(),
+                        error
+                    ),
+                )]
+            })?;
+        }
+        copy_tree(&extracted_root, &install_path)?;
+
+        let package_json = read_package_json(&install_path)?;
+        validate_package_shape(&package_json, allow_scripts)?;
+        let dependency_specs = package_json
+            .dependencies
+            .iter()
+            .chain(package_json.optional_dependencies.iter())
+            .map(|(name, version)| (name.clone(), version.clone()))
+            .collect::<Vec<_>>();
+        let mut resolved_dependencies = BTreeMap::new();
+
+        for (dep_name, dep_spec) in dependency_specs {
+            if installed.contains(&package_key(&dep_name, &dep_spec)) {
+                continue;
+            }
+            let dep_registry = if dep_name.starts_with("jsr:") {
+                "jsr"
+            } else {
+                "npm"
+            };
+            let dep_resolved =
+                resolve_registry_package(dep_registry, &dep_name, Some(dep_spec.as_str()))
+                    .map_err(|diagnostic| vec![diagnostic])?;
+            resolved_dependencies.insert(dep_name.clone(), dep_resolved.version.clone());
+            install_registry_package(
+                root,
+                lock,
+                &dep_resolved,
+                allow_scripts,
+                installed,
+                installed_paths,
+                diagnostics,
+            )?;
+        }
+
+        lock.packages.insert(
+            key.clone(),
+            LockedPackage {
+                registry: resolved.registry.clone(),
+                integrity,
+                resolved: resolved.resolved.clone(),
+                dependencies: resolved_dependencies.clone(),
+            },
+        );
+        installed.insert(key.clone());
+
+        return Ok(());
+    }
 
     let extracted_root = if package_dir.join("package").is_dir() {
         package_dir.join("package")
@@ -468,8 +765,6 @@ fn install_registry_package(
         package_dir.clone()
     };
 
-    let node_modules_dir = root.join("node_modules");
-    let install_path = node_modules_dir.join(&resolved.install_name);
     if let Some(parent) = install_path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
             vec![Diagnostic::error(
@@ -486,25 +781,25 @@ fn install_registry_package(
 
     let package_json = read_package_json(&install_path)?;
     validate_package_shape(&package_json, allow_scripts)?;
-    let dependencies = package_json
+    let dependency_specs = package_json
         .dependencies
         .iter()
         .chain(package_json.optional_dependencies.iter())
         .map(|(name, version)| (name.clone(), version.clone()))
-        .collect::<BTreeMap<_, _>>();
+        .collect::<Vec<_>>();
+    let mut resolved_dependencies = BTreeMap::new();
+    let integrity = if !locked {
+        let tarball_bytes =
+            download_bytes(&resolved.resolved).map_err(|diagnostic| vec![diagnostic])?;
+        Some(verify_tarball_integrity(
+            &tarball_bytes,
+            verification_integrity.as_deref(),
+        )?)
+    } else {
+        None
+    };
 
-    lock.packages.insert(
-        key.clone(),
-        LockedPackage {
-            registry: resolved.registry.clone(),
-            integrity,
-            resolved: resolved.resolved.clone(),
-            dependencies: dependencies.clone(),
-        },
-    );
-    installed.insert(key.clone());
-
-    for (dep_name, dep_spec) in dependencies {
+    for (dep_name, dep_spec) in dependency_specs {
         if installed.contains(&package_key(&dep_name, &dep_spec)) {
             continue;
         }
@@ -516,15 +811,30 @@ fn install_registry_package(
         let dep_resolved =
             resolve_registry_package(dep_registry, &dep_name, Some(dep_spec.as_str()))
                 .map_err(|diagnostic| vec![diagnostic])?;
+        resolved_dependencies.insert(dep_name.clone(), dep_resolved.version.clone());
         install_registry_package(
             root,
             lock,
             &dep_resolved,
             allow_scripts,
             installed,
+            installed_paths,
             diagnostics,
         )?;
     }
+
+    if let Some(integrity) = integrity {
+        lock.packages.insert(
+            key.clone(),
+            LockedPackage {
+                registry: resolved.registry.clone(),
+                integrity,
+                resolved: resolved.resolved.clone(),
+                dependencies: resolved_dependencies.clone(),
+            },
+        );
+    }
+    installed.insert(key.clone());
 
     Ok(())
 }
@@ -687,40 +997,7 @@ fn resolve_npm_like_package(
             )
         })?;
 
-    let version = if let Some(requested) = requested_version {
-        if versions.contains_key(requested) {
-            requested.to_string()
-        } else {
-            return Err(Diagnostic::error(
-                e6::VERSION_MISMATCH as u32,
-                format!(
-                    "package '{}' does not publish version '{}'",
-                    display_name, requested
-                ),
-            ));
-        }
-    } else {
-        let mut candidate: Option<Version> = None;
-        for key in versions.keys() {
-            if let Ok(version) = Version::parse(key) {
-                if version.pre.is_empty()
-                    && candidate
-                        .as_ref()
-                        .map(|current| &version > current)
-                        .unwrap_or(true)
-                {
-                    candidate = Some(version);
-                }
-            }
-        }
-        let Some(latest) = candidate else {
-            return Err(Diagnostic::error(
-                e6::NOT_FOUND as u32,
-                format!("package '{}' has no stable published version", display_name),
-            ));
-        };
-        latest.to_string()
-    };
+    let version = select_registry_version(display_name, versions, requested_version)?;
 
     let version_meta = versions
         .get(&version)
@@ -764,6 +1041,85 @@ fn resolve_npm_like_package(
         resolved: tarball.to_string(),
         integrity,
     })
+}
+
+fn select_registry_version(
+    display_name: &str,
+    versions: &serde_json::Map<String, serde_json::Value>,
+    requested_version: Option<&str>,
+) -> Result<String, Diagnostic> {
+    if let Some(requested) = requested_version {
+        if versions.contains_key(requested) {
+            return Ok(requested.to_string());
+        }
+
+        if Version::parse(requested).is_ok() {
+            return Err(Diagnostic::error(
+                e6::VERSION_MISMATCH as u32,
+                format!(
+                    "package '{}' does not publish version '{}'",
+                    display_name, requested
+                ),
+            ));
+        }
+
+        let req = VersionReq::parse(requested).map_err(|_| {
+            Diagnostic::error(
+                e6::INVALID_PACKAGE_SPECIFIER as u32,
+                format!(
+                    "package '{}' has invalid version specifier '{}'",
+                    display_name, requested
+                ),
+            )
+        })?;
+
+        let mut candidate: Option<Version> = None;
+        for key in versions.keys() {
+            if let Ok(version) = Version::parse(key) {
+                if req.matches(&version)
+                    && candidate
+                        .as_ref()
+                        .map(|current| &version > current)
+                        .unwrap_or(true)
+                {
+                    candidate = Some(version);
+                }
+            }
+        }
+
+        let Some(latest) = candidate else {
+            return Err(Diagnostic::error(
+                e6::VERSION_MISMATCH as u32,
+                format!(
+                    "package '{}' does not publish a version matching '{}'",
+                    display_name, requested
+                ),
+            ));
+        };
+
+        return Ok(latest.to_string());
+    }
+
+    let mut candidate: Option<Version> = None;
+    for key in versions.keys() {
+        if let Ok(version) = Version::parse(key) {
+            if version.pre.is_empty()
+                && candidate
+                    .as_ref()
+                    .map(|current| &version > current)
+                    .unwrap_or(true)
+            {
+                candidate = Some(version);
+            }
+        }
+    }
+    let Some(latest) = candidate else {
+        return Err(Diagnostic::error(
+            e6::NOT_FOUND as u32,
+            format!("package '{}' has no stable published version", display_name),
+        ));
+    };
+    Ok(latest.to_string())
 }
 
 fn parse_package_target(target: &str) -> Result<PackageTarget, Diagnostic> {
@@ -1389,5 +1745,87 @@ mod tests {
 
         validate_manifest_registry_collisions(&manifest)
             .expect("single dependency should be valid");
+    }
+
+    #[test]
+    fn requested_version_ranges_select_highest_matching_release() {
+        let mut versions = serde_json::Map::new();
+        versions.insert("1.0.0".to_string(), serde_json::Value::Null);
+        versions.insert("1.2.0".to_string(), serde_json::Value::Null);
+        versions.insert("2.0.0".to_string(), serde_json::Value::Null);
+
+        assert_eq!(
+            select_registry_version("lodash", &versions, Some("^1.0.0")).unwrap(),
+            "1.2.0"
+        );
+        assert_eq!(
+            select_registry_version("lodash", &versions, None).unwrap(),
+            "2.0.0"
+        );
+    }
+
+    #[test]
+    fn collect_reachable_registry_packages_rejects_install_path_conflicts() {
+        let lock = LockFile {
+            version: LOCK_VERSION,
+            packages: BTreeMap::from([
+                (
+                    "@scope/name@1.0.0".to_string(),
+                    LockedPackage {
+                        registry: "npm".to_string(),
+                        integrity: "sha512-demo".to_string(),
+                        resolved: "https://example.com/scope-name.tgz".to_string(),
+                        dependencies: BTreeMap::new(),
+                    },
+                ),
+                (
+                    "jsr:@scope/name@1.0.0".to_string(),
+                    LockedPackage {
+                        registry: "jsr".to_string(),
+                        integrity: "sha512-demo".to_string(),
+                        resolved: "https://example.com/jsr-scope-name.tgz".to_string(),
+                        dependencies: BTreeMap::new(),
+                    },
+                ),
+            ]),
+            ..LockFile::default()
+        };
+
+        let error = collect_reachable_registry_packages(
+            &lock,
+            &[
+                "@scope/name@1.0.0".to_string(),
+                "jsr:@scope/name@1.0.0".to_string(),
+            ],
+        )
+        .unwrap_err();
+        assert_eq!(error.code, Some(e6::VERSION_MISMATCH as u32));
+    }
+
+    #[test]
+    fn ensure_project_ready_rejects_stale_lock_entries() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).unwrap();
+        let lock = LockFile {
+            version: LOCK_VERSION,
+            packages: BTreeMap::from([(
+                "lodash@4.17.21".to_string(),
+                LockedPackage {
+                    registry: "npm".to_string(),
+                    integrity: "sha512-demo".to_string(),
+                    resolved: "https://example.com/lodash.tgz".to_string(),
+                    dependencies: BTreeMap::new(),
+                },
+            )]),
+            ..LockFile::default()
+        };
+        fs::write(
+            dir.path().join("kali.lock"),
+            serde_json::to_string_pretty(&lock).unwrap(),
+        )
+        .unwrap();
+
+        let error = ensure_project_ready(dir.path()).unwrap_err();
+        assert_eq!(error.code, Some(e6::INSTALL_REQUIRED as u32));
     }
 }

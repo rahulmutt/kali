@@ -33,9 +33,11 @@
 
 ### Stage 1.10 - Package Management
 - ✅ Manifest collision preflight now rejects registry identities that would materialize to the same `node_modules/` path
+- ✅ Semver ranges now resolve deterministically to the highest matching published version
+- ✅ Transitive install-path conflicts are rejected with `E6002`, and stale registry lock entries are pruned during `kali install`
+- ✅ `kali install` now reconciles package cache and `node_modules/` state when the lock graph is already present
 
 ## Next Work
-- [ ] Deterministic package resolution and lockfile reconciliation
-- [ ] Materialize npm/JSR/raw-URL dependencies into the cache
-- [ ] Wire bare-specifier resolution to the installed package graph
-- [ ] Add package-shape validation for the pure JS/TS contract
+- [ ] Raw URL reconciliation from project discovery/import-map inputs
+- [ ] Broader package-shape / host-fit diagnostics matrix coverage
+- [ ] CLI integration coverage for install repair/prune scenarios
