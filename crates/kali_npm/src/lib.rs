@@ -2742,6 +2742,35 @@ mod tests {
     }
 
     #[test]
+    fn install_is_idempotent_for_unchanged_raw_url_graph() {
+        let dir = tempdir().unwrap();
+        let raw_url = start_raw_url_server("export default 1;");
+        let raw_prefix = raw_url.trim_end_matches("mod.ts").to_string();
+        fs::write(
+            dir.path().join("kali.json"),
+            format!(
+                r#"{{
+  "schemaVersion": 1,
+  "imports": {{
+    "raw/": "{}"
+  }}
+}}"#,
+                raw_prefix
+            ),
+        )
+        .unwrap();
+        fs::write(dir.path().join("main.ts"), "import 'raw/mod.ts';\n").unwrap();
+
+        install_project(dir.path(), InstallOptions::default()).unwrap();
+        let first_lock = fs::read(dir.path().join("kali.lock")).unwrap();
+
+        install_project(dir.path(), InstallOptions::default()).unwrap();
+        let second_lock = fs::read(dir.path().join("kali.lock")).unwrap();
+
+        assert_eq!(first_lock, second_lock, "lock file changed across identical installs");
+    }
+
+    #[test]
     fn install_rejects_allow_scripts_without_npm_work() {
         let dir = tempdir().unwrap();
         fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).unwrap();

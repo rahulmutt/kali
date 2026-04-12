@@ -1,5 +1,13 @@
 # PLAN Mailbox
 
+## 2026-04-12 — Stage 1.14 configless-install wording aligned to SPEC
+
+`plan/phase-1/14-evidence-hardening.md` previously described `kali install` on a project with no `kali.json` as a clear error, but `specs/14-packages.md` defines the configless-install split as a clean no-op success that must not create a placeholder manifest. The stage note has been updated to match the spec-correct behavior.
+
+## 2026-04-12 — Stage 1.14 raw-URL install idempotence coverage added
+
+Added a regression test in `crates/kali_npm` that installs the same raw-URL graph twice and asserts the resulting `kali.lock` bytes remain identical across both runs. This closes the most straightforward remaining install-workflow determinism gap in Stage 1.14 without changing the underlying install semantics.
+
 ## 2026-04-12 — Stage 2.1 alias-chain precision completed
 
 Stage 2.1's remaining escape-analysis gap was closed by teaching `kali_mir` to resolve function-expression aliases through alias chains, including anonymous function expressions lowered to synthetic function names. That keeps direct-call precision intact for `const alias = identity; const alias2 = alias; alias2(...)` style call targets.

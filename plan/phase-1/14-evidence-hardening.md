@@ -27,6 +27,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added phase-gated placeholders for later surfaces (`effects`, `package-effects`, `package-audit`, `build --capi`, `build --component`, and `run`/`test` API-surface selection) so the evidence suite can assert unavailability with the canonical `E5006` path instead of plain unknown-command parsing.
 - Added runtime smoke coverage for those Phase-2+ gating paths alongside the existing Phase-1 JSON-envelope and artifact coverage.
 - Added deterministic repeated-build smoke coverage for executable, base-library, and browser-bundle artifact outputs so the evidence suite now checks byte-for-byte stability across identical inputs.
+- Added raw-URL install idempotence coverage so repeated `kali install` runs over the same raw URL graph now assert lockfile byte stability.
 - Added negative `kali build --lib` coverage for sources without a statically known export surface so the Phase-1 base-library evidence lane keeps enforcing `E5011`.
 - Added a Node-based browser-bundle execution smoke harness that imports the generated ESM bundle, resolves the emitted WASM, and exercises the exported wrapper for both explicit and inherited browser API-surface builds.
 - Added a repository regression test that pins the canonical proof-ready summary in both `README.md` and `proofs/BOUNDARY.md`, so the empty proof boundary stays aligned with the public status wording.
@@ -123,7 +124,7 @@ These tests must be committed and must continue to pass until the corresponding 
 
 Complete coverage of the `kali install` edge cases defined in `specs/16-testing.md`:
 
-- `kali install` on a project with no `kali.json` → clear error.
+- `kali install` on a project with no `kali.json` → clean no-op success; it must not create a placeholder manifest.
 - `kali install --dev <pkg>` → adds to `devDependencies`, lock file updated.
 - `kali install --allow-scripts <pkg>` with empty lifecycle scripts → clean no-op exit 0.
 - `kali install --allow-scripts <raw-url>` → `E6009`.
