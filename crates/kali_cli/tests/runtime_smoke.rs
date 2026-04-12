@@ -1,24 +1,30 @@
-use std::fs;
-use std::process::Command;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use tempfile::tempdir;
 
-fn kali_bin() -> std::path::PathBuf {
+fn kali_bin() -> PathBuf {
     std::env::var_os("CARGO_BIN_EXE_kali")
-        .map(std::path::PathBuf::from)
+        .map(PathBuf::from)
         .expect("kali binary path")
 }
 
-#[test]
-fn run_executes_a_simple_source_file() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.ts");
-    fs::write(&source_path, "1 + 2;").expect("write source");
+fn fixture_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
+}
 
+fn fixture_path(relative: impl AsRef<Path>) -> PathBuf {
+    fixture_root().join(relative)
+}
+
+#[test]
+fn run_executes_the_hello_fixture() {
     let output = Command::new(kali_bin())
-        .current_dir(dir.path())
         .arg("run")
-        .arg(&source_path)
+        .arg(fixture_path("run/hello.ts"))
         .output()
         .expect("run kali");
 
@@ -31,15 +37,10 @@ fn run_executes_a_simple_source_file() {
 }
 
 #[test]
-fn run_rejects_declaration_only_entrypoints() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("decl.d.ts");
-    fs::write(&source_path, "declare const value: string;").expect("write source");
-
+fn run_rejects_declaration_only_fixture_entrypoints() {
     let output = Command::new(kali_bin())
-        .current_dir(dir.path())
         .arg("run")
-        .arg(&source_path)
+        .arg(fixture_path("run/decl.d.ts"))
         .output()
         .expect("run kali");
 
@@ -50,14 +51,9 @@ fn run_rejects_declaration_only_entrypoints() {
 
 #[test]
 fn test_reports_success_for_explicit_file_sets() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.test.ts");
-    fs::write(&source_path, "1 + 2;").expect("write source");
-
     let output = Command::new(kali_bin())
-        .current_dir(dir.path())
         .arg("test")
-        .arg(&source_path)
+        .arg(fixture_path("tests/smoke.test.ts"))
         .output()
         .expect("run kali");
 
@@ -72,23 +68,10 @@ fn test_reports_success_for_explicit_file_sets() {
 }
 
 #[test]
-fn test_runs_guest_registered_tests() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("suite.test.ts");
-    fs::write(
-        &source_path,
-        r#"
-        Kali.test("addition", () => {
-            1 + 2;
-        });
-        "#,
-    )
-    .expect("write source");
-
+fn test_discovers_fixture_tree_from_cwd() {
     let output = Command::new(kali_bin())
-        .current_dir(dir.path())
+        .current_dir(fixture_root())
         .arg("test")
-        .arg(&source_path)
         .output()
         .expect("run kali");
 

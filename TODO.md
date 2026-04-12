@@ -28,4 +28,5 @@
 - [x] Add the Deno-oriented host surface subset (`fetch`, filesystem, env, args)
 - [x] Add the timer / microtask scheduler surface (`setTimeout`, `setInterval`, `queueMicrotask`)
 - [x] Implement the guest-side `Kali.test(...)` registration protocol
-- [ ] Expand runtime coverage to the Stage 1.8 fixture set (`hello.ts`, async/timer, mocked fetch, invalid traps)
+- [x] Add repo-backed fixture smoke coverage for `hello.ts`, test-suite discovery, and declaration-only rejection
+- [ ] Expand runtime fixture coverage for the remaining Stage 1.8 edge cases (`async.ts`, `fetch.ts`, invalid-trap source fixture)
