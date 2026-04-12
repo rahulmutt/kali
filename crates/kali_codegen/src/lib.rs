@@ -1,6 +1,6 @@
 //! WASM code generation for the Kali compiler.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use kali_error::{Diagnostic, _error_codes::e8};
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
@@ -614,15 +614,32 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 
 fn collect_functions(lir: &LirProgram) -> Vec<FunctionPlan> {
     let mut plans = Vec::new();
-    for (index, _) in lir.nodes.iter().enumerate() {
-        if index == lir.root.0 as usize {
-            continue;
-        }
-        if let Some(plan) = function_plan(&lir.nodes, LirNodeId(index as u32)) {
-            plans.push(plan);
-        }
-    }
+    let mut visited = HashSet::new();
+    collect_functions_from_node(lir, lir.root, &mut visited, &mut plans);
     plans
+}
+
+fn collect_functions_from_node(
+    lir: &LirProgram,
+    id: LirNodeId,
+    visited: &mut HashSet<LirNodeId>,
+    plans: &mut Vec<FunctionPlan>,
+) {
+    if !visited.insert(id) {
+        return;
+    }
+
+    if let Some(plan) = function_plan(&lir.nodes, id) {
+        plans.push(plan);
+    }
+
+    let Some(node) = lir.nodes.get(id.0 as usize) else {
+        return;
+    };
+
+    for child in &node.children {
+        collect_functions_from_node(lir, *child, visited, plans);
+    }
 }
 
 fn function_plan(nodes: &[LirNode], id: LirNodeId) -> Option<FunctionPlan> {

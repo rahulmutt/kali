@@ -5,7 +5,7 @@
 //! to land constant folding, branch elimination, and a handful of algebraic
 //! simplifications without needing a full SSA pipeline yet.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
 
@@ -57,8 +57,13 @@ impl Optimizer {
         match self.level {
             OptimizationLevel::Fast | OptimizationLevel::Default => {}
             OptimizationLevel::Release | OptimizationLevel::ReleaseAdvanced => {
+                let plan = self.build_specialization_plan(program);
                 let mut tracker = SpecializationTracker::new(self.max_specializations);
-                self.optimize_node(program, program.root, true, &mut tracker);
+                self.optimize_node(program, program.root, &plan, &mut tracker);
+
+                if matches!(self.level, OptimizationLevel::ReleaseAdvanced) {
+                    self.prune_dead_top_level_functions(program);
+                }
             }
         }
     }
@@ -67,17 +72,19 @@ impl Optimizer {
         &self,
         program: &mut LirProgram,
         id: LirNodeId,
-        is_root: bool,
+        plan: &SpecializationPlan,
         tracker: &mut SpecializationTracker,
     ) {
         let children = program.nodes[id.0 as usize].children.clone();
         for child in children {
-            self.optimize_node(program, child, false, tracker);
+            self.optimize_node(program, child, plan, tracker);
         }
 
-        if is_root {
+        if matches!(
+            program.nodes[id.0 as usize].kind,
+            LirNodeKind::Program | LirNodeKind::Block
+        ) {
             self.optimize_sequence(program, id);
-            return;
         }
 
         if self.optimize_constant_expression(program, id, tracker) {
@@ -90,8 +97,8 @@ impl Optimizer {
             return;
         }
 
-        if matches!(self.level, OptimizationLevel::ReleaseAdvanced) {
-            self.optimize_sequence(program, id);
+        if self.optimize_call_site(program, id, plan, tracker) {
+            self.optimize_node(program, id, plan, tracker);
         }
     }
 
@@ -352,6 +359,379 @@ impl Optimizer {
             _ => false,
         }
     }
+    fn optimize_call_site(
+        &self,
+        program: &mut LirProgram,
+        id: LirNodeId,
+        plan: &SpecializationPlan,
+        tracker: &mut SpecializationTracker,
+    ) -> bool {
+        let snapshot = program.nodes[id.0 as usize].clone();
+        if snapshot.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee_id) = snapshot.children.first().copied() else {
+            return false;
+        };
+        let Some(callee_node) = program.nodes.get(callee_id.0 as usize).cloned() else {
+            return false;
+        };
+        let Some(callee_name) = callee_node.text.as_deref() else {
+            return false;
+        };
+        let Some(summary) = plan.functions.get(callee_name) else {
+            return false;
+        };
+        let Some(inline_body) = summary.inline_body else {
+            return false;
+        };
+
+        let inline_threshold = match self.level {
+            OptimizationLevel::Release => 12,
+            OptimizationLevel::ReleaseAdvanced => 24,
+            _ => 0,
+        };
+        if summary.node_count > inline_threshold || summary.recursive {
+            return false;
+        }
+
+        let args: Vec<LirNodeId> = snapshot.children.iter().skip(1).copied().collect();
+        if args.len() != summary.params.len() {
+            return false;
+        }
+
+        let key = format!(
+            "inline:{}:{}",
+            callee_name,
+            self.call_signature(program, &snapshot)
+        );
+        if !tracker.allow(key) {
+            return false;
+        }
+
+        let cloned_root = self.inline_call_site(program, inline_body, &summary.params, &args);
+        let replacement = program.nodes[cloned_root.0 as usize].clone();
+        program.nodes[id.0 as usize] = replacement;
+        true
+    }
+
+    fn build_specialization_plan(&self, program: &LirProgram) -> SpecializationPlan {
+        let mut plan = SpecializationPlan::default();
+        let mut visited = HashSet::new();
+        self.collect_specialization_plan(program, program.root, &mut visited, &mut plan);
+        plan
+    }
+
+    fn collect_specialization_plan(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+        visited: &mut HashSet<LirNodeId>,
+        plan: &mut SpecializationPlan,
+    ) {
+        if !visited.insert(id) {
+            return;
+        }
+
+        if let Some(summary) = self.function_summary(program, id) {
+            plan.functions.insert(summary.name.clone(), summary);
+        }
+
+        let children = program
+            .nodes
+            .get(id.0 as usize)
+            .map(|node| node.children.clone())
+            .unwrap_or_default();
+        for child in children {
+            self.collect_specialization_plan(program, child, visited, plan);
+        }
+    }
+
+    fn function_summary(&self, program: &LirProgram, id: LirNodeId) -> Option<FunctionSummary> {
+        let node = program.nodes.get(id.0 as usize)?;
+        if node.kind != LirNodeKind::Instruction {
+            return None;
+        }
+
+        let name = node.text.clone()?;
+        if node.children.len() < 2 {
+            return None;
+        }
+
+        let block_id = *node.children.last()?;
+        let block = program.nodes.get(block_id.0 as usize)?;
+        if block.kind != LirNodeKind::Block {
+            return None;
+        }
+
+        let mut params = Vec::new();
+        for child in node.children.iter().take(node.children.len() - 1) {
+            let child_node = program.nodes.get(child.0 as usize)?;
+            if let Some(text) = &child_node.text {
+                params.push(text.clone());
+            }
+        }
+
+        let inline_body = self.extract_inline_body(program, block_id);
+        let node_count = inline_body
+            .map(|body| self.count_subtree_nodes(program, body))
+            .unwrap_or(0);
+        let recursive = inline_body
+            .map(|body| self.contains_call_target(program, body, &name))
+            .unwrap_or(false);
+
+        Some(FunctionSummary {
+            name,
+            params,
+            body_block: block_id,
+            inline_body,
+            node_count,
+            recursive,
+        })
+    }
+
+    fn extract_inline_body(&self, program: &LirProgram, block_id: LirNodeId) -> Option<LirNodeId> {
+        let block = program.nodes.get(block_id.0 as usize)?;
+        if block.kind != LirNodeKind::Block || block.children.len() != 1 {
+            return None;
+        }
+
+        let child_id = block.children[0];
+        let child = program.nodes.get(child_id.0 as usize)?;
+        match child.kind {
+            LirNodeKind::Instruction if child.text.as_deref() == Some("return") => {
+                child.children.first().copied()
+            }
+            LirNodeKind::Literal | LirNodeKind::Value | LirNodeKind::Call | LirNodeKind::Branch => {
+                Some(child_id)
+            }
+            _ => None,
+        }
+    }
+
+    fn count_subtree_nodes(&self, program: &LirProgram, id: LirNodeId) -> usize {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return 0;
+        };
+
+        let mut count = 1;
+        for child in &node.children {
+            count += self.count_subtree_nodes(program, *child);
+        }
+        count
+    }
+
+    fn contains_call_target(&self, program: &LirProgram, id: LirNodeId, target: &str) -> bool {
+        let mut targets = BTreeSet::new();
+        self.collect_call_targets(program, id, &mut targets);
+        targets.contains(target)
+    }
+
+    fn collect_call_targets(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+        targets: &mut BTreeSet<String>,
+    ) {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return;
+        };
+
+        if node.kind == LirNodeKind::Call {
+            if let Some(callee) = node.children.first().copied() {
+                if let Some(callee_node) = program.nodes.get(callee.0 as usize) {
+                    if let Some(name) = callee_node.text.as_deref() {
+                        targets.insert(name.to_string());
+                    }
+                }
+            }
+        }
+
+        for child in &node.children {
+            self.collect_call_targets(program, *child, targets);
+        }
+    }
+
+    fn prune_dead_top_level_functions(&self, program: &mut LirProgram) {
+        let root_id = program.root;
+        let root_children = program.nodes[root_id.0 as usize].children.clone();
+        let mut top_level_functions = BTreeMap::<String, FunctionSummary>::new();
+        for child in &root_children {
+            if let Some(summary) = self.function_summary(program, *child) {
+                top_level_functions.insert(summary.name.clone(), summary);
+            }
+        }
+
+        let mut live = BTreeSet::new();
+        let mut worklist = Vec::new();
+        for child in &root_children {
+            if self.function_summary(program, *child).is_none() {
+                let mut targets = BTreeSet::new();
+                self.collect_call_targets(program, *child, &mut targets);
+                for target in targets {
+                    if top_level_functions.contains_key(&target) {
+                        worklist.push(target);
+                    }
+                }
+            }
+        }
+
+        while let Some(name) = worklist.pop() {
+            if !live.insert(name.clone()) {
+                continue;
+            }
+
+            let Some(summary) = top_level_functions.get(&name) else {
+                continue;
+            };
+            let mut targets = BTreeSet::new();
+            self.collect_call_targets(program, summary.body_block, &mut targets);
+            for target in targets {
+                if top_level_functions.contains_key(&target) && !live.contains(&target) {
+                    worklist.push(target);
+                }
+            }
+        }
+
+        let mut filtered = Vec::with_capacity(root_children.len());
+        for child in root_children {
+            if let Some(summary) = self.function_summary(program, child) {
+                if live.contains(&summary.name) {
+                    filtered.push(child);
+                }
+            } else {
+                filtered.push(child);
+            }
+        }
+
+        program.nodes[root_id.0 as usize].children = filtered;
+    }
+
+    fn inline_call_site(
+        &self,
+        program: &mut LirProgram,
+        body_root: LirNodeId,
+        params: &[String],
+        args: &[LirNodeId],
+    ) -> LirNodeId {
+        let substitutions: BTreeMap<String, LirNodeId> =
+            params.iter().cloned().zip(args.iter().copied()).collect();
+        let mut memo = HashMap::new();
+        self.clone_subtree_with_substitution(program, body_root, &substitutions, &mut memo)
+    }
+
+    fn clone_subtree_with_substitution(
+        &self,
+        program: &mut LirProgram,
+        id: LirNodeId,
+        substitutions: &BTreeMap<String, LirNodeId>,
+        memo: &mut HashMap<LirNodeId, LirNodeId>,
+    ) -> LirNodeId {
+        let snapshot = program.nodes[id.0 as usize].clone();
+        if snapshot.kind == LirNodeKind::Value && snapshot.children.is_empty() {
+            if let Some(name) = snapshot.text.as_deref() {
+                if let Some(&replacement) = substitutions.get(name) {
+                    return replacement;
+                }
+            }
+        }
+
+        if let Some(existing) = memo.get(&id).copied() {
+            return existing;
+        }
+
+        let mut children = Vec::with_capacity(snapshot.children.len());
+        for child in snapshot.children {
+            children.push(self.clone_subtree_with_substitution(
+                program,
+                child,
+                substitutions,
+                memo,
+            ));
+        }
+
+        let new_id = LirNodeId(program.nodes.len() as u32);
+        program.nodes.push(LirNode {
+            kind: snapshot.kind,
+            text: snapshot.text,
+            children,
+        });
+        memo.insert(id, new_id);
+        new_id
+    }
+
+    fn call_signature(&self, program: &LirProgram, node: &LirNode) -> String {
+        let callee = node
+            .children
+            .first()
+            .and_then(|child| program.nodes.get(child.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .unwrap_or("<unknown>");
+
+        let mut signature = String::from(callee);
+        signature.push('(');
+        for child in node.children.iter().skip(1) {
+            signature.push_str(&self.specialization_signature(program, *child));
+            signature.push(',');
+        }
+        signature.push(')');
+        signature
+    }
+
+    fn specialization_signature(&self, program: &LirProgram, id: LirNodeId) -> String {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return "<missing>".to_string();
+        };
+
+        let mut signature = match node.kind {
+            LirNodeKind::Literal => match parse_literal_text(node.text.as_deref()) {
+                Some(ConstantValue::Number(_)) => "Literal:number".to_string(),
+                Some(ConstantValue::Boolean(_)) => "Literal:boolean".to_string(),
+                None => format!("{:?}:{:?}", node.kind, node.text),
+            },
+            LirNodeKind::Value if node.children.is_empty() => match node.text.as_deref() {
+                Some(text) if parse_literal_text(Some(text)).is_some() => {
+                    if matches!(
+                        parse_literal_text(Some(text)),
+                        Some(ConstantValue::Boolean(_))
+                    ) {
+                        "Value:boolean".to_string()
+                    } else {
+                        "Value:number".to_string()
+                    }
+                }
+                _ => format!("{:?}:{:?}", node.kind, node.text),
+            },
+            _ => format!("{:?}:{:?}", node.kind, node.text),
+        };
+
+        if !node.children.is_empty() {
+            signature.push('(');
+            for child in &node.children {
+                signature.push_str(&self.specialization_signature(program, *child));
+                signature.push(',');
+            }
+            signature.push(')');
+        }
+
+        signature
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct SpecializationPlan {
+    functions: BTreeMap<String, FunctionSummary>,
+}
+
+#[derive(Clone, Debug)]
+struct FunctionSummary {
+    name: String,
+    params: Vec<String>,
+    body_block: LirNodeId,
+    inline_body: Option<LirNodeId>,
+    node_count: usize,
+    recursive: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -565,6 +945,69 @@ mod tests {
         assert_eq!(node.kind, LirNodeKind::Value);
         assert_eq!(node.text.as_deref(), Some("x"));
         assert!(node.children.is_empty());
+    }
+
+    #[test]
+    fn release_inlines_simple_function_calls() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+        let function = builder.alloc_text(LirNodeKind::Instruction, "add_one");
+        let param = builder.alloc_text(LirNodeKind::Value, "x");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let expr = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let arg = literal(&mut builder, "2");
+        builder.node_mut(expr).unwrap().children = vec![param, one];
+        builder.node_mut(ret).unwrap().children = vec![expr];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param, block];
+        let call = builder.alloc(LirNodeKind::Call);
+        let callee = builder.alloc_text(LirNodeKind::Value, "add_one");
+        builder.node_mut(call).unwrap().children = vec![callee, arg];
+        builder.node_mut(root).unwrap().children = vec![function, call];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+        let node = &program.nodes[call.0 as usize];
+        assert_eq!(node.kind, LirNodeKind::Literal);
+        assert_eq!(node.text.as_deref(), Some("3"));
+    }
+
+    #[test]
+    fn release_advanced_prunes_dead_inlined_functions() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+        let function = builder.alloc_text(LirNodeKind::Instruction, "add_one");
+        let param = builder.alloc_text(LirNodeKind::Value, "x");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let expr = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let arg = literal(&mut builder, "2");
+        builder.node_mut(expr).unwrap().children = vec![param, one];
+        builder.node_mut(ret).unwrap().children = vec![expr];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param, block];
+        let call = builder.alloc(LirNodeKind::Call);
+        let callee = builder.alloc_text(LirNodeKind::Value, "add_one");
+        builder.node_mut(call).unwrap().children = vec![callee, arg];
+        builder.node_mut(root).unwrap().children = vec![function, call];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        Optimizer::new(OptimizationLevel::ReleaseAdvanced).optimize_program(&mut program);
+
+        let node = &program.nodes[call.0 as usize];
+        assert_eq!(node.kind, LirNodeKind::Literal);
+        assert_eq!(node.text.as_deref(), Some("3"));
+        assert_eq!(program.nodes[root.0 as usize].children, vec![call]);
     }
 
     #[test]

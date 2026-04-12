@@ -5,13 +5,14 @@
 
 ## Summary
 
-Stage 3.1 now has the first real `kali_optimize` implementation wired into the build pipeline. `release` builds perform deterministic constant folding and branch elimination, while `release-advanced` adds a small algebraic-identity pass that can remove extra add/sub/mul overhead from hot paths. The CLI build path now invokes the optimizer before WASM codegen, the build command accepts `--max-specializations` as a specialization-budget override, and the incremental cache key now incorporates that cap so different budgets do not collide. The workspace test suite remains green.
+Stage 3.1 now has the first real `kali_optimize` implementation wired into the build pipeline. `release` builds perform deterministic constant folding, branch elimination, and small-call inlining, while `release-advanced` adds algebraic-identity simplification plus dead top-level function pruning after inlining. The CLI build path now invokes the optimizer before WASM codegen, the build command accepts `--max-specializations` as a specialization-budget override, and the incremental cache key now incorporates that cap so different budgets do not collide. The workspace test suite remains green.
 
 ## Evidence
 
 - `kali_optimize` now rewrites tree-shaped LIR in place ✅
 - `release` folds literal expressions and constant branches before codegen ✅
 - `release-advanced` adds algebraic simplifications such as `x + 0 -> x` ✅
+- `release` now inlines small function bodies, and `release-advanced` prunes dead top-level functions after those inlines land ✅
 - CLI runtime smoke tests now compare `fast`, `release`, and `release-advanced` instruction counts ✅
 - `--max-specializations` now flows through the build pipeline and participates in deterministic cache keys ✅
 - Repeated builds now populate and reuse `.kali-cache/incremental/` for unchanged modules ✅
@@ -19,17 +20,17 @@ Stage 3.1 now has the first real `kali_optimize` implementation wired into the b
 
 ## Notable Deliverables
 
-- `crates/kali_optimize/src/lib.rs` now contains the first real optimizer implementation instead of the previous no-op placeholder
+- `crates/kali_optimize/src/lib.rs` now contains a specialization plan, small-function inlining, and aggressive top-level dead-function pruning instead of the previous no-op placeholder
 - `crates/kali_cli/src/build.rs` now calls the optimizer before lowering LIR to WASM
 - `crates/kali_lir/src/lib.rs` exposes `into_nodes()` so the optimizer tests can construct deterministic programs from builders
-- CLI smoke tests now assert that `release` removes literal add chains and `release-advanced` removes the `+ 0` identity case
+- CLI smoke tests now assert that `release` removes literal add chains, `release` inlines simple call sites, and `release-advanced` prunes dead inlined helpers
 
 ## Current Limits
 
-- Generic/function/layout specialization has not been implemented yet.
+- Full generic/function/layout specialization is still pending; the current work only covers small-function call-site specialization and pruning.
 - `release` / `release-advanced` still rely on the current LIR-level pass set rather than the later MIR-driven specialization model.
-- The optimizer now respects a deterministic specialization budget for distinct optimization shapes, but this is still a placeholder for the richer specialization planner described in the long-term stage plan.
+- The optimizer now respects a deterministic specialization budget for distinct optimization shapes, but the richer MIR-driven specialization planner described in the long-term stage plan is still ahead.
 
 ## Next Step
 
-Continue Stage 3.1 by adding actual specialization/planning data structures and broader release optimization coverage so the remaining DoD items can be closed.
+Continue Stage 3.1 by broadening from scalar call-site specialization to the full generic/layout specialization model and richer MIR-driven planning so the remaining phase-3 breadth targets can be closed.
