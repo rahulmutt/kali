@@ -8,9 +8,11 @@ use getrandom::fill as fill_random_bytes;
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
+    env, fs,
     path::{Component, Path, PathBuf},
     sync::{Arc, Mutex},
 };
+use url::Url;
 
 /// Initialize the Node API compatibility surface.
 pub fn node_api_init() {}
@@ -333,6 +335,179 @@ impl NodeBuffer {
     }
 }
 
+/// Lightweight filesystem view for Node-style file operations.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NodeFs {
+    cwd: PathBuf,
+}
+
+impl NodeFs {
+    pub fn new(cwd: impl Into<PathBuf>) -> Self {
+        Self {
+            cwd: normalize_path(cwd.into()),
+        }
+    }
+
+    pub fn cwd(&self) -> &Path {
+        &self.cwd
+    }
+
+    fn resolve(&self, path: impl AsRef<Path>) -> PathBuf {
+        resolve_path(&self.cwd, path)
+    }
+
+    pub fn read_text_file(&self, path: impl AsRef<Path>) -> Result<String, std::io::Error> {
+        fs::read_to_string(self.resolve(path))
+    }
+
+    pub fn read_file(&self, path: impl AsRef<Path>) -> Result<Vec<u8>, std::io::Error> {
+        fs::read(self.resolve(path))
+    }
+
+    pub fn write_text_file(
+        &self,
+        path: impl AsRef<Path>,
+        contents: impl AsRef<str>,
+    ) -> Result<(), std::io::Error> {
+        fs::write(self.resolve(path), contents.as_ref())
+    }
+
+    pub fn write_file(
+        &self,
+        path: impl AsRef<Path>,
+        contents: impl AsRef<[u8]>,
+    ) -> Result<(), std::io::Error> {
+        fs::write(self.resolve(path), contents.as_ref())
+    }
+
+    pub fn mkdir(&self, path: impl AsRef<Path>, recursive: bool) -> Result<(), std::io::Error> {
+        let resolved = self.resolve(path);
+        if recursive {
+            fs::create_dir_all(resolved)
+        } else {
+            fs::create_dir(resolved)
+        }
+    }
+
+    pub fn readdir(&self, path: impl AsRef<Path>) -> Result<Vec<String>, std::io::Error> {
+        let mut entries = Vec::new();
+        for entry in fs::read_dir(self.resolve(path))? {
+            let entry = entry?;
+            entries.push(entry.file_name().to_string_lossy().into_owned());
+        }
+        entries.sort();
+        Ok(entries)
+    }
+
+    pub fn remove(&self, path: impl AsRef<Path>, recursive: bool) -> Result<(), std::io::Error> {
+        let resolved = self.resolve(path);
+        let metadata = fs::metadata(&resolved)?;
+        if metadata.is_dir() {
+            if recursive {
+                fs::remove_dir_all(resolved)
+            } else {
+                fs::remove_dir(resolved)
+            }
+        } else {
+            fs::remove_file(resolved)
+        }
+    }
+
+    pub fn stat(&self, path: impl AsRef<Path>) -> Result<NodeFsMetadata, std::io::Error> {
+        Ok(NodeFsMetadata::from_metadata(&fs::metadata(
+            self.resolve(path),
+        )?))
+    }
+
+    pub fn exists(&self, path: impl AsRef<Path>) -> bool {
+        self.resolve(path).exists()
+    }
+}
+
+/// Basic file metadata for Node-style `stat()` helpers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NodeFsMetadata {
+    is_file: bool,
+    is_dir: bool,
+    len: u64,
+    readonly: bool,
+}
+
+impl NodeFsMetadata {
+    pub fn from_metadata(metadata: &fs::Metadata) -> Self {
+        Self {
+            is_file: metadata.is_file(),
+            is_dir: metadata.is_dir(),
+            len: metadata.len(),
+            readonly: metadata.permissions().readonly(),
+        }
+    }
+
+    pub fn is_file(&self) -> bool {
+        self.is_file
+    }
+
+    pub fn is_dir(&self) -> bool {
+        self.is_dir
+    }
+
+    pub fn len(&self) -> u64 {
+        self.len
+    }
+
+    pub fn readonly(&self) -> bool {
+        self.readonly
+    }
+}
+
+/// Lightweight OS view for Node-style environment helpers.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NodeOs;
+
+impl NodeOs {
+    pub fn platform(&self) -> &'static str {
+        env::consts::OS
+    }
+
+    pub fn arch(&self) -> &'static str {
+        env::consts::ARCH
+    }
+
+    pub fn eol(&self) -> &'static str {
+        if cfg!(windows) {
+            "\r\n"
+        } else {
+            "\n"
+        }
+    }
+
+    pub fn home_dir(&self) -> Option<PathBuf> {
+        env::var_os("HOME")
+            .map(PathBuf::from)
+            .or_else(|| env::var_os("USERPROFILE").map(PathBuf::from))
+    }
+
+    pub fn tmpdir(&self) -> PathBuf {
+        env::temp_dir()
+    }
+
+    pub fn cpus(&self) -> usize {
+        std::thread::available_parallelism()
+            .map(|count| count.get())
+            .unwrap_or(1)
+    }
+}
+
+/// Parse a URL string using the shared support library's URL parser.
+pub fn parse_url(input: &str) -> Result<Url, url::ParseError> {
+    Url::parse(input)
+}
+
+/// Resolve a URL against a base URL string.
+pub fn resolve_url(base: &str, input: &str) -> Result<Url, url::ParseError> {
+    Url::parse(base)?.join(input)
+}
+
 /// A tiny `util.format`-style helper for deterministic test output.
 pub fn util_format<T: AsRef<str>>(parts: &[T]) -> String {
     parts
@@ -355,6 +530,7 @@ pub fn assert_true(condition: bool, message: impl Into<String>) -> Result<(), St
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
 
     #[test]
     fn process_context_tracks_env_and_output() {
@@ -466,5 +642,60 @@ mod tests {
         assert_eq!(util_inspect(&vec![1, 2, 3]), "[1, 2, 3]");
         assert_eq!(assert_true(true, "ok"), Ok(()));
         assert_eq!(assert_true(false, "fail"), Err("fail".to_string()));
+    }
+
+    #[test]
+    fn fs_helpers_round_trip_files_and_directories() {
+        let dir = tempdir().expect("tempdir");
+        let fs = NodeFs::new(dir.path());
+
+        fs.mkdir("nested", false).expect("mkdir");
+        fs.write_text_file("nested/alpha.txt", "alpha")
+            .expect("write text");
+        fs.write_file("nested/beta.bin", [0, 1, 2])
+            .expect("write file");
+
+        assert_eq!(
+            fs.read_text_file("nested/alpha.txt").expect("read text"),
+            "alpha"
+        );
+        assert_eq!(
+            fs.read_file("nested/beta.bin").expect("read file"),
+            vec![0, 1, 2]
+        );
+        assert_eq!(
+            fs.readdir("nested").expect("readdir"),
+            vec!["alpha.txt".to_string(), "beta.bin".to_string()]
+        );
+
+        let stat = fs.stat("nested/alpha.txt").expect("stat");
+        assert!(stat.is_file());
+        assert!(!stat.is_dir());
+        assert_eq!(stat.len(), 5);
+
+        fs.remove("nested/beta.bin", false).expect("remove file");
+        fs.remove("nested", true).expect("remove dir");
+        assert!(!fs.exists("nested"));
+    }
+
+    #[test]
+    fn os_and_url_helpers_expose_expected_views() {
+        let os = NodeOs;
+        assert!(!os.platform().is_empty());
+        assert!(!os.arch().is_empty());
+        assert!(matches!(os.eol(), "\n" | "\r\n"));
+        assert!(os.cpus() >= 1);
+        assert_eq!(os.tmpdir(), std::env::temp_dir());
+
+        let expected_home = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("USERPROFILE").map(PathBuf::from));
+        assert_eq!(os.home_dir(), expected_home);
+
+        let parsed = parse_url("https://example.com/path?query=1").expect("url");
+        assert_eq!(parsed.as_str(), "https://example.com/path?query=1");
+
+        let resolved = resolve_url("https://example.com/base/", "../child").expect("resolve");
+        assert_eq!(resolved.as_str(), "https://example.com/child");
     }
 }

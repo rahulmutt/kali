@@ -1132,6 +1132,8 @@ dependencies = [
  "kali_common",
  "kali_error",
  "sha2",
+ "tempfile",
+ "url",
 ]
 
 [[package]]

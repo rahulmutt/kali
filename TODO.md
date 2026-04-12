@@ -74,5 +74,5 @@
   - `kali_embed` now exposes `KaliCompiler`, `CompiledArtifact`, `LibArtifact`, and deterministic WIT sidecar generation for the statically known export surface.
 - [x] Stage 3.1 optimization scaffolding
   - `kali_optimize` now performs release constant folding, constant-branch elimination, and release-advanced algebraic identities, and the CLI build path wires those passes into WASM generation.
-- [ ] Stage 3.2 Node API layer scaffold
-  - Added `kali_api_node` helpers for process/path/crypto/events/buffer/util plus unit tests; runtime wiring and `--api node` enablement still pending.
+- [x] Stage 3.2 Node API layer scaffold
+  - Added `kali_api_node` helpers for process/path/crypto/events/buffer/util plus fs/url/os scaffolding and unit tests; runtime wiring and `--api node` enablement still pending.
