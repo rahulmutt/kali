@@ -38,4 +38,4 @@
 - [x] Add repo-backed fixture smoke coverage for `hello.ts`, test-suite discovery, and declaration-only rejection
 - [x] Expand runtime fixture coverage for the remaining Stage 1.8 edge cases (`async.ts`, `fetch.ts`, invalid-trap source fixture)
 - [x] Add the Web-baseline host primitives used by Stage 1.8 (`performance.now()`, `crypto.getRandomValues()`)
-- [ ] Finish the remaining guest-side Web baseline support-library follow-up (`URL`, `TextEncoder`/`TextDecoder`, `AbortController`/`AbortSignal`, `structuredClone`, and event primitives)
+- [x] Finish the remaining guest-side Web baseline support-library follow-up (`URL`, `TextEncoder`/`TextDecoder`, `AbortController`/`AbortSignal`, `structuredClone`, and event primitives)

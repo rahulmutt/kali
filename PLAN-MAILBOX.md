@@ -1,5 +1,11 @@
 # Stage 1.8 Fixture Coverage Notes
 
+## Latest Update
+
+- The guest-side Web baseline support-library follow-up now lands in `kali_api_web`: URL parsing/resolution, UTF-8 text encoding/decoding, `structuredClone`, `AbortController`/`AbortSignal`, and a minimal event primitive layer are now available as reusable support helpers.
+- This keeps the Stage 1.8 runtime notes aligned with the current codebase without needing a spec change.
+
+
 **Date:** 2026-04-12  
 **Status:** Runtime edge-case coverage expanded; Web baseline follow-up narrowed
 

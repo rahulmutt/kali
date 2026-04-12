@@ -1064,6 +1064,8 @@ dependencies = [
  "getrandom 0.3.4",
  "kali_common",
  "kali_error",
+ "serde_json",
+ "url",
 ]
 
 [[package]]

@@ -27,6 +27,7 @@ TypeScript/JavaScript programs.
 - Smoke tests cover a repo-backed successful run fixture, declaration-only rejection, explicit-file test reporting, checked-in test discovery, and guest-registered `Kali.test(...)` callbacks.
 - The basic console host imports are now wired into the runtime linker, and a first Deno-oriented host-surface subset is now available (filesystem read/write, environment lookup, arguments, fetch, and timer/microtask scheduling); the guest-side `Kali.test(...)` registration protocol now registers callbacks with the host test runner.
 - Web-baseline host primitives for `performance.now()` and `crypto.getRandomValues()` are now wired into the runtime linker so the Stage 1.8 baseline has concrete time/random coverage.
+- The guest-side Web baseline support-library follow-up is now implemented in `kali_api_web` with URL parsing/resolution, UTF-8 text encoding/decoding, `structuredClone`, `AbortController`/`AbortSignal`, and event primitives.
 - Runtime fixture coverage now includes timer/interval clearing, mocked fetch failure, and entrypoint trap diagnostics for the remaining Stage 1.8 edge cases.
 
 ## Tasks
