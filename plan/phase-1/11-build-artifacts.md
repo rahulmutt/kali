@@ -19,6 +19,14 @@ complete the **Phase-1 browser-targeted command set** and the **Phase-1 static p
   metadata for exact-version consumers (when the export surface is statically known).
 - All three artifact modes accept `--sandbox <policy>` for static policy validation.
 
+## Progress
+
+- The executable build path now writes deterministic `kali:metadata` custom sections in the emitted `.wasm` artifact.
+- `kali build --lib` now emits `.lib.wasm` plus a sidecar `.lib.meta.json` with deterministic export inventory data for statically known library surfaces.
+- `kali build --bundle` now emits a browser bundle directory containing `.wasm`, `.js`, and `.meta.json` outputs, with deterministic metadata and JS glue that uses browser-native instantiation APIs.
+- CLI smoke coverage now exercises both `--lib` and `--bundle` output paths in addition to the existing executable/sandbox path.
+- The explicit `--api browser` / `--api node` contradiction story still needs reconciliation with the current CLI surface before this stage can be treated as fully closed.
+
 ## Tasks
 
 ### 1. Executable artifact (`kali build <file>`)

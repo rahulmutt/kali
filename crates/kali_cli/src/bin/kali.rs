@@ -12,12 +12,12 @@ use kali_npm::{discover_project_root, ensure_project_ready, install_project, Ins
 use kali_runtime::RuntimeCtx;
 use kali_sandbox::SandboxPolicy;
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 use std::{
     fs,
     path::{Path, PathBuf},
     time::Instant,
 };
+use wasm_encoder::{CustomSection, Section};
 
 fn main() {
     let args = Args::parse();
@@ -51,6 +51,8 @@ fn main() {
             fast,
             release,
             release_advanced,
+            bundle,
+            lib,
             out_dir,
         } => {
             if let Err(exit_code) = build_command(
@@ -59,6 +61,8 @@ fn main() {
                 fast,
                 release,
                 release_advanced,
+                bundle,
+                lib,
                 out_dir,
                 &output,
             ) {
@@ -243,6 +247,8 @@ fn build_command(
     fast: bool,
     release: bool,
     release_advanced: bool,
+    bundle: bool,
+    lib: bool,
     out_dir: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
@@ -282,24 +288,36 @@ fn build_command(
 
     let mode = build::build_mode_from_flags(fast, release, release_advanced);
     let out_dir_path = out_dir.as_deref();
+    let artifact_mode = if lib {
+        BuildArtifactSelection::Library
+    } else if bundle {
+        BuildArtifactSelection::BrowserBundle
+    } else {
+        BuildArtifactSelection::Executable
+    };
     let mut artifacts = Vec::new();
     let mut errors = Vec::new();
 
     for file in selected_files {
-        match build::build_source_file(&file, mode, out_dir_path, policy.as_ref()) {
-            Ok(output_file) => {
+        let build_result = match artifact_mode {
+            BuildArtifactSelection::Executable => {
+                build_executable_artifact(&file, mode, out_dir_path, policy.as_ref())
+            }
+            BuildArtifactSelection::Library => {
+                build_library_artifact(&file, mode, out_dir_path, policy.as_ref())
+            }
+            BuildArtifactSelection::BrowserBundle => {
+                build_browser_bundle_artifact(&file, mode, out_dir_path, policy.as_ref())
+            }
+        };
+
+        match build_result {
+            Ok(build_result) => {
+                let artifact_json = build_result.artifact_json();
                 if output.is_json() {
-                    let source_hash =
-                        source_hash_for_file(Path::new(&file)).unwrap_or_else(|_| "".to_string());
-                    artifacts.push(json!({
-                        "artifactKind": artifact_kind_for_build(out_dir_path),
-                        "outputPath": output_file.output_path,
-                        "sizeBytes": output_file.wasm_bytes.len(),
-                        "buildMode": build_mode_name(mode),
-                        "sourceHash": source_hash,
-                    }));
+                    artifacts.push(artifact_json);
                 } else if !output.quiet {
-                    println!("Built {} -> {}", file, output_file.output_path.display());
+                    println!("{}", build_result.human_message());
                 }
             }
             Err(diagnostics) => {
@@ -339,6 +357,354 @@ fn build_command(
     } else {
         Err(1)
     }
+}
+
+enum BuildArtifactSelection {
+    Executable,
+    BrowserBundle,
+    Library,
+}
+
+enum BuildResult {
+    Executable {
+        output_path: PathBuf,
+        wasm_bytes: Vec<u8>,
+        metadata: build::ArtifactMetadata,
+    },
+    Library {
+        output_path: PathBuf,
+        meta_path: PathBuf,
+        wasm_bytes: Vec<u8>,
+        metadata: build::ArtifactMetadata,
+    },
+    BrowserBundle {
+        output_dir: PathBuf,
+        wasm_path: PathBuf,
+        js_path: PathBuf,
+        meta_path: PathBuf,
+        wasm_bytes: Vec<u8>,
+        metadata: build::ArtifactMetadata,
+    },
+}
+
+impl BuildResult {
+    fn artifact_json(&self) -> Value {
+        match self {
+            BuildResult::Executable {
+                output_path,
+                wasm_bytes,
+                metadata,
+            } => json!({
+                "artifactKind": "executable",
+                "outputPath": output_path,
+                "sizeBytes": wasm_bytes.len(),
+                "buildMode": metadata.build_mode.clone(),
+                "sourceHash": metadata.source_hash.clone(),
+            }),
+            BuildResult::Library {
+                output_path,
+                meta_path,
+                wasm_bytes,
+                metadata,
+            } => json!({
+                "artifactKind": "lib",
+                "outputPath": output_path,
+                "sizeBytes": wasm_bytes.len(),
+                "buildMode": metadata.build_mode.clone(),
+                "sourceHash": metadata.source_hash.clone(),
+                "metadataPath": meta_path,
+                "exports": metadata.exports.clone().unwrap_or_default(),
+            }),
+            BuildResult::BrowserBundle {
+                output_dir,
+                wasm_path,
+                js_path,
+                meta_path,
+                wasm_bytes,
+                metadata,
+            } => json!({
+                "artifactKind": "bundle",
+                "outputPath": output_dir,
+                "sizeBytes": wasm_bytes.len(),
+                "buildMode": metadata.build_mode.clone(),
+                "sourceHash": metadata.source_hash.clone(),
+                "artifacts": [
+                    { "kind": "wasm-module", "path": wasm_path },
+                    { "kind": "js-glue", "path": js_path },
+                    { "kind": "meta-json", "path": meta_path },
+                ],
+                "exports": metadata.exports.clone().unwrap_or_default(),
+            }),
+        }
+    }
+
+    fn human_message(&self) -> String {
+        match self {
+            BuildResult::Executable { output_path, .. } => {
+                format!("Built executable artifact at {}", output_path.display())
+            }
+            BuildResult::Library { output_path, .. } => {
+                format!("Built library artifact at {}", output_path.display())
+            }
+            BuildResult::BrowserBundle { output_dir, .. } => {
+                format!("Built browser bundle at {}", output_dir.display())
+            }
+        }
+    }
+}
+
+fn build_executable_artifact(
+    file: &str,
+    mode: build::BuildMode,
+    out_dir: Option<&Path>,
+    policy: Option<&SandboxPolicy>,
+) -> Result<BuildResult, Vec<Diagnostic>> {
+    let source = PathBuf::from(file);
+    let mut wasm_bytes = build::compile_source_file(&source, mode)?;
+    let metadata = build::build_artifact_metadata(&source, "executable", mode, "deno", None)?;
+    build::append_metadata_section(&mut wasm_bytes, &metadata)?;
+
+    if let Some(policy) = policy {
+        let policy_bytes = policy
+            .to_canonical_json_bytes()
+            .map_err(|diagnostic| vec![diagnostic])?;
+        CustomSection {
+            name: std::borrow::Cow::Borrowed("kali:policy"),
+            data: std::borrow::Cow::Owned(policy_bytes),
+        }
+        .append_to(&mut wasm_bytes);
+    }
+
+    let output_path = build::executable_output_path_for(&source, out_dir);
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            vec![Diagnostic::error(
+                e5::OUTPUT_ERROR as u32,
+                format!(
+                    "failed to create output directory '{}': {}",
+                    parent.display(),
+                    error
+                ),
+            )]
+        })?;
+    }
+
+    fs::write(&output_path, &wasm_bytes).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write WASM artifact '{}': {}",
+                output_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    Ok(BuildResult::Executable {
+        output_path,
+        wasm_bytes,
+        metadata,
+    })
+}
+
+fn build_library_artifact(
+    file: &str,
+    mode: build::BuildMode,
+    out_dir: Option<&Path>,
+    policy: Option<&SandboxPolicy>,
+) -> Result<BuildResult, Vec<Diagnostic>> {
+    let source = PathBuf::from(file);
+    let mut wasm_bytes = build::compile_source_file(&source, mode)?;
+    let exports = build::collect_library_exports(&source)?;
+    let metadata = build::build_artifact_metadata(&source, "lib", mode, "deno", Some(exports))?;
+    build::append_metadata_section(&mut wasm_bytes, &metadata)?;
+
+    if let Some(policy) = policy {
+        let policy_bytes = policy
+            .to_canonical_json_bytes()
+            .map_err(|diagnostic| vec![diagnostic])?;
+        CustomSection {
+            name: std::borrow::Cow::Borrowed("kali:policy"),
+            data: std::borrow::Cow::Owned(policy_bytes),
+        }
+        .append_to(&mut wasm_bytes);
+    }
+
+    let (output_path, meta_path) = build::library_output_paths_for(&source, out_dir);
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            vec![Diagnostic::error(
+                e5::OUTPUT_ERROR as u32,
+                format!(
+                    "failed to create output directory '{}': {}",
+                    parent.display(),
+                    error
+                ),
+            )]
+        })?;
+    }
+    fs::write(&output_path, &wasm_bytes).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write library artifact '{}': {}",
+                output_path.display(),
+                error
+            ),
+        )]
+    })?;
+    fs::write(
+        &meta_path,
+        serde_json::to_string_pretty(&metadata).expect("serialize library metadata"),
+    )
+    .map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write library metadata '{}': {}",
+                meta_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    Ok(BuildResult::Library {
+        output_path,
+        meta_path,
+        wasm_bytes,
+        metadata,
+    })
+}
+
+fn build_browser_bundle_artifact(
+    file: &str,
+    mode: build::BuildMode,
+    out_dir: Option<&Path>,
+    policy: Option<&SandboxPolicy>,
+) -> Result<BuildResult, Vec<Diagnostic>> {
+    let source = PathBuf::from(file);
+    let mut wasm_bytes = build::compile_source_file(&source, mode)?;
+    let exports = build::collect_library_exports(&source).unwrap_or_default();
+    let metadata =
+        build::build_artifact_metadata(&source, "bundle", mode, "browser", Some(exports.clone()))?;
+    build::append_metadata_section(&mut wasm_bytes, &metadata)?;
+
+    if let Some(policy) = policy {
+        let policy_bytes = policy
+            .to_canonical_json_bytes()
+            .map_err(|diagnostic| vec![diagnostic])?;
+        CustomSection {
+            name: std::borrow::Cow::Borrowed("kali:policy"),
+            data: std::borrow::Cow::Owned(policy_bytes),
+        }
+        .append_to(&mut wasm_bytes);
+    }
+
+    let (wasm_path, js_path, meta_path) = build::bundle_output_paths_for(&source, out_dir);
+    let output_dir = js_path
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    if let Some(parent) = js_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            vec![Diagnostic::error(
+                e5::OUTPUT_ERROR as u32,
+                format!(
+                    "failed to create output directory '{}': {}",
+                    parent.display(),
+                    error
+                ),
+            )]
+        })?;
+    }
+
+    fs::write(&wasm_path, &wasm_bytes).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write browser bundle wasm '{}': {}",
+                wasm_path.display(),
+                error
+            ),
+        )]
+    })?;
+    fs::write(
+        &meta_path,
+        serde_json::to_string_pretty(&metadata).expect("serialize bundle metadata"),
+    )
+    .map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write browser bundle metadata '{}': {}",
+                meta_path.display(),
+                error
+            ),
+        )]
+    })?;
+    fs::write(&js_path, generate_browser_bundle_js(&wasm_path, &exports)).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write browser bundle JS '{}': {}",
+                js_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    Ok(BuildResult::BrowserBundle {
+        output_dir,
+        wasm_path,
+        js_path,
+        meta_path,
+        wasm_bytes,
+        metadata,
+    })
+}
+
+fn generate_browser_bundle_js(wasm_path: &Path, exports: &[build::LibraryExport]) -> String {
+    let wasm_file = wasm_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("bundle.wasm");
+    let mut content = r#"const wasmUrl = new URL("./__WASM_FILE__", import.meta.url);
+
+const importObject = {
+  "kali:rt": {
+    test_register() {}
+  }
+};
+
+async function instantiate() {
+  if (typeof WebAssembly.instantiateStreaming === "function" && typeof fetch === "function") {
+    try {
+      const response = await fetch(wasmUrl);
+      return await WebAssembly.instantiateStreaming(response, importObject);
+    } catch (_) {
+      // fall back to ArrayBuffer instantiation.
+    }
+  }
+  const response = await fetch(wasmUrl);
+  const bytes = await response.arrayBuffer();
+  return await WebAssembly.instantiate(bytes, importObject);
+}
+
+const instancePromise = instantiate();
+
+export async function load() {
+  return await instancePromise;
+}
+
+"#
+    .replace("__WASM_FILE__", wasm_file);
+    for export in exports {
+        content.push_str(&format!(
+            "export async function {}(...args) {{\n  const {{ instance }} = await instancePromise;\n  return instance.exports.{}(...args);\n}}\n\n",
+            export.name, export.name
+        ));
+    }
+    content
 }
 
 fn run_command(
@@ -1039,27 +1405,4 @@ fn single_diagnostic_to_values(
 ) -> (Vec<Value>, Vec<Value>) {
     let diagnostics = vec![diagnostic];
     split_and_convert_diagnostics(&diagnostics, source_path, source_text)
-}
-
-fn build_mode_name(mode: build::BuildMode) -> &'static str {
-    match mode {
-        build::BuildMode::Fast => "fast",
-        build::BuildMode::Release => "release",
-        build::BuildMode::ReleaseAdvanced => "release-advanced",
-    }
-}
-
-fn artifact_kind_for_build(out_dir: Option<&Path>) -> &'static str {
-    if out_dir.is_some() {
-        "executable"
-    } else {
-        "executable"
-    }
-}
-
-fn source_hash_for_file(path: &Path) -> Result<String, std::io::Error> {
-    let bytes = fs::read(path)?;
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    Ok(format!("sha256-{:x}", hasher.finalize()))
 }

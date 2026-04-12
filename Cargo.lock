@@ -1183,6 +1183,7 @@ dependencies = [
  "kali_runtime",
  "kali_sandbox",
  "kali_types",
+ "serde",
  "serde_json",
  "sha2",
  "tempfile",

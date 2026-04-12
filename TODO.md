@@ -40,6 +40,12 @@
   URL cache entries when the declaration graph changes
 - ✅ Package-shape and host-fit coverage now rejects Node-only host APIs surfaced through direct imports/requires with `E6005`
 
+### Stage 1.11 - Build Artifacts
+- ✅ `kali build` now emits deterministic `kali:metadata` custom sections in the executable `.wasm` artifact
+- ✅ `kali build --lib` now emits `.lib.wasm` plus a deterministic `.lib.meta.json` export inventory
+- ✅ `kali build --bundle` now emits a browser bundle directory with `.wasm`, `.js`, and `.meta.json` outputs
+- ✅ CLI/runtime smoke coverage exercises the new library and bundle artifact flows
+
 ## Next Work
 - [x] Broader package-shape / host-fit diagnostics matrix coverage
   - Added host-fit coverage for `node:fs` and `require("child_process")` package entrypoints.

@@ -24,6 +24,7 @@ kali_lint = { workspace = true }
 kali_npm = { workspace = true }
 kali_runtime = { workspace = true }
 kali_sandbox = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 ignore = "0.4"

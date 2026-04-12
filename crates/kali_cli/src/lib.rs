@@ -158,6 +158,12 @@ pub enum Commands {
         /// Explicit release-advanced build mode
         #[arg(long = "release-advanced", conflicts_with_all = ["fast", "release"])]
         release_advanced: bool,
+        /// Select the browser bundle artifact mode
+        #[arg(long, conflicts_with = "lib")]
+        bundle: bool,
+        /// Select the base library artifact mode
+        #[arg(long, conflicts_with = "bundle")]
+        lib: bool,
         /// Output directory for artifacts
         #[arg(long)]
         out_dir: Option<PathBuf>,

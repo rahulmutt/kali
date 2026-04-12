@@ -113,3 +113,17 @@ All workspace tests pass:
 ---
 
 **Conclusion:** Stage 1.3 foundation is established. The working minimum-viable parser is ready for expansion into full parsing capabilities.
+
+---
+
+# Stage 1.11 Notes
+
+## Latest Update
+
+- The build-artifact implementation landed for the default executable build, `--lib`, and `--bundle`.
+- Executable builds now embed deterministic `kali:metadata` custom sections; library and bundle modes additionally write sidecar `.meta.json` files, and bundle mode writes browser JS glue alongside the wasm payload.
+- Runtime smoke coverage now exercises `kali build --lib` and `kali build --bundle` in addition to the existing executable/policy path.
+- The remaining follow-up is the explicit API-surface gating/contradiction story (`--api browser` / `--api node`) that the current stage text still describes, so the stage document should be treated as partially advanced rather than fully closed until that wording is reconciled.
+
+**Date:** 2026-04-12  
+**Status:** Build-artifact core complete; explicit API-surface gating still pending

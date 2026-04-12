@@ -25,3 +25,17 @@ The stage-1 linter needs a consistent spec note for which lint rules are warning
 
 **Date:** 2026-04-12
 **Status:** Processed — canonical `W2xxx` lint registry and severity notes incorporated into `specs/15-errors.md` and referenced from `SPEC.md`
+
+---
+
+# Stage 1.11 Notes
+
+## Latest Update
+
+- Build artifacts now exist for the Phase-1 executable path, the new `--lib` library artifact path, and the new browser bundle path.
+- The implementation emits deterministic `kali:metadata` custom sections for `.wasm` artifacts and writes sidecar `.meta.json` files for the library/bundle flows.
+- The browser bundle currently uses browser-native `fetch`/`instantiateStreaming` glue and exports named async wrappers for discovered library-style exports.
+- Follow-up spec work is still needed to reconcile the exact `--api`/browser-gating story in `specs/12-cli.md`, `specs/18-schemas.md`, and the maturity matrix, because the current implementation now accepts the artifact selectors but does not yet expose the full API-surface gating vocabulary described there.
+
+**Date:** 2026-04-12  
+**Status:** Pending spec reconciliation for artifact metadata and browser-gating wording
