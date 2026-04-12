@@ -85,3 +85,33 @@ fn core_schema_documents_match_current_cli_contracts() {
         .collect::<Vec<_>>();
     assert_eq!(enum_values, vec!["executable", "lib", "bundle"]);
 }
+
+#[test]
+fn proof_boundary_summary_matches_readme_and_manifest() {
+    let root = repo_root();
+    let readme = fs::read_to_string(root.join("README.md")).expect("read README");
+    let boundary = fs::read_to_string(root.join("proofs/BOUNDARY.md")).expect("read boundary");
+    let summary =
+        "Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.";
+
+    assert!(
+        readme.contains(summary),
+        "README is missing the canonical proof-ready summary"
+    );
+    assert!(
+        boundary.contains(summary),
+        "proof boundary manifest is missing the canonical proof-ready summary"
+    );
+    assert!(
+        boundary.contains("Status: **placeholder proof-boundary manifest**."),
+        "proof boundary manifest should remain explicitly placeholder-state"
+    );
+    assert!(
+        boundary.contains("| proof-ready | **yes**"),
+        "proof boundary manifest should continue to claim proof-ready status"
+    );
+    assert!(
+        boundary.contains("| proof-backed | **no**"),
+        "proof boundary manifest should continue to deny proof-backed status"
+    );
+}

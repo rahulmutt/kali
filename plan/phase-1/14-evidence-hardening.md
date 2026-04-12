@@ -27,6 +27,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added phase-gated placeholders for later surfaces (`effects`, `package-effects`, `package-audit`, `build --capi`, `build --component`, and `run`/`test` API-surface selection) so the evidence suite can assert unavailability with the canonical `E5006` path instead of plain unknown-command parsing.
 - Added runtime smoke coverage for those Phase-2+ gating paths alongside the existing Phase-1 JSON-envelope and artifact coverage.
 - Added deterministic repeated-build smoke coverage for executable, base-library, and browser-bundle artifact outputs so the evidence suite now checks byte-for-byte stability across identical inputs.
+- Added a repository regression test that pins the canonical proof-ready summary in both `README.md` and `proofs/BOUNDARY.md`, so the empty proof boundary stays aligned with the public status wording.
 
 ## Tasks
 
