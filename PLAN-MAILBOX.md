@@ -1,3 +1,15 @@
+# Stage 1.14 Evidence Hardening Notes
+
+## Latest Update
+
+- Added runtime smoke coverage for byte-for-byte deterministic repeated builds across the Phase-1 executable, base-library, and browser-bundle artifact paths.
+- Updated the Stage 1.14 progress notes to reflect the new determinism evidence without changing the user-visible spec contract.
+
+**Date:** 2026-04-12  
+**Status:** Processed — determinism evidence added to the Phase-1 hardening suite
+
+---
+
 # Stage 1.12 Notes
 
 ## Latest Update

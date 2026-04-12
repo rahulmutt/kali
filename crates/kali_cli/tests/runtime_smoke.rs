@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
     process::Command,
@@ -25,6 +26,24 @@ fn fixture_path(relative: impl AsRef<Path>) -> PathBuf {
 
 fn parse_json_stdout(output: &std::process::Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("valid json stdout")
+}
+
+fn read_artifact_bytes(paths: &[PathBuf]) -> BTreeMap<PathBuf, Vec<u8>> {
+    paths
+        .iter()
+        .cloned()
+        .map(|path| {
+            let bytes = fs::read(&path).unwrap_or_else(|error| {
+                panic!("failed to read artifact '{}': {}", path.display(), error)
+            });
+            (path, bytes)
+        })
+        .collect()
+}
+
+fn assert_artifact_bytes_stable(paths: &[PathBuf], first: &BTreeMap<PathBuf, Vec<u8>>) {
+    let second = read_artifact_bytes(paths);
+    assert_eq!(first, &second, "artifact outputs differed between builds");
 }
 
 fn write_valid_policy(path: &Path) {
@@ -530,6 +549,138 @@ fn build_emits_browser_bundle_artifacts() {
         .expect("parse metadata json");
     assert_eq!(metadata["artifactKind"], "bundle");
     assert_eq!(metadata["apiSurface"], "browser");
+}
+
+#[test]
+fn build_artifacts_are_deterministic_across_repeated_invocations() {
+    let dir = tempdir().expect("tempdir");
+
+    let executable_source = dir.path().join("main.ts");
+    fs::write(&executable_source, "console.log(1);").expect("write executable source");
+    let executable_output = dir.path().join("main.wasm");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&executable_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let executable_first = read_artifact_bytes(&[executable_output.clone()]);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&executable_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_artifact_bytes_stable(&[executable_output.clone()], &executable_first);
+
+    let library_source = dir.path().join("lib.ts");
+    fs::write(
+        &library_source,
+        "export function add(a, b) { return a + b; }",
+    )
+    .expect("write library source");
+    let library_wasm = dir.path().join("lib.lib.wasm");
+    let library_meta = dir.path().join("lib.lib.meta.json");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--lib")
+        .arg(&library_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let library_first = read_artifact_bytes(&[library_wasm.clone(), library_meta.clone()]);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--lib")
+        .arg(&library_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_artifact_bytes_stable(
+        &[library_wasm.clone(), library_meta.clone()],
+        &library_first,
+    );
+
+    let browser_source = dir.path().join("app.ts");
+    fs::write(&browser_source, "function greet(name) { return name; }")
+        .expect("write browser source");
+    let browser_root = dir.path().join("app");
+    let browser_wasm = browser_root.join("app.wasm");
+    let browser_js = browser_root.join("app.js");
+    let browser_meta = browser_root.join("app.meta.json");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&browser_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let browser_first = read_artifact_bytes(&[
+        browser_wasm.clone(),
+        browser_js.clone(),
+        browser_meta.clone(),
+    ]);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&browser_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_artifact_bytes_stable(
+        &[
+            browser_wasm.clone(),
+            browser_js.clone(),
+            browser_meta.clone(),
+        ],
+        &browser_first,
+    );
 }
 
 #[test]
