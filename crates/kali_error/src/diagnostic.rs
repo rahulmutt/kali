@@ -1,8 +1,8 @@
 //! Diagnostic types and collection.
 
 use super::severity::Severity;
+use kali_common::{FileId, Span};
 use std::fmt;
-use kali_common::{Span, FileId};
 
 #[cfg(feature = "serde")]
 use serde::Deserialize;
@@ -174,7 +174,12 @@ impl fmt::Display for Diagnostic {
 
 /// Format a span for display.
 fn format_span(span: &Span) -> Option<String> {
-    Some(format!("file_{}:{}:{}", span.file_id.as_u32(), span.start, span.end))
+    Some(format!(
+        "file_{}:{}:{}",
+        span.file_id.as_u32(),
+        span.start,
+        span.end
+    ))
 }
 
 /// Format a file reference for display.
@@ -188,12 +193,8 @@ mod tests {
 
     #[test]
     fn test_diagnostic_creation() {
-        let diag = Diagnostic::new(
-            Severity::Error,
-            1000,
-            "test error".to_string()
-        );
-        
+        let diag = Diagnostic::new(Severity::Error, 1000, "test error".to_string());
+
         assert_eq!(diag.severity, Severity::Error);
         assert_eq!(diag.code, Some(1000));
     }

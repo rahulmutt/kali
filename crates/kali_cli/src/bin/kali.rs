@@ -2,7 +2,7 @@
 
 use clap::Parser;
 use kali_cli::{
-    build, discover_source_files, discover_test_files, is_declaration_only_source_file,
+    build, discover_source_files, discover_test_files, init, is_declaration_only_source_file,
     load_sandbox_policy, Args,
 };
 use kali_error::{Diagnostic, _error_codes::e5};
@@ -100,9 +100,24 @@ fn main() {
                 std::process::exit(exit_code);
             }
         }
-        kali_cli::Commands::Init => {
-            println!("Initializing new project... (stub)");
-        }
+        kali_cli::Commands::Init { lib } => match init::init_current_directory(lib) {
+            Ok(summary) => {
+                let template = if summary.library {
+                    "library"
+                } else {
+                    "application"
+                };
+                println!(
+                    "Initialized {} scaffold at {}",
+                    template,
+                    summary.root.display()
+                );
+            }
+            Err(diagnostic) => {
+                eprintln!("{}", diagnostic);
+                std::process::exit(5);
+            }
+        },
         kali_cli::Commands::Install {
             target,
             dev,

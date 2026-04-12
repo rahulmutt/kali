@@ -365,11 +365,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let mut type_section = TypeSection::new();
     type_section.ty().function(vec![ValType::I32], Vec::new());
     let mut import_section = ImportSection::new();
-    import_section.import(
-        "kali:rt",
-        "test_register",
-        EntityType::Function(0),
-    );
+    import_section.import("kali:rt", "test_register", EntityType::Function(0));
     let mut function_types = BTreeMap::<(usize, bool), u32>::new();
     let mut type_for_function = Vec::with_capacity(all_functions.len());
 

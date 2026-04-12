@@ -57,7 +57,9 @@ impl From<String> for InternedString {
 
 impl From<&str> for InternedString {
     fn from(s: &str) -> Self {
-        Self { inner: s.to_string() }
+        Self {
+            inner: s.to_string(),
+        }
     }
 }
 
@@ -79,13 +81,13 @@ impl Interner {
 
     /// Intern a string and return the interned version.
     pub fn intern(&mut self, s: &str) -> InternedString {
-        use std::hash::Hash;
         use std::collections::hash_map::DefaultHasher;
-        
+        use std::hash::Hash;
+
         let mut hasher = DefaultHasher::new();
         s.hash(&mut hasher);
         let _hash = hasher.finish() as usize;
-        
+
         // Simple check - could be improved with more robust checking
         let interned = InternedString::new(s.to_string());
         self.cache.insert(self.next_id, interned.clone());
@@ -108,7 +110,7 @@ mod tests {
         let mut interned = Interner::new();
         let s1 = interned.intern("hello");
         let s2 = interned.intern("hello");
-        
+
         assert_eq!(s1.as_str(), "hello");
         assert_eq!(s2.as_str(), "hello");
     }
@@ -117,7 +119,7 @@ mod tests {
     fn test_interner_deduplicates() {
         let mut interned = Interner::new();
         let s1 = interned.intern("world");
-        
+
         assert!(interned.is_interned("world"));
         assert!(!interned.is_interned("not_world"));
     }

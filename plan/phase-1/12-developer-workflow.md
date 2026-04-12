@@ -21,6 +21,12 @@ testing, and building.
 - `kali lint [files...]` reports lint warnings/errors.
 - `kali lint --fix [files...]` auto-fixes fixable lint issues.
 
+## Progress
+
+- `kali init` and `kali init --lib` now create the current-directory scaffold when the target
+  directory is empty, writing a minimal `kali.json` plus starter `main.ts` / `lib.ts` files.
+- `kali fmt` and `kali lint` remain pending in this stage.
+
 ## Tasks
 
 ### 1. `kali init` scaffold

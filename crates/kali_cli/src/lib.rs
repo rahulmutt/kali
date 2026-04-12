@@ -10,6 +10,7 @@ use kali_error::{Diagnostic, _error_codes::e5};
 use kali_sandbox::SandboxPolicy;
 
 pub mod build;
+pub mod init;
 
 pub fn discover_source_files(root: impl AsRef<Path>) -> Vec<PathBuf> {
     let mut discovered = Vec::new();
@@ -128,7 +129,11 @@ pub enum Commands {
     },
     #[command(name = "init")]
     /// Initialize a new Kali project
-    Init,
+    Init {
+        /// Scaffold a library-oriented project template
+        #[arg(long)]
+        lib: bool,
+    },
     #[command(name = "install")]
     /// Install dependencies
     Install {

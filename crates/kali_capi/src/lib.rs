@@ -6,5 +6,4 @@ pub extern "C" fn kali_init() -> i32 {
 }
 
 /// Cleanup the C API.
-pub extern "C" fn kali_cleanup() {
-}
+pub extern "C" fn kali_cleanup() {}

@@ -2,15 +2,14 @@
 
 use base64::Engine;
 use flate2::read::GzDecoder;
-use kali_error::{_error_codes::e6, Diagnostic};
+use kali_error::{Diagnostic, _error_codes::e6};
 use reqwest::blocking::Client;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs,
-    io,
+    fs, io,
     path::{Path, PathBuf},
 };
 use tar::Archive;
@@ -107,7 +106,11 @@ pub struct RawUrlEntry {
 
 #[derive(Debug, Clone)]
 pub enum PackageTarget {
-    Registry { registry: String, name: String, version: Option<String> },
+    Registry {
+        registry: String,
+        name: String,
+        version: Option<String>,
+    },
     RawUrl(String),
 }
 
@@ -168,12 +171,19 @@ pub fn load_manifest(root: impl AsRef<Path>) -> Result<Option<ProjectManifest>, 
     Ok(Some(manifest))
 }
 
-pub fn save_manifest(root: impl AsRef<Path>, manifest: &ProjectManifest) -> Result<PathBuf, Diagnostic> {
+pub fn save_manifest(
+    root: impl AsRef<Path>,
+    manifest: &ProjectManifest,
+) -> Result<PathBuf, Diagnostic> {
     let path = root.as_ref().join("kali.json");
     let json = serde_json::to_string_pretty(manifest).map_err(|error| {
         Diagnostic::error(
             e6::INSTALL_FAILED as u32,
-            format!("failed to serialize manifest '{}': {}", path.display(), error),
+            format!(
+                "failed to serialize manifest '{}': {}",
+                path.display(),
+                error
+            ),
         )
     })?;
     fs::write(&path, json).map_err(|error| {
@@ -220,7 +230,11 @@ pub fn save_lock(root: impl AsRef<Path>, lock: &LockFile) -> Result<PathBuf, Dia
     let json = serde_json::to_string_pretty(lock).map_err(|error| {
         Diagnostic::error(
             e6::INSTALL_FAILED as u32,
-            format!("failed to serialize lock file '{}': {}", path.display(), error),
+            format!(
+                "failed to serialize lock file '{}': {}",
+                path.display(),
+                error
+            ),
         )
     })?;
     fs::write(&path, json).map_err(|error| {
@@ -239,7 +253,8 @@ pub fn ensure_project_ready(root: impl AsRef<Path>) -> Result<(), Diagnostic> {
         None => return Ok(()),
     };
 
-    let requires_install = !manifest.dependencies.is_empty() || !manifest.dev_dependencies.is_empty();
+    let requires_install =
+        !manifest.dependencies.is_empty() || !manifest.dev_dependencies.is_empty();
     if !requires_install {
         return Ok(());
     }
@@ -258,11 +273,16 @@ pub fn ensure_project_ready(root: impl AsRef<Path>) -> Result<(), Diagnostic> {
         .chain(manifest.dev_dependencies.iter())
     {
         let key = package_key(name, version);
-        let install_dir = root.join("node_modules").join(name.trim_start_matches("jsr:"));
+        let install_dir = root
+            .join("node_modules")
+            .join(name.trim_start_matches("jsr:"));
         if !lock.packages.contains_key(&key) || !install_dir.exists() {
             return Err(Diagnostic::error(
                 e6::INSTALL_REQUIRED as u32,
-                format!("package '{}' must be installed before this command can proceed", name),
+                format!(
+                    "package '{}' must be installed before this command can proceed",
+                    name
+                ),
             ));
         }
     }
@@ -270,12 +290,19 @@ pub fn ensure_project_ready(root: impl AsRef<Path>) -> Result<(), Diagnostic> {
     Ok(())
 }
 
-pub fn install_project(root: impl AsRef<Path>, options: InstallOptions) -> Result<InstallSummary, Vec<Diagnostic>> {
+pub fn install_project(
+    root: impl AsRef<Path>,
+    options: InstallOptions,
+) -> Result<InstallSummary, Vec<Diagnostic>> {
     let root = root.as_ref();
     fs::create_dir_all(root).map_err(|error| {
         vec![Diagnostic::error(
             e6::INSTALL_FAILED as u32,
-            format!("failed to create project root '{}': {}", root.display(), error),
+            format!(
+                "failed to create project root '{}': {}",
+                root.display(),
+                error
+            ),
         )]
     })?;
 
@@ -306,17 +333,26 @@ pub fn install_project(root: impl AsRef<Path>, options: InstallOptions) -> Resul
 
     if let Some(target) = options.target.as_deref() {
         match parse_package_target(target) {
-            Ok(PackageTarget::Registry { registry, name, version }) => {
-                    let resolved = match resolve_registry_package(&registry, &name, version.as_deref()) {
+            Ok(PackageTarget::Registry {
+                registry,
+                name,
+                version,
+            }) => {
+                let resolved = match resolve_registry_package(&registry, &name, version.as_deref())
+                {
                     Ok(resolved) => resolved,
                     Err(diagnostic) => return Err(vec![diagnostic]),
                 };
 
                 let dependency_version = resolved.version.clone();
                 if options.dev {
-                    manifest.dev_dependencies.insert(resolved.name.clone(), dependency_version.clone());
+                    manifest
+                        .dev_dependencies
+                        .insert(resolved.name.clone(), dependency_version.clone());
                 } else {
-                    manifest.dependencies.insert(resolved.name.clone(), dependency_version.clone());
+                    manifest
+                        .dependencies
+                        .insert(resolved.name.clone(), dependency_version.clone());
                 }
 
                 install_registry_package(
@@ -345,14 +381,29 @@ pub fn install_project(root: impl AsRef<Path>, options: InstallOptions) -> Resul
             .iter()
             .chain(manifest.dev_dependencies.iter())
         {
-            let registry = if name.starts_with("jsr:") { "jsr" } else { "npm" };
+            let registry = if name.starts_with("jsr:") {
+                "jsr"
+            } else {
+                "npm"
+            };
             let resolved = resolve_registry_package(registry, name, Some(version.as_str()))
                 .map_err(|diagnostic| vec![diagnostic])?;
-            install_registry_package(root, &mut lock, &resolved, options.allow_scripts, &mut installed, &mut diagnostics)?;
+            install_registry_package(
+                root,
+                &mut lock,
+                &resolved,
+                options.allow_scripts,
+                &mut installed,
+                &mut diagnostics,
+            )?;
         }
     }
 
-    let manifest_path = if manifest.is_minimal() && manifest.dependencies.is_empty() && manifest.dev_dependencies.is_empty() && options.target.is_none() {
+    let manifest_path = if manifest.is_minimal()
+        && manifest.dependencies.is_empty()
+        && manifest.dev_dependencies.is_empty()
+        && options.target.is_none()
+    {
         None
     } else {
         Some(save_manifest(root, &manifest).map_err(|diagnostic| vec![diagnostic])?)
@@ -394,11 +445,16 @@ fn install_registry_package(
     fs::create_dir_all(&package_dir).map_err(|error| {
         vec![Diagnostic::error(
             e6::INSTALL_FAILED as u32,
-            format!("failed to create package cache '{}': {}", package_dir.display(), error),
+            format!(
+                "failed to create package cache '{}': {}",
+                package_dir.display(),
+                error
+            ),
         )]
     })?;
 
-    let tarball_bytes = download_bytes(&resolved.resolved).map_err(|diagnostic| vec![diagnostic])?;
+    let tarball_bytes =
+        download_bytes(&resolved.resolved).map_err(|diagnostic| vec![diagnostic])?;
     let integrity = verify_tarball_integrity(&tarball_bytes, resolved.integrity.as_deref())?;
     extract_tarball(&tarball_bytes, &package_dir)?;
 
@@ -414,7 +470,11 @@ fn install_registry_package(
         fs::create_dir_all(parent).map_err(|error| {
             vec![Diagnostic::error(
                 e6::INSTALL_FAILED as u32,
-                format!("failed to create node_modules path '{}': {}", parent.display(), error),
+                format!(
+                    "failed to create node_modules path '{}': {}",
+                    parent.display(),
+                    error
+                ),
             )]
         })?;
     }
@@ -444,10 +504,22 @@ fn install_registry_package(
         if installed.contains(&package_key(&dep_name, &dep_spec)) {
             continue;
         }
-        let dep_registry = if dep_name.starts_with("jsr:") { "jsr" } else { "npm" };
-        let dep_resolved = resolve_registry_package(dep_registry, &dep_name, Some(dep_spec.as_str()))
-            .map_err(|diagnostic| vec![diagnostic])?;
-        install_registry_package(root, lock, &dep_resolved, allow_scripts, installed, diagnostics)?;
+        let dep_registry = if dep_name.starts_with("jsr:") {
+            "jsr"
+        } else {
+            "npm"
+        };
+        let dep_resolved =
+            resolve_registry_package(dep_registry, &dep_name, Some(dep_spec.as_str()))
+                .map_err(|diagnostic| vec![diagnostic])?;
+        install_registry_package(
+            root,
+            lock,
+            &dep_resolved,
+            allow_scripts,
+            installed,
+            diagnostics,
+        )?;
     }
 
     Ok(())
@@ -462,11 +534,18 @@ fn install_raw_url(
 ) -> Result<(), Vec<Diagnostic>> {
     let bytes = download_bytes(url).map_err(|diagnostic| vec![diagnostic])?;
     let hash = sha256_hex(&bytes);
-    let cache_dir = root.join(".kali-cache").join("raw").join(format!("sha256-{}", hash));
+    let cache_dir = root
+        .join(".kali-cache")
+        .join("raw")
+        .join(format!("sha256-{}", hash));
     fs::create_dir_all(&cache_dir).map_err(|error| {
         vec![Diagnostic::error(
             e6::INSTALL_FAILED as u32,
-            format!("failed to create raw cache '{}': {}", cache_dir.display(), error),
+            format!(
+                "failed to create raw cache '{}': {}",
+                cache_dir.display(),
+                error
+            ),
         )]
     })?;
 
@@ -475,7 +554,11 @@ fn install_raw_url(
     fs::write(&cached, bytes).map_err(|error| {
         vec![Diagnostic::error(
             e6::INSTALL_FAILED as u32,
-            format!("failed to write raw cache '{}': {}", cached.display(), error),
+            format!(
+                "failed to write raw cache '{}': {}",
+                cached.display(),
+                error
+            ),
         )]
     })?;
 
@@ -516,12 +599,18 @@ fn resolve_registry_package(
     }
 }
 
-fn resolve_npm_package(name: &str, requested_version: Option<&str>) -> Result<ResolvedRegistryPackage, Diagnostic> {
+fn resolve_npm_package(
+    name: &str,
+    requested_version: Option<&str>,
+) -> Result<ResolvedRegistryPackage, Diagnostic> {
     let metadata_url = format!("{}/{}", DEFAULT_NPM_REGISTRY, encode_package_name(name));
     resolve_npm_like_package("npm", name, name, &metadata_url, requested_version)
 }
 
-fn resolve_jsr_package(name: &str, requested_version: Option<&str>) -> Result<ResolvedRegistryPackage, Diagnostic> {
+fn resolve_jsr_package(
+    name: &str,
+    requested_version: Option<&str>,
+) -> Result<ResolvedRegistryPackage, Diagnostic> {
     let raw_name = name.trim_start_matches("jsr:");
     let compat_name = jsr_compat_name(raw_name);
     let metadata_url = format!("https://npm.jsr.io/{}", encode_package_name(&compat_name));
@@ -540,28 +629,59 @@ fn resolve_npm_like_package(
         .build()
         .map_err(|error| Diagnostic::error(e6::INSTALL_FAILED as u32, error.to_string()))?;
 
-    let response = client
-        .get(metadata_url)
-        .send()
-        .map_err(|error| Diagnostic::error(e6::NOT_FOUND as u32, format!("failed to fetch {} metadata for '{}': {}", registry, display_name, error)))?;
+    let response = client.get(metadata_url).send().map_err(|error| {
+        Diagnostic::error(
+            e6::NOT_FOUND as u32,
+            format!(
+                "failed to fetch {} metadata for '{}': {}",
+                registry, display_name, error
+            ),
+        )
+    })?;
 
     if !response.status().is_success() {
         return Err(Diagnostic::error(
             e6::NOT_FOUND as u32,
-            format!("package '{}' not found in {} registry (status {})", display_name, registry, response.status()),
+            format!(
+                "package '{}' not found in {} registry (status {})",
+                display_name,
+                registry,
+                response.status()
+            ),
         ));
     }
 
-    let metadata_text = response
-        .text()
-        .map_err(|error| Diagnostic::error(e6::INVALID_PACKAGE_SPECIFIER as u32, format!("invalid {} metadata for '{}': {}", registry, display_name, error)))?;
-    let metadata: serde_json::Value = serde_json::from_str(&metadata_text)
-        .map_err(|error| Diagnostic::error(e6::INVALID_PACKAGE_SPECIFIER as u32, format!("invalid {} metadata for '{}': {}", registry, display_name, error)))?;
+    let metadata_text = response.text().map_err(|error| {
+        Diagnostic::error(
+            e6::INVALID_PACKAGE_SPECIFIER as u32,
+            format!(
+                "invalid {} metadata for '{}': {}",
+                registry, display_name, error
+            ),
+        )
+    })?;
+    let metadata: serde_json::Value = serde_json::from_str(&metadata_text).map_err(|error| {
+        Diagnostic::error(
+            e6::INVALID_PACKAGE_SPECIFIER as u32,
+            format!(
+                "invalid {} metadata for '{}': {}",
+                registry, display_name, error
+            ),
+        )
+    })?;
 
     let versions = metadata
         .get("versions")
         .and_then(|value| value.as_object())
-        .ok_or_else(|| Diagnostic::error(e6::NOT_FOUND as u32, format!("{} metadata for '{}' does not contain versions", registry, display_name)))?;
+        .ok_or_else(|| {
+            Diagnostic::error(
+                e6::NOT_FOUND as u32,
+                format!(
+                    "{} metadata for '{}' does not contain versions",
+                    registry, display_name
+                ),
+            )
+        })?;
 
     let version = if let Some(requested) = requested_version {
         if versions.contains_key(requested) {
@@ -569,14 +689,22 @@ fn resolve_npm_like_package(
         } else {
             return Err(Diagnostic::error(
                 e6::VERSION_MISMATCH as u32,
-                format!("package '{}' does not publish version '{}'", display_name, requested),
+                format!(
+                    "package '{}' does not publish version '{}'",
+                    display_name, requested
+                ),
             ));
         }
     } else {
         let mut candidate: Option<Version> = None;
         for key in versions.keys() {
             if let Ok(version) = Version::parse(key) {
-                if version.pre.is_empty() && candidate.as_ref().map(|current| &version > current).unwrap_or(true) {
+                if version.pre.is_empty()
+                    && candidate
+                        .as_ref()
+                        .map(|current| &version > current)
+                        .unwrap_or(true)
+                {
                     candidate = Some(version);
                 }
             }
@@ -593,18 +721,36 @@ fn resolve_npm_like_package(
     let version_meta = versions
         .get(&version)
         .and_then(|value| value.as_object())
-        .ok_or_else(|| Diagnostic::error(e6::NOT_FOUND as u32, format!("missing metadata for '{}'@{}", display_name, version)))?;
+        .ok_or_else(|| {
+            Diagnostic::error(
+                e6::NOT_FOUND as u32,
+                format!("missing metadata for '{}'@{}", display_name, version),
+            )
+        })?;
 
     let dist = version_meta
         .get("dist")
         .and_then(|value| value.as_object())
-        .ok_or_else(|| Diagnostic::error(e6::NOT_FOUND as u32, format!("missing dist metadata for '{}'@{}", display_name, version)))?;
+        .ok_or_else(|| {
+            Diagnostic::error(
+                e6::NOT_FOUND as u32,
+                format!("missing dist metadata for '{}'@{}", display_name, version),
+            )
+        })?;
 
     let tarball = dist
         .get("tarball")
         .and_then(|value| value.as_str())
-        .ok_or_else(|| Diagnostic::error(e6::NOT_FOUND as u32, format!("missing tarball URL for '{}'@{}", display_name, version)))?;
-    let integrity = dist.get("integrity").and_then(|value| value.as_str()).map(|value| value.to_string());
+        .ok_or_else(|| {
+            Diagnostic::error(
+                e6::NOT_FOUND as u32,
+                format!("missing tarball URL for '{}'@{}", display_name, version),
+            )
+        })?;
+    let integrity = dist
+        .get("integrity")
+        .and_then(|value| value.as_str())
+        .map(|value| value.to_string());
 
     Ok(ResolvedRegistryPackage {
         registry: registry.to_string(),
@@ -654,14 +800,25 @@ fn split_package_name_and_version(spec: &str) -> Result<(String, Option<String>)
         if name.is_empty() || version.is_empty() {
             return Ok((spec.to_string(), None));
         }
-        if version.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+        if version
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_digit())
+            .unwrap_or(false)
+        {
             return Ok((name.to_string(), Some(version.to_string())));
         }
         return Ok((spec.to_string(), None));
     }
 
     if let Some((name, version)) = spec.rsplit_once('@') {
-        if !version.is_empty() && version.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+        if !version.is_empty()
+            && version
+                .chars()
+                .next()
+                .map(|c| c.is_ascii_digit())
+                .unwrap_or(false)
+        {
             return Ok((name.to_string(), Some(version.to_string())));
         }
     }
@@ -699,19 +856,30 @@ fn read_package_json(package_dir: &Path) -> Result<PackageJson, Vec<Diagnostic>>
     let contents = fs::read_to_string(&path).map_err(|error| {
         vec![Diagnostic::error(
             e6::INVALID_LOCK_FILE as u32,
-            format!("failed to read package.json '{}': {}", path.display(), error),
+            format!(
+                "failed to read package.json '{}': {}",
+                path.display(),
+                error
+            ),
         )]
     })?;
     let package_json: PackageJson = serde_json::from_str(&contents).map_err(|error| {
         vec![Diagnostic::error(
             e6::INVALID_LOCK_FILE as u32,
-            format!("failed to parse package.json '{}': {}", path.display(), error),
+            format!(
+                "failed to parse package.json '{}': {}",
+                path.display(),
+                error
+            ),
         )]
     })?;
     Ok(package_json)
 }
 
-fn validate_package_shape(package_json: &PackageJson, allow_scripts: bool) -> Result<(), Vec<Diagnostic>> {
+fn validate_package_shape(
+    package_json: &PackageJson,
+    allow_scripts: bool,
+) -> Result<(), Vec<Diagnostic>> {
     if !allow_scripts && !package_json.scripts.is_empty() {
         return Err(vec![Diagnostic::error(
             e6::LIFECYCLE_SCRIPT_REJECTED as u32,
@@ -720,7 +888,9 @@ fn validate_package_shape(package_json: &PackageJson, allow_scripts: bool) -> Re
     }
 
     for (name, script) in &package_json.scripts {
-        if matches!(name.as_str(), "install" | "preinstall" | "postinstall") && script.contains("node-gyp") {
+        if matches!(name.as_str(), "install" | "preinstall" | "postinstall")
+            && script.contains("node-gyp")
+        {
             return Err(vec![Diagnostic::error(
                 e6::INCOMPATIBLE_PACKAGE as u32,
                 "package uses a node-gyp lifecycle script and falls outside the pure JS/TS package contract",
@@ -773,7 +943,11 @@ struct PackageJson {
     pub bin: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty", default)]
     pub dependencies: BTreeMap<String, String>,
-    #[serde(rename = "optionalDependencies", skip_serializing_if = "BTreeMap::is_empty", default)]
+    #[serde(
+        rename = "optionalDependencies",
+        skip_serializing_if = "BTreeMap::is_empty",
+        default
+    )]
     pub optional_dependencies: BTreeMap<String, String>,
 }
 
@@ -782,29 +956,44 @@ fn download_bytes(url: &str) -> Result<Vec<u8>, Diagnostic> {
         .user_agent("kali/0.1.0")
         .build()
         .map_err(|error| Diagnostic::error(e6::INSTALL_FAILED as u32, error.to_string()))?;
-    let response = client
-        .get(url)
-        .send()
-        .map_err(|error| Diagnostic::error(e6::INSTALL_FAILED as u32, format!("failed to download '{}': {}", url, error)))?;
+    let response = client.get(url).send().map_err(|error| {
+        Diagnostic::error(
+            e6::INSTALL_FAILED as u32,
+            format!("failed to download '{}': {}", url, error),
+        )
+    })?;
     if !response.status().is_success() {
         return Err(Diagnostic::error(
             e6::NOT_FOUND as u32,
-            format!("download '{}' failed with status {}", url, response.status()),
+            format!(
+                "download '{}' failed with status {}",
+                url,
+                response.status()
+            ),
         ));
     }
-    let bytes = response
-        .bytes()
-        .map_err(|error| Diagnostic::error(e6::INSTALL_FAILED as u32, format!("failed to read '{}': {}", url, error)))?;
+    let bytes = response.bytes().map_err(|error| {
+        Diagnostic::error(
+            e6::INSTALL_FAILED as u32,
+            format!("failed to read '{}': {}", url, error),
+        )
+    })?;
     Ok(bytes.to_vec())
 }
 
-fn verify_tarball_integrity(bytes: &[u8], integrity: Option<&str>) -> Result<String, Vec<Diagnostic>> {
+fn verify_tarball_integrity(
+    bytes: &[u8],
+    integrity: Option<&str>,
+) -> Result<String, Vec<Diagnostic>> {
     let actual = format_sha512(bytes);
     if let Some(expected) = integrity {
         if !integrity_matches(expected, bytes) {
             return Err(vec![Diagnostic::error(
                 e6::INTEGRITY_VERIFICATION_FAILED as u32,
-                format!("tarball integrity mismatch: expected {}, got sha512-{}", expected, actual),
+                format!(
+                    "tarball integrity mismatch: expected {}, got sha512-{}",
+                    expected, actual
+                ),
             )]);
         }
     }
@@ -835,7 +1024,11 @@ fn extract_tarball(bytes: &[u8], package_dir: &Path) -> Result<(), Vec<Diagnosti
     archive.unpack(package_dir).map_err(|error| {
         vec![Diagnostic::error(
             e6::INSTALL_FAILED as u32,
-            format!("failed to extract tarball into '{}': {}", package_dir.display(), error),
+            format!(
+                "failed to extract tarball into '{}': {}",
+                package_dir.display(),
+                error
+            ),
         )]
     })
 }
@@ -845,14 +1038,22 @@ fn copy_tree(source: &Path, target: &Path) -> Result<(), Vec<Diagnostic>> {
         fs::remove_dir_all(target).map_err(|error| {
             vec![Diagnostic::error(
                 e6::INSTALL_FAILED as u32,
-                format!("failed to clean install directory '{}': {}", target.display(), error),
+                format!(
+                    "failed to clean install directory '{}': {}",
+                    target.display(),
+                    error
+                ),
             )]
         })?;
     }
     fs::create_dir_all(target.parent().unwrap_or_else(|| Path::new("."))).map_err(|error| {
         vec![Diagnostic::error(
             e6::INSTALL_FAILED as u32,
-            format!("failed to prepare install directory '{}': {}", target.display(), error),
+            format!(
+                "failed to prepare install directory '{}': {}",
+                target.display(),
+                error
+            ),
         )]
     })?;
     recursive_copy(source, target)
@@ -886,7 +1087,12 @@ fn recursive_copy(source: &Path, target: &Path) -> Result<(), Vec<Diagnostic>> {
             fs::copy(&path, &target_path).map_err(|error| {
                 vec![Diagnostic::error(
                     e6::INSTALL_FAILED as u32,
-                    format!("failed to copy '{}' to '{}': {}", path.display(), target_path.display(), error),
+                    format!(
+                        "failed to copy '{}' to '{}': {}",
+                        path.display(),
+                        target_path.display(),
+                        error
+                    ),
                 )]
             })?;
         }
@@ -897,7 +1103,12 @@ fn recursive_copy(source: &Path, target: &Path) -> Result<(), Vec<Diagnostic>> {
 fn raw_url_file_name(url: &str) -> Option<String> {
     url::Url::parse(url)
         .ok()
-        .and_then(|parsed| parsed.path_segments()?.last().map(|segment| segment.to_string()))
+        .and_then(|parsed| {
+            parsed
+                .path_segments()?
+                .last()
+                .map(|segment| segment.to_string())
+        })
         .filter(|name| !name.is_empty())
 }
 
@@ -960,7 +1171,11 @@ fn resolve_package_entry(package_dir: &Path, package_json: &PackageJson) -> Opti
         .or_else(|| resolve_package_file(package_dir, "index.ts"))
 }
 
-fn resolve_package_subpath(package_dir: &Path, package_json: &PackageJson, subpath: &str) -> Option<PathBuf> {
+fn resolve_package_subpath(
+    package_dir: &Path,
+    package_json: &PackageJson,
+    subpath: &str,
+) -> Option<PathBuf> {
     let joined = package_dir.join(subpath);
     if joined.is_file() {
         return Some(joined);
@@ -978,18 +1193,29 @@ fn resolve_package_subpath(package_dir: &Path, package_json: &PackageJson, subpa
     None
 }
 
-fn resolve_package_exports(package_dir: &Path, exports: &serde_json::Value, subpath: &str) -> Option<PathBuf> {
+fn resolve_package_exports(
+    package_dir: &Path,
+    exports: &serde_json::Value,
+    subpath: &str,
+) -> Option<PathBuf> {
     match exports {
         serde_json::Value::String(path) => resolve_package_file(package_dir, path),
         serde_json::Value::Object(map) => {
-            let key = if subpath.is_empty() { ".".to_string() } else { format!("./{}", subpath) };
+            let key = if subpath.is_empty() {
+                ".".to_string()
+            } else {
+                format!("./{}", subpath)
+            };
             let value = map.get(&key).or_else(|| map.get("."))?;
             match value {
                 serde_json::Value::String(path) => resolve_package_file(package_dir, path),
                 serde_json::Value::Object(branches) => {
                     for branch in ["deno", "browser", "import", "require", "default"] {
                         if let Some(branch_value) = branches.get(branch) {
-                            if let Some(path) = branch_value.as_str().and_then(|path| resolve_package_file(package_dir, path)) {
+                            if let Some(path) = branch_value
+                                .as_str()
+                                .and_then(|path| resolve_package_file(package_dir, path))
+                            {
                                 return Some(path);
                             }
                         }
@@ -1010,7 +1236,10 @@ fn resolve_package_file(package_dir: &Path, candidate: &str) -> Option<PathBuf> 
     }
 
     if let Some(ext) = path.extension().and_then(|ext| ext.to_str()) {
-        if matches!(ext, "ts" | "tsx" | "js" | "jsx" | "mts" | "cts" | "mjs" | "cjs") {
+        if matches!(
+            ext,
+            "ts" | "tsx" | "js" | "jsx" | "mts" | "cts" | "mjs" | "cjs"
+        ) {
             return None;
         }
     }
@@ -1028,7 +1257,9 @@ fn resolve_package_file(package_dir: &Path, candidate: &str) -> Option<PathBuf> 
 /// Check whether a project root needs installation before analysis/execution.
 pub fn project_requires_install(root: impl AsRef<Path>) -> bool {
     match load_manifest(root) {
-        Ok(Some(manifest)) => !manifest.dependencies.is_empty() || !manifest.dev_dependencies.is_empty(),
+        Ok(Some(manifest)) => {
+            !manifest.dependencies.is_empty() || !manifest.dev_dependencies.is_empty()
+        }
         _ => false,
     }
 }

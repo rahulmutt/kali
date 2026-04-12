@@ -200,6 +200,58 @@ fn test_filters_selected_files_before_execution() {
 }
 
 #[test]
+fn init_scaffolds_application_project() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("init")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(dir.path().join("kali.json").exists());
+    assert!(dir.path().join("main.ts").exists());
+
+    let manifest = fs::read_to_string(dir.path().join("kali.json")).expect("manifest");
+    assert!(
+        manifest.contains("\"schemaVersion\": 1"),
+        "manifest: {manifest}"
+    );
+    let source = fs::read_to_string(dir.path().join("main.ts")).expect("source");
+    assert!(source.contains("Hello, world!"), "source: {source}");
+}
+
+#[test]
+fn init_scaffolds_library_project() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("init")
+        .arg("--lib")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(dir.path().join("kali.json").exists());
+    assert!(dir.path().join("lib.ts").exists());
+
+    let source = fs::read_to_string(dir.path().join("lib.ts")).expect("source");
+    assert!(source.contains("export function add"), "source: {source}");
+}
+
+#[test]
 fn test_rejects_coverage_flag_until_report_contract_exists() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.test.ts");

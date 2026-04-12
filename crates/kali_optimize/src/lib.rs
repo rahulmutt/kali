@@ -8,7 +8,7 @@ pub enum OptimizationLevel {
     Fast,
     Release,
     ReleaseAdvanced,
-    
+
     #[default]
     Default,
 }

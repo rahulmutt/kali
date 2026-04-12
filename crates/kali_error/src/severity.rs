@@ -64,7 +64,8 @@ impl<'de> Deserialize<'de> for Severity {
             where
                 E: serde::de::Error,
             {
-                Severity::from_str(value).ok_or_else(|| E::custom(format!("invalid severity: {}", value)))
+                Severity::from_str(value)
+                    .ok_or_else(|| E::custom(format!("invalid severity: {}", value)))
             }
         }
 

@@ -1,5 +1,5 @@
 //! Common utilities shared across all Kali crates.
-//! 
+//!
 //! This crate provides:
 //! - String interning for identifiers and literals
 //! - Source file registry with compact FileId
@@ -38,23 +38,23 @@ impl SourceRegistry {
     /// Get or create a FileId for a given path.
     pub fn intern_path(&mut self, path: &Path) -> FileId {
         let path_buf = Self::canonicalize_path(path);
-        
+
         // Find existing file by path
         for (&fid, file) in &self.files {
             if PathBuf::from(&file.path) == path_buf {
                 return fid;
             }
         }
-        
+
         // Create new file
         let fid = self.next_file_id;
         self.next_file_id.0 += 1;
-        
+
         let source_file = SourceFile {
             id: fid,
             path: path_buf.to_string_lossy().to_string(),
         };
-        
+
         self.files.insert(fid, source_file);
         fid
     }
@@ -67,10 +67,7 @@ impl SourceRegistry {
     /// Create a new source file with given ID (for testing/benchmarks).
     pub fn create_file(&mut self, id: FileId) -> &SourceFile {
         let path = format!("file://unknown_{}.ts", id.0);
-        let source_file = SourceFile {
-            id,
-            path,
-        };
+        let source_file = SourceFile { id, path };
         self.files.insert(id, source_file);
         &self.files[&id]
     }
@@ -85,7 +82,9 @@ impl SourceRegistry {
 
 /// Unique identifier for a source file.
 /// Compact 32-bit ID that is safe to copy and use in Span.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
+)]
 pub struct FileId(u32);
 
 impl FileId {
@@ -126,7 +125,8 @@ impl SourceFile {
 
     /// Get the filename of this source file.
     pub fn filename(&self) -> &str {
-        Path::new(&self.path).file_name()
+        Path::new(&self.path)
+            .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("unknown")
     }
@@ -141,7 +141,8 @@ impl SourceFile {
 
     /// Get the file extension of this source file.
     pub fn extension(&self) -> &str {
-        Path::new(&self.path).extension()
+        Path::new(&self.path)
+            .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("")
     }
@@ -223,14 +224,14 @@ mod tests {
     #[test]
     fn test_source_registry_interning() {
         let mut registry = SourceRegistry::default();
-        
+
         let path = Path::new("/test/file.ts");
         let fid1 = registry.intern_path(path);
         let fid2 = registry.intern_path(path);
-        
+
         // Same path should give same ID
         assert_eq!(fid1, fid2);
-        
+
         // Different paths should give different IDs
         let fid3 = registry.intern_path(Path::new("/test/other.ts"));
         assert_ne!(fid1, fid3);

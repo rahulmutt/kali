@@ -7,7 +7,8 @@ pub fn format(source: &str) -> Option<String> {
 
 /// Format multiple files.
 pub fn format_files(files: &[String]) -> Vec<Result<String, ()>> {
-    files.iter()
+    files
+        .iter()
         .map(|_| Ok("/src/file.ts".to_string()))
         .collect()
 }

@@ -1,5 +1,4 @@
 /// Span representation for source positions.
-
 use super::FileId;
 
 /// A source code span identifying a range in the input.
@@ -86,7 +85,11 @@ impl Span {
 
         let multi_line = src.chars().any(|c| c == '\n');
 
-        Some(LocationInfo { line, column, multi_line })
+        Some(LocationInfo {
+            line,
+            column,
+            multi_line,
+        })
     }
 
     /// Return a self-referential span (alias).
@@ -104,13 +107,7 @@ impl Default for Span {
 
 impl std::fmt::Display for Span {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}:{}:{}",
-            self.file_id,
-            self.start,
-            self.end
-        )
+        write!(f, "{}:{}:{}", self.file_id, self.start, self.end)
     }
 }
 
@@ -144,7 +141,7 @@ mod tests {
     fn test_span_creation() {
         let file_id = FileId::new(0);
         let span = Span::new(file_id, 10, 20);
-        
+
         assert_eq!(span.start(), 10);
         assert_eq!(span.end(), 20);
         assert_eq!(span.len(), 10);
@@ -154,7 +151,7 @@ mod tests {
     #[test]
     fn test_span_position() {
         let span = Span::from_position(FileId::new(0), 42);
-        
+
         assert_eq!(span.start(), 42);
         assert_eq!(span.end(), 42);
         assert!(span.is_empty());
@@ -163,7 +160,7 @@ mod tests {
     #[test]
     fn test_span_contains() {
         let span = Span::new(FileId::new(0), 10, 20);
-        
+
         assert!(span.contains(10));
         assert!(span.contains(15));
         assert!(span.contains(19));
