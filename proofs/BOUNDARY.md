@@ -1,69 +1,56 @@
 # Proof Boundary Manifest
 
-Status: **placeholder proof-boundary manifest**.
+Status: **provisional proof-boundary manifest**.
 
-This file is the canonical repository location for Kali's published **proof-boundary manifest**. Current proof-status summaries in `README.md`, `SPEC.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` should point here instead of paraphrasing repository proof coverage from memory.
+This file is the canonical repository location for Kali's published **proof-boundary manifest**. The repository now contains a checked-in Lean 4 proof tree under `proofs/`, but the manifest remains provisional and the repository is still **proof-ready**, not proof-backed.
 
 Current repository-state note:
-- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): beyond this manifest itself, there is not yet a checked-in Lean proof source tree under `proofs/`
-- the illustrative Lean project layout in [specs/17-verification.md](../specs/17-verification.md) is therefore a target layout for when proofs land, not a claim about the current repository contents
-- while that remains true, this published manifest is the required verification artifact for the repository's current **proof-ready** baseline
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the Lean project tree now exists under `proofs/` and is built from `proofs/lakefile.lean`
+- the proof sources are organized around `proofs/KaliCore.lean` and `proofs/KaliIR.lean`, which import the provisional model files listed below
+- the current proof claims are still intentionally narrow and include documented `sorry` placeholders where later mechanization work is expected
 
 Canonical verification state (following the shared **proof-ready vs proof-backed split** from [SPEC.md](../SPEC.md)):
 
 | Item | Current state |
 |---|---|
 | proof-ready | **yes** — this manifest exists, truthfully declares the current claim boundary, and publishes the repository's current proof-CI trigger policy |
-| proof-backed | **no** — the modeled boundary is still empty, so no release may market formal verification as a shipped Kali capability yet |
+| proof-backed | **no** — the published boundary is provisional and the repository is not yet marketing mechanized proof coverage as a shipped capability |
 | repository claim | **no mechanized proof coverage is claimed yet** |
 | canonical short summary | **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.** |
 
 Release rule:
-- this **placeholder proof-boundary manifest** is acceptable while the project is still iterating on the spec/implementation because it satisfies the Phase-1 **proof-ready** baseline without overclaiming proof coverage
-- before any release markets formal verification as a shipped Kali capability, this manifest must move beyond the **placeholder proof-boundary manifest** state with at least one concrete modeled subsystem plus named theorem/property claims so the release becomes **proof-backed**
-- until this manifest names a concrete modeled subsystem, [specs/17-verification.md](../specs/17-verification.md)'s **First proof-backed milestone** section is the planning source of truth for the first non-placeholder scope
-- once this manifest becomes non-empty, it becomes the canonical published scope and should either mirror that milestone explicitly or point back to it, so the chapter-level plan and the manifest do not drift apart
+- this manifest is acceptable during provisional Lean-model development because it keeps the repository honest about the currently modeled slice without overclaiming proof-backed support
+- before any release markets formal verification as a shipped Kali capability, this manifest must move beyond the provisional state with a non-empty published theorem/property inventory that is intended for release/support claims
+- until then, the Lean tree is a proof-ready modeling aid, not evidence that the whole repository is already proof-backed
 
-Promotion checklist from proof-ready to proof-backed:
-- name at least one concrete modeled subsystem rather than leaving the boundary empty
-- list the theorem/property inventory explicitly (for example progress, preservation, conservative effect soundness, sandbox-policy soundness)
-- name the covered implementation/spec paths that those proofs are intended to constrain
-- update CI wiring so proof jobs trigger for those covered paths in addition to `proofs/`
+## Modelled boundary
 
-Cross-file promotion packet:
-- when this manifest stops being the **placeholder proof-boundary manifest**, update [specs/17-verification.md](../specs/17-verification.md) in the same change so the chapter-level verification plan and the published boundary still describe the same first proof-backed scope
-- if the new boundary changes what current testing/process evidence or release/support wording may honestly claim, also sync any affected summary/availability owners (at minimum `README.md`, [specs/16-testing.md](../specs/16-testing.md), and, if a maturity row changes, [specs/19-feature-maturity.md](../specs/19-feature-maturity.md))
-- this keeps the shared **proof-ready vs proof-backed split** anchored in one published boundary instead of drifting across summary prose
+### Core type calculus (`proofs/KaliCore/Types.lean`, `proofs/KaliCore/Semantics.lean`, `proofs/KaliCore/Soundness.lean`)
+- Type syntax: `Ty`, `LitVal`, and the provisional function/object/union/intersection forms
+- Expression syntax: literals, variables, annotated functions, application, sequencing, conditionals, assignment, throw, and try/catch
+- Runtime model: value predicate, substitution, and small-step reduction for the bounded typed fragment
+- Claimed theorem inventory: progress and preservation for the closed typed core fragment
+- Current proof state: theorem statements are present; the main soundness proofs are documented-sorry placeholders in `KaliCore/Soundness.lean`
 
-Boundary-maintenance rule:
-- once **Covered implementation/spec paths** becomes non-empty, a change to any covered path must land with one of these outcomes in the same PR: (a) matching Lean/model/proof updates, or (b) an explicit narrowing of the published boundary before the implementation/spec change lands
-- widening the boundary also requires updating the named theorem/property inventory; new Lean files alone do not widen the claim surface
-- release/support wording must always follow this file's current boundary immediately after such a change
+### Ownership model (`proofs/KaliCore/Safety.lean`)
+- Ownership classes: `stack`, `ownedHeap`, `sharedHeap`, `borrowed`
+- Claimed property inventory: no dangling references for the provisional ownership model
+- Current proof state: property statement present as a stub for later mechanization
 
-Until Lean proofs land, this file should be kept explicit rather than omitted so Kali does not accidentally imply broader formal-verification coverage than it actually has.
-
-## Modeled boundary
-- No subsystem is yet claimed as mechanically proved in this repository.
-- Recommended first non-placeholder scope once proofs start: reuse [specs/17-verification.md](../specs/17-verification.md)'s **First proof-backed milestone** section as the planning source of truth until this manifest becomes non-empty, rather than restating a second near-duplicate checklist here.
-
-## Proof-CI trigger policy
-- The current proof boundary is **empty**.
-- Therefore proof CI is required only for changes under `proofs/`.
-- If this manifest later names covered implementation/spec subsystems, proof CI must also trigger for changes to those covered areas.
-- Until concrete CI workflow files exist, this section is the repository's normative proof-CI trigger policy rather than evidence that hosted proof automation is already configured.
-- Until that happens, no release note, README text, or phase summary should imply mechanized coverage for any implementation subsystem.
-- Operational rule: run proof CI when either condition becomes true:
-  1. files under `proofs/` change, or
-  2. a change touches a subsystem explicitly listed in **Covered implementation/spec paths** as inside the modeled boundary.
-- Until a non-empty modeled boundary is published, only condition (1) is active.
-- The absence of broader proof jobs must not be described as proof coverage.
+### HIR model stub (`proofs/KaliIR/HIRModel.lean`)
+- Provisional HIR syntax and a core lowering projection for future lowering-correctness work
+- Current proof state: model stub only; no lowering-correctness claim is made here yet
 
 ## Claimed theorems/properties
-- None yet.
+- `KaliCore.Soundness.progress` — progress for the closed typed core fragment
+- `KaliCore.Soundness.preservation` — preservation for the closed typed core fragment
+- `KaliCore.Safety.NoDanglingReference` — provisional no-dangling-reference statement
+- `KaliIR.HIRModel.lower_core` — sanity lemma for the provisional HIR lowering projection
 
 ## Trusted assumptions
-- All current implementation/spec behavior remains outside the mechanically proved set.
-- Ordinary testing, review, and spec conformance remain the active evidence sources until proofs are added.
+- The proof tree is a provisional modeling aid; the release/support boundary remains proof-ready only.
+- `sorry` placeholders are allowed in this stage and must be eliminated before any proof-backed marketing claim.
+- No mechanized proof coverage is claimed for Rust implementation code outside `proofs/`.
 
 ## Explicitly unmodeled features
 - Full ECMAScript/TypeScript surface semantics
@@ -73,10 +60,26 @@ Until Lean proofs land, this file should be kept explicit rather than omitted so
 - Full lowering/codegen correctness end to end
 
 ## Covered implementation/spec paths
-- None yet.
-- Once the manifest becomes non-empty, list the exact Rust crate/spec chapter/path set whose behavior is being claimed against the Lean model so CI wiring and release wording can reference one canonical path inventory.
+- `proofs/lakefile.lean`
+- `proofs/KaliCore.lean`
+- `proofs/KaliIR.lean`
+- `proofs/KaliCore/Types.lean`
+- `proofs/KaliCore/Semantics.lean`
+- `proofs/KaliCore/Soundness.lean`
+- `proofs/KaliCore/Safety.lean`
+- `proofs/KaliIR/HIRModel.lean`
 
 ## Required implementation/spec alignment scope
-- None yet beyond keeping this file honest.
-- Once covered paths exist, this section should summarize the specific implementation/spec correspondence obligations for those paths rather than relying on implicit reviewer memory.
+- `proofs/lakefile.lean` must continue to declare the Lean roots that keep the provisional proof tree complete
+- `proofs/KaliCore.lean` and `proofs/KaliIR.lean` serve as the root import surfaces for the provisional Lean model
+- any change to the named proof files above should keep the boundary text and trigger policy in sync with the current modeled slice
 
+## Proof-CI trigger policy
+- Trigger proof CI when `proofs/**` changes.
+- Because the published boundary is still provisional and only names Lean model files under `proofs/`, no broader Rust/spec trigger set is currently claimed.
+- If the boundary later names covered implementation/spec subsystems outside `proofs/`, proof CI must also trigger for changes to those covered areas.
+
+## Boundary-maintenance rule
+- once the published boundary becomes non-provisional, a change to any covered path must land with matching proof updates or an explicit narrowing of the boundary first
+- widening the boundary also requires updating the named theorem/property inventory; new Lean files alone do not widen the claim surface
+- release/support wording must always follow this file's current boundary immediately after such a change

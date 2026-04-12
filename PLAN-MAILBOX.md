@@ -1,17 +1,7 @@
-# Plan Mailbox — Stage 2.3 Public Embedding Surface Notes
+# PLAN Mailbox
 
-## Observations and Required Plan Updates
+## 2026-04-12 — Stage 2.4 provisional Lean model update
 
-### 1. Stage 2.3 public embedding artifacts are now implemented in-tree
+`PLAN.md`'s Stage 2.4 row was updated to reflect the checked-in Lean workspace and the fact that the current progress/preservation work is still represented by theorem statements with documented-`sorry` placeholders.
 
-The CLI now ships positive Phase-2 embedding coverage:
-- `kali build --capi` emits a deterministic C ABI artifact plus header output.
-- `kali build --component` emits a valid component artifact.
-- The runtime smoke suite now exercises both flows positively instead of treating them as gated placeholders.
-
-### 2. Plan progress update requested
-
-The Phase-2 stage 2.3 progress note and completion marker in `PLAN.md` were updated to reflect the implemented embedding surface and the passing workspace test run.
-
-**Date:** 2026-04-12  
-**Status:** Processed — embedding artifact flows landed and plan progress was updated
+No change was made to the Phase 2 completion gate yet; it should continue to read as an open gate until the later proof-backed work closes the remaining obligations.

@@ -12,7 +12,7 @@ Stage 1.14 is now complete. The Phase-1 evidence suite now has the expected posi
 - `cargo test --workspace` ✅
 - Browser-bundle smoke coverage ✅
 - Determinism coverage for repeated builds ✅
-- Proof-boundary and proof-trigger regression coverage ✅
+- Proof-boundary and proof-check regression coverage ✅
 
 ## Notable Deliverables
 

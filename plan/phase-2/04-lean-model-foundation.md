@@ -149,7 +149,7 @@ and proof structure so Stage 4.2 can fill them in without rework.
 
 ### 6. CI integration
 
-Update the CI pipeline's `proof-trigger` job (introduced as a stub in Stage 1.1) to run real
+Update the CI pipeline's `proof-check` job (introduced as a stub in Stage 1.1) to run real
 Lean proof checks:
 
 ```yaml
@@ -166,7 +166,7 @@ replaced by this real job.
 
 ### 7. Update `proofs/BOUNDARY.md`
 
-Update the placeholder proof-boundary manifest to describe the provisional scope:
+Update the proof-boundary manifest to describe the provisional scope:
 
 ```markdown
 ## Current status: proof-ready (provisional Lean model in progress)

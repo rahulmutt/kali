@@ -67,9 +67,11 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-  proof-trigger:
+  proof-check:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Check for proof file changes
         id: proofs
         uses: dorny/paths-filter@v3
@@ -78,8 +80,14 @@ jobs:
             proofs-changed:
               - 'proofs/**'
 
-      - name: Proof trigger stub
+      - name: Verify proof tree completeness
         if: steps.proofs.outputs.proofs-changed == 'true'
-        run: |
-          echo "Proofs directory changed - proof-CI jobs would trigger here"
-          # No-op stub for placeholder CI
+        run: bash scripts/check-proof-tree.sh
+
+      - name: Install Lean toolchain
+        if: steps.proofs.outputs.proofs-changed == 'true'
+        uses: leanprover/lean4-action@v1
+
+      - name: Build proofs
+        if: steps.proofs.outputs.proofs-changed == 'true'
+        run: cd proofs && lake build

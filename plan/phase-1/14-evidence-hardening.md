@@ -30,7 +30,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added negative `kali build --lib` coverage for sources without a statically known export surface so the Phase-1 base-library evidence lane keeps enforcing `E5011`.
 - Added a Node-based browser-bundle execution smoke harness that imports the generated ESM bundle, resolves the emitted WASM, and exercises the exported wrapper for both explicit and inherited browser API-surface builds.
 - Added a repository regression test that pins the canonical proof-ready summary in both `README.md` and `proofs/BOUNDARY.md`, so the empty proof boundary stays aligned with the public status wording.
-- Wired the CI proof-trigger stub so it now listens for `proofs/**` changes via a named paths-filter step instead of relying on an unreferenced filter output.
+- Wired the CI proof-check job so it now listens for `proofs/**` changes, verifies the Lean proof-tree layout, and runs `lake build` instead of relying on an unreferenced filter output.
 - Expanded the GitHub Actions build/test job into a Linux + macOS matrix so the workspace test suite and determinism coverage now run on both platforms called for by the stage plan.
 - Cleared the workspace-wide `cargo clippy --workspace -- -D warnings` warning set so the current CI lint lane is green instead of failing on legacy placeholder patterns.
 
@@ -164,7 +164,7 @@ Complete the CI pipeline established in Stage 1.1 with the following jobs:
 | browser smoke tests | every commit | Linux x86_64 |
 | determinism checks | every commit | Linux x86_64, macOS arm64 |
 | negative/gating tests | every commit | Linux x86_64 |
-| proof-trigger | on `proofs/` change | Linux x86_64 |
+| proof-check | on `proofs/` change | Linux x86_64 |
 
 Establish a compile-time budget check: `kali check` on the full fixture suite must complete in
 under 10 seconds on the CI reference hardware. Regressions beyond 20% flag a CI warning.
