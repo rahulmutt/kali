@@ -31,9 +31,10 @@
 - ✅ `kali build --sandbox` embeds the validated policy as `kali:policy` in the emitted WASM artifact
 - ✅ Runtime policy enforcement and build embedding are covered by CLI/runtime tests
 
-## Next Work
-
 ### Stage 1.10 - Package Management
+- ✅ Manifest collision preflight now rejects registry identities that would materialize to the same `node_modules/` path
+
+## Next Work
 - [ ] Deterministic package resolution and lockfile reconciliation
 - [ ] Materialize npm/JSR/raw-URL dependencies into the cache
 - [ ] Wire bare-specifier resolution to the installed package graph

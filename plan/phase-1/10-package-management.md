@@ -30,8 +30,10 @@ graph without performing any mutations.
   `kali.lock` output, and materialises packages under `.kali-cache/` plus `node_modules/`.
 - Bare import resolution now consults the materialized package graph, so the Stage 1.4 resolver can
   follow installed packages instead of only local relative files.
-- Package-shape validation now rejects obvious native-addon and lifecycle-script cases, and
-  non-install commands fail fast with `E6007` when an installed dependency graph is missing.
+- Package-shape validation now rejects obvious native-addon and lifecycle-script cases.
+- Manifest reconciliation now fails fast when two registry identities would collapse onto the
+  same `node_modules/` path before any materialization work begins.
+- Non-install commands still fail fast with `E6007` when an installed dependency graph is missing.
 - Remaining stage work is mostly around edge-case coverage and the full matrix of compatibility
   diagnostics called out in the tasks below.
 

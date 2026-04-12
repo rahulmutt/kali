@@ -355,6 +355,8 @@ pub fn install_project(
                         .insert(resolved.name.clone(), dependency_version.clone());
                 }
 
+                validate_manifest_registry_collisions(&manifest)?;
+
                 install_registry_package(
                     root,
                     &mut lock,
@@ -371,11 +373,13 @@ pub fn install_project(
                         "`--allow-scripts` is not valid for raw-URL targets",
                     )]);
                 }
+                validate_manifest_registry_collisions(&manifest)?;
                 install_raw_url(root, &mut lock, &url, &mut installed, &mut diagnostics)?;
             }
             Err(diagnostic) => return Err(vec![diagnostic]),
         }
     } else if !manifest.dependencies.is_empty() || !manifest.dev_dependencies.is_empty() {
+        validate_manifest_registry_collisions(&manifest)?;
         for (name, version) in manifest
             .dependencies
             .iter()
@@ -836,6 +840,41 @@ fn package_key(name: &str, version: &str) -> String {
 
 fn install_name_from_package(name: &str) -> String {
     name.trim_start_matches("jsr:").to_string()
+}
+
+fn validate_manifest_registry_collisions(
+    manifest: &ProjectManifest,
+) -> Result<(), Vec<Diagnostic>> {
+    let mut occupied_paths = BTreeMap::new();
+
+    for name in manifest
+        .dependencies
+        .keys()
+        .chain(manifest.dev_dependencies.keys())
+    {
+        let install_path = install_name_from_package(name);
+        match occupied_paths.entry(install_path) {
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                entry.insert(name.clone());
+            }
+            std::collections::btree_map::Entry::Occupied(entry) => {
+                let previous = entry.get();
+                if previous != name {
+                    return Err(vec![Diagnostic::error(
+                        e6::VERSION_MISMATCH as u32,
+                        format!(
+                            "registry identities '{}' and '{}' would both materialize to node_modules/{}",
+                            previous,
+                            name,
+                            entry.key()
+                        ),
+                    )]);
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn jsr_compat_name(name: &str) -> String {
@@ -1318,5 +1357,37 @@ mod tests {
 
         let resolved = resolve_materialized_import(dir.path(), "lodash");
         assert_eq!(resolved.unwrap(), package_dir.join("lodash.js"));
+    }
+
+    #[test]
+    fn manifest_registry_collisions_are_rejected_before_install() {
+        let manifest = ProjectManifest {
+            dependencies: BTreeMap::from([("@scope/name".to_string(), "1.0.0".to_string())]),
+            dev_dependencies: BTreeMap::from([(
+                "jsr:@scope/name".to_string(),
+                "1.0.0".to_string(),
+            )]),
+            ..ProjectManifest::default()
+        };
+
+        let error = validate_manifest_registry_collisions(&manifest).unwrap_err();
+        assert_eq!(error.len(), 1);
+        let diagnostic = &error[0];
+        assert_eq!(diagnostic.code, Some(e6::VERSION_MISMATCH as u32));
+        assert!(diagnostic
+            .message
+            .contains("would both materialize to node_modules/@scope/name"));
+    }
+
+    #[test]
+    fn manifest_registry_collisions_allow_identical_identity_spelling() {
+        let manifest = ProjectManifest {
+            dependencies: BTreeMap::from([("lodash".to_string(), "1.0.0".to_string())]),
+            dev_dependencies: BTreeMap::new(),
+            ..ProjectManifest::default()
+        };
+
+        validate_manifest_registry_collisions(&manifest)
+            .expect("single dependency should be valid");
     }
 }

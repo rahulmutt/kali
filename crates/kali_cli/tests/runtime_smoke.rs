@@ -186,7 +186,10 @@ fn fmt_check_reports_drift_without_rewriting() {
 
     assert!(!output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Would format 1 file(s)"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("Would format 1 file(s)"),
+        "stdout: {stdout}"
+    );
     let contents = fs::read_to_string(&source_path).expect("read source");
     assert_eq!(contents, "function add(a,b){return a+b;}");
 }
@@ -345,4 +348,36 @@ fn build_embeds_sandbox_policy_custom_section() {
         }
     }
     assert!(seen_policy, "custom section 'kali:policy' was not embedded");
+}
+
+#[test]
+fn install_rejects_registry_path_collisions_before_materialization() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "dependencies": {
+    "@scope/name": "1.0.0"
+  },
+  "devDependencies": {
+    "jsr:@scope/name": "1.0.0"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("install")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E6002"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("would both materialize to node_modules/@scope/name"),
+        "stderr: {stderr}"
+    );
 }
