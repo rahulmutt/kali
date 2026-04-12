@@ -6,6 +6,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use kali_error::{Diagnostic, _error_codes::e5};
+use kali_sandbox::SandboxPolicy;
+
 pub mod build;
 
 pub fn discover_source_files(root: impl AsRef<Path>) -> Vec<PathBuf> {
@@ -72,12 +75,18 @@ pub enum Commands {
     #[command(name = "check")]
     /// Type-check source files
     Check {
+        /// Sandbox policy file to validate
+        #[arg(long)]
+        sandbox: Option<PathBuf>,
         /// Source files to check
         files: Vec<String>,
     },
     #[command(name = "build")]
     /// Build source files
     Build {
+        /// Sandbox policy file to validate and embed
+        #[arg(long)]
+        sandbox: Option<PathBuf>,
         /// Source files to build
         files: Vec<String>,
         /// Explicit fast build mode
@@ -96,12 +105,18 @@ pub enum Commands {
     #[command(name = "run")]
     /// Run source files
     Run {
+        /// Sandbox policy file to enforce
+        #[arg(long)]
+        sandbox: Option<PathBuf>,
         /// Source files to run
         files: Vec<String>,
     },
     #[command(name = "test")]
     /// Test source files
     Test {
+        /// Sandbox policy file to enforce
+        #[arg(long)]
+        sandbox: Option<PathBuf>,
         /// Only run tests matching this pattern
         #[arg(long)]
         filter: Option<String>,
@@ -163,6 +178,22 @@ pub fn discover_test_files(root: impl AsRef<Path>) -> Vec<PathBuf> {
     let mut discovered = Vec::new();
     collect_test_files(root.as_ref(), &mut discovered);
     discovered
+}
+
+pub fn load_sandbox_policy(path: impl AsRef<Path>) -> Result<SandboxPolicy, Vec<Diagnostic>> {
+    let path = path.as_ref();
+    SandboxPolicy::from_file(path)
+}
+
+pub fn sandbox_policy_diagnostics(path: impl AsRef<Path>, error: impl ToString) -> Vec<Diagnostic> {
+    vec![Diagnostic::error(
+        e5::INVALID_POLICY as u32,
+        format!(
+            "failed to load sandbox policy '{}': {}",
+            path.as_ref().display(),
+            error.to_string()
+        ),
+    )]
 }
 
 fn collect_test_files(dir: &Path, discovered: &mut Vec<PathBuf>) {

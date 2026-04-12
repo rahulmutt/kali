@@ -1101,8 +1101,10 @@ dependencies = [
  "kali_mir",
  "kali_parser",
  "kali_runtime",
+ "kali_sandbox",
  "kali_types",
  "tempfile",
+ "wasm-encoder 0.240.0",
  "wasmparser 0.240.0",
 ]
 

@@ -1,5 +1,5 @@
-use std::fs;
 use std::path::{Path, PathBuf};
+use std::{borrow::Cow, fs};
 
 use kali_codegen::{lower_lir_to_wasm, CodegenCtx, TargetConfig};
 use kali_common::FileId;
@@ -9,7 +9,9 @@ use kali_lexer::Lexer;
 use kali_lir::LirLowerer;
 use kali_mir::MirLowerer;
 use kali_parser::Parser;
+use kali_sandbox::SandboxPolicy;
 use kali_types::TypeContext;
+use wasm_encoder::{CustomSection, Section};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildMode {
@@ -103,9 +105,21 @@ pub fn build_source_file(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
     out_dir: Option<&Path>,
+    sandbox_policy: Option<&SandboxPolicy>,
 ) -> Result<BuildOutput, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
-    let wasm_bytes = compile_source_file(source_path, mode)?;
+    let mut wasm_bytes = compile_source_file(source_path, mode)?;
+
+    if let Some(policy) = sandbox_policy {
+        let policy_bytes = policy
+            .to_canonical_json_bytes()
+            .map_err(|diagnostic| vec![diagnostic])?;
+        CustomSection {
+            name: Cow::Borrowed("kali:policy"),
+            data: Cow::Owned(policy_bytes),
+        }
+        .append_to(&mut wasm_bytes);
+    }
 
     let output_path = output_path_for(source_path, out_dir);
     if let Some(parent) = output_path.parent() {
@@ -183,8 +197,8 @@ mod tests {
         )
         .expect("write source");
 
-        let output =
-            build_source_file(&source_path, BuildMode::Fast, None).expect("build should succeed");
+        let output = build_source_file(&source_path, BuildMode::Fast, None, None)
+            .expect("build should succeed");
 
         assert!(output.output_path.exists());
         Validator::new()

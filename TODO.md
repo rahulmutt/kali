@@ -24,18 +24,17 @@
 - ✅ MIR → LIR lowering implemented
 - ✅ Representative parser-backed lowering tests pass
 
+### Stage 1.9 - Sandbox & Policy
+- ✅ Declarative policy files parse and validate against schema v1
+- ✅ `kali run --sandbox` enforces policy at runtime and reports `E4001` on violations
+- ✅ `kali check --sandbox` validates policy schema/config without executing the program
+- ✅ `kali build --sandbox` embeds the validated policy as `kali:policy` in the emitted WASM artifact
+- ✅ Runtime policy enforcement and build embedding are covered by CLI/runtime tests
+
 ## Next Work
 
-### Stage 1.8 - Runtime Execution
-- [x] Wire wasmtime execution to the emitted WASM modules
-- [x] Add smoke tests for `kali run` and `kali test`
-- [x] Keep the compiler pipeline deterministic and runnable end-to-end
-- [x] Wire basic console host imports into the wasmtime linker (`console_log`, `console_error`, `console_warn`)
-- [x] Add Phase-1 `kali test --filter` narrowing and phase-gate `--coverage` rejection
-- [x] Add the Deno-oriented host surface subset (`fetch`, filesystem, env, args)
-- [x] Add the timer / microtask scheduler surface (`setTimeout`, `setInterval`, `queueMicrotask`)
-- [x] Implement the guest-side `Kali.test(...)` registration protocol
-- [x] Add repo-backed fixture smoke coverage for `hello.ts`, test-suite discovery, and declaration-only rejection
-- [x] Expand runtime fixture coverage for the remaining Stage 1.8 edge cases (`async.ts`, `fetch.ts`, invalid-trap source fixture)
-- [x] Add the Web-baseline host primitives used by Stage 1.8 (`performance.now()`, `crypto.getRandomValues()`)
-- [x] Finish the remaining guest-side Web baseline support-library follow-up (`URL`, `TextEncoder`/`TextDecoder`, `AbortController`/`AbortSignal`, `structuredClone`, and event primitives)
+### Stage 1.10 - Package Management
+- [ ] Deterministic package resolution and lockfile reconciliation
+- [ ] Materialize npm/JSR/raw-URL dependencies into the cache
+- [ ] Wire bare-specifier resolution to the installed package graph
+- [ ] Add package-shape validation for the pure JS/TS contract

@@ -2,7 +2,7 @@
 
 use kali_api_web::{fill_random_values, performance_now};
 use kali_error::{Diagnostic, _error_codes::e4};
-use kali_sandbox::SandboxPolicy;
+use kali_sandbox::{HostOperation, SandboxPolicy};
 use reqwest::blocking;
 use std::{
     collections::{BTreeMap, HashSet, VecDeque},
@@ -12,7 +12,9 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use wasmtime::{Caller, Engine, Extern, Instance, Linker, Memory, Module, Store};
+use wasmtime::{
+    Caller, Config, Engine, Extern, Instance, Linker, Memory, Module, Store, StoreLimitsBuilder,
+};
 
 /// Runtime context.
 #[derive(Clone, Debug, Default)]
@@ -48,6 +50,14 @@ pub struct KaliHostState {
     pub next_timer_id: u32,
     /// Registered test callbacks collected from guest-side `Kali.test(...)` calls.
     pub registered_tests: Vec<i32>,
+    /// Memory/table limits for the current store.
+    pub store_limits: wasmtime::StoreLimits,
+    /// The most recent policy/resource diagnostic produced by a host operation.
+    pub pending_diagnostic: Option<Diagnostic>,
+    /// Active host file handles counted for policy enforcement.
+    pub active_file_handles: usize,
+    /// Active host network operations counted for policy enforcement.
+    pub active_network_connections: usize,
 }
 
 /// A scheduled timer callback.
@@ -107,13 +117,31 @@ impl RuntimeCtx {
         wasm_bytes: &[u8],
         run_registered_tests: bool,
     ) -> Result<RuntimeOutcome, Vec<Diagnostic>> {
-        let engine = Engine::default();
+        let mut config = Config::new();
+        config.consume_fuel(true);
+        let engine = Engine::new(&config).map_err(|error| {
+            vec![Diagnostic::error(
+                e4::IO_ERROR as u32,
+                format!("failed to initialize WASM engine: {}", error),
+            )]
+        })?;
         let module = Module::from_binary(&engine, wasm_bytes).map_err(|error| {
             vec![Diagnostic::error(
                 e4::IO_ERROR as u32,
                 format!("failed to load WASM module: {}", error),
             )]
         })?;
+
+        let store_limits = self
+            .policy
+            .as_ref()
+            .and_then(|policy| policy.resources.max_memory_mb)
+            .map(|max_memory_mb| {
+                StoreLimitsBuilder::new()
+                    .memory_size((max_memory_mb as usize) * 1024 * 1024)
+                    .build()
+            })
+            .unwrap_or_else(|| StoreLimitsBuilder::new().build());
 
         let mut store = Store::new(
             &engine,
@@ -122,17 +150,32 @@ impl RuntimeCtx {
                 args: self.args.clone(),
                 env: self.env.clone(),
                 cwd: self.cwd.clone(),
+                store_limits,
                 ..Default::default()
             },
         );
+        store.limiter(|state| &mut state.store_limits);
+        let default_fuel = self
+            .policy
+            .as_ref()
+            .and_then(|policy| policy.resources.max_cpu_time_ms)
+            .unwrap_or(10_000);
+        store
+            .set_fuel(default_fuel.saturating_mul(1_000))
+            .map_err(|error| {
+                vec![Diagnostic::error(
+                    e4::RESOURCE_LIMIT_EXCEEDED as u32,
+                    format!("failed to configure CPU fuel budget: {}", error),
+                )]
+            })?;
         let mut linker = Linker::new(&engine);
         register_default_host_imports(&mut linker).map_err(|diagnostic| vec![diagnostic])?;
 
         let instance = linker.instantiate(&mut store, &module).map_err(|error| {
-            vec![Diagnostic::error(
-                e4::UNCAUGHT_ERROR as u32,
-                format!("failed to instantiate WASM module: {}", error),
-            )]
+            vec![runtime_error_diagnostic(format!(
+                "failed to instantiate WASM module: {}",
+                error
+            ))]
         })?;
 
         let start = instance
@@ -144,12 +187,15 @@ impl RuntimeCtx {
                 )]
             })?;
 
-        start.call(&mut store, ()).map_err(|error| {
-            vec![Diagnostic::error(
-                e4::UNCAUGHT_ERROR as u32,
-                format!("runtime trap: {}", error),
-            )]
-        })?;
+        if let Err(error) = start.call(&mut store, ()) {
+            if let Some(diagnostic) = store.data_mut().pending_diagnostic.take() {
+                return Err(vec![diagnostic]);
+            }
+            return Err(vec![runtime_error_diagnostic(format!(
+                "runtime trap: {}",
+                error
+            ))]);
+        }
 
         drain_event_loop(&instance, &mut store).map_err(|diagnostic| vec![diagnostic])?;
 
@@ -199,24 +245,42 @@ impl RuntimeCtx {
 
 fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(), Diagnostic> {
     linker
-        .func_wrap("kali:rt", "console_log", |val: i64| {
-            let mut stdout = std::io::stdout().lock();
-            let _ = writeln!(stdout, "{}", format_tagged_val(val));
-        })
+        .func_wrap(
+            "kali:rt",
+            "console_log",
+            |mut caller: Caller<'_, KaliHostState>, val: i64| -> wasmtime::Result<()> {
+                enforce_operation(caller.data_mut(), HostOperation::Console)?;
+                let mut stdout = std::io::stdout().lock();
+                let _ = writeln!(stdout, "{}", format_tagged_val(val));
+                Ok(())
+            },
+        )
         .map_err(|error| host_import_error("console_log", error))?;
 
     linker
-        .func_wrap("kali:rt", "console_error", |val: i64| {
-            let mut stderr = std::io::stderr().lock();
-            let _ = writeln!(stderr, "{}", format_tagged_val(val));
-        })
+        .func_wrap(
+            "kali:rt",
+            "console_error",
+            |mut caller: Caller<'_, KaliHostState>, val: i64| -> wasmtime::Result<()> {
+                enforce_operation(caller.data_mut(), HostOperation::Console)?;
+                let mut stderr = std::io::stderr().lock();
+                let _ = writeln!(stderr, "{}", format_tagged_val(val));
+                Ok(())
+            },
+        )
         .map_err(|error| host_import_error("console_error", error))?;
 
     linker
-        .func_wrap("kali:rt", "console_warn", |val: i64| {
-            let mut stderr = std::io::stderr().lock();
-            let _ = writeln!(stderr, "[warn] {}", format_tagged_val(val));
-        })
+        .func_wrap(
+            "kali:rt",
+            "console_warn",
+            |mut caller: Caller<'_, KaliHostState>, val: i64| -> wasmtime::Result<()> {
+                enforce_operation(caller.data_mut(), HostOperation::Console)?;
+                let mut stderr = std::io::stderr().lock();
+                let _ = writeln!(stderr, "[warn] {}", format_tagged_val(val));
+                Ok(())
+            },
+        )
         .map_err(|error| host_import_error("console_warn", error))?;
 
     linker
@@ -237,6 +301,7 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
              out_ptr: i32,
              out_len: i32|
              -> wasmtime::Result<i32> {
+                enforce_operation(caller.data_mut(), HostOperation::Random)?;
                 let memory = guest_memory(&mut caller)?;
                 let start = checked_offset(out_ptr)?;
                 let len = checked_offset(out_len)?;
@@ -304,6 +369,12 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
              -> wasmtime::Result<i32> {
                 let path = read_guest_string(&mut caller, path_ptr, path_len)?;
                 let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::FileRead {
+                        path: host_path.clone(),
+                    },
+                )?;
                 let bytes = fs::read(&host_path).map_err(|error| {
                     wasmtime::Error::msg(format!(
                         "failed to read '{}': {}",
@@ -328,6 +399,12 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
              -> wasmtime::Result<i32> {
                 let path = read_guest_string(&mut caller, path_ptr, path_len)?;
                 let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::FileRead {
+                        path: host_path.clone(),
+                    },
+                )?;
                 let bytes = fs::read(&host_path).map_err(|error| {
                     wasmtime::Error::msg(format!(
                         "failed to read '{}': {}",
@@ -353,6 +430,12 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
                 let path = read_guest_string(&mut caller, path_ptr, path_len)?;
                 let data = read_guest_bytes(&mut caller, data_ptr, data_len)?;
                 let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::FileWrite {
+                        path: host_path.clone(),
+                    },
+                )?;
                 if let Some(parent) = host_path.parent() {
                     fs::create_dir_all(parent).map_err(|error| {
                         wasmtime::Error::msg(format!(
@@ -384,6 +467,12 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
              -> wasmtime::Result<i32> {
                 let path = read_guest_string(&mut caller, path_ptr, path_len)?;
                 let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::FileWrite {
+                        path: host_path.clone(),
+                    },
+                )?;
                 fs::create_dir_all(&host_path).map_err(|error| {
                     wasmtime::Error::msg(format!(
                         "failed to create '{}': {}",
@@ -407,6 +496,12 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
              -> wasmtime::Result<i32> {
                 let path = read_guest_string(&mut caller, path_ptr, path_len)?;
                 let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::FileWrite {
+                        path: host_path.clone(),
+                    },
+                )?;
                 let metadata = fs::metadata(&host_path).map_err(|error| {
                     wasmtime::Error::msg(format!(
                         "failed to inspect '{}': {}",
@@ -457,6 +552,10 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
              out_cap: i32|
              -> wasmtime::Result<i32> {
                 let key = read_guest_string(&mut caller, key_ptr, key_len)?;
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::EnvironmentRead { key: key.clone() },
+                )?;
                 let Some(value) = caller.data().env.get(&key).cloned() else {
                     return Ok(-1);
                 };
@@ -501,6 +600,10 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
              out_cap: i32|
              -> wasmtime::Result<i32> {
                 let url = read_guest_string(&mut caller, url_ptr, url_len)?;
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::NetworkFetch { url: url.clone() },
+                )?;
                 let response = blocking::get(&url)
                     .and_then(|resp| resp.error_for_status())
                     .map_err(|error| {
@@ -706,6 +809,38 @@ fn host_import_error(name: &str, error: impl std::fmt::Display) -> Diagnostic {
     )
 }
 
+fn runtime_error_diagnostic(error: impl std::fmt::Display) -> Diagnostic {
+    let message = error.to_string();
+    if message.contains("KALI_E4001") || message.contains("E4001") {
+        Diagnostic::error(e4::EFFECT_NOT_PERMITTED as u32, message)
+    } else if message.contains("KALI_E4003")
+        || message.contains("E4003")
+        || message.contains("fuel")
+        || message.contains("memory limit")
+        || message.contains("resource limit")
+    {
+        Diagnostic::error(e4::RESOURCE_LIMIT_EXCEEDED as u32, message)
+    } else {
+        Diagnostic::error(e4::UNCAUGHT_ERROR as u32, message)
+    }
+}
+
+fn enforce_operation(state: &mut KaliHostState, op: HostOperation) -> wasmtime::Result<()> {
+    if let Some(policy) = state.policy.as_ref() {
+        policy.check_operation(op).map_err(|diagnostic| {
+            state.pending_diagnostic = Some(diagnostic.clone());
+            let marker = match diagnostic.code {
+                Some(code) if code == e4::EFFECT_NOT_PERMITTED as u32 => "KALI_E4001",
+                Some(code) if code == e4::RESOURCE_LIMIT_EXCEEDED as u32 => "KALI_E4003",
+                _ => "KALI_E4000",
+            };
+            wasmtime::Error::msg(format!("{}: {}", marker, diagnostic.message))
+        })
+    } else {
+        Ok(())
+    }
+}
+
 impl KaliHostState {
     fn schedule_timer(
         &mut self,
@@ -715,6 +850,19 @@ impl KaliHostState {
     ) -> wasmtime::Result<i32> {
         if delay_ms < 0 {
             return Err(wasmtime::Error::msg("timer delay must be non-negative"));
+        }
+
+        let active_timers = self.pending_timers.len();
+        if let Some(policy) = self.policy.as_ref() {
+            policy
+                .check_operation(HostOperation::TimerSchedule {
+                    delay_ms: delay_ms as u64,
+                    active_timers,
+                })
+                .map_err(|diagnostic| {
+                    self.pending_diagnostic = Some(diagnostic.clone());
+                    wasmtime::Error::msg(format!("KALI_E4003: {}", diagnostic.message))
+                })?;
         }
 
         let timer_id = self.next_timer_id;
@@ -831,12 +979,17 @@ fn invoke_callback(
             )
         })?;
 
-    callback.call(&mut *store, ()).map_err(|error| {
-        Diagnostic::error(
-            e4::UNCAUGHT_ERROR as u32,
-            format!("runtime trap in callback '{}': {}", export_name, error),
-        )
-    })
+    if let Err(error) = callback.call(&mut *store, ()) {
+        if let Some(diagnostic) = store.data_mut().pending_diagnostic.take() {
+            return Err(diagnostic);
+        }
+        return Err(runtime_error_diagnostic(format!(
+            "runtime trap in callback '{}': {}",
+            export_name, error
+        )));
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1119,6 +1272,68 @@ mod tests {
 
         let outcome = runtime.execute(&wasm).expect("runtime outcome");
         assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_rejects_console_calls_when_policy_denies_them() {
+        let policy = SandboxPolicy {
+            schema_version: 1,
+            schema_uri: None,
+            effects: kali_sandbox::EffectsPolicy {
+                file_system: kali_sandbox::FileSystemPolicy {
+                    read: kali_sandbox::AccessRule::Deny(false),
+                    write: kali_sandbox::AccessRule::Deny(false),
+                },
+                network: kali_sandbox::NetworkPolicy {
+                    fetch: kali_sandbox::AccessRule::Deny(false),
+                    connect: kali_sandbox::AccessRule::Deny(false),
+                    listen: kali_sandbox::AccessRule::Deny(false),
+                    max_connections: Some(1),
+                },
+                process: kali_sandbox::ProcessPolicy {
+                    spawn: kali_sandbox::AccessRule::Deny(false),
+                    env_read: kali_sandbox::AccessRule::Deny(false),
+                    env_write: kali_sandbox::AccessRule::Deny(false),
+                },
+                timer: kali_sandbox::TimerPolicy {
+                    schedule: true,
+                    max_timeout_ms: Some(1000),
+                    max_active_timers: Some(1),
+                },
+                eval: false,
+                random: true,
+                console: false,
+            },
+            resources: kali_sandbox::ResourceLimits {
+                max_memory_mb: Some(256),
+                max_cpu_time_ms: Some(1000),
+                max_open_files: Some(8),
+                max_spawned_processes: Some(0),
+                max_threads: Some(0),
+            },
+            base_dir: PathBuf::from("."),
+        };
+        let runtime = RuntimeCtx::with_host_context(
+            Some(policy),
+            Vec::new(),
+            capture_env(),
+            PathBuf::from("."),
+        );
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:rt" "console_log" (func $console_log (param i64)))
+                (memory (export "memory") 1)
+                (func (export "_start")
+                    i64.const 1
+                    call $console_log))
+            "#,
+        );
+
+        let diagnostics = runtime
+            .execute(&wasm)
+            .expect_err("console should be denied");
+        assert_eq!(diagnostics[0].code, Some(e4::EFFECT_NOT_PERMITTED as u32));
     }
 
     #[test]

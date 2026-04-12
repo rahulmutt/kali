@@ -4,6 +4,8 @@ use std::{
     process::Command,
 };
 
+use wasmparser::{Parser, Payload};
+
 use tempfile::tempdir;
 
 fn kali_bin() -> PathBuf {
@@ -18,6 +20,33 @@ fn fixture_root() -> PathBuf {
 
 fn fixture_path(relative: impl AsRef<Path>) -> PathBuf {
     fixture_root().join(relative)
+}
+
+fn write_valid_policy(path: &Path) {
+    fs::write(
+        path,
+        r#"{
+  "schemaVersion": 1,
+  "$schema": "https://kali.sh/schemas/policy-v1.json",
+  "effects": {
+    "fileSystem": { "read": false, "write": false },
+    "network": { "fetch": false, "connect": false, "listen": false, "maxConnections": 1 },
+    "process": { "spawn": false, "envRead": false, "envWrite": false },
+    "timer": { "schedule": false, "maxTimeoutMs": 1000, "maxActiveTimers": 1 },
+    "eval": false,
+    "random": true,
+    "console": true
+  },
+  "resources": {
+    "maxMemoryMB": 256,
+    "maxCpuTimeMs": 10000,
+    "maxOpenFiles": 8,
+    "maxSpawnedProcesses": 0,
+    "maxThreads": 0
+  }
+}"#,
+    )
+    .expect("write policy");
 }
 
 #[test]
@@ -187,4 +216,41 @@ fn test_rejects_coverage_flag_until_report_contract_exists() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
+}
+
+#[test]
+fn build_embeds_sandbox_policy_custom_section() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, "1 + 2;").expect("write source");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let built = fs::read(dir.path().join("main.wasm")).expect("read wasm artifact");
+    let mut seen_policy = false;
+    for payload in Parser::new(0).parse_all(&built) {
+        if let Ok(Payload::CustomSection(section)) = payload {
+            if section.name() == "kali:policy" {
+                seen_policy = true;
+                break;
+            }
+        }
+    }
+    assert!(seen_policy, "custom section 'kali:policy' was not embedded");
 }

@@ -7,6 +7,8 @@ the static policy-validation portion (policy parsing, schema validation, `kali c
 depends only on [1.5 — Type Checker](05-type-checker.md) and may begin while stages 1.6–1.8
 are still in progress (see Phase 1 parallelism note in [`PLAN.md`](../../PLAN.md))
 
+**Status:** ✅ Implemented — declarative sandbox policy parsing, runtime enforcement, policy validation, and build-artifact policy embedding are wired into the CLI/runtime paths
+
 ## Goal
 
 Implement `kali_sandbox` — declarative policy files, runtime enforcement for `run`/`test`, and
@@ -16,7 +18,7 @@ policy-validation surface** and the runtime enforcement half of sandbox-first ex
 ## Workable Milestone
 
 - Policy files are parsed and validated against the schema-v1 policy schema.
-- `kali run --sandbox <policy> <file>` enforces the policy at runtime; a violation produces `E4004`
+- `kali run --sandbox <policy> <file>` enforces the policy at runtime; a violation produces `E4001`
   and exits non-zero.
 - `kali check --sandbox <policy> [files...]` validates the policy file schema/config without
   runtime execution.
@@ -101,7 +103,7 @@ before execution:
 On a policy violation:
 
 1. Do **not** perform the host operation.
-2. Reject the WASM call with a structured `E4004` runtime diagnostic.
+2. Reject the WASM call with a structured `E4001` runtime diagnostic.
 3. The guest program receives a thrown `PermissionDeniedError` (matches Deno's convention).
 4. If the exception is not caught by the guest, `kali run` exits with code 1 and prints the
    diagnostic.
@@ -157,9 +159,9 @@ it.
 - **Unit tests**: `Policy::from_file` correctly parses valid policies; each `E9xxx` error code
   produced by an appropriate malformed policy fixture.
 - **Runtime enforcement integration tests**:
-  - `kali run --sandbox fixtures/deny-net.json fixtures/fetch.ts` → exits 1 with `E4004`.
+  - `kali run --sandbox fixtures/deny-net.json fixtures/fetch.ts` → exits 1 with `E4001`.
   - `kali run --sandbox fixtures/allow-net.json fixtures/fetch.ts` → exits 0.
-  - `kali run --sandbox fixtures/deny-read.json fixtures/readfile.ts` → exits 1 with `E4004`.
+  - `kali run --sandbox fixtures/deny-read.json fixtures/readfile.ts` → exits 1 with `E4001`.
 - **Static validation integration tests**:
   - `kali check --sandbox fixtures/valid.json fixtures/app.ts` → exits 0.
   - `kali check --sandbox fixtures/bad-schema.json fixtures/app.ts` → exits 1 with `E9003`.
@@ -174,10 +176,10 @@ it.
 
 ## Definition of Done
 
-- [ ] Policy files parse and validate against schema v1.
-- [ ] `kali run --sandbox` enforces policy at runtime; violations produce `E4004`.
-- [ ] `kali check --sandbox` validates policy schema; exits 0 on valid, 1 on invalid.
-- [ ] `kali build --sandbox` embeds policy in artifact as `kali:policy` custom section.
-- [ ] All `E9xxx` error cases covered by unit tests.
-- [ ] Runtime enforcement integration tests pass.
-- [ ] No Stage 1.1–1.8 regressions.
+- [x] Policy files parse and validate against schema v1.
+- [x] `kali run --sandbox` enforces policy at runtime; violations produce `E4001`.
+- [x] `kali check --sandbox` validates policy schema; exits 0 on valid, 1 on invalid.
+- [x] `kali build --sandbox` embeds policy in artifact as `kali:policy` custom section.
+- [x] All `E9xxx` error cases covered by unit tests.
+- [x] Runtime enforcement integration tests pass.
+- [x] No Stage 1.1–1.8 regressions.

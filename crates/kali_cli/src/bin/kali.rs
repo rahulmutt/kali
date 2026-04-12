@@ -2,10 +2,12 @@
 
 use clap::Parser;
 use kali_cli::{
-    build, discover_source_files, discover_test_files, is_declaration_only_source_file, Args,
+    build, discover_source_files, discover_test_files, is_declaration_only_source_file,
+    load_sandbox_policy, Args,
 };
 use kali_error::{Diagnostic, _error_codes::e5};
 use kali_runtime::RuntimeCtx;
+use kali_sandbox::SandboxPolicy;
 use std::path::PathBuf;
 
 fn main() {
@@ -18,12 +20,17 @@ fn main() {
     }
 
     match args.command.unwrap() {
-        kali_cli::Commands::Check { files } => {
-            if let Err(exit_code) = check_files(files) {
+        kali_cli::Commands::Check { sandbox, files } => {
+            let policy = match load_policy_or_exit(sandbox) {
+                Ok(policy) => policy,
+                Err(exit_code) => std::process::exit(exit_code),
+            };
+            if let Err(exit_code) = check_files(files, policy.as_ref()) {
                 std::process::exit(exit_code);
             }
         }
         kali_cli::Commands::Build {
+            sandbox,
             files,
             fast,
             release,
@@ -35,11 +42,16 @@ fn main() {
                 std::process::exit(1);
             }
 
+            let policy = match load_policy_or_exit(sandbox) {
+                Ok(policy) => policy,
+                Err(exit_code) => std::process::exit(exit_code),
+            };
+
             let mode = build::build_mode_from_flags(fast, release, release_advanced);
             let out_dir_path = out_dir.as_deref();
 
             for file in files {
-                match build::build_source_file(&file, mode, out_dir_path) {
+                match build::build_source_file(&file, mode, out_dir_path, policy.as_ref()) {
                     Ok(output) => {
                         println!("Built {} -> {}", file, output.output_path.display());
                     }
@@ -52,17 +64,26 @@ fn main() {
                 }
             }
         }
-        kali_cli::Commands::Run { files } => {
-            if let Err(exit_code) = run_files(files) {
+        kali_cli::Commands::Run { sandbox, files } => {
+            let policy = match load_policy_or_exit(sandbox) {
+                Ok(policy) => policy,
+                Err(exit_code) => std::process::exit(exit_code),
+            };
+            if let Err(exit_code) = run_files(files, policy.as_ref()) {
                 std::process::exit(exit_code);
             }
         }
         kali_cli::Commands::Test {
+            sandbox,
             files,
             filter,
             coverage,
         } => {
-            if let Err(exit_code) = test_files(files, filter, coverage) {
+            let policy = match load_policy_or_exit(sandbox) {
+                Ok(policy) => policy,
+                Err(exit_code) => std::process::exit(exit_code),
+            };
+            if let Err(exit_code) = test_files(files, filter, coverage, policy.as_ref()) {
                 std::process::exit(exit_code);
             }
         }
@@ -81,7 +102,27 @@ fn main() {
     }
 }
 
-fn check_files(files: Vec<String>) -> Result<(), i32> {
+fn load_policy_or_exit(sandbox: Option<PathBuf>) -> Result<Option<SandboxPolicy>, i32> {
+    match sandbox {
+        Some(path) => match load_sandbox_policy(&path) {
+            Ok(policy) => Ok(Some(policy)),
+            Err(diagnostics) => {
+                print_diagnostics(&diagnostics);
+                Err(5)
+            }
+        },
+        None => Ok(None),
+    }
+}
+
+fn check_files(files: Vec<String>, policy: Option<&SandboxPolicy>) -> Result<(), i32> {
+    if let Some(policy) = policy {
+        if let Err(diagnostics) = policy.validate() {
+            print_diagnostics(&diagnostics);
+            return Err(5);
+        }
+    }
+
     let selected_files = if files.is_empty() {
         discover_source_files(".")
             .into_iter()
@@ -118,7 +159,7 @@ fn check_files(files: Vec<String>) -> Result<(), i32> {
     }
 }
 
-fn run_files(files: Vec<String>) -> Result<(), i32> {
+fn run_files(files: Vec<String>, policy: Option<&SandboxPolicy>) -> Result<(), i32> {
     let Some(source) = single_or_error(files, "run") else {
         return Err(1);
     };
@@ -136,7 +177,7 @@ fn run_files(files: Vec<String>) -> Result<(), i32> {
         }
     };
 
-    let runtime = RuntimeCtx::new(None);
+    let runtime = RuntimeCtx::new(policy.cloned());
     match runtime.execute(&wasm_bytes) {
         Ok(_outcome) => Ok(()),
         Err(diagnostics) => {
@@ -146,7 +187,12 @@ fn run_files(files: Vec<String>) -> Result<(), i32> {
     }
 }
 
-fn test_files(files: Vec<String>, filter: Option<String>, coverage: bool) -> Result<(), i32> {
+fn test_files(
+    files: Vec<String>,
+    filter: Option<String>,
+    coverage: bool,
+    policy: Option<&SandboxPolicy>,
+) -> Result<(), i32> {
     if coverage {
         eprintln!(
             "{}",
@@ -196,7 +242,7 @@ fn test_files(files: Vec<String>, filter: Option<String>, coverage: bool) -> Res
         return Ok(());
     }
 
-    let runtime = RuntimeCtx::new(None);
+    let runtime = RuntimeCtx::new(policy.cloned());
     let mut passed = 0usize;
     let mut failed = 0usize;
 

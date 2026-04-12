@@ -63,15 +63,18 @@ pub mod _error_codes {
 
     // E4xxx: Runtime errors (kali_runtime)
     pub mod e4 {
-        // E4000-4099: Execution errors
+        // E4000-4099: Execution / sandbox errors
         pub const UNCAUGHT_ERROR: u16 = 4000;
-        pub const STACK_OVERFLOW: u16 = 4001;
+        pub const EFFECT_NOT_PERMITTED: u16 = 4001;
+        pub const API_CALL_NOT_PERMITTED: u16 = 4002;
+        pub const RESOURCE_LIMIT_EXCEEDED: u16 = 4003;
+        pub const DYNAMIC_EFFECT_DETECTED: u16 = 4004;
+        pub const STACK_OVERFLOW: u16 = 4005;
 
         // E4100-4199: Type errors at runtime
         pub const INVALID_TYPE_OPERATION: u16 = 4100;
 
-        // E4200-4299: Resource errors
-        pub const RESOURCE_LIMIT_EXCEEDED: u16 = 4200;
+        // E4200-4299: I/O and host errors
         pub const IO_ERROR: u16 = 4201;
     }
 
@@ -84,6 +87,9 @@ pub mod _error_codes {
         pub const FEATURE_UNAVAILABLE: u16 = 5006;
         pub const INVALID_PRIMARY_INPUT_KIND: u16 = 5007;
         pub const INVALID_CLI_USAGE: u16 = 5008;
+        pub const INVALID_CONFIG: u16 = 5009;
+        pub const INVALID_POLICY: u16 = 5010;
+        pub const INVALID_EXPORT_SURFACE: u16 = 5011;
 
         // E5100-5199: Command mode errors
         pub const INCOMPATIBLE_FLAGS: u16 = 5100;
@@ -91,9 +97,6 @@ pub mod _error_codes {
 
         // E5200-5299: Output errors
         pub const OUTPUT_ERROR: u16 = 5200;
-
-        // E5300-5399: Configuration errors
-        pub const INVALID_CONFIG: u16 = 5300;
     }
 
     // E6xxx: Package management errors (kali_npm)
