@@ -39,6 +39,7 @@
 - ✅ Raw URL reconciliation now follows project-discovery/import-map declarations and prunes stale
   URL cache entries when the declaration graph changes
 - ✅ Package-shape and host-fit coverage now rejects Node-only host APIs surfaced through direct imports/requires with `E6005`
+- ✅ Registry metadata lookups now use a process-local cache, avoiding redundant refetches during repeated resolution within one install run
 
 ### Stage 1.11 - Build Artifacts
 - ✅ `kali build` now emits deterministic `kali:metadata` custom sections in the executable `.wasm` artifact

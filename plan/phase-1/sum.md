@@ -16,7 +16,7 @@
 
 **In Progress:**
 - [ ] 1.8 - Runtime execution
-- [ ] 1.10 - Package management (lifecycle hooks now execute on opt-in installs; declaration resolution now follows project-root materialization and `@types` devDependencies)
+- [ ] 1.10 - Package management (lifecycle hooks now execute on opt-in installs; declaration resolution now follows project-root materialization and `@types` devDependencies; registry metadata lookups now use a process-local cache)
 
 ## Next Tasks by Priority
 

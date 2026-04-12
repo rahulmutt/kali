@@ -55,6 +55,8 @@ graph without performing any mutations.
   native-addon entrypoints; host-fit coverage now rejects Node-only builtins surfaced through
   direct imports/requires; and CLI smoke coverage now exercises pruning stale registry layouts
   back to an empty install state.
+- Registry metadata lookups now use a process-local cache so repeated resolution within a
+  single install run avoids redundant network round-trips.
 - Remaining stage work is mostly around any further install repair edge cases called out in the
   tasks below.
 

@@ -12,6 +12,7 @@ use std::{
     fs, io,
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::{Mutex, OnceLock},
 };
 use tar::Archive;
 
@@ -19,6 +20,9 @@ const MANIFEST_SCHEMA: u32 = 1;
 const LOCK_VERSION: u32 = 1;
 const DEFAULT_NPM_REGISTRY: &str = "https://registry.npmjs.org";
 const NODE_ONLY_HOST_APIS: &[&str] = &["fs", "fs/promises", "path", "os", "child_process"];
+
+static REGISTRY_METADATA_CACHE: OnceLock<Mutex<BTreeMap<String, serde_json::Value>>> =
+    OnceLock::new();
 
 /// Top-level Kali project manifest.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -1342,23 +1346,20 @@ fn resolve_npm_package(
     resolve_npm_like_package("npm", name, name, &metadata_url, requested_version)
 }
 
-fn resolve_jsr_package(
-    name: &str,
-    requested_version: Option<&str>,
-) -> Result<ResolvedRegistryPackage, Diagnostic> {
-    let raw_name = name.trim_start_matches("jsr:");
-    let compat_name = jsr_compat_name(raw_name);
-    let metadata_url = format!("https://npm.jsr.io/{}", encode_package_name(&compat_name));
-    resolve_npm_like_package("jsr", name, raw_name, &metadata_url, requested_version)
-}
-
-fn resolve_npm_like_package(
+fn fetch_registry_metadata(
     registry: &str,
     display_name: &str,
-    install_name_source: &str,
     metadata_url: &str,
-    requested_version: Option<&str>,
-) -> Result<ResolvedRegistryPackage, Diagnostic> {
+) -> Result<serde_json::Value, Diagnostic> {
+    if let Some(cached) = REGISTRY_METADATA_CACHE
+        .get_or_init(|| Mutex::new(BTreeMap::new()))
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(metadata_url).cloned())
+    {
+        return Ok(cached);
+    }
+
     let client = Client::builder()
         .user_agent("kali/0.1.0")
         .build()
@@ -1404,6 +1405,35 @@ fn resolve_npm_like_package(
             ),
         )
     })?;
+
+    if let Ok(mut cache) = REGISTRY_METADATA_CACHE
+        .get_or_init(|| Mutex::new(BTreeMap::new()))
+        .lock()
+    {
+        cache.insert(metadata_url.to_string(), metadata.clone());
+    }
+
+    Ok(metadata)
+}
+
+fn resolve_jsr_package(
+    name: &str,
+    requested_version: Option<&str>,
+) -> Result<ResolvedRegistryPackage, Diagnostic> {
+    let raw_name = name.trim_start_matches("jsr:");
+    let compat_name = jsr_compat_name(raw_name);
+    let metadata_url = format!("https://npm.jsr.io/{}", encode_package_name(&compat_name));
+    resolve_npm_like_package("jsr", name, raw_name, &metadata_url, requested_version)
+}
+
+fn resolve_npm_like_package(
+    registry: &str,
+    display_name: &str,
+    install_name_source: &str,
+    metadata_url: &str,
+    requested_version: Option<&str>,
+) -> Result<ResolvedRegistryPackage, Diagnostic> {
+    let metadata = fetch_registry_metadata(registry, display_name, metadata_url)?;
 
     let versions = metadata
         .get("versions")
@@ -2318,7 +2348,12 @@ mod tests {
     use std::fs;
     use std::io::{Read, Write};
     use std::net::TcpListener;
+    use std::sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc,
+    };
     use std::thread;
+    use std::time::Duration;
     use tempfile::tempdir;
 
     #[test]
@@ -2499,6 +2534,41 @@ mod tests {
     }
 
     #[test]
+    fn registry_metadata_is_cached_within_a_process() {
+        let metadata = r#"{
+  "versions": {
+    "1.0.0": {
+      "dist": {
+        "tarball": "https://example.com/lodash-1.0.0.tgz",
+        "integrity": "sha512-demo"
+      }
+    },
+    "1.2.0": {
+      "dist": {
+        "tarball": "https://example.com/lodash-1.2.0.tgz",
+        "integrity": "sha512-demo"
+      }
+    }
+  }
+}"#;
+        let (metadata_url, hits, stop, handle) = start_metadata_server(metadata);
+
+        let resolved_first =
+            resolve_npm_like_package("npm", "lodash", "lodash", &metadata_url, Some("^1.0.0"))
+                .unwrap();
+        let resolved_second =
+            resolve_npm_like_package("npm", "lodash", "lodash", &metadata_url, Some("^1.0.0"))
+                .unwrap();
+
+        stop.store(true, Ordering::SeqCst);
+        handle.join().unwrap();
+
+        assert_eq!(resolved_first.version, "1.2.0");
+        assert_eq!(resolved_second.version, "1.2.0");
+        assert_eq!(hits.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
     fn collect_reachable_registry_packages_rejects_install_path_conflicts() {
         let lock = LockFile {
             version: LOCK_VERSION,
@@ -2580,6 +2650,53 @@ mod tests {
             }
         });
         format!("http://127.0.0.1:{}/mod.ts", addr.port())
+    }
+
+    fn start_metadata_server(
+        body: &'static str,
+    ) -> (
+        String,
+        Arc<AtomicUsize>,
+        Arc<AtomicBool>,
+        thread::JoinHandle<()>,
+    ) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let hits = Arc::new(AtomicUsize::new(0));
+        let stop = Arc::new(AtomicBool::new(false));
+        let hits_thread = hits.clone();
+        let stop_thread = stop.clone();
+        let handle = thread::spawn(move || loop {
+            if stop_thread.load(Ordering::SeqCst) {
+                break;
+            }
+
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    hits_thread.fetch_add(1, Ordering::SeqCst);
+                    let mut buffer = [0u8; 1024];
+                    let _ = stream.read(&mut buffer);
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{}",
+                        body.len(),
+                        body
+                    );
+                    let _ = stream.write_all(response.as_bytes());
+                    let _ = stream.flush();
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(5));
+                }
+                Err(_) => break,
+            }
+        });
+        (
+            format!("http://127.0.0.1:{}/package", addr.port()),
+            hits,
+            stop,
+            handle,
+        )
     }
 
     #[test]
