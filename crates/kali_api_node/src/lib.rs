@@ -522,9 +522,78 @@ pub fn util_inspect<T: std::fmt::Debug>(value: &T) -> String {
     format!("{:?}", value)
 }
 
-/// Minimal assertion helper used by Node compatibility tests.
+/// Minimal `util.promisify`-style helper for synchronous callback bridges.
+///
+/// The callback is invoked exactly once and its result is returned to the caller.
+pub fn util_promisify<T: 'static, E: 'static, F>(operation: F) -> Result<T, E>
+where
+    F: FnOnce(Box<dyn FnOnce(Result<T, E>)>),
+{
+    let outcome = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let slot = std::sync::Arc::clone(&outcome);
+    operation(Box::new(move |result| {
+        *slot.lock().expect("promisify result mutex poisoned") = Some(result);
+    }));
+
+    let result = outcome
+        .lock()
+        .expect("promisify result mutex poisoned")
+        .take()
+        .expect("promisify callback was not invoked");
+    result
+}
+
+/// Minimal assertion helpers used by Node compatibility tests.
+#[derive(Default, Debug, Clone, Copy)]
+pub struct NodeAssert;
+
+impl NodeAssert {
+    pub fn ok(condition: bool, message: impl Into<String>) -> Result<(), String> {
+        condition.then_some(()).ok_or_else(|| message.into())
+    }
+
+    pub fn equal<T>(actual: &T, expected: &T, message: impl Into<String>) -> Result<(), String>
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        (actual == expected).then_some(()).ok_or_else(|| {
+            format!(
+                "{}: expected {:?}, got {:?}",
+                message.into(),
+                expected,
+                actual
+            )
+        })
+    }
+
+    pub fn not_equal<T>(actual: &T, expected: &T, message: impl Into<String>) -> Result<(), String>
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        (actual != expected).then_some(()).ok_or_else(|| {
+            format!(
+                "{}: value unexpectedly matched {:?}",
+                message.into(),
+                expected
+            )
+        })
+    }
+
+    pub fn deep_equal<T>(actual: &T, expected: &T, message: impl Into<String>) -> Result<(), String>
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        Self::equal(actual, expected, message)
+    }
+
+    pub fn fail(message: impl Into<String>) -> Result<(), String> {
+        Err(message.into())
+    }
+}
+
+/// Backwards-compatible assertion helper used by existing tests.
 pub fn assert_true(condition: bool, message: impl Into<String>) -> Result<(), String> {
-    condition.then_some(()).ok_or_else(|| message.into())
+    NodeAssert::ok(condition, message)
 }
 
 #[cfg(test)]
@@ -640,8 +709,33 @@ mod tests {
         let formatted = util_format(&["node", "compat", "layer"]);
         assert_eq!(formatted, "node compat layer");
         assert_eq!(util_inspect(&vec![1, 2, 3]), "[1, 2, 3]");
+        assert_eq!(
+            util_promisify(|callback| callback(Ok::<_, String>(42))),
+            Ok(42)
+        );
         assert_eq!(assert_true(true, "ok"), Ok(()));
         assert_eq!(assert_true(false, "fail"), Err("fail".to_string()));
+    }
+
+    #[test]
+    fn assert_helpers_produce_clear_results() {
+        assert_eq!(NodeAssert::ok(true, "ok"), Ok(()));
+        assert_eq!(NodeAssert::ok(false, "bad"), Err("bad".to_string()));
+        assert_eq!(NodeAssert::equal(&3, &3, "equal"), Ok(()));
+        assert_eq!(
+            NodeAssert::equal(&3, &4, "mismatch"),
+            Err("mismatch: expected 4, got 3".to_string())
+        );
+        assert_eq!(NodeAssert::not_equal(&3, &4, "not equal"), Ok(()));
+        assert_eq!(
+            NodeAssert::not_equal(&3, &3, "same"),
+            Err("same: value unexpectedly matched 3".to_string())
+        );
+        assert_eq!(
+            NodeAssert::deep_equal(&vec![1, 2], &vec![1, 2], "deep"),
+            Ok(())
+        );
+        assert_eq!(NodeAssert::fail("boom"), Err("boom".to_string()));
     }
 
     #[test]

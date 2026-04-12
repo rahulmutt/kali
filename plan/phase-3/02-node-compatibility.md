@@ -45,7 +45,8 @@ following the same pattern as `kali_api_deno`.
 
 Progress note: the repository now has an expanded pure-Rust Node helper layer in
 `kali_api_node` covering process/path/crypto/events/buffer/util primitives plus fs/url/os
-scaffolding and unit tests. Runtime wiring and `--api node` enablement are still pending.
+scaffolding and unit tests. The helper layer now also includes Node-style assertion helpers and a
+synchronous `util.promisify` bridge. Runtime wiring and `--api node` enablement are still pending.
 
 ### 2. `--api node` command path
 
