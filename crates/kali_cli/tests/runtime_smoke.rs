@@ -72,6 +72,37 @@ fn test_reports_success_for_explicit_file_sets() {
 }
 
 #[test]
+fn test_runs_guest_registered_tests() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("suite.test.ts");
+    fs::write(
+        &source_path,
+        r#"
+        Kali.test("addition", () => {
+            1 + 2;
+        });
+        "#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn test_filters_selected_files_before_execution() {
     let dir = tempdir().expect("tempdir");
     let keep = dir.path().join("math.test.ts");

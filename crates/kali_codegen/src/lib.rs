@@ -6,9 +6,12 @@ use kali_error::{Diagnostic, _error_codes::e8};
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
 use serde::{Deserialize, Serialize};
 use wasm_encoder::{
-    BlockType, CodeSection, ExportKind, ExportSection, Function, FunctionSection, Instruction,
-    MemorySection, MemoryType, Module, TypeSection, ValType,
+    BlockType, CodeSection, EntityType, ExportKind, ExportSection, Function, FunctionSection,
+    ImportSection, Instruction, MemorySection, MemoryType, Module, TypeSection, ValType,
 };
+
+const TEST_REGISTER_IMPORT_INDEX: u32 = 0;
+const FUNCTION_INDEX_OFFSET: u32 = 1;
 
 /// WASM code generator context.
 pub struct CodegenCtx {
@@ -240,6 +243,20 @@ impl<'a> FunctionEmitter<'a> {
         };
 
         let callee_node = self.node(callee).clone();
+        if self.is_kali_test_call(&callee_node) {
+            if let Some(callback_index) = self.kali_test_callback_index(node) {
+                function.instruction(&Instruction::I32Const(callback_index as i32));
+                function.instruction(&Instruction::Call(TEST_REGISTER_IMPORT_INDEX));
+                return false;
+            }
+
+            self.diagnostics.push(Diagnostic::warning(
+                e8::IR_UNREADABLE as u32,
+                "`Kali.test(...)` requires a function callback lowered as an exported function",
+            ));
+            return false;
+        }
+
         let callee_name = callee_node.text.as_deref().unwrap_or_default();
         let mut resolved = self.functions.get(callee_name).copied();
 
@@ -261,6 +278,23 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
             true
         }
+    }
+
+    fn is_kali_test_call(&self, callee_node: &LirNode) -> bool {
+        if callee_node.text.as_deref() != Some("test") {
+            return false;
+        }
+
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        self.node(object).text.as_deref() == Some("Kali")
+    }
+
+    fn kali_test_callback_index(&self, node: &LirNode) -> Option<u32> {
+        let callback_node = node.children.get(2).copied()?;
+        let callback_name = self.node(callback_node).text.as_deref()?;
+        self.functions.get(callback_name).copied()
     }
 
     fn emit_branch(&mut self, function: &mut Function, node: &LirNode, want_value: bool) -> bool {
@@ -312,8 +346,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let function_plans = collect_functions(lir);
     let mut function_name_to_index = BTreeMap::new();
 
-    // Keep the emitted order deterministic: synthetic entry first, then named functions in
-    // source order.
+    // Keep the emitted order deterministic: imported registration hook first, synthetic entry
+    // second, then named functions in source order.
     let mut all_functions = Vec::new();
     all_functions.push(FunctionPlan {
         name: "_start".to_string(),
@@ -325,10 +359,17 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     all_functions.extend(function_plans);
 
     for (idx, function) in all_functions.iter().enumerate() {
-        function_name_to_index.insert(function.name.clone(), idx as u32);
+        function_name_to_index.insert(function.name.clone(), idx as u32 + FUNCTION_INDEX_OFFSET);
     }
 
     let mut type_section = TypeSection::new();
+    type_section.ty().function(vec![ValType::I32], Vec::new());
+    let mut import_section = ImportSection::new();
+    import_section.import(
+        "kali:rt",
+        "test_register",
+        EntityType::Function(0),
+    );
     let mut function_types = BTreeMap::<(usize, bool), u32>::new();
     let mut type_for_function = Vec::with_capacity(all_functions.len());
 
@@ -337,7 +378,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         let type_index = if let Some(&idx) = function_types.get(&key) {
             idx
         } else {
-            let idx = function_types.len() as u32;
+            let idx = function_types.len() as u32 + 1;
             let params = vec![ValType::I64; function.params.len()];
             let results = if function.result {
                 vec![ValType::I64]
@@ -399,6 +440,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 
     let mut module = Module::new();
     module.section(&type_section);
+    module.section(&import_section);
     module.section(&function_section);
     module.section(&memory_section);
     module.section(&export_section);

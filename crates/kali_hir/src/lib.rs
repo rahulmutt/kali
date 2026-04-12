@@ -196,6 +196,7 @@ pub struct LoweringResult {
 pub struct HirLowerer {
     builder: HirBuilder,
     diagnostics: Vec<Diagnostic>,
+    synthetic_function_counter: usize,
 }
 
 macro_rules! push_child {
@@ -210,6 +211,7 @@ impl HirLowerer {
         Self {
             builder: HirBuilder::new(),
             diagnostics: Vec::new(),
+            synthetic_function_counter: 0,
         }
     }
 
@@ -225,6 +227,7 @@ impl HirLowerer {
     pub fn lower_statements(&mut self, statements: &[Statement]) -> LoweringResult {
         self.clear_diagnostics();
         self.builder = HirBuilder::new();
+        self.synthetic_function_counter = 0;
 
         let root = self.builder.alloc(HirNodeKind::Program, None);
         let mut children = Vec::with_capacity(statements.len());
@@ -848,11 +851,14 @@ impl HirLowerer {
     }
 
     fn lower_function_expression(&mut self, expr: &FunctionExpression) -> HirNodeId {
-        let id = self.builder.alloc_text(
-            HirNodeKind::FunctionExpr,
-            None,
-            expr.id.clone().unwrap_or_default(),
-        );
+        let name = expr
+            .id
+            .clone()
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| self.next_synthetic_function_name());
+        let id = self
+            .builder
+            .alloc_text(HirNodeKind::FunctionExpr, None, name);
         for param in &expr.params {
             push_child!(
                 self,
@@ -872,7 +878,10 @@ impl HirLowerer {
     }
 
     fn lower_arrow_function_expression(&mut self, expr: &ArrowFunctionExpression) -> HirNodeId {
-        let id = self.builder.alloc(HirNodeKind::FunctionExpr, None);
+        let name = self.next_synthetic_function_name();
+        let id = self
+            .builder
+            .alloc_text(HirNodeKind::FunctionExpr, None, name);
         for param in &expr.params {
             push_child!(
                 self,
@@ -883,6 +892,12 @@ impl HirLowerer {
         }
         push_child!(self, id, self.lower_expression(&expr.body));
         id
+    }
+
+    fn next_synthetic_function_name(&mut self) -> String {
+        let name = format!("__kali_fn_{}", self.synthetic_function_counter);
+        self.synthetic_function_counter += 1;
+        name
     }
 
     fn lower_class_expression(&mut self, expr: &ClassExpression) -> HirNodeId {

@@ -25,8 +25,8 @@ TypeScript/JavaScript programs.
 - `kali_runtime` is now wired through wasmtime for simple emitted WASM modules.
 - `kali run` and `kali test` are no longer stubs; both drive the compiler output end to end.
 - Declaration-only entrypoints are rejected for runtime-bearing commands with `E5007`.
-- Smoke tests cover a successful run, declaration-only rejection, and explicit-file test reporting.
-- The basic console host imports are now wired into the runtime linker, and a first Deno-oriented host-surface subset is now available (filesystem read/write, environment lookup, arguments, fetch, and timer/microtask scheduling); the real guest-side `Kali.test(...)` protocol remains to be implemented.
+- Smoke tests cover a successful run, declaration-only rejection, explicit-file test reporting, and guest-registered `Kali.test(...)` callbacks.
+- The basic console host imports are now wired into the runtime linker, and a first Deno-oriented host-surface subset is now available (filesystem read/write, environment lookup, arguments, fetch, and timer/microtask scheduling); the guest-side `Kali.test(...)` registration protocol now registers callbacks with the host test runner.
 
 ## Tasks
 

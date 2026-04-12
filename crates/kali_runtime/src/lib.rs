@@ -45,6 +45,8 @@ pub struct KaliHostState {
     pub cancelled_timers: HashSet<u32>,
     /// Monotonic timer id counter.
     pub next_timer_id: u32,
+    /// Registered test callbacks collected from guest-side `Kali.test(...)` calls.
+    pub registered_tests: Vec<i32>,
 }
 
 /// A scheduled timer callback.
@@ -63,6 +65,10 @@ pub struct ScheduledTimer {
 pub struct RuntimeOutcome {
     /// Process exit code.
     pub exit_code: i32,
+    /// Number of tests executed during `kali test`.
+    pub tests_run: usize,
+    /// Number of failing tests during `kali test`.
+    pub tests_failed: usize,
 }
 
 impl RuntimeCtx {
@@ -87,6 +93,19 @@ impl RuntimeCtx {
 
     /// Execute a WASM module.
     pub fn execute(&self, wasm_bytes: &[u8]) -> Result<RuntimeOutcome, Vec<Diagnostic>> {
+        self.execute_inner(wasm_bytes, false)
+    }
+
+    /// Execute a WASM module as a test suite, running guest-registered test callbacks.
+    pub fn execute_tests(&self, wasm_bytes: &[u8]) -> Result<RuntimeOutcome, Vec<Diagnostic>> {
+        self.execute_inner(wasm_bytes, true)
+    }
+
+    fn execute_inner(
+        &self,
+        wasm_bytes: &[u8],
+        run_registered_tests: bool,
+    ) -> Result<RuntimeOutcome, Vec<Diagnostic>> {
         let engine = Engine::default();
         let module = Module::from_binary(&engine, wasm_bytes).map_err(|error| {
             vec![Diagnostic::error(
@@ -133,7 +152,47 @@ impl RuntimeCtx {
 
         drain_event_loop(&instance, &mut store).map_err(|diagnostic| vec![diagnostic])?;
 
-        Ok(RuntimeOutcome { exit_code: 0 })
+        if !run_registered_tests {
+            return Ok(RuntimeOutcome {
+                exit_code: 0,
+                tests_run: 0,
+                tests_failed: 0,
+            });
+        }
+
+        let registered_tests = {
+            let state = store.data_mut();
+            std::mem::take(&mut state.registered_tests)
+        };
+
+        if registered_tests.is_empty() {
+            return Ok(RuntimeOutcome {
+                exit_code: 0,
+                tests_run: 1,
+                tests_failed: 0,
+            });
+        }
+
+        let mut tests_run = 0usize;
+        let mut tests_failed = 0usize;
+        for callback_id in registered_tests {
+            tests_run += 1;
+            match invoke_callback(&instance, &mut store, callback_id) {
+                Ok(()) => {}
+                Err(diagnostic) => {
+                    eprintln!("{}", diagnostic);
+                    tests_failed += 1;
+                }
+            }
+
+            drain_event_loop(&instance, &mut store).map_err(|diagnostic| vec![diagnostic])?;
+        }
+
+        Ok(RuntimeOutcome {
+            exit_code: if tests_failed == 0 { 0 } else { 1 },
+            tests_run,
+            tests_failed,
+        })
     }
 }
 
@@ -158,6 +217,17 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
             let _ = writeln!(stderr, "[warn] {}", format_tagged_val(val));
         })
         .map_err(|error| host_import_error("console_warn", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "test_register",
+            |mut caller: Caller<'_, KaliHostState>, callback_id: i32| -> wasmtime::Result<()> {
+                caller.data_mut().registered_tests.push(callback_id);
+                Ok(())
+            },
+        )
+        .map_err(|error| host_import_error("test_register", error))?;
 
     linker
         .func_wrap(
@@ -956,5 +1026,54 @@ mod tests {
 
         let outcome = runtime.execute(&wasm).expect("runtime outcome");
         assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_collects_and_runs_registered_tests() {
+        let runtime =
+            RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:rt" "test_register" (func $test_register (param i32)))
+                (func (export "__kali_callback_1")
+                    i32.const 1
+                    i32.const 1
+                    i32.add
+                    drop)
+                (func (export "_start")
+                    i32.const 1
+                    call $test_register)
+            )
+            "#,
+        );
+
+        let outcome = runtime.execute_tests(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+        assert_eq!(outcome.tests_run, 1);
+        assert_eq!(outcome.tests_failed, 0);
+    }
+
+    #[test]
+    fn runtime_reports_failed_registered_tests() {
+        let runtime =
+            RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:rt" "test_register" (func $test_register (param i32)))
+                (func (export "__kali_callback_2")
+                    unreachable)
+                (func (export "_start")
+                    i32.const 2
+                    call $test_register)
+            )
+            "#,
+        );
+
+        let outcome = runtime.execute_tests(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 1);
+        assert_eq!(outcome.tests_run, 1);
+        assert_eq!(outcome.tests_failed, 1);
     }
 }

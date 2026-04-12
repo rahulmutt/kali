@@ -171,8 +171,11 @@ fn test_files(files: Vec<String>, filter: Option<String>, coverage: bool) -> Res
             }
         };
 
-        match runtime.execute(&wasm_bytes) {
-            Ok(_outcome) => passed += 1,
+        match runtime.execute_tests(&wasm_bytes) {
+            Ok(outcome) => {
+                passed += outcome.tests_run.saturating_sub(outcome.tests_failed);
+                failed += outcome.tests_failed;
+            }
             Err(diagnostics) => {
                 print_diagnostics(&diagnostics);
                 failed += 1;
