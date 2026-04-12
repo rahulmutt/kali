@@ -67,16 +67,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check for proof file changes
+        id: proofs
         uses: dorny/paths-filter@v3
         with:
           filters: |
             proofs-changed:
               - 'proofs/**'
-      
+
       - name: Proof trigger stub
-        if: always()
+        if: steps.proofs.outputs.proofs-changed == 'true'
         run: |
-          if [ -n "${{ steps.filter.outputs.proofs-changed }}" ]; then
-            echo "Proofs directory changed - proof-CI jobs would trigger here"
-          fi
+          echo "Proofs directory changed - proof-CI jobs would trigger here"
           # No-op stub for placeholder CI

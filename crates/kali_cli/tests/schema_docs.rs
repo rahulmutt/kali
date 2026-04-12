@@ -115,3 +115,31 @@ fn proof_boundary_summary_matches_readme_and_manifest() {
         "proof boundary manifest should continue to deny proof-backed status"
     );
 }
+
+#[test]
+fn proof_trigger_workflow_is_configured_for_proofs_changes() {
+    let root = repo_root();
+    let workflow =
+        fs::read_to_string(root.join(".github/workflows/ci.yml")).expect("read workflow");
+
+    assert!(
+        workflow.contains("proof-trigger:"),
+        "proof-trigger job is missing"
+    );
+    assert!(
+        workflow.contains("id: proofs"),
+        "proof-trigger job should name the proof-change filter step"
+    );
+    assert!(
+        workflow.contains("proofs/**"),
+        "proof-trigger job should watch the proofs directory"
+    );
+    assert!(
+        workflow.contains("if: steps.proofs.outputs.proofs-changed == 'true'"),
+        "proof-trigger job should gate the stub step on proof-file changes"
+    );
+    assert!(
+        workflow.contains("Proofs directory changed - proof-CI jobs would trigger here"),
+        "proof-trigger stub message is missing"
+    );
+}

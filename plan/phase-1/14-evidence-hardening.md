@@ -28,6 +28,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added runtime smoke coverage for those Phase-2+ gating paths alongside the existing Phase-1 JSON-envelope and artifact coverage.
 - Added deterministic repeated-build smoke coverage for executable, base-library, and browser-bundle artifact outputs so the evidence suite now checks byte-for-byte stability across identical inputs.
 - Added a repository regression test that pins the canonical proof-ready summary in both `README.md` and `proofs/BOUNDARY.md`, so the empty proof boundary stays aligned with the public status wording.
+- Wired the CI proof-trigger stub so it now listens for `proofs/**` changes via a named paths-filter step instead of relying on an unreferenced filter output.
 - Cleared the workspace-wide `cargo clippy --workspace -- -D warnings` warning set so the current CI lint lane is green instead of failing on legacy placeholder patterns.
 
 ## Tasks
