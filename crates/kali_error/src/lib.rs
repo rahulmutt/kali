@@ -77,6 +77,11 @@ pub mod _error_codes {
         pub const NO_UNDEF: u16 = 2010;
     }
 
+    // W3xxx: Performance warnings (kali_optimize)
+    pub mod w3 {
+        pub const GENERIC_FUNCTION_EXCEEDS_SPECIALIZATION_LIMIT: u16 = 3004;
+    }
+
     // E4xxx: Runtime errors (kali_runtime)
     pub mod e4 {
         // E4000-4099: Execution / sandbox errors

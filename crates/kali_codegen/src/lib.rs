@@ -26,10 +26,21 @@ impl CodegenCtx {
 }
 
 /// Target configuration for code generation.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TargetConfig {
     /// Whether to enable optimization passes.
     pub optimize: bool,
+    /// Upper bound on specialization fan-out.
+    pub max_specializations: usize,
+}
+
+impl Default for TargetConfig {
+    fn default() -> Self {
+        Self {
+            optimize: false,
+            max_specializations: 16,
+        }
+    }
 }
 
 /// Code generation result containing the WASM output.
@@ -778,7 +789,10 @@ mod tests {
     #[test]
     fn generates_valid_wasm_for_simple_programs() {
         let program = sample_program();
-        let mut ctx = CodegenCtx::new(TargetConfig { optimize: false });
+        let mut ctx = CodegenCtx::new(TargetConfig {
+            optimize: false,
+            max_specializations: 16,
+        });
         let result = lower_lir_to_wasm(&mut ctx, &program);
 
         assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
@@ -814,7 +828,10 @@ mod tests {
     #[test]
     fn boolean_branches_use_the_layout_fast_path() {
         let program = parse_and_lower_lir("if (1 == 1) { 7; } else { 9; }");
-        let mut ctx = CodegenCtx::new(TargetConfig { optimize: false });
+        let mut ctx = CodegenCtx::new(TargetConfig {
+            optimize: false,
+            max_specializations: 16,
+        });
         let result = lower_lir_to_wasm(&mut ctx, &program);
 
         assert!(result.diagnostics.is_empty());
@@ -901,7 +918,10 @@ mod tests {
     }
 
     fn compile_and_measure(program: &LirProgram) -> (Vec<u8>, usize) {
-        let mut ctx = CodegenCtx::new(TargetConfig { optimize: false });
+        let mut ctx = CodegenCtx::new(TargetConfig {
+            optimize: false,
+            max_specializations: 16,
+        });
         let result = lower_lir_to_wasm(&mut ctx, program);
         assert!(
             result.diagnostics.is_empty(),

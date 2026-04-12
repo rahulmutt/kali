@@ -74,10 +74,11 @@ pub struct CompileOutput {
 pub fn compile_source_file_with_cache_state(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
+    max_specializations: usize,
 ) -> Result<CompileOutput, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
 
-    if let Some(cache_path) = incremental_cache_path(source_path, mode)? {
+    if let Some(cache_path) = incremental_cache_path(source_path, mode, max_specializations)? {
         match fs::read(&cache_path) {
             Ok(wasm_bytes) => {
                 return Ok(CompileOutput {
@@ -99,7 +100,7 @@ pub fn compile_source_file_with_cache_state(
             }
         }
 
-        let wasm_bytes = compile_source_file_uncached(source_path, mode)?;
+        let wasm_bytes = compile_source_file_uncached(source_path, mode, max_specializations)?;
 
         if let Some(parent) = cache_path.parent() {
             let _ = fs::create_dir_all(parent);
@@ -112,7 +113,7 @@ pub fn compile_source_file_with_cache_state(
             cache_path: Some(cache_path),
         })
     } else {
-        let wasm_bytes = compile_source_file_uncached(source_path, mode)?;
+        let wasm_bytes = compile_source_file_uncached(source_path, mode, max_specializations)?;
         Ok(CompileOutput {
             wasm_bytes,
             cache_hit: false,
@@ -125,12 +126,22 @@ pub fn compile_source_file(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    compile_source_file_with_cache_state(source_path, mode).map(|output| output.wasm_bytes)
+    compile_source_file_with_specialization_cap(source_path, mode, 16)
+}
+
+pub fn compile_source_file_with_specialization_cap(
+    source_path: impl AsRef<Path>,
+    mode: BuildMode,
+    max_specializations: usize,
+) -> Result<Vec<u8>, Vec<Diagnostic>> {
+    compile_source_file_with_cache_state(source_path, mode, max_specializations)
+        .map(|output| output.wasm_bytes)
 }
 
 fn compile_source_file_uncached(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
+    max_specializations: usize,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
     let analyzed = analyze_source_file(source_path.as_ref())?;
 
@@ -150,10 +161,12 @@ fn compile_source_file_uncached(
         BuildMode::Release => OptimizationLevel::Release,
         BuildMode::ReleaseAdvanced => OptimizationLevel::ReleaseAdvanced,
     };
-    Optimizer::new(optimization_level).optimize_program(&mut lir);
+    Optimizer::with_max_specializations(optimization_level, max_specializations)
+        .optimize_program(&mut lir);
 
     let mut ctx = CodegenCtx::new(TargetConfig {
         optimize: !matches!(mode, BuildMode::Fast),
+        max_specializations,
     });
     let result = lower_lir_to_wasm(&mut ctx, &lir);
     diagnostics.extend(result.diagnostics);
@@ -168,6 +181,7 @@ fn compile_source_file_uncached(
 fn incremental_cache_path(
     source_path: &Path,
     mode: BuildMode,
+    max_specializations: usize,
 ) -> Result<Option<PathBuf>, Vec<Diagnostic>> {
     let source_hash = source_hash_for_file(source_path).map_err(|error| {
         vec![Diagnostic::error(
@@ -182,7 +196,13 @@ fn incremental_cache_path(
     let Some(project_root) = project_root_for_source(source_path) else {
         return Ok(None);
     };
-    let cache_key = format!("{}-{}-{}", source_hash, build_mode_name(mode), env!("CARGO_PKG_VERSION"));
+    let cache_key = format!(
+        "{}-{}-{}-{}",
+        source_hash,
+        build_mode_name(mode),
+        max_specializations,
+        env!("CARGO_PKG_VERSION")
+    );
     Ok(Some(
         project_root
             .join(".kali-cache")
@@ -669,21 +689,23 @@ mod tests {
     #[test]
     fn compile_source_file_uses_incremental_cache_on_repeat_builds() {
         let dir = tempdir().expect("tempdir");
-        fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#)
-            .expect("write manifest");
+        fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
         let source_path = dir.path().join("main.ts");
         fs::write(&source_path, "console.log(1);").expect("write source");
 
-        let first = compile_source_file_with_cache_state(&source_path, BuildMode::Release)
+        let first = compile_source_file_with_cache_state(&source_path, BuildMode::Release, 16)
             .expect("first compile");
         assert!(!first.cache_hit);
         let first_cache_path = first
             .cache_path
             .as_ref()
             .expect("cache path should be recorded for project-root builds");
-        assert!(first_cache_path.exists(), "cache path should be written on first build");
+        assert!(
+            first_cache_path.exists(),
+            "cache path should be written on first build"
+        );
 
-        let second = compile_source_file_with_cache_state(&source_path, BuildMode::Release)
+        let second = compile_source_file_with_cache_state(&source_path, BuildMode::Release, 16)
             .expect("second compile");
         assert!(second.cache_hit);
         assert_eq!(first.wasm_bytes, second.wasm_bytes);

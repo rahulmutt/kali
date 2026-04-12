@@ -2767,7 +2767,10 @@ mod tests {
         install_project(dir.path(), InstallOptions::default()).unwrap();
         let second_lock = fs::read(dir.path().join("kali.lock")).unwrap();
 
-        assert_eq!(first_lock, second_lock, "lock file changed across identical installs");
+        assert_eq!(
+            first_lock, second_lock,
+            "lock file changed across identical installs"
+        );
     }
 
     #[test]

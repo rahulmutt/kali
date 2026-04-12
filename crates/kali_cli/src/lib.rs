@@ -181,6 +181,9 @@ pub enum Commands {
         /// Explicit release-advanced build mode
         #[arg(long = "release-advanced", conflicts_with_all = ["fast", "release"])]
         release_advanced: bool,
+        /// Override the specialization fan-out cap for this build
+        #[arg(long = "max-specializations")]
+        max_specializations: Option<usize>,
         /// Select the browser bundle artifact mode
         #[arg(long, conflicts_with_all = ["lib", "capi", "component"])]
         bundle: bool,
@@ -413,6 +416,7 @@ fn load_exclude_set(root: &Path) -> GlobSet {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::Parser;
     use tempfile::tempdir;
 
     #[test]
@@ -459,5 +463,19 @@ mod tests {
 
         let files = discover_source_files(dir.path());
         assert!(!files.contains(&dir.path().join("dist").join("bundle.ts")));
+    }
+
+    #[test]
+    fn build_command_parses_max_specializations_override() {
+        let args = Args::parse_from(["kali", "build", "--max-specializations", "32", "main.ts"]);
+        match args.command {
+            Some(Commands::Build {
+                max_specializations,
+                ..
+            }) => {
+                assert_eq!(max_specializations, Some(32));
+            }
+            other => panic!("expected build command, got {other:?}"),
+        }
     }
 }

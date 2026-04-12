@@ -5,6 +5,8 @@
 //! to land constant folding, branch elimination, and a handful of algebraic
 //! simplifications without needing a full SSA pipeline yet.
 
+use std::collections::BTreeSet;
+
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
 
 /// Optimization level.
@@ -54,19 +56,23 @@ impl Optimizer {
     pub fn optimize_program(&self, program: &mut LirProgram) {
         match self.level {
             OptimizationLevel::Fast | OptimizationLevel::Default => {}
-            OptimizationLevel::Release => {
-                self.optimize_node(program, program.root, true);
-            }
-            OptimizationLevel::ReleaseAdvanced => {
-                self.optimize_node(program, program.root, true);
+            OptimizationLevel::Release | OptimizationLevel::ReleaseAdvanced => {
+                let mut tracker = SpecializationTracker::new(self.max_specializations);
+                self.optimize_node(program, program.root, true, &mut tracker);
             }
         }
     }
 
-    fn optimize_node(&self, program: &mut LirProgram, id: LirNodeId, is_root: bool) {
+    fn optimize_node(
+        &self,
+        program: &mut LirProgram,
+        id: LirNodeId,
+        is_root: bool,
+        tracker: &mut SpecializationTracker,
+    ) {
         let children = program.nodes[id.0 as usize].children.clone();
         for child in children {
-            self.optimize_node(program, child, false);
+            self.optimize_node(program, child, false, tracker);
         }
 
         if is_root {
@@ -74,12 +80,12 @@ impl Optimizer {
             return;
         }
 
-        if self.optimize_constant_expression(program, id) {
+        if self.optimize_constant_expression(program, id, tracker) {
             return;
         }
 
         if matches!(self.level, OptimizationLevel::ReleaseAdvanced)
-            && self.optimize_algebraic_identity(program, id)
+            && self.optimize_algebraic_identity(program, id, tracker)
         {
             return;
         }
@@ -110,7 +116,12 @@ impl Optimizer {
         }
     }
 
-    fn optimize_constant_expression(&self, program: &mut LirProgram, id: LirNodeId) -> bool {
+    fn optimize_constant_expression(
+        &self,
+        program: &mut LirProgram,
+        id: LirNodeId,
+        tracker: &mut SpecializationTracker,
+    ) -> bool {
         let snapshot = program.nodes[id.0 as usize].clone();
         match snapshot.kind {
             LirNodeKind::Literal => false,
@@ -125,6 +136,14 @@ impl Optimizer {
                             return false;
                         };
                         if let Some(folded) = fold_unary(op, value) {
+                            let key = format!(
+                                "unary:{}:{}",
+                                op,
+                                node_signature(program, snapshot.children[0])
+                            );
+                            if !tracker.allow(key) {
+                                return false;
+                            }
                             program.nodes[id.0 as usize] =
                                 LirNode::with_text(LirNodeKind::Literal, literal_text(folded));
                             return true;
@@ -135,6 +154,15 @@ impl Optimizer {
                         let right = literal_value(program, snapshot.children[1]);
                         if let (Some(left), Some(right)) = (left, right) {
                             if let Some(folded) = fold_binary(op, left, right) {
+                                let key = format!(
+                                    "binary:{}:{}:{}",
+                                    op,
+                                    node_signature(program, snapshot.children[0]),
+                                    node_signature(program, snapshot.children[1])
+                                );
+                                if !tracker.allow(key) {
+                                    return false;
+                                }
                                 program.nodes[id.0 as usize] =
                                     LirNode::with_text(LirNodeKind::Literal, literal_text(folded));
                                 return true;
@@ -160,11 +188,19 @@ impl Optimizer {
                 };
 
                 let Some(chosen) = chosen else {
+                    let key = format!("branch:{}", node_signature(program, cond_id));
+                    if !tracker.allow(key) {
+                        return false;
+                    }
                     program.nodes[id.0 as usize] =
                         LirNode::with_text(LirNodeKind::Literal, if truthy { "1" } else { "0" });
                     return true;
                 };
 
+                let key = format!("branch:{}:{}", node_signature(program, cond_id), truthy);
+                if !tracker.allow(key) {
+                    return false;
+                }
                 program.nodes[id.0 as usize] = program.nodes[chosen.0 as usize].clone();
                 true
             }
@@ -172,7 +208,12 @@ impl Optimizer {
         }
     }
 
-    fn optimize_algebraic_identity(&self, program: &mut LirProgram, id: LirNodeId) -> bool {
+    fn optimize_algebraic_identity(
+        &self,
+        program: &mut LirProgram,
+        id: LirNodeId,
+        tracker: &mut SpecializationTracker,
+    ) -> bool {
         let snapshot = program.nodes[id.0 as usize].clone();
         let Some(op) = snapshot.text.as_deref() else {
             return false;
@@ -180,6 +221,14 @@ impl Optimizer {
 
         match (op, snapshot.children.as_slice()) {
             ("+", [left, right]) => {
+                let key = format!(
+                    "identity:+:{}:{}",
+                    node_signature(program, *left),
+                    node_signature(program, *right)
+                );
+                if !tracker.allow(key) {
+                    return false;
+                }
                 if literal_value(program, *left) == Some(ConstantValue::Number(0)) {
                     program.nodes[id.0 as usize] = program.nodes[right.0 as usize].clone();
                     return true;
@@ -191,6 +240,14 @@ impl Optimizer {
                 false
             }
             ("-", [left, right]) => {
+                let key = format!(
+                    "identity:-:{}:{}",
+                    node_signature(program, *left),
+                    node_signature(program, *right)
+                );
+                if !tracker.allow(key) {
+                    return false;
+                }
                 if literal_value(program, *right) == Some(ConstantValue::Number(0)) {
                     program.nodes[id.0 as usize] = program.nodes[left.0 as usize].clone();
                     return true;
@@ -198,6 +255,14 @@ impl Optimizer {
                 false
             }
             ("*", [left, right]) => {
+                let key = format!(
+                    "identity:*:{}:{}",
+                    node_signature(program, *left),
+                    node_signature(program, *right)
+                );
+                if !tracker.allow(key) {
+                    return false;
+                }
                 if literal_value(program, *left) == Some(ConstantValue::Number(0))
                     || literal_value(program, *right) == Some(ConstantValue::Number(0))
                 {
@@ -215,6 +280,14 @@ impl Optimizer {
                 false
             }
             ("&&", [left, right]) => {
+                let key = format!(
+                    "identity:&&:{}:{}",
+                    node_signature(program, *left),
+                    node_signature(program, *right)
+                );
+                if !tracker.allow(key) {
+                    return false;
+                }
                 match literal_value(program, *left) {
                     Some(ConstantValue::Boolean(false)) => {
                         program.nodes[id.0 as usize] =
@@ -242,6 +315,14 @@ impl Optimizer {
                 }
             }
             ("||", [left, right]) => {
+                let key = format!(
+                    "identity:||:{}:{}",
+                    node_signature(program, *left),
+                    node_signature(program, *right)
+                );
+                if !tracker.allow(key) {
+                    return false;
+                }
                 match literal_value(program, *left) {
                     Some(ConstantValue::Boolean(true)) => {
                         program.nodes[id.0 as usize] =
@@ -279,6 +360,34 @@ enum ConstantValue {
     Boolean(bool),
 }
 
+#[derive(Debug)]
+struct SpecializationTracker {
+    max_specializations: usize,
+    seen: BTreeSet<String>,
+}
+
+impl SpecializationTracker {
+    fn new(max_specializations: usize) -> Self {
+        Self {
+            max_specializations,
+            seen: BTreeSet::new(),
+        }
+    }
+
+    fn allow(&mut self, key: String) -> bool {
+        if self.seen.contains(&key) {
+            return true;
+        }
+
+        if self.seen.len() >= self.max_specializations {
+            return false;
+        }
+
+        self.seen.insert(key);
+        true
+    }
+}
+
 impl ConstantValue {
     fn truthy(self) -> bool {
         match self {
@@ -295,6 +404,23 @@ fn literal_value(program: &LirProgram, id: LirNodeId) -> Option<ConstantValue> {
         LirNodeKind::Value if node.children.is_empty() => parse_literal_text(node.text.as_deref()),
         _ => None,
     }
+}
+
+fn node_signature(program: &LirProgram, id: LirNodeId) -> String {
+    let Some(node) = program.nodes.get(id.0 as usize) else {
+        return "<missing>".to_string();
+    };
+
+    let mut signature = format!("{:?}:{:?}", node.kind, node.text);
+    if !node.children.is_empty() {
+        signature.push('(');
+        for child in &node.children {
+            signature.push_str(&node_signature(program, *child));
+            signature.push(',');
+        }
+        signature.push(')');
+    }
+    signature
 }
 
 fn parse_literal_text(text: Option<&str>) -> Option<ConstantValue> {
@@ -386,6 +512,37 @@ mod tests {
         let node = &program.nodes[add.0 as usize];
         assert_eq!(node.kind, LirNodeKind::Literal);
         assert_eq!(node.text.as_deref(), Some("3"));
+    }
+
+    #[test]
+    fn specialization_cap_limits_distinct_constant_folds() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let first = builder.alloc_text(LirNodeKind::Value, "+");
+        let second = builder.alloc_text(LirNodeKind::Value, "+");
+        let first_left = literal(&mut builder, "1");
+        let first_right = literal(&mut builder, "2");
+        let second_left = literal(&mut builder, "3");
+        let second_right = literal(&mut builder, "4");
+        builder.node_mut(first).unwrap().children = vec![first_left, first_right];
+        builder.node_mut(second).unwrap().children = vec![second_left, second_right];
+        builder.node_mut(root).unwrap().children = vec![first, second];
+
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        Optimizer::with_max_specializations(OptimizationLevel::Release, 1)
+            .optimize_program(&mut program);
+
+        let first_node = &program.nodes[first.0 as usize];
+        let second_node = &program.nodes[second.0 as usize];
+        assert_eq!(first_node.kind, LirNodeKind::Literal);
+        assert_eq!(first_node.text.as_deref(), Some("3"));
+        assert_eq!(second_node.kind, LirNodeKind::Value);
+        assert_eq!(second_node.text.as_deref(), Some("+"));
     }
 
     #[test]

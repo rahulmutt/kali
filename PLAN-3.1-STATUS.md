@@ -1,11 +1,11 @@
 # Stage 3.1 Status Update
 
 **Date:** 2026-04-12  
-**Status:** 🟡 Optimization scaffolding landed for the Phase-3 pipeline
+**Status:** 🟡 Optimization scaffolding and specialization-cap plumbing landed for the Phase-3 pipeline
 
 ## Summary
 
-Stage 3.1 now has the first real `kali_optimize` implementation wired into the build pipeline. `release` builds perform deterministic constant folding and branch elimination, while `release-advanced` adds a small algebraic-identity pass that can remove extra add/sub/mul overhead from hot paths. The CLI build path now invokes the optimizer before WASM codegen, and the CLI build pipeline now also maintains a deterministic incremental cache for repeated module compiles. The workspace test suite remains green.
+Stage 3.1 now has the first real `kali_optimize` implementation wired into the build pipeline. `release` builds perform deterministic constant folding and branch elimination, while `release-advanced` adds a small algebraic-identity pass that can remove extra add/sub/mul overhead from hot paths. The CLI build path now invokes the optimizer before WASM codegen, the build command accepts `--max-specializations` as a specialization-budget override, and the incremental cache key now incorporates that cap so different budgets do not collide. The workspace test suite remains green.
 
 ## Evidence
 
@@ -13,6 +13,7 @@ Stage 3.1 now has the first real `kali_optimize` implementation wired into the b
 - `release` folds literal expressions and constant branches before codegen ✅
 - `release-advanced` adds algebraic simplifications such as `x + 0 -> x` ✅
 - CLI runtime smoke tests now compare `fast`, `release`, and `release-advanced` instruction counts ✅
+- `--max-specializations` now flows through the build pipeline and participates in deterministic cache keys ✅
 - Repeated builds now populate and reuse `.kali-cache/incremental/` for unchanged modules ✅
 - `cargo test --workspace` passes ✅
 
@@ -27,7 +28,7 @@ Stage 3.1 now has the first real `kali_optimize` implementation wired into the b
 
 - Generic/function/layout specialization has not been implemented yet.
 - `release` / `release-advanced` still rely on the current LIR-level pass set rather than the later MIR-driven specialization model.
-- The optimizer is still tree-local and does not yet model the full MIR/LIR pass pipeline described in the long-term stage plan.
+- The optimizer now respects a deterministic specialization budget for distinct optimization shapes, but this is still a placeholder for the richer specialization planner described in the long-term stage plan.
 
 ## Next Step
 

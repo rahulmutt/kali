@@ -70,6 +70,7 @@ fn main() {
             fast,
             release,
             release_advanced,
+            max_specializations,
             bundle,
             lib,
             capi,
@@ -83,6 +84,7 @@ fn main() {
                 fast,
                 release,
                 release_advanced,
+                max_specializations,
                 bundle,
                 lib,
                 capi,
@@ -333,6 +335,7 @@ fn build_command(
     fast: bool,
     release: bool,
     release_advanced: bool,
+    max_specializations: Option<usize>,
     bundle: bool,
     lib: bool,
     capi: bool,
@@ -383,6 +386,7 @@ fn build_command(
 
     let source = source.to_string_lossy().to_string();
     let mode = build::build_mode_from_flags(fast, release, release_advanced);
+    let max_specializations = max_specializations.unwrap_or(16);
     let out_dir_path = out_dir.as_deref();
     let artifact_mode = if lib {
         BuildArtifactSelection::Library
@@ -397,21 +401,42 @@ fn build_command(
     };
 
     let build_result = match artifact_mode {
-        BuildArtifactSelection::Executable => {
-            build_executable_artifact(&source, mode, out_dir_path, policy.as_ref(), effective_api)
-        }
-        BuildArtifactSelection::Library => {
-            build_library_artifact(&source, mode, out_dir_path, policy.as_ref(), effective_api)
-        }
-        BuildArtifactSelection::Capi => {
-            build_capi_artifact(&source, mode, out_dir_path, policy.as_ref(), effective_api)
-        }
-        BuildArtifactSelection::Component => {
-            build_component_artifact(&source, mode, out_dir_path, policy.as_ref(), effective_api)
-        }
+        BuildArtifactSelection::Executable => build_executable_artifact(
+            &source,
+            mode,
+            max_specializations,
+            out_dir_path,
+            policy.as_ref(),
+            effective_api,
+        ),
+        BuildArtifactSelection::Library => build_library_artifact(
+            &source,
+            mode,
+            max_specializations,
+            out_dir_path,
+            policy.as_ref(),
+            effective_api,
+        ),
+        BuildArtifactSelection::Capi => build_capi_artifact(
+            &source,
+            mode,
+            max_specializations,
+            out_dir_path,
+            policy.as_ref(),
+            effective_api,
+        ),
+        BuildArtifactSelection::Component => build_component_artifact(
+            &source,
+            mode,
+            max_specializations,
+            out_dir_path,
+            policy.as_ref(),
+            effective_api,
+        ),
         BuildArtifactSelection::BrowserBundle => build_browser_bundle_artifact(
             &source,
             mode,
+            max_specializations,
             out_dir_path,
             policy.as_ref(),
             effective_api,
@@ -675,12 +700,14 @@ impl BuildResult {
 fn build_executable_artifact(
     file: &str,
     mode: build::BuildMode,
+    max_specializations: usize,
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let mut wasm_bytes = build::compile_source_file(&source, mode)?;
+    let mut wasm_bytes =
+        build::compile_source_file_with_specialization_cap(&source, mode, max_specializations)?;
     let metadata = build::build_artifact_metadata(
         &source,
         "executable",
@@ -737,12 +764,14 @@ fn build_executable_artifact(
 fn build_library_artifact(
     file: &str,
     mode: build::BuildMode,
+    max_specializations: usize,
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let mut wasm_bytes = build::compile_source_file(&source, mode)?;
+    let mut wasm_bytes =
+        build::compile_source_file_with_specialization_cap(&source, mode, max_specializations)?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
@@ -826,12 +855,14 @@ fn build_library_artifact(
 fn build_capi_artifact(
     file: &str,
     mode: build::BuildMode,
+    max_specializations: usize,
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let mut wasm_bytes = build::compile_source_file(&source, mode)?;
+    let mut wasm_bytes =
+        build::compile_source_file_with_specialization_cap(&source, mode, max_specializations)?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
@@ -951,12 +982,14 @@ fn build_capi_artifact(
 fn build_component_artifact(
     file: &str,
     mode: build::BuildMode,
+    max_specializations: usize,
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let wasm_bytes = build::compile_source_file(&source, mode)?;
+    let wasm_bytes =
+        build::compile_source_file_with_specialization_cap(&source, mode, max_specializations)?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
@@ -1050,12 +1083,14 @@ fn build_component_artifact(
 fn build_browser_bundle_artifact(
     file: &str,
     mode: build::BuildMode,
+    max_specializations: usize,
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let mut wasm_bytes = build::compile_source_file(&source, mode)?;
+    let mut wasm_bytes =
+        build::compile_source_file_with_specialization_cap(&source, mode, max_specializations)?;
     let exports = build::collect_library_exports(&source).unwrap_or_default();
     let metadata = build::build_artifact_metadata(
         &source,
