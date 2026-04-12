@@ -83,11 +83,12 @@ Terminology note:
 - `E3003`: Cannot access before initialization (TDZ)
 - `E3004`: Export not found in module
 
-### Sandbox Errors (E4xxx)
-- `E4001`: Effect not permitted by sandbox policy
+### Sandbox Errors (E4xxx / E9xxx)
+- `E4001`: Effect not permitted by sandbox policy during runtime enforcement
 - `E4002`: API call not permitted
 - `E4003`: Resource limit exceeded (compile-time provable)
 - `E4004`: Dynamic effect detected (cannot statically verify)
+- `E9007`: Inferred effect not permitted by the active sandbox policy during compile-time `check` / `build --sandbox` validation
 
 ### Import/Module/Availability/Command-Input Errors (E5xxx)
 - `E5001`: Module/package not found or no selectable stable release

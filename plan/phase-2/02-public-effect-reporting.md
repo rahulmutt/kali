@@ -24,6 +24,10 @@ Open the stable **public effect-report surface** in both of its explicit halves:
 - Phase-1 gating tests for these commands are updated from "assert unavailable" to positive
   coverage.
 
+## Progress
+
+**Status:** Implemented in the CLI on 2026-04-12; effect reports now flow through the native-JSON command surface and sandbox policy comparison reuses the same inferred effect model.
+
 ## Tasks
 
 ### 1. Effect model
@@ -128,12 +132,12 @@ the same `check/build --sandbox` command paths that existed in Phase 1.
 
 ## Definition of Done
 
-- [ ] `kali effects <file>` emits a valid schema-v1 effect JSON report; golden snapshot committed
+- [x] `kali effects <file>` emits a valid schema-v1 effect JSON report; golden snapshot committed
   and CI-enforced.
-- [ ] `kali package-effects <pkg>` emits a valid schema-v1 effect JSON report for a registry
+- [x] `kali package-effects <pkg>` emits a valid schema-v1 effect JSON report for a registry
   package.
-- [ ] `kali check --sandbox <policy> <file>` emits `E9007` for inferred effects not covered by
+- [x] `kali check --sandbox <policy> <file>` emits `E9007` for inferred effects not covered by
   the active policy.
-- [ ] Phase-1 gating tests for `kali effects` and `kali package-effects` updated to positive
+- [x] Phase-1 gating tests for `kali effects` and `kali package-effects` updated to positive
   coverage.
-- [ ] All Phase-1 tests continue to pass without regression.
+- [x] All Phase-1 tests continue to pass without regression.

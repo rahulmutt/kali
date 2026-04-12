@@ -5,6 +5,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
+pub mod effects;
+
+pub use effects::{
+    compare_effects_to_policy, effect_report_from_inference, infer_effects_from_roots,
+    package_effects_report, EffectAnalysisContext, EffectInference, EffectLocation,
+    EffectOccurrence, EffectReport, ObservedEffect, PackageCoordinate, PackageEffectsReport,
+};
+
 use kali_error::{
     Diagnostic,
     _error_codes::{e4, e5},
@@ -437,7 +445,12 @@ impl AccessRule {
         self.allows_candidate(&candidate.to_string_lossy(), base_dir, PatternKind::Path)
     }
 
-    fn allows_candidate(&self, candidate: &str, base_dir: &Path, kind: PatternKind) -> bool {
+    pub(crate) fn allows_candidate(
+        &self,
+        candidate: &str,
+        base_dir: &Path,
+        kind: PatternKind,
+    ) -> bool {
         match self {
             AccessRule::Deny(false) => false,
             AccessRule::Deny(true) => true,
@@ -457,7 +470,7 @@ impl AccessRule {
 }
 
 #[derive(Copy, Clone, Debug)]
-enum PatternKind {
+pub(crate) enum PatternKind {
     Path,
     Url,
     Exact,

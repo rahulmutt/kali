@@ -194,6 +194,7 @@ Availability rule for policy validation:
 Diagnostic boundary:
 - use `E5010` when the policy file itself is malformed (unknown keys, wrong types, invalid matcher shapes, invalid numeric ranges)
 - use `E5006` when the policy is well-formed but tries to enable a real capability/profile that is unavailable in the effective command/profile/API-surface context
+- use `E9007` for the Phase-2 compile-time inferred-effect-vs-policy rejection path when the policy is well-formed but the analyzed source graph still exceeds it
 - this keeps policy validation aligned with [specs/15-errors.md](15-errors.md) and the CLI exit-code rules in [specs/12-cli.md](12-cli.md)
 
 Phase-1 capability snapshot for supported surfaces:

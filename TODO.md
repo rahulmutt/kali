@@ -47,6 +47,12 @@
 - ✅ `kali build --bundle` now emits a browser bundle directory with `.wasm`, `.js`, and `.meta.json` outputs
 - ✅ CLI/runtime smoke coverage exercises the new library and bundle artifact flows
 
+### Stage 2.2 - Public Effect Reporting
+- ✅ `kali effects` emits native JSON effect reports for source roots
+- ✅ `kali package-effects` emits native JSON package effect reports for installed packages
+- ✅ `check/build --sandbox` reject inferred effects that exceed the active policy
+- ✅ Positive CLI/runtime smoke coverage replaces the old unavailable-command gates
+
 ## Next Work
 - [x] Broader package-shape / host-fit diagnostics matrix coverage
   - Added host-fit coverage for `node:fs` and `require("child_process")` package entrypoints.

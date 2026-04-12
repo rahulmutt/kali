@@ -5,7 +5,10 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+kali_ast = { workspace = true }
 kali_common = { workspace = true }
 kali_error = { workspace = true }
+kali_lexer = { workspace = true }
+kali_parser = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

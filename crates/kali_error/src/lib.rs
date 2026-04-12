@@ -100,6 +100,8 @@ pub mod _error_codes {
         pub const INVALID_ARGUMENT: u16 = 5000;
         pub const MISSING_REQUIRED_ARGUMENT: u16 = 5001;
         pub const UNKNOWN_COMMAND: u16 = 5002;
+        pub const INVALID_MODULE_SPECIFIER: u16 = 5003;
+        pub const DEPENDENCY_STATE_MISSING: u16 = 5004;
         pub const FEATURE_UNAVAILABLE: u16 = 5006;
         pub const INVALID_PRIMARY_INPUT_KIND: u16 = 5007;
         pub const INVALID_CLI_USAGE: u16 = 5008;
@@ -188,8 +190,8 @@ pub mod _error_codes {
         // E9400-9499: Static effect analysis
         pub const EFFECT_RESOLUTION_ERROR: u16 = 9400;
 
-        // E9500-9599: Effect vs policy
-        pub const EFFECT_POLICY_MISMATCH: u16 = 9500;
+        // E9000-9099: Effect vs policy
+        pub const EFFECT_POLICY_MISMATCH: u16 = 9007;
 
         // E9600-9699: Configuration errors
         pub const SANDBOX_CONFIG_INVALID: u16 = 9600;

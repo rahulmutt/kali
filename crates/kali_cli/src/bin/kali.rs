@@ -13,7 +13,10 @@ use kali_npm::{
     ProjectManifest,
 };
 use kali_runtime::RuntimeCtx;
-use kali_sandbox::SandboxPolicy;
+use kali_sandbox::{
+    compare_effects_to_policy, effect_report_from_inference, infer_effects_from_roots,
+    package_effects_report, EffectAnalysisContext, PackageCoordinate, SandboxPolicy,
+};
 use serde_json::{json, Value};
 use std::{
     fs,
@@ -32,7 +35,11 @@ fn main() {
         color: args.color,
     };
 
-    if output.pretty && !output.is_json() {
+    let pretty_allowed_without_json = matches!(
+        args.command,
+        Some(Commands::Effects { .. }) | Some(Commands::PackageEffects { .. })
+    );
+    if output.pretty && !output.is_json() && !pretty_allowed_without_json {
         eprintln!("error[E5008]: `--pretty` is only meaningful when JSON output is active");
         std::process::exit(5);
     }
@@ -181,9 +188,7 @@ fn main() {
             }
         }
         Commands::PackageEffects { target } => {
-            if let Err(exit_code) =
-                unavailable_registry_analysis_command("package-effects", target, &output)
-            {
+            if let Err(exit_code) = package_effects_command(target, &output) {
                 std::process::exit(exit_code);
             }
         }
@@ -241,11 +246,14 @@ fn check_command(
     let mut checked = 0usize;
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
+    let mut successful_files = Vec::new();
 
     for file in selected_files {
         checked += 1;
         match build::check_source_file(&file) {
-            Ok(()) => {}
+            Ok(()) => {
+                successful_files.push(PathBuf::from(&file));
+            }
             Err(diagnostics) => {
                 let source = fs::read_to_string(&file).ok();
                 let (file_errors, file_warnings) = split_and_convert_diagnostics(
@@ -253,6 +261,26 @@ fn check_command(
                     Some(Path::new(&file)),
                     source.as_deref(),
                 );
+                errors.extend(file_errors);
+                warnings.extend(file_warnings);
+                if !output.is_json() {
+                    for diagnostic in diagnostics {
+                        eprintln!("{}", diagnostic);
+                    }
+                }
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        if let Some(policy) = policy.as_ref() {
+            if let Err(diagnostics) = validate_source_effects_against_policy_for_roots(
+                &successful_files,
+                policy,
+                effective_api,
+            ) {
+                let (file_errors, file_warnings) =
+                    split_and_convert_diagnostics(&diagnostics, None, None);
                 errors.extend(file_errors);
                 warnings.extend(file_warnings);
                 if !output.is_json() {
@@ -585,6 +613,7 @@ fn build_executable_artifact(
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
 
     if let Some(policy) = policy {
+        validate_source_effects_against_policy(&source, policy, api_surface)?;
         let policy_bytes = policy
             .to_canonical_json_bytes()
             .map_err(|diagnostic| vec![diagnostic])?;
@@ -647,6 +676,7 @@ fn build_library_artifact(
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
 
     if let Some(policy) = policy {
+        validate_source_effects_against_policy(&source, policy, api_surface)?;
         let policy_bytes = policy
             .to_canonical_json_bytes()
             .map_err(|diagnostic| vec![diagnostic])?;
@@ -723,6 +753,7 @@ fn build_browser_bundle_artifact(
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
 
     if let Some(policy) = policy {
+        validate_source_effects_against_policy(&source, policy, api_surface)?;
         let policy_bytes = policy
             .to_canonical_json_bytes()
             .map_err(|diagnostic| vec![diagnostic])?;
@@ -1315,18 +1346,207 @@ fn effects_command(files: Vec<String>, output: &CliOutputOptions) -> Result<(), 
         return Err(1);
     };
 
-    let diagnostic = Diagnostic::error(
-        e5::FEATURE_UNAVAILABLE as u32,
-        "`kali effects` is unavailable in this phase",
+    if let Err(diagnostic) = validate_runtime_entrypoint(&source) {
+        return emit_diagnostics_and_exit(
+            "effects",
+            vec![diagnostic],
+            5,
+            output,
+            Some(&source),
+            fs::read_to_string(&source).ok().as_deref(),
+        );
+    }
+
+    let effective_api = match resolve_effective_api_surface(None) {
+        Ok(api) => api,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit(
+                "effects",
+                diagnostics,
+                5,
+                output,
+                Some(&source),
+                fs::read_to_string(&source).ok().as_deref(),
+            );
+        }
+    };
+    if matches!(effective_api, kali_cli::ApiSurface::Node) {
+        let diagnostic = Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "selected API surface is unavailable in this phase",
+        );
+        return emit_diagnostics_and_exit(
+            "effects",
+            vec![diagnostic],
+            5,
+            output,
+            Some(&source),
+            fs::read_to_string(&source).ok().as_deref(),
+        );
+    }
+
+    let context = analysis_context_for_api(effective_api);
+    let inference = match infer_effects_from_roots(&[source.clone()], context.clone()) {
+        Ok(inference) => inference,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit(
+                "effects",
+                diagnostics,
+                1,
+                output,
+                Some(&source),
+                fs::read_to_string(&source).ok().as_deref(),
+            );
+        }
+    };
+
+    let report = effect_report_from_inference(
+        vec![source.to_string_lossy().to_string()],
+        context,
+        inference,
     );
-    emit_diagnostics_and_exit(
-        "effects",
-        vec![diagnostic],
-        1,
-        output,
-        Some(&source),
-        fs::read_to_string(&source).ok().as_deref(),
-    )
+    emit_native_json_payload("effects", &report, output)
+}
+
+fn package_effects_command(target: String, output: &CliOutputOptions) -> Result<(), i32> {
+    let parsed = match parse_registry_package_target(&target) {
+        Ok(parsed) => parsed,
+        Err(diagnostic) => {
+            return emit_diagnostics_and_exit(
+                "package-effects",
+                vec![diagnostic],
+                5,
+                output,
+                None,
+                None,
+            );
+        }
+    };
+
+    let cwd = match std::env::current_dir() {
+        Ok(path) => path,
+        Err(error) => {
+            let diagnostic = Diagnostic::error(
+                e5::INVALID_CLI_USAGE as u32,
+                format!("failed to read current directory: {}", error),
+            );
+            return emit_diagnostics_and_exit(
+                "package-effects",
+                vec![diagnostic],
+                1,
+                output,
+                None,
+                None,
+            );
+        }
+    };
+    let project_root = discover_project_root(&cwd).unwrap_or(cwd);
+    let entry_path = match resolve_installed_package_entry(&project_root, &parsed.install_name) {
+        Some(path) => path,
+        None => {
+            let diagnostic = Diagnostic::error(
+                e5::DEPENDENCY_STATE_MISSING as u32,
+                format!(
+                    "package '{}' is not materialized in the current project",
+                    target
+                ),
+            );
+            return emit_diagnostics_and_exit(
+                "package-effects",
+                vec![diagnostic],
+                1,
+                output,
+                None,
+                None,
+            );
+        }
+    };
+
+    let package_root = match find_package_root(&entry_path) {
+        Some(root) => root,
+        None => {
+            let diagnostic = Diagnostic::error(
+                e5::DEPENDENCY_STATE_MISSING as u32,
+                format!("unable to locate package root for '{}'", target),
+            );
+            return emit_diagnostics_and_exit(
+                "package-effects",
+                vec![diagnostic],
+                1,
+                output,
+                None,
+                None,
+            );
+        }
+    };
+
+    let package_version = match read_package_version(&package_root) {
+        Ok(version) => version,
+        Err(diagnostic) => {
+            return emit_diagnostics_and_exit(
+                "package-effects",
+                vec![diagnostic],
+                1,
+                output,
+                None,
+                None,
+            );
+        }
+    };
+
+    let effective_api = match resolve_effective_api_surface(None) {
+        Ok(api) => api,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit(
+                "package-effects",
+                diagnostics,
+                5,
+                output,
+                None,
+                None,
+            );
+        }
+    };
+    if matches!(effective_api, kali_cli::ApiSurface::Node) {
+        let diagnostic = Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "selected API surface is unavailable in this phase",
+        );
+        return emit_diagnostics_and_exit(
+            "package-effects",
+            vec![diagnostic],
+            5,
+            output,
+            None,
+            None,
+        );
+    }
+
+    let context = analysis_context_for_api(effective_api);
+    let inference = match infer_effects_from_roots(&[entry_path.clone()], context.clone()) {
+        Ok(inference) => inference,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit(
+                "package-effects",
+                diagnostics,
+                1,
+                output,
+                None,
+                None,
+            );
+        }
+    };
+
+    let report = effect_report_from_inference(vec![parsed.report_label], context, inference);
+    let payload = package_effects_report(
+        PackageCoordinate {
+            name: parsed.package_name,
+            version: package_version,
+            registry: parsed.registry,
+        },
+        report,
+    );
+    emit_native_json_payload("package-effects", &payload, output)
 }
 
 fn unavailable_registry_analysis_command(
@@ -1491,6 +1711,225 @@ fn validate_runtime_entrypoint(source: &PathBuf) -> Result<(), Diagnostic> {
     } else {
         Ok(())
     }
+}
+
+#[derive(Debug, Clone)]
+struct ParsedRegistryPackageTarget {
+    registry: String,
+    package_name: String,
+    install_name: String,
+    report_label: String,
+}
+
+fn parse_registry_package_target(target: &str) -> Result<ParsedRegistryPackageTarget, Diagnostic> {
+    if target.starts_with("http://")
+        || target.starts_with("https://")
+        || target.starts_with("./")
+        || target.starts_with("../")
+        || target.starts_with('/')
+    {
+        return Err(Diagnostic::error(
+            e5::INVALID_CLI_USAGE as u32,
+            format!(
+                "`kali package-effects` accepts only registry package identifiers, not '{}'",
+                target
+            ),
+        ));
+    }
+
+    let (registry, package_name, install_name, report_label) =
+        if let Some(spec) = target.strip_prefix("jsr:") {
+            if is_version_suffixed_package_spec(spec) {
+                return Err(Diagnostic::error(
+                    e5::INVALID_CLI_USAGE as u32,
+                    "`kali package-effects` does not accept explicit package versions yet",
+                ));
+            }
+            (
+                "jsr".to_string(),
+                spec.to_string(),
+                spec.to_string(),
+                target.to_string(),
+            )
+        } else {
+            if is_version_suffixed_package_spec(target) {
+                return Err(Diagnostic::error(
+                    e5::INVALID_CLI_USAGE as u32,
+                    "`kali package-effects` does not accept explicit package versions yet",
+                ));
+            }
+            (
+                "npm".to_string(),
+                target.to_string(),
+                target.to_string(),
+                target.to_string(),
+            )
+        };
+
+    Ok(ParsedRegistryPackageTarget {
+        registry,
+        package_name,
+        install_name,
+        report_label,
+    })
+}
+
+fn is_version_suffixed_package_spec(spec: &str) -> bool {
+    match spec.rsplit_once('@') {
+        Some((name, version)) if !name.is_empty() && !version.is_empty() => true,
+        _ => false,
+    }
+}
+
+fn resolve_installed_package_entry(project_root: &Path, package_name: &str) -> Option<PathBuf> {
+    let package_dir = project_root.join("node_modules").join(package_name);
+    if !package_dir.exists() {
+        return None;
+    }
+
+    let package_json_path = package_dir.join("package.json");
+    let package_json = fs::read_to_string(package_json_path)
+        .ok()
+        .and_then(|contents| serde_json::from_str::<Value>(&contents).ok())?;
+
+    let candidate = package_json
+        .get("main")
+        .and_then(|value| value.as_str())
+        .or_else(|| package_json.get("module").and_then(|value| value.as_str()))
+        .or_else(|| package_json.get("types").and_then(|value| value.as_str()))
+        .or_else(|| package_json.get("typings").and_then(|value| value.as_str()))
+        .and_then(|path| resolve_package_candidate(&package_dir, path))
+        .or_else(|| resolve_package_candidate(&package_dir, "index.js"))
+        .or_else(|| resolve_package_candidate(&package_dir, "index.mjs"))
+        .or_else(|| resolve_package_candidate(&package_dir, "index.ts"))
+        .or_else(|| resolve_package_candidate(&package_dir, "index.d.ts"))
+        .or_else(|| resolve_package_candidate(&package_dir, "index.d.mts"))
+        .or_else(|| resolve_package_candidate(&package_dir, "index.d.cts"));
+
+    candidate
+}
+
+fn resolve_package_candidate(package_dir: &Path, candidate: &str) -> Option<PathBuf> {
+    let path = package_dir.join(candidate);
+    if path.is_file() {
+        return Some(path);
+    }
+
+    if let Some(ext) = path.extension().and_then(|ext| ext.to_str()) {
+        if matches!(
+            ext,
+            "ts" | "tsx" | "js" | "jsx" | "mts" | "cts" | "mjs" | "cjs"
+        ) {
+            return None;
+        }
+    }
+
+    for extension in [
+        "ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs", "d.ts", "d.mts", "d.cts",
+    ] {
+        let with_ext = package_dir.join(format!("{}.{}", candidate, extension));
+        if with_ext.is_file() {
+            return Some(with_ext);
+        }
+    }
+
+    None
+}
+
+fn find_package_root(entry_path: &Path) -> Option<PathBuf> {
+    let mut current = entry_path.parent()?.to_path_buf();
+    loop {
+        if current.join("package.json").exists() {
+            return Some(current);
+        }
+        if !current.pop() {
+            break;
+        }
+    }
+    None
+}
+
+fn read_package_version(package_root: &Path) -> Result<String, Diagnostic> {
+    let path = package_root.join("package.json");
+    let raw = fs::read_to_string(&path).map_err(|error| {
+        Diagnostic::error(
+            e5::DEPENDENCY_STATE_MISSING as u32,
+            format!(
+                "failed to read package metadata '{}': {}",
+                path.display(),
+                error
+            ),
+        )
+    })?;
+    let package_json: Value = serde_json::from_str(&raw).map_err(|error| {
+        Diagnostic::error(
+            e5::DEPENDENCY_STATE_MISSING as u32,
+            format!(
+                "failed to parse package metadata '{}': {}",
+                path.display(),
+                error
+            ),
+        )
+    })?;
+    package_json
+        .get("version")
+        .and_then(|value| value.as_str())
+        .map(|value| value.to_string())
+        .ok_or_else(|| {
+            Diagnostic::error(
+                e5::DEPENDENCY_STATE_MISSING as u32,
+                format!("package metadata '{}' is missing a version", path.display()),
+            )
+        })
+}
+
+fn analysis_context_for_api(api: kali_cli::ApiSurface) -> EffectAnalysisContext {
+    EffectAnalysisContext::new(api.to_string())
+}
+
+fn validate_source_effects_against_policy(
+    source: &Path,
+    policy: &SandboxPolicy,
+    api: kali_cli::ApiSurface,
+) -> Result<(), Vec<Diagnostic>> {
+    validate_source_effects_against_policy_for_roots(&[source.to_path_buf()], policy, api)
+}
+
+fn validate_source_effects_against_policy_for_roots(
+    roots: &[PathBuf],
+    policy: &SandboxPolicy,
+    api: kali_cli::ApiSurface,
+) -> Result<(), Vec<Diagnostic>> {
+    let context = analysis_context_for_api(api);
+    let inference = infer_effects_from_roots(roots, context)?;
+    let diagnostics = compare_effects_to_policy(&inference.effects, policy);
+    if diagnostics.is_empty() {
+        Ok(())
+    } else {
+        Err(diagnostics)
+    }
+}
+
+fn emit_native_json_payload<T: serde::Serialize>(
+    command: &str,
+    payload: &T,
+    output: &CliOutputOptions,
+) -> Result<(), i32> {
+    if output.is_json() {
+        let value = serde_json::to_value(payload).expect("serialize native json payload");
+        print_envelope(command, true, vec![], vec![], value, None, None, 0, output);
+    } else if output.pretty {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(payload).expect("serialize native json payload")
+        );
+    } else {
+        println!(
+            "{}",
+            serde_json::to_string(payload).expect("serialize native json payload")
+        );
+    }
+    Ok(())
 }
 
 fn diagnostics_exit_code(diagnostics: &[Diagnostic]) -> i32 {

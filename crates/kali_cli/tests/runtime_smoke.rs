@@ -1425,10 +1425,17 @@ fn build_rejects_component_artifact_mode_in_phase_one() {
 }
 
 #[test]
-fn effects_command_is_phase_gated() {
+fn effects_command_emits_native_json_payload() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(&source_path, "let value = 1; value;").expect("write source");
+    fs::write(
+        &source_path,
+        r#"
+fetch("https://api.example.com/data");
+console.log("hello");
+"#,
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -1437,22 +1444,96 @@ fn effects_command_is_phase_gated() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(
+        json["entryPoints"],
+        json!([source_path.display().to_string()])
+    );
+    assert_eq!(json["dynamicEffects"], false);
+    assert_eq!(json["dynamicReasons"], json!([]));
+    let kinds = json["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"));
+    assert!(kinds.contains(&"Network.Fetch"));
 }
 
 #[test]
-fn package_effects_command_is_phase_gated() {
+fn package_effects_command_emits_native_json_payload() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/purepkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "purepkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), "console.log('hello');").expect("write package entry");
+
     let output = Command::new(kali_bin())
+        .current_dir(dir.path())
         .arg("package-effects")
-        .arg("lodash")
+        .arg("purepkg")
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["package"]["name"], "purepkg");
+    assert_eq!(json["package"]["version"], "1.0.0");
+    assert_eq!(json["package"]["registry"], "npm");
+    assert_eq!(json["report"]["entryPoints"], json!(["purepkg"]));
+    let kinds = json["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"));
+}
+
+#[test]
+fn check_with_sandbox_rejects_inferred_effects() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "fetch('https://api.example.com/data');").expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E9007"), "stderr: {stderr}");
 }
 
 #[test]
