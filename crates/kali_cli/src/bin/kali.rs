@@ -1,4 +1,8 @@
 use clap::Parser;
+use kali_capi::{
+    arity_from_signature, generate_header, generate_metadata as generate_capi_metadata,
+    Export as CApiExport,
+};
 use kali_cli::{
     build, discover_source_files, discover_test_files, init, is_declaration_only_source_file,
     load_sandbox_policy,
@@ -11,10 +15,6 @@ use kali_lint::lint_with_options;
 use kali_npm::{
     discover_project_root, ensure_project_ready, install_project, load_manifest, InstallOptions,
     ProjectManifest,
-};
-use kali_capi::{
-    arity_from_signature, generate_header, generate_metadata as generate_capi_metadata,
-    Export as CApiExport,
 };
 use kali_runtime::RuntimeCtx;
 use kali_sandbox::{
@@ -406,13 +406,9 @@ fn build_command(
         BuildArtifactSelection::Capi => {
             build_capi_artifact(&source, mode, out_dir_path, policy.as_ref(), effective_api)
         }
-        BuildArtifactSelection::Component => build_component_artifact(
-            &source,
-            mode,
-            out_dir_path,
-            policy.as_ref(),
-            effective_api,
-        ),
+        BuildArtifactSelection::Component => {
+            build_component_artifact(&source, mode, out_dir_path, policy.as_ref(), effective_api)
+        }
         BuildArtifactSelection::BrowserBundle => build_browser_bundle_artifact(
             &source,
             mode,
@@ -859,7 +855,8 @@ fn build_capi_artifact(
         .append_to(&mut wasm_bytes);
     }
 
-    let (output_path, wit_path, header_path, meta_path) = build::capi_output_paths_for(&source, out_dir);
+    let (output_path, wit_path, header_path, meta_path) =
+        build::capi_output_paths_for(&source, out_dir);
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
             vec![Diagnostic::error(
@@ -903,7 +900,11 @@ fn build_capi_artifact(
     fs::write(&header_path, header).map_err(|error| {
         vec![Diagnostic::error(
             e5::OUTPUT_ERROR as u32,
-            format!("failed to write C header '{}': {}", header_path.display(), error),
+            format!(
+                "failed to write C header '{}': {}",
+                header_path.display(),
+                error
+            ),
         )]
     })?;
 

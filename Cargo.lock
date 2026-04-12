@@ -1128,8 +1128,10 @@ dependencies = [
 name = "kali_api_node"
 version = "0.1.0"
 dependencies = [
+ "getrandom 0.3.4",
  "kali_common",
  "kali_error",
+ "sha2",
 ]
 
 [[package]]

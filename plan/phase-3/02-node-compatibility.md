@@ -43,6 +43,10 @@ package corpus coverage:
 Each built-in is implemented as Rust host-import functions registered with the wasmtime linker,
 following the same pattern as `kali_api_deno`.
 
+Progress note: the repository now has an initial pure-Rust Node helper layer in
+`kali_api_node` covering process/path/crypto/events/buffer/util primitives and unit tests.
+Runtime wiring and `--api node` enablement are still pending.
+
 ### 2. `--api node` command path
 
 Wire the `--api node` flag:

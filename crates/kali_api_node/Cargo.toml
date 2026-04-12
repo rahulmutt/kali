@@ -7,3 +7,5 @@ license.workspace = true
 [dependencies]
 kali_common = { workspace = true }
 kali_error = { workspace = true }
+sha2 = { workspace = true }
+getrandom = { workspace = true }

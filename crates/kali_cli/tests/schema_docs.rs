@@ -83,7 +83,10 @@ fn core_schema_documents_match_current_cli_contracts() {
         .iter()
         .map(|value| value.as_str().expect("enum string"))
         .collect::<Vec<_>>();
-    assert_eq!(enum_values, vec!["executable", "lib", "bundle", "capi", "component"]);
+    assert_eq!(
+        enum_values,
+        vec!["executable", "lib", "bundle", "capi", "component"]
+    );
 }
 
 #[test]
