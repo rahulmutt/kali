@@ -20,8 +20,8 @@ To keep the bootstrap's Lean requirement aligned with the rest of the phased spe
 
 | Verification state | Minimum repository requirement | What docs/releases may claim |
 |---|---|---|
-| **proof-ready** | published `proofs/BOUNDARY.md`, honest proof-CI trigger policy, and explicit no-overclaim discipline | the repository is prepared for phased verification work, but does **not** claim shipped mechanized coverage yet |
-| **proof-backed** | the manifest is non-empty and names at least one concrete modeled subsystem plus theorem/property inventory | release/support wording may cite formal verification, but only for the published boundary |
+| **proof-ready** | published `proofs/BOUNDARY.md`, honest proof-CI trigger policy, explicit no-overclaim discipline, and a truthful boundary description that may still be the shared empty placeholder manifest or a later provisional non-empty model | the repository is prepared for phased verification work, but does **not** claim shipped mechanized coverage yet |
+| **proof-backed** | the manifest is non-empty, names at least one concrete modeled subsystem plus theorem/property inventory, and the named claims are mechanized rather than merely staged | release/support wording may cite formal verification, but only for the published boundary |
 
 Practical rule:
 - Phase 1 should be **proof-ready** from the start
@@ -32,7 +32,8 @@ Current repository status rule:
 - `proofs/BOUNDARY.md` is the single source of truth for the repository's current verification state
 - chapter summaries, release notes, and README copy should cite or quote that manifest rather than restating current proof coverage from memory or from this chapter's roadmap prose
 - if the manifest is still the shared **placeholder proof-boundary manifest**, the honest repository claim remains **proof-ready** rather than **proof-backed**
-- in that placeholder state, repository summaries should reuse the canonical short summary from `proofs/BOUNDARY.md` verbatim: **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
+- if the manifest is a **provisional non-empty proof boundary**, the honest repository claim still remains **proof-ready** rather than **proof-backed** until the named claims are mechanized
+- repository summaries should reuse the canonical short summary from `proofs/BOUNDARY.md` verbatim: **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
 - [19 — Feature Maturity](19-feature-maturity.md) makes the same guardrail explicit: proof-backed release/support claims while the published boundary is still empty are **Rejected by default**
 
 Copy-paste wording shortcut:
@@ -100,7 +101,7 @@ That manifest should enumerate, at minimum:
 - which implementation/spec subsystems are expected to remain aligned with the model,
 - and the CI trigger rule for when the proof job must run.
 
-Before the first proofs land, the manifest may truthfully stay in the shared **placeholder proof-boundary manifest** state from [SPEC.md](../SPEC.md). That is still preferable to omitting the file, because it prevents the rest of the spec from accidentally implying proof coverage that does not yet exist. The current repository state should always be read from `proofs/BOUNDARY.md`, not inferred from this chapter's examples or milestone plan.
+Before the first proofs land, the manifest may truthfully stay in the shared **placeholder proof-boundary manifest** state from [SPEC.md](../SPEC.md). Once the Lean tree exists, the manifest may instead describe a **provisional non-empty proof boundary** that names concrete modeled subsystems and theorem/property inventory while still remaining proof-ready rather than proof-backed. In either case, the current repository state should always be read from `proofs/BOUNDARY.md`, not inferred from this chapter's examples or milestone plan.
 
 Reading and claim rules:
 - the manifest should state the current verification state explicitly using the same two-way split as this chapter: **proof-ready** vs **proof-backed**
@@ -142,8 +143,8 @@ Prove specific high-value lowering passes preserve the modeled semantics:
 ## Lean 4 Project Structure
 
 Current-state clarification:
-- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the repository does **not** yet contain this Lean project tree; today the only required verification artifact is the published `proofs/BOUNDARY.md` manifest
-- treat the layout below as the **target proof-tree shape once mechanized proofs start landing**, not as a claim that those files already exist in the current repo state
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the repository now contains a checked-in Lean project tree under `proofs/`, but the published boundary remains provisional rather than proof-backed
+- treat the layout below as the living proof-tree shape that the checked-in Lean model follows today, not as a claim that the boundary is finished or that every future proof-backed file already exists
 
 ```text
 proofs/
@@ -206,7 +207,7 @@ This keeps the bootstrap's Lean-verification ambition aligned with the rest of t
 
 ## CI Integration
 
-Future-state command once the Lean proof tree exists:
+Current proof-check command for the checked-in Lean tree:
 
 ```bash
 # Build and check all Lean proofs for the current published proof boundary
@@ -214,7 +215,7 @@ cd proofs && lake build
 ```
 
 Current-state rule:
-- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): until `proofs/` contains an actual Lean project (`lakefile.lean`, `lean-toolchain`, and proof sources), this command is illustrative rather than currently runnable
+- `cd proofs && lake build` is now the real proof-check command for the checked-in Lean project under `proofs/`; repositories that have not yet adopted the Lean tree may still treat this as illustrative rather than runnable
 - the current repository obligation is the published proof-boundary manifest plus the trigger policy below
 
 CI consistency rules:

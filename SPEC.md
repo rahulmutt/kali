@@ -49,7 +49,7 @@ To keep the rest of the spec readable, the normalized Phase 1 MVP can be summari
 | Registry audit | `kali package-audit` is a separate context-free registry-analysis/security-audit workflow and remains later compatibility |
 | Packaging | One lock/install state, Phase-1 registry support for the **pure JS/TS package contract**, Phase-1 raw-URL lock/cache support, no implicit dependency repair outside `kali install`, opt-in npm lifecycle scripts only via `kali install --allow-scripts`, coverage across the shared **Default standalone context (schema v1)** / **Deno-oriented standalone surface** path and the shared **Phase-1 browser-targeted command set** (including inherited-config equivalents), and rejection by default for the **native/binary/bootstrap-heavy package contract** |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib` for **exact-version consumers** in the shared **Deno-oriented build context (schema v1)**, and only when frontend lowering can determine a **statically known export surface**; the Phase-2 **public embedding surface** adds the stable Rust API plus the stable public **WIT-first** `--lib` contract, with `--capi` and `--component` as explicit projections/packaging flows over that same export surface |
-| Formal verification | Phase-1 **proof-ready** repository baseline: published **proof-boundary manifest** plus the proof-CI trigger policy for the current published proof boundary; that boundary may still be empty while Kali is only **proof-ready**, and no proof-backed release/support claims may extend beyond the published boundary |
+| Formal verification | Phase-1 **proof-ready** repository baseline: published **proof-boundary manifest** plus the proof-CI trigger policy for the current published proof boundary; that boundary may still be empty or provisional/non-empty while Kali is only **proof-ready**, and no proof-backed release/support claims may extend beyond the published boundary |
 | Tooling | Deno-inspired CLI workflow, concise AI-friendly diagnostics, versioned JSON outputs, deterministic artifacts/reports, and minimal `init` / `init --lib` scaffold contracts that do not blur into install/materialization |
 
 Use this table as a reading aid only. Detailed behavior still belongs to the owning chapters and the maturity matrix.
@@ -935,14 +935,16 @@ Rules:
 
 ### Proof-ready vs proof-backed split
 Kali keeps one explicit split between **being proof-ready** and **advertising proof-backed support**:
-- **proof-ready state** — `proofs/BOUNDARY.md` exists and truthfully declares the current published proof boundary
-- **proof-backed support state** — release notes or support claims actively rely on formal verification as shipped evidence for some Kali behavior
-- **placeholder proof-boundary manifest** — a published **proof-boundary manifest** whose modeled boundary is still empty; this is acceptable for the **proof-ready state**, but not for **proof-backed support state** claims
+- **proof-ready state** — `proofs/BOUNDARY.md` exists and truthfully declares the current published proof boundary, whether that boundary is still the shared empty placeholder manifest or a later provisional non-empty model
+- **proof-backed support state** — release notes or support claims actively rely on formal verification as shipped evidence for some Kali behavior, using a published boundary whose named claims have been mechanized rather than merely staged
+- **placeholder proof-boundary manifest** — a published **proof-boundary manifest** whose modeled boundary is still empty; this is one acceptable proof-ready starting point, but it is not the only proof-ready state once the Lean tree has started to model a non-empty boundary
+- **provisional non-empty proof boundary** — a published **proof-boundary manifest** that names concrete modeled subsystems and theorem/property inventory while the repository is still proof-ready and the named claims are not yet proof-backed
 
 Rules:
 - the repo should reach the **proof-ready state** early so it has one honest place to say “no mechanized coverage yet”
 - the **placeholder proof-boundary manifest** is acceptable only while Kali is still avoiding proof-backed support claims
-- before a release or support summary advertises formal verification as a shipped capability, the boundary must move beyond the **placeholder proof-boundary manifest**, name at least one concrete modeled subsystem, and list the claimed theorem/property inventory so the claim is genuinely proof-backed rather than merely proof-ready
+- the **provisional non-empty proof boundary** is also proof-ready, but it remains provisional until the named claims are fully mechanized and can honestly be advertised as shipped evidence
+- before a release or support summary advertises formal verification as a shipped capability, the boundary must move beyond the provisional staging state, name at least one concrete modeled subsystem, and list the claimed theorem/property inventory so the claim is genuinely proof-backed rather than merely proof-ready
 - proof CI follows the proof-CI trigger policy declared by the published boundary; an empty modeled boundary requires proof jobs only for `proofs/`, and once covered implementation/spec areas are named they also become proof-CI triggers
 - that proof-CI trigger policy is normative even before concrete CI workflow files land; until automation is wired up, docs must describe it as policy rather than implying that proof jobs already run in hosted CI
 - chapters should reuse this exact **proof-ready vs proof-backed split** instead of re-explaining the same empty-boundary-versus-proof-backed distinction in slightly different prose

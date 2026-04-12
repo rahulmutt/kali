@@ -37,7 +37,7 @@ Create the Lean 4 workspace under `proofs/`:
 
 ```
 proofs/
-├── BOUNDARY.md                     — updated from placeholder; provisional scope described
+├── BOUNDARY.md                     — provisional non-empty scope described
 ├── lakefile.lean                   — Lean 4 build file; all proof targets declared here
 ├── KaliCore/
 │   ├── Types.lean                  — core type calculus model

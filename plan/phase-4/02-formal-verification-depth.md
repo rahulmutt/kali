@@ -57,7 +57,7 @@ covers).
 
 ### 5. Update `proofs/BOUNDARY.md`
 
-Replace the placeholder proof-boundary manifest with a concrete non-empty one:
+Replace the provisional proof-boundary manifest with a concrete proof-backed one:
 
 ```markdown
 # Proof Boundary
