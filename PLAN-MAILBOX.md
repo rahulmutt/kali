@@ -1,14 +1,14 @@
-# Stage 1.12 Init Scaffold Notes
+# Stage 1.12 Notes
 
 ## Latest Update
 
-- `kali init` and `kali init --lib` are now wired into the CLI as current-directory-scoped scaffold commands.
-- The implementation writes the minimal schema-v1 `kali.json` (`{"schemaVersion": 1}`) plus a starter `main.ts` or `lib.ts` file, and rejects non-empty target directories or an existing scaffold manifest in place.
-- Stage 1.12's remaining `fmt` / `lint` work is still pending.
-- The stage doc still carries the older aspirational `name`/nested-scaffold wording; the code intentionally follows the current `specs/12-cli.md` minimal current-directory scaffold contract instead.
+- `kali fmt` is now wired end-to-end through the CLI with `--check`, stable in-place formatting, and a token-based canonical formatter implementation.
+- `kali lint` is now wired end-to-end through the CLI with `--fix`, the initial Phase-1 lint rule set, and conservative rewrite support for the fixable rules.
+- Project discovery for source-oriented commands now excludes hidden directories, nested project roots, and test files, while still including declaration files where the source-discovery contract requires them.
+- `check` now skips declaration-only files during name-resolution so the fixture tree can include `.d.ts` sources without breaking the no-file discovery smoke test.
 
 **Date:** 2026-04-12
-**Status:** `init` scaffold landed; formatter/linter remain stubbed
+**Status:** Stage 1.12 implementation complete; discovery/formatter/linter wired
 
 ---
 

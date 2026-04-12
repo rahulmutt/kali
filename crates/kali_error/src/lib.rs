@@ -61,6 +61,22 @@ pub mod _error_codes {
         pub const MISSING_PARAMETER_TYPE: u16 = 3201;
     }
 
+    // W2xxx: Style/lint warnings (kali_lint)
+    pub mod w2 {
+        // W2000-2010: Initial built-in lint rule codes
+        pub const UNUSED_VARIABLE: u16 = 2000;
+        pub const UNUSED_IMPORT: u16 = 2001;
+        pub const EXPLICIT_ANY: u16 = 2002;
+        pub const PREFER_CONST: u16 = 2003;
+        pub const NO_VAR: u16 = 2004;
+        pub const EQEQEQ: u16 = 2005;
+        pub const DEBUGGER: u16 = 2006;
+        pub const NO_CONSOLE: u16 = 2007;
+        pub const NO_EMPTY: u16 = 2008;
+        pub const NO_UNREACHABLE: u16 = 2009;
+        pub const NO_UNDEF: u16 = 2010;
+    }
+
     // E4xxx: Runtime errors (kali_runtime)
     pub mod e4 {
         // E4000-4099: Execution / sandbox errors
@@ -197,6 +213,9 @@ mod tests {
 
         // E3 namespace
         assert_eq!(e3::UNDEFINED_IDENTIFIER, 3100);
+
+        // W2 namespace
+        assert_eq!(w2::UNUSED_VARIABLE, 2000);
 
         // E4 namespace
         assert_eq!(e4::UNCAUGHT_ERROR, 4000);

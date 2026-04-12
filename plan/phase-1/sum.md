@@ -2,7 +2,7 @@
 
 ## Current State
 
-**Completed (7/14 stages):**
+**Completed (8/14 stages):**
 - [x] 1.1 - Workspace scaffold
 - [x] 1.2 - Lexer
 - [x] 1.3 - Parser
@@ -10,6 +10,7 @@
 - [x] 1.5 - Type checker
 - [x] 1.6 - HIR/LIR lowering
 - [x] 1.7 - WASM codegen
+- [x] 1.12 - Developer workflow
 
 **In Progress:**
 - [ ] 1.8 - Runtime execution

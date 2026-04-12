@@ -5,11 +5,13 @@ use kali_cli::{
     build, discover_source_files, discover_test_files, init, is_declaration_only_source_file,
     load_sandbox_policy, Args,
 };
+use kali_fmt::format_source;
+use kali_lint::lint_with_options;
 use kali_error::{Diagnostic, _error_codes::e5};
 use kali_npm::{discover_project_root, ensure_project_ready, install_project, InstallOptions};
 use kali_runtime::RuntimeCtx;
 use kali_sandbox::SandboxPolicy;
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 fn main() {
     let args = Args::parse();
@@ -153,11 +155,21 @@ fn main() {
                 }
             }
         }
-        kali_cli::Commands::Fmt { files: _files } => {
-            println!("Formatting files... (stub)");
+        kali_cli::Commands::Fmt { check, files } => {
+            if let Err(exit_code) = ensure_installed_or_exit() {
+                std::process::exit(exit_code);
+            }
+            if let Err(exit_code) = fmt_files(files, check) {
+                std::process::exit(exit_code);
+            }
         }
-        kali_cli::Commands::Lint { files: _files } => {
-            println!("Linting files... (stub)");
+        kali_cli::Commands::Lint { fix, files } => {
+            if let Err(exit_code) = ensure_installed_or_exit() {
+                std::process::exit(exit_code);
+            }
+            if let Err(exit_code) = lint_files(files, fix) {
+                std::process::exit(exit_code);
+            }
         }
     }
 }
@@ -203,7 +215,9 @@ fn check_files(files: Vec<String>, policy: Option<&SandboxPolicy>) -> Result<(),
     }
 
     let selected_files = if files.is_empty() {
-        discover_source_files(".")
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let project_root = discover_project_root(&cwd).unwrap_or(cwd);
+        discover_source_files(&project_root)
             .into_iter()
             .map(|path| path.to_string_lossy().to_string())
             .collect::<Vec<_>>()
@@ -355,6 +369,143 @@ fn test_files(
     } else {
         println!("FAILED {}", failed);
         Err(1)
+    }
+}
+
+fn fmt_files(files: Vec<String>, check: bool) -> Result<(), i32> {
+    let selected_files = if files.is_empty() {
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let project_root = discover_project_root(&cwd).unwrap_or(cwd);
+        discover_source_files(&project_root)
+            .into_iter()
+            .map(|path| path.to_string_lossy().to_string())
+            .collect::<Vec<_>>()
+    } else {
+        files
+    };
+
+    if selected_files.is_empty() {
+        if check {
+            println!("Checked 0 file(s)");
+        } else {
+            println!("Formatted 0 file(s)");
+        }
+        return Ok(());
+    }
+
+    let mut changed = 0usize;
+    let mut processed = 0usize;
+
+    for file in selected_files {
+        processed += 1;
+        let path = PathBuf::from(&file);
+        let source = match fs::read_to_string(&path) {
+            Ok(source) => source,
+            Err(error) => {
+                eprintln!(
+                    "Error[E5200]: failed to read source file '{}': {}",
+                    path.display(),
+                    error
+                );
+                return Err(1);
+            }
+        };
+
+        let formatted = format_source(&source);
+        if formatted != source {
+            changed += 1;
+            if !check {
+                if let Err(error) = fs::write(&path, formatted) {
+                    eprintln!(
+                        "Error[E5200]: failed to write formatted file '{}': {}",
+                        path.display(),
+                        error
+                    );
+                    return Err(1);
+                }
+            }
+        }
+    }
+
+    if check {
+        if changed == 0 {
+            println!("Checked {} file(s)", processed);
+            Ok(())
+        } else {
+            println!("Would format {} file(s)", changed);
+            Err(1)
+        }
+    } else {
+        println!("Formatted {} file(s)", changed);
+        Ok(())
+    }
+}
+
+fn lint_files(files: Vec<String>, fix: bool) -> Result<(), i32> {
+    let selected_files = if files.is_empty() {
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let project_root = discover_project_root(&cwd).unwrap_or(cwd);
+        discover_source_files(&project_root)
+            .into_iter()
+            .map(|path| path.to_string_lossy().to_string())
+            .collect::<Vec<_>>()
+    } else {
+        files
+    };
+
+    if selected_files.is_empty() {
+        println!("Linted 0 file(s)");
+        return Ok(());
+    }
+
+    let mut processed = 0usize;
+    let mut had_error = false;
+    let mut fixed = 0usize;
+
+    for file in selected_files {
+        processed += 1;
+        let path = PathBuf::from(&file);
+        let source = match fs::read_to_string(&path) {
+            Ok(source) => source,
+            Err(error) => {
+                eprintln!(
+                    "Error[E5200]: failed to read source file '{}': {}",
+                    path.display(),
+                    error
+                );
+                return Err(1);
+            }
+        };
+
+        let result = lint_with_options(&source, fix);
+        print_diagnostics(&result.diagnostics);
+        if result.diagnostics.iter().any(|diagnostic| diagnostic.is_error()) {
+            had_error = true;
+        }
+
+        if let Some(fixed_source) = result.fixed_source {
+            if fix && fixed_source != source {
+                if let Err(error) = fs::write(&path, fixed_source) {
+                    eprintln!(
+                        "Error[E5200]: failed to write fixed file '{}': {}",
+                        path.display(),
+                        error
+                    );
+                    return Err(1);
+                }
+                fixed += 1;
+            }
+        }
+    }
+
+    if fix {
+        println!("Fixed {} file(s)", fixed);
+    }
+    if had_error {
+        Err(1)
+    } else {
+        println!("Linted {} file(s)", processed);
+        Ok(())
     }
 }
 

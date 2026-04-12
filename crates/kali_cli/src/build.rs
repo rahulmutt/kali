@@ -13,6 +13,8 @@ use kali_sandbox::SandboxPolicy;
 use kali_types::TypeContext;
 use wasm_encoder::{CustomSection, Section};
 
+use crate::is_declaration_only_source_file;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildMode {
     Fast,
@@ -83,11 +85,13 @@ fn analyze_source_file(source_path: &Path) -> Result<AnalyzedSource, Vec<Diagnos
         return Err(diagnostics);
     }
 
-    let mut resolver = TypeContext::with_base_path(source_path);
-    let resolved = resolver.resolve_statements_in_file(source_path, &parsed.statements);
-    diagnostics.extend(resolved.diagnostics);
-    if has_errors(&diagnostics) {
-        return Err(diagnostics);
+    if !is_declaration_only_source_file(source_path) {
+        let mut resolver = TypeContext::with_base_path(source_path);
+        let resolved = resolver.resolve_statements_in_file(source_path, &parsed.statements);
+        diagnostics.extend(resolved.diagnostics);
+        if has_errors(&diagnostics) {
+            return Err(diagnostics);
+        }
     }
 
     Ok(AnalyzedSource {

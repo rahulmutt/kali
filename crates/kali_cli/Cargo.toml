@@ -19,9 +19,14 @@ kali_types = { workspace = true }
 kali_mir = { workspace = true }
 kali_lir = { workspace = true }
 kali_codegen = { workspace = true }
+kali_fmt = { workspace = true }
+kali_lint = { workspace = true }
 kali_npm = { workspace = true }
 kali_runtime = { workspace = true }
 kali_sandbox = { workspace = true }
+serde_json = { workspace = true }
+ignore = "0.4"
+globset = "0.4"
 wasm-encoder = { workspace = true }
 
 [dev-dependencies]

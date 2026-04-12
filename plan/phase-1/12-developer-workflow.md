@@ -25,7 +25,11 @@ testing, and building.
 
 - `kali init` and `kali init --lib` now create the current-directory scaffold when the target
   directory is empty, writing a minimal `kali.json` plus starter `main.ts` / `lib.ts` files.
-- `kali fmt` and `kali lint` remain pending in this stage.
+- `kali fmt` now formats source files in-place, supports `--check`, and is wired through the CLI.
+- `kali lint` now reports the initial Phase-1 built-in lint set, supports `--fix`, and is wired
+  through the CLI.
+- Project discovery now excludes hidden directories, nested project roots, and test files from the
+  source-file walk while still including declaration files for source-oriented commands.
 
 ## Tasks
 
@@ -204,9 +208,9 @@ and predictable.
 
 ## Definition of Done
 
-- [ ] `kali init` and `kali init --lib` produce valid scaffolds.
-- [ ] `kali fmt` and `kali fmt --check` are idempotent and correct.
-- [ ] `kali lint` and `kali lint --fix` report and fix the Phase-1 built-in rules.
-- [ ] Project discovery finds the correct file set for all discovery-driven commands.
-- [ ] All integration tests pass.
-- [ ] No Stage 1.1–1.11 regressions.
+- [x] `kali init` and `kali init --lib` produce valid scaffolds.
+- [x] `kali fmt` and `kali fmt --check` are idempotent and correct.
+- [x] `kali lint` and `kali lint --fix` report and fix the Phase-1 built-in rules.
+- [x] Project discovery finds the correct file set for all discovery-driven commands.
+- [x] All integration tests pass.
+- [x] No Stage 1.1–1.11 regressions.

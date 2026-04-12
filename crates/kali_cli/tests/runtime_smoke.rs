@@ -172,6 +172,46 @@ fn test_discovers_fixture_tree_from_cwd() {
 }
 
 #[test]
+fn fmt_check_reports_drift_without_rewriting() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "function add(a,b){return a+b;}").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .arg("fmt")
+        .arg("--check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Would format 1 file(s)"), "stdout: {stdout}");
+    let contents = fs::read_to_string(&source_path).expect("read source");
+    assert_eq!(contents, "function add(a,b){return a+b;}");
+}
+
+#[test]
+fn lint_fix_applies_structured_safe_fixes() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "var x = 1; debugger; if (x == 1) { }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .arg("lint")
+        .arg("--fix")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let contents = fs::read_to_string(&source_path).expect("read source");
+    assert!(contents.contains("let x = 1;"));
+    assert!(contents.contains("==="));
+    assert!(!contents.contains("debugger"));
+}
+
+#[test]
 fn test_filters_selected_files_before_execution() {
     let dir = tempdir().expect("tempdir");
     let keep = dir.path().join("math.test.ts");
