@@ -20,6 +20,14 @@ counting placeholder with deterministic compile-time ownership decisions: `stack
   and fewer RC operations.
 - All Phase-1 tests continue to pass.
 
+## Implementation note
+
+- 2026-04-12: `kali_mir` now exposes the canonical ownership classes (`Stack`, `OwnedHeap`,
+  `SharedHeap`, `Borrowed`) plus deterministic layout descriptors and a scope-level ownership
+  analyzer. Call-expression lowering now emits MIR `Call` nodes as part of the Phase-2 bridge.
+  The benchmark-driven codegen reduction and any deeper lowering refinements remain the next
+  steps for this stage.
+
 ## Tasks
 
 ### 1. MIR node definitions (`kali_mir`)

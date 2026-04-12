@@ -10,6 +10,20 @@
 
 ---
 
+# Stage 2.1 MIR / Ownership Analysis Notes
+
+## Latest Update
+
+- Expanded `kali_mir` from a shape-only bridge into a real MIR analysis layer with canonical ownership classes (`Stack`, `OwnedHeap`, `SharedHeap`, `Borrowed`) and layout descriptors.
+- Added a deterministic intra-procedural ownership analyzer that classifies locals, parameters, returned bindings, and closure-captured bindings.
+- Promoted `CallExpr` lowering to MIR `Call` nodes so the existing LIR/codegen path can recognize call sites directly.
+- Added targeted MIR tests covering stack-local, owned-heap, shared-heap, and call-node lowering behavior.
+
+**Date:** 2026-04-12  
+**Status:** Processed — Stage 2.1 ownership/layout groundwork landed in `kali_mir`
+
+---
+
 # Stage 1.14 Evidence Hardening Notes
 
 ## Latest Update
@@ -126,7 +140,7 @@ All workspace tests pass:
 
 2. **Implement Expression Parsing**: Add `parse_expression()` method:
    - Primary expressions (identifiers, literals)
-   - Call expressions (`fn()`)
+   - Call expressions (`fn()`) 
    - Member expressions (`obj.prop`)
 
 3. **Add Tests**: Write integration tests for parser:
@@ -158,5 +172,5 @@ All workspace tests pass:
 - Runtime smoke coverage now exercises the inherited-browser bundle path, the browser-check inheritance path, and the explicit contradiction cases (`--bundle --api node`, `--lib --api browser`, plain browser-API builds without `--bundle`, and `check --api node`).
 - The stage text and summary have been reconciled with the current CLI surface, so the stage can now be treated as closed.
 
-**Date:** 2026-04-12  
+**Date:** 2026-04-12
 **Status:** Build-artifact stage closed; API-surface gating reconciled
