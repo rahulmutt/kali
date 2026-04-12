@@ -5,7 +5,7 @@
 
 ## Summary
 
-Stage 3.1 now has the first real `kali_optimize` implementation wired into the build pipeline. `release` builds perform deterministic constant folding, branch elimination, and small-call inlining, while `release-advanced` adds algebraic-identity simplification plus dead top-level function pruning after inlining. The CLI build path now invokes the optimizer before WASM codegen, the build command accepts `--max-specializations` as a specialization-budget override, and the incremental cache key now incorporates that cap so different budgets do not collide. The workspace test suite remains green.
+Stage 3.1 now has the first real `kali_optimize` implementation wired into the build pipeline. `release` builds perform deterministic constant folding, branch elimination, and small-call inlining, while `release-advanced` adds algebraic-identity simplification plus dead top-level function pruning after inlining. The CLI build path now invokes the optimizer before WASM codegen, the build command accepts `--max-specializations` as a specialization-budget override, and the incremental cache key now incorporates that cap so different budgets do not collide. The specialization budget is now enforced per function owner, so separate hot paths keep independent caps while the code-size guard still blocks runaway fan-out. The workspace test suite remains green.
 
 ## Evidence
 
@@ -15,6 +15,7 @@ Stage 3.1 now has the first real `kali_optimize` implementation wired into the b
 - `release` now inlines small function bodies, and `release-advanced` prunes dead top-level functions after those inlines land ✅
 - CLI runtime smoke tests now compare `fast`, `release`, and `release-advanced` instruction counts ✅
 - `--max-specializations` now flows through the build pipeline and participates in deterministic cache keys ✅
+- Specialization caps are scoped per function owner, and regression tests cover both shared-root and independent-function budgets ✅
 - Repeated builds now populate and reuse `.kali-cache/incremental/` for unchanged modules ✅
 - `cargo test --workspace` passes ✅
 
@@ -29,7 +30,7 @@ Stage 3.1 now has the first real `kali_optimize` implementation wired into the b
 
 - Full generic/function/layout specialization is still pending; the current work only covers small-function call-site specialization and pruning.
 - `release` / `release-advanced` still rely on the current LIR-level pass set rather than the later MIR-driven specialization model.
-- The optimizer now respects a deterministic specialization budget for distinct optimization shapes, but the richer MIR-driven specialization planner described in the long-term stage plan is still ahead.
+- The optimizer now respects a deterministic specialization budget for distinct optimization shapes, scoped per function owner, but the richer MIR-driven specialization planner described in the long-term stage plan is still ahead.
 
 ## Next Step
 

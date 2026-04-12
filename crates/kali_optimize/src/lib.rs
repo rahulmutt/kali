@@ -59,7 +59,13 @@ impl Optimizer {
             OptimizationLevel::Release | OptimizationLevel::ReleaseAdvanced => {
                 let plan = self.build_specialization_plan(program);
                 let mut tracker = SpecializationTracker::new(self.max_specializations);
-                self.optimize_node(program, program.root, &plan, &mut tracker);
+                self.optimize_node(
+                    program,
+                    program.root,
+                    &plan,
+                    &mut tracker,
+                    "<root>".to_string(),
+                );
 
                 if matches!(self.level, OptimizationLevel::ReleaseAdvanced) {
                     self.prune_dead_top_level_functions(program);
@@ -74,31 +80,39 @@ impl Optimizer {
         id: LirNodeId,
         plan: &SpecializationPlan,
         tracker: &mut SpecializationTracker,
+        owner: String,
     ) {
-        let children = program.nodes[id.0 as usize].children.clone();
-        for child in children {
-            self.optimize_node(program, child, plan, tracker);
+        let snapshot = program.nodes[id.0 as usize].clone();
+        let next_owner = match snapshot.kind {
+            LirNodeKind::Instruction => snapshot
+                .text
+                .as_deref()
+                .filter(|name| plan.functions.contains_key(*name))
+                .map(|name| name.to_string())
+                .unwrap_or_else(|| owner.clone()),
+            _ => owner.clone(),
+        };
+
+        for child in snapshot.children.iter().copied() {
+            self.optimize_node(program, child, plan, tracker, next_owner.clone());
         }
 
-        if matches!(
-            program.nodes[id.0 as usize].kind,
-            LirNodeKind::Program | LirNodeKind::Block
-        ) {
+        if matches!(snapshot.kind, LirNodeKind::Program | LirNodeKind::Block) {
             self.optimize_sequence(program, id);
         }
 
-        if self.optimize_constant_expression(program, id, tracker) {
+        if self.optimize_constant_expression(program, id, tracker, &owner) {
             return;
         }
 
         if matches!(self.level, OptimizationLevel::ReleaseAdvanced)
-            && self.optimize_algebraic_identity(program, id, tracker)
+            && self.optimize_algebraic_identity(program, id, tracker, &owner)
         {
             return;
         }
 
-        if self.optimize_call_site(program, id, plan, tracker) {
-            self.optimize_node(program, id, plan, tracker);
+        if self.optimize_call_site(program, id, plan, tracker, &owner) {
+            self.optimize_node(program, id, plan, tracker, owner);
         }
     }
 
@@ -128,6 +142,7 @@ impl Optimizer {
         program: &mut LirProgram,
         id: LirNodeId,
         tracker: &mut SpecializationTracker,
+        owner: &str,
     ) -> bool {
         let snapshot = program.nodes[id.0 as usize].clone();
         match snapshot.kind {
@@ -148,7 +163,7 @@ impl Optimizer {
                                 op,
                                 node_signature(program, snapshot.children[0])
                             );
-                            if !tracker.allow(key) {
+                            if !tracker.allow(owner, key) {
                                 return false;
                             }
                             program.nodes[id.0 as usize] =
@@ -167,7 +182,7 @@ impl Optimizer {
                                     node_signature(program, snapshot.children[0]),
                                     node_signature(program, snapshot.children[1])
                                 );
-                                if !tracker.allow(key) {
+                                if !tracker.allow(owner, key) {
                                     return false;
                                 }
                                 program.nodes[id.0 as usize] =
@@ -196,7 +211,7 @@ impl Optimizer {
 
                 let Some(chosen) = chosen else {
                     let key = format!("branch:{}", node_signature(program, cond_id));
-                    if !tracker.allow(key) {
+                    if !tracker.allow(owner, key) {
                         return false;
                     }
                     program.nodes[id.0 as usize] =
@@ -205,7 +220,7 @@ impl Optimizer {
                 };
 
                 let key = format!("branch:{}:{}", node_signature(program, cond_id), truthy);
-                if !tracker.allow(key) {
+                if !tracker.allow(owner, key) {
                     return false;
                 }
                 program.nodes[id.0 as usize] = program.nodes[chosen.0 as usize].clone();
@@ -220,6 +235,7 @@ impl Optimizer {
         program: &mut LirProgram,
         id: LirNodeId,
         tracker: &mut SpecializationTracker,
+        owner: &str,
     ) -> bool {
         let snapshot = program.nodes[id.0 as usize].clone();
         let Some(op) = snapshot.text.as_deref() else {
@@ -233,7 +249,7 @@ impl Optimizer {
                     node_signature(program, *left),
                     node_signature(program, *right)
                 );
-                if !tracker.allow(key) {
+                if !tracker.allow(owner, key) {
                     return false;
                 }
                 if literal_value(program, *left) == Some(ConstantValue::Number(0)) {
@@ -252,7 +268,7 @@ impl Optimizer {
                     node_signature(program, *left),
                     node_signature(program, *right)
                 );
-                if !tracker.allow(key) {
+                if !tracker.allow(owner, key) {
                     return false;
                 }
                 if literal_value(program, *right) == Some(ConstantValue::Number(0)) {
@@ -267,7 +283,7 @@ impl Optimizer {
                     node_signature(program, *left),
                     node_signature(program, *right)
                 );
-                if !tracker.allow(key) {
+                if !tracker.allow(owner, key) {
                     return false;
                 }
                 if literal_value(program, *left) == Some(ConstantValue::Number(0))
@@ -292,7 +308,7 @@ impl Optimizer {
                     node_signature(program, *left),
                     node_signature(program, *right)
                 );
-                if !tracker.allow(key) {
+                if !tracker.allow(owner, key) {
                     return false;
                 }
                 match literal_value(program, *left) {
@@ -327,7 +343,7 @@ impl Optimizer {
                     node_signature(program, *left),
                     node_signature(program, *right)
                 );
-                if !tracker.allow(key) {
+                if !tracker.allow(owner, key) {
                     return false;
                 }
                 match literal_value(program, *left) {
@@ -365,6 +381,7 @@ impl Optimizer {
         id: LirNodeId,
         plan: &SpecializationPlan,
         tracker: &mut SpecializationTracker,
+        owner: &str,
     ) -> bool {
         let snapshot = program.nodes[id.0 as usize].clone();
         if snapshot.kind != LirNodeKind::Call {
@@ -406,7 +423,7 @@ impl Optimizer {
             callee_name,
             self.call_signature(program, &snapshot)
         );
-        if !tracker.allow(key) {
+        if !tracker.allow(owner, key) {
             return false;
         }
 
@@ -743,27 +760,29 @@ enum ConstantValue {
 #[derive(Debug)]
 struct SpecializationTracker {
     max_specializations: usize,
-    seen: BTreeSet<String>,
+    seen: BTreeMap<String, BTreeSet<String>>,
 }
 
 impl SpecializationTracker {
     fn new(max_specializations: usize) -> Self {
         Self {
             max_specializations,
-            seen: BTreeSet::new(),
+            seen: BTreeMap::new(),
         }
     }
 
-    fn allow(&mut self, key: String) -> bool {
-        if self.seen.contains(&key) {
+    fn allow(&mut self, owner: impl Into<String>, key: String) -> bool {
+        let owner = owner.into();
+        let seen = self.seen.entry(owner).or_default();
+        if seen.contains(&key) {
             return true;
         }
 
-        if self.seen.len() >= self.max_specializations {
+        if seen.len() >= self.max_specializations {
             return false;
         }
 
-        self.seen.insert(key);
+        seen.insert(key);
         true
     }
 }
@@ -923,6 +942,63 @@ mod tests {
         assert_eq!(first_node.text.as_deref(), Some("3"));
         assert_eq!(second_node.kind, LirNodeKind::Value);
         assert_eq!(second_node.text.as_deref(), Some("+"));
+    }
+
+    #[test]
+    fn specialization_cap_is_scoped_per_function() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let first_function = builder.alloc_text(LirNodeKind::Instruction, "first");
+        let first_param = builder.alloc_text(LirNodeKind::Value, "x");
+        let first_block = builder.alloc(LirNodeKind::Block);
+        let first_return = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let first_expr = builder.alloc_text(LirNodeKind::Value, "+");
+        let first_left = literal(&mut builder, "1");
+        let first_right = literal(&mut builder, "2");
+        builder.node_mut(first_expr).unwrap().children = vec![first_left, first_right];
+        builder.node_mut(first_return).unwrap().children = vec![first_expr];
+        builder.node_mut(first_block).unwrap().children = vec![first_return];
+        builder.node_mut(first_function).unwrap().children = vec![first_param, first_block];
+
+        let second_function = builder.alloc_text(LirNodeKind::Instruction, "second");
+        let second_param = builder.alloc_text(LirNodeKind::Value, "y");
+        let second_block = builder.alloc(LirNodeKind::Block);
+        let second_return = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let second_expr = builder.alloc_text(LirNodeKind::Value, "+");
+        let second_left = literal(&mut builder, "3");
+        let second_right = literal(&mut builder, "4");
+        builder.node_mut(second_expr).unwrap().children = vec![second_left, second_right];
+        builder.node_mut(second_return).unwrap().children = vec![second_expr];
+        builder.node_mut(second_block).unwrap().children = vec![second_return];
+        builder.node_mut(second_function).unwrap().children = vec![second_param, second_block];
+
+        builder.node_mut(root).unwrap().children = vec![first_function, second_function];
+
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        Optimizer::with_max_specializations(OptimizationLevel::Release, 1)
+            .optimize_program(&mut program);
+
+        assert_eq!(
+            program.nodes[first_expr.0 as usize].kind,
+            LirNodeKind::Literal
+        );
+        assert_eq!(
+            program.nodes[first_expr.0 as usize].text.as_deref(),
+            Some("3")
+        );
+        assert_eq!(
+            program.nodes[second_expr.0 as usize].kind,
+            LirNodeKind::Literal
+        );
+        assert_eq!(
+            program.nodes[second_expr.0 as usize].text.as_deref(),
+            Some("7")
+        );
     }
 
     #[test]
