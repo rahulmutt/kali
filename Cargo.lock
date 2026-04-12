@@ -1224,6 +1224,7 @@ dependencies = [
  "kali_cli",
  "kali_common",
  "kali_error",
+ "tempfile",
 ]
 
 [[package]]

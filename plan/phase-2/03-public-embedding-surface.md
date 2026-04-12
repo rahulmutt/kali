@@ -20,6 +20,15 @@ stabilise the public Rust embedding API in `kali_embed`.
 - The public Rust embedding API in `kali_embed` is stable and documented.
 - Phase-1 gating tests for these surfaces are updated to positive coverage.
 
+## Progress
+
+- 2026-04-12: `kali_embed` now exposes a stable `KaliCompiler` API with
+  `compile_file` / `compile_lib` entry points, deterministic artifact metadata,
+  and a library-side WIT sidecar generated from the statically known export surface.
+- The CLI `--capi` / `--component` gates remain in place for now; this work
+  establishes the in-process embedding foundation without widening the public
+  command surface prematurely.
+
 ## Tasks
 
 ### 1. Stable WIT-first `--lib` contract
