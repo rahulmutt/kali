@@ -19,7 +19,7 @@ use kali_types::TypeContext;
 use serde::Serialize;
 use wasm_encoder::{CustomSection, Section};
 
-use crate::is_declaration_only_source_file;
+use crate::{is_declaration_only_source_file, ApiSurface};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildMode {
@@ -59,8 +59,11 @@ pub struct ArtifactMetadata {
     pub exports: Option<Vec<LibraryExport>>,
 }
 
-pub fn check_source_file(source_path: impl AsRef<Path>) -> Result<(), Vec<Diagnostic>> {
-    let _analysis = analyze_source_file(source_path.as_ref())?;
+pub fn check_source_file(
+    source_path: impl AsRef<Path>,
+    api_surface: ApiSurface,
+) -> Result<(), Vec<Diagnostic>> {
+    let _analysis = analyze_source_file(source_path.as_ref(), api_surface)?;
     Ok(())
 }
 
@@ -75,10 +78,13 @@ pub fn compile_source_file_with_cache_state(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
     max_specializations: usize,
+    api_surface: ApiSurface,
 ) -> Result<CompileOutput, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
 
-    if let Some(cache_path) = incremental_cache_path(source_path, mode, max_specializations)? {
+    if let Some(cache_path) =
+        incremental_cache_path(source_path, mode, max_specializations, api_surface)?
+    {
         match fs::read(&cache_path) {
             Ok(wasm_bytes) => {
                 return Ok(CompileOutput {
@@ -100,7 +106,8 @@ pub fn compile_source_file_with_cache_state(
             }
         }
 
-        let wasm_bytes = compile_source_file_uncached(source_path, mode, max_specializations)?;
+        let wasm_bytes =
+            compile_source_file_uncached(source_path, mode, max_specializations, api_surface)?;
 
         if let Some(parent) = cache_path.parent() {
             let _ = fs::create_dir_all(parent);
@@ -113,7 +120,8 @@ pub fn compile_source_file_with_cache_state(
             cache_path: Some(cache_path),
         })
     } else {
-        let wasm_bytes = compile_source_file_uncached(source_path, mode, max_specializations)?;
+        let wasm_bytes =
+            compile_source_file_uncached(source_path, mode, max_specializations, api_surface)?;
         Ok(CompileOutput {
             wasm_bytes,
             cache_hit: false,
@@ -125,16 +133,18 @@ pub fn compile_source_file_with_cache_state(
 pub fn compile_source_file(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
+    api_surface: ApiSurface,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    compile_source_file_with_specialization_cap(source_path, mode, 16)
+    compile_source_file_with_specialization_cap(source_path, mode, 16, api_surface)
 }
 
 pub fn compile_source_file_with_specialization_cap(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
     max_specializations: usize,
+    api_surface: ApiSurface,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    compile_source_file_with_cache_state(source_path, mode, max_specializations)
+    compile_source_file_with_cache_state(source_path, mode, max_specializations, api_surface)
         .map(|output| output.wasm_bytes)
 }
 
@@ -142,8 +152,9 @@ fn compile_source_file_uncached(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
     max_specializations: usize,
+    api_surface: ApiSurface,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    let analyzed = analyze_source_file(source_path.as_ref())?;
+    let analyzed = analyze_source_file(source_path.as_ref(), api_surface)?;
 
     let mut hir_lowerer = HirLowerer::new();
     let hir = hir_lowerer.lower_statements(&analyzed.statements);
@@ -182,6 +193,7 @@ fn incremental_cache_path(
     source_path: &Path,
     mode: BuildMode,
     max_specializations: usize,
+    api_surface: ApiSurface,
 ) -> Result<Option<PathBuf>, Vec<Diagnostic>> {
     let source_hash = source_hash_for_file(source_path).map_err(|error| {
         vec![Diagnostic::error(
@@ -197,9 +209,10 @@ fn incremental_cache_path(
         return Ok(None);
     };
     let cache_key = format!(
-        "{}-{}-{}-{}",
+        "{}-{}-{}-{}-{}",
         source_hash,
         build_mode_name(mode),
+        api_surface,
         max_specializations,
         env!("CARGO_PKG_VERSION")
     );
@@ -221,7 +234,10 @@ fn project_root_for_source(source_path: &Path) -> Option<PathBuf> {
     None
 }
 
-fn analyze_source_file(source_path: &Path) -> Result<AnalyzedSource, Vec<Diagnostic>> {
+fn analyze_source_file(
+    source_path: &Path,
+    api_surface: ApiSurface,
+) -> Result<AnalyzedSource, Vec<Diagnostic>> {
     let source = fs::read_to_string(source_path).map_err(|error| {
         vec![Diagnostic::error(
             e8::INTERNAL_ERROR as u32,
@@ -244,7 +260,8 @@ fn analyze_source_file(source_path: &Path) -> Result<AnalyzedSource, Vec<Diagnos
     }
 
     if !is_declaration_only_source_file(source_path) {
-        let mut resolver = TypeContext::with_base_path(source_path);
+        let mut resolver =
+            TypeContext::with_base_path_and_api_surface(source_path, api_surface.to_string());
         let resolved = resolver.resolve_statements_in_file(source_path, &parsed.statements);
         diagnostics.extend(resolved.diagnostics);
         if has_errors(&diagnostics) {
@@ -266,12 +283,19 @@ struct AnalyzedSource {
 pub fn build_source_file(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
+    api_surface: ApiSurface,
     out_dir: Option<&Path>,
     sandbox_policy: Option<&SandboxPolicy>,
 ) -> Result<BuildOutput, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
-    let mut wasm_bytes = compile_source_file(source_path, mode)?;
-    let metadata = build_artifact_metadata(source_path, "executable", mode, "deno", None)?;
+    let mut wasm_bytes = compile_source_file(source_path, mode, api_surface)?;
+    let metadata = build_artifact_metadata(
+        source_path,
+        "executable",
+        mode,
+        &api_surface.to_string(),
+        None,
+    )?;
     append_metadata_section(&mut wasm_bytes, &metadata)?;
 
     if let Some(policy) = sandbox_policy {
@@ -677,7 +701,7 @@ mod tests {
         )
         .expect("write source");
 
-        let output = build_source_file(&source_path, BuildMode::Fast, None, None)
+        let output = build_source_file(&source_path, BuildMode::Fast, ApiSurface::Deno, None, None)
             .expect("build should succeed");
 
         assert!(output.output_path.exists());
@@ -693,8 +717,13 @@ mod tests {
         let source_path = dir.path().join("main.ts");
         fs::write(&source_path, "console.log(1);").expect("write source");
 
-        let first = compile_source_file_with_cache_state(&source_path, BuildMode::Release, 16)
-            .expect("first compile");
+        let first = compile_source_file_with_cache_state(
+            &source_path,
+            BuildMode::Release,
+            16,
+            ApiSurface::Deno,
+        )
+        .expect("first compile");
         assert!(!first.cache_hit);
         let first_cache_path = first
             .cache_path
@@ -705,8 +734,13 @@ mod tests {
             "cache path should be written on first build"
         );
 
-        let second = compile_source_file_with_cache_state(&source_path, BuildMode::Release, 16)
-            .expect("second compile");
+        let second = compile_source_file_with_cache_state(
+            &source_path,
+            BuildMode::Release,
+            16,
+            ApiSurface::Deno,
+        )
+        .expect("second compile");
         assert!(second.cache_hit);
         assert_eq!(first.wasm_bytes, second.wasm_bytes);
         assert_eq!(first.cache_path, second.cache_path);

@@ -219,10 +219,16 @@ fn check_uses_inherited_browser_api_surface() {
 }
 
 #[test]
-fn check_rejects_node_api_surface() {
+fn check_accepts_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(&source_path, "let value = 1 + 2; value;").expect("write source");
+    fs::write(
+        &source_path,
+        r#"import 'node:path';
+console.log('ok');
+"#,
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -233,10 +239,12 @@ fn check_rejects_node_api_surface() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -1035,10 +1043,16 @@ fn build_rejects_explicit_node_bundle_api_surface() {
 }
 
 #[test]
-fn build_rejects_explicit_node_api_surface() {
+fn build_accepts_explicit_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(&source_path, "console.log(1);").expect("write source");
+    fs::write(
+        &source_path,
+        r#"import 'node:path';
+console.log(1);
+"#,
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -1049,10 +1063,14 @@ fn build_rejects_explicit_node_api_surface() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    assert!(source_path.with_file_name("main.wasm").exists());
 }
 
 #[test]
@@ -1489,18 +1507,66 @@ fn install_dev_requires_an_explicit_registry_target() {
 }
 
 #[test]
-fn run_rejects_node_api_surface_in_phase_one() {
+fn run_accepts_node_api_surface() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"import 'node:path';
+1 + 2;
+"#,
+    )
+    .expect("write source");
+
     let output = Command::new(kali_bin())
+        .current_dir(dir.path())
         .arg("run")
         .arg("--api")
         .arg("node")
-        .arg(fixture_path("run/hello.ts"))
+        .arg(&source_path)
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_accepts_node_api_surface() {
+    let dir = tempdir().expect("tempdir");
+    let source_dir = dir.path().join("tests");
+    fs::create_dir_all(&source_dir).expect("create test dir");
+    let test_path = source_dir.join("node.test.ts");
+    fs::write(
+        &test_path,
+        r#"import 'node:path';
+Kali.test('node', () => {
+    console.log('node test ok');
+});
+"#,
+    )
+    .expect("write test source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("node")
+        .arg(&test_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok"), "stdout: {stdout}");
 }
 
 #[test]

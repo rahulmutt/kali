@@ -81,6 +81,7 @@ pub struct TypeContext {
     next_scope_id: u32,
     next_binding_id: u32,
     base_path: Option<PathBuf>,
+    api_surface: String,
 }
 
 impl TypeContext {
@@ -88,8 +89,7 @@ impl TypeContext {
         let mut global_scope = Scope::new(ScopeType::Global, None);
         let mut next_binding_id = 0u32;
         for builtin in builtin_globals() {
-            global_scope.bind(*builtin, NodeId::new(next_binding_id));
-            next_binding_id += 1;
+            bind_builtin(&mut global_scope, &mut next_binding_id, builtin);
         }
 
         Self {
@@ -101,6 +101,7 @@ impl TypeContext {
             next_scope_id: 1,
             next_binding_id,
             base_path: None,
+            api_surface: "deno".to_string(),
         }
     }
 
@@ -108,6 +109,34 @@ impl TypeContext {
         let mut ctx = Self::new();
         ctx.base_path = Some(base_path.as_ref().to_path_buf());
         ctx
+    }
+
+    pub fn with_base_path_and_api_surface(
+        base_path: impl AsRef<Path>,
+        api_surface: impl Into<String>,
+    ) -> Self {
+        let mut ctx = Self::with_base_path(base_path);
+        ctx.set_api_surface(api_surface);
+        ctx
+    }
+
+    pub fn with_api_surface(api_surface: impl Into<String>) -> Self {
+        let mut ctx = Self::new();
+        ctx.set_api_surface(api_surface);
+        ctx
+    }
+
+    pub fn api_surface(&self) -> &str {
+        &self.api_surface
+    }
+
+    pub fn set_api_surface(&mut self, api_surface: impl Into<String>) {
+        self.api_surface = api_surface.into();
+        if self.api_surface == "node" {
+            for builtin in node_builtin_globals() {
+                bind_builtin(&mut self.global_scope, &mut self.next_binding_id, builtin);
+            }
+        }
     }
 
     pub fn push_scope(&mut self, scope_type: ScopeType) -> NodeId {
@@ -812,6 +841,10 @@ impl TypeContext {
     }
 
     fn resolve_import_source(&self, source: &str) -> bool {
+        if self.api_surface == "node" && is_node_builtin_specifier(source) {
+            return true;
+        }
+
         let base_dir = self
             .base_path
             .as_ref()
@@ -966,6 +999,46 @@ fn builtin_globals() -> &'static [&'static str] {
     ]
 }
 
+fn node_builtin_globals() -> &'static [&'static str] {
+    &["Buffer", "process"]
+}
+
+fn node_builtin_specifiers() -> &'static [&'static str] {
+    &[
+        "assert",
+        "buffer",
+        "child_process",
+        "crypto",
+        "events",
+        "fs",
+        "fs/promises",
+        "http",
+        "https",
+        "os",
+        "path",
+        "process",
+        "stream",
+        "url",
+        "util",
+    ]
+}
+
+fn is_node_builtin_specifier(source: &str) -> bool {
+    let normalized = source.strip_prefix("node:").unwrap_or(source);
+    node_builtin_specifiers().contains(&normalized)
+}
+
+fn bind_builtin(scope: &mut Scope, next_binding_id: &mut u32, name: &str) {
+    if scope.contains(name) {
+        return;
+    }
+
+    scope.bind(name, NodeId::new(*next_binding_id));
+    *next_binding_id = next_binding_id
+        .checked_add(1)
+        .expect("binding id overflow is unreachable in stage 1");
+}
+
 fn duplicate_binding(name: &str) -> Diagnostic {
     Diagnostic::error(
         e3::DUPLICATE_BINDING as u32,
@@ -1077,6 +1150,39 @@ mod tests {
         let statements = vec![Statement::ImportDeclaration(ImportDeclaration {
             specifiers: vec![ImportSpecifier::Default("value".to_string())],
             source: "./definitely-missing-file.ts".to_string(),
+        })];
+
+        let result = ctx.resolve_statements_at_path(Some("."), &statements);
+        assert_eq!(
+            result.diagnostics[0].code,
+            Some(e3::IMPORT_NOT_FOUND as u32)
+        );
+    }
+
+    #[test]
+    fn test_resolution_allows_node_builtin_imports_in_node_context() {
+        let mut ctx = TypeContext::with_base_path_and_api_surface(".", "node");
+        assert!(ctx.is_defined("process"));
+
+        let statements = vec![Statement::ImportDeclaration(ImportDeclaration {
+            specifiers: vec![ImportSpecifier::Default("fs".to_string())],
+            source: "node:fs/promises".to_string(),
+        })];
+
+        let result = ctx.resolve_statements_at_path(Some("."), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn test_resolution_rejects_node_builtin_imports_outside_node_context() {
+        let mut ctx = TypeContext::with_base_path(".");
+        let statements = vec![Statement::ImportDeclaration(ImportDeclaration {
+            specifiers: vec![ImportSpecifier::Default("fs".to_string())],
+            source: "node:fs/promises".to_string(),
         })];
 
         let result = ctx.resolve_statements_at_path(Some("."), &statements);

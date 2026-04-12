@@ -54,7 +54,8 @@ impl KaliCompiler {
     /// Compile a source file into a standalone executable artifact.
     pub fn compile_file(&self, path: &Path) -> Result<CompiledArtifact, CompileError> {
         let mut wasm_bytes =
-            build::compile_source_file(path, self.config.build_mode).map_err(CompileError::from)?;
+            build::compile_source_file(path, self.config.build_mode, self.config.api_surface)
+                .map_err(CompileError::from)?;
         let metadata = build::build_artifact_metadata(
             path,
             "executable",
@@ -75,7 +76,8 @@ impl KaliCompiler {
     pub fn compile_lib(&self, path: &Path) -> Result<LibArtifact, CompileError> {
         let exports = build::collect_library_exports(path).map_err(CompileError::from)?;
         let mut wasm_bytes =
-            build::compile_source_file(path, self.config.build_mode).map_err(CompileError::from)?;
+            build::compile_source_file(path, self.config.build_mode, self.config.api_surface)
+                .map_err(CompileError::from)?;
         let metadata = build::build_artifact_metadata(
             path,
             "lib",

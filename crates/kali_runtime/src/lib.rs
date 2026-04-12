@@ -16,7 +16,7 @@ use wasmtime::{
 };
 
 /// Runtime context.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct RuntimeCtx {
     /// Sandbox policy.
     pub policy: Option<SandboxPolicy>,
@@ -26,6 +26,8 @@ pub struct RuntimeCtx {
     pub env: BTreeMap<String, String>,
     /// Current working directory used for relative host-path resolution.
     pub cwd: PathBuf,
+    /// Selected API surface for the current execution context.
+    pub api_surface: String,
 }
 
 /// Host-side state owned by the runtime.
@@ -89,10 +91,33 @@ pub struct RuntimeOutcome {
     pub stderr: String,
 }
 
+impl Default for RuntimeCtx {
+    fn default() -> Self {
+        Self {
+            policy: None,
+            args: Vec::new(),
+            env: BTreeMap::new(),
+            cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            api_surface: "deno".to_string(),
+        }
+    }
+}
+
 impl RuntimeCtx {
     pub fn new(policy: Option<SandboxPolicy>) -> Self {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         Self::with_host_context(policy, Vec::new(), capture_env(), cwd)
+    }
+
+    pub fn with_api_surface(policy: Option<SandboxPolicy>, api_surface: impl Into<String>) -> Self {
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        Self::with_host_context_with_api_surface(
+            policy,
+            Vec::new(),
+            capture_env(),
+            cwd,
+            api_surface,
+        )
     }
 
     pub fn with_host_context(
@@ -101,11 +126,22 @@ impl RuntimeCtx {
         env: BTreeMap<String, String>,
         cwd: PathBuf,
     ) -> Self {
+        Self::with_host_context_with_api_surface(policy, args, env, cwd, "deno")
+    }
+
+    pub fn with_host_context_with_api_surface(
+        policy: Option<SandboxPolicy>,
+        args: Vec<String>,
+        env: BTreeMap<String, String>,
+        cwd: PathBuf,
+        api_surface: impl Into<String>,
+    ) -> Self {
         Self {
             policy,
             args,
             env,
             cwd,
+            api_surface: api_surface.into(),
         }
     }
 

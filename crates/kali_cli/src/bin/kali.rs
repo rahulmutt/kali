@@ -221,14 +221,6 @@ fn check_command(
         }
     };
 
-    if matches!(effective_api, kali_cli::ApiSurface::Node) {
-        let diagnostic = Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            "selected API surface is unavailable in this phase",
-        );
-        return emit_diagnostics_and_exit("check", vec![diagnostic], 5, output, None, None);
-    }
-
     let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
 
@@ -256,7 +248,7 @@ fn check_command(
 
     for file in selected_files {
         checked += 1;
-        match build::check_source_file(&file) {
+        match build::check_source_file(&file, effective_api) {
             Ok(()) => {
                 successful_files.push(PathBuf::from(&file));
             }
@@ -370,12 +362,6 @@ fn build_command(
         let diagnostic = Diagnostic::error(
             e5::INVALID_CLI_USAGE as u32,
             "`kali build` without `--bundle` is not valid for the browser API surface",
-        );
-        return emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
-    } else if matches!(effective_api, kali_cli::ApiSurface::Node) {
-        let diagnostic = Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            "selected API surface is unavailable in this phase",
         );
         return emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
     }
@@ -706,8 +692,12 @@ fn build_executable_artifact(
     api_surface: kali_cli::ApiSurface,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let mut wasm_bytes =
-        build::compile_source_file_with_specialization_cap(&source, mode, max_specializations)?;
+    let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
+        &source,
+        mode,
+        max_specializations,
+        api_surface,
+    )?;
     let metadata = build::build_artifact_metadata(
         &source,
         "executable",
@@ -770,8 +760,12 @@ fn build_library_artifact(
     api_surface: kali_cli::ApiSurface,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let mut wasm_bytes =
-        build::compile_source_file_with_specialization_cap(&source, mode, max_specializations)?;
+    let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
+        &source,
+        mode,
+        max_specializations,
+        api_surface,
+    )?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
@@ -861,8 +855,12 @@ fn build_capi_artifact(
     api_surface: kali_cli::ApiSurface,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let mut wasm_bytes =
-        build::compile_source_file_with_specialization_cap(&source, mode, max_specializations)?;
+    let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
+        &source,
+        mode,
+        max_specializations,
+        api_surface,
+    )?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
@@ -988,8 +986,12 @@ fn build_component_artifact(
     api_surface: kali_cli::ApiSurface,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let wasm_bytes =
-        build::compile_source_file_with_specialization_cap(&source, mode, max_specializations)?;
+    let wasm_bytes = build::compile_source_file_with_specialization_cap(
+        &source,
+        mode,
+        max_specializations,
+        api_surface,
+    )?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
@@ -1089,8 +1091,12 @@ fn build_browser_bundle_artifact(
     api_surface: kali_cli::ApiSurface,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let mut wasm_bytes =
-        build::compile_source_file_with_specialization_cap(&source, mode, max_specializations)?;
+    let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
+        &source,
+        mode,
+        max_specializations,
+        api_surface,
+    )?;
     let exports = build::collect_library_exports(&source).unwrap_or_default();
     let metadata = build::build_artifact_metadata(
         &source,
@@ -1226,10 +1232,14 @@ fn run_command(
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
-    if matches!(
-        api,
-        Some(kali_cli::ApiSurface::Node | kali_cli::ApiSurface::Browser)
-    ) {
+    let effective_api = match resolve_effective_api_surface(api) {
+        Ok(api) => api,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
+        }
+    };
+
+    if matches!(effective_api, kali_cli::ApiSurface::Browser) {
         let diagnostic = Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             "selected API surface is unavailable in this phase",
@@ -1247,21 +1257,22 @@ fn run_command(
         return emit_diagnostics_and_exit("run", vec![diagnostic], 5, output, None, None);
     }
 
-    let wasm_bytes = match build::compile_source_file(&source, build::BuildMode::Fast) {
-        Ok(bytes) => bytes,
-        Err(diagnostics) => {
-            return emit_diagnostics_and_exit(
-                "run",
-                diagnostics,
-                1,
-                output,
-                Some(&source),
-                fs::read_to_string(&source).ok().as_deref(),
-            )
-        }
-    };
+    let wasm_bytes =
+        match build::compile_source_file(&source, build::BuildMode::Fast, effective_api) {
+            Ok(bytes) => bytes,
+            Err(diagnostics) => {
+                return emit_diagnostics_and_exit(
+                    "run",
+                    diagnostics,
+                    1,
+                    output,
+                    Some(&source),
+                    fs::read_to_string(&source).ok().as_deref(),
+                )
+            }
+        };
 
-    let runtime = RuntimeCtx::new(policy.clone());
+    let runtime = RuntimeCtx::with_api_surface(policy.clone(), effective_api.to_string());
     let start = Instant::now();
     match runtime.execute(&wasm_bytes) {
         Ok(outcome) => {
@@ -1316,16 +1327,20 @@ fn test_command(
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
-    if matches!(
-        api,
-        Some(kali_cli::ApiSurface::Node | kali_cli::ApiSurface::Browser)
-    ) {
+    if matches!(api, Some(kali_cli::ApiSurface::Browser)) {
         let diagnostic = Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             "selected API surface is unavailable in this phase",
         );
         return emit_diagnostics_and_exit("test", vec![diagnostic], 1, output, None, None);
     }
+
+    let effective_api = match resolve_effective_api_surface(api) {
+        Ok(api) => api,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
+        }
+    };
 
     if coverage {
         let diagnostic = Diagnostic::error(
@@ -1408,7 +1423,7 @@ fn test_command(
         return Ok(());
     }
 
-    let runtime = RuntimeCtx::new(policy.clone());
+    let runtime = RuntimeCtx::with_api_surface(policy.clone(), effective_api.to_string());
     let mut total = 0usize;
     let mut passed = 0usize;
     let mut failed = 0usize;
@@ -1419,19 +1434,20 @@ fn test_command(
 
     for file in filtered_files {
         let source = PathBuf::from(&file);
-        let wasm_bytes = match build::compile_source_file(&source, build::BuildMode::Fast) {
-            Ok(bytes) => bytes,
-            Err(errs) => {
-                diagnostics.extend(errs.clone());
-                if !output.is_json() {
-                    for diagnostic in errs {
-                        eprintln!("{}", diagnostic);
+        let wasm_bytes =
+            match build::compile_source_file(&source, build::BuildMode::Fast, effective_api) {
+                Ok(bytes) => bytes,
+                Err(errs) => {
+                    diagnostics.extend(errs.clone());
+                    if !output.is_json() {
+                        for diagnostic in errs {
+                            eprintln!("{}", diagnostic);
+                        }
                     }
+                    failed += 1;
+                    continue;
                 }
-                failed += 1;
-                continue;
-            }
-        };
+            };
 
         match runtime.execute_tests(&wasm_bytes) {
             Ok(outcome) => {
@@ -1719,21 +1735,6 @@ fn effects_command(files: Vec<String>, output: &CliOutputOptions) -> Result<(), 
             );
         }
     };
-    if matches!(effective_api, kali_cli::ApiSurface::Node) {
-        let diagnostic = Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            "selected API surface is unavailable in this phase",
-        );
-        return emit_diagnostics_and_exit(
-            "effects",
-            vec![diagnostic],
-            5,
-            output,
-            Some(&source),
-            fs::read_to_string(&source).ok().as_deref(),
-        );
-    }
-
     let context = analysis_context_for_api(effective_api);
     let inference = match infer_effects_from_roots(&[source.clone()], context.clone()) {
         Ok(inference) => inference,
@@ -1856,21 +1857,6 @@ fn package_effects_command(target: String, output: &CliOutputOptions) -> Result<
             );
         }
     };
-    if matches!(effective_api, kali_cli::ApiSurface::Node) {
-        let diagnostic = Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            "selected API surface is unavailable in this phase",
-        );
-        return emit_diagnostics_and_exit(
-            "package-effects",
-            vec![diagnostic],
-            5,
-            output,
-            None,
-            None,
-        );
-    }
-
     let context = analysis_context_for_api(effective_api);
     let inference = match infer_effects_from_roots(&[entry_path.clone()], context.clone()) {
         Ok(inference) => inference,
