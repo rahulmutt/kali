@@ -12,6 +12,7 @@ use kali_hir::HirLowerer;
 use kali_lexer::Lexer;
 use kali_lir::LirLowerer;
 use kali_mir::MirLowerer;
+use kali_optimize::{OptimizationLevel, Optimizer};
 use kali_parser::Parser;
 use kali_sandbox::SandboxPolicy;
 use kali_types::TypeContext;
@@ -78,7 +79,14 @@ pub fn compile_source_file(
     }
 
     let mir = MirLowerer::new().lower_hir_result(&hir);
-    let lir = LirLowerer::new().lower_program(&mir);
+    let mut lir = LirLowerer::new().lower_program(&mir);
+
+    let optimization_level = match mode {
+        BuildMode::Fast => OptimizationLevel::Fast,
+        BuildMode::Release => OptimizationLevel::Release,
+        BuildMode::ReleaseAdvanced => OptimizationLevel::ReleaseAdvanced,
+    };
+    Optimizer::new(optimization_level).optimize_program(&mut lir);
 
     let mut ctx = CodegenCtx::new(TargetConfig {
         optimize: !matches!(mode, BuildMode::Fast),

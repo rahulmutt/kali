@@ -72,3 +72,5 @@
   - Added `effects`, `package-effects`, `package-audit`, `build --capi`, `build --component`, and `run`/`test` API-surface gating so Phase-2+ surfaces now fail with the canonical `E5006` path instead of plain unknown-command parsing.
 - [x] Embedding API scaffolding
   - `kali_embed` now exposes `KaliCompiler`, `CompiledArtifact`, `LibArtifact`, and deterministic WIT sidecar generation for the statically known export surface.
+- [x] Stage 3.1 optimization scaffolding
+  - `kali_optimize` now performs release constant folding, constant-branch elimination, and release-advanced algebraic identities, and the CLI build path wires those passes into WASM generation.

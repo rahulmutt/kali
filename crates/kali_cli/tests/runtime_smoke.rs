@@ -6,7 +6,7 @@ use std::{
 };
 
 use serde_json::{json, Value};
-use wasmparser::{Parser, Payload};
+use wasmparser::{Operator, Parser, Payload};
 
 use tempfile::tempdir;
 
@@ -44,6 +44,22 @@ fn read_artifact_bytes(paths: &[PathBuf]) -> BTreeMap<PathBuf, Vec<u8>> {
 fn assert_artifact_bytes_stable(paths: &[PathBuf], first: &BTreeMap<PathBuf, Vec<u8>>) {
     let second = read_artifact_bytes(paths);
     assert_eq!(first, &second, "artifact outputs differed between builds");
+}
+
+fn count_i64_adds(bytes: &[u8]) -> usize {
+    let mut count = 0;
+    for payload in Parser::new(0).parse_all(bytes) {
+        if let Ok(Payload::CodeSectionEntry(body)) = payload {
+            let mut reader = body.get_operators_reader().expect("operators reader");
+            while !reader.eof() {
+                match reader.read().expect("read operator") {
+                    Operator::I64Add => count += 1,
+                    _ => {}
+                }
+            }
+        }
+    }
+    count
 }
 
 fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
@@ -674,6 +690,116 @@ fn build_emits_browser_bundle_artifacts() {
     assert_eq!(metadata["apiSurface"], "browser");
 
     assert_browser_bundle_executes(&bundle_dir, "greet");
+}
+
+#[test]
+fn release_build_constant_folds_literal_expressions() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.ts");
+    fs::write(
+        &source_path,
+        "function main() { return 1 + 2 + 3; } main();",
+    )
+    .expect("write source");
+
+    let fast_dir = dir.path().join("fast");
+    let fast_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--fast")
+        .arg("--out-dir")
+        .arg(&fast_dir)
+        .arg(&source_path)
+        .output()
+        .expect("run kali fast build");
+    assert!(
+        fast_output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&fast_output.stdout),
+        String::from_utf8_lossy(&fast_output.stderr)
+    );
+
+    let release_dir = dir.path().join("release");
+    let release_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--release")
+        .arg("--out-dir")
+        .arg(&release_dir)
+        .arg(&source_path)
+        .output()
+        .expect("run kali release build");
+    assert!(
+        release_output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&release_output.stdout),
+        String::from_utf8_lossy(&release_output.stderr)
+    );
+
+    let fast_wasm = fs::read(fast_dir.join("math.wasm")).expect("read fast wasm");
+    let release_wasm = fs::read(release_dir.join("math.wasm")).expect("read release wasm");
+    let fast_adds = count_i64_adds(&fast_wasm);
+    let release_adds = count_i64_adds(&release_wasm);
+
+    assert!(
+        release_adds < fast_adds,
+        "expected release build to reduce add instructions (fast={fast_adds}, release={release_adds})"
+    );
+}
+
+#[test]
+fn release_advanced_strengthens_algebraic_simplification() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.ts");
+    fs::write(
+        &source_path,
+        "function addZero(x) { return x + 0; } addZero(1);",
+    )
+    .expect("write source");
+
+    let release_dir = dir.path().join("release");
+    let release_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--release")
+        .arg("--out-dir")
+        .arg(&release_dir)
+        .arg(&source_path)
+        .output()
+        .expect("run kali release build");
+    assert!(
+        release_output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&release_output.stdout),
+        String::from_utf8_lossy(&release_output.stderr)
+    );
+
+    let advanced_dir = dir.path().join("advanced");
+    let advanced_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--release-advanced")
+        .arg("--out-dir")
+        .arg(&advanced_dir)
+        .arg(&source_path)
+        .output()
+        .expect("run kali release-advanced build");
+    assert!(
+        advanced_output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&advanced_output.stdout),
+        String::from_utf8_lossy(&advanced_output.stderr)
+    );
+
+    let release_wasm = fs::read(release_dir.join("math.wasm")).expect("read release wasm");
+    let advanced_wasm = fs::read(advanced_dir.join("math.wasm")).expect("read advanced wasm");
+    let release_adds = count_i64_adds(&release_wasm);
+    let advanced_adds = count_i64_adds(&advanced_wasm);
+
+    assert!(
+        advanced_adds < release_adds,
+        "expected release-advanced build to reduce add instructions further (release={release_adds}, advanced={advanced_adds})"
+    );
 }
 
 #[test]
@@ -1478,7 +1604,11 @@ fn build_emits_component_artifacts_and_valid_component_bytes() {
     let component_path = source_path.with_file_name("lib.component.wasm");
     let wit_path = source_path.with_file_name("lib.wit");
     let meta_path = source_path.with_file_name("lib.component.meta.json");
-    assert!(component_path.exists(), "missing {}", component_path.display());
+    assert!(
+        component_path.exists(),
+        "missing {}",
+        component_path.display()
+    );
     assert!(wit_path.exists(), "missing {}", wit_path.display());
     assert!(meta_path.exists(), "missing {}", meta_path.display());
 

@@ -1181,6 +1181,7 @@ dependencies = [
  "kali_lir",
  "kali_mir",
  "kali_npm",
+ "kali_optimize",
  "kali_parser",
  "kali_runtime",
  "kali_sandbox",

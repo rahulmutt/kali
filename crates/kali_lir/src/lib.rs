@@ -81,6 +81,10 @@ impl LirBuilder {
     pub fn node_mut(&mut self, id: LirNodeId) -> Option<&mut LirNode> {
         self.nodes.get_mut(id.0 as usize)
     }
+
+    pub fn into_nodes(self) -> Vec<LirNode> {
+        self.nodes
+    }
 }
 
 /// LIR lowering result.
