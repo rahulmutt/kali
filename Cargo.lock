@@ -1197,7 +1197,11 @@ version = "0.1.0"
 dependencies = [
  "kali_common",
  "kali_error",
+ "kali_hir",
+ "kali_lexer",
  "kali_lir",
+ "kali_mir",
+ "kali_parser",
  "serde",
  "wasm-encoder 0.240.0",
  "wasmparser 0.240.0",

@@ -13,4 +13,9 @@ wasm-encoder = { workspace = true }
 wasmparser = { workspace = true }
 
 [dev-dependencies]
+kali_common = { workspace = true }
+kali_hir = { workspace = true }
+kali_lexer = { workspace = true }
+kali_mir = { workspace = true }
+kali_parser = { workspace = true }
 wasmprinter = "0.240"

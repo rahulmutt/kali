@@ -645,4 +645,153 @@ mod tests {
         assert_eq!(plans[0].name, "add");
         assert_eq!(plans[0].params, vec!["a", "b"]);
     }
+
+    fn legacy_phase1_baseline(program: &LirProgram, mir: &kali_mir::MirProgram) -> LirProgram {
+        let mut nodes = program.nodes.clone();
+        let mut extra_nodes = Vec::new();
+        let mut insertions = Vec::new();
+
+        let mut ownership_by_name = std::collections::BTreeMap::new();
+        for function in &mir.functions {
+            for binding in &function.bindings {
+                if binding.kind == kali_mir::MirBindingKind::Local {
+                    ownership_by_name
+                        .entry(binding.name.clone())
+                        .or_insert(binding.ownership);
+                }
+            }
+        }
+
+        insertions.push((
+            program.root.0 as usize,
+            vec!["phase1.alloc", "phase1.decref"],
+        ));
+
+        for (index, node) in program.nodes.iter().enumerate() {
+            if node.kind != LirNodeKind::Instruction {
+                continue;
+            }
+
+            let Some(name) = node.text.as_deref() else {
+                continue;
+            };
+
+            if let Some(last_child) = node.children.last().copied() {
+                if program
+                    .nodes
+                    .get(last_child.0 as usize)
+                    .is_some_and(|child| child.kind == LirNodeKind::Block)
+                {
+                    insertions.push((last_child.0 as usize, vec!["phase1.alloc", "phase1.decref"]));
+                    continue;
+                }
+            }
+
+            let Some(ownership) = ownership_by_name.get(name).copied() else {
+                continue;
+            };
+
+            let markers: Vec<&'static str> = match ownership {
+                kali_mir::OwnershipClass::OwnedHeap => vec!["phase1.alloc", "phase1.decref"],
+                kali_mir::OwnershipClass::SharedHeap => {
+                    vec!["phase1.alloc", "phase1.incref", "phase1.decref"]
+                }
+                kali_mir::OwnershipClass::Stack | kali_mir::OwnershipClass::Borrowed => Vec::new(),
+            };
+
+            if markers.is_empty() {
+                continue;
+            }
+
+            insertions.push((index, markers));
+        }
+
+        for (index, markers) in insertions {
+            let mut synthetic_children = Vec::with_capacity(markers.len());
+            for marker in markers {
+                let id = LirNodeId((nodes.len() + extra_nodes.len()) as u32);
+                extra_nodes.push(LirNode::with_text(LirNodeKind::Literal, marker));
+                synthetic_children.push(id);
+            }
+            nodes[index].children.extend(synthetic_children);
+        }
+
+        nodes.extend(extra_nodes);
+        LirProgram {
+            root: program.root,
+            nodes,
+        }
+    }
+
+    fn compile_and_measure(program: &LirProgram) -> (Vec<u8>, usize) {
+        let mut ctx = CodegenCtx::new(TargetConfig { optimize: false });
+        let result = lower_lir_to_wasm(&mut ctx, program);
+        assert!(
+            result.diagnostics.is_empty(),
+            "codegen diagnostics: {:?}",
+            result.diagnostics
+        );
+        Validator::new()
+            .validate_all(&result.wasm_bytes)
+            .expect("generated wasm should validate");
+
+        let instruction_count = wasm_instruction_count(&result.wasm_bytes);
+        (result.wasm_bytes, instruction_count)
+    }
+
+    fn wasm_instruction_count(bytes: &[u8]) -> usize {
+        use wasmparser::{Parser as WasmParser, Payload};
+
+        let mut count = 0;
+        for payload in WasmParser::new(0).parse_all(bytes) {
+            if let Ok(Payload::CodeSectionEntry(body)) = payload {
+                let mut operators = body.get_operators_reader().expect("operators");
+                while !operators.eof() {
+                    operators.read().expect("operator");
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
+    #[test]
+    fn mir_backed_pipeline_reduces_legacy_overhead_on_escaping_locals() {
+        let current_lir = sample_program();
+        let mir = kali_mir::MirProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: Vec::new(),
+        };
+        let baseline_lir = legacy_phase1_baseline(&current_lir, &mir);
+
+        let current_trace = current_lir
+            .nodes
+            .iter()
+            .filter_map(|node| node.text.as_deref())
+            .collect::<Vec<_>>();
+        let baseline_trace = baseline_lir
+            .nodes
+            .iter()
+            .filter_map(|node| node.text.as_deref())
+            .collect::<Vec<_>>();
+
+        assert!(!current_trace.contains(&"phase1.alloc"));
+        assert!(!current_trace.contains(&"phase1.incref"));
+        assert!(!current_trace.contains(&"phase1.decref"));
+        assert!(baseline_trace.contains(&"phase1.alloc"));
+        assert!(baseline_trace.contains(&"phase1.decref"));
+
+        let (current_bytes, current_instructions) = compile_and_measure(&current_lir);
+        let (baseline_bytes, baseline_instructions) = compile_and_measure(&baseline_lir);
+
+        assert!(
+            current_bytes.len() < baseline_bytes.len(),
+            "MIR-backed pipeline should produce smaller WASM than the legacy baseline"
+        );
+        assert!(
+            current_instructions < baseline_instructions,
+            "MIR-backed pipeline should emit fewer instructions than the legacy baseline"
+        );
+    }
 }
