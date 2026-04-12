@@ -1,13 +1,13 @@
 # Stage 1.8 Status Update
 
 **Date:** 2026-04-12  
-**Status:** 🚧 Runtime execution wired for simple modules plus a Deno host-surface subset
+**Status:** 🚧 Runtime execution wired for simple modules plus a Deno host-surface subset and timer/microtask scheduling
 
 ## Summary
 
 Stage 1.8 now has a working wasmtime-backed execution path for the current compiler output. The CLI can compile a source file to WASM, instantiate it through the runtime crate, and report pass/fail results for simple smoke-test inputs.
 
-The runtime linker now also exposes the basic console host imports (`console_log`, `console_error`, `console_warn`) expected by the early host-surface work, plus a first Deno-oriented host-surface subset for filesystem read/write, environment lookup, arguments, and fetch. `kali test` also supports the Phase-1 `--filter` narrowing step while rejecting `--coverage` with the documented phase-gating diagnostic.
+The runtime linker now also exposes the basic console host imports (`console_log`, `console_error`, `console_warn`) expected by the early host-surface work, plus a first Deno-oriented host-surface subset for filesystem read/write, environment lookup, arguments, fetch, and timer/microtask scheduling. `kali test` also supports the Phase-1 `--filter` narrowing step while rejecting `--coverage` with the documented phase-gating diagnostic.
 
 ## Evidence
 
@@ -23,14 +23,15 @@ The runtime linker now also exposes the basic console host imports (`console_log
 - `kali test` supports explicit file sets and project-tree discovery for the current source-file patterns, plus the Phase-1 `--filter` narrowing step
 - Declaration-only entrypoints are rejected for `run` and `test` with the canonical invalid-entrypoint diagnostic (`E5007`)
 - `kali test --coverage` is rejected with the documented phase-gating diagnostic (`E5006`) until the report contract exists
-- Smoke tests cover successful execution, invalid declaration-only inputs, the `ok N` test-report path, filter narrowing, and coverage gating
+- The runtime now drains queued microtasks before timers and can clear scheduled timers inside the host event loop
+- Smoke tests cover successful execution, invalid declaration-only inputs, the `ok N` test-report path, filter narrowing, timer/microtask ordering, timer clearing, and coverage gating
 
 ## Current Limits
 
 - The runtime still exercises the compiler's simple WASM output rather than a full guest JS host surface
-- Timer / microtask scheduling and the rest of the Web baseline remain pending
+- The rest of the Web baseline remains pending
 - The test runner still treats a module's successful execution as a pass when no guest-side registrations are present; the real `Kali.test(...)` registration protocol still needs a proper guest-side implementation
 
 ## Next Step
 
-Continue Stage 1.8 by filling in the timer/microtask scheduler surface and the real test-registration protocol.
+Continue Stage 1.8 by filling in the real test-registration protocol and the rest of the Web baseline.

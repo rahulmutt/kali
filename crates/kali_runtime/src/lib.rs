@@ -4,12 +4,14 @@ use kali_error::{Diagnostic, _error_codes::e4};
 use kali_sandbox::SandboxPolicy;
 use reqwest::blocking;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet, VecDeque},
     fs,
     io::Write,
     path::{Path, PathBuf},
+    thread,
+    time::{Duration, Instant},
 };
-use wasmtime::{Caller, Engine, Extern, Linker, Memory, Module, Store};
+use wasmtime::{Caller, Engine, Extern, Instance, Linker, Memory, Module, Store};
 
 /// Runtime context.
 #[derive(Clone, Debug, Default)]
@@ -35,6 +37,25 @@ pub struct KaliHostState {
     pub env: BTreeMap<String, String>,
     /// Current working directory used for relative host-path resolution.
     pub cwd: PathBuf,
+    /// Pending one-shot and repeating timers.
+    pub pending_timers: BTreeMap<u32, ScheduledTimer>,
+    /// Pending microtask callbacks.
+    pub pending_microtasks: VecDeque<i32>,
+    /// Timer ids that were cleared while a callback was firing.
+    pub cancelled_timers: HashSet<u32>,
+    /// Monotonic timer id counter.
+    pub next_timer_id: u32,
+}
+
+/// A scheduled timer callback.
+#[derive(Clone, Debug)]
+pub struct ScheduledTimer {
+    /// Guest callback id.
+    pub callback_id: i32,
+    /// When the timer should fire.
+    pub due_at: Instant,
+    /// Repeat interval for setInterval-like timers.
+    pub repeat_interval: Option<Duration>,
 }
 
 /// Result of executing a WASM module.
@@ -81,6 +102,7 @@ impl RuntimeCtx {
                 args: self.args.clone(),
                 env: self.env.clone(),
                 cwd: self.cwd.clone(),
+                ..Default::default()
             },
         );
         let mut linker = Linker::new(&engine);
@@ -108,6 +130,8 @@ impl RuntimeCtx {
                 format!("runtime trap: {}", error),
             )]
         })?;
+
+        drain_event_loop(&instance, &mut store).map_err(|diagnostic| vec![diagnostic])?;
 
         Ok(RuntimeOutcome { exit_code: 0 })
     }
@@ -360,6 +384,107 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
         )
         .map_err(|error| host_import_error("fetch", error))?;
 
+    linker
+        .func_wrap(
+            "kali:rt",
+            "timer_set",
+            |mut caller: Caller<'_, KaliHostState>,
+             callback_id: i32,
+             delay_ms: i32,
+             repeat: i32|
+             -> wasmtime::Result<i32> {
+                caller
+                    .data_mut()
+                    .schedule_timer(callback_id, delay_ms, repeat != 0)
+            },
+        )
+        .map_err(|error| host_import_error("timer_set", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "setTimeout",
+            |mut caller: Caller<'_, KaliHostState>,
+             callback_id: i32,
+             delay_ms: i32|
+             -> wasmtime::Result<i32> {
+                caller
+                    .data_mut()
+                    .schedule_timer(callback_id, delay_ms, false)
+            },
+        )
+        .map_err(|error| host_import_error("setTimeout", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "setInterval",
+            |mut caller: Caller<'_, KaliHostState>,
+             callback_id: i32,
+             delay_ms: i32|
+             -> wasmtime::Result<i32> {
+                caller
+                    .data_mut()
+                    .schedule_timer(callback_id, delay_ms, true)
+            },
+        )
+        .map_err(|error| host_import_error("setInterval", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "timer_clear",
+            |mut caller: Caller<'_, KaliHostState>, timer_id: i32| -> wasmtime::Result<()> {
+                caller.data_mut().cancel_timer(timer_id)?;
+                Ok(())
+            },
+        )
+        .map_err(|error| host_import_error("timer_clear", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "clearTimeout",
+            |mut caller: Caller<'_, KaliHostState>, timer_id: i32| -> wasmtime::Result<()> {
+                caller.data_mut().cancel_timer(timer_id)?;
+                Ok(())
+            },
+        )
+        .map_err(|error| host_import_error("clearTimeout", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "clearInterval",
+            |mut caller: Caller<'_, KaliHostState>, timer_id: i32| -> wasmtime::Result<()> {
+                caller.data_mut().cancel_timer(timer_id)?;
+                Ok(())
+            },
+        )
+        .map_err(|error| host_import_error("clearInterval", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "queue_microtask",
+            |mut caller: Caller<'_, KaliHostState>, callback_id: i32| -> wasmtime::Result<()> {
+                caller.data_mut().queue_microtask(callback_id);
+                Ok(())
+            },
+        )
+        .map_err(|error| host_import_error("queue_microtask", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "queueMicrotask",
+            |mut caller: Caller<'_, KaliHostState>, callback_id: i32| -> wasmtime::Result<()> {
+                caller.data_mut().queue_microtask(callback_id);
+                Ok(())
+            },
+        )
+        .map_err(|error| host_import_error("queueMicrotask", error))?;
+
     Ok(())
 }
 
@@ -446,6 +571,139 @@ fn host_import_error(name: &str, error: impl std::fmt::Display) -> Diagnostic {
         e4::UNCAUGHT_ERROR as u32,
         format!("failed to register host import '{}': {}", name, error),
     )
+}
+
+impl KaliHostState {
+    fn schedule_timer(
+        &mut self,
+        callback_id: i32,
+        delay_ms: i32,
+        repeat: bool,
+    ) -> wasmtime::Result<i32> {
+        if delay_ms < 0 {
+            return Err(wasmtime::Error::msg("timer delay must be non-negative"));
+        }
+
+        let timer_id = self.next_timer_id;
+        self.next_timer_id = self
+            .next_timer_id
+            .checked_add(1)
+            .ok_or_else(|| wasmtime::Error::msg("timer id overflow"))?;
+
+        let delay = Duration::from_millis(delay_ms as u64);
+        self.pending_timers.insert(
+            timer_id,
+            ScheduledTimer {
+                callback_id,
+                due_at: Instant::now() + delay,
+                repeat_interval: repeat.then_some(delay),
+            },
+        );
+
+        Ok(timer_id as i32)
+    }
+
+    fn cancel_timer(&mut self, timer_id: i32) -> wasmtime::Result<()> {
+        let timer_id = u32::try_from(timer_id)
+            .map_err(|_| wasmtime::Error::msg("timer id must be non-negative"))?;
+        if self.pending_timers.remove(&timer_id).is_none() {
+            self.cancelled_timers.insert(timer_id);
+        }
+        Ok(())
+    }
+
+    fn queue_microtask(&mut self, callback_id: i32) {
+        self.pending_microtasks.push_back(callback_id);
+    }
+}
+
+fn drain_event_loop(
+    instance: &Instance,
+    store: &mut Store<KaliHostState>,
+) -> Result<(), Diagnostic> {
+    loop {
+        let microtask_id = {
+            let state = store.data_mut();
+            state.pending_microtasks.pop_front()
+        };
+
+        if let Some(callback_id) = microtask_id {
+            invoke_callback(instance, store, callback_id)?;
+            continue;
+        }
+
+        let next_timer = {
+            let state = store.data();
+            state
+                .pending_timers
+                .iter()
+                .min_by_key(|(_, timer)| timer.due_at)
+                .map(|(timer_id, timer)| (*timer_id, timer.clone()))
+        };
+
+        let Some((timer_id, timer)) = next_timer else {
+            break;
+        };
+
+        let now = Instant::now();
+        if timer.due_at > now {
+            thread::sleep(timer.due_at - now);
+            continue;
+        }
+
+        {
+            let state = store.data_mut();
+            state.pending_timers.remove(&timer_id);
+        }
+
+        invoke_callback(instance, store, timer.callback_id)?;
+
+        if let Some(interval) = timer.repeat_interval {
+            let cancelled = {
+                let state = store.data_mut();
+                state.cancelled_timers.remove(&timer_id)
+            };
+
+            if !cancelled {
+                let state = store.data_mut();
+                state.pending_timers.insert(
+                    timer_id,
+                    ScheduledTimer {
+                        callback_id: timer.callback_id,
+                        due_at: Instant::now() + interval,
+                        repeat_interval: Some(interval),
+                    },
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn invoke_callback(
+    instance: &Instance,
+    store: &mut Store<KaliHostState>,
+    callback_id: i32,
+) -> Result<(), Diagnostic> {
+    // The current guest ABI uses exported callback stubs named
+    // `__kali_callback_<id>` for timer and microtask scheduling.
+    let export_name = format!("__kali_callback_{}", callback_id);
+    let callback = instance
+        .get_typed_func::<(), ()>(&mut *store, &export_name)
+        .map_err(|error| {
+            Diagnostic::error(
+                e4::UNCAUGHT_ERROR as u32,
+                format!("missing timer callback '{}': {}", export_name, error),
+            )
+        })?;
+
+    callback.call(&mut *store, ()).map_err(|error| {
+        Diagnostic::error(
+            e4::UNCAUGHT_ERROR as u32,
+            format!("runtime trap in callback '{}': {}", export_name, error),
+        )
+    })
 }
 
 #[cfg(test)]
@@ -635,5 +893,68 @@ mod tests {
         let outcome = runtime.execute(&wasm).expect("runtime outcome");
         assert_eq!(outcome.exit_code, 0);
         server.join().expect("server thread");
+    }
+
+    #[test]
+    fn runtime_drains_microtasks_before_timers() {
+        let runtime =
+            RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:rt" "queueMicrotask" (func $queue_microtask (param i32)))
+                (import "kali:rt" "setTimeout" (func $set_timeout (param i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (global $state (mut i32) (i32.const 0))
+                (func (export "__kali_callback_1")
+                    i32.const 1
+                    global.set $state)
+                (func (export "__kali_callback_2")
+                    global.get $state
+                    i32.const 1
+                    i32.eq
+                    if
+                        i32.const 2
+                        global.set $state
+                    else
+                        unreachable
+                    end)
+                (func (export "_start")
+                    i32.const 1
+                    call $queue_microtask
+                    i32.const 2
+                    i32.const 0
+                    call $set_timeout
+                    drop)
+            )
+            "#,
+        );
+
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_can_clear_scheduled_timers() {
+        let runtime =
+            RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:rt" "setTimeout" (func $set_timeout (param i32 i32) (result i32)))
+                (import "kali:rt" "clearTimeout" (func $clear_timeout (param i32)))
+                (func (export "__kali_callback_7")
+                    unreachable)
+                (func (export "_start")
+                    i32.const 7
+                    i32.const 0
+                    call $set_timeout
+                    call $clear_timeout)
+            )
+            "#,
+        );
+
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
     }
 }

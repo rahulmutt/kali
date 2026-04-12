@@ -26,6 +26,6 @@
 - [x] Wire basic console host imports into the wasmtime linker (`console_log`, `console_error`, `console_warn`)
 - [x] Add Phase-1 `kali test --filter` narrowing and phase-gate `--coverage` rejection
 - [x] Add the Deno-oriented host surface subset (`fetch`, filesystem, env, args)
-- [ ] Add the timer / microtask scheduler surface (`setTimeout`, `setInterval`, `queueMicrotask`)
+- [x] Add the timer / microtask scheduler surface (`setTimeout`, `setInterval`, `queueMicrotask`)
 - [ ] Implement the guest-side `Kali.test(...)` registration protocol
 - [ ] Expand runtime coverage to the Stage 1.8 fixture set (`hello.ts`, async/timer, mocked fetch, invalid traps)
