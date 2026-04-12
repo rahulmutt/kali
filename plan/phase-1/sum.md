@@ -13,20 +13,21 @@
 
 **In Progress:**
 - [ ] 1.8 - Runtime execution
+- [ ] 1.10 - Package management
 
 **Waiting on dependencies:**
-- [ ] 1.9+ - Other Phase 1 stages
+- [ ] 1.11+ - Remaining Phase 1 stages
 
 ## Next Tasks by Priority
 
-1. **Sandbox & policy (1.9)** - Add runtime sandbox enforcement and policy validation
-   - Impact: runtime host calls become policy-aware and the Phase 1 static policy-validation surface can be exercised end to end
+1. **Package management (1.10)** - Deterministic install/lock foundation
+   - Impact: `kali install` resolves npm/JSR/raw-URL deps with deterministic lock/materialization behavior and gives the compiler a real installed package graph to consume
 
-2. **Package management (1.10)** - Deterministic install/lock foundation
-   - Impact: `kali install` resolves npm/JSR/raw-URL deps with deterministic lock/materialization behavior
-
-3. **Runtime execution (1.8)** - Remaining evidence/polish work only
+2. **Runtime execution (1.8)** - Remaining evidence/polish work only
    - Impact: keeps the runtime stage honest while the final evidence and integration details are finished
+
+3. **Build artifacts (1.11)** - Browser bundle and base library output validation
+   - Impact: `kali build --bundle` and `kali build --lib` complete the Phase 1 artifact surface
 
 ## Evidence
 

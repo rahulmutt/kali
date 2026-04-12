@@ -101,17 +101,24 @@ pub mod _error_codes {
 
     // E6xxx: Package management errors (kali_npm)
     pub mod e6 {
-        // E6000-6099: Resolution errors
-        pub const NOT_FOUND: u16 = 6000;
-        pub const VERSION_MISMATCH: u16 = 6001;
-        pub const LOCK_CONFLICT: u16 = 6002;
+        // E6000-6099: Registry / install errors (schema-v1 package management)
+        pub const NOT_FOUND: u16 = 6001;
+        pub const VERSION_MISMATCH: u16 = 6002;
+        pub const INTEGRITY_VERIFICATION_FAILED: u16 = 6003;
+        pub const INCOMPATIBLE_PACKAGE: u16 = 6004;
+        pub const NODE_ONLY_HOST_APIS: u16 = 6005;
+        pub const LIFECYCLE_SCRIPT_REJECTED: u16 = 6006;
+        pub const INSTALL_REQUIRED: u16 = 6007;
+        pub const INVALID_PACKAGE_SPECIFIER: u16 = 6008;
+        pub const RAW_URL_NOT_ALLOWED: u16 = 6009;
 
-        // E6100-6199: Installation errors
+        // E6100-6199: Installation / graph errors
         pub const INSTALL_FAILED: u16 = 6100;
         pub const UNRESOLVABLE_DEPENDENCY: u16 = 6101;
+        pub const LOCK_CONFLICT: u16 = 6102;
 
         // E6200-6299: Package compatibility
-        pub const INCOMPATIBLE_PACKAGE: u16 = 6200;
+        pub const PACKAGE_SHAPE_INVALID: u16 = 6200;
 
         // E6300-6399: Lock file errors
         pub const INVALID_LOCK_FILE: u16 = 6300;
@@ -198,7 +205,7 @@ mod tests {
         assert_eq!(e5::UNKNOWN_COMMAND, 5002);
 
         // E6 namespace
-        assert_eq!(e6::NOT_FOUND, 6000);
+        assert_eq!(e6::NOT_FOUND, 6001);
 
         // E7 namespace
         assert_eq!(e7::INVALID_WASM_MODULE, 7000);

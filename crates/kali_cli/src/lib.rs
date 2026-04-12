@@ -131,7 +131,16 @@ pub enum Commands {
     Init,
     #[command(name = "install")]
     /// Install dependencies
-    Install,
+    Install {
+        /// Package target to add or reconcile
+        target: Option<String>,
+        /// Add the target to devDependencies
+        #[arg(long)]
+        dev: bool,
+        /// Allow npm lifecycle scripts during installation
+        #[arg(long = "allow-scripts")]
+        allow_scripts: bool,
+    },
     #[command(name = "fmt")]
     /// Format source files
     Fmt {

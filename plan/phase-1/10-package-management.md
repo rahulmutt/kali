@@ -22,6 +22,19 @@ graph without performing any mutations.
 - Packages outside the **pure JS/TS package contract** (native addons, binary bootstraps) are
   rejected with a clear diagnostic.
 
+## Progress
+
+- The `kali install` command is now wired up in the CLI and can reconcile a manifest/lock pair
+  through the new `kali_npm` implementation.
+- Registry resolution now supports npm packages and JSR compatibility names, writes deterministic
+  `kali.lock` output, and materialises packages under `.kali-cache/` plus `node_modules/`.
+- Bare import resolution now consults the materialized package graph, so the Stage 1.4 resolver can
+  follow installed packages instead of only local relative files.
+- Package-shape validation now rejects obvious native-addon and lifecycle-script cases, and
+  non-install commands fail fast with `E6007` when an installed dependency graph is missing.
+- Remaining stage work is mostly around edge-case coverage and the full matrix of compatibility
+  diagnostics called out in the tasks below.
+
 ## Tasks
 
 ### 1. `kali.json` manifest

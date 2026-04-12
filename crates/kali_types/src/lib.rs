@@ -829,14 +829,18 @@ impl TypeContext {
         let extensions = [
             "ts", "tsx", "js", "jsx", "mts", "cts", "d.ts", "d.mts", "d.cts",
         ];
-        extensions.iter().any(|extension| {
+        if extensions.iter().any(|extension| {
             let candidate = if source.ends_with(extension) {
                 base_dir.join(source)
             } else {
                 base_dir.join(format!("{}.{}", source, extension))
             };
             candidate.exists()
-        })
+        }) {
+            return true;
+        }
+
+        kali_npm::resolve_materialized_import(base_dir, source).is_some()
     }
 }
 

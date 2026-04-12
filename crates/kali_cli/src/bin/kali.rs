@@ -6,6 +6,7 @@ use kali_cli::{
     load_sandbox_policy, Args,
 };
 use kali_error::{Diagnostic, _error_codes::e5};
+use kali_npm::{discover_project_root, ensure_project_ready, install_project, InstallOptions};
 use kali_runtime::RuntimeCtx;
 use kali_sandbox::SandboxPolicy;
 use std::path::PathBuf;
@@ -21,6 +22,9 @@ fn main() {
 
     match args.command.unwrap() {
         kali_cli::Commands::Check { sandbox, files } => {
+            if let Err(exit_code) = ensure_installed_or_exit() {
+                std::process::exit(exit_code);
+            }
             let policy = match load_policy_or_exit(sandbox) {
                 Ok(policy) => policy,
                 Err(exit_code) => std::process::exit(exit_code),
@@ -42,6 +46,9 @@ fn main() {
                 std::process::exit(1);
             }
 
+            if let Err(exit_code) = ensure_installed_or_exit() {
+                std::process::exit(exit_code);
+            }
             let policy = match load_policy_or_exit(sandbox) {
                 Ok(policy) => policy,
                 Err(exit_code) => std::process::exit(exit_code),
@@ -65,6 +72,9 @@ fn main() {
             }
         }
         kali_cli::Commands::Run { sandbox, files } => {
+            if let Err(exit_code) = ensure_installed_or_exit() {
+                std::process::exit(exit_code);
+            }
             let policy = match load_policy_or_exit(sandbox) {
                 Ok(policy) => policy,
                 Err(exit_code) => std::process::exit(exit_code),
@@ -79,6 +89,9 @@ fn main() {
             filter,
             coverage,
         } => {
+            if let Err(exit_code) = ensure_installed_or_exit() {
+                std::process::exit(exit_code);
+            }
             let policy = match load_policy_or_exit(sandbox) {
                 Ok(policy) => policy,
                 Err(exit_code) => std::process::exit(exit_code),
@@ -90,14 +103,65 @@ fn main() {
         kali_cli::Commands::Init => {
             println!("Initializing new project... (stub)");
         }
-        kali_cli::Commands::Install => {
-            println!("Installing dependencies... (stub)");
+        kali_cli::Commands::Install {
+            target,
+            dev,
+            allow_scripts,
+        } => {
+            let cwd = match std::env::current_dir() {
+                Ok(path) => path,
+                Err(error) => {
+                    eprintln!("Error[E6100]: failed to read current directory: {}", error);
+                    std::process::exit(1);
+                }
+            };
+            let project_root = discover_project_root(&cwd).unwrap_or(cwd);
+            let result = install_project(
+                project_root,
+                InstallOptions {
+                    target,
+                    dev,
+                    allow_scripts,
+                },
+            );
+            match result {
+                Ok(summary) => {
+                    if summary.installed.is_empty() {
+                        println!("Installed 0 package(s)");
+                    } else {
+                        println!("Installed {} package(s)", summary.installed.len());
+                    }
+                }
+                Err(diagnostics) => {
+                    print_diagnostics(&diagnostics);
+                    std::process::exit(1);
+                }
+            }
         }
         kali_cli::Commands::Fmt { files: _files } => {
             println!("Formatting files... (stub)");
         }
         kali_cli::Commands::Lint { files: _files } => {
             println!("Linting files... (stub)");
+        }
+    }
+}
+
+fn ensure_installed_or_exit() -> Result<(), i32> {
+    let cwd = match std::env::current_dir() {
+        Ok(path) => path,
+        Err(error) => {
+            eprintln!("Error[E6100]: failed to read current directory: {}", error);
+            return Err(1);
+        }
+    };
+    let project_root = discover_project_root(&cwd).unwrap_or(cwd);
+
+    match ensure_project_ready(project_root) {
+        Ok(()) => Ok(()),
+        Err(diagnostic) => {
+            eprintln!("{}", diagnostic);
+            Err(1)
         }
     }
 }

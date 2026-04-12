@@ -9,3 +9,5 @@ kali_common = { workspace = true }
 kali_error = { workspace = true }
 kali_ast = { workspace = true }
 indexmap = { workspace = true }
+kali_npm = { workspace = true }
+serde_json = { workspace = true }
