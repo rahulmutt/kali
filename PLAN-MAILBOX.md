@@ -7,8 +7,8 @@
 - Project discovery for source-oriented commands now excludes hidden directories, nested project roots, and test files, while still including declaration files where the source-discovery contract requires them.
 - `check` now skips declaration-only files during name-resolution so the fixture tree can include `.d.ts` sources without breaking the no-file discovery smoke test.
 
-**Date:** 2026-04-12
-**Status:** Stage 1.12 implementation complete; discovery/formatter/linter wired
+**Date:** 2026-04-12  
+**Status:** Processed — canonical `W2xxx` lint registry added to the Phase-1 developer-workflow plan, with hard-failure severities noted for `no-debugger` and `no-unreachable`
 
 ---
 
@@ -20,7 +20,7 @@
 - This keeps the Stage 1.8 runtime notes aligned with the current codebase without needing a spec change.
 
 
-**Date:** 2026-04-12  
+**Date:** 2026-04-12
 **Status:** Runtime edge-case coverage expanded; Web baseline follow-up narrowed
 
 ## Notes
@@ -33,7 +33,7 @@
 
 # Stage 1.8 Runtime Notes
 
-**Date:** 2026-04-12  
+**Date:** 2026-04-12
 **Status:** Runtime execution wired for simple modules; Deno host-surface subset landed
 
 ## Notes
@@ -48,8 +48,8 @@
 
 # Stage 1.3 Status Update
 
-**Date:** 2026-04-01  
-**Status:** ✅ Parser implementation complete and working  
+**Date:** 2026-04-01
+**Status:** ✅ Parser implementation complete and working
 
 ## What Was Accomplished
 

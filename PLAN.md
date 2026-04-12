@@ -77,7 +77,7 @@ The stages in this plan map onto those spec steps as follows:
 | 2 — Deterministic package/install foundation | 1.10 | Placed *after* execution stages; see ordering note below |
 | 3 — Kali-hosted execution foundation | 1.6 → 1.8 | HIR/LIR pipeline, WASM codegen, runtime |
 | 4 — Build/artifact foundation | 1.9, 1.11 | Sandbox + policy, build artifacts |
-| 5 — Developer workflow foundation | 1.12 → 1.13 | `init`/`fmt`/`lint`, diagnostics & schemas |
+| 5 — Developer workflow foundation | 1.12 → 1.13 | `init`/`fmt`/`lint`, canonical `W2xxx` lint registry, diagnostics & schemas |
 | 6 — Evidence hardening | 1.14 | Conformance, corpus, determinism, proof-ready, proof-ready CI pipeline |
 
 Stage 1.1 (workspace scaffold) is a prerequisite shared across all steps.
@@ -173,7 +173,7 @@ proof-ready repository baseline.
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 1.12 | [Developer Workflow](plan/phase-1/12-developer-workflow.md) | `kali init`, `kali fmt`, `kali lint` all functional |
+| 1.12 | [Developer Workflow](plan/phase-1/12-developer-workflow.md) | `kali init`, `kali fmt`, `kali lint` (with canonical `W2xxx` lint diagnostics) all functional |
 | 1.13 | [Diagnostics & Schemas](plan/phase-1/13-diagnostics-and-schemas.md) | Stable error codes; `--output json` emits schema-v1 envelopes |
 
 ### Spec Step 6 — Evidence hardening

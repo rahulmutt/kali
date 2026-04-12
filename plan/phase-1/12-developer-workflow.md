@@ -127,21 +127,21 @@ in the lexer's trivia in Stage 1.2).
 Implement `kali_lint` with a set of Phase-1 built-in lint rules. The linter walks the typed AST
 (post name-resolution and type-checking) so rules can use type information.
 
-Phase-1 built-in lint rules (a representative initial set):
+Phase-1 built-in lint rules (the canonical `W2xxx` registry):
 
-| Rule | Severity | Auto-fixable |
-|---|---|---|
-| `no-unused-vars` | warning | no |
-| `no-unused-imports` | warning | yes |
-| `no-explicit-any` | warning | no |
-| `prefer-const` | warning | yes |
-| `no-var` | warning | yes |
-| `eqeqeq` | warning | yes |
-| `no-debugger` | error | yes |
-| `no-console` | off by default | no |
-| `no-empty` | warning | no |
-| `no-unreachable` | error | no |
-| `no-undef` (redundant with E3003 but useful for `--fix`) | warning | no |
+| Code | Rule | Severity | Auto-fixable |
+|---|---|---|---|
+| `W2000` | `no-unused-vars` | warning | no |
+| `W2001` | `no-unused-imports` | warning | yes |
+| `W2002` | `no-explicit-any` | warning | no |
+| `W2003` | `prefer-const` | warning | yes |
+| `W2004` | `no-var` | warning | yes |
+| `W2005` | `eqeqeq` | warning | yes |
+| `W2006` | `no-debugger` | error | yes |
+| `W2007` | `no-console` | warning (off by default) | no |
+| `W2008` | `no-empty` | warning | no |
+| `W2009` | `no-unreachable` | error | no |
+| `W2010` | `no-undef` (redundant with E3003 but useful for `--fix`) | warning | no |
 
 Lint rules are configured in `kali.json` under `"lint": { "rules": { ... } }`.
 

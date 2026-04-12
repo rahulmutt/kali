@@ -24,4 +24,4 @@ Proposed first-pass registry for `specs/15-errors.md`:
 The stage-1 linter needs a consistent spec note for which lint rules are warnings vs errors. The current implementation plan treats `no-debugger` and `no-unreachable` as hard failures while keeping the rest as warnings.
 
 **Date:** 2026-04-12
-**Status:** Pending spec registry update for lint diagnostics
+**Status:** Processed — canonical `W2xxx` lint registry and severity notes incorporated into `specs/15-errors.md` and referenced from `SPEC.md`

@@ -54,7 +54,7 @@ Terminology note:
 | E6xxx | Runtime errors |
 | E7xxx | Memory/ownership errors |
 | W1xxx | Type warnings |
-| W2xxx | Style/lint warnings |
+| W2xxx | Style/lint diagnostics |
 | W3xxx | Performance warnings |
 
 ## Error Categories
@@ -375,6 +375,24 @@ Clarification:
 - `W3002`: `eval` usage disables optimizations in scope (when `--compat eval` is enabled)
 - `W3003`: Value escapes scope, requiring heap allocation
 - `W3004`: Generic function exceeds specialization limit
+
+### Style/Lint Diagnostics (W2xxx)
+
+The initial Phase-1 lint registry uses stable `W2xxx` codes so `kali lint` can emit machine-friendly diagnostics. Unless otherwise noted, the listed rules are warnings; `no-debugger` and `no-unreachable` are hard failures, and `no-console` is warning-severity but off by default.
+
+| Code | Rule | Default severity | Auto-fixable |
+|---|---|---|---|
+| `W2000` | `no-unused-vars` | warning | no |
+| `W2001` | `no-unused-imports` | warning | yes |
+| `W2002` | `no-explicit-any` | warning | no |
+| `W2003` | `prefer-const` | warning | yes |
+| `W2004` | `no-var` | warning | yes |
+| `W2005` | `eqeqeq` | warning | yes |
+| `W2006` | `no-debugger` | error | yes |
+| `W2007` | `no-console` | warning (off by default) | no |
+| `W2008` | `no-empty` | warning | no |
+| `W2009` | `no-unreachable` | error | no |
+| `W2010` | `no-undef` | warning | no |
 
 ## Error Principles
 
