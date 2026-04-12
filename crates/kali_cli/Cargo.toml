@@ -30,6 +30,7 @@ sha2 = { workspace = true }
 ignore = "0.4"
 globset = "0.4"
 wasm-encoder = { workspace = true }
+wit-component = { workspace = true }
 kali_capi = { workspace = true }
 
 [dev-dependencies]

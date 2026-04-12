@@ -75,6 +75,7 @@ sha2 = "0.10"
 tar = "0.4"
 urlencoding = "2.1"
 wasm-encoder = "0.240"
+wit-component = "0.240"
 wasmparser = "0.240"
 wasmtime = "24"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
