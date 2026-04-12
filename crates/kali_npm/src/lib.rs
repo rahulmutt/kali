@@ -19,7 +19,23 @@ use tar::Archive;
 const MANIFEST_SCHEMA: u32 = 1;
 const LOCK_VERSION: u32 = 1;
 const DEFAULT_NPM_REGISTRY: &str = "https://registry.npmjs.org";
-const NODE_ONLY_HOST_APIS: &[&str] = &["fs", "fs/promises", "path", "os", "child_process"];
+const NODE_ONLY_HOST_APIS: &[&str] = &[
+    "fs",
+    "fs/promises",
+    "path",
+    "os",
+    "url",
+    "crypto",
+    "events",
+    "stream",
+    "http",
+    "https",
+    "process",
+    "buffer",
+    "util",
+    "assert",
+    "child_process",
+];
 
 static REGISTRY_METADATA_CACHE: OnceLock<Mutex<BTreeMap<String, serde_json::Value>>> =
     OnceLock::new();
@@ -68,6 +84,20 @@ impl ProjectManifest {
             && self.imports.is_empty()
             && self.dependencies.is_empty()
             && self.dev_dependencies.is_empty()
+    }
+}
+
+fn package_host_fit_context_for_manifest(manifest: &ProjectManifest) -> PackageHostFitContext {
+    let Some(options) = manifest.compiler_options.as_ref() else {
+        return PackageHostFitContext::DefaultStandalone;
+    };
+    let Some(options) = options.as_object() else {
+        return PackageHostFitContext::DefaultStandalone;
+    };
+
+    match options.get("apiSurface").and_then(|value| value.as_str()) {
+        Some("node") => PackageHostFitContext::Node,
+        _ => PackageHostFitContext::DefaultStandalone,
     }
 }
 
@@ -126,6 +156,18 @@ pub struct InstallOptions {
     pub dev: bool,
     pub allow_scripts: bool,
     pub suppress_script_output: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PackageHostFitContext {
+    DefaultStandalone,
+    Node,
+}
+
+impl PackageHostFitContext {
+    fn allows_node_only_host_apis(self) -> bool {
+        matches!(self, Self::Node)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -861,6 +903,7 @@ pub fn install_project(
     let mut installed_paths = BTreeMap::new();
     let mut diagnostics = Vec::new();
     let mut explicit_raw_url: Option<String> = None;
+    let host_fit_context = package_host_fit_context_for_manifest(&manifest);
 
     if let Some(target) = parsed_target {
         match target {
@@ -894,6 +937,7 @@ pub fn install_project(
                     &resolved,
                     options.allow_scripts,
                     options.suppress_script_output,
+                    host_fit_context,
                     &mut installed,
                     &mut installed_paths,
                     &mut diagnostics,
@@ -924,6 +968,7 @@ pub fn install_project(
                 &resolved,
                 options.allow_scripts,
                 options.suppress_script_output,
+                host_fit_context,
                 &mut installed,
                 &mut installed_paths,
                 &mut diagnostics,
@@ -1012,6 +1057,7 @@ fn install_registry_package(
     resolved: &ResolvedRegistryPackage,
     allow_scripts: bool,
     suppress_script_output: bool,
+    host_fit_context: PackageHostFitContext,
     installed: &mut BTreeSet<String>,
     installed_paths: &mut BTreeMap<String, String>,
     diagnostics: &mut Vec<Diagnostic>,
@@ -1040,7 +1086,8 @@ fn install_registry_package(
         };
         let package_json = read_package_json(&extracted_root)?;
         validate_package_shape(&package_json, allow_scripts)?;
-        validate_package_host_fit(&extracted_root).map_err(|diagnostic| vec![diagnostic])?;
+        validate_package_host_fit(&extracted_root, host_fit_context)
+            .map_err(|diagnostic| vec![diagnostic])?;
 
         installed.insert(key.clone());
         if let Some(package) = lock.packages.get(&key) {
@@ -1063,6 +1110,7 @@ fn install_registry_package(
                     &dep_resolved,
                     allow_scripts,
                     suppress_script_output,
+                    host_fit_context,
                     installed,
                     installed_paths,
                     diagnostics,
@@ -1098,7 +1146,7 @@ fn install_registry_package(
 
         let package_json = read_package_json(&extracted_root)?;
         validate_package_shape(&package_json, allow_scripts)?;
-        validate_package_host_fit(&extracted_root).map_err(|diagnostic| {
+        validate_package_host_fit(&extracted_root, host_fit_context).map_err(|diagnostic| {
             let _ = fs::remove_dir_all(&package_dir);
             vec![diagnostic]
         })?;
@@ -1144,6 +1192,7 @@ fn install_registry_package(
                 &dep_resolved,
                 allow_scripts,
                 suppress_script_output,
+                host_fit_context,
                 installed,
                 installed_paths,
                 diagnostics,
@@ -1180,7 +1229,7 @@ fn install_registry_package(
 
     let package_json = read_package_json(&extracted_root)?;
     validate_package_shape(&package_json, allow_scripts)?;
-    validate_package_host_fit(&extracted_root).map_err(|diagnostic| {
+    validate_package_host_fit(&extracted_root, host_fit_context).map_err(|diagnostic| {
         let _ = fs::remove_dir_all(&package_dir);
         vec![diagnostic]
     })?;
@@ -1236,6 +1285,7 @@ fn install_registry_package(
             &dep_resolved,
             allow_scripts,
             suppress_script_output,
+            host_fit_context,
             installed,
             installed_paths,
             diagnostics,
@@ -1847,7 +1897,14 @@ fn run_package_lifecycle_hook(
     Ok(())
 }
 
-fn validate_package_host_fit(package_dir: &Path) -> Result<(), Diagnostic> {
+fn validate_package_host_fit(
+    package_dir: &Path,
+    host_fit_context: PackageHostFitContext,
+) -> Result<(), Diagnostic> {
+    if host_fit_context.allows_node_only_host_apis() {
+        return Ok(());
+    }
+
     if let Some((path, builtin)) = scan_for_node_only_host_api(package_dir)? {
         return Err(Diagnostic::error(
             e6::NODE_ONLY_HOST_APIS as u32,
@@ -2958,10 +3015,26 @@ export default fs;
         )
         .unwrap();
 
-        let error = validate_package_host_fit(dir.path()).unwrap_err();
+        let error = validate_package_host_fit(dir.path(), PackageHostFitContext::DefaultStandalone)
+            .unwrap_err();
         assert_eq!(error.code, Some(e6::NODE_ONLY_HOST_APIS as u32));
         assert!(error.message.contains("fs"));
         assert!(error.message.contains("Phase-3 Node compatibility target"));
+    }
+
+    #[test]
+    fn validate_package_host_fit_allows_node_builtin_imports_in_node_context() {
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("index.js"),
+            r#"import crypto from "node:crypto";
+export default crypto;
+"#,
+        )
+        .unwrap();
+
+        validate_package_host_fit(dir.path(), PackageHostFitContext::Node)
+            .expect("node host fit should allow Node builtins");
     }
 
     #[test]
@@ -2975,7 +3048,8 @@ module.exports = childProcess;
         )
         .unwrap();
 
-        let error = validate_package_host_fit(dir.path()).unwrap_err();
+        let error = validate_package_host_fit(dir.path(), PackageHostFitContext::DefaultStandalone)
+            .unwrap_err();
         assert_eq!(error.code, Some(e6::NODE_ONLY_HOST_APIS as u32));
         assert!(error.message.contains("child_process"));
     }

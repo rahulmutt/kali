@@ -35,3 +35,12 @@ Suggested plan/status follow-up: update the Stage 2.1 status note to reflect the
 Added targeted MIR ownership tests for array-element and member-assignment heap-store flows so Stage 2.1 coverage now extends beyond call/return/object-literal cases.
 
 Suggested follow-up: keep extending the analyzer with any remaining nested store or closure-shape edge cases before marking the stage complete.
+
+## 2026-04-12 — Stage 3.2 package-host-fit preparation
+
+`kali_npm` now keys install-time host-fit validation off the project `compilerOptions.apiSurface`, so `node`-targeted projects can accept Node-only builtins while the default standalone context still rejects them with `E6005`.
+
+Suggested follow-up:
+- keep the Stage 3.2 plan/status notes aligned with this package-host-fit split
+- continue wiring the remaining CLI/runtime `--api node` paths so this install-time allowance becomes part of a real Node compatibility command context
+- no spec change was needed for this increment
