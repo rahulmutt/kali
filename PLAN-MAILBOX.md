@@ -2,6 +2,14 @@
 
 ## Latest Update
 
+- Added a Node-based browser-bundle execution smoke harness so the generated ESM bundle is actually imported and its exported wrapper is invoked during evidence coverage.
+- Updated the Stage 1.14 progress notes to reflect the browser-bundle execution smoke coverage without changing the user-visible spec contract.
+
+**Date:** 2026-04-12  
+**Status:** Processed — browser-bundle execution smoke coverage added to the Phase-1 hardening suite
+
+## Previous Update
+
 - Added runtime smoke coverage for byte-for-byte deterministic repeated builds across the Phase-1 executable, base-library, and browser-bundle artifact paths.
 - Updated the Stage 1.14 progress notes to reflect the new determinism evidence without changing the user-visible spec contract.
 

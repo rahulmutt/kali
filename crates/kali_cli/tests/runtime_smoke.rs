@@ -46,6 +46,59 @@ fn assert_artifact_bytes_stable(paths: &[PathBuf], first: &BTreeMap<PathBuf, Vec
     assert_eq!(first, &second, "artifact outputs differed between builds");
 }
 
+fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
+    let bundle_dir = bundle_root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("bundle directory name");
+    let harness_path = bundle_root
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-smoke.mjs");
+    let harness = format!(
+        r#"import fs from 'node:fs/promises';
+import {{ fileURLToPath }} from 'node:url';
+
+const bundleJs = new URL('./{bundle_dir}/{bundle_dir}.js', import.meta.url);
+const wasmUrl = new URL('./{bundle_dir}/{bundle_dir}.wasm', import.meta.url);
+
+globalThis.fetch = async (input) => {{
+  const url = input instanceof URL ? input : new URL(String(input));
+  if (url.href === wasmUrl.href) {{
+    const bytes = await fs.readFile(fileURLToPath(url));
+    return new Response(bytes, {{ headers: {{ 'content-type': 'application/wasm' }} }});
+  }}
+  throw new Error(`unexpected fetch ${{String(input)}}`);
+}};
+
+const mod = await import(bundleJs.href);
+const result = await mod.{export_name}(1n, 2n);
+if (result !== 0n) {{
+  throw new Error(`unexpected result ${{result}}`);
+}}
+console.log(String(result));
+"#,
+        bundle_dir = bundle_dir,
+        export_name = export_name,
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let output = Command::new("node")
+        .current_dir(bundle_root)
+        .arg(&harness_path)
+        .output()
+        .expect("run node browser harness");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('0'), "stdout: {stdout}");
+}
+
 fn write_valid_policy(path: &Path) {
     fs::write(
         path,
@@ -549,6 +602,8 @@ fn build_emits_browser_bundle_artifacts() {
         .expect("parse metadata json");
     assert_eq!(metadata["artifactKind"], "bundle");
     assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "greet");
 }
 
 #[test]
@@ -713,6 +768,8 @@ fn build_uses_inherited_browser_api_surface_for_bundle() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+
+    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
 }
 
 #[test]
