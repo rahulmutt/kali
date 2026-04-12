@@ -24,41 +24,39 @@ graph without performing any mutations.
 
 ## Progress
 
-- The `kali install` command is now wired up in the CLI and can reconcile a manifest/lock pair
-  through the new `kali_npm` implementation.
-- Registry resolution now supports npm packages and JSR compatibility names, writes deterministic
-  `kali.lock` output, materialises packages under `.kali-cache/` plus `node_modules/`, and now
-  selects the highest matching published version for semver ranges.
-- Bare import resolution now consults the materialized package graph and uses the project root
-  when the checked source file lives in a nested directory, so the Stage 1.4 resolver can follow
+- Stage 1.10 is complete: the `kali install` command is wired up in the CLI and can reconcile a
+  manifest/lock pair through the `kali_npm` implementation.
+- Registry resolution supports npm packages and JSR compatibility names, writes deterministic
+  `kali.lock` output, materialises packages under `.kali-cache/` plus `node_modules/`, and selects
+  the highest matching published version for semver ranges.
+- Bare import resolution consults the materialized package graph and uses the project root when
+  the checked source file lives in a nested directory, so the Stage 1.4 resolver can follow
   installed packages instead of only local relative files.
-- Type-resolution now recognizes bundled declaration entries and a matching `@types/<pkg>`
+- Type resolution recognizes bundled declaration entries and a matching `@types/<pkg>`
   devDependency, allowing package imports without bundled types to resolve through declaration
   packages when the project has installed them.
-- Package-shape validation now rejects obvious native-addon and lifecycle-script cases.
-- Manifest reconciliation now fails fast when two registry identities would collapse onto the
+- Package-shape validation rejects obvious native-addon and lifecycle-script cases.
+- Manifest reconciliation fails fast when two registry identities would collapse onto the
   same `node_modules/` path before any materialization work begins, including transitive
   install-path conflicts during graph reconciliation.
-- `kali install` now prunes stale registry-package entries from the lock graph and rebuilds the
+- `kali install` prunes stale registry-package entries from the lock graph and rebuilds the
   package cache / `node_modules` layout when the lock graph already exists.
-- Raw URL reconciliation now follows project-discovery/import-map declarations and prunes stale
+- Raw URL reconciliation follows project-discovery/import-map declarations and prunes stale
   URL cache entries when the declaration graph changes.
-- `kali install --allow-scripts` now rejects invocations with no effective npm-scriptable install
+- `kali install --allow-scripts` rejects invocations with no effective npm-scriptable install
   work, and the invalid raw-URL / JSR lifecycle-hook combinations are rejected before any fetch.
-- NPM lifecycle hooks (`preinstall`, `install`, `postinstall`) now execute during install when the
+- NPM lifecycle hooks (`preinstall`, `install`, `postinstall`) execute during install when the
   opt-in flag is present, and blank hooks are treated as deterministic no-ops.
-- `kali install --dev` now requires an explicit registry target and rejects raw-URL targets
-  before materialization work begins.
-- Non-install commands still fail fast with `E6007` when an installed dependency graph is missing
-  or stale.
-- Package-shape coverage now has explicit unit tests for node-gyp lifecycle scripts and
-  native-addon entrypoints; host-fit coverage now rejects Node-only builtins surfaced through
-  direct imports/requires; and CLI smoke coverage now exercises pruning stale registry layouts
-  back to an empty install state.
-- Registry metadata lookups now use a process-local cache so repeated resolution within a
-  single install run avoids redundant network round-trips.
-- Remaining stage work is mostly around any further install repair edge cases called out in the
-  tasks below.
+- `kali install --dev` requires an explicit registry target and rejects raw-URL targets before
+  materialization work begins.
+- Non-install commands fail fast with `E6007` when an installed dependency graph is missing or
+  stale.
+- Package-shape coverage has explicit unit tests for node-gyp lifecycle scripts and native-addon
+  entrypoints; host-fit coverage rejects Node-only builtins surfaced through direct
+  imports/requires; and CLI smoke coverage exercises pruning stale registry layouts back to an
+  empty install state.
+- Registry metadata lookups use a process-local cache so repeated resolution within a single
+  install run avoids redundant network round-trips.
 
 ## Tasks
 
@@ -238,10 +236,10 @@ Materialised packages live under `.kali-cache/` (gitignore'd):
 
 ## Definition of Done
 
-- [ ] `kali install` resolves, locks, and materialises npm/JSR/raw-URL deps deterministically.
-- [ ] Bare specifiers resolve in `kali check` / `kali build` / `kali run` after install.
-- [ ] Native-addon packages rejected with `E6004`.
-- [ ] Non-install commands emit `E6007` if lock file is stale.
-- [ ] All `E6xxx` error cases covered by tests.
-- [ ] `cargo test -p kali_npm` and integration tests pass.
-- [ ] No Stage 1.1–1.9 regressions.
+- [x] `kali install` resolves, locks, and materialises npm/JSR/raw-URL deps deterministically.
+- [x] Bare specifiers resolve in `kali check` / `kali build` / `kali run` after install.
+- [x] Native-addon packages rejected with `E6004`.
+- [x] Non-install commands emit `E6007` if lock file is stale.
+- [x] All `E6xxx` error cases covered by tests.
+- [x] `cargo test -p kali_npm` and integration tests pass.
+- [x] No Stage 1.1–1.9 regressions.
