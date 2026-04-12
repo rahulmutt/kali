@@ -391,6 +391,7 @@ struct ScopeState {
     kind: MirFunctionKind,
     bindings: Vec<BindingState>,
     binding_index: BTreeMap<String, usize>,
+    function_aliases: BTreeMap<String, String>,
 }
 
 impl ScopeState {
@@ -400,6 +401,7 @@ impl ScopeState {
             kind,
             bindings: Vec::new(),
             binding_index: BTreeMap::new(),
+            function_aliases: BTreeMap::new(),
         }
     }
 
@@ -422,6 +424,15 @@ impl ScopeState {
     fn get_binding_mut(&mut self, name: &str) -> Option<&mut BindingState> {
         let index = self.get_binding_index(name)?;
         self.bindings.get_mut(index)
+    }
+
+    fn alias_function(
+        &mut self,
+        binding_name: impl Into<String>,
+        function_name: impl Into<String>,
+    ) {
+        self.function_aliases
+            .insert(binding_name.into(), function_name.into());
     }
 
     fn finalize(self) -> MirFunction {
@@ -604,15 +615,27 @@ impl<'a> OwnershipAnalyzer<'a> {
             HirNodeKind::VarDeclarator => {
                 if let Some(name) = text.as_ref() {
                     if let Some(init) = children.get(1).copied() {
+                        let init_node = &self.nodes[init.0 as usize];
                         let layout = self.infer_layout(init);
                         if let Some(scope) = self.current_scope_mut() {
                             if let Some(binding) = scope.get_binding_mut(name) {
                                 binding.layout = layout;
+                                if matches!(init_node.kind, HirNodeKind::FunctionExpr) {
+                                    binding.kind = MirBindingKind::Function;
+                                    binding.layout = LayoutDescriptor::Closure {
+                                        captures: Vec::new(),
+                                    };
+                                }
                             }
                         }
-                    }
-                    if let Some(init) = children.get(1).copied() {
                         self.walk_scope_node(init, UseContext::Normal);
+                        if matches!(init_node.kind, HirNodeKind::FunctionExpr) {
+                            if let Some(scope) = self.current_scope_mut() {
+                                if let Some(function_name) = init_node.text.as_ref() {
+                                    scope.alias_function(name.clone(), function_name.clone());
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -708,16 +731,23 @@ impl<'a> OwnershipAnalyzer<'a> {
                                 if let Some((scope_index, binding_index)) =
                                     self.resolve_binding(name)
                                 {
-                                    let is_function_binding = self
-                                        .scope_stack
-                                        .get(scope_index)
-                                        .and_then(|scope| scope.bindings.get(binding_index))
-                                        .is_some_and(|binding| {
-                                            binding.kind == MirBindingKind::Function
+                                    let function_name =
+                                        self.scope_stack.get(scope_index).and_then(|scope| {
+                                            scope.function_aliases.get(name).cloned().or_else(
+                                                || {
+                                                    scope.bindings.get(binding_index).and_then(
+                                                        |binding| {
+                                                            (binding.kind
+                                                                == MirBindingKind::Function)
+                                                                .then(|| name.to_string())
+                                                        },
+                                                    )
+                                                },
+                                            )
                                         });
-                                    if is_function_binding {
+                                    if let Some(function_name) = function_name {
                                         direct_call_escape_flags =
-                                            self.function_parameter_escape_flags(name);
+                                            self.function_parameter_escape_flags(&function_name);
                                     }
                                 }
                             }
@@ -1102,6 +1132,30 @@ mod tests {
     #[test]
     fn test_inline_leaking_function_calls_still_escape_arguments() {
         let mir = analyze("const answer = 1; (function leak(x) { return x; })(answer);");
+        let module = mir.module_scope().expect("module scope");
+        let binding = module.binding("answer").expect("answer binding");
+
+        assert_eq!(binding.ownership, OwnershipClass::OwnedHeap);
+        assert!(binding.escapes);
+    }
+
+    #[test]
+    fn test_aliased_function_expressions_preserve_direct_call_precision() {
+        let mir = analyze(
+            "const identity = function(x) { return 0; }; const answer = 1; identity(answer);",
+        );
+        let module = mir.module_scope().expect("module scope");
+        let binding = module.binding("answer").expect("answer binding");
+
+        assert_eq!(binding.ownership, OwnershipClass::Stack);
+        assert!(!binding.escapes);
+    }
+
+    #[test]
+    fn test_aliased_function_expressions_still_track_nested_closure_escapes() {
+        let mir = analyze(
+            "const leak = function outer(x) { function inner() { return x; } return inner; }; const answer = 1; leak(answer);",
+        );
         let module = mir.module_scope().expect("module scope");
         let binding = module.binding("answer").expect("answer binding");
 
