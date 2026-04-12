@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use wasmparser::{Parser, Payload};
 
 use tempfile::tempdir;
@@ -136,6 +136,7 @@ fn run_rejects_declaration_only_fixture_entrypoints() {
         .expect("run kali");
 
     assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5007"), "stderr: {stderr}");
 }
@@ -314,6 +315,7 @@ fn test_rejects_coverage_flag_until_report_contract_exists() {
         .expect("run kali");
 
     assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
 }
@@ -470,6 +472,7 @@ fn build_rejects_multiple_source_files() {
         .expect("run kali");
 
     assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5008"), "stderr: {stderr}");
     assert!(
@@ -531,6 +534,185 @@ fn json_check_emits_diagnostic_envelope() {
     assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["filesChecked"], 1);
     assert!(json["errors"].as_array().expect("errors array").len() > 0);
+}
+
+#[test]
+fn json_fmt_emits_a_command_envelope() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "function add(a,b){return a+b;}").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("fmt")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "fmt");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(
+        json["payload"],
+        json!({"filesChecked": 1, "filesFormatted": 1})
+    );
+}
+
+#[test]
+fn json_lint_emits_a_command_envelope() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "const x = 1; x;").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("lint")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "lint");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(
+        json["payload"],
+        json!({"filesLinted": 1, "errorCount": 0, "warningCount": 0, "fixedCount": 0})
+    );
+}
+
+#[test]
+fn json_install_emits_a_command_envelope() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("install")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "install");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["installed"], json!([]));
+    assert_eq!(json["payload"]["updated"], json!([]));
+    assert_eq!(json["payload"]["removed"], json!([]));
+}
+
+#[test]
+fn json_run_emits_a_command_envelope() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(fixture_path("run/hello.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn json_test_emits_a_command_envelope() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn pretty_without_json_exits_with_usage_code() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "let value = 1;").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--pretty")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+}
+
+#[test]
+fn init_rejects_non_empty_directory_with_usage_code() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(dir.path().join("notes.txt"), "keep me").expect("write file");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("init")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
 }
 
 #[test]

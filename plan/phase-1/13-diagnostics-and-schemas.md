@@ -21,7 +21,8 @@ commands, versioned artifact metadata schemas, and the `kali.json` config schema
 
 - `kali --output json` now works across the shipped Phase-1 command surface (`check`, `build`, `run`, `test`, `init`, `install`, `fmt`, `lint`) and emits a single schema-v1 envelope instead of interleaving raw text with machine output.
 - Runtime execution now captures guest stdout/stderr so `run` and `test` can surface program streams through the JSON envelope as well as the human CLI path.
-- Added regression coverage for JSON-mode `init` and `check` envelopes so the command metadata and payload fields stay deterministic.
+- Added regression coverage for JSON-mode `init`, `check`, `fmt`, `lint`, `install`, `run`, and `test` envelopes so the command metadata, payload fields, and exit-code contract stay deterministic.
+- Added CLI smoke coverage for invalid-usage cases such as `--pretty` without JSON output, declaration-only runtime entrypoints, and multi-file `build` invocations so `E5008`/`E5007` now map to the documented exit code.
 - Committed the repository `schemas/` documents for the command envelope, diagnostics, manifests, lockfiles, policies, artifact metadata, and the current shipped result payloads, including reserved later-phase shapes.
 - Tightened the default human diagnostic renderer so severity labels and help/note lines follow the canonical `error[...]` / `= help:` / `= note:` style.
 
@@ -255,9 +256,9 @@ These are shared presentation/control flags available on all commands.
 
 ## Definition of Done
 
-- [ ] All shipped commands emit valid schema-v1 JSON envelopes under `--output json`.
-- [ ] All `E1xxx`–`E9xxx` error codes have stable messages and are covered by golden tests.
-- [ ] JSON Schema documents committed under `schemas/`.
-- [ ] Golden/snapshot tests pass and are committed.
-- [ ] Exit-code contract tested for all cases.
-- [ ] No Stage 1.1–1.12 regressions.
+- [x] All shipped commands emit valid schema-v1 JSON envelopes under `--output json`.
+- [x] All `E1xxx`–`E9xxx` error codes have stable messages and are covered by golden tests.
+- [x] JSON Schema documents committed under `schemas/`.
+- [x] Golden/snapshot tests pass and are committed.
+- [x] Exit-code contract tested for all cases.
+- [x] No Stage 1.1–1.12 regressions.

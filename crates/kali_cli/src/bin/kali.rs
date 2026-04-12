@@ -31,7 +31,7 @@ fn main() {
 
     if output.pretty && !output.is_json() {
         eprintln!("error[E5008]: `--pretty` is only meaningful when JSON output is active");
-        std::process::exit(1);
+        std::process::exit(5);
     }
 
     if args.command.is_none() {
@@ -118,6 +118,7 @@ fn main() {
                 }
             }
             Err(diagnostic) => {
+                let exit_code = diagnostics_exit_code(std::slice::from_ref(&diagnostic));
                 if output.is_json() {
                     let (errors, warnings) = single_diagnostic_to_values(diagnostic, None, None);
                     print_envelope(
@@ -128,13 +129,13 @@ fn main() {
                         Value::Null,
                         None,
                         None,
-                        1,
+                        exit_code,
                         &output,
                     );
                 } else {
                     eprintln!("{}", diagnostic);
                 }
-                std::process::exit(1);
+                std::process::exit(exit_code);
             }
         },
         Commands::Install {
@@ -679,7 +680,7 @@ fn run_command(
     };
 
     if let Err(diagnostic) = validate_runtime_entrypoint(&source) {
-        return emit_diagnostics_and_exit("run", vec![diagnostic], 1, output, None, None);
+        return emit_diagnostics_and_exit("run", vec![diagnostic], 5, output, None, None);
     }
 
     let wasm_bytes = match build::compile_source_file(&source, build::BuildMode::Fast) {
@@ -793,7 +794,7 @@ fn test_command(
             return emit_diagnostics_and_exit(
                 "test",
                 vec![diagnostic],
-                1,
+                5,
                 output,
                 Some(&source),
                 fs::read_to_string(&source).ok().as_deref(),
@@ -1169,7 +1170,8 @@ fn install_command(
             Ok(())
         }
         Err(diagnostics) => {
-            emit_diagnostics_and_exit("install", diagnostics, 1, output, None, None)
+            let exit_code = diagnostics_exit_code(&diagnostics);
+            emit_diagnostics_and_exit("install", diagnostics, exit_code, output, None, None)
         }
     }
 }
@@ -1234,7 +1236,7 @@ fn single_or_error(
                 e5::MISSING_REQUIRED_ARGUMENT as u32,
                 format!("{} requires at least one source file", command),
             );
-            emit_diagnostics_and_exit(command, vec![diagnostic], 1, output, None, None)
+            emit_diagnostics_and_exit(command, vec![diagnostic], 5, output, None, None)
                 .map(|_| None)
         }
         [file] => Ok(Some(PathBuf::from(file))),
@@ -1246,7 +1248,7 @@ fn single_or_error(
                     command
                 ),
             );
-            emit_diagnostics_and_exit(command, vec![diagnostic], 1, output, None, None)
+            emit_diagnostics_and_exit(command, vec![diagnostic], 5, output, None, None)
                 .map(|_| None)
         }
     }
@@ -1264,6 +1266,19 @@ fn validate_runtime_entrypoint(source: &PathBuf) -> Result<(), Diagnostic> {
         .with_suggestion("use `kali check` for declaration-only files"))
     } else {
         Ok(())
+    }
+}
+
+fn diagnostics_exit_code(diagnostics: &[Diagnostic]) -> i32 {
+    if diagnostics.iter().any(|diagnostic| {
+        matches!(
+            diagnostic.code,
+            Some(code) if matches!(code, 5001 | 5007 | 5008 | 5009 | 5010)
+        )
+    }) {
+        5
+    } else {
+        1
     }
 }
 
