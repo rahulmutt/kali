@@ -1238,6 +1238,7 @@ fn install_command(
             target,
             dev,
             allow_scripts,
+            suppress_script_output: output.is_json() || output.quiet,
         },
     );
     match result {

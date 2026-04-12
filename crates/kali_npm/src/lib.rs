@@ -11,6 +11,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs, io,
     path::{Path, PathBuf},
+    process::{Command, Stdio},
 };
 use tar::Archive;
 
@@ -120,6 +121,7 @@ pub struct InstallOptions {
     pub target: Option<String>,
     pub dev: bool,
     pub allow_scripts: bool,
+    pub suppress_script_output: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -887,6 +889,7 @@ pub fn install_project(
                     &mut lock,
                     &resolved,
                     options.allow_scripts,
+                    options.suppress_script_output,
                     &mut installed,
                     &mut installed_paths,
                     &mut diagnostics,
@@ -916,6 +919,7 @@ pub fn install_project(
                 &mut lock,
                 &resolved,
                 options.allow_scripts,
+                options.suppress_script_output,
                 &mut installed,
                 &mut installed_paths,
                 &mut diagnostics,
@@ -1002,6 +1006,7 @@ fn install_registry_package(
     lock: &mut LockFile,
     resolved: &ResolvedRegistryPackage,
     allow_scripts: bool,
+    suppress_script_output: bool,
     installed: &mut BTreeSet<String>,
     installed_paths: &mut BTreeMap<String, String>,
     diagnostics: &mut Vec<Diagnostic>,
@@ -1052,6 +1057,7 @@ fn install_registry_package(
                     lock,
                     &dep_resolved,
                     allow_scripts,
+                    suppress_script_output,
                     installed,
                     installed_paths,
                     diagnostics,
@@ -1132,6 +1138,7 @@ fn install_registry_package(
                 lock,
                 &dep_resolved,
                 allow_scripts,
+                suppress_script_output,
                 installed,
                 installed_paths,
                 diagnostics,
@@ -1147,6 +1154,14 @@ fn install_registry_package(
                 dependencies: resolved_dependencies.clone(),
             },
         );
+
+        run_package_lifecycle_hooks(
+            &install_path,
+            &package_json,
+            allow_scripts,
+            suppress_script_output,
+        )?;
+
         installed.insert(key.clone());
 
         return Ok(());
@@ -1215,6 +1230,7 @@ fn install_registry_package(
             lock,
             &dep_resolved,
             allow_scripts,
+            suppress_script_output,
             installed,
             installed_paths,
             diagnostics,
@@ -1232,6 +1248,14 @@ fn install_registry_package(
             },
         );
     }
+
+    run_package_lifecycle_hooks(
+        &install_path,
+        &package_json,
+        allow_scripts,
+        suppress_script_output,
+    )?;
+
     installed.insert(key.clone());
 
     Ok(())
@@ -1719,6 +1743,79 @@ fn validate_package_shape(
     Ok(())
 }
 
+fn run_package_lifecycle_hooks(
+    package_dir: &Path,
+    package_json: &PackageJson,
+    allow_scripts: bool,
+    suppress_output: bool,
+) -> Result<(), Vec<Diagnostic>> {
+    if !allow_scripts || package_json.scripts.is_empty() {
+        return Ok(());
+    }
+
+    for phase in ["preinstall", "install", "postinstall"] {
+        let Some(script) = package_json.scripts.get(phase) else {
+            continue;
+        };
+        if script.trim().is_empty() {
+            continue;
+        }
+
+        run_package_lifecycle_hook(package_dir, phase, script, suppress_output)?;
+    }
+
+    Ok(())
+}
+
+fn run_package_lifecycle_hook(
+    package_dir: &Path,
+    phase: &str,
+    script: &str,
+    suppress_output: bool,
+) -> Result<(), Vec<Diagnostic>> {
+    let mut command = if cfg!(windows) {
+        let mut command = Command::new("cmd");
+        command.arg("/C").arg(script);
+        command
+    } else {
+        let mut command = Command::new("sh");
+        command.arg("-c").arg(script);
+        command
+    };
+
+    command.current_dir(package_dir);
+    if suppress_output {
+        command.stdout(Stdio::null());
+        command.stderr(Stdio::null());
+    }
+
+    let status = command.status().map_err(|error| {
+        vec![Diagnostic::error(
+            e6::INSTALL_FAILED as u32,
+            format!(
+                "failed to run npm lifecycle script '{}' in '{}': {}",
+                phase,
+                package_dir.display(),
+                error
+            ),
+        )]
+    })?;
+
+    if !status.success() {
+        return Err(vec![Diagnostic::error(
+            e6::INSTALL_FAILED as u32,
+            format!(
+                "npm lifecycle script '{}' in '{}' failed with status {}",
+                phase,
+                package_dir.display(),
+                status
+            ),
+        )]);
+    }
+
+    Ok(())
+}
+
 fn validate_package_host_fit(package_dir: &Path) -> Result<(), Diagnostic> {
     if let Some((path, builtin)) = scan_for_node_only_host_api(package_dir)? {
         return Err(Diagnostic::error(
@@ -2187,6 +2284,57 @@ mod tests {
         let json = serde_json::to_string_pretty(&lock).unwrap();
         let parsed: LockFile = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.packages.len(), 1);
+    }
+
+    #[cfg(unix)]
+    fn append_marker_command(marker: &std::path::Path, label: &str) -> String {
+        format!("printf '%s\\n' '{}' >> '{}'", label, marker.display())
+    }
+
+    #[cfg(windows)]
+    fn append_marker_command(marker: &std::path::Path, label: &str) -> String {
+        format!("echo {}>>\"{}\"", label, marker.display())
+    }
+
+    #[test]
+    fn lifecycle_hooks_run_in_order_when_allowed() {
+        let dir = tempdir().unwrap();
+        let marker = dir.path().join("hook-order.txt");
+        let package = PackageJson {
+            scripts: BTreeMap::from([
+                (
+                    "preinstall".to_string(),
+                    append_marker_command(&marker, "pre"),
+                ),
+                (
+                    "install".to_string(),
+                    append_marker_command(&marker, "install"),
+                ),
+                (
+                    "postinstall".to_string(),
+                    append_marker_command(&marker, "post"),
+                ),
+            ]),
+            ..PackageJson::default()
+        };
+
+        run_package_lifecycle_hooks(dir.path(), &package, true, true).unwrap();
+
+        let contents = fs::read_to_string(&marker).unwrap();
+        assert_eq!(contents, "pre\ninstall\npost\n");
+    }
+
+    #[test]
+    fn lifecycle_hooks_skip_blank_entries() {
+        let dir = tempdir().unwrap();
+        let marker = dir.path().join("hook-skip.txt");
+        let package = PackageJson {
+            scripts: BTreeMap::from([("install".to_string(), "   ".to_string())]),
+            ..PackageJson::default()
+        };
+
+        run_package_lifecycle_hooks(dir.path(), &package, true, true).unwrap();
+        assert!(!marker.exists(), "blank lifecycle hook should be skipped");
     }
 
     #[test]

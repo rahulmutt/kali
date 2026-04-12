@@ -41,6 +41,8 @@ graph without performing any mutations.
   URL cache entries when the declaration graph changes.
 - `kali install --allow-scripts` now rejects invocations with no effective npm-scriptable install
   work, and the invalid raw-URL / JSR lifecycle-hook combinations are rejected before any fetch.
+- NPM lifecycle hooks (`preinstall`, `install`, `postinstall`) now execute during install when the
+  opt-in flag is present, and blank hooks are treated as deterministic no-ops.
 - `kali install --dev` now requires an explicit registry target and rejects raw-URL targets
   before materialization work begins.
 - Non-install commands still fail fast with `E6007` when an installed dependency graph is missing

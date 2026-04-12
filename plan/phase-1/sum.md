@@ -15,7 +15,7 @@
 
 **In Progress:**
 - [ ] 1.8 - Runtime execution
-- [ ] 1.10 - Package management
+- [ ] 1.10 - Package management (lifecycle hooks now execute on opt-in installs)
 
 **Waiting on dependencies:**
 - [ ] 1.11+ - Remaining Phase 1 stages
