@@ -36,8 +36,9 @@
 - ✅ Semver ranges now resolve deterministically to the highest matching published version
 - ✅ Transitive install-path conflicts are rejected with `E6002`, and stale registry lock entries are pruned during `kali install`
 - ✅ `kali install` now reconciles package cache and `node_modules/` state when the lock graph is already present
+- ✅ Raw URL reconciliation now follows project-discovery/import-map declarations and prunes stale
+  URL cache entries when the declaration graph changes
 
 ## Next Work
-- [ ] Raw URL reconciliation from project discovery/import-map inputs
 - [ ] Broader package-shape / host-fit diagnostics matrix coverage
 - [ ] CLI integration coverage for install repair/prune scenarios

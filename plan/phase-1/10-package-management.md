@@ -37,10 +37,12 @@ graph without performing any mutations.
   install-path conflicts during graph reconciliation.
 - `kali install` now prunes stale registry-package entries from the lock graph and rebuilds the
   package cache / `node_modules` layout when the lock graph already exists.
+- Raw URL reconciliation now follows project-discovery/import-map declarations and prunes stale
+  URL cache entries when the declaration graph changes.
 - Non-install commands still fail fast with `E6007` when an installed dependency graph is missing
   or stale.
-- Remaining stage work is mostly around raw-URL reconciliation coverage, install repair edge
-  cases, and the full matrix of compatibility diagnostics called out in the tasks below.
+- Remaining stage work is mostly around install repair edge cases, the broader package-shape /
+  host-fit diagnostics matrix, and the CLI integration coverage called out in the tasks below.
 
 ## Tasks
 

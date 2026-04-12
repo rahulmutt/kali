@@ -250,12 +250,14 @@ pub fn ensure_project_ready(root: impl AsRef<Path>) -> Result<(), Diagnostic> {
     let root = root.as_ref();
     let manifest = match load_manifest(root)? {
         Some(manifest) => manifest,
-        None => return Ok(()),
+        None => ProjectManifest::minimal(),
     };
 
     let root_keys = manifest_registry_package_keys(&manifest);
+    let declared_raw_urls = discover_install_time_raw_urls(root, &manifest)?;
+
     let Some(lock) = load_lock(root)? else {
-        if root_keys.is_empty() {
+        if root_keys.is_empty() && declared_raw_urls.is_empty() {
             return Ok(());
         }
 
@@ -301,6 +303,23 @@ pub fn ensure_project_ready(root: impl AsRef<Path>) -> Result<(), Diagnostic> {
                     name
                 ),
             ));
+        }
+    }
+
+    if !declared_raw_urls.is_empty() {
+        for url in &declared_raw_urls {
+            match lock.raw_urls.get(url) {
+                Some(entry) if Path::new(&entry.cached).exists() => {}
+                _ => {
+                    return Err(Diagnostic::error(
+                        e6::INSTALL_REQUIRED as u32,
+                        format!(
+                            "raw URL '{}' must be installed before this command can proceed",
+                            url
+                        ),
+                    ));
+                }
+            }
         }
     }
 
@@ -448,6 +467,297 @@ fn prune_unreachable_registry_packages(
     Ok(())
 }
 
+fn discover_install_source_files(root: &Path) -> Result<Vec<PathBuf>, Diagnostic> {
+    let mut files = Vec::new();
+    collect_install_source_files(root, root, &mut files)?;
+    files.sort();
+    Ok(files)
+}
+
+fn collect_install_source_files(
+    root: &Path,
+    current: &Path,
+    files: &mut Vec<PathBuf>,
+) -> Result<(), Diagnostic> {
+    let entries = fs::read_dir(current).map_err(|error| {
+        Diagnostic::error(
+            e6::INSTALL_FAILED as u32,
+            format!(
+                "failed to read directory '{}': {}",
+                current.display(),
+                error
+            ),
+        )
+    })?;
+
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            Diagnostic::error(
+                e6::INSTALL_FAILED as u32,
+                format!("failed to read entry in '{}': {}", current.display(), error),
+            )
+        })?;
+        let path = entry.path();
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+
+        if path.is_dir() {
+            if matches!(
+                name.as_ref(),
+                ".git" | "node_modules" | ".kali-cache" | "target"
+            ) || name.starts_with('.')
+            {
+                continue;
+            }
+            if path != root && path.join("kali.json").exists() {
+                continue;
+            }
+            collect_install_source_files(root, &path, files)?;
+        } else if is_install_source_file(&path) {
+            files.push(path);
+        }
+    }
+
+    Ok(())
+}
+
+fn is_install_source_file(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+
+    if name.ends_with(".test.ts")
+        || name.ends_with(".spec.ts")
+        || name.ends_with(".test.js")
+        || name.ends_with(".spec.js")
+        || name.ends_with(".test.tsx")
+        || name.ends_with(".spec.tsx")
+        || name.ends_with(".test.mts")
+        || name.ends_with(".spec.mts")
+        || name.ends_with(".test.cts")
+        || name.ends_with(".spec.cts")
+    {
+        return false;
+    }
+
+    name.ends_with(".ts")
+        || name.ends_with(".tsx")
+        || name.ends_with(".js")
+        || name.ends_with(".jsx")
+        || name.ends_with(".mts")
+        || name.ends_with(".cts")
+        || name.ends_with(".d.ts")
+        || name.ends_with(".d.mts")
+        || name.ends_with(".d.cts")
+}
+
+fn collect_source_module_specifiers(source: &str) -> BTreeSet<String> {
+    let mut specifiers = BTreeSet::new();
+
+    for quote in ['"', '\'', '`'] {
+        let mut offset = 0usize;
+        while let Some(start_rel) = source[offset..].find(quote) {
+            let start = offset + start_rel;
+            let after = &source[start + quote.len_utf8()..];
+            let Some(end_rel) = after.find(quote) else {
+                break;
+            };
+            let candidate = &after[..end_rel];
+            let mut context_start = start.saturating_sub(160);
+            while context_start > 0 && !source.is_char_boundary(context_start) {
+                context_start -= 1;
+            }
+            let context = &source[context_start..start];
+            if !candidate.trim().is_empty()
+                && !candidate.chars().any(|ch| ch.is_whitespace())
+                && (context.contains("import")
+                    || context.contains("export")
+                    || context.contains("from")
+                    || context.contains("require("))
+            {
+                specifiers.insert(candidate.to_string());
+            }
+            offset = start + quote.len_utf8() + end_rel + quote.len_utf8();
+            if offset >= source.len() {
+                break;
+            }
+        }
+    }
+
+    specifiers
+}
+
+fn resolve_import_map_specifier(
+    specifier: &str,
+    imports: &BTreeMap<String, String>,
+) -> Option<String> {
+    let mut best: Option<(&str, &str)> = None;
+
+    for (key, target) in imports {
+        let matched = if key.ends_with('/') {
+            specifier.starts_with(key)
+        } else {
+            specifier == key
+        };
+
+        if matched && best.map_or(true, |(best_key, _)| key.len() > best_key.len()) {
+            best = Some((key.as_str(), target.as_str()));
+        }
+    }
+
+    let (key, target) = best?;
+    if key.ends_with('/') {
+        if target.ends_with('/') {
+            Some(format!("{}{}", target, &specifier[key.len()..]))
+        } else {
+            None
+        }
+    } else {
+        Some(target.to_string())
+    }
+}
+
+fn is_raw_url(specifier: &str) -> bool {
+    specifier.starts_with("https://") || specifier.starts_with("http://")
+}
+
+fn discover_install_time_raw_urls(
+    root: &Path,
+    manifest: &ProjectManifest,
+) -> Result<BTreeSet<String>, Diagnostic> {
+    let mut urls = BTreeSet::new();
+
+    for (key, target) in &manifest.imports {
+        if !key.ends_with('/') && is_raw_url(target) {
+            urls.insert(target.clone());
+        }
+    }
+
+    for source_file in discover_install_source_files(root)? {
+        let source = fs::read_to_string(&source_file).map_err(|error| {
+            Diagnostic::error(
+                e6::INSTALL_FAILED as u32,
+                format!(
+                    "failed to read source file '{}': {}",
+                    source_file.display(),
+                    error
+                ),
+            )
+        })?;
+
+        for specifier in collect_source_module_specifiers(&source) {
+            let resolved =
+                resolve_import_map_specifier(&specifier, &manifest.imports).unwrap_or(specifier);
+            if is_raw_url(&resolved) {
+                urls.insert(resolved);
+            }
+        }
+    }
+
+    Ok(urls)
+}
+
+fn prune_unreachable_raw_urls(
+    root: &Path,
+    lock: &mut LockFile,
+    reachable: &BTreeSet<String>,
+) -> Result<(), Vec<Diagnostic>> {
+    let unreachable = lock
+        .raw_urls
+        .keys()
+        .filter(|url| !reachable.contains(*url))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    for url in unreachable {
+        if let Some(entry) = lock.raw_urls.remove(&url) {
+            remove_cached_raw_url_entry(root, &entry.cached)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn remove_cached_raw_url_entry(root: &Path, cached: &str) -> Result<(), Vec<Diagnostic>> {
+    let cached_path = Path::new(cached);
+    if cached_path.exists() {
+        if cached_path.is_dir() {
+            fs::remove_dir_all(cached_path).map_err(|error| {
+                vec![Diagnostic::error(
+                    e6::INSTALL_FAILED as u32,
+                    format!(
+                        "failed to remove raw URL cache '{}': {}",
+                        cached_path.display(),
+                        error
+                    ),
+                )]
+            })?;
+        } else {
+            fs::remove_file(cached_path).map_err(|error| {
+                vec![Diagnostic::error(
+                    e6::INSTALL_FAILED as u32,
+                    format!(
+                        "failed to remove raw URL cache '{}': {}",
+                        cached_path.display(),
+                        error
+                    ),
+                )]
+            })?;
+        }
+    }
+
+    let raw_root = root.join(".kali-cache").join("raw");
+    let mut current = cached_path.parent();
+    while let Some(dir) = current {
+        if dir == raw_root || !dir.starts_with(&raw_root) {
+            break;
+        }
+
+        let is_empty = fs::read_dir(dir)
+            .map(|mut entries| entries.next().is_none())
+            .unwrap_or(true);
+        if !is_empty {
+            break;
+        }
+
+        fs::remove_dir(dir).map_err(|error| {
+            vec![Diagnostic::error(
+                e6::INSTALL_FAILED as u32,
+                format!(
+                    "failed to remove empty raw cache directory '{}': {}",
+                    dir.display(),
+                    error
+                ),
+            )]
+        })?;
+        current = dir.parent();
+    }
+
+    Ok(())
+}
+
+fn reconcile_raw_urls(
+    root: &Path,
+    lock: &mut LockFile,
+    declared_raw_urls: &BTreeSet<String>,
+    installed: &mut BTreeSet<String>,
+) -> Result<(), Vec<Diagnostic>> {
+    for url in declared_raw_urls {
+        let needs_install = match lock.raw_urls.get(url) {
+            Some(entry) => !Path::new(&entry.cached).exists(),
+            None => true,
+        };
+
+        if needs_install {
+            install_raw_url(root, lock, url, installed)?;
+        } else {
+            installed.insert(url.clone());
+        }
+    }
+
+    prune_unreachable_raw_urls(root, lock, declared_raw_urls)
+}
+
 pub fn install_project(
     root: impl AsRef<Path>,
     options: InstallOptions,
@@ -466,17 +776,7 @@ pub fn install_project(
 
     let mut manifest = match load_manifest(root) {
         Ok(Some(manifest)) => manifest,
-        Ok(None) => {
-            if options.target.is_some() {
-                ProjectManifest::minimal()
-            } else {
-                return Ok(InstallSummary {
-                    manifest_path: None,
-                    lock_path: None,
-                    installed: Vec::new(),
-                });
-            }
-        }
+        Ok(None) => ProjectManifest::minimal(),
         Err(diagnostic) => return Err(vec![diagnostic]),
     };
 
@@ -489,6 +789,7 @@ pub fn install_project(
     let mut installed = BTreeSet::new();
     let mut installed_paths = BTreeMap::new();
     let mut diagnostics = Vec::new();
+    let mut explicit_raw_url: Option<String> = None;
 
     if let Some(target) = options.target.as_deref() {
         match parse_package_target(target) {
@@ -534,7 +835,7 @@ pub fn install_project(
                     )]);
                 }
                 validate_manifest_registry_collisions(&manifest)?;
-                install_raw_url(root, &mut lock, &url, &mut installed, &mut diagnostics)?;
+                explicit_raw_url = Some(url);
             }
             Err(diagnostic) => return Err(vec![diagnostic]),
         }
@@ -564,6 +865,13 @@ pub fn install_project(
         }
     }
 
+    let mut declared_raw_urls =
+        discover_install_time_raw_urls(root, &manifest).map_err(|diagnostic| vec![diagnostic])?;
+    if let Some(url) = explicit_raw_url {
+        declared_raw_urls.insert(url);
+    }
+    reconcile_raw_urls(root, &mut lock, &declared_raw_urls, &mut installed)?;
+
     let root_keys = manifest_registry_package_keys(&manifest);
     let reachable = collect_reachable_registry_packages(&lock, &root_keys)
         .map_err(|diagnostic| vec![diagnostic])?;
@@ -572,7 +880,6 @@ pub fn install_project(
     let manifest_path = if manifest.is_minimal()
         && manifest.dependencies.is_empty()
         && manifest.dev_dependencies.is_empty()
-        && options.target.is_none()
     {
         None
     } else {
@@ -580,6 +887,19 @@ pub fn install_project(
     };
 
     let lock_path = if lock.packages.is_empty() && lock.raw_urls.is_empty() {
+        let path = root.join("kali.lock");
+        if path.exists() {
+            fs::remove_file(&path).map_err(|error| {
+                vec![Diagnostic::error(
+                    e6::INSTALL_FAILED as u32,
+                    format!(
+                        "failed to remove stale lock file '{}': {}",
+                        path.display(),
+                        error
+                    ),
+                )]
+            })?;
+        }
         None
     } else {
         Some(save_lock(root, &lock).map_err(|diagnostic| vec![diagnostic])?)
@@ -688,7 +1008,8 @@ fn install_registry_package(
 
         let tarball_bytes =
             download_bytes(&resolved.resolved).map_err(|diagnostic| vec![diagnostic])?;
-        let integrity = verify_tarball_integrity(&tarball_bytes, verification_integrity.as_deref())?;
+        let integrity =
+            verify_tarball_integrity(&tarball_bytes, verification_integrity.as_deref())?;
         extract_tarball(&tarball_bytes, &package_dir)?;
 
         let extracted_root = if package_dir.join("package").is_dir() {
@@ -844,7 +1165,6 @@ fn install_raw_url(
     lock: &mut LockFile,
     url: &str,
     installed: &mut BTreeSet<String>,
-    diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<(), Vec<Diagnostic>> {
     let bytes = download_bytes(url).map_err(|diagnostic| vec![diagnostic])?;
     let hash = sha256_hex(&bytes);
@@ -884,7 +1204,6 @@ fn install_raw_url(
         },
     );
     installed.insert(url.to_string());
-    let _ = diagnostics;
     Ok(())
 }
 
@@ -1663,6 +1982,9 @@ pub fn project_requires_install(root: impl AsRef<Path>) -> bool {
 mod tests {
     use super::*;
     use std::fs;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread;
     use tempfile::tempdir;
 
     #[test]
@@ -1824,6 +2146,96 @@ mod tests {
             serde_json::to_string_pretty(&lock).unwrap(),
         )
         .unwrap();
+
+        let error = ensure_project_ready(dir.path()).unwrap_err();
+        assert_eq!(error.code, Some(e6::INSTALL_REQUIRED as u32));
+    }
+
+    fn start_raw_url_server(body: &'static str) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut buffer = [0u8; 1024];
+                let _ = stream.read(&mut buffer);
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/typescript\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                let _ = stream.write_all(response.as_bytes());
+                let _ = stream.flush();
+            }
+        });
+        format!("http://127.0.0.1:{}/mod.ts", addr.port())
+    }
+
+    #[test]
+    fn install_reconciles_raw_urls_from_source_import_map_rewrites() {
+        let dir = tempdir().unwrap();
+        let raw_url = start_raw_url_server("export default 1;");
+        let raw_prefix = raw_url.trim_end_matches("mod.ts").to_string();
+        fs::write(
+            dir.path().join("kali.json"),
+            format!(
+                r#"{{
+  "schemaVersion": 1,
+  "imports": {{
+    "raw/": "{}"
+  }}
+}}"#,
+                raw_prefix
+            ),
+        )
+        .unwrap();
+        fs::write(dir.path().join("main.ts"), "import 'raw/mod.ts';\n").unwrap();
+
+        let summary = install_project(dir.path(), InstallOptions::default()).unwrap();
+        assert!(summary.lock_path.is_some());
+
+        let lock = load_lock(dir.path()).unwrap().unwrap();
+        assert!(lock.raw_urls.contains_key(&raw_url), "lock: {lock:#?}");
+        let cached = Path::new(&lock.raw_urls.get(&raw_url).unwrap().cached).to_path_buf();
+        assert!(cached.exists(), "cached raw url was not materialized");
+
+        fs::write(dir.path().join("main.ts"), "export {};\n").unwrap();
+        let manifest = load_manifest(dir.path()).unwrap().unwrap();
+        let discovered = discover_install_time_raw_urls(dir.path(), &manifest).unwrap();
+        assert!(
+            discovered.is_empty(),
+            "discovered raw urls: {:?}",
+            discovered
+        );
+        install_project(dir.path(), InstallOptions::default()).unwrap();
+
+        assert!(!dir.path().join("kali.lock").exists());
+        assert!(!cached.exists(), "stale raw url cache was not pruned");
+    }
+
+    #[test]
+    fn ensure_project_ready_rejects_missing_raw_url_cache() {
+        let dir = tempdir().unwrap();
+        let raw_url = start_raw_url_server("export default 1;");
+        let raw_prefix = raw_url.trim_end_matches("mod.ts").to_string();
+        fs::write(
+            dir.path().join("kali.json"),
+            format!(
+                r#"{{
+  "schemaVersion": 1,
+  "imports": {{
+    "raw/": "{}"
+  }}
+}}"#,
+                raw_prefix
+            ),
+        )
+        .unwrap();
+        fs::write(dir.path().join("main.ts"), "import 'raw/mod.ts';\n").unwrap();
+
+        install_project(dir.path(), InstallOptions::default()).unwrap();
+        let lock = load_lock(dir.path()).unwrap().unwrap();
+        let cached = Path::new(&lock.raw_urls.get(&raw_url).unwrap().cached).to_path_buf();
+        fs::remove_file(&cached).unwrap();
 
         let error = ensure_project_ready(dir.path()).unwrap_err();
         assert_eq!(error.code, Some(e6::INSTALL_REQUIRED as u32));
