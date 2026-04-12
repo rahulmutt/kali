@@ -1,14 +1,15 @@
 # Stage 1.8 Runtime Notes
 
-**Date:** 2026-04-11  
-**Status:** Runtime execution wired for simple modules; guest host surface still pending
+**Date:** 2026-04-12  
+**Status:** Runtime execution wired for simple modules; Deno host-surface subset landed
 
 ## Notes
 
 - Added a wasmtime-backed `kali_runtime` execution path and wired `kali run` / `kali test` through the compiler output.
 - Added declaration-only entrypoint rejection (`E5007`) for `run` and `test`.
 - Added smoke tests covering a successful run, declaration-only rejection, and explicit-file `test` discovery/reporting.
-- Remaining Stage 1.8 scope still includes the Deno-oriented host APIs, timers, fetch, and a real `Kali.test(...)` registration protocol.
+- Added a first Deno-oriented host-surface subset: filesystem read/write, environment lookup, arguments, and fetch.
+- Remaining Stage 1.8 scope still includes the timer / microtask scheduler surface and a real `Kali.test(...)` registration protocol.
 
 ---
 

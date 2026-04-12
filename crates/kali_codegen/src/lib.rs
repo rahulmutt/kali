@@ -7,7 +7,7 @@ use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
 use serde::{Deserialize, Serialize};
 use wasm_encoder::{
     BlockType, CodeSection, ExportKind, ExportSection, Function, FunctionSection, Instruction,
-    Module, TypeSection, ValType,
+    MemorySection, MemoryType, Module, TypeSection, ValType,
 };
 
 /// WASM code generator context.
@@ -356,7 +356,17 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         function_section.function(*type_index);
     }
 
+    let mut memory_section = MemorySection::new();
+    memory_section.memory(MemoryType {
+        minimum: 1,
+        maximum: None,
+        memory64: false,
+        shared: false,
+        page_size_log2: None,
+    });
+
     let mut export_section = ExportSection::new();
+    export_section.export("memory", ExportKind::Memory, 0);
     for function in &all_functions {
         if function.is_entry {
             export_section.export("_start", ExportKind::Func, function_name_to_index["_start"]);
@@ -390,6 +400,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let mut module = Module::new();
     module.section(&type_section);
     module.section(&function_section);
+    module.section(&memory_section);
     module.section(&export_section);
     module.section(&code_section);
 

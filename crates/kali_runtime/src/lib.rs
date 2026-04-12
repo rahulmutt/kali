@@ -2,14 +2,26 @@
 
 use kali_error::{Diagnostic, _error_codes::e4};
 use kali_sandbox::SandboxPolicy;
-use std::io::Write;
-use wasmtime::{Engine, Linker, Module, Store};
+use reqwest::blocking;
+use std::{
+    collections::BTreeMap,
+    fs,
+    io::Write,
+    path::{Path, PathBuf},
+};
+use wasmtime::{Caller, Engine, Extern, Linker, Memory, Module, Store};
 
 /// Runtime context.
 #[derive(Clone, Debug, Default)]
 pub struct RuntimeCtx {
     /// Sandbox policy.
     pub policy: Option<SandboxPolicy>,
+    /// Host arguments exposed to the guest.
+    pub args: Vec<String>,
+    /// Environment view exposed to the guest.
+    pub env: BTreeMap<String, String>,
+    /// Current working directory used for relative host-path resolution.
+    pub cwd: PathBuf,
 }
 
 /// Host-side state owned by the runtime.
@@ -17,6 +29,12 @@ pub struct RuntimeCtx {
 pub struct KaliHostState {
     /// Sandbox policy.
     pub policy: Option<SandboxPolicy>,
+    /// Host arguments exposed to the guest.
+    pub args: Vec<String>,
+    /// Environment view exposed to the guest.
+    pub env: BTreeMap<String, String>,
+    /// Current working directory used for relative host-path resolution.
+    pub cwd: PathBuf,
 }
 
 /// Result of executing a WASM module.
@@ -28,7 +46,22 @@ pub struct RuntimeOutcome {
 
 impl RuntimeCtx {
     pub fn new(policy: Option<SandboxPolicy>) -> Self {
-        Self { policy }
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        Self::with_host_context(policy, Vec::new(), capture_env(), cwd)
+    }
+
+    pub fn with_host_context(
+        policy: Option<SandboxPolicy>,
+        args: Vec<String>,
+        env: BTreeMap<String, String>,
+        cwd: PathBuf,
+    ) -> Self {
+        Self {
+            policy,
+            args,
+            env,
+            cwd,
+        }
     }
 
     /// Execute a WASM module.
@@ -45,6 +78,9 @@ impl RuntimeCtx {
             &engine,
             KaliHostState {
                 policy: self.policy.clone(),
+                args: self.args.clone(),
+                env: self.env.clone(),
+                cwd: self.cwd.clone(),
             },
         );
         let mut linker = Linker::new(&engine);
@@ -99,7 +135,306 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
         })
         .map_err(|error| host_import_error("console_warn", error))?;
 
+    linker
+        .func_wrap(
+            "kali:rt",
+            "fs_read_text_file",
+            |mut caller: Caller<'_, KaliHostState>,
+             path_ptr: i32,
+             path_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let path = read_guest_string(&mut caller, path_ptr, path_len)?;
+                let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                let bytes = fs::read(&host_path).map_err(|error| {
+                    wasmtime::Error::msg(format!(
+                        "failed to read '{}': {}",
+                        host_path.display(),
+                        error
+                    ))
+                })?;
+                write_guest_bytes(&mut caller, out_ptr, out_cap, &bytes)
+            },
+        )
+        .map_err(|error| host_import_error("fs_read_text_file", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "fs_read_file",
+            |mut caller: Caller<'_, KaliHostState>,
+             path_ptr: i32,
+             path_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let path = read_guest_string(&mut caller, path_ptr, path_len)?;
+                let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                let bytes = fs::read(&host_path).map_err(|error| {
+                    wasmtime::Error::msg(format!(
+                        "failed to read '{}': {}",
+                        host_path.display(),
+                        error
+                    ))
+                })?;
+                write_guest_bytes(&mut caller, out_ptr, out_cap, &bytes)
+            },
+        )
+        .map_err(|error| host_import_error("fs_read_file", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "fs_write_text_file",
+            |mut caller: Caller<'_, KaliHostState>,
+             path_ptr: i32,
+             path_len: i32,
+             data_ptr: i32,
+             data_len: i32|
+             -> wasmtime::Result<i32> {
+                let path = read_guest_string(&mut caller, path_ptr, path_len)?;
+                let data = read_guest_bytes(&mut caller, data_ptr, data_len)?;
+                let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                if let Some(parent) = host_path.parent() {
+                    fs::create_dir_all(parent).map_err(|error| {
+                        wasmtime::Error::msg(format!(
+                            "failed to create '{}': {}",
+                            parent.display(),
+                            error
+                        ))
+                    })?;
+                }
+                fs::write(&host_path, data).map_err(|error| {
+                    wasmtime::Error::msg(format!(
+                        "failed to write '{}': {}",
+                        host_path.display(),
+                        error
+                    ))
+                })?;
+                Ok(0)
+            },
+        )
+        .map_err(|error| host_import_error("fs_write_text_file", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "fs_mkdir",
+            |mut caller: Caller<'_, KaliHostState>,
+             path_ptr: i32,
+             path_len: i32|
+             -> wasmtime::Result<i32> {
+                let path = read_guest_string(&mut caller, path_ptr, path_len)?;
+                let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                fs::create_dir_all(&host_path).map_err(|error| {
+                    wasmtime::Error::msg(format!(
+                        "failed to create '{}': {}",
+                        host_path.display(),
+                        error
+                    ))
+                })?;
+                Ok(0)
+            },
+        )
+        .map_err(|error| host_import_error("fs_mkdir", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "fs_remove",
+            |mut caller: Caller<'_, KaliHostState>,
+             path_ptr: i32,
+             path_len: i32,
+             recursive: i32|
+             -> wasmtime::Result<i32> {
+                let path = read_guest_string(&mut caller, path_ptr, path_len)?;
+                let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                let metadata = fs::metadata(&host_path).map_err(|error| {
+                    wasmtime::Error::msg(format!(
+                        "failed to inspect '{}': {}",
+                        host_path.display(),
+                        error
+                    ))
+                })?;
+                if metadata.is_dir() {
+                    if recursive != 0 {
+                        fs::remove_dir_all(&host_path).map_err(|error| {
+                            wasmtime::Error::msg(format!(
+                                "failed to remove '{}': {}",
+                                host_path.display(),
+                                error
+                            ))
+                        })?;
+                    } else {
+                        fs::remove_dir(&host_path).map_err(|error| {
+                            wasmtime::Error::msg(format!(
+                                "failed to remove '{}': {}",
+                                host_path.display(),
+                                error
+                            ))
+                        })?;
+                    }
+                } else {
+                    fs::remove_file(&host_path).map_err(|error| {
+                        wasmtime::Error::msg(format!(
+                            "failed to remove '{}': {}",
+                            host_path.display(),
+                            error
+                        ))
+                    })?;
+                }
+                Ok(0)
+            },
+        )
+        .map_err(|error| host_import_error("fs_remove", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "env_get",
+            |mut caller: Caller<'_, KaliHostState>,
+             key_ptr: i32,
+             key_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let key = read_guest_string(&mut caller, key_ptr, key_len)?;
+                let Some(value) = caller.data().env.get(&key).cloned() else {
+                    return Ok(-1);
+                };
+                write_guest_bytes(&mut caller, out_ptr, out_cap, value.as_bytes())
+            },
+        )
+        .map_err(|error| host_import_error("env_get", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "args_len",
+            |caller: Caller<'_, KaliHostState>| -> i32 { caller.data().args.len() as i32 },
+        )
+        .map_err(|error| host_import_error("args_len", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "args_get",
+            |mut caller: Caller<'_, KaliHostState>,
+             index: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let Some(value) = caller.data().args.get(index as usize).cloned() else {
+                    return Ok(-1);
+                };
+                write_guest_bytes(&mut caller, out_ptr, out_cap, value.as_bytes())
+            },
+        )
+        .map_err(|error| host_import_error("args_get", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "fetch",
+            |mut caller: Caller<'_, KaliHostState>,
+             url_ptr: i32,
+             url_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let url = read_guest_string(&mut caller, url_ptr, url_len)?;
+                let response = blocking::get(&url)
+                    .and_then(|resp| resp.error_for_status())
+                    .map_err(|error| {
+                        wasmtime::Error::msg(format!("failed to fetch '{}': {}", url, error))
+                    })?;
+                let bytes = response.bytes().map_err(|error| {
+                    wasmtime::Error::msg(format!(
+                        "failed to read response body from '{}': {}",
+                        url, error
+                    ))
+                })?;
+                write_guest_bytes(&mut caller, out_ptr, out_cap, bytes.as_ref())
+            },
+        )
+        .map_err(|error| host_import_error("fetch", error))?;
+
     Ok(())
+}
+
+fn capture_env() -> BTreeMap<String, String> {
+    std::env::vars().collect()
+}
+
+fn read_guest_string(
+    caller: &mut Caller<'_, KaliHostState>,
+    ptr: i32,
+    len: i32,
+) -> wasmtime::Result<String> {
+    let bytes = read_guest_bytes(caller, ptr, len)?;
+    String::from_utf8(bytes).map_err(|error| {
+        wasmtime::Error::msg(format!("guest string is not valid UTF-8: {}", error))
+    })
+}
+
+fn read_guest_bytes(
+    caller: &mut Caller<'_, KaliHostState>,
+    ptr: i32,
+    len: i32,
+) -> wasmtime::Result<Vec<u8>> {
+    let memory = guest_memory(caller)?;
+    let start = checked_offset(ptr)?;
+    let length = checked_offset(len)?;
+    let end = start
+        .checked_add(length)
+        .ok_or_else(|| wasmtime::Error::msg("guest memory access overflow"))?;
+    let data = memory.data(caller);
+    let slice = data
+        .get(start..end)
+        .ok_or_else(|| wasmtime::Error::msg("guest memory access out of bounds"))?;
+    Ok(slice.to_vec())
+}
+
+fn write_guest_bytes(
+    caller: &mut Caller<'_, KaliHostState>,
+    ptr: i32,
+    cap: i32,
+    bytes: &[u8],
+) -> wasmtime::Result<i32> {
+    let memory = guest_memory(caller)?;
+    let start = checked_offset(ptr)?;
+    let capacity = checked_offset(cap)?;
+    if bytes.len() > capacity {
+        return Err(wasmtime::Error::msg(format!(
+            "guest output buffer too small: need {}, have {}",
+            bytes.len(),
+            capacity
+        )));
+    }
+    memory.write(caller, start, bytes).map_err(|error| {
+        wasmtime::Error::msg(format!("failed to write guest memory: {}", error))
+    })?;
+    Ok(bytes.len() as i32)
+}
+
+fn guest_memory(caller: &mut Caller<'_, KaliHostState>) -> wasmtime::Result<Memory> {
+    match caller.get_export("memory") {
+        Some(Extern::Memory(memory)) => Ok(memory),
+        _ => Err(wasmtime::Error::msg("guest module does not export memory")),
+    }
+}
+
+fn checked_offset(value: i32) -> wasmtime::Result<usize> {
+    usize::try_from(value).map_err(|_| wasmtime::Error::msg("negative guest memory offset"))
+}
+
+fn resolve_host_path(state: &KaliHostState, path: &Path) -> PathBuf {
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        state.cwd.join(path)
+    }
 }
 
 fn format_tagged_val(value: i64) -> String {
@@ -116,54 +451,189 @@ fn host_import_error(name: &str, error: impl std::fmt::Display) -> Diagnostic {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wasm_encoder::{
-        CodeSection, EntityType, ExportKind, ExportSection, Function, FunctionSection,
-        ImportSection, Instruction, Module, TypeSection, ValType,
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        thread,
     };
 
-    fn module_with_console_imports() -> Vec<u8> {
-        let mut module = Module::new();
-
-        let mut types = TypeSection::new();
-        types.ty().function(vec![ValType::I64], Vec::new());
-        types.ty().function(Vec::new(), Vec::new());
-        module.section(&types);
-
-        let mut imports = ImportSection::new();
-        imports.import("kali:rt", "console_log", EntityType::Function(0));
-        imports.import("kali:rt", "console_error", EntityType::Function(0));
-        imports.import("kali:rt", "console_warn", EntityType::Function(0));
-        module.section(&imports);
-
-        let mut functions = FunctionSection::new();
-        functions.function(1);
-        module.section(&functions);
-
-        let mut exports = ExportSection::new();
-        exports.export("_start", ExportKind::Func, 3);
-        module.section(&exports);
-
-        let mut code = CodeSection::new();
-        let mut body = Function::new(Vec::new());
-        body.instruction(&Instruction::I64Const(1));
-        body.instruction(&Instruction::Call(0));
-        body.instruction(&Instruction::I64Const(2));
-        body.instruction(&Instruction::Call(1));
-        body.instruction(&Instruction::I64Const(3));
-        body.instruction(&Instruction::Call(2));
-        body.instruction(&Instruction::End);
-        code.function(&body);
-        module.section(&code);
-
-        module.finish()
+    fn compile_wat(wat: &str) -> Vec<u8> {
+        wat::parse_str(wat).expect("valid wat")
     }
 
     #[test]
     fn runtime_executes_modules_with_console_host_imports() {
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:rt" "console_log" (func $console_log (param i64)))
+                (import "kali:rt" "console_error" (func $console_error (param i64)))
+                (import "kali:rt" "console_warn" (func $console_warn (param i64)))
+                (memory (export "memory") 1)
+                (func (export "_start")
+                    i64.const 1
+                    call $console_log
+                    i64.const 2
+                    call $console_error
+                    i64.const 3
+                    call $console_warn))
+            "#,
+        );
+
         let runtime = RuntimeCtx::default();
-        let wasm = module_with_console_imports();
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_exposes_arguments() {
+        let runtime = RuntimeCtx::with_host_context(
+            None,
+            vec!["alpha".to_string(), "beta".to_string()],
+            capture_env(),
+            PathBuf::from("."),
+        );
+
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:rt" "args_len" (func $args_len (result i32)))
+                (func (export "_start")
+                    call $args_len
+                    i32.const 2
+                    i32.eq
+                    if
+                    else
+                        unreachable
+                    end))
+            "#,
+        );
 
         let outcome = runtime.execute(&wasm).expect("runtime outcome");
         assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_exposes_environment_variables() {
+        let mut env = BTreeMap::new();
+        env.insert("KALI_RUNTIME_TEST_ENV".to_string(), "hello".to_string());
+        let runtime = RuntimeCtx::with_host_context(
+            None,
+            vec!["alpha".to_string(), "beta".to_string()],
+            env,
+            PathBuf::from("."),
+        );
+
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:rt" "env_get" (func $env_get (param i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "KALI_RUNTIME_TEST_ENV")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 21
+                    i32.const 128
+                    i32.const 64
+                    call $env_get
+                    i32.const 5
+                    i32.eq
+                    if
+                    else
+                        unreachable
+                    end))
+            "#,
+        );
+
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_writes_text_files() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let runtime = RuntimeCtx::with_host_context(
+            None,
+            Vec::new(),
+            capture_env(),
+            dir.path().to_path_buf(),
+        );
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:rt" "fs_write_text_file" (func $write (param i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "./written.txt")
+                (data (i32.const 64) "hello runtime")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 13
+                    i32.const 64
+                    i32.const 13
+                    call $write
+                    i32.const 0
+                    i32.eq
+                    if
+                    else
+                        unreachable
+                    end))
+            "#,
+        );
+
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+
+        let written = fs::read_to_string(dir.path().join("written.txt")).expect("written file");
+        assert_eq!(written, "hello runtime");
+    }
+
+    #[test]
+    fn runtime_fetches_http_responses() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+        let addr = listener.local_addr().expect("local addr");
+        let body = "hello fetch";
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept");
+            let mut buffer = [0u8; 1024];
+            let _ = stream.read(&mut buffer);
+            let _ = stream.write_all(response.as_bytes());
+        });
+
+        let runtime =
+            RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+        let url = format!("http://127.0.0.1:{}/", addr.port());
+        let wat = format!(
+            r#"
+            (module
+                (import "kali:rt" "fetch" (func $fetch (param i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "{}")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const {}
+                    i32.const 128
+                    i32.const 64
+                    call $fetch
+                    i32.const {}
+                    i32.eq
+                    if
+                    else
+                        unreachable
+                    end))
+            "#,
+            url,
+            url.len(),
+            body.len()
+        );
+
+        let wasm = compile_wat(&wat);
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+        server.join().expect("server thread");
     }
 }
