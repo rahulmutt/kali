@@ -23,11 +23,10 @@ pub struct BuildOutput {
     pub wasm_bytes: Vec<u8>,
 }
 
-pub fn build_source_file(
+pub fn compile_source_file(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
-    out_dir: Option<&Path>,
-) -> Result<BuildOutput, Vec<Diagnostic>> {
+) -> Result<Vec<u8>, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
     let source = fs::read_to_string(source_path).map_err(|error| {
         vec![Diagnostic::error(
@@ -70,6 +69,17 @@ pub fn build_source_file(
         return Err(diagnostics);
     }
 
+    Ok(result.wasm_bytes)
+}
+
+pub fn build_source_file(
+    source_path: impl AsRef<Path>,
+    mode: BuildMode,
+    out_dir: Option<&Path>,
+) -> Result<BuildOutput, Vec<Diagnostic>> {
+    let source_path = source_path.as_ref();
+    let wasm_bytes = compile_source_file(source_path, mode)?;
+
     let output_path = output_path_for(source_path, out_dir);
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
@@ -84,7 +94,7 @@ pub fn build_source_file(
         })?;
     }
 
-    fs::write(&output_path, &result.wasm_bytes).map_err(|error| {
+    fs::write(&output_path, &wasm_bytes).map_err(|error| {
         vec![Diagnostic::error(
             e8::INTERNAL_ERROR as u32,
             format!(
@@ -97,7 +107,7 @@ pub fn build_source_file(
 
     Ok(BuildOutput {
         output_path,
-        wasm_bytes: result.wasm_bytes,
+        wasm_bytes,
     })
 }
 

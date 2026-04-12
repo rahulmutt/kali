@@ -1,7 +1,10 @@
 //! CLI interface for the Kali compiler.
 
 use clap::Parser;
-use std::path::PathBuf;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 pub mod build;
 
@@ -84,6 +87,52 @@ impl Commands {
             Commands::Build { fast, .. } if *fast => build::BuildMode::Fast,
             Commands::Build { .. } => build::BuildMode::Fast,
             _ => build::BuildMode::Fast,
+        }
+    }
+}
+
+pub fn is_declaration_only_source_file(path: impl AsRef<Path>) -> bool {
+    let path = path.as_ref();
+    matches!(
+        path.file_name().and_then(|name| name.to_str()),
+        Some(name)
+            if name.ends_with(".d.ts")
+                || name.ends_with(".d.mts")
+                || name.ends_with(".d.cts")
+    )
+}
+
+pub fn discover_test_files(root: impl AsRef<Path>) -> Vec<PathBuf> {
+    let mut discovered = Vec::new();
+    collect_test_files(root.as_ref(), &mut discovered);
+    discovered
+}
+
+fn collect_test_files(dir: &Path, discovered: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+
+    let mut entries = entries.filter_map(Result::ok).collect::<Vec<_>>();
+    entries.sort_by_key(|entry| entry.path());
+
+    for entry in entries {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_test_files(&path, discovered);
+            continue;
+        }
+
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+
+        if name.ends_with(".test.ts")
+            || name.ends_with(".spec.ts")
+            || name.ends_with(".test.js")
+            || name.ends_with(".spec.js")
+        {
+            discovered.push(path);
         }
     }
 }

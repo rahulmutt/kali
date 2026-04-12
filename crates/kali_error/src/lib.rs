@@ -77,10 +77,13 @@ pub mod _error_codes {
 
     // E5xxx: CLI/command errors (kali_cli)
     pub mod e5 {
-        // E5000-5099: Command argument errors
+        // E5000-5099: Command argument and availability errors
         pub const INVALID_ARGUMENT: u16 = 5000;
         pub const MISSING_REQUIRED_ARGUMENT: u16 = 5001;
         pub const UNKNOWN_COMMAND: u16 = 5002;
+        pub const FEATURE_UNAVAILABLE: u16 = 5006;
+        pub const INVALID_PRIMARY_INPUT_KIND: u16 = 5007;
+        pub const INVALID_CLI_USAGE: u16 = 5008;
 
         // E5100-5199: Command mode errors
         pub const INCOMPATIBLE_FLAGS: u16 = 5100;
@@ -175,43 +178,39 @@ mod tests {
     fn test_error_namespace_structure() {
         // Verify all namespace modules are accessible
         use _error_codes::*;
-        
+
         // E1 namespace
         assert_eq!(e1::UNTERMINATED_STRING, 1000);
-        
+
         // E2 namespace
         assert_eq!(e2::EXPECTED_TOKEN, 2000);
-        
+
         // E3 namespace
         assert_eq!(e3::UNDEFINED_IDENTIFIER, 3100);
-        
+
         // E4 namespace
         assert_eq!(e4::UNCAUGHT_ERROR, 4000);
-        
+
         // E5 namespace
         assert_eq!(e5::UNKNOWN_COMMAND, 5002);
-        
+
         // E6 namespace
         assert_eq!(e6::NOT_FOUND, 6000);
-        
+
         // E7 namespace
         assert_eq!(e7::INVALID_WASM_MODULE, 7000);
-        
+
         // E8 namespace
         assert_eq!(e8::UNIMPLEMENTED, 8001);
-        
+
         // E9 namespace
         assert_eq!(e9::POLICY_VIOLATION, 9000);
     }
 
     #[test]
     fn test_diagnostic_creation() {
-        let diag = Diagnostic::new(
-            Severity::Error,
-            1000,
-            "test error".to_string()
-        );
-        
+        let diag = Diagnostic::new(Severity::Error, 1000, "test error".to_string());
+
         assert_eq!(diag.severity, Severity::Error);
         assert_eq!(diag.code, Some(1000));
     }

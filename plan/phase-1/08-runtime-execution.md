@@ -20,6 +20,14 @@ TypeScript/JavaScript programs.
   are available to guest programs.
 - Exit codes are correct (0 = success, non-zero = runtime error or test failure).
 
+## Progress
+
+- `kali_runtime` is now wired through wasmtime for simple emitted WASM modules.
+- `kali run` and `kali test` are no longer stubs; both drive the compiler output end to end.
+- Declaration-only entrypoints are rejected for runtime-bearing commands with `E5007`.
+- Smoke tests cover a successful run, declaration-only rejection, and explicit-file test reporting.
+- The host surface and real guest-side `Kali.test(...)` protocol remain to be implemented.
+
 ## Tasks
 
 ### 1. wasmtime integration (`kali_runtime`)
