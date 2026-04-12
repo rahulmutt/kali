@@ -102,6 +102,6 @@ Lift the **annotation-required inference boundary** for well-typed public APIs:
 - [ ] Monomorphisation tests confirm no `TagCheck` / `Untag` instructions in specialised
   hot paths.
 - [ ] `compilerOptions.maxSpecializations` enforced; code-size explosion test passes.
-- [ ] Incremental compilation: a second build of an unchanged module is a cache hit (no
+- [x] Incremental compilation: a second build of an unchanged module is a cache hit (no
   recompile).
 - [ ] All Phase-1 and Phase-2 tests continue to pass without regression.

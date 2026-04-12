@@ -5,7 +5,7 @@
 
 ## Summary
 
-Stage 3.1 now has the first real `kali_optimize` implementation wired into the build pipeline. `release` builds perform deterministic constant folding and branch elimination, while `release-advanced` adds a small algebraic-identity pass that can remove extra add/sub/mul overhead from hot paths. The CLI build path now invokes the optimizer before WASM codegen, and the workspace test suite remains green.
+Stage 3.1 now has the first real `kali_optimize` implementation wired into the build pipeline. `release` builds perform deterministic constant folding and branch elimination, while `release-advanced` adds a small algebraic-identity pass that can remove extra add/sub/mul overhead from hot paths. The CLI build path now invokes the optimizer before WASM codegen, and the CLI build pipeline now also maintains a deterministic incremental cache for repeated module compiles. The workspace test suite remains green.
 
 ## Evidence
 
@@ -13,6 +13,7 @@ Stage 3.1 now has the first real `kali_optimize` implementation wired into the b
 - `release` folds literal expressions and constant branches before codegen ✅
 - `release-advanced` adds algebraic simplifications such as `x + 0 -> x` ✅
 - CLI runtime smoke tests now compare `fast`, `release`, and `release-advanced` instruction counts ✅
+- Repeated builds now populate and reuse `.kali-cache/incremental/` for unchanged modules ✅
 - `cargo test --workspace` passes ✅
 
 ## Notable Deliverables
@@ -25,9 +26,9 @@ Stage 3.1 now has the first real `kali_optimize` implementation wired into the b
 ## Current Limits
 
 - Generic/function/layout specialization has not been implemented yet.
-- Incremental compilation still remains a later Stage 3 follow-up.
+- `release` / `release-advanced` still rely on the current LIR-level pass set rather than the later MIR-driven specialization model.
 - The optimizer is still tree-local and does not yet model the full MIR/LIR pass pipeline described in the long-term stage plan.
 
 ## Next Step
 
-Continue Stage 3.1 by adding actual specialization/planning data structures and broader incremental/release optimization coverage so the remaining DoD items can be closed.
+Continue Stage 3.1 by adding actual specialization/planning data structures and broader release optimization coverage so the remaining DoD items can be closed.

@@ -64,7 +64,71 @@ pub fn check_source_file(source_path: impl AsRef<Path>) -> Result<(), Vec<Diagno
     Ok(())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompileOutput {
+    pub wasm_bytes: Vec<u8>,
+    pub cache_hit: bool,
+    pub cache_path: Option<PathBuf>,
+}
+
+pub fn compile_source_file_with_cache_state(
+    source_path: impl AsRef<Path>,
+    mode: BuildMode,
+) -> Result<CompileOutput, Vec<Diagnostic>> {
+    let source_path = source_path.as_ref();
+
+    if let Some(cache_path) = incremental_cache_path(source_path, mode)? {
+        match fs::read(&cache_path) {
+            Ok(wasm_bytes) => {
+                return Ok(CompileOutput {
+                    wasm_bytes,
+                    cache_hit: true,
+                    cache_path: Some(cache_path),
+                })
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(vec![Diagnostic::error(
+                    e8::INTERNAL_ERROR as u32,
+                    format!(
+                        "failed to read incremental cache '{}': {}",
+                        cache_path.display(),
+                        error
+                    ),
+                )])
+            }
+        }
+
+        let wasm_bytes = compile_source_file_uncached(source_path, mode)?;
+
+        if let Some(parent) = cache_path.parent() {
+            let _ = fs::create_dir_all(parent);
+            let _ = fs::write(&cache_path, &wasm_bytes);
+        }
+
+        Ok(CompileOutput {
+            wasm_bytes,
+            cache_hit: false,
+            cache_path: Some(cache_path),
+        })
+    } else {
+        let wasm_bytes = compile_source_file_uncached(source_path, mode)?;
+        Ok(CompileOutput {
+            wasm_bytes,
+            cache_hit: false,
+            cache_path: None,
+        })
+    }
+}
+
 pub fn compile_source_file(
+    source_path: impl AsRef<Path>,
+    mode: BuildMode,
+) -> Result<Vec<u8>, Vec<Diagnostic>> {
+    compile_source_file_with_cache_state(source_path, mode).map(|output| output.wasm_bytes)
+}
+
+fn compile_source_file_uncached(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
@@ -99,6 +163,42 @@ pub fn compile_source_file(
     }
 
     Ok(result.wasm_bytes)
+}
+
+fn incremental_cache_path(
+    source_path: &Path,
+    mode: BuildMode,
+) -> Result<Option<PathBuf>, Vec<Diagnostic>> {
+    let source_hash = source_hash_for_file(source_path).map_err(|error| {
+        vec![Diagnostic::error(
+            e8::INTERNAL_ERROR as u32,
+            format!(
+                "failed to hash source file '{}': {}",
+                source_path.display(),
+                error
+            ),
+        )]
+    })?;
+    let Some(project_root) = project_root_for_source(source_path) else {
+        return Ok(None);
+    };
+    let cache_key = format!("{}-{}-{}", source_hash, build_mode_name(mode), env!("CARGO_PKG_VERSION"));
+    Ok(Some(
+        project_root
+            .join(".kali-cache")
+            .join("incremental")
+            .join(format!("{}.wasm", cache_key)),
+    ))
+}
+
+fn project_root_for_source(source_path: &Path) -> Option<PathBuf> {
+    let start = source_path.parent().unwrap_or(source_path);
+    for ancestor in start.ancestors() {
+        if ancestor.join("kali.json").exists() {
+            return Some(ancestor.to_path_buf());
+        }
+    }
+    None
 }
 
 fn analyze_source_file(source_path: &Path) -> Result<AnalyzedSource, Vec<Diagnostic>> {
@@ -564,6 +664,30 @@ mod tests {
         Validator::new()
             .validate_all(&output.wasm_bytes)
             .expect("artifact should validate");
+    }
+
+    #[test]
+    fn compile_source_file_uses_incremental_cache_on_repeat_builds() {
+        let dir = tempdir().expect("tempdir");
+        fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#)
+            .expect("write manifest");
+        let source_path = dir.path().join("main.ts");
+        fs::write(&source_path, "console.log(1);").expect("write source");
+
+        let first = compile_source_file_with_cache_state(&source_path, BuildMode::Release)
+            .expect("first compile");
+        assert!(!first.cache_hit);
+        let first_cache_path = first
+            .cache_path
+            .as_ref()
+            .expect("cache path should be recorded for project-root builds");
+        assert!(first_cache_path.exists(), "cache path should be written on first build");
+
+        let second = compile_source_file_with_cache_state(&source_path, BuildMode::Release)
+            .expect("second compile");
+        assert!(second.cache_hit);
+        assert_eq!(first.wasm_bytes, second.wasm_bytes);
+        assert_eq!(first.cache_path, second.cache_path);
     }
 
     #[test]
