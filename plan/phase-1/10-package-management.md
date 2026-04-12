@@ -39,6 +39,10 @@ graph without performing any mutations.
   package cache / `node_modules` layout when the lock graph already exists.
 - Raw URL reconciliation now follows project-discovery/import-map declarations and prunes stale
   URL cache entries when the declaration graph changes.
+- `kali install --allow-scripts` now rejects invocations with no effective npm-scriptable install
+  work, and the invalid raw-URL / JSR lifecycle-hook combinations are rejected before any fetch.
+- `kali install --dev` now requires an explicit registry target and rejects raw-URL targets
+  before materialization work begins.
 - Non-install commands still fail fast with `E6007` when an installed dependency graph is missing
   or stale.
 - Package-shape coverage now has explicit unit tests for node-gyp lifecycle scripts and

@@ -2,7 +2,7 @@
 
 use base64::Engine;
 use flate2::read::GzDecoder;
-use kali_error::{Diagnostic, _error_codes::e6};
+use kali_error::{Diagnostic, _error_codes::e5, _error_codes::e6};
 use reqwest::blocking::Client;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
@@ -622,6 +622,21 @@ fn is_raw_url(specifier: &str) -> bool {
     specifier.starts_with("https://") || specifier.starts_with("http://")
 }
 
+fn has_effective_npm_scriptable_install_work(
+    manifest: &ProjectManifest,
+    target: Option<&PackageTarget>,
+) -> bool {
+    match target {
+        Some(PackageTarget::Registry { registry, .. }) => registry == "npm",
+        Some(PackageTarget::RawUrl(_)) => false,
+        None => manifest
+            .dependencies
+            .keys()
+            .chain(manifest.dev_dependencies.keys())
+            .any(|name| !name.starts_with("jsr:")),
+    }
+}
+
 fn discover_install_time_raw_urls(
     root: &Path,
     manifest: &ProjectManifest,
@@ -781,6 +796,55 @@ pub fn install_project(
         Err(diagnostic) => return Err(vec![diagnostic]),
     };
 
+    let parsed_target = match options.target.as_deref() {
+        Some(target) => Some(parse_package_target(target).map_err(|diagnostic| vec![diagnostic])?),
+        None => None,
+    };
+
+    if options.dev {
+        match parsed_target.as_ref() {
+            None => {
+                return Err(vec![Diagnostic::error(
+                    e5::INVALID_CLI_USAGE as u32,
+                    "`--dev` requires an explicit registry package target",
+                )]);
+            }
+            Some(PackageTarget::RawUrl(_)) => {
+                return Err(vec![Diagnostic::error(
+                    e5::INVALID_CLI_USAGE as u32,
+                    "`--dev` is not valid for raw-URL targets",
+                )]);
+            }
+            _ => {}
+        }
+    }
+
+    if options.allow_scripts {
+        match parsed_target.as_ref() {
+            Some(PackageTarget::RawUrl(_)) => {
+                return Err(vec![Diagnostic::error(
+                    e5::INVALID_CLI_USAGE as u32,
+                    "`--allow-scripts` is not valid for raw-URL targets",
+                )]);
+            }
+            Some(PackageTarget::Registry { registry, .. }) if registry == "jsr" => {
+                return Err(vec![Diagnostic::error(
+                    e5::INVALID_CLI_USAGE as u32,
+                    "`--allow-scripts` is not valid for JSR targets",
+                )]);
+            }
+            Some(PackageTarget::Registry { registry, .. }) if registry == "npm" => {}
+            None if !has_effective_npm_scriptable_install_work(&manifest, None) => {
+                return Err(vec![Diagnostic::error(
+                    e5::INVALID_CLI_USAGE as u32,
+                    "`--allow-scripts` requires effective npm-scriptable install work",
+                )]);
+            }
+            None => {}
+            _ => {}
+        }
+    }
+
     let mut lock = match load_lock(root) {
         Ok(Some(lock)) => lock,
         Ok(None) => LockFile::minimal(),
@@ -792,13 +856,13 @@ pub fn install_project(
     let mut diagnostics = Vec::new();
     let mut explicit_raw_url: Option<String> = None;
 
-    if let Some(target) = options.target.as_deref() {
-        match parse_package_target(target) {
-            Ok(PackageTarget::Registry {
+    if let Some(target) = parsed_target {
+        match target {
+            PackageTarget::Registry {
                 registry,
                 name,
                 version,
-            }) => {
+            } => {
                 let resolved = match resolve_registry_package(&registry, &name, version.as_deref())
                 {
                     Ok(resolved) => resolved,
@@ -828,17 +892,10 @@ pub fn install_project(
                     &mut diagnostics,
                 )?;
             }
-            Ok(PackageTarget::RawUrl(url)) => {
-                if options.allow_scripts {
-                    return Err(vec![Diagnostic::error(
-                        e6::RAW_URL_NOT_ALLOWED as u32,
-                        "`--allow-scripts` is not valid for raw-URL targets",
-                    )]);
-                }
+            PackageTarget::RawUrl(url) => {
                 validate_manifest_registry_collisions(&manifest)?;
                 explicit_raw_url = Some(url);
             }
-            Err(diagnostic) => return Err(vec![diagnostic]),
         }
     } else if !manifest.dependencies.is_empty() || !manifest.dev_dependencies.is_empty() {
         validate_manifest_registry_collisions(&manifest)?;
@@ -2321,6 +2378,99 @@ mod tests {
 
         assert!(!dir.path().join("kali.lock").exists());
         assert!(!cached.exists(), "stale raw url cache was not pruned");
+    }
+
+    #[test]
+    fn install_rejects_allow_scripts_without_npm_work() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).unwrap();
+
+        let error = install_project(
+            dir.path(),
+            InstallOptions {
+                allow_scripts: true,
+                ..InstallOptions::default()
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(error[0].code, Some(e5::INVALID_CLI_USAGE as u32));
+        assert!(error[0]
+            .message
+            .contains("requires effective npm-scriptable install work"));
+    }
+
+    #[test]
+    fn install_rejects_allow_scripts_for_jsr_targets() {
+        let dir = tempdir().unwrap();
+
+        let error = install_project(
+            dir.path(),
+            InstallOptions {
+                target: Some("jsr:@std/path".to_string()),
+                allow_scripts: true,
+                ..InstallOptions::default()
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(error[0].code, Some(e5::INVALID_CLI_USAGE as u32));
+        assert!(error[0].message.contains("not valid for JSR targets"));
+    }
+
+    #[test]
+    fn install_rejects_allow_scripts_for_raw_url_targets() {
+        let dir = tempdir().unwrap();
+
+        let error = install_project(
+            dir.path(),
+            InstallOptions {
+                target: Some("https://example.com/mod.ts".to_string()),
+                allow_scripts: true,
+                ..InstallOptions::default()
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(error[0].code, Some(e5::INVALID_CLI_USAGE as u32));
+        assert!(error[0].message.contains("not valid for raw-URL targets"));
+    }
+
+    #[test]
+    fn install_rejects_dev_without_explicit_target() {
+        let dir = tempdir().unwrap();
+
+        let error = install_project(
+            dir.path(),
+            InstallOptions {
+                dev: true,
+                ..InstallOptions::default()
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(error[0].code, Some(e5::INVALID_CLI_USAGE as u32));
+        assert!(error[0]
+            .message
+            .contains("requires an explicit registry package target"));
+    }
+
+    #[test]
+    fn install_rejects_dev_for_raw_url_targets() {
+        let dir = tempdir().unwrap();
+
+        let error = install_project(
+            dir.path(),
+            InstallOptions {
+                target: Some("https://example.com/mod.ts".to_string()),
+                dev: true,
+                ..InstallOptions::default()
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(error[0].code, Some(e5::INVALID_CLI_USAGE as u32));
+        assert!(error[0].message.contains("not valid for raw-URL targets"));
     }
 
     #[test]

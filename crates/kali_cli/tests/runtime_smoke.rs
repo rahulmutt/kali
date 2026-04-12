@@ -802,3 +802,65 @@ fn install_prunes_stale_registry_layout_without_repairing() {
         "stdout: {stdout}"
     );
 }
+
+#[test]
+fn install_allow_scripts_rejects_jsr_targets() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("install")
+        .arg("--allow-scripts")
+        .arg("jsr:@std/path")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("JSR targets"), "stderr: {stderr}");
+}
+
+#[test]
+fn install_allow_scripts_rejects_when_no_npm_work_exists() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("install")
+        .arg("--allow-scripts")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("effective npm-scriptable install work"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn install_dev_requires_an_explicit_registry_target() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("install")
+        .arg("--dev")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("explicit registry package target"),
+        "stderr: {stderr}"
+    );
+}
