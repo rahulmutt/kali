@@ -966,6 +966,50 @@ mod tests {
     }
 
     #[test]
+    fn runtime_reports_mocked_fetch_failures() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+        let addr = listener.local_addr().expect("local addr");
+        let response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept");
+            let mut buffer = [0u8; 1024];
+            let _ = stream.read(&mut buffer);
+            let _ = stream.write_all(response.as_bytes());
+        });
+
+        let runtime =
+            RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+        let url = format!("http://127.0.0.1:{}/missing", addr.port());
+        let wat = format!(
+            r#"
+            (module
+                (import "kali:rt" "fetch" (func $fetch (param i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "{}")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const {}
+                    i32.const 128
+                    i32.const 64
+                    call $fetch
+                    drop))
+            "#,
+            url,
+            url.len()
+        );
+
+        let wasm = compile_wat(&wat);
+        let diagnostics = runtime.execute(&wasm).expect_err("fetch should fail");
+        assert_eq!(diagnostics[0].code, Some(e4::UNCAUGHT_ERROR as u32));
+        assert!(
+            diagnostics[0].message.contains("runtime trap"),
+            "diagnostic: {:?}",
+            diagnostics[0]
+        );
+        server.join().expect("server thread");
+    }
+
+    #[test]
     fn runtime_drains_microtasks_before_timers() {
         let runtime =
             RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
@@ -1002,6 +1046,74 @@ mod tests {
 
         let outcome = runtime.execute(&wasm).expect("runtime outcome");
         assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_repeating_intervals_can_be_cleared_from_callbacks() {
+        let runtime =
+            RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:rt" "setInterval" (func $set_interval (param i32 i32) (result i32)))
+                (import "kali:rt" "clearInterval" (func $clear_interval (param i32)))
+                (memory (export "memory") 1)
+                (global $state (mut i32) (i32.const 0))
+                (global $timer_id (mut i32) (i32.const -1))
+                (func (export "__kali_callback_3")
+                    global.get $state
+                    i32.const 1
+                    i32.add
+                    global.set $state
+                    global.get $state
+                    i32.const 2
+                    i32.eq
+                    if
+                        global.get $timer_id
+                        call $clear_interval
+                    else
+                        global.get $state
+                        i32.const 2
+                        i32.gt_s
+                        if
+                            unreachable
+                        end
+                    end)
+                (func (export "_start")
+                    i32.const 3
+                    i32.const 0
+                    call $set_interval
+                    global.set $timer_id)
+            )
+            "#,
+        );
+
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_reports_traps_from_the_entrypoint() {
+        let runtime =
+            RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+        let wasm = compile_wat(
+            r#"
+            (module
+                (memory (export "memory") 1)
+                (func (export "_start")
+                    i64.const 1
+                    i64.const 0
+                    i64.div_s
+                    drop)
+            )
+            "#,
+        );
+
+        let diagnostics = runtime
+            .execute(&wasm)
+            .expect_err("division by zero should trap");
+        assert_eq!(diagnostics[0].code, Some(e4::UNCAUGHT_ERROR as u32));
+        assert!(diagnostics[0].message.contains("runtime trap"));
     }
 
     #[test]

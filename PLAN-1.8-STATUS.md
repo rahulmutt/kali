@@ -1,7 +1,7 @@
 # Stage 1.8 Status Update
 
 **Date:** 2026-04-12  
-**Status:** 🚧 Runtime execution wired for simple modules plus a Deno host-surface subset and timer/microtask scheduling
+**Status:** 🚧 Runtime execution wired for simple modules plus a Deno host-surface subset, timer/microtask scheduling, and edge-case fixture coverage
 
 ## Summary
 
@@ -31,8 +31,8 @@ The runtime linker now also exposes the basic console host imports (`console_log
 
 - The runtime still exercises the compiler's simple WASM output rather than a full guest JS host surface
 - The rest of the Web baseline remains pending
-- Fixture-level coverage for the remaining async/timer, mocked fetch, and invalid-trap source cases still needs to be expanded for the full Stage 1.8 suite
+- Runtime edge-case coverage now includes timer/interval clearing, mocked fetch failure, and entrypoint trap diagnostics; the remaining Stage 1.8 follow-up is the Web baseline breadth work
 
 ## Next Step
 
-Continue Stage 1.8 by expanding the remaining fixture-level runtime coverage to the async/timer, mocked fetch, and invalid-trap source cases, then finish the remaining Web baseline follow-up.
+Continue Stage 1.8 by finishing the remaining Web baseline follow-up, then move on to the next Phase 1 stage.

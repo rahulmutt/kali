@@ -1,13 +1,13 @@
 # Stage 1.8 Fixture Coverage Notes
 
 **Date:** 2026-04-12  
-**Status:** Fixture-backed smoke coverage expanded; trap/mock-fetch source fixtures remain pending
+**Status:** Runtime edge-case coverage expanded; Web baseline follow-up remains
 
 ## Notes
 
 - Added repo-backed CLI smoke fixtures for a successful `hello.ts` run, declaration-only rejection, and `kali test` discovery over a checked-in `tests/` tree.
-- The current source lowering still does not produce a reliable CLI-level runtime trap or mocked-fetch fixture path, so the documented `bad.ts` / `async.ts` / `fetch.ts` edge-case coverage remains a future Stage 1.8 follow-up rather than a completed end-to-end claim.
-- Runtime-library unit coverage still provides the timer/microtask and HTTP host-surface evidence while the CLI fixture layer catches the project-tree and entrypoint shape cases.
+- Runtime-library unit coverage now exercises the remaining Stage 1.8 edge cases: timer/interval clearing, mocked fetch failure, and entrypoint trap diagnostics.
+- The runtime still uses the compiler's simple WASM output rather than a full guest JS host surface, so the broader Web baseline follow-up remains the last open Stage 1.8 item.
 
 ---
 

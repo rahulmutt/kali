@@ -29,4 +29,5 @@
 - [x] Add the timer / microtask scheduler surface (`setTimeout`, `setInterval`, `queueMicrotask`)
 - [x] Implement the guest-side `Kali.test(...)` registration protocol
 - [x] Add repo-backed fixture smoke coverage for `hello.ts`, test-suite discovery, and declaration-only rejection
-- [ ] Expand runtime fixture coverage for the remaining Stage 1.8 edge cases (`async.ts`, `fetch.ts`, invalid-trap source fixture)
+- [x] Expand runtime fixture coverage for the remaining Stage 1.8 edge cases (`async.ts`, `fetch.ts`, invalid-trap source fixture)
+- [ ] Finish the remaining Web baseline follow-up for Stage 1.8

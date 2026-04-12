@@ -19,7 +19,7 @@
 
 ## Next Tasks by Priority
 
-1. **Runtime execution (1.8)** - Finish the fixture-backed runtime coverage and remaining end-to-end host-surface follow-up
+1. **Runtime execution (1.8)** - Finish the remaining Web baseline follow-up and any last runtime host-surface polish
    - Impact: emitted WASM stays runnable end-to-end while the Stage 1.8 smoke fixtures and host checks harden
 
 2. **Sandbox & policy (1.9)** - Add runtime sandbox enforcement and policy validation
