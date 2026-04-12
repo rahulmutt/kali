@@ -919,6 +919,7 @@ dependencies = [
  "kali_common",
  "kali_error",
  "kali_sandbox",
+ "wasm-encoder 0.240.0",
  "wasmtime",
 ]
 

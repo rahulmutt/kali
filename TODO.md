@@ -23,6 +23,7 @@
 - [x] Wire wasmtime execution to the emitted WASM modules
 - [x] Add smoke tests for `kali run` and `kali test`
 - [x] Keep the compiler pipeline deterministic and runnable end-to-end
-- [ ] Add the Deno-oriented host surface (`console`, `fetch`, timers, filesystem)
+- [x] Wire basic console host imports into the wasmtime linker (`console_log`, `console_error`, `console_warn`)
+- [ ] Add the Deno-oriented host surface (`fetch`, timers, filesystem, env)
 - [ ] Implement the guest-side `Kali.test(...)` registration protocol
 - [ ] Expand runtime coverage to the Stage 1.8 fixture set (`hello.ts`, async/timer, mocked fetch, invalid traps)

@@ -26,7 +26,7 @@ TypeScript/JavaScript programs.
 - `kali run` and `kali test` are no longer stubs; both drive the compiler output end to end.
 - Declaration-only entrypoints are rejected for runtime-bearing commands with `E5007`.
 - Smoke tests cover a successful run, declaration-only rejection, and explicit-file test reporting.
-- The host surface and real guest-side `Kali.test(...)` protocol remain to be implemented.
+- The basic console host imports are now wired into the runtime linker; the rest of the Deno-oriented host surface (`fetch`, timers, filesystem, env) and the real guest-side `Kali.test(...)` protocol remain to be implemented.
 
 ## Tasks
 

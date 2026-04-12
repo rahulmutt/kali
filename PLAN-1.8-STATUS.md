@@ -7,6 +7,8 @@
 
 Stage 1.8 now has a working wasmtime-backed execution path for the current compiler output. The CLI can compile a source file to WASM, instantiate it through the runtime crate, and report pass/fail results for simple smoke-test inputs.
 
+The runtime linker now also exposes the basic console host imports (`console_log`, `console_error`, `console_warn`) expected by the early host-surface work.
+
 ## Evidence
 
 - `cargo test -p kali_runtime --lib` ✅
