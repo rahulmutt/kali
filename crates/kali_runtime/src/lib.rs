@@ -1,5 +1,6 @@
 //! Runtime execution for Kali-generated WASM modules.
 
+use kali_api_web::{fill_random_values, performance_now};
 use kali_error::{Diagnostic, _error_codes::e4};
 use kali_sandbox::SandboxPolicy;
 use reqwest::blocking;
@@ -217,6 +218,68 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
             let _ = writeln!(stderr, "[warn] {}", format_tagged_val(val));
         })
         .map_err(|error| host_import_error("console_warn", error))?;
+
+    linker
+        .func_wrap("kali:rt", "performance_now", || -> f64 {
+            performance_now()
+        })
+        .map_err(|error| host_import_error("performance_now", error))?;
+
+    linker
+        .func_wrap("kali:rt", "performanceNow", || -> f64 { performance_now() })
+        .map_err(|error| host_import_error("performanceNow", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "crypto_get_random_values",
+            |mut caller: Caller<'_, KaliHostState>,
+             out_ptr: i32,
+             out_len: i32|
+             -> wasmtime::Result<i32> {
+                let memory = guest_memory(&mut caller)?;
+                let start = checked_offset(out_ptr)?;
+                let len = checked_offset(out_len)?;
+                start
+                    .checked_add(len)
+                    .ok_or_else(|| wasmtime::Error::msg("guest memory access overflow"))?;
+                let mut bytes = vec![0u8; len];
+                fill_random_values(&mut bytes).map_err(|error| {
+                    wasmtime::Error::msg(format!("failed to generate random bytes: {}", error))
+                })?;
+                memory.write(&mut caller, start, &bytes).map_err(|error| {
+                    wasmtime::Error::msg(format!("failed to write guest memory: {}", error))
+                })?;
+                Ok(out_len)
+            },
+        )
+        .map_err(|error| host_import_error("crypto_get_random_values", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "cryptoGetRandomValues",
+            |mut caller: Caller<'_, KaliHostState>,
+             out_ptr: i32,
+             out_len: i32|
+             -> wasmtime::Result<i32> {
+                let memory = guest_memory(&mut caller)?;
+                let start = checked_offset(out_ptr)?;
+                let len = checked_offset(out_len)?;
+                start
+                    .checked_add(len)
+                    .ok_or_else(|| wasmtime::Error::msg("guest memory access overflow"))?;
+                let mut bytes = vec![0u8; len];
+                fill_random_values(&mut bytes).map_err(|error| {
+                    wasmtime::Error::msg(format!("failed to generate random bytes: {}", error))
+                })?;
+                memory.write(&mut caller, start, &bytes).map_err(|error| {
+                    wasmtime::Error::msg(format!("failed to write guest memory: {}", error))
+                })?;
+                Ok(out_len)
+            },
+        )
+        .map_err(|error| host_import_error("cryptoGetRandomValues", error))?;
 
     linker
         .func_wrap(
@@ -1007,6 +1070,55 @@ mod tests {
             diagnostics[0]
         );
         server.join().expect("server thread");
+    }
+
+    #[test]
+    fn runtime_exposes_performance_now() {
+        let runtime =
+            RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:rt" "performance_now" (func $now (result f64)))
+                (func (export "_start")
+                    call $now
+                    f64.const 0.0
+                    f64.ge
+                    if
+                    else
+                        unreachable
+                    end))
+            "#,
+        );
+
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_fills_random_values() {
+        let runtime =
+            RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:rt" "crypto_get_random_values" (func $random (param i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 16
+                    call $random
+                    i32.const 16
+                    i32.eq
+                    if
+                    else
+                        unreachable
+                    end))
+            "#,
+        );
+
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
     }
 
     #[test]

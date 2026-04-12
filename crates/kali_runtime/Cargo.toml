@@ -8,6 +8,7 @@ license.workspace = true
 kali_common = { workspace = true }
 kali_error = { workspace = true }
 kali_sandbox = { workspace = true }
+kali_api_web = { workspace = true }
 wasmtime = { workspace = true }
 reqwest = { workspace = true }
 

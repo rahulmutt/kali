@@ -16,8 +16,7 @@ TypeScript/JavaScript programs.
 - `kali run <file>` compiles a TS/JS source file to WASM and executes it inside the
   Default standalone context.
 - `kali test [files...]` discovers and runs test files, reporting pass/fail counts.
-- Deno-oriented standard APIs (`Deno.*`, `fetch`, `console`, `setTimeout`, basic Web baseline)
-  are available to guest programs.
+- Deno-oriented standard APIs (`Deno.*`, `fetch`, `console`, `setTimeout`) are available to guest programs, alongside the Stage 1.8 Web primitives exercised here (`performance.now()`, `crypto.getRandomValues()`).
 - Exit codes are correct (0 = success, non-zero = runtime error or test failure).
 
 ## Progress
@@ -27,6 +26,7 @@ TypeScript/JavaScript programs.
 - Declaration-only entrypoints are rejected for runtime-bearing commands with `E5007`.
 - Smoke tests cover a repo-backed successful run fixture, declaration-only rejection, explicit-file test reporting, checked-in test discovery, and guest-registered `Kali.test(...)` callbacks.
 - The basic console host imports are now wired into the runtime linker, and a first Deno-oriented host-surface subset is now available (filesystem read/write, environment lookup, arguments, fetch, and timer/microtask scheduling); the guest-side `Kali.test(...)` registration protocol now registers callbacks with the host test runner.
+- Web-baseline host primitives for `performance.now()` and `crypto.getRandomValues()` are now wired into the runtime linker so the Stage 1.8 baseline has concrete time/random coverage.
 - Runtime fixture coverage now includes timer/interval clearing, mocked fetch failure, and entrypoint trap diagnostics for the remaining Stage 1.8 edge cases.
 
 ## Tasks

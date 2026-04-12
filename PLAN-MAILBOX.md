@@ -1,13 +1,13 @@
 # Stage 1.8 Fixture Coverage Notes
 
 **Date:** 2026-04-12  
-**Status:** Runtime edge-case coverage expanded; Web baseline follow-up remains
+**Status:** Runtime edge-case coverage expanded; Web baseline follow-up narrowed
 
 ## Notes
 
 - Added repo-backed CLI smoke fixtures for a successful `hello.ts` run, declaration-only rejection, and `kali test` discovery over a checked-in `tests/` tree.
-- Runtime-library unit coverage now exercises the remaining Stage 1.8 edge cases: timer/interval clearing, mocked fetch failure, and entrypoint trap diagnostics.
-- The runtime still uses the compiler's simple WASM output rather than a full guest JS host surface, so the broader Web baseline follow-up remains the last open Stage 1.8 item.
+- Runtime-library unit coverage now exercises the remaining Stage 1.8 edge cases: timer/interval clearing, mocked fetch failure, entrypoint trap diagnostics, plus the Web-baseline host primitives for `performance.now()` and `crypto.getRandomValues()`.
+- The runtime still uses the compiler's simple WASM output rather than a full guest JS host surface, so the remaining Stage 1.8 follow-up is now the guest-side Web support-library work (`URL`, `TextEncoder`/`TextDecoder`, `AbortController`/`AbortSignal`, `structuredClone`, and event primitives).
 
 ---
 

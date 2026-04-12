@@ -1,13 +1,13 @@
 # Stage 1.8 Status Update
 
 **Date:** 2026-04-12  
-**Status:** 🚧 Runtime execution wired for simple modules plus a Deno host-surface subset, timer/microtask scheduling, and edge-case fixture coverage
+**Status:** 🚧 Runtime execution wired for simple modules plus a Deno host-surface subset, timer/microtask scheduling, Web-baseline time/random primitives, and edge-case fixture coverage
 
 ## Summary
 
 Stage 1.8 now has a working wasmtime-backed execution path for the current compiler output. The CLI can compile a source file to WASM, instantiate it through the runtime crate, and report pass/fail results for repo-backed smoke fixtures and direct file inputs.
 
-The runtime linker now also exposes the basic console host imports (`console_log`, `console_error`, `console_warn`) expected by the early host-surface work, plus a first Deno-oriented host-surface subset for filesystem read/write, environment lookup, arguments, fetch, and timer/microtask scheduling. `kali test` now honors guest-registered `Kali.test(...)` callbacks, supports the Phase-1 `--filter` narrowing step, discovers checked-in test fixtures from the project tree, and still rejects `--coverage` with the documented phase-gating diagnostic.
+The runtime linker now also exposes the basic console host imports (`console_log`, `console_error`, `console_warn`) expected by the early host-surface work, plus a first Deno-oriented host-surface subset for filesystem read/write, environment lookup, arguments, fetch, and timer/microtask scheduling. The Web-baseline host primitives now include `performance.now()` and `crypto.getRandomValues()` so the host-side baseline has concrete time/random coverage. `kali test` now honors guest-registered `Kali.test(...)` callbacks, supports the Phase-1 `--filter` narrowing step, discovers checked-in test fixtures from the project tree, and still rejects `--coverage` with the documented phase-gating diagnostic.
 
 ## Evidence
 
@@ -30,9 +30,9 @@ The runtime linker now also exposes the basic console host imports (`console_log
 ## Current Limits
 
 - The runtime still exercises the compiler's simple WASM output rather than a full guest JS host surface
-- The rest of the Web baseline remains pending
-- Runtime edge-case coverage now includes timer/interval clearing, mocked fetch failure, and entrypoint trap diagnostics; the remaining Stage 1.8 follow-up is the Web baseline breadth work
+- The remaining Web baseline work is now concentrated in the guest-side support library (`URL`, `TextEncoder`/`TextDecoder`, `AbortController`/`AbortSignal`, `structuredClone`, and event primitives)
+- Runtime edge-case coverage now includes timer/interval clearing, mocked fetch failure, entrypoint trap diagnostics, and the time/random host primitives; the remaining Stage 1.8 follow-up is the guest-side Web baseline breadth work
 
 ## Next Step
 
-Continue Stage 1.8 by finishing the remaining Web baseline follow-up, then move on to the next Phase 1 stage.
+Continue Stage 1.8 by finishing the remaining guest-side Web baseline follow-up, then move on to the next Phase 1 stage.
