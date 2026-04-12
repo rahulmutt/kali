@@ -1,5 +1,9 @@
 # PLAN Mailbox
 
+## 2026-04-12 — Stage 2.1 alias-chain precision completed
+
+Stage 2.1's remaining escape-analysis gap was closed by teaching `kali_mir` to resolve function-expression aliases through alias chains, including anonymous function expressions lowered to synthetic function names. That keeps direct-call precision intact for `const alias = identity; const alias2 = alias; alias2(...)` style call targets.
+
 ## 2026-04-12 — Stage 2.4 provisional Lean model update
 
 `PLAN.md`'s Stage 2.4 row was updated to reflect the checked-in Lean workspace and the fact that the current progress/preservation work is still represented by theorem statements with documented-`sorry` placeholders.

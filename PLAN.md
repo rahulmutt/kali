@@ -247,7 +247,7 @@ Phase 1 is complete when **all** of the following conditions are met:
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 2.1 | [MIR & Ownership Analysis](plan/phase-2/01-mir-and-ownership.md) | MIR is the canonical mid-stage; escape analysis drives stack/heap/shared decisions |
+| 2.1 | [MIR & Ownership Analysis](plan/phase-2/01-mir-and-ownership.md) | MIR is the canonical mid-stage; escape analysis drives stack/heap/shared decisions **✅ COMPLETE** |
 | 2.2 | [Public Effect Reporting](plan/phase-2/02-public-effect-reporting.md) | `kali effects <file>` and `kali package-effects <pkg>` emit stable JSON; `check/build --sandbox` adds inferred-effect-vs-policy rejection **✅ COMPLETE** |
 | 2.3 | [Public Embedding Surface](plan/phase-2/03-public-embedding-surface.md) | Stable Rust embedding API; WIT sidecar on `--lib`; `--capi` and `--component` artifact modes **✅ COMPLETE** |
 | 2.4 | [Lean Model Foundation](plan/phase-2/04-lean-model-foundation.md) | Core type calculus modelled in Lean 4; progress + preservation theorem statements are present with documented-sorry placeholders; CI runs proof checks **✅ COMPLETE** |

@@ -617,23 +617,34 @@ impl<'a> OwnershipAnalyzer<'a> {
                     if let Some(init) = children.get(1).copied() {
                         let init_node = &self.nodes[init.0 as usize];
                         let layout = self.infer_layout(init);
+                        let functions_before = self.functions.len();
+                        let direct_function_target = matches!(init_node.kind, HirNodeKind::Ident)
+                            .then(|| self.function_target_from_node(init))
+                            .flatten();
                         if let Some(scope) = self.current_scope_mut() {
                             if let Some(binding) = scope.get_binding_mut(name) {
                                 binding.layout = layout;
-                                if matches!(init_node.kind, HirNodeKind::FunctionExpr) {
-                                    binding.kind = MirBindingKind::Function;
+                                if matches!(init_node.kind, HirNodeKind::FunctionExpr)
+                                    || direct_function_target.is_some()
+                                {
                                     binding.layout = LayoutDescriptor::Closure {
                                         captures: Vec::new(),
                                     };
                                 }
+                                if matches!(init_node.kind, HirNodeKind::FunctionExpr) {
+                                    binding.kind = MirBindingKind::Function;
+                                }
                             }
                         }
                         self.walk_scope_node(init, UseContext::Normal);
-                        if matches!(init_node.kind, HirNodeKind::FunctionExpr) {
+                        let function_name = if matches!(init_node.kind, HirNodeKind::FunctionExpr) {
+                            self.function_name_from_recent_functions(functions_before)
+                        } else {
+                            direct_function_target
+                        };
+                        if let Some(function_name) = function_name {
                             if let Some(scope) = self.current_scope_mut() {
-                                if let Some(function_name) = init_node.text.as_ref() {
-                                    scope.alias_function(name.clone(), function_name.clone());
-                                }
+                                scope.alias_function(name.clone(), function_name);
                             }
                         }
                     }
@@ -728,27 +739,9 @@ impl<'a> OwnershipAnalyzer<'a> {
                         HirNodeKind::Ident => {
                             self.walk_scope_node(callee, UseContext::Normal);
                             if let Some(name) = callee_node.text.as_deref() {
-                                if let Some((scope_index, binding_index)) =
-                                    self.resolve_binding(name)
-                                {
-                                    let function_name =
-                                        self.scope_stack.get(scope_index).and_then(|scope| {
-                                            scope.function_aliases.get(name).cloned().or_else(
-                                                || {
-                                                    scope.bindings.get(binding_index).and_then(
-                                                        |binding| {
-                                                            (binding.kind
-                                                                == MirBindingKind::Function)
-                                                                .then(|| name.to_string())
-                                                        },
-                                                    )
-                                                },
-                                            )
-                                        });
-                                    if let Some(function_name) = function_name {
-                                        direct_call_escape_flags =
-                                            self.function_parameter_escape_flags(&function_name);
-                                    }
+                                if let Some(function_name) = self.resolve_function_target(name) {
+                                    direct_call_escape_flags =
+                                        self.function_parameter_escape_flags(&function_name);
                                 }
                             }
                         }
@@ -995,6 +988,57 @@ impl<'a> OwnershipAnalyzer<'a> {
             .map(parameter_escape_flags)
     }
 
+    fn resolve_function_target(&self, name: &str) -> Option<String> {
+        let mut current = name.to_string();
+        let mut seen = BTreeSet::new();
+
+        loop {
+            if !seen.insert(current.clone()) {
+                return None;
+            }
+
+            if self
+                .functions
+                .iter()
+                .any(|function| function.name.as_deref() == Some(current.as_str()))
+            {
+                return Some(current);
+            }
+
+            let (scope_index, binding_index) = self.resolve_binding(&current)?;
+            let scope = self.scope_stack.get(scope_index)?;
+            let binding = scope.bindings.get(binding_index)?;
+            if let Some(next) = scope.function_aliases.get(&current) {
+                current = next.clone();
+                continue;
+            }
+
+            if binding.kind == MirBindingKind::Function {
+                return Some(current);
+            }
+
+            return None;
+        }
+    }
+
+    fn function_target_from_node(&self, node_id: HirNodeId) -> Option<String> {
+        let node = &self.nodes[node_id.0 as usize];
+        match node.kind {
+            HirNodeKind::Ident => node
+                .text
+                .as_deref()
+                .and_then(|name| self.resolve_function_target(name)),
+            _ => None,
+        }
+    }
+
+    fn function_name_from_recent_functions(&self, functions_before: usize) -> Option<String> {
+        self.functions
+            .get(functions_before..)
+            .and_then(|functions| functions.last())
+            .and_then(|function| function.name.clone())
+    }
+
     fn layout_field_name(&self, node: &HirNode) -> String {
         if let Some(key) = node.children.first() {
             let key_node = &self.nodes[key.0 as usize];
@@ -1143,6 +1187,18 @@ mod tests {
     fn test_aliased_function_expressions_preserve_direct_call_precision() {
         let mir = analyze(
             "const identity = function(x) { return 0; }; const answer = 1; identity(answer);",
+        );
+        let module = mir.module_scope().expect("module scope");
+        let binding = module.binding("answer").expect("answer binding");
+
+        assert_eq!(binding.ownership, OwnershipClass::Stack);
+        assert!(!binding.escapes);
+    }
+
+    #[test]
+    fn test_function_alias_chains_preserve_direct_call_precision() {
+        let mir = analyze(
+            "const identity = function(x) { return 0; }; const alias = identity; const alias2 = alias; const answer = 1; alias2(answer);",
         );
         let module = mir.module_scope().expect("module scope");
         let binding = module.binding("answer").expect("answer binding");
