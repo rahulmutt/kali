@@ -155,6 +155,9 @@ pub enum Commands {
         /// Sandbox policy file to validate
         #[arg(long)]
         sandbox: Option<PathBuf>,
+        /// Select the effective API surface
+        #[arg(long, value_enum)]
+        api: Option<ApiSurface>,
         /// Source files to check
         files: Vec<String>,
     },
@@ -164,6 +167,9 @@ pub enum Commands {
         /// Sandbox policy file to validate and embed
         #[arg(long)]
         sandbox: Option<PathBuf>,
+        /// Select the effective API surface
+        #[arg(long, value_enum)]
+        api: Option<ApiSurface>,
         /// Source files to build
         files: Vec<String>,
         /// Explicit fast build mode

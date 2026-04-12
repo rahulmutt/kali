@@ -120,10 +120,11 @@ All workspace tests pass:
 
 ## Latest Update
 
-- The build-artifact implementation landed for the default executable build, `--lib`, and `--bundle`.
-- Executable builds now embed deterministic `kali:metadata` custom sections; library and bundle modes additionally write sidecar `.meta.json` files, and bundle mode writes browser JS glue alongside the wasm payload.
-- Runtime smoke coverage now exercises `kali build --lib` and `kali build --bundle` in addition to the existing executable/policy path.
-- The remaining follow-up is the explicit API-surface gating/contradiction story (`--api browser` / `--api node`) that the current stage text still describes, so the stage document should be treated as partially advanced rather than fully closed until that wording is reconciled.
+- The build-artifact implementation now covers the default executable build, `--lib`, and `--bundle` with deterministic metadata and browser JS glue where applicable.
+- Build selection now respects the effective API surface: explicit `--api browser` and inherited browser config enable the bundle path, contradictory browser/non-browser combinations are rejected with `E5008`, and `--api node` remains phase-gated with `E5006`.
+- `kali check` now honors the same browser API surface selection, including inherited browser config, while still rejecting node-targeted checking with `E5006`.
+- Runtime smoke coverage now exercises the inherited-browser bundle path, the browser-check inheritance path, and the explicit contradiction cases (`--bundle --api node`, `--lib --api browser`, plain browser-API builds without `--bundle`, and `check --api node`).
+- The stage text and summary have been reconciled with the current CLI surface, so the stage can now be treated as closed.
 
 **Date:** 2026-04-12  
-**Status:** Build-artifact core complete; explicit API-surface gating still pending
+**Status:** Build-artifact stage closed; API-surface gating reconciled

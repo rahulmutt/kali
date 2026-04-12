@@ -25,7 +25,9 @@ complete the **Phase-1 browser-targeted command set** and the **Phase-1 static p
 - `kali build --lib` now emits `.lib.wasm` plus a sidecar `.lib.meta.json` with deterministic export inventory data for statically known library surfaces.
 - `kali build --bundle` now emits a browser bundle directory containing `.wasm`, `.js`, and `.meta.json` outputs, with deterministic metadata and JS glue that uses browser-native instantiation APIs.
 - CLI smoke coverage now exercises both `--lib` and `--bundle` output paths in addition to the existing executable/sandbox path.
-- The explicit `--api browser` / `--api node` contradiction story still needs reconciliation with the current CLI surface before this stage can be treated as fully closed.
+- The CLI now reconciles the effective API surface for build artifacts: `--api browser` and inherited browser config enable the bundle path, while contradictory browser/non-browser combinations are rejected with the canonical `E5008` shape error and `--api node` remains phase-gated with `E5006`.
+- `kali check` now honors the same browser API surface selection, including inherited browser config, while still rejecting node-targeted checking with `E5006`.
+- Browser bundle smoke coverage now includes the inherited-config browser path, and the command surface rejects non-browser bundle requests before artifact generation starts.
 
 ## Tasks
 
@@ -194,10 +196,10 @@ Ensure the metadata is deterministic: given the same source + flags + package lo
 
 ## Definition of Done
 
-- [ ] `kali build`, `kali build --bundle`, and `kali build --lib` produce valid artifacts.
-- [ ] All three accept `--sandbox <policy>` for static policy validation.
-- [ ] Artifact metadata JSON is deterministic and schema-v1 compliant.
-- [ ] `E5xxx` command-shape contradictions are rejected with the correct error code.
-- [ ] Browser bundle smoke test passes in a headless browser harness.
-- [ ] Repeated builds of identical inputs are byte-identical.
-- [ ] No Stage 1.1–1.10 regressions.
+- [x] `kali build`, `kali build --bundle`, and `kali build --lib` produce valid artifacts.
+- [x] All three accept `--sandbox <policy>` for static policy validation.
+- [x] Artifact metadata JSON is deterministic and schema-v1 compliant.
+- [x] `E5xxx` command-shape contradictions are rejected with the correct error code.
+- [x] Browser bundle smoke test passes in a headless browser harness.
+- [x] Repeated builds of identical inputs are byte-identical.
+- [x] No Stage 1.1–1.10 regressions.

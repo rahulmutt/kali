@@ -8,7 +8,10 @@ use kali_cli::{
 use kali_error::{Diagnostic, _error_codes::e5};
 use kali_fmt::format_source;
 use kali_lint::lint_with_options;
-use kali_npm::{discover_project_root, ensure_project_ready, install_project, InstallOptions};
+use kali_npm::{
+    discover_project_root, ensure_project_ready, install_project, load_manifest, InstallOptions,
+    ProjectManifest,
+};
 use kali_runtime::RuntimeCtx;
 use kali_sandbox::SandboxPolicy;
 use serde_json::{json, Value};
@@ -40,13 +43,18 @@ fn main() {
     }
 
     match args.command.unwrap() {
-        Commands::Check { sandbox, files } => {
-            if let Err(exit_code) = check_command(files, sandbox, &output) {
+        Commands::Check {
+            sandbox,
+            api,
+            files,
+        } => {
+            if let Err(exit_code) = check_command(files, sandbox, api, &output) {
                 std::process::exit(exit_code);
             }
         }
         Commands::Build {
             sandbox,
+            api,
             files,
             fast,
             release,
@@ -60,6 +68,7 @@ fn main() {
             if let Err(exit_code) = build_command(
                 files,
                 sandbox,
+                api,
                 fast,
                 release,
                 release_advanced,
@@ -191,8 +200,24 @@ fn main() {
 fn check_command(
     files: Vec<String>,
     sandbox: Option<PathBuf>,
+    api: Option<kali_cli::ApiSurface>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
+    let effective_api = match resolve_effective_api_surface(api) {
+        Ok(api) => api,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)
+        }
+    };
+
+    if matches!(effective_api, kali_cli::ApiSurface::Node) {
+        let diagnostic = Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "selected API surface is unavailable in this phase",
+        );
+        return emit_diagnostics_and_exit("check", vec![diagnostic], 5, output, None, None);
+    }
+
     let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
 
@@ -273,6 +298,7 @@ fn check_command(
 fn build_command(
     files: Vec<String>,
     sandbox: Option<PathBuf>,
+    api: Option<kali_cli::ApiSurface>,
     fast: bool,
     release: bool,
     release_advanced: bool,
@@ -304,6 +330,34 @@ fn build_command(
         return emit_diagnostics_and_exit("build", vec![diagnostic], 1, output, None, None);
     }
 
+    let effective_api = match resolve_effective_api_surface(api) {
+        Ok(api) => api,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
+        }
+    };
+    if bundle {
+        if !matches!(effective_api, kali_cli::ApiSurface::Browser) {
+            let diagnostic = Diagnostic::error(
+                e5::INVALID_CLI_USAGE as u32,
+                "`kali build --bundle` requires the effective browser API surface",
+            );
+            return emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
+        }
+    } else if matches!(effective_api, kali_cli::ApiSurface::Browser) {
+        let diagnostic = Diagnostic::error(
+            e5::INVALID_CLI_USAGE as u32,
+            "`kali build` without `--bundle` is not valid for the browser API surface",
+        );
+        return emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
+    } else if matches!(effective_api, kali_cli::ApiSurface::Node) {
+        let diagnostic = Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "selected API surface is unavailable in this phase",
+        );
+        return emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
+    }
+
     let Some(source) = single_or_error(files, "build", output)? else {
         return Err(1);
     };
@@ -321,14 +375,18 @@ fn build_command(
 
     let build_result = match artifact_mode {
         BuildArtifactSelection::Executable => {
-            build_executable_artifact(&source, mode, out_dir_path, policy.as_ref())
+            build_executable_artifact(&source, mode, out_dir_path, policy.as_ref(), effective_api)
         }
         BuildArtifactSelection::Library => {
-            build_library_artifact(&source, mode, out_dir_path, policy.as_ref())
+            build_library_artifact(&source, mode, out_dir_path, policy.as_ref(), effective_api)
         }
-        BuildArtifactSelection::BrowserBundle => {
-            build_browser_bundle_artifact(&source, mode, out_dir_path, policy.as_ref())
-        }
+        BuildArtifactSelection::BrowserBundle => build_browser_bundle_artifact(
+            &source,
+            mode,
+            out_dir_path,
+            policy.as_ref(),
+            effective_api,
+        ),
     };
 
     match build_result {
@@ -359,6 +417,59 @@ fn build_command(
             Some(Path::new(&source)),
             fs::read_to_string(&source).ok().as_deref(),
         ),
+    }
+}
+
+fn resolve_effective_api_surface(
+    explicit_api: Option<kali_cli::ApiSurface>,
+) -> Result<kali_cli::ApiSurface, Vec<Diagnostic>> {
+    if let Some(api) = explicit_api {
+        return Ok(api);
+    }
+
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let project_root = discover_project_root(&cwd).unwrap_or(cwd);
+    let Some(manifest) = load_manifest(&project_root).map_err(|diagnostic| vec![diagnostic])?
+    else {
+        return Ok(kali_cli::ApiSurface::Deno);
+    };
+
+    manifest_api_surface(&manifest).map(|surface| surface.unwrap_or(kali_cli::ApiSurface::Deno))
+}
+
+fn manifest_api_surface(
+    manifest: &ProjectManifest,
+) -> Result<Option<kali_cli::ApiSurface>, Vec<Diagnostic>> {
+    let Some(options) = manifest.compiler_options.as_ref() else {
+        return Ok(None);
+    };
+
+    let Some(options) = options.as_object() else {
+        return Err(vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            "`compilerOptions` must be a JSON object",
+        )]);
+    };
+
+    let Some(value) = options.get("apiSurface") else {
+        return Ok(None);
+    };
+
+    let Some(api_surface) = value.as_str() else {
+        return Err(vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            "`compilerOptions.apiSurface` must be a string",
+        )]);
+    };
+
+    match api_surface {
+        "deno" => Ok(Some(kali_cli::ApiSurface::Deno)),
+        "node" => Ok(Some(kali_cli::ApiSurface::Node)),
+        "browser" => Ok(Some(kali_cli::ApiSurface::Browser)),
+        _ => Err(vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            format!("unsupported apiSurface '{}' in kali.json", api_surface),
+        )]),
     }
 }
 
@@ -461,10 +572,17 @@ fn build_executable_artifact(
     mode: build::BuildMode,
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
+    api_surface: kali_cli::ApiSurface,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
     let mut wasm_bytes = build::compile_source_file(&source, mode)?;
-    let metadata = build::build_artifact_metadata(&source, "executable", mode, "deno", None)?;
+    let metadata = build::build_artifact_metadata(
+        &source,
+        "executable",
+        mode,
+        &api_surface.to_string(),
+        None,
+    )?;
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
 
     if let Some(policy) = policy {
@@ -515,11 +633,18 @@ fn build_library_artifact(
     mode: build::BuildMode,
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
+    api_surface: kali_cli::ApiSurface,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
     let mut wasm_bytes = build::compile_source_file(&source, mode)?;
     let exports = build::collect_library_exports(&source)?;
-    let metadata = build::build_artifact_metadata(&source, "lib", mode, "deno", Some(exports))?;
+    let metadata = build::build_artifact_metadata(
+        &source,
+        "lib",
+        mode,
+        &api_surface.to_string(),
+        Some(exports),
+    )?;
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
 
     if let Some(policy) = policy {
@@ -584,12 +709,18 @@ fn build_browser_bundle_artifact(
     mode: build::BuildMode,
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
+    api_surface: kali_cli::ApiSurface,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
     let mut wasm_bytes = build::compile_source_file(&source, mode)?;
     let exports = build::collect_library_exports(&source).unwrap_or_default();
-    let metadata =
-        build::build_artifact_metadata(&source, "bundle", mode, "browser", Some(exports.clone()))?;
+    let metadata = build::build_artifact_metadata(
+        &source,
+        "bundle",
+        mode,
+        &api_surface.to_string(),
+        Some(exports.clone()),
+    )?;
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
 
     if let Some(policy) = policy {
