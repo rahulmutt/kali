@@ -29,8 +29,12 @@ graph without performing any mutations.
 - Registry resolution now supports npm packages and JSR compatibility names, writes deterministic
   `kali.lock` output, materialises packages under `.kali-cache/` plus `node_modules/`, and now
   selects the highest matching published version for semver ranges.
-- Bare import resolution now consults the materialized package graph, so the Stage 1.4 resolver can
-  follow installed packages instead of only local relative files.
+- Bare import resolution now consults the materialized package graph and uses the project root
+  when the checked source file lives in a nested directory, so the Stage 1.4 resolver can follow
+  installed packages instead of only local relative files.
+- Type-resolution now recognizes bundled declaration entries and a matching `@types/<pkg>`
+  devDependency, allowing package imports without bundled types to resolve through declaration
+  packages when the project has installed them.
 - Package-shape validation now rejects obvious native-addon and lifecycle-script cases.
 - Manifest reconciliation now fails fast when two registry identities would collapse onto the
   same `node_modules/` path before any materialization work begins, including transitive

@@ -1916,6 +1916,8 @@ struct PackageJson {
     pub exports: Option<serde_json::Value>,
     #[serde(rename = "type")]
     pub package_type: Option<String>,
+    pub types: Option<String>,
+    pub typings: Option<String>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty", default)]
     pub scripts: BTreeMap<String, String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2096,20 +2098,84 @@ pub fn resolve_materialized_import(root: impl AsRef<Path>, source: &str) -> Opti
     let root = root.as_ref();
     let (package_name, subpath) = split_bare_package_source(source)?;
     let package_dir = root.join("node_modules").join(&package_name);
-    if !package_dir.exists() {
+    if package_dir.exists() {
+        let package_json_path = package_dir.join("package.json");
+        let package_json = fs::read_to_string(package_json_path)
+            .ok()
+            .and_then(|contents| serde_json::from_str::<PackageJson>(&contents).ok())?;
+
+        if let Some(subpath) = subpath {
+            if let Some(path) = resolve_package_subpath(&package_dir, &package_json, subpath) {
+                return Some(path);
+            }
+        } else if let Some(path) = resolve_package_entry(&package_dir, &package_json)
+            .or_else(|| resolve_package_types_entry(&package_dir, &package_json))
+        {
+            return Some(path);
+        }
+    }
+
+    resolve_types_package_import(root, &package_name, subpath)
+}
+
+fn resolve_types_package_import(
+    root: &Path,
+    package_name: &str,
+    subpath: Option<&str>,
+) -> Option<PathBuf> {
+    let manifest = load_manifest(root).ok().flatten()?;
+    let types_package_name = types_package_name(package_name);
+    if !manifest.dev_dependencies.contains_key(&types_package_name) {
         return None;
     }
 
-    let package_json_path = package_dir.join("package.json");
+    let types_dir = root.join("node_modules").join(&types_package_name);
+    if !types_dir.exists() {
+        return None;
+    }
+
+    let package_json_path = types_dir.join("package.json");
     let package_json = fs::read_to_string(package_json_path)
         .ok()
         .and_then(|contents| serde_json::from_str::<PackageJson>(&contents).ok())?;
 
     if let Some(subpath) = subpath {
-        return resolve_package_subpath(&package_dir, &package_json, subpath);
+        resolve_package_subpath(&types_dir, &package_json, subpath)
+    } else {
+        resolve_package_types_entry(&types_dir, &package_json)
+    }
+}
+
+fn resolve_package_types_entry(package_dir: &Path, package_json: &PackageJson) -> Option<PathBuf> {
+    if let Some(types) = &package_json.types {
+        if let Some(path) = resolve_package_file(package_dir, types) {
+            return Some(path);
+        }
     }
 
-    resolve_package_entry(&package_dir, &package_json)
+    if let Some(typings) = &package_json.typings {
+        if let Some(path) = resolve_package_file(package_dir, typings) {
+            return Some(path);
+        }
+    }
+
+    resolve_package_file(package_dir, "index.d.ts")
+        .or_else(|| resolve_package_file(package_dir, "index.d.mts"))
+        .or_else(|| resolve_package_file(package_dir, "index.d.cts"))
+}
+
+fn types_package_name(name: &str) -> String {
+    if let Some(rest) = name.strip_prefix('@') {
+        let mut parts = rest.splitn(2, '/');
+        let scope = parts.next().unwrap_or(rest);
+        let package = parts.next().unwrap_or("");
+        if package.is_empty() {
+            return format!("@types/{}", scope);
+        }
+        return format!("@types/{}__{}", scope, package);
+    }
+
+    format!("@types/{}", name)
 }
 
 fn split_bare_package_source(source: &str) -> Option<(String, Option<&str>)> {
@@ -2223,7 +2289,9 @@ fn resolve_package_file(package_dir: &Path, candidate: &str) -> Option<PathBuf> 
         }
     }
 
-    for extension in ["ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs"] {
+    for extension in [
+        "ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs", "d.ts", "d.mts", "d.cts",
+    ] {
         let with_ext = package_dir.join(format!("{}.{}", candidate, extension));
         if with_ext.is_file() {
             return Some(with_ext);
@@ -2351,6 +2419,33 @@ mod tests {
 
         let resolved = resolve_materialized_import(dir.path(), "lodash");
         assert_eq!(resolved.unwrap(), package_dir.join("lodash.js"));
+    }
+
+    #[test]
+    fn bare_import_resolves_via_types_package_dependency() {
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("kali.json"),
+            r#"{
+  "schemaVersion": 1,
+  "devDependencies": {
+    "@types/lodash": "1.0.0"
+  }
+}"#,
+        )
+        .unwrap();
+
+        let types_dir = dir.path().join("node_modules/@types/lodash");
+        fs::create_dir_all(&types_dir).unwrap();
+        fs::write(
+            types_dir.join("package.json"),
+            r#"{"name":"@types/lodash","types":"index.d.ts"}"#,
+        )
+        .unwrap();
+        fs::write(types_dir.join("index.d.ts"), "declare const _: number;").unwrap();
+
+        let resolved = resolve_materialized_import(dir.path(), "lodash");
+        assert_eq!(resolved.unwrap(), types_dir.join("index.d.ts"));
     }
 
     #[test]

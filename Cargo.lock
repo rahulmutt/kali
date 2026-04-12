@@ -1366,6 +1366,7 @@ dependencies = [
  "kali_error",
  "kali_npm",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
