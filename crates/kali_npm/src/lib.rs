@@ -17,6 +17,13 @@ use tar::Archive;
 const MANIFEST_SCHEMA: u32 = 1;
 const LOCK_VERSION: u32 = 1;
 const DEFAULT_NPM_REGISTRY: &str = "https://registry.npmjs.org";
+const NODE_ONLY_HOST_APIS: &[&str] = &[
+    "fs",
+    "fs/promises",
+    "path",
+    "os",
+    "child_process",
+];
 
 /// Top-level Kali project manifest.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -965,6 +972,15 @@ fn install_registry_package(
     let package_dir_ready = package_dir.exists();
     let install_ready = install_path.exists();
     if locked && package_dir_ready && install_ready {
+        let extracted_root = if package_dir.join("package").is_dir() {
+            package_dir.join("package")
+        } else {
+            package_dir.clone()
+        };
+        let package_json = read_package_json(&extracted_root)?;
+        validate_package_shape(&package_json, allow_scripts)?;
+        validate_package_host_fit(&extracted_root).map_err(|diagnostic| vec![diagnostic])?;
+
         installed.insert(key.clone());
         if let Some(package) = lock.packages.get(&key) {
             let dependencies = package.dependencies.clone();
@@ -1018,6 +1034,13 @@ fn install_registry_package(
             package_dir.clone()
         };
 
+        let package_json = read_package_json(&extracted_root)?;
+        validate_package_shape(&package_json, allow_scripts)?;
+        validate_package_host_fit(&extracted_root).map_err(|diagnostic| {
+            let _ = fs::remove_dir_all(&package_dir);
+            vec![diagnostic]
+        })?;
+
         if let Some(parent) = install_path.parent() {
             fs::create_dir_all(parent).map_err(|error| {
                 vec![Diagnostic::error(
@@ -1032,8 +1055,6 @@ fn install_registry_package(
         }
         copy_tree(&extracted_root, &install_path)?;
 
-        let package_json = read_package_json(&install_path)?;
-        validate_package_shape(&package_json, allow_scripts)?;
         let dependency_specs = package_json
             .dependencies
             .iter()
@@ -1086,6 +1107,13 @@ fn install_registry_package(
         package_dir.clone()
     };
 
+    let package_json = read_package_json(&extracted_root)?;
+    validate_package_shape(&package_json, allow_scripts)?;
+    validate_package_host_fit(&extracted_root).map_err(|diagnostic| {
+        let _ = fs::remove_dir_all(&package_dir);
+        vec![diagnostic]
+    })?;
+
     if let Some(parent) = install_path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
             vec![Diagnostic::error(
@@ -1100,8 +1128,6 @@ fn install_registry_package(
     }
     copy_tree(&extracted_root, &install_path)?;
 
-    let package_json = read_package_json(&install_path)?;
-    validate_package_shape(&package_json, allow_scripts)?;
     let dependency_specs = package_json
         .dependencies
         .iter()
@@ -1640,6 +1666,99 @@ fn validate_package_shape(
     }
 
     Ok(())
+}
+
+fn validate_package_host_fit(package_dir: &Path) -> Result<(), Diagnostic> {
+    if let Some((path, builtin)) = scan_for_node_only_host_api(package_dir)? {
+        return Err(Diagnostic::error(
+            e6::NODE_ONLY_HOST_APIS as u32,
+            format!(
+                "package uses Node-only host API '{}' in '{}' and falls outside the default standalone context; use the Phase-3 Node compatibility target",
+                builtin,
+                path.display()
+            ),
+        ));
+    }
+
+    Ok(())
+}
+
+fn scan_for_node_only_host_api(
+    root: &Path,
+) -> Result<Option<(PathBuf, &'static str)>, Diagnostic> {
+    let mut stack = vec![root.to_path_buf()];
+
+    while let Some(dir) = stack.pop() {
+        for entry in fs::read_dir(&dir).map_err(|error| {
+            Diagnostic::error(
+                e6::INSTALL_FAILED as u32,
+                format!("failed to read '{}': {}", dir.display(), error),
+            )
+        })? {
+            let entry = entry.map_err(|error| {
+                Diagnostic::error(
+                    e6::INSTALL_FAILED as u32,
+                    format!("failed to read entry in '{}': {}", dir.display(), error),
+                )
+            })?;
+            let path = entry.path();
+            if path.is_dir() {
+                if !should_skip_package_scan_dir(&path) {
+                    stack.push(path);
+                }
+                continue;
+            }
+
+            if !is_scannable_package_source(&path) {
+                continue;
+            }
+
+            let contents = match fs::read_to_string(&path) {
+                Ok(contents) => contents,
+                Err(_) => continue,
+            };
+
+            if let Some(builtin) = source_mentions_node_only_host_api(&contents) {
+                return Ok(Some((path, builtin)));
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+fn is_scannable_package_source(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|ext| ext.to_str()),
+        Some("ts" | "tsx" | "js" | "jsx" | "mts" | "cts" | "mjs" | "cjs")
+    )
+}
+
+fn should_skip_package_scan_dir(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|name| name.to_str()),
+        Some("node_modules" | ".git" | ".kali-cache" | "target")
+    )
+}
+
+fn source_mentions_node_only_host_api(contents: &str) -> Option<&'static str> {
+    for builtin in NODE_ONLY_HOST_APIS {
+        let patterns = [
+            format!("node:{}", builtin),
+            format!("require(\"{}\")", builtin),
+            format!("require('{}')", builtin),
+            format!("from \"{}\"", builtin),
+            format!("from '{}'", builtin),
+            format!("import(\"{}\")", builtin),
+            format!("import('{}')", builtin),
+        ];
+
+        if patterns.iter().any(|pattern| contents.contains(pattern)) {
+            return Some(*builtin);
+        }
+    }
+
+    None
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -2291,5 +2410,40 @@ mod tests {
         };
 
         validate_package_shape(&package, true).expect("allowed lifecycle scripts should pass");
+    }
+
+    #[test]
+    fn validate_package_host_fit_rejects_node_builtin_imports() {
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("index.js"),
+            r#"import fs from "node:fs";
+export default fs;
+"#,
+        )
+        .unwrap();
+
+        let error = validate_package_host_fit(dir.path()).unwrap_err();
+        assert_eq!(error.code, Some(e6::NODE_ONLY_HOST_APIS as u32));
+        assert!(error.message.contains("fs"));
+        assert!(error
+            .message
+            .contains("Phase-3 Node compatibility target"));
+    }
+
+    #[test]
+    fn validate_package_host_fit_rejects_node_builtin_requires() {
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("index.cjs"),
+            r#"const childProcess = require("child_process");
+module.exports = childProcess;
+"#,
+        )
+        .unwrap();
+
+        let error = validate_package_host_fit(dir.path()).unwrap_err();
+        assert_eq!(error.code, Some(e6::NODE_ONLY_HOST_APIS as u32));
+        assert!(error.message.contains("child_process"));
     }
 }

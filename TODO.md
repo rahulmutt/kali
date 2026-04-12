@@ -38,8 +38,10 @@
 - ✅ `kali install` now reconciles package cache and `node_modules/` state when the lock graph is already present
 - ✅ Raw URL reconciliation now follows project-discovery/import-map declarations and prunes stale
   URL cache entries when the declaration graph changes
+- ✅ Package-shape and host-fit coverage now rejects Node-only host APIs surfaced through direct imports/requires with `E6005`
 
 ## Next Work
-- [ ] Broader package-shape / host-fit diagnostics matrix coverage
+- [x] Broader package-shape / host-fit diagnostics matrix coverage
+  - Added host-fit coverage for `node:fs` and `require("child_process")` package entrypoints.
 - [x] CLI integration coverage for install repair/prune scenarios
   - Added CLI smoke coverage for pruning stale registry layouts back to an empty install state.
