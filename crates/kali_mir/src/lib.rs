@@ -316,6 +316,7 @@ fn map_kind(kind: &HirNodeKind) -> MirNodeKind {
 enum UseContext {
     Normal,
     Return,
+    Escape,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -325,6 +326,7 @@ struct BindingState {
     ownership: OwnershipClass,
     layout: LayoutDescriptor,
     returned: bool,
+    escaped_via_flow: bool,
     captured_by: BTreeSet<String>,
 }
 
@@ -336,16 +338,20 @@ impl BindingState {
             ownership: default_ownership(kind),
             layout,
             returned: false,
+            escaped_via_flow: false,
             captured_by: BTreeSet::new(),
         }
     }
 
     fn finalize(self) -> MirBinding {
-        let escapes = self.returned || !self.captured_by.is_empty();
+        let escapes = self.returned || self.escaped_via_flow || !self.captured_by.is_empty();
         let ownership = if !self.captured_by.is_empty() {
             OwnershipClass::SharedHeap
-        } else if self.returned {
-            OwnershipClass::OwnedHeap
+        } else if self.returned || self.escaped_via_flow {
+            match self.kind {
+                MirBindingKind::Local | MirBindingKind::Function => OwnershipClass::OwnedHeap,
+                MirBindingKind::Parameter | MirBindingKind::Import => self.ownership,
+            }
         } else {
             self.ownership
         };
@@ -570,20 +576,24 @@ impl<'a> OwnershipAnalyzer<'a> {
 
     fn walk_scope_node(&mut self, node_id: HirNodeId, context: UseContext) {
         let node = &self.nodes[node_id.0 as usize];
-        match node.kind {
+        let kind = node.kind.clone();
+        let text = node.text.clone();
+        let children = node.children.clone();
+
+        match kind {
             HirNodeKind::Program | HirNodeKind::Block => {
-                for child in &node.children {
-                    self.walk_scope_node(*child, context);
+                for child in children {
+                    self.walk_scope_node(child, context);
                 }
             }
             HirNodeKind::VarDecl => {
-                for child in &node.children {
-                    self.walk_scope_node(*child, context);
+                for child in children {
+                    self.walk_scope_node(child, context);
                 }
             }
             HirNodeKind::VarDeclarator => {
-                if let Some(name) = node.text.as_ref() {
-                    if let Some(init) = node.children.get(1).copied() {
+                if let Some(name) = text.as_ref() {
+                    if let Some(init) = children.get(1).copied() {
                         let layout = self.infer_layout(init);
                         if let Some(scope) = self.current_scope_mut() {
                             if let Some(binding) = scope.get_binding_mut(name) {
@@ -591,20 +601,15 @@ impl<'a> OwnershipAnalyzer<'a> {
                             }
                         }
                     }
-                    if let Some(init) = node.children.get(1).copied() {
+                    if let Some(init) = children.get(1).copied() {
                         self.walk_scope_node(init, UseContext::Normal);
                     }
                 }
             }
             HirNodeKind::FunctionDecl => {
-                let function_name = node
-                    .text
-                    .clone()
-                    .unwrap_or_else(|| self.next_function_name());
-                let body = node.children.last().copied();
-                let params_end = body.map_or(node.children.len(), |_| {
-                    node.children.len().saturating_sub(1)
-                });
+                let function_name = text.unwrap_or_else(|| self.next_function_name());
+                let body = children.last().copied();
+                let params_end = body.map_or(children.len(), |_| children.len().saturating_sub(1));
                 self.push_scope(function_name.clone(), MirFunctionKind::Function);
                 if let Some(scope) = self.current_scope_mut() {
                     scope.define(
@@ -615,7 +620,7 @@ impl<'a> OwnershipAnalyzer<'a> {
                         },
                     );
                 }
-                for child in node.children.iter().take(params_end) {
+                for child in children.iter().take(params_end) {
                     if let Some(param_name) = self.nodes[child.0 as usize].text.as_ref() {
                         if let Some(scope) = self.current_scope_mut() {
                             scope.define(
@@ -633,14 +638,9 @@ impl<'a> OwnershipAnalyzer<'a> {
                 self.pop_scope_and_record();
             }
             HirNodeKind::FunctionExpr => {
-                let function_name = node
-                    .text
-                    .clone()
-                    .unwrap_or_else(|| self.next_function_name());
-                let body = node.children.last().copied();
-                let params_end = body.map_or(node.children.len(), |_| {
-                    node.children.len().saturating_sub(1)
-                });
+                let function_name = text.unwrap_or_else(|| self.next_function_name());
+                let body = children.last().copied();
+                let params_end = body.map_or(children.len(), |_| children.len().saturating_sub(1));
                 self.push_scope(function_name.clone(), MirFunctionKind::Closure);
                 if let Some(scope) = self.current_scope_mut() {
                     scope.define(
@@ -651,7 +651,7 @@ impl<'a> OwnershipAnalyzer<'a> {
                         },
                     );
                 }
-                for child in node.children.iter().take(params_end) {
+                for child in children.iter().take(params_end) {
                     if let Some(param_name) = self.nodes[child.0 as usize].text.as_ref() {
                         if let Some(scope) = self.current_scope_mut() {
                             scope.define(
@@ -669,23 +669,80 @@ impl<'a> OwnershipAnalyzer<'a> {
                 self.pop_scope_and_record();
             }
             HirNodeKind::ImportDecl => {
-                for child in &node.children {
-                    self.walk_scope_node(*child, context);
+                for child in children {
+                    self.walk_scope_node(child, context);
                 }
             }
             HirNodeKind::ReturnStmt => {
-                for child in &node.children {
-                    self.walk_scope_node(*child, UseContext::Return);
+                for child in children {
+                    self.walk_scope_node(child, UseContext::Return);
+                }
+            }
+            HirNodeKind::CallExpr | HirNodeKind::NewExpr => {
+                for (index, child) in children.into_iter().enumerate() {
+                    let child_context = if index == 0 {
+                        UseContext::Normal
+                    } else {
+                        UseContext::Escape
+                    };
+                    self.walk_scope_node(child, child_context);
+                }
+            }
+            HirNodeKind::ArrayExpr => {
+                for child in children {
+                    self.walk_scope_node(child, UseContext::Escape);
+                }
+            }
+            HirNodeKind::ObjectExpr => {
+                for child in children {
+                    let property = &self.nodes[child.0 as usize];
+                    if let Some(key) = property.children.first().copied() {
+                        self.walk_scope_node(key, UseContext::Normal);
+                    }
+                    if let Some(value) = property.children.get(1).copied() {
+                        self.walk_scope_node(value, UseContext::Escape);
+                    }
+                }
+            }
+            HirNodeKind::Unknown if text.as_deref() == Some("unknown") && !children.is_empty() => {
+                for child in children {
+                    self.walk_scope_node(child, UseContext::Escape);
+                }
+            }
+            HirNodeKind::AssignmentExpr => {
+                let left = children.first().copied();
+                let right = children.get(1).copied();
+                if let Some(left) = left {
+                    self.walk_scope_node(left, UseContext::Normal);
+                }
+                if let Some(right) = right {
+                    let rhs_context = left.is_some_and(|left| self.is_heap_store_target(left));
+                    self.walk_scope_node(
+                        right,
+                        if rhs_context {
+                            UseContext::Escape
+                        } else {
+                            context
+                        },
+                    );
+                }
+            }
+            HirNodeKind::SequenceExpr => {
+                for child in children.iter().take(children.len().saturating_sub(1)) {
+                    self.walk_scope_node(*child, UseContext::Normal);
+                }
+                if let Some(last) = children.last().copied() {
+                    self.walk_scope_node(last, context);
                 }
             }
             HirNodeKind::Ident => {
-                if let Some(name) = node.text.as_ref() {
+                if let Some(name) = text.as_ref() {
                     self.resolve_use(name, context);
                 }
             }
             _ => {
-                for child in &node.children {
-                    self.walk_scope_node(*child, context);
+                for child in children {
+                    self.walk_scope_node(child, context);
                 }
             }
         }
@@ -699,7 +756,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         let current_index = self.current_scope_index();
         let current_label = self.current_scope_label();
         if scope_index < current_index {
-            let captured_by = current_label;
+            let captured_by = current_label.clone();
             if let Some(binding) = self
                 .scope_stack
                 .get_mut(scope_index)
@@ -716,6 +773,16 @@ impl<'a> OwnershipAnalyzer<'a> {
                 .and_then(|scope| scope.bindings.get_mut(binding_index))
             {
                 binding.returned = true;
+            }
+        }
+
+        if matches!(context, UseContext::Escape) {
+            if let Some(binding) = self
+                .scope_stack
+                .get_mut(scope_index)
+                .and_then(|scope| scope.bindings.get_mut(binding_index))
+            {
+                binding.escaped_via_flow = true;
             }
         }
     }
@@ -839,6 +906,13 @@ impl<'a> OwnershipAnalyzer<'a> {
         self.synthetic_function_counter += 1;
         name
     }
+
+    fn is_heap_store_target(&self, node_id: HirNodeId) -> bool {
+        matches!(
+            self.nodes[node_id.0 as usize].kind,
+            HirNodeKind::MemberExpr | HirNodeKind::OptionalChain | HirNodeKind::ChainExpr
+        )
+    }
 }
 
 #[cfg(test)]
@@ -924,5 +998,15 @@ mod tests {
         assert_eq!(binding.ownership, OwnershipClass::SharedHeap);
         assert!(binding.escapes);
         assert_eq!(binding.captured_by, vec!["inner".to_string()]);
+    }
+
+    #[test]
+    fn test_call_arguments_escape_to_unknown_callees() {
+        let mir = analyze("const answer = 1; sink(answer);");
+        let module = mir.module_scope().expect("module scope");
+        let binding = module.binding("answer").expect("answer binding");
+
+        assert_eq!(binding.ownership, OwnershipClass::OwnedHeap);
+        assert!(binding.escapes);
     }
 }
