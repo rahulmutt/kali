@@ -51,6 +51,12 @@ pub enum Commands {
     #[command(name = "test")]
     /// Test source files
     Test {
+        /// Only run tests matching this pattern
+        #[arg(long)]
+        filter: Option<String>,
+        /// Emit coverage data once the report contract is stabilized
+        #[arg(long)]
+        coverage: bool,
         /// Source files to test
         files: Vec<String>,
     },

@@ -24,6 +24,7 @@
 - [x] Add smoke tests for `kali run` and `kali test`
 - [x] Keep the compiler pipeline deterministic and runnable end-to-end
 - [x] Wire basic console host imports into the wasmtime linker (`console_log`, `console_error`, `console_warn`)
+- [x] Add Phase-1 `kali test --filter` narrowing and phase-gate `--coverage` rejection
 - [ ] Add the Deno-oriented host surface (`fetch`, timers, filesystem, env)
 - [ ] Implement the guest-side `Kali.test(...)` registration protocol
 - [ ] Expand runtime coverage to the Stage 1.8 fixture set (`hello.ts`, async/timer, mocked fetch, invalid traps)

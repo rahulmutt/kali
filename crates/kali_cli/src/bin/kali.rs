@@ -53,8 +53,12 @@ fn main() {
                 std::process::exit(exit_code);
             }
         }
-        kali_cli::Commands::Test { files } => {
-            if let Err(exit_code) = test_files(files) {
+        kali_cli::Commands::Test {
+            files,
+            filter,
+            coverage,
+        } => {
+            if let Err(exit_code) = test_files(files, filter, coverage) {
                 std::process::exit(exit_code);
             }
         }
@@ -101,7 +105,18 @@ fn run_files(files: Vec<String>) -> Result<(), i32> {
     }
 }
 
-fn test_files(files: Vec<String>) -> Result<(), i32> {
+fn test_files(files: Vec<String>, filter: Option<String>, coverage: bool) -> Result<(), i32> {
+    if coverage {
+        eprintln!(
+            "{}",
+            Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "test coverage reporting is unavailable in this phase"
+            )
+        );
+        return Err(1);
+    }
+
     let selected_files = if files.is_empty() {
         discover_test_files(".")
             .into_iter()
@@ -116,17 +131,36 @@ fn test_files(files: Vec<String>) -> Result<(), i32> {
         return Ok(());
     }
 
-    let runtime = RuntimeCtx::new(None);
-    let mut passed = 0usize;
-    let mut failed = 0usize;
-
+    let mut valid_files = Vec::new();
     for file in selected_files {
         let source = PathBuf::from(&file);
         if let Err(diagnostic) = validate_runtime_entrypoint(&source) {
             eprintln!("{}", diagnostic);
-            failed += 1;
-            continue;
+            return Err(1);
         }
+        valid_files.push(file);
+    }
+
+    let filtered_files = if let Some(pattern) = filter.as_deref() {
+        valid_files
+            .into_iter()
+            .filter(|file| matches_test_filter(file, pattern))
+            .collect::<Vec<_>>()
+    } else {
+        valid_files
+    };
+
+    if filtered_files.is_empty() {
+        println!("ok 0");
+        return Ok(());
+    }
+
+    let runtime = RuntimeCtx::new(None);
+    let mut passed = 0usize;
+    let mut failed = 0usize;
+
+    for file in filtered_files {
+        let source = PathBuf::from(&file);
 
         let wasm_bytes = match build::compile_source_file(&source, build::BuildMode::Fast) {
             Ok(bytes) => bytes,
@@ -153,6 +187,15 @@ fn test_files(files: Vec<String>) -> Result<(), i32> {
         println!("FAILED {}", failed);
         Err(1)
     }
+}
+
+fn matches_test_filter(file: &str, pattern: &str) -> bool {
+    let path = PathBuf::from(file);
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(file);
+    file.contains(pattern) || name.contains(pattern)
 }
 
 fn validate_runtime_entrypoint(source: &PathBuf) -> Result<(), Diagnostic> {

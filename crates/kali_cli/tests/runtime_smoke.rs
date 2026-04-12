@@ -70,3 +70,50 @@ fn test_reports_success_for_explicit_file_sets() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
 }
+
+#[test]
+fn test_filters_selected_files_before_execution() {
+    let dir = tempdir().expect("tempdir");
+    let keep = dir.path().join("math.test.ts");
+    let skip = dir.path().join("strings.test.ts");
+    fs::write(&keep, "1 + 2;").expect("write keep source");
+    fs::write(&skip, "3 + 4;").expect("write skip source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--filter")
+        .arg("math")
+        .arg(&keep)
+        .arg(&skip)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_rejects_coverage_flag_until_report_contract_exists() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.test.ts");
+    fs::write(&source_path, "1 + 2;").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--coverage")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+}
