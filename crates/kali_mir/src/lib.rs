@@ -292,6 +292,7 @@ fn map_kind(kind: &HirNodeKind) -> MirNodeKind {
         | HirNodeKind::SequenceExpr
         | HirNodeKind::ArrayExpr
         | HirNodeKind::ObjectExpr
+        | HirNodeKind::ObjectProperty
         | HirNodeKind::OptionalChain
         | HirNodeKind::ChainExpr
         | HirNodeKind::Spread
@@ -695,13 +696,15 @@ impl<'a> OwnershipAnalyzer<'a> {
             }
             HirNodeKind::ObjectExpr => {
                 for child in children {
-                    let property = &self.nodes[child.0 as usize];
-                    if let Some(key) = property.children.first().copied() {
-                        self.walk_scope_node(key, UseContext::Normal);
-                    }
-                    if let Some(value) = property.children.get(1).copied() {
-                        self.walk_scope_node(value, UseContext::Escape);
-                    }
+                    self.walk_scope_node(child, UseContext::Escape);
+                }
+            }
+            HirNodeKind::ObjectProperty => {
+                if let Some(key) = children.first().copied() {
+                    self.walk_scope_node(key, UseContext::Normal);
+                }
+                if let Some(value) = children.get(1).copied() {
+                    self.walk_scope_node(value, UseContext::Escape);
                 }
             }
             HirNodeKind::Unknown if text.as_deref() == Some("unknown") && !children.is_empty() => {
@@ -824,7 +827,9 @@ impl<'a> OwnershipAnalyzer<'a> {
                 let mut fields = Vec::new();
                 for child in &node.children {
                     let property = &self.nodes[child.0 as usize];
-                    if property.children.len() >= 2 {
+                    if matches!(property.kind, HirNodeKind::ObjectProperty)
+                        && property.children.len() >= 2
+                    {
                         let key = self.layout_field_name(property);
                         let value = property.children[1];
                         fields.push((key, Box::new(self.infer_layout(value))));
@@ -919,7 +924,9 @@ impl<'a> OwnershipAnalyzer<'a> {
 mod tests {
     use super::*;
     use kali_common::FileId;
-    use kali_hir::HirLowerer;
+    use kali_hir::{
+        HirLowerer, HirNode, HirNodeId, HirNodeKind, LoweringResult as HirLoweringResult,
+    };
     use kali_lexer::Lexer;
     use kali_parser::Parser;
 
@@ -1008,5 +1015,95 @@ mod tests {
 
         assert_eq!(binding.ownership, OwnershipClass::OwnedHeap);
         assert!(binding.escapes);
+    }
+
+    #[test]
+    fn test_object_literal_values_escape_without_treating_keys_as_identifiers() {
+        let hir = HirLoweringResult {
+            root: HirNodeId::new(0),
+            nodes: vec![
+                HirNode {
+                    kind: HirNodeKind::Program,
+                    span: None,
+                    text: None,
+                    children: vec![HirNodeId::new(1), HirNodeId::new(5)],
+                },
+                HirNode {
+                    kind: HirNodeKind::VarDecl,
+                    span: None,
+                    text: Some("const".to_string()),
+                    children: vec![HirNodeId::new(2)],
+                },
+                HirNode {
+                    kind: HirNodeKind::VarDeclarator,
+                    span: None,
+                    text: Some("answer".to_string()),
+                    children: vec![HirNodeId::new(3), HirNodeId::new(4)],
+                },
+                HirNode {
+                    kind: HirNodeKind::Ident,
+                    span: None,
+                    text: Some("answer".to_string()),
+                    children: vec![],
+                },
+                HirNode {
+                    kind: HirNodeKind::Literal,
+                    span: None,
+                    text: Some("1".to_string()),
+                    children: vec![],
+                },
+                HirNode {
+                    kind: HirNodeKind::VarDecl,
+                    span: None,
+                    text: Some("const".to_string()),
+                    children: vec![HirNodeId::new(7)],
+                },
+                HirNode {
+                    kind: HirNodeKind::ObjectExpr,
+                    span: None,
+                    text: None,
+                    children: vec![HirNodeId::new(8)],
+                },
+                HirNode {
+                    kind: HirNodeKind::VarDeclarator,
+                    span: None,
+                    text: Some("bag".to_string()),
+                    children: vec![HirNodeId::new(9), HirNodeId::new(6)],
+                },
+                HirNode {
+                    kind: HirNodeKind::ObjectProperty,
+                    span: None,
+                    text: Some("init".to_string()),
+                    children: vec![HirNodeId::new(10), HirNodeId::new(11)],
+                },
+                HirNode {
+                    kind: HirNodeKind::Ident,
+                    span: None,
+                    text: Some("bag".to_string()),
+                    children: vec![],
+                },
+                HirNode {
+                    kind: HirNodeKind::Literal,
+                    span: None,
+                    text: Some("answer".to_string()),
+                    children: vec![],
+                },
+                HirNode {
+                    kind: HirNodeKind::Ident,
+                    span: None,
+                    text: Some("answer".to_string()),
+                    children: vec![],
+                },
+            ],
+            diagnostics: vec![],
+        };
+
+        let mir = MirLowerer::new().lower_hir_result(&hir);
+        let module = mir.module_scope().expect("module scope");
+        let binding = module.binding("answer").expect("answer binding");
+
+        assert_eq!(binding.ownership, OwnershipClass::OwnedHeap);
+        assert!(binding.escapes);
+        assert_eq!(binding.captured_by, Vec::<String>::new());
     }
 }

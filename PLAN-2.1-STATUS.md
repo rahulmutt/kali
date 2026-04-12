@@ -1,11 +1,11 @@
 # Stage 2.1 Status Update
 
 **Date:** 2026-04-12  
-**Status:** 🟡 In progress — MIR escape-analysis coverage tightened for call arguments
+**Status:** 🟡 In progress — HIR object-literal normalization landed; MIR escape-analysis now sees stable heap-store shapes
 
 ## Summary
 
-MIR ownership analysis now treats call arguments as escaping values, so conservative intra-procedural analysis can classify locals that flow into unknown callees more accurately. The existing return/capture classification remains intact and the full workspace test suite still passes.
+MIR ownership analysis now treats call arguments as escaping values, and the frontend now lowers object-literal properties into a dedicated composite `ObjectProperty` HIR node with literal keys. That gives the escape analyzer a stable heap-store shape to reason about, so values flowing into object literals are classified conservatively without mistaking property names for bindings. The existing return/capture classification remains intact and the full workspace test suite still passes.
 
 ## Evidence
 
@@ -15,9 +15,10 @@ MIR ownership analysis now treats call arguments as escaping values, so conserva
 ## Notable Deliverables
 
 - Call-argument escape tracking now marks bindings as escaping when they flow into unknown call sites
+- Object-literal properties now lower through a dedicated `ObjectProperty` HIR node with literal keys
 - Return/capture ownership classification remains unchanged
-- The stage still has a frontend/HIR normalization follow-up for precise heap-store tracking; see `PLAN-MAILBOX.md`
+- Heap-store tracking is now unblocked by frontend/HIR normalization; see `PLAN-MAILBOX.md`
 
 ## Next Step
 
-Normalize the HIR shape for heap-store / object-literal cases, then revisit the remaining Stage 2.1 escape-analysis coverage.
+Continue broadening the remaining Stage 2.1 escape-analysis coverage beyond call/return/object-store flows.

@@ -53,6 +53,11 @@
 - ✅ `check/build --sandbox` reject inferred effects that exceed the active policy
 - ✅ Positive CLI/runtime smoke coverage replaces the old unavailable-command gates
 
+### Stage 2.1 - HIR object-literal normalization follow-up
+- ✅ Object-literal properties now lower through a dedicated `ObjectProperty` HIR node
+- ✅ Property keys lower as literals, so MIR escape analysis no longer mistakes them for bindings
+- ✅ Stable heap-store shapes now feed the ownership analyzer for object-literal value escapes
+
 ## Next Work
 - [x] Broader package-shape / host-fit diagnostics matrix coverage
   - Added host-fit coverage for `node:fs` and `require("child_process")` package entrypoints.

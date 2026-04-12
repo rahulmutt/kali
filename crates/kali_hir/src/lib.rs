@@ -76,6 +76,7 @@ pub enum HirNodeKind {
     SequenceExpr,
     ArrayExpr,
     ObjectExpr,
+    ObjectProperty,
     FunctionExpr,
     ClassExpr,
     TemplateLiteral,
@@ -936,7 +937,7 @@ impl HirLowerer {
 
     fn lower_object_property(&mut self, property: &ObjectProperty) -> HirNodeId {
         let id = self.builder.alloc_text(
-            HirNodeKind::ObjectExpr,
+            HirNodeKind::ObjectProperty,
             None,
             object_property_kind_text(&property.kind),
         );
@@ -949,7 +950,7 @@ impl HirLowerer {
         match name {
             PropertyName::Identifier(value) => {
                 self.builder
-                    .alloc_text(HirNodeKind::Ident, None, value.clone())
+                    .alloc_text(HirNodeKind::Literal, None, value.clone())
             }
             PropertyName::Number(value) => {
                 self.builder
@@ -1112,5 +1113,34 @@ mod tests {
         let func_decl = &result.nodes[result.nodes[result.root.0 as usize].children[1].0 as usize];
         assert_eq!(func_decl.kind, HirNodeKind::FunctionDecl);
         assert_eq!(func_decl.text.as_deref(), Some("add"));
+    }
+
+    #[test]
+    fn test_object_literal_lowers_to_stable_property_shape() {
+        let mut lowerer = HirLowerer::new();
+        let result = lowerer.lower_expression(&Expression::ObjectExpression(ObjectExpression {
+            properties: vec![ObjectProperty {
+                key: PropertyName::Identifier("answer".to_string()),
+                value: Expression::Identifier("value".to_string()),
+                kind: ObjectPropertyKind::Init,
+            }],
+        }));
+
+        let root = &lowerer.builder.nodes[result.0 as usize];
+        assert_eq!(root.kind, HirNodeKind::ObjectExpr);
+        assert_eq!(root.children.len(), 1);
+
+        let property = &lowerer.builder.nodes[root.children[0].0 as usize];
+        assert_eq!(property.kind, HirNodeKind::ObjectProperty);
+        assert_eq!(property.text.as_deref(), Some("init"));
+        assert_eq!(property.children.len(), 2);
+
+        let key = &lowerer.builder.nodes[property.children[0].0 as usize];
+        assert_eq!(key.kind, HirNodeKind::Literal);
+        assert_eq!(key.text.as_deref(), Some("answer"));
+
+        let value = &lowerer.builder.nodes[property.children[1].0 as usize];
+        assert_eq!(value.kind, HirNodeKind::Ident);
+        assert_eq!(value.text.as_deref(), Some("value"));
     }
 }
