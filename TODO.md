@@ -53,3 +53,5 @@
   - Added CLI smoke coverage for pruning stale registry layouts back to an empty install state.
 - [x] Build direct-input shape enforcement
   - `kali build` now rejects multi-file invocations with the canonical `E5008` usage diagnostic and remains a single-primary-input command.
+- [x] Phase-gated later-surface placeholders and smoke coverage
+  - Added `effects`, `package-effects`, `package-audit`, `build --capi`, `build --component`, and `run`/`test` API-surface gating so Phase-2+ surfaces now fail with the canonical `E5006` path instead of plain unknown-command parsing.

@@ -864,3 +864,115 @@ fn install_dev_requires_an_explicit_registry_target() {
         "stderr: {stderr}"
     );
 }
+
+#[test]
+fn run_rejects_node_api_surface_in_phase_one() {
+    let output = Command::new(kali_bin())
+        .arg("run")
+        .arg("--api")
+        .arg("node")
+        .arg(fixture_path("run/hello.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_rejects_browser_api_surface_in_phase_one() {
+    let output = Command::new(kali_bin())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+}
+
+#[test]
+fn build_rejects_capi_artifact_mode_in_phase_one() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.ts");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--capi")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+}
+
+#[test]
+fn build_rejects_component_artifact_mode_in_phase_one() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.ts");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--component")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+}
+
+#[test]
+fn effects_command_is_phase_gated() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "let value = 1; value;").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+}
+
+#[test]
+fn package_effects_command_is_phase_gated() {
+    let output = Command::new(kali_bin())
+        .arg("package-effects")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+}
+
+#[test]
+fn package_audit_command_is_phase_gated() {
+    let output = Command::new(kali_bin())
+        .arg("package-audit")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+}

@@ -22,6 +22,11 @@ closing gaps in the test/CI coverage that previous stages may have left.
   is exercised in CI.
 - The repository can honestly claim the Phase-1 maturity labels in `specs/19-feature-maturity.md`.
 
+## Progress
+
+- Added phase-gated placeholders for later surfaces (`effects`, `package-effects`, `package-audit`, `build --capi`, `build --component`, and `run`/`test` API-surface selection) so the evidence suite can assert unavailability with the canonical `E5006` path instead of plain unknown-command parsing.
+- Added runtime smoke coverage for those Phase-2+ gating paths alongside the existing Phase-1 JSON-envelope and artifact coverage.
+
 ## Tasks
 
 ### 1. Language conformance suite

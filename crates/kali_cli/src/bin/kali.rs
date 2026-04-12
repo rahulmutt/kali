@@ -53,6 +53,8 @@ fn main() {
             release_advanced,
             bundle,
             lib,
+            capi,
+            component,
             out_dir,
         } => {
             if let Err(exit_code) = build_command(
@@ -63,24 +65,31 @@ fn main() {
                 release_advanced,
                 bundle,
                 lib,
+                capi,
+                component,
                 out_dir,
                 &output,
             ) {
                 std::process::exit(exit_code);
             }
         }
-        Commands::Run { sandbox, files } => {
-            if let Err(exit_code) = run_command(files, sandbox, &output) {
+        Commands::Run {
+            sandbox,
+            api,
+            files,
+        } => {
+            if let Err(exit_code) = run_command(files, api, sandbox, &output) {
                 std::process::exit(exit_code);
             }
         }
         Commands::Test {
             sandbox,
+            api,
             files,
             filter,
             coverage,
         } => {
-            if let Err(exit_code) = test_command(files, filter, coverage, sandbox, &output) {
+            if let Err(exit_code) = test_command(files, api, filter, coverage, sandbox, &output) {
                 std::process::exit(exit_code);
             }
         }
@@ -154,6 +163,25 @@ fn main() {
         }
         Commands::Lint { fix, files } => {
             if let Err(exit_code) = lint_command(files, fix, &output) {
+                std::process::exit(exit_code);
+            }
+        }
+        Commands::Effects { files } => {
+            if let Err(exit_code) = effects_command(files, &output) {
+                std::process::exit(exit_code);
+            }
+        }
+        Commands::PackageEffects { target } => {
+            if let Err(exit_code) =
+                unavailable_registry_analysis_command("package-effects", target, &output)
+            {
+                std::process::exit(exit_code);
+            }
+        }
+        Commands::PackageAudit { target } => {
+            if let Err(exit_code) =
+                unavailable_registry_analysis_command("package-audit", target, &output)
+            {
                 std::process::exit(exit_code);
             }
         }
@@ -250,6 +278,8 @@ fn build_command(
     release_advanced: bool,
     bundle: bool,
     lib: bool,
+    capi: bool,
+    component: bool,
     out_dir: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
@@ -260,6 +290,18 @@ fn build_command(
         if let Err(diagnostics) = policy.validate() {
             return emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None);
         }
+    }
+
+    if capi || component {
+        let diagnostic = Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            if capi {
+                "`kali build --capi` is unavailable in this phase"
+            } else {
+                "`kali build --component` is unavailable in this phase"
+            },
+        );
+        return emit_diagnostics_and_exit("build", vec![diagnostic], 1, output, None, None);
     }
 
     let Some(source) = single_or_error(files, "build", output)? else {
@@ -670,9 +712,21 @@ export async function load() {
 
 fn run_command(
     files: Vec<String>,
+    api: Option<kali_cli::ApiSurface>,
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
+    if matches!(
+        api,
+        Some(kali_cli::ApiSurface::Node | kali_cli::ApiSurface::Browser)
+    ) {
+        let diagnostic = Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "selected API surface is unavailable in this phase",
+        );
+        return emit_diagnostics_and_exit("run", vec![diagnostic], 1, output, None, None);
+    }
+
     let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
     let Some(source) = single_or_error(files, "run", output)? else {
@@ -746,11 +800,23 @@ fn run_command(
 
 fn test_command(
     files: Vec<String>,
+    api: Option<kali_cli::ApiSurface>,
     filter: Option<String>,
     coverage: bool,
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
+    if matches!(
+        api,
+        Some(kali_cli::ApiSurface::Node | kali_cli::ApiSurface::Browser)
+    ) {
+        let diagnostic = Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "selected API surface is unavailable in this phase",
+        );
+        return emit_diagnostics_and_exit("test", vec![diagnostic], 1, output, None, None);
+    }
+
     if coverage {
         let diagnostic = Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
@@ -1116,6 +1182,37 @@ fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Res
     } else {
         Ok(())
     }
+}
+
+fn effects_command(files: Vec<String>, output: &CliOutputOptions) -> Result<(), i32> {
+    let Some(source) = single_or_error(files, "effects", output)? else {
+        return Err(1);
+    };
+
+    let diagnostic = Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        "`kali effects` is unavailable in this phase",
+    );
+    emit_diagnostics_and_exit(
+        "effects",
+        vec![diagnostic],
+        1,
+        output,
+        Some(&source),
+        fs::read_to_string(&source).ok().as_deref(),
+    )
+}
+
+fn unavailable_registry_analysis_command(
+    command: &str,
+    _target: String,
+    output: &CliOutputOptions,
+) -> Result<(), i32> {
+    let diagnostic = Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        format!("`kali {}` is unavailable in this phase", command),
+    );
+    emit_diagnostics_and_exit(command, vec![diagnostic], 1, output, None, None)
 }
 
 fn install_command(

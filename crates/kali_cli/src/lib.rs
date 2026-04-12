@@ -91,6 +91,23 @@ impl std::fmt::Display for OutputFormat {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum ApiSurface {
+    Deno,
+    Node,
+    Browser,
+}
+
+impl std::fmt::Display for ApiSurface {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ApiSurface::Deno => f.write_str("deno"),
+            ApiSurface::Node => f.write_str("node"),
+            ApiSurface::Browser => f.write_str("browser"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum ColorChoice {
     Auto,
     Always,
@@ -159,11 +176,17 @@ pub enum Commands {
         #[arg(long = "release-advanced", conflicts_with_all = ["fast", "release"])]
         release_advanced: bool,
         /// Select the browser bundle artifact mode
-        #[arg(long, conflicts_with = "lib")]
+        #[arg(long, conflicts_with_all = ["lib", "capi", "component"])]
         bundle: bool,
         /// Select the base library artifact mode
-        #[arg(long, conflicts_with = "bundle")]
+        #[arg(long, conflicts_with_all = ["bundle", "capi", "component"])]
         lib: bool,
+        /// Select the later public C embedding artifact flow
+        #[arg(long, conflicts_with_all = ["bundle", "lib", "component"])]
+        capi: bool,
+        /// Select the later Component Model artifact flow
+        #[arg(long, conflicts_with_all = ["bundle", "lib", "capi"])]
+        component: bool,
         /// Output directory for artifacts
         #[arg(long)]
         out_dir: Option<PathBuf>,
@@ -174,6 +197,9 @@ pub enum Commands {
         /// Sandbox policy file to enforce
         #[arg(long)]
         sandbox: Option<PathBuf>,
+        /// Select the effective API surface
+        #[arg(long, value_enum)]
+        api: Option<ApiSurface>,
         /// Source files to run
         files: Vec<String>,
     },
@@ -183,6 +209,9 @@ pub enum Commands {
         /// Sandbox policy file to enforce
         #[arg(long)]
         sandbox: Option<PathBuf>,
+        /// Select the effective API surface
+        #[arg(long, value_enum)]
+        api: Option<ApiSurface>,
         /// Only run tests matching this pattern
         #[arg(long)]
         filter: Option<String>,
@@ -228,6 +257,24 @@ pub enum Commands {
         fix: bool,
         /// Source files to lint
         files: Vec<String>,
+    },
+    #[command(name = "effects")]
+    /// Analyze source-file effects
+    Effects {
+        /// Source files to analyze
+        files: Vec<String>,
+    },
+    #[command(name = "package-effects")]
+    /// Analyze registry-package effects
+    PackageEffects {
+        /// Registry package target to analyze
+        target: String,
+    },
+    #[command(name = "package-audit")]
+    /// Audit a registry package
+    PackageAudit {
+        /// Registry package target to audit
+        target: String,
     },
 }
 
