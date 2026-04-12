@@ -561,6 +561,32 @@ fn build_emits_library_artifacts_and_metadata() {
 }
 
 #[test]
+fn build_rejects_library_sources_without_static_exports() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.ts");
+    fs::write(&source_path, "const value = 42; value;").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--lib")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5011"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("no statically known export surface"),
+        "stderr: {stderr}"
+    );
+    assert!(!dir.path().join("math.lib.wasm").exists());
+    assert!(!dir.path().join("math.lib.meta.json").exists());
+}
+
+#[test]
 fn build_emits_browser_bundle_artifacts() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
