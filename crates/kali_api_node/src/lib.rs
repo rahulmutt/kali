@@ -5,7 +5,8 @@
 //! layer is now concrete enough to be extended incrementally instead of remaining a stub.
 
 use getrandom::fill as fill_random_bytes;
-use sha2::{Digest, Sha256};
+use hmac::{Hmac, Mac};
+use sha2::{Digest, Sha256, Sha384, Sha512};
 use std::{
     collections::BTreeMap,
     env, fs,
@@ -194,10 +195,152 @@ pub fn extname(path: impl AsRef<Path>) -> String {
     }
 }
 
+/// A namespace-style projection of path helpers used by the Node compatibility layer.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct NodePath;
+
+impl NodePath {
+    pub fn normalize(path: impl AsRef<Path>) -> PathBuf {
+        normalize_path(path)
+    }
+
+    pub fn join(base: impl AsRef<Path>, segment: impl AsRef<Path>) -> PathBuf {
+        join_path(base, segment)
+    }
+
+    pub fn resolve(base: impl AsRef<Path>, input: impl AsRef<Path>) -> PathBuf {
+        resolve_path(base, input)
+    }
+
+    pub fn dirname(path: impl AsRef<Path>) -> PathBuf {
+        dirname(path)
+    }
+
+    pub fn basename(path: impl AsRef<Path>) -> String {
+        basename(path)
+    }
+
+    pub fn extname(path: impl AsRef<Path>) -> String {
+        extname(path)
+    }
+}
+
 /// Compute a SHA-256 digest as a lowercase hex string.
 pub fn sha256_hex(bytes: impl AsRef<[u8]>) -> String {
     let digest = Sha256::digest(bytes.as_ref());
     format!("{:x}", digest)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NodeCryptoError {
+    message: String,
+}
+
+impl NodeCryptoError {
+    fn unsupported_algorithm(algorithm: &str) -> Self {
+        Self {
+            message: format!("unsupported Node crypto algorithm '{}'", algorithm),
+        }
+    }
+
+    fn invalid_key_length(algorithm: &str, error: impl std::fmt::Display) -> Self {
+        Self {
+            message: format!("failed to initialize {} HMAC: {}", algorithm, error),
+        }
+    }
+}
+
+impl std::fmt::Display for NodeCryptoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for NodeCryptoError {}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum NodeDigestAlgorithm {
+    Sha256,
+    Sha384,
+    Sha512,
+}
+
+impl NodeDigestAlgorithm {
+    fn parse(algorithm: impl AsRef<str>) -> Result<Self, NodeCryptoError> {
+        match algorithm.as_ref().to_ascii_lowercase().as_str() {
+            "sha256" => Ok(Self::Sha256),
+            "sha384" => Ok(Self::Sha384),
+            "sha512" => Ok(Self::Sha512),
+            other => Err(NodeCryptoError::unsupported_algorithm(other)),
+        }
+    }
+
+    fn digest_hex(self, bytes: impl AsRef<[u8]>) -> String {
+        match self {
+            Self::Sha256 => format!("{:x}", Sha256::digest(bytes.as_ref())),
+            Self::Sha384 => format!("{:x}", Sha384::digest(bytes.as_ref())),
+            Self::Sha512 => format!("{:x}", Sha512::digest(bytes.as_ref())),
+        }
+    }
+
+    fn hmac_hex(
+        self,
+        key: impl AsRef<[u8]>,
+        bytes: impl AsRef<[u8]>,
+    ) -> Result<String, NodeCryptoError> {
+        match self {
+            Self::Sha256 => {
+                type HmacSha256 = Hmac<Sha256>;
+                let mut mac = HmacSha256::new_from_slice(key.as_ref())
+                    .map_err(|error| NodeCryptoError::invalid_key_length("sha256", error))?;
+                mac.update(bytes.as_ref());
+                Ok(format!("{:x}", mac.finalize().into_bytes()))
+            }
+            Self::Sha384 => {
+                type HmacSha384 = Hmac<Sha384>;
+                let mut mac = HmacSha384::new_from_slice(key.as_ref())
+                    .map_err(|error| NodeCryptoError::invalid_key_length("sha384", error))?;
+                mac.update(bytes.as_ref());
+                Ok(format!("{:x}", mac.finalize().into_bytes()))
+            }
+            Self::Sha512 => {
+                type HmacSha512 = Hmac<Sha512>;
+                let mut mac = HmacSha512::new_from_slice(key.as_ref())
+                    .map_err(|error| NodeCryptoError::invalid_key_length("sha512", error))?;
+                mac.update(bytes.as_ref());
+                Ok(format!("{:x}", mac.finalize().into_bytes()))
+            }
+        }
+    }
+}
+
+/// Namespace-style projection of the common Node crypto helpers.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct NodeCrypto;
+
+impl NodeCrypto {
+    pub fn create_hash(
+        algorithm: impl AsRef<str>,
+        bytes: impl AsRef<[u8]>,
+    ) -> Result<String, NodeCryptoError> {
+        NodeDigestAlgorithm::parse(algorithm).map(|algo| algo.digest_hex(bytes))
+    }
+
+    pub fn create_hmac(
+        algorithm: impl AsRef<str>,
+        key: impl AsRef<[u8]>,
+        bytes: impl AsRef<[u8]>,
+    ) -> Result<String, NodeCryptoError> {
+        NodeDigestAlgorithm::parse(algorithm)?.hmac_hex(key, bytes)
+    }
+
+    pub fn random_bytes(length: usize) -> Result<Vec<u8>, getrandom::Error> {
+        random_bytes(length)
+    }
+
+    pub fn random_uuid_v4() -> Result<String, getrandom::Error> {
+        random_uuid_v4()
+    }
 }
 
 /// Return cryptographically random bytes.
@@ -222,6 +365,69 @@ pub fn random_uuid_v4() -> Result<String, getrandom::Error> {
         bytes[8], bytes[9],
         bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
     ))
+}
+
+/// Projection of the Node runtime host helpers used to service common builtins.
+#[derive(Clone)]
+pub struct NodeRuntimeProjection {
+    process: NodeProcess,
+    fs: NodeFs,
+    os: NodeOs,
+    events: EventEmitter,
+}
+
+impl NodeRuntimeProjection {
+    pub fn new(cwd: impl Into<PathBuf>) -> Self {
+        let cwd = cwd.into();
+        Self {
+            process: NodeProcess::with_host_context(Vec::new(), BTreeMap::new(), cwd.clone()),
+            fs: NodeFs::new(cwd),
+            os: NodeOs,
+            events: EventEmitter::new(),
+        }
+    }
+
+    pub fn from_host_context(
+        argv: Vec<String>,
+        env: BTreeMap<String, String>,
+        cwd: impl Into<PathBuf>,
+    ) -> Self {
+        let cwd = cwd.into();
+        Self {
+            process: NodeProcess::with_host_context(argv, env, cwd.clone()),
+            fs: NodeFs::new(cwd),
+            os: NodeOs,
+            events: EventEmitter::new(),
+        }
+    }
+
+    pub fn process(&self) -> &NodeProcess {
+        &self.process
+    }
+
+    pub fn process_mut(&mut self) -> &mut NodeProcess {
+        &mut self.process
+    }
+
+    pub fn fs(&self) -> &NodeFs {
+        &self.fs
+    }
+
+    pub fn os(&self) -> NodeOs {
+        self.os
+    }
+
+    pub fn events(&self) -> &EventEmitter {
+        &self.events
+    }
+
+    pub fn path(&self) -> NodePath {
+        NodePath
+    }
+
+    pub fn crypto(&self) -> NodeCrypto {
+        NodeCrypto
+    }
 }
 
 /// A minimal Node-style event object.
@@ -653,12 +859,27 @@ mod tests {
             sha256_hex("hello"),
             "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
         );
+        assert_eq!(
+            NodeCrypto::create_hash("sha256", "hello").expect("hash"),
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+        assert_eq!(
+            NodeCrypto::create_hmac(
+                "sha256",
+                "key",
+                "The quick brown fox jumps over the lazy dog"
+            )
+            .expect("hmac"),
+            "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8"
+        );
         assert_eq!(random_bytes(16).expect("random bytes").len(), 16);
+        assert_eq!(NodeCrypto::random_bytes(8).expect("random bytes").len(), 8);
 
         let uuid = random_uuid_v4().expect("uuid");
         assert_eq!(uuid.len(), 36);
         assert_eq!(&uuid[14..15], "4");
         assert!(matches!(&uuid[19..20], "8" | "9" | "a" | "b"));
+        assert_eq!(NodeCrypto::random_uuid_v4().expect("uuid").len(), 36);
     }
 
     #[test]
@@ -791,5 +1012,38 @@ mod tests {
 
         let resolved = resolve_url("https://example.com/base/", "../child").expect("resolve");
         assert_eq!(resolved.as_str(), "https://example.com/child");
+    }
+
+    #[test]
+    fn runtime_projection_bundles_common_node_surfaces() {
+        let mut projection = NodeRuntimeProjection::from_host_context(
+            vec!["node".into(), "script.js".into()],
+            BTreeMap::from([(String::from("HOME"), String::from("/tmp/home"))]),
+            "/workspace/project",
+        );
+
+        assert_eq!(
+            projection.process().argv(),
+            &vec!["node".to_string(), "script.js".to_string()][..]
+        );
+        assert_eq!(projection.process().env_get("HOME"), Some("/tmp/home"));
+        assert_eq!(projection.fs().cwd(), Path::new("/workspace/project"));
+        assert!(!projection.os().platform().is_empty());
+
+        projection.process_mut().write_stdout("ok");
+        assert_eq!(projection.process().stdout(), "ok");
+
+        assert_eq!(
+            NodePath::dirname("/tmp/project/src/main.ts"),
+            PathBuf::from("/tmp/project/src")
+        );
+        assert_eq!(NodePath::basename("/tmp/project/src/main.ts"), "main.ts");
+        assert_eq!(NodePath::extname("/tmp/project/src/main.ts"), ".ts");
+        assert_eq!(
+            NodeCrypto::create_hash("sha384", "hello")
+                .expect("hash")
+                .len(),
+            96
+        );
     }
 }

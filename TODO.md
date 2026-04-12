@@ -77,4 +77,5 @@
 - [x] Stage 3.2 Node API layer scaffold
   - Added `kali_api_node` helpers for process/path/crypto/events/buffer/util plus fs/url/os scaffolding and unit tests; the Node-targeted command path is now wired through check/build/run/test and node-only import resolution in the analysis context.
   - Expanded the helper layer with Node-style assertion helpers and a synchronous `util.promisify` bridge so the documented Node helper surface is closer to the planned phase-3 subset.
+  - The helper layer now exposes `NodePath`, `NodeCrypto`, and `NodeRuntimeProjection` facades so future linker registration has a single Node-host surface to project through.
   - Install-time package host-fit validation now keys off the project `compilerOptions.apiSurface`, so Node-targeted installs can accept Node-only builtins while the default standalone context still rejects them with `E6005`.

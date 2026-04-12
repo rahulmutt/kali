@@ -8,6 +8,7 @@ license.workspace = true
 kali_common = { workspace = true }
 kali_error = { workspace = true }
 sha2 = { workspace = true }
+hmac = { workspace = true }
 getrandom = { workspace = true }
 url = { workspace = true }
 
