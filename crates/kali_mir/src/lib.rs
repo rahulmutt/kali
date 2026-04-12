@@ -376,6 +376,15 @@ fn default_ownership(kind: MirBindingKind) -> OwnershipClass {
     }
 }
 
+fn parameter_escape_flags(function: &MirFunction) -> Vec<bool> {
+    function
+        .bindings
+        .iter()
+        .filter(|binding| binding.kind == MirBindingKind::Parameter)
+        .map(|binding| binding.escapes)
+        .collect()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ScopeState {
     label: String,
@@ -679,7 +688,62 @@ impl<'a> OwnershipAnalyzer<'a> {
                     self.walk_scope_node(child, UseContext::Return);
                 }
             }
-            HirNodeKind::CallExpr | HirNodeKind::NewExpr => {
+            HirNodeKind::CallExpr => {
+                let mut direct_call_escape_flags = None;
+                if let Some(callee) = children.first().copied() {
+                    let callee_node = &self.nodes[callee.0 as usize];
+                    match callee_node.kind {
+                        HirNodeKind::FunctionExpr => {
+                            let functions_before = self.functions.len();
+                            self.walk_scope_node(callee, UseContext::Normal);
+                            direct_call_escape_flags = self
+                                .functions
+                                .get(functions_before..)
+                                .and_then(|functions| functions.last())
+                                .map(parameter_escape_flags);
+                        }
+                        HirNodeKind::Ident => {
+                            self.walk_scope_node(callee, UseContext::Normal);
+                            if let Some(name) = callee_node.text.as_deref() {
+                                if let Some((scope_index, binding_index)) =
+                                    self.resolve_binding(name)
+                                {
+                                    let is_function_binding = self
+                                        .scope_stack
+                                        .get(scope_index)
+                                        .and_then(|scope| scope.bindings.get(binding_index))
+                                        .is_some_and(|binding| {
+                                            binding.kind == MirBindingKind::Function
+                                        });
+                                    if is_function_binding {
+                                        direct_call_escape_flags =
+                                            self.function_parameter_escape_flags(name);
+                                    }
+                                }
+                            }
+                        }
+                        _ => {
+                            self.walk_scope_node(callee, UseContext::Normal);
+                        }
+                    }
+                }
+
+                for (index, child) in children.into_iter().enumerate().skip(1) {
+                    let should_escape = direct_call_escape_flags
+                        .as_ref()
+                        .and_then(|flags| flags.get(index - 1).copied())
+                        .unwrap_or(true);
+                    self.walk_scope_node(
+                        child,
+                        if should_escape {
+                            UseContext::Escape
+                        } else {
+                            UseContext::Normal
+                        },
+                    );
+                }
+            }
+            HirNodeKind::NewExpr => {
                 for (index, child) in children.into_iter().enumerate() {
                     let child_context = if index == 0 {
                         UseContext::Normal
@@ -893,6 +957,14 @@ impl<'a> OwnershipAnalyzer<'a> {
         None
     }
 
+    fn function_parameter_escape_flags(&self, name: &str) -> Option<Vec<bool>> {
+        self.functions
+            .iter()
+            .rev()
+            .find(|function| function.name.as_deref() == Some(name))
+            .map(parameter_escape_flags)
+    }
+
     fn layout_field_name(&self, node: &HirNode) -> String {
         if let Some(key) = node.children.first() {
             let key_node = &self.nodes[key.0 as usize];
@@ -1010,6 +1082,26 @@ mod tests {
     #[test]
     fn test_call_arguments_escape_to_unknown_callees() {
         let mir = analyze("const answer = 1; sink(answer);");
+        let module = mir.module_scope().expect("module scope");
+        let binding = module.binding("answer").expect("answer binding");
+
+        assert_eq!(binding.ownership, OwnershipClass::OwnedHeap);
+        assert!(binding.escapes);
+    }
+
+    #[test]
+    fn test_inline_pure_function_calls_do_not_force_argument_escape() {
+        let mir = analyze("const answer = 1; (function identity(x) { return 0; })(answer);");
+        let module = mir.module_scope().expect("module scope");
+        let binding = module.binding("answer").expect("answer binding");
+
+        assert_eq!(binding.ownership, OwnershipClass::Stack);
+        assert!(!binding.escapes);
+    }
+
+    #[test]
+    fn test_inline_leaking_function_calls_still_escape_arguments() {
+        let mir = analyze("const answer = 1; (function leak(x) { return x; })(answer);");
         let module = mir.module_scope().expect("module scope");
         let binding = module.binding("answer").expect("answer binding");
 
