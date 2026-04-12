@@ -1,11 +1,11 @@
 # Stage 2.4 Status Update
 
 **Date:** 2026-04-12  
-**Status:** 🟡 Lean model foundation landed as a provisional proof-ready step
+**Status:** ✅ Lean model foundation complete as a provisional proof-ready step
 
 ## Summary
 
-Stage 2.4 now has a checked-in Lean 4 workspace under `proofs/` with the core Kali type-calculus model, provisional semantics, ownership stubs, and HIR lowering stubs. The proof boundary manifest has been updated to name the Lean model files, and CI now has a real proof-check job path instead of the earlier stub.
+Stage 2.4 now has a checked-in Lean 4 workspace under `proofs/` with the core Kali type-calculus model, provisional semantics, ownership stubs, and HIR lowering stubs. The proof boundary manifest names the Lean model files, CI has a real proof-check job path instead of the earlier stub, and the stage is complete while the repository remains proof-ready rather than proof-backed.
 
 ## Evidence
 
@@ -13,7 +13,7 @@ Stage 2.4 now has a checked-in Lean 4 workspace under `proofs/` with the core Ka
 - `proofs/KaliCore/*` and `proofs/KaliIR/*` model files added ✅
 - `proofs/BOUNDARY.md` updated to a provisional non-empty manifest ✅
 - CI proof-check workflow wired to `lake build` on `proofs/**` changes ✅
-- Progress/preservation theorem statements are present; the main proofs remain documented-sorry placeholders pending later mechanization
+- Progress/preservation theorem statements are present; the main proofs remain documented-sorry placeholders pending later mechanization, which is acceptable for the provisional proof-ready stage
 
 ## Notable Deliverables
 
@@ -31,4 +31,4 @@ Stage 2.4 now has a checked-in Lean 4 workspace under `proofs/` with the core Ka
 
 ## Next Step
 
-Continue tightening the Lean proof obligations and keep the boundary wording aligned with the provisional model until the later proof-backed stage.
+Begin the Stage 4.2 proof-backed verification work: replace the remaining `sorry` placeholders, widen the published boundary only with named theorem/property inventory, and keep the proof-ready/proof-backed wording aligned with the manifest.

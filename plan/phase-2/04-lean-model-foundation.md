@@ -214,14 +214,14 @@ non-empty, non-provisional boundary and the CI proof jobs have been passing cont
 
 ## Definition of Done
 
-- [ ] `proofs/lakefile.lean` exists and declares all `.lean` targets.
-- [ ] `KaliCore/Types.lean` defines the core type calculus including `Ty` and `Expr`.
-- [ ] `KaliCore/Semantics.lean` defines the small-step evaluation relation and value predicate.
-- [ ] `KaliCore/Soundness.lean` contains proved (or documented-sorry) progress and preservation
+- [x] `proofs/lakefile.lean` exists and declares all `.lean` targets.
+- [x] `KaliCore/Types.lean` defines the core type calculus including `Ty` and `Expr`.
+- [x] `KaliCore/Semantics.lean` defines the small-step evaluation relation and value predicate.
+- [x] `KaliCore/Soundness.lean` contains proved (or documented-sorry) progress and preservation
   theorems for the bounded core calculus.
-- [ ] `KaliCore/Safety.lean` contains the ownership-class model (after Stage 2.1) and the
+- [x] `KaliCore/Safety.lean` contains the ownership-class model (after Stage 2.1) and the
   no-dangling-reference property statement.
-- [ ] CI `proof-check` job runs `lake build` and blocks on failure.
-- [ ] Completeness guard and boundary consistency CI tests pass.
-- [ ] `proofs/BOUNDARY.md` updated with provisional scope description.
-- [ ] All Phase-1 and Phase-2 (1–3) tests continue to pass.
+- [x] CI `proof-check` job runs `lake build` and blocks on failure.
+- [x] Completeness guard and boundary consistency CI tests pass.
+- [x] `proofs/BOUNDARY.md` updated with provisional scope description.
+- [x] All Phase-1 and Phase-2 (1–3) tests continue to pass.
