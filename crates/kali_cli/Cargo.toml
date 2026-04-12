@@ -13,7 +13,9 @@ kali_common = { workspace = true }
 kali_error = { workspace = true }
 kali_lexer = { workspace = true }
 kali_parser = { workspace = true }
+kali_ast = { workspace = true }
 kali_hir = { workspace = true }
+kali_types = { workspace = true }
 kali_mir = { workspace = true }
 kali_lir = { workspace = true }
 kali_codegen = { workspace = true }

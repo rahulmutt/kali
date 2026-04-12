@@ -9,6 +9,7 @@ use kali_lexer::Lexer;
 use kali_lir::LirLowerer;
 use kali_mir::MirLowerer;
 use kali_parser::Parser;
+use kali_types::TypeContext;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildMode {
@@ -23,11 +24,42 @@ pub struct BuildOutput {
     pub wasm_bytes: Vec<u8>,
 }
 
+pub fn check_source_file(source_path: impl AsRef<Path>) -> Result<(), Vec<Diagnostic>> {
+    let _analysis = analyze_source_file(source_path.as_ref())?;
+    Ok(())
+}
+
 pub fn compile_source_file(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    let source_path = source_path.as_ref();
+    let analyzed = analyze_source_file(source_path.as_ref())?;
+
+    let mut hir_lowerer = HirLowerer::new();
+    let hir = hir_lowerer.lower_statements(&analyzed.statements);
+    let mut diagnostics = analyzed.diagnostics;
+    diagnostics.extend(hir.diagnostics.clone());
+    if has_errors(&diagnostics) {
+        return Err(diagnostics);
+    }
+
+    let mir = MirLowerer::new().lower_hir_result(&hir);
+    let lir = LirLowerer::new().lower_program(&mir);
+
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        optimize: !matches!(mode, BuildMode::Fast),
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &lir);
+    diagnostics.extend(result.diagnostics);
+
+    if has_errors(&diagnostics) {
+        return Err(diagnostics);
+    }
+
+    Ok(result.wasm_bytes)
+}
+
+fn analyze_source_file(source_path: &Path) -> Result<AnalyzedSource, Vec<Diagnostic>> {
     let source = fs::read_to_string(source_path).map_err(|error| {
         vec![Diagnostic::error(
             e8::INTERNAL_ERROR as u32,
@@ -49,27 +81,22 @@ pub fn compile_source_file(
         return Err(diagnostics);
     }
 
-    let mut hir_lowerer = HirLowerer::new();
-    let hir = hir_lowerer.lower_statements(&parsed.statements);
-    diagnostics.extend(hir.diagnostics.clone());
+    let mut resolver = TypeContext::with_base_path(source_path);
+    let resolved = resolver.resolve_statements_in_file(source_path, &parsed.statements);
+    diagnostics.extend(resolved.diagnostics);
     if has_errors(&diagnostics) {
         return Err(diagnostics);
     }
 
-    let mir = MirLowerer::new().lower_hir_result(&hir);
-    let lir = LirLowerer::new().lower_program(&mir);
+    Ok(AnalyzedSource {
+        statements: parsed.statements,
+        diagnostics,
+    })
+}
 
-    let mut ctx = CodegenCtx::new(TargetConfig {
-        optimize: !matches!(mode, BuildMode::Fast),
-    });
-    let result = lower_lir_to_wasm(&mut ctx, &lir);
-    diagnostics.extend(result.diagnostics);
-
-    if has_errors(&diagnostics) {
-        return Err(diagnostics);
-    }
-
-    Ok(result.wasm_bytes)
+struct AnalyzedSource {
+    statements: Vec<kali_ast::Statement>,
+    diagnostics: Vec<Diagnostic>,
 }
 
 pub fn build_source_file(

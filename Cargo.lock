@@ -1088,6 +1088,7 @@ name = "kali_cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "kali_ast",
  "kali_codegen",
  "kali_common",
  "kali_error",
@@ -1097,6 +1098,7 @@ dependencies = [
  "kali_mir",
  "kali_parser",
  "kali_runtime",
+ "kali_types",
  "tempfile",
  "wasmparser 0.240.0",
 ]

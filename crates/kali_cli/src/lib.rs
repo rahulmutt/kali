@@ -8,6 +8,57 @@ use std::{
 
 pub mod build;
 
+pub fn discover_source_files(root: impl AsRef<Path>) -> Vec<PathBuf> {
+    let mut discovered = Vec::new();
+    collect_source_files(root.as_ref(), &mut discovered);
+    discovered
+}
+
+fn collect_source_files(dir: &Path, discovered: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+
+    let mut entries = entries.filter_map(Result::ok).collect::<Vec<_>>();
+    entries.sort_by_key(|entry| entry.path());
+
+    for entry in entries {
+        let path = entry.path();
+        if path.is_dir() {
+            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+                continue;
+            };
+            if matches!(name, ".git" | "node_modules" | "target" | ".kali") || name.starts_with('.')
+            {
+                continue;
+            }
+            collect_source_files(&path, discovered);
+            continue;
+        }
+
+        if is_source_file(&path) {
+            discovered.push(path);
+        }
+    }
+}
+
+fn is_source_file(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+
+    if name.ends_with(".d.ts") || name.ends_with(".d.mts") || name.ends_with(".d.cts") {
+        return false;
+    }
+
+    name.ends_with(".ts")
+        || name.ends_with(".tsx")
+        || name.ends_with(".js")
+        || name.ends_with(".jsx")
+        || name.ends_with(".mts")
+        || name.ends_with(".cts")
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "kali")]
 #[command(author, version, about, long_about = None)]

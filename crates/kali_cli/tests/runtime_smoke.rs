@@ -21,6 +21,63 @@ fn fixture_path(relative: impl AsRef<Path>) -> PathBuf {
 }
 
 #[test]
+fn check_accepts_a_resolved_file() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "let value = 1 + 2; value;").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Checked 1 file(s)"), "stdout: {stdout}");
+}
+
+#[test]
+fn check_discovers_fixture_tree_from_cwd() {
+    let output = Command::new(kali_bin())
+        .current_dir(fixture_root())
+        .arg("check")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Checked 3 file(s)"), "stdout: {stdout}");
+}
+
+#[test]
+fn check_reports_unresolved_identifiers() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "missing;").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E3100"), "stderr: {stderr}");
+}
+
+#[test]
 fn run_executes_the_hello_fixture() {
     let output = Command::new(kali_bin())
         .arg("run")

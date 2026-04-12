@@ -1,7 +1,9 @@
 //! Main CLI binary for the Kali compiler.
 
 use clap::Parser;
-use kali_cli::{build, discover_test_files, is_declaration_only_source_file, Args};
+use kali_cli::{
+    build, discover_source_files, discover_test_files, is_declaration_only_source_file, Args,
+};
 use kali_error::{Diagnostic, _error_codes::e5};
 use kali_runtime::RuntimeCtx;
 use std::path::PathBuf;
@@ -16,8 +18,10 @@ fn main() {
     }
 
     match args.command.unwrap() {
-        kali_cli::Commands::Check { files: _files } => {
-            println!("Checking files... (stub)");
+        kali_cli::Commands::Check { files } => {
+            if let Err(exit_code) = check_files(files) {
+                std::process::exit(exit_code);
+            }
         }
         kali_cli::Commands::Build {
             files,
@@ -74,6 +78,43 @@ fn main() {
         kali_cli::Commands::Lint { files: _files } => {
             println!("Linting files... (stub)");
         }
+    }
+}
+
+fn check_files(files: Vec<String>) -> Result<(), i32> {
+    let selected_files = if files.is_empty() {
+        discover_source_files(".")
+            .into_iter()
+            .map(|path| path.to_string_lossy().to_string())
+            .collect::<Vec<_>>()
+    } else {
+        files
+    };
+
+    if selected_files.is_empty() {
+        println!("Checked 0 file(s)");
+        return Ok(());
+    }
+
+    let mut checked = 0usize;
+    let mut failed = 0usize;
+
+    for file in selected_files {
+        checked += 1;
+        match build::check_source_file(&file) {
+            Ok(()) => {}
+            Err(diagnostics) => {
+                failed += 1;
+                print_diagnostics(&diagnostics);
+            }
+        }
+    }
+
+    if failed == 0 {
+        println!("Checked {} file(s)", checked);
+        Ok(())
+    } else {
+        Err(1)
     }
 }
 

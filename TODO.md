@@ -11,6 +11,13 @@
 - ✅ Parser handles primary expressions, function expressions, call chains, member access, binary expressions, and `new`
 - ✅ Lexer fixes landed for punctuation advancement, `debugger`, and division tokens
 
+### Stage 1.4 - Name Resolution
+- ✅ Resolver reports unresolved identifiers, duplicate bindings, and missing import targets
+- ✅ `kali check` is wired to the resolver and passes CLI smoke coverage
+- ✅ `cargo test -p kali_types --lib` passes
+- ✅ `cargo test -p kali_cli --test runtime_smoke` passes
+- ✅ `cargo test --workspace` passes
+
 ### Stage 1.6 - HIR/LIR Lowering
 - ✅ Deterministic AST/statement → HIR lowering implemented
 - ✅ HIR → MIR lowering implemented

@@ -140,7 +140,7 @@ proof-ready repository baseline.
 |---|---|---|
 | 1.1 | [Workspace & Crate Scaffold](plan/phase-1/01-workspace-scaffold.md) | `cargo build` succeeds; `kali --version` prints a version string; `proofs/BOUNDARY.md` exists with proof-ready placeholder *
 | 1.2 | [Lexer](plan/phase-1/02-lexer.md) | Tokenises valid TS/JS source; emits stable `E1xxx` lex errors **✅ COMPLETE** |
-| **1.3** | [Parser & AST](plan/phase-1/03-parser-and-ast.md) | Parses full ECMA-262 + TypeScript grammar; AST node types defined **🚧 IN PROGRESS - Parser stub exists, AST needs expansion**|
+| 1.3 | [Parser & AST](plan/phase-1/03-parser-and-ast.md) | Parses full ECMA-262 + TypeScript grammar; AST node types defined **✅ COMPLETE** |
 
 **NOTE:** Stage 1.1 establishes the **proof-ready** baseline. The repository may claim proof-ready status from day one, but proof-backed claims require a non-empty `proofs/BOUNDARY.md` published boundary.
 
@@ -150,7 +150,7 @@ proof-ready repository baseline.
 |---|---|---|
 | 1.2 | [Lexer](plan/phase-1/02-lexer.md) | Tokenises valid TS/JS source; emits stable `E1xxx` lex errors |
 | 1.3 | [Parser & AST](plan/phase-1/03-parser-and-ast.md) | Parses full ECMA-262 + TypeScript grammar; AST node types defined |
-| 1.4 | [Name Resolution](plan/phase-1/04-name-resolution.md) | `kali check` reports unresolved identifiers and import errors |
+| 1.4 | [Name Resolution](plan/phase-1/04-name-resolution.md) | `kali check` reports unresolved identifiers and import errors **✅ COMPLETE** |
 | 1.5 | [Type Checker](plan/phase-1/05-type-checker.md) | `kali check` reports type errors under the bounded inference contract |
 
 ### Spec Step 3 — Kali-hosted execution foundation *(before step 2 for workability; see ordering note)*
