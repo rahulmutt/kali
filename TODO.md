@@ -41,4 +41,5 @@
 
 ## Next Work
 - [ ] Broader package-shape / host-fit diagnostics matrix coverage
-- [ ] CLI integration coverage for install repair/prune scenarios
+- [x] CLI integration coverage for install repair/prune scenarios
+  - Added CLI smoke coverage for pruning stale registry layouts back to an empty install state.

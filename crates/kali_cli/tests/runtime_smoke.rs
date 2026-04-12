@@ -440,3 +440,59 @@ fn install_rejects_registry_path_collisions_before_materialization() {
         "stderr: {stderr}"
     );
 }
+
+#[test]
+fn install_prunes_stale_registry_layout_without_repairing() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
+    fs::write(
+        dir.path().join("kali.lock"),
+        r#"{
+  "version": 1,
+  "packages": {
+    "lodash@4.17.21": {
+      "registry": "npm",
+      "integrity": "sha512-demo",
+      "resolved": "https://example.com/lodash.tgz",
+      "dependencies": {}
+    }
+  }
+}"#,
+    )
+    .expect("write lock");
+    fs::create_dir_all(dir.path().join("node_modules/lodash")).expect("node_modules layout");
+    fs::create_dir_all(dir.path().join(".kali-cache/packages/lodash@4.17.21"))
+        .expect("package cache");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("install")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        !dir.path().join("kali.lock").exists(),
+        "stale lock file should be removed"
+    );
+    assert!(
+        !dir.path().join("node_modules/lodash").exists(),
+        "stale install path should be pruned"
+    );
+    assert!(
+        !dir.path()
+            .join(".kali-cache/packages/lodash@4.17.21")
+            .exists(),
+        "stale package cache should be pruned"
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Installed 0 package(s)"),
+        "stdout: {stdout}"
+    );
+}

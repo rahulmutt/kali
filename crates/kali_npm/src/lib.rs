@@ -2240,4 +2240,56 @@ mod tests {
         let error = ensure_project_ready(dir.path()).unwrap_err();
         assert_eq!(error.code, Some(e6::INSTALL_REQUIRED as u32));
     }
+
+    #[test]
+    fn validate_package_shape_rejects_node_gyp_lifecycle_scripts() {
+        let package = PackageJson {
+            scripts: BTreeMap::from([("install".to_string(), "node-gyp rebuild".to_string())]),
+            ..PackageJson::default()
+        };
+
+        let error = validate_package_shape(&package, true).unwrap_err();
+        assert_eq!(error[0].code, Some(e6::INCOMPATIBLE_PACKAGE as u32));
+        assert!(error[0].message.contains(
+            "node-gyp lifecycle script and falls outside the pure JS/TS package contract"
+        ));
+    }
+
+    #[test]
+    fn validate_package_shape_rejects_native_addon_entrypoints() {
+        let package = PackageJson {
+            main: Some("native.node".to_string()),
+            ..PackageJson::default()
+        };
+
+        let error = validate_package_shape(&package, true).unwrap_err();
+        assert_eq!(error[0].code, Some(e6::INCOMPATIBLE_PACKAGE as u32));
+        assert!(error[0]
+            .message
+            .contains("native addon entrypoint and falls outside the pure JS/TS package contract"));
+    }
+
+    #[test]
+    fn validate_package_shape_rejects_native_bin_entrypoints() {
+        let package = PackageJson {
+            bin: Some(serde_json::json!({"kali-native": "bin/native.node"})),
+            ..PackageJson::default()
+        };
+
+        let error = validate_package_shape(&package, true).unwrap_err();
+        assert_eq!(error[0].code, Some(e6::INCOMPATIBLE_PACKAGE as u32));
+        assert!(error[0].message.contains(
+            "bin entry points to a native addon and falls outside the pure JS/TS package contract"
+        ));
+    }
+
+    #[test]
+    fn validate_package_shape_allows_harmless_scripts_when_allowed() {
+        let package = PackageJson {
+            scripts: BTreeMap::from([("postinstall".to_string(), "echo ok".to_string())]),
+            ..PackageJson::default()
+        };
+
+        validate_package_shape(&package, true).expect("allowed lifecycle scripts should pass");
+    }
 }

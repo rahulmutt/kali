@@ -41,8 +41,11 @@ graph without performing any mutations.
   URL cache entries when the declaration graph changes.
 - Non-install commands still fail fast with `E6007` when an installed dependency graph is missing
   or stale.
-- Remaining stage work is mostly around install repair edge cases, the broader package-shape /
-  host-fit diagnostics matrix, and the CLI integration coverage called out in the tasks below.
+- Package-shape coverage now has explicit unit tests for node-gyp lifecycle scripts and
+  native-addon entrypoints, and CLI smoke coverage now exercises pruning stale registry layouts
+  back to an empty install state.
+- Remaining stage work is mostly around the broader host-fit diagnostics matrix and any further
+  install repair edge cases called out in the tasks below.
 
 ## Tasks
 
