@@ -138,7 +138,7 @@ proof-ready repository baseline.
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 1.1 | [Workspace & Crate Scaffold](plan/phase-1/01-workspace-scaffold.md) | `cargo build` succeeds; `kali --version` prints a version string; `proofs/BOUNDARY.md` exists with proof-ready placeholder *
+| 1.1 | [Workspace & Crate Scaffold](plan/phase-1/01-workspace-scaffold.md) | `cargo build` succeeds; `kali --version` prints a version string; `proofs/BOUNDARY.md` exists with proof-ready placeholder **✅ COMPLETE** |
 | 1.2 | [Lexer](plan/phase-1/02-lexer.md) | Tokenises valid TS/JS source; emits stable `E1xxx` lex errors **✅ COMPLETE** |
 | 1.3 | [Parser & AST](plan/phase-1/03-parser-and-ast.md) | Parses full ECMA-262 + TypeScript grammar; AST node types defined **✅ COMPLETE** |
 
@@ -151,23 +151,23 @@ proof-ready repository baseline.
 | 1.2 | [Lexer](plan/phase-1/02-lexer.md) | Tokenises valid TS/JS source; emits stable `E1xxx` lex errors |
 | 1.3 | [Parser & AST](plan/phase-1/03-parser-and-ast.md) | Parses full ECMA-262 + TypeScript grammar; AST node types defined |
 | 1.4 | [Name Resolution](plan/phase-1/04-name-resolution.md) | `kali check` reports unresolved identifiers and import errors **✅ COMPLETE** |
-| 1.5 | [Type Checker](plan/phase-1/05-type-checker.md) | `kali check` reports type errors under the bounded inference contract |
+| 1.5 | [Type Checker](plan/phase-1/05-type-checker.md) | `kali check` reports type errors under the bounded inference contract **✅ COMPLETE** |
 
 ### Spec Step 3 — Kali-hosted execution foundation *(before step 2 for workability; see ordering note)*
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 1.6 | [HIR & LIR Lowering](plan/phase-1/06-hir-lir-lowering.md) | Full compiler pipeline exists; LIR can be inspected / round-tripped |
-| 1.7 | [WASM Code Generation](plan/phase-1/07-wasm-codegen.md) | Simple programs compile to runnable WASM modules |
-| 1.8 | [Runtime & Execution](plan/phase-1/08-runtime-execution.md) | `kali run` and `kali test` work in the Default standalone context |
+| 1.6 | [HIR & LIR Lowering](plan/phase-1/06-hir-lir-lowering.md) | Full compiler pipeline exists; LIR can be inspected / round-tripped **✅ COMPLETE** |
+| 1.7 | [WASM Code Generation](plan/phase-1/07-wasm-codegen.md) | Simple programs compile to runnable WASM modules **✅ COMPLETE** |
+| 1.8 | [Runtime & Execution](plan/phase-1/08-runtime-execution.md) | `kali run` and `kali test` work in the Default standalone context **✅ COMPLETE** |
 
 ### Spec Steps 2 & 4 — Package, sandbox & build foundation
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 1.9 | [Sandbox & Policy](plan/phase-1/09-sandbox-and-policy.md) | `--sandbox` flag enforced at runtime; policy files validated at check/build time on the **Phase-1 static policy-validation surface** |
-| 1.10 | [Package Management](plan/phase-1/10-package-management.md) | `kali install` resolves npm/JSR/raw-URL deps; lock file is deterministic; package compatibility follows the **package-support decision order** |
-| 1.11 | [Build Artifacts](plan/phase-1/11-build-artifacts.md) | `kali build` emits executables; `--bundle` emits browser bundles in the **Phase-1 browser-targeted command set**; `--lib` emits the **base library artifact** for exact-version consumers |
+| 1.9 | [Sandbox & Policy](plan/phase-1/09-sandbox-and-policy.md) | `--sandbox` flag enforced at runtime; policy files validated at check/build time on the **Phase-1 static policy-validation surface** **✅ COMPLETE** |
+| 1.10 | [Package Management](plan/phase-1/10-package-management.md) | `kali install` resolves npm/JSR/raw-URL deps; lock file is deterministic; package compatibility follows the **package-support decision order** **✅ COMPLETE** |
+| 1.11 | [Build Artifacts](plan/phase-1/11-build-artifacts.md) | `kali build` emits executables; `--bundle` emits browser bundles in the **Phase-1 browser-targeted command set**; `--lib` emits the **base library artifact** for exact-version consumers **✅ COMPLETE** |
 
 ### Spec Step 5 — Developer workflow foundation
 
@@ -210,13 +210,13 @@ Within Phase 1, certain stages can be developed in parallel **after the critical
 
 Phase 1 is complete when **all** of the following conditions are met:
 
-- [ ] All stages 1.1–1.14 have passed their individual Definitions of Done
-- [ ] Every Phase-1 maturity label in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) is backed by a passing evidence track from stage 1.14
-- [ ] `cargo test --workspace` passes with no regressions
-- [ ] End-to-end smoke tests for `kali check`, `build`, `run`, `test`, `init`, `fmt`, `lint`, `install` succeed on at least one real-world TypeScript project
-- [ ] `proofs/BOUNDARY.md` exists with the Phase-1 proof-ready boundary (non-empty for proof-backed claims)
-- [ ] Phase-1 browser-targeted smoke tests pass for the **Phase-1 browser-targeted command set**
-- [ ] Determinism checks pass for all CLI outputs and generated artifacts
+- [x] All stages 1.1–1.14 have passed their individual Definitions of Done
+- [x] Every Phase-1 maturity label in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) is backed by a passing evidence track from stage 1.14
+- [x] `cargo test --workspace` passes with no regressions
+- [x] End-to-end smoke tests for `kali check`, `build`, `run`, `test`, `init`, `fmt`, `lint`, `install` succeed on at least one real-world TypeScript project
+- [x] `proofs/BOUNDARY.md` exists with the Phase-1 proof-ready boundary (non-empty for proof-backed claims)
+- [x] Phase-1 browser-targeted smoke tests pass for the **Phase-1 browser-targeted command set**
+- [x] Determinism checks pass for all CLI outputs and generated artifacts
 
 ---
 

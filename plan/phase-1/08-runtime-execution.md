@@ -4,6 +4,8 @@
 **Spec refs:** [`specs/10-runtime.md`](../../specs/10-runtime.md), [`specs/11-standard-apis.md`](../../specs/11-standard-apis.md), [`specs/09-sandboxing.md`](../../specs/09-sandboxing.md), [`specs/01-architecture.md`](../../specs/01-architecture.md)  
 **Depends on:** [1.7 — WASM Code Generation](07-wasm-codegen.md)
 
+**Status:** ✅ Complete — runtime execution is wired through wasmtime, the default Deno surface is exercised explicitly and implicitly, and the stage's evidence coverage is closed
+
 ## Goal
 
 Implement the Kali-hosted execution environment: integrate `wasmtime` as the execution engine,
@@ -29,6 +31,7 @@ TypeScript/JavaScript programs.
 - Web-baseline host primitives for `performance.now()` and `crypto.getRandomValues()` are now wired into the runtime linker so the Stage 1.8 baseline has concrete time/random coverage.
 - The guest-side Web baseline support-library follow-up is now implemented in `kali_api_web` with URL parsing/resolution, UTF-8 text encoding/decoding, `structuredClone`, `AbortController`/`AbortSignal`, and event primitives.
 - Runtime fixture coverage now includes timer/interval clearing, mocked fetch failure, and entrypoint trap diagnostics for the remaining Stage 1.8 edge cases.
+- The default API surface is now locked in by explicit `--api deno` smoke coverage for both `run` and `test`, confirming the spelled-out default behaves the same as the implicit path.
 
 ## Tasks
 
@@ -182,9 +185,9 @@ compilation pipeline starts.
 
 ## Definition of Done
 
-- [ ] `kali run fixtures/hello.ts` executes and exits 0.
-- [ ] `kali test fixtures/tests/` passes with correct counts.
-- [ ] All `E4xxx` error cases covered by integration tests.
-- [ ] wasmtime is the engine; no C/C++ implementation dependencies introduced.
-- [ ] `cargo test` integration tests pass.
-- [ ] No Stage 1.1–1.7 regressions.
+- [x] `kali run fixtures/hello.ts` executes and exits 0.
+- [x] `kali test fixtures/tests/` passes with correct counts.
+- [x] All `E4xxx` error cases covered by integration tests.
+- [x] wasmtime is the engine; no C/C++ implementation dependencies introduced.
+- [x] `cargo test` integration tests pass.
+- [x] No Stage 1.1–1.7 regressions.

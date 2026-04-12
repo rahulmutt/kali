@@ -275,6 +275,24 @@ fn run_executes_the_hello_fixture() {
 }
 
 #[test]
+fn run_accepts_the_explicit_deno_api_surface() {
+    let output = Command::new(kali_bin())
+        .arg("run")
+        .arg("--api")
+        .arg("deno")
+        .arg(fixture_path("run/hello.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn run_rejects_declaration_only_fixture_entrypoints() {
     let output = Command::new(kali_bin())
         .arg("run")
@@ -292,6 +310,26 @@ fn run_rejects_declaration_only_fixture_entrypoints() {
 fn test_reports_success_for_explicit_file_sets() {
     let output = Command::new(kali_bin())
         .arg("test")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_accepts_the_explicit_deno_api_surface() {
+    let output = Command::new(kali_bin())
+        .arg("test")
+        .arg("--api")
+        .arg("deno")
         .arg(fixture_path("tests/smoke.test.ts"))
         .output()
         .expect("run kali");

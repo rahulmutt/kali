@@ -1,7 +1,7 @@
 # Stage 1.8 Status Update
 
 **Date:** 2026-04-12  
-**Status:** 🚧 Runtime execution wired for simple modules plus a Deno host-surface subset, timer/microtask scheduling, Web-baseline time/random primitives, guest-side support-library helpers, and edge-case fixture coverage
+**Status:** ✅ Runtime execution complete — wasmtime-backed execution, the default Deno host-surface subset, timer/microtask scheduling, Web-baseline time/random primitives, guest-side support-library helpers, and edge-case fixture coverage are all in place
 
 ## Summary
 
@@ -31,8 +31,10 @@ The runtime linker now also exposes the basic console host imports (`console_log
 
 - The runtime still exercises the compiler's simple WASM output rather than a full guest JS host surface
 - The guest-side Web baseline support-library helpers now live in `kali_api_web`; remaining Stage 1.8 work is runtime-boundary polish and any final evidence hardening rather than missing primitives
-- Runtime edge-case coverage now includes timer/interval clearing, mocked fetch failure, entrypoint trap diagnostics, and the time/random host primitives; the remaining Stage 1.8 follow-up is final evidence and polish work
+- Runtime edge-case coverage now includes timer/interval clearing, mocked fetch failure, entrypoint trap diagnostics, and the time/random host primitives.
+- The spelled-out default API surface (`--api deno`) is now locked in for both `run` and `test`, matching the implicit default path.
+- Stage 1.8 has no remaining implementation follow-up; the stage is now closed.
 
 ## Next Step
 
-Continue Stage 1.8 with the remaining runtime evidence/polish work, then move on to the next Phase 1 stage.
+Runtime execution is closed; proceed with the remaining plan-level handoff work and Phase 2 planning.

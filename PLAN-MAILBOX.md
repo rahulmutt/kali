@@ -1,3 +1,16 @@
+# Stage 1.8 Runtime Closure Notes
+
+## Latest Update
+
+- Added explicit `--api deno` smoke coverage for both `run` and `test`, locking in the spelled-out default API surface alongside the implicit path.
+- Updated the Stage 1.8 runtime notes, the phase summary, and the top-level plan to mark runtime execution complete and hand off the planning queue to Phase 2.
+- No spec changes were required for this closure pass.
+
+**Date:** 2026-04-12
+**Status:** Processed — runtime execution is closed and the plan now reflects that state
+
+---
+
 # Stage 1.13 / 1.14 Plan Progress Notes
 
 ## Latest Update
