@@ -173,14 +173,14 @@ proof-ready repository baseline.
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 1.12 | [Developer Workflow](plan/phase-1/12-developer-workflow.md) | `kali init`, `kali fmt`, `kali lint` (with canonical `W2xxx` lint diagnostics) all functional |
-| 1.13 | [Diagnostics & Schemas](plan/phase-1/13-diagnostics-and-schemas.md) | Stable error codes; `--output json` emits schema-v1 envelopes |
+| 1.12 | [Developer Workflow](plan/phase-1/12-developer-workflow.md) | `kali init`, `kali fmt`, `kali lint` (with canonical `W2xxx` lint diagnostics) all functional **✅ COMPLETE** |
+| 1.13 | [Diagnostics & Schemas](plan/phase-1/13-diagnostics-and-schemas.md) | Stable error codes; `--output json` emits schema-v1 envelopes **✅ COMPLETE** |
 
 ### Spec Step 6 — Evidence hardening
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 1.14 | [Evidence Hardening](plan/phase-1/14-evidence-hardening.md) | Conformance suite (unit/integration), TypeScript/JavaScript checker baseline, package-corpus checks under the **linked-artifact model**, browser-targeted smoke tests, determinism checks, and a passing proof-ready CI pipeline |
+| 1.14 | [Evidence Hardening](plan/phase-1/14-evidence-hardening.md) | Conformance suite (unit/integration), TypeScript/JavaScript checker baseline, package-corpus checks under the **linked-artifact model**, browser-targeted smoke tests, determinism checks, and a passing proof-ready CI pipeline **✅ COMPLETE** |
 
 ### Phase 1 parallelism and coordination
 

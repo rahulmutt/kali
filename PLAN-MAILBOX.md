@@ -1,3 +1,15 @@
+# Stage 1.13 / 1.14 Plan Progress Notes
+
+## Latest Update
+
+- Added completion status notes for Stages 1.12–1.14 so the implementation plan now reflects the shipped developer-workflow, diagnostics/schema, and evidence-hardening work.
+- Updated the top-level plan summary to mark the matching Phase-1 rows complete without changing the spec contract.
+
+**Date:** 2026-04-12  
+**Status:** Processed — plan progress now mirrors the current implementation state
+
+---
+
 # Stage 1.14 Evidence Hardening Notes
 
 ## Latest Update
