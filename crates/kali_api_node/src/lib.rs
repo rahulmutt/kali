@@ -1624,8 +1624,7 @@ mod tests {
         let parsed = NodeUrl::parse("https://example.com/path?query=1").expect("url");
         assert_eq!(parsed.as_str(), "https://example.com/path?query=1");
 
-        let resolved = NodeUrl::resolve("https://example.com/base/", "../child")
-            .expect("resolve");
+        let resolved = NodeUrl::resolve("https://example.com/base/", "../child").expect("resolve");
         assert_eq!(resolved.as_str(), "https://example.com/child");
     }
 

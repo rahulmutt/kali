@@ -1326,7 +1326,10 @@ fn release_hot_paths_stay_unboxed_without_tag_checks() {
     let release_adds = count_i64_adds(&release_wasm);
     let release_tag_ops = count_tag_boxing_ops(&release_wasm);
 
-    assert!(release_adds > 0, "expected a numeric hot path in the optimized wasm");
+    assert!(
+        release_adds > 0,
+        "expected a numeric hot path in the optimized wasm"
+    );
     assert_eq!(
         release_tag_ops, 0,
         "expected the specialized hot path to avoid tag-check / untag boxing ops"

@@ -1,8 +1,8 @@
 //! Runtime execution for Kali-generated WASM modules.
 
 use kali_api_node::{
-    NodeAssert, NodeBuffer, NodeChildProcess, NodeCrypto, NodePath, NodeRuntimeProjection,
-    NodeUrl, NodeUtil,
+    NodeAssert, NodeBuffer, NodeChildProcess, NodeCrypto, NodePath, NodeRuntimeProjection, NodeUrl,
+    NodeUtil,
 };
 use kali_api_web::{fill_random_values, performance_now};
 use kali_error::{_error_codes::e4, Diagnostic};
@@ -59,6 +59,8 @@ pub struct KaliHostState {
     pub next_timer_id: u32,
     /// Registered test callbacks collected from guest-side `Kali.test(...)` calls.
     pub registered_tests: Vec<i32>,
+    /// Registered Node-style event callbacks collected from guest-side `EventEmitter` calls.
+    pub event_listeners: BTreeMap<String, Vec<i32>>,
     /// Memory/table limits for the current store.
     pub store_limits: wasmtime::StoreLimits,
     /// The most recent policy/resource diagnostic produced by a host operation.
@@ -204,6 +206,7 @@ impl RuntimeCtx {
                 cancelled_timers: HashSet::new(),
                 next_timer_id: 0,
                 registered_tests: Vec::new(),
+                event_listeners: BTreeMap::new(),
                 store_limits,
                 pending_diagnostic: None,
                 active_file_handles: 0,
@@ -1349,6 +1352,56 @@ fn register_node_host_imports(
     linker
         .func_wrap(
             "kali:node",
+            "event_on",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  event_ptr: i32,
+                  event_len: i32,
+                  callback_id: i32|
+                  -> wasmtime::Result<i32> {
+                let event_type = read_guest_string(&mut caller, event_ptr, event_len)?;
+                caller
+                    .data_mut()
+                    .register_event_listener(event_type, callback_id);
+                Ok(0)
+            },
+        )
+        .map_err(|error| host_import_error("event_on", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "event_listener_count",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  event_ptr: i32,
+                  event_len: i32|
+                  -> wasmtime::Result<i32> {
+                let event_type = read_guest_string(&mut caller, event_ptr, event_len)?;
+                Ok(caller.data().event_listener_count(&event_type) as i32)
+            },
+        )
+        .map_err(|error| host_import_error("event_listener_count", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "event_emit",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  event_ptr: i32,
+                  event_len: i32|
+                  -> wasmtime::Result<i32> {
+                let event_type = read_guest_string(&mut caller, event_ptr, event_len)?;
+                let callback_ids = caller.data().event_listener_callbacks(&event_type);
+                for callback_id in &callback_ids {
+                    caller.data_mut().queue_microtask(*callback_id);
+                }
+                Ok(callback_ids.len() as i32)
+            },
+        )
+        .map_err(|error| host_import_error("event_emit", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
             "util_format",
             move |mut caller: Caller<'_, KaliHostState>,
                   left_ptr: i32,
@@ -1719,6 +1772,27 @@ impl KaliHostState {
     fn queue_microtask(&mut self, callback_id: i32) {
         self.pending_microtasks.push_back(callback_id);
     }
+
+    fn register_event_listener(&mut self, event_type: impl Into<String>, callback_id: i32) {
+        self.event_listeners
+            .entry(event_type.into())
+            .or_default()
+            .push(callback_id);
+    }
+
+    fn event_listener_callbacks(&self, event_type: &str) -> Vec<i32> {
+        self.event_listeners
+            .get(event_type)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    fn event_listener_count(&self, event_type: &str) -> usize {
+        self.event_listeners
+            .get(event_type)
+            .map(|callbacks| callbacks.len())
+            .unwrap_or(0)
+    }
 }
 
 fn drain_event_loop(
@@ -1825,7 +1899,7 @@ mod tests {
     };
 
     fn compile_wat(wat: &str) -> Vec<u8> {
-        wat::parse_str(wat).expect("valid wat")
+        wat::parse_str(wat).unwrap_or_else(|error| panic!("valid wat error: {error}\n{wat}"))
     }
 
     fn wat_assert_buffer_eq(start: i32, expected: &str) -> String {
@@ -2420,6 +2494,60 @@ mod tests {
         let wasm = compile_wat(&wat);
         let outcome = runtime.execute(&wasm).expect("runtime outcome");
         assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_executes_node_event_emitter_host_imports() {
+        let runtime = RuntimeCtx::with_host_context_with_api_surface(
+            None,
+            Vec::new(),
+            capture_env(),
+            PathBuf::from("."),
+            "node",
+        );
+        let wat = r#"
+            (module
+                (import "kali:node" "event_on" (func $event_on (param i32 i32 i32) (result i32)))
+                (import "kali:node" "event_listener_count" (func $listener_count (param i32 i32) (result i32)))
+                (import "kali:node" "event_emit" (func $event_emit (param i32 i32) (result i32)))
+                (import "kali:node" "process_stdout_write" (func $stdout_write (param i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "message")
+                (data (i32.const 32) "event fired")
+                (func (export "__kali_callback_1")
+                    i32.const 32
+                    i32.const 11
+                    call $stdout_write
+                    drop)
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 7
+                    i32.const 1
+                    call $event_on
+                    drop
+                    i32.const 0
+                    i32.const 7
+                    call $listener_count
+                    i32.const 1
+                    i32.ne
+                    if
+                        unreachable
+                    end
+                    i32.const 0
+                    i32.const 7
+                    call $event_emit
+                    i32.const 1
+                    i32.ne
+                    if
+                        unreachable
+                    end)
+            )
+        "#;
+
+        let wasm = compile_wat(wat);
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+        assert_eq!(outcome.stdout, "event fired");
     }
 
     #[test]

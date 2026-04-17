@@ -110,6 +110,7 @@
   - The runtime linker now consumes the Node projection facade for `fs/promises`, stream, HTTP, URL, and process argv/env host imports when the effective API surface is `node`.
   - Install-time package host-fit validation now keys off the project `compilerOptions.apiSurface`, so Node-targeted installs can accept Node-only builtins while the default standalone context still rejects them with `E6005`.
   - Runtime-linker coverage now also exercises Node util formatting, assert-equality, and buffer hex round-tripping imports with dedicated smoke coverage.
+  - Runtime-linker coverage now also exercises Node-style event listener registration/emission imports with dedicated smoke coverage.
 - [x] Stage 4.2 proof boundary widening
   - `KaliCore.Soundness` now mechanizes the widened closed fragment (literals, variables, closed functions, application, sequencing, conditionals, assignment, and try/catch).
   - `KaliCore.Safety.noDanglingReference` is mechanized for the current RC snapshot model, `liveRefsAreOwnedAndAllocated` projects live references back to ownership/allocation, and `releasedNotLive` / `releasedNotLiveRef` record the release-path liveness split and live/released disjointness.
