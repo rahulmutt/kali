@@ -1360,6 +1360,7 @@ dependencies = [
  "kali_common",
  "kali_error",
  "kali_lir",
+ "kali_mir",
 ]
 
 [[package]]

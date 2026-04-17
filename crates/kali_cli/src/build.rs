@@ -204,7 +204,7 @@ fn compile_source_file_uncached(
         BuildMode::ReleaseAdvanced => OptimizationLevel::ReleaseAdvanced,
     };
     Optimizer::with_max_specializations(optimization_level, max_specializations)
-        .optimize_program(&mut lir);
+        .optimize_program_with_mir(&mut lir, &mir);
 
     let mut ctx = CodegenCtx::new(TargetConfig {
         optimize: !matches!(mode, BuildMode::Fast),

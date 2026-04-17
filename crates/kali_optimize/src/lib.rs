@@ -8,6 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
+use kali_mir::{LayoutDescriptor, MirBindingKind, MirProgram as MirAnalysisProgram};
 
 /// Optimization level.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -80,6 +81,36 @@ impl Optimizer {
                     self.prune_dead_top_level_functions(program);
                 }
             }
+        }
+    }
+
+    /// Optimize a program using MIR layout metadata to drive additional call-site specialization.
+    pub fn optimize_program_with_mir(&self, program: &mut LirProgram, mir: &MirAnalysisProgram) {
+        self.optimize_program(program);
+
+        if matches!(
+            self.level,
+            OptimizationLevel::Fast | OptimizationLevel::Default
+        ) {
+            return;
+        }
+
+        let plan = self.build_specialization_plan(program);
+        let mir_plan = MirSpecializationPlan::from_program(mir);
+        let mut tracker = SpecializationTracker::new(self.max_specializations);
+        let mut specialized_functions = BTreeMap::new();
+        self.specialize_mir_call_sites(
+            program,
+            program.root,
+            &plan,
+            &mir_plan,
+            &mut tracker,
+            "<root>".to_string(),
+            &mut specialized_functions,
+        );
+
+        if matches!(self.level, OptimizationLevel::ReleaseAdvanced) {
+            self.prune_dead_top_level_functions(program);
         }
     }
 
@@ -359,18 +390,15 @@ impl Optimizer {
         env: &BindingEnv,
         property: &str,
     ) -> Option<usize> {
-        property
-            .parse::<usize>()
-            .ok()
-            .or_else(|| {
-                env.bindings
-                    .get(property)
-                    .and_then(|bound| literal_value(program, *bound))
-                    .and_then(|value| match value {
-                        ConstantValue::Number(value) if value >= 0 => Some(value as usize),
-                        _ => None,
-                    })
-            })
+        property.parse::<usize>().ok().or_else(|| {
+            env.bindings
+                .get(property)
+                .and_then(|bound| literal_value(program, *bound))
+                .and_then(|value| match value {
+                    ConstantValue::Number(value) if value >= 0 => Some(value as usize),
+                    _ => None,
+                })
+        })
     }
 
     fn is_object_literal(&self, program: &LirProgram, id: LirNodeId) -> bool {
@@ -707,6 +735,212 @@ impl Optimizer {
         true
     }
 
+    fn specialize_mir_call_sites(
+        &self,
+        program: &mut LirProgram,
+        id: LirNodeId,
+        plan: &SpecializationPlan,
+        mir_plan: &MirSpecializationPlan,
+        tracker: &mut SpecializationTracker,
+        owner: String,
+        specialized_functions: &mut BTreeMap<String, LirNodeId>,
+    ) {
+        let snapshot = program.nodes[id.0 as usize].clone();
+        let next_owner = match snapshot.kind {
+            LirNodeKind::Instruction => snapshot
+                .text
+                .as_deref()
+                .filter(|name| plan.functions.contains_key(*name))
+                .map(|name| name.to_string())
+                .unwrap_or_else(|| owner.clone()),
+            _ => owner.clone(),
+        };
+
+        if let Some(new_function) = self.specialize_mir_call_site(
+            program,
+            id,
+            plan,
+            mir_plan,
+            tracker,
+            &owner,
+            specialized_functions,
+        ) {
+            self.optimize_node(program, new_function, plan, tracker, next_owner.clone());
+        }
+
+        for child in snapshot.children {
+            self.specialize_mir_call_sites(
+                program,
+                child,
+                plan,
+                mir_plan,
+                tracker,
+                next_owner.clone(),
+                specialized_functions,
+            );
+        }
+    }
+
+    fn specialize_mir_call_site(
+        &self,
+        program: &mut LirProgram,
+        id: LirNodeId,
+        plan: &SpecializationPlan,
+        mir_plan: &MirSpecializationPlan,
+        tracker: &mut SpecializationTracker,
+        owner: &str,
+        specialized_functions: &mut BTreeMap<String, LirNodeId>,
+    ) -> Option<LirNodeId> {
+        let snapshot = program.nodes[id.0 as usize].clone();
+        if snapshot.kind != LirNodeKind::Call {
+            return None;
+        }
+
+        let Some(callee_id) = snapshot.children.first().copied() else {
+            return None;
+        };
+        let Some(callee_node) = program.nodes.get(callee_id.0 as usize).cloned() else {
+            return None;
+        };
+        let Some(callee_name) = callee_node.text.as_deref() else {
+            return None;
+        };
+        let Some(summary) = plan.functions.get(callee_name) else {
+            return None;
+        };
+        if summary.recursive {
+            return None;
+        }
+
+        let args: Vec<LirNodeId> = snapshot.children.iter().skip(1).copied().collect();
+        if args.len() != summary.params.len() {
+            return None;
+        }
+
+        let mut substitutions = BTreeMap::new();
+        let mut signature_parts = Vec::new();
+        for (index, (param, arg)) in summary.params.iter().zip(args.iter()).enumerate() {
+            let Some(layout) = mir_plan.parameter_layout(callee_name, index) else {
+                signature_parts.push(self.specialization_signature(program, *arg));
+                continue;
+            };
+
+            if layout == MirLayoutClass::TaggedVal {
+                signature_parts.push(self.specialization_signature(program, *arg));
+                continue;
+            }
+
+            let arg_signature = self.specialization_signature_with_mir(program, *arg, mir_plan);
+            signature_parts.push(format!("{}:{}", layout.as_str(), arg_signature));
+            let cloned_arg = self.clone_subtree_with_substitution(
+                program,
+                *arg,
+                &BTreeMap::new(),
+                &mut HashMap::new(),
+            );
+            substitutions.insert(param.clone(), cloned_arg);
+        }
+
+        if substitutions.is_empty() {
+            return None;
+        }
+
+        let specialization_key =
+            format!("specialize:{}:{}", callee_name, signature_parts.join("|"));
+        if !tracker.allow(owner, specialization_key) {
+            return None;
+        }
+
+        let specialized_name = self.specialized_function_name(callee_name, &signature_parts);
+        if specialized_functions.contains_key(&specialized_name) {
+            if let Some(callee) = program.nodes.get_mut(callee_id.0 as usize) {
+                callee.text = Some(specialized_name);
+            }
+            return None;
+        }
+
+        let new_id = self.clone_specialized_function(
+            program,
+            summary,
+            specialized_name.clone(),
+            &substitutions,
+        );
+        specialized_functions.insert(specialized_name.clone(), new_id);
+        program.nodes[program.root.0 as usize].children.push(new_id);
+        self.specialize_layout_bindings(
+            program,
+            new_id,
+            tracker,
+            &specialized_name,
+            &mut BindingEnv::default(),
+        );
+
+        if let Some(callee) = program.nodes.get_mut(callee_id.0 as usize) {
+            callee.text = Some(specialized_name);
+        }
+
+        Some(new_id)
+    }
+
+    fn clone_specialized_function(
+        &self,
+        program: &mut LirProgram,
+        summary: &FunctionSummary,
+        specialized_name: String,
+        substitutions: &BTreeMap<String, LirNodeId>,
+    ) -> LirNodeId {
+        let original = program.nodes[summary.node_id.0 as usize].clone();
+        let mut children = original.children.clone();
+        let cloned_body = self.clone_subtree_with_substitution(
+            program,
+            summary.body_block,
+            substitutions,
+            &mut HashMap::new(),
+        );
+        if let Some(last_child) = children.last_mut() {
+            *last_child = cloned_body;
+        }
+
+        let new_id = LirNodeId(program.nodes.len() as u32);
+        program.nodes.push(LirNode {
+            kind: original.kind,
+            text: Some(specialized_name),
+            children,
+        });
+        new_id
+    }
+
+    fn specialized_function_name(&self, callee_name: &str, signature_parts: &[String]) -> String {
+        let mut hash = 0xcbf29ce484222325u64;
+        let signature = signature_parts.join("|");
+        for byte in signature.as_bytes() {
+            hash ^= *byte as u64;
+            hash = hash.wrapping_mul(0x100000001b3);
+        }
+        format!("{}$spec${:016x}", callee_name, hash)
+    }
+
+    fn specialization_signature_with_mir(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+        mir_plan: &MirSpecializationPlan,
+    ) -> String {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return "<missing>".to_string();
+        };
+
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            if let Some(text) = node.text.as_deref() {
+                if let Some(layout) = mir_plan.binding_layout(text) {
+                    return format!("binding:{:?}", layout);
+                }
+            }
+        }
+
+        self.specialization_signature(program, id)
+    }
+
     fn build_specialization_plan(&self, program: &LirProgram) -> SpecializationPlan {
         let mut plan = SpecializationPlan::default();
         let mut visited = HashSet::new();
@@ -773,6 +1007,7 @@ impl Optimizer {
             .unwrap_or(false);
 
         Some(FunctionSummary {
+            node_id: id,
             name,
             params,
             body_block: block_id,
@@ -1010,6 +1245,105 @@ impl Optimizer {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum MirLayoutClass {
+    Scalar,
+    Struct,
+    Array,
+    Closure,
+    TaggedVal,
+}
+
+impl MirLayoutClass {
+    fn as_str(self) -> &'static str {
+        match self {
+            MirLayoutClass::Scalar => "scalar",
+            MirLayoutClass::Struct => "struct",
+            MirLayoutClass::Array => "array",
+            MirLayoutClass::Closure => "closure",
+            MirLayoutClass::TaggedVal => "tagged",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct MirSpecializationPlan {
+    binding_layouts: BTreeMap<String, MirLayoutClass>,
+    parameter_layouts: BTreeMap<String, Vec<MirLayoutClass>>,
+}
+
+impl MirSpecializationPlan {
+    fn from_program(mir: &MirAnalysisProgram) -> Self {
+        let mut binding_layouts = BTreeMap::new();
+        let mut parameter_layouts = BTreeMap::new();
+
+        for function in &mir.functions {
+            if let Some(name) = function.name.as_deref() {
+                let mut params = Vec::new();
+                for binding in &function.bindings {
+                    let layout = MirLayoutClass::from_descriptor(&binding.layout);
+                    binding_layouts
+                        .entry(binding.name.clone())
+                        .and_modify(|existing| {
+                            if *existing != layout {
+                                *existing = MirLayoutClass::TaggedVal;
+                            }
+                        })
+                        .or_insert(layout);
+
+                    if binding.kind == MirBindingKind::Parameter {
+                        params.push(layout);
+                    }
+                }
+                parameter_layouts.insert(name.to_string(), params);
+            } else {
+                for binding in &function.bindings {
+                    let layout = MirLayoutClass::from_descriptor(&binding.layout);
+                    binding_layouts
+                        .entry(binding.name.clone())
+                        .and_modify(|existing| {
+                            if *existing != layout {
+                                *existing = MirLayoutClass::TaggedVal;
+                            }
+                        })
+                        .or_insert(layout);
+                }
+            }
+        }
+
+        Self {
+            binding_layouts,
+            parameter_layouts,
+        }
+    }
+
+    fn binding_layout(&self, name: &str) -> Option<MirLayoutClass> {
+        self.binding_layouts
+            .get(name)
+            .copied()
+            .filter(|layout| *layout != MirLayoutClass::TaggedVal)
+    }
+
+    fn parameter_layout(&self, function: &str, index: usize) -> Option<MirLayoutClass> {
+        self.parameter_layouts
+            .get(function)
+            .and_then(|layouts| layouts.get(index).copied())
+            .filter(|layout| *layout != MirLayoutClass::TaggedVal)
+    }
+}
+
+impl MirLayoutClass {
+    fn from_descriptor(descriptor: &LayoutDescriptor) -> Self {
+        match descriptor {
+            LayoutDescriptor::Scalar(_) => MirLayoutClass::Scalar,
+            LayoutDescriptor::Struct { .. } => MirLayoutClass::Struct,
+            LayoutDescriptor::Array { .. } => MirLayoutClass::Array,
+            LayoutDescriptor::Closure { .. } => MirLayoutClass::Closure,
+            LayoutDescriptor::TaggedVal => MirLayoutClass::TaggedVal,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 struct SpecializationPlan {
     functions: BTreeMap<String, FunctionSummary>,
@@ -1022,6 +1356,7 @@ struct BindingEnv {
 
 #[derive(Clone, Debug)]
 struct FunctionSummary {
+    node_id: LirNodeId,
     name: String,
     params: Vec<String>,
     body_block: LirNodeId,
@@ -1462,5 +1797,102 @@ mod tests {
         let node = &program.nodes[access.0 as usize];
         assert_eq!(node.kind, LirNodeKind::Literal);
         assert_eq!(node.text.as_deref(), Some("20"));
+    }
+
+    #[test]
+    fn release_specializes_large_function_using_mir_layouts() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "sum_many");
+        let param_x = builder.alloc_text(LirNodeKind::Value, "x");
+        let param_y = builder.alloc_text(LirNodeKind::Value, "y");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let outer_add = builder.alloc_text(LirNodeKind::Value, "+");
+        let left_add = builder.alloc_text(LirNodeKind::Value, "+");
+        let right_add = builder.alloc_text(LirNodeKind::Value, "+");
+        let left_left = builder.alloc_text(LirNodeKind::Value, "+");
+        let left_right = builder.alloc_text(LirNodeKind::Value, "+");
+        let right_left = builder.alloc_text(LirNodeKind::Value, "+");
+        let right_right = builder.alloc_text(LirNodeKind::Value, "+");
+        builder.node_mut(left_left).unwrap().children = vec![param_x, param_y];
+        builder.node_mut(left_right).unwrap().children = vec![param_x, param_y];
+        builder.node_mut(right_left).unwrap().children = vec![param_x, param_y];
+        builder.node_mut(right_right).unwrap().children = vec![param_x, param_y];
+        builder.node_mut(left_add).unwrap().children = vec![left_left, left_right];
+        builder.node_mut(right_add).unwrap().children = vec![right_left, right_right];
+        builder.node_mut(outer_add).unwrap().children = vec![left_add, right_add];
+        builder.node_mut(ret).unwrap().children = vec![outer_add];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_x, param_y, block];
+
+        let call = builder.alloc(LirNodeKind::Call);
+        let callee = builder.alloc_text(LirNodeKind::Value, "sum_many");
+        let one = literal(&mut builder, "1");
+        let two = literal(&mut builder, "2");
+        builder.node_mut(call).unwrap().children = vec![callee, one, two];
+
+        builder.node_mut(root).unwrap().children = vec![function, call];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![kali_mir::MirFunction {
+                name: Some("sum_many".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![
+                    kali_mir::MirBinding {
+                        name: "x".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::Scalar("number".to_string()),
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                    kali_mir::MirBinding {
+                        name: "y".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::Scalar("number".to_string()),
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                ],
+            }],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let call_node = &program.nodes[call.0 as usize];
+        let specialized_name = call_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist");
+        assert!(specialized_name.starts_with("sum_many$spec$"));
+
+        let specialized_function = program
+            .nodes
+            .iter()
+            .find(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name)
+            })
+            .expect("specialized function should be inserted");
+        let literal_twelve = program
+            .nodes
+            .iter()
+            .any(|node| node.kind == LirNodeKind::Literal && node.text.as_deref() == Some("12"));
+        assert!(
+            literal_twelve,
+            "specialized clone should fold the repeated literals"
+        );
+        assert_eq!(specialized_function.kind, LirNodeKind::Instruction);
     }
 }
