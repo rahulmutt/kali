@@ -73,6 +73,10 @@
 - ✅ Aliased function-expression calls now preserve direct-callee escape precision for local function-valued bindings
 - ✅ Alias chains of function expressions now resolve to the canonical lowered target, including anonymous function expressions
 
+### Stage 4.1 - Runtime dynamic import graph lookup
+- ✅ Browser bundle JS now normalizes runtime `loadDynamicImport(specifier)` requests before target lookup, so path-equivalent runtime specifiers resolve through the bundle-local map instead of requiring an exact static spelling.
+- ✅ Browser bundle smoke coverage now exercises a normalized runtime specifier (`./sub/../lazy.ts`) against a discovered chunk target.
+
 ## Next Work
 - [x] Browser bundle source-map companions
   - `kali build --bundle` now emits a deterministic `.js.map` companion and appends the matching `sourceMappingURL` footer.
@@ -101,7 +105,3 @@
   - The runtime linker now consumes the Node projection facade for `fs/promises`, stream, HTTP, and process argv/env host imports when the effective API surface is `node`.
   - Install-time package host-fit validation now keys off the project `compilerOptions.apiSurface`, so Node-targeted installs can accept Node-only builtins while the default standalone context still rejects them with `E6005`.
 
-- [ ] Truly runtime-resolved non-literal `import()` compatibility path
-  - Browser bundle JS now exposes a generated `loadDynamicImport(specifier)` helper that resolves discovered chunk targets through the bundle-local lookup map.
-  - The resolver now also folds const-bound import fragments during name resolution, so statically known linked targets still resolve through the compile-time path before the runtime-mediated fallback is needed.
-  - The remaining work is the guest-side / runtime-mediated graph lookup for arbitrary runtime specifiers inside the compiled execution pipeline.

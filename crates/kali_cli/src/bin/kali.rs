@@ -1692,10 +1692,55 @@ fn browser_bundle_dynamic_import_map(
         } else {
             format!("./{}", relative)
         };
-        map.insert(target.specifier.clone(), relative);
+        map.insert(
+            normalize_dynamic_import_specifier(&target.specifier),
+            relative,
+        );
     }
 
     Ok(map)
+}
+
+fn normalize_dynamic_import_specifier(specifier: &str) -> String {
+    let specifier = specifier.trim().replace('\\', "/");
+    if specifier.is_empty() {
+        return specifier;
+    }
+
+    let is_absolute = specifier.starts_with('/');
+    let mut segments = Vec::new();
+
+    for segment in specifier.split('/') {
+        if segment.is_empty() || segment == "." {
+            continue;
+        }
+        if segment == ".." {
+            if matches!(segments.last(), Some(last) if last != "..") {
+                segments.pop();
+            } else if !is_absolute {
+                segments.push("..".to_string());
+            }
+            continue;
+        }
+        segments.push(segment.to_string());
+    }
+
+    if segments.is_empty() {
+        return if is_absolute {
+            "/".to_string()
+        } else {
+            ".".to_string()
+        };
+    }
+
+    let mut normalized = String::new();
+    if is_absolute {
+        normalized.push('/');
+    } else if !matches!(segments.first().map(String::as_str), Some("..")) {
+        normalized.push_str("./");
+    }
+    normalized.push_str(&segments.join("/"));
+    normalized
 }
 
 fn relative_path(from: &Path, to: &Path) -> PathBuf {
@@ -1784,8 +1829,39 @@ async function instantiate() {{
 
 const instancePromise = instantiate();
 
+function normalizeDynamicImportSpecifier(specifier) {{
+  const normalized = String(specifier).trim().replace(/\\/g, '/');
+  if (normalized.length === 0) {{
+    return normalized;
+  }}
+
+  const absolute = normalized.startsWith('/');
+  const segments = [];
+  for (const segment of normalized.split('/')) {{
+    if (!segment || segment === '.') {{
+      continue;
+    }}
+    if (segment === '..') {{
+      if (segments.length && segments[segments.length - 1] !== '..') {{
+        segments.pop();
+      }} else if (!absolute) {{
+        segments.push('..');
+      }}
+      continue;
+    }}
+    segments.push(segment);
+  }}
+
+  if (segments.length === 0) {{
+    return absolute ? '/' : '.';
+  }}
+
+  const prefix = absolute ? '/' : segments[0] === '..' ? '' : './';
+  return prefix + segments.join('/');
+}}
+
 function resolveDynamicImportTarget(specifier) {{
-  const target = dynamicImportTargets.get(specifier);
+  const target = dynamicImportTargets.get(normalizeDynamicImportSpecifier(specifier));
   if (!target) {{
     throw new Error(`unknown dynamic import target: ${{specifier}}`);
   }}
@@ -1831,8 +1907,39 @@ async function instantiate() {{
 
 const instancePromise = instantiate();
 
+function normalizeDynamicImportSpecifier(specifier) {{
+  const normalized = String(specifier).trim().replace(/\\/g, '/');
+  if (normalized.length === 0) {{
+    return normalized;
+  }}
+
+  const absolute = normalized.startsWith('/');
+  const segments = [];
+  for (const segment of normalized.split('/')) {{
+    if (!segment || segment === '.') {{
+      continue;
+    }}
+    if (segment === '..') {{
+      if (segments.length && segments[segments.length - 1] !== '..') {{
+        segments.pop();
+      }} else if (!absolute) {{
+        segments.push('..');
+      }}
+      continue;
+    }}
+    segments.push(segment);
+  }}
+
+  if (segments.length === 0) {{
+    return absolute ? '/' : '.';
+  }}
+
+  const prefix = absolute ? '/' : segments[0] === '..' ? '' : './';
+  return prefix + segments.join('/');
+}}
+
 function resolveDynamicImportTarget(specifier) {{
-  const target = dynamicImportTargets.get(specifier);
+  const target = dynamicImportTargets.get(normalizeDynamicImportSpecifier(specifier));
   if (!target) {{
     throw new Error(`unknown dynamic import target: ${{specifier}}`);
   }}

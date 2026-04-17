@@ -115,7 +115,7 @@ console.log(String(result));
     assert!(stdout.contains('0'), "stdout: {stdout}");
 }
 
-fn assert_browser_bundle_dynamic_import_loader(bundle_root: &Path) {
+fn assert_browser_bundle_dynamic_import_loader(bundle_root: &Path, specifier: &str) {
     let bundle_dir = bundle_root
         .file_name()
         .and_then(|name| name.to_str())
@@ -144,7 +144,7 @@ const mod = await import(bundleJs.href);
 if (typeof mod.loadDynamicImport !== 'function') {{
   throw new Error('missing loadDynamicImport helper');
 }}
-const chunk = await mod.loadDynamicImport('./lazy.ts');
+const chunk = await mod.loadDynamicImport({specifier});
 if (typeof chunk.lazyValue !== 'function') {{
   throw new Error('missing lazyValue export');
 }}
@@ -155,6 +155,7 @@ if (value !== 0n) {{
 console.log(String(value));
 "#,
         bundle_dir = bundle_dir,
+        specifier = serde_json::to_string(specifier).expect("serialize specifier"),
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
@@ -1106,7 +1107,43 @@ fn browser_bundle_js_exposes_runtime_dynamic_import_loader() {
     assert!(js.contains("loadDynamicImport"), "bundle js: {js}");
     assert!(js.contains("lazy.ts"), "bundle js: {js}");
 
-    assert_browser_bundle_dynamic_import_loader(&bundle_dir);
+    assert_browser_bundle_dynamic_import_loader(&bundle_dir, "./lazy.ts");
+}
+
+#[test]
+fn browser_bundle_js_normalizes_runtime_dynamic_import_specifiers() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    let chunk_path = dir.path().join("lazy.ts");
+    fs::write(
+        &source_path,
+        "const lazy = import(\"./\" + \"lazy.ts\");\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+    fs::write(&chunk_path, "export function lazyValue() { return 7; }")
+        .expect("write chunk source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    assert_browser_bundle_dynamic_import_loader(&bundle_dir, "./sub/../lazy.ts");
 }
 
 #[test]
