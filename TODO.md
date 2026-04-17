@@ -132,3 +132,4 @@
 - ✅ `releaseAndCollect` now filters zero-count cells after the decrement pass.
 - ✅ `releaseAndCollectRemovesZeroCountCells` proves the freed decrement target is not retained in the collected heap.
 - ✅ `releaseAndCollectPreservesWellFormed` proves the remaining live set stays well-formed after zero-count collection.
+- ✅ `releaseAndCollectReleasedNotLiveRef` keeps the local collection helper's live/released disjointness explicit.
