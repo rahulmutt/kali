@@ -5,6 +5,10 @@
 ### Stage 4.1 - Package-audit availability
 - ✅ `kali package-audit` now runs without requiring `--preview`; the preview flag remains accepted as a no-op compatibility shim.
 
+### Stage 4.1 - Eval compatibility gating
+- ✅ `--compat eval` now accepts dynamically constructed eval / Function() strings derived from constant program-state fragments.
+- ✅ `check` / `run` now reject `eval` and `Function()` usage unless the shared `--compat eval` gate is enabled.
+
 ### Stage 1.3 - Parser & AST
 - ✅ Parser compiles successfully
 - ✅ `cargo test -p kali_parser --lib` passes

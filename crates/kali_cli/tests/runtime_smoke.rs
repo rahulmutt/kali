@@ -643,12 +643,42 @@ fn check_accepts_inherited_compat_eval_feature_from_manifest() {
 }
 
 #[test]
-fn run_evaluates_static_eval_sources_when_compat_eval_is_enabled() {
+fn check_rejects_eval_without_compat_eval() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "const source = \"1 + 2\"; if (eval(source) !== 3) { throw new Error('bad eval result'); }",
+        "if (eval(\"1 + 2\") !== 3) { throw new Error('bad eval result'); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("compatibility feature 'eval'"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn run_evaluates_dynamic_eval_sources_when_compat_eval_is_enabled() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const prefix = \"1\"; const suffix = \" + 2\"; const source = prefix + suffix; if (eval(source) !== 3) { throw new Error('bad eval result'); }",
     )
     .expect("write source");
 
@@ -670,12 +700,12 @@ fn run_evaluates_static_eval_sources_when_compat_eval_is_enabled() {
 }
 
 #[test]
-fn run_evaluates_simple_function_constructor_sources_when_compat_eval_is_enabled() {
+fn run_evaluates_dynamic_function_constructor_sources_when_compat_eval_is_enabled() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "const value = new Function(\"return 1 + 2;\")(); if (value !== 3) { throw new Error('bad function result'); }",
+        "const bodyPrefix = \"return \"; const body = bodyPrefix + \"1 + 2;\"; const value = new Function(body)(); if (value !== 3) { throw new Error('bad function result'); }",
     )
     .expect("write source");
 

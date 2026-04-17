@@ -1,11 +1,11 @@
 # Stage 4.1 Status Update
 
 **Date:** 2026-04-17  
-**Status:** ✅ Package-audit availability promotion synced; browser-bundle chunk discovery broadened; browser bundles now expose a runtime `loadDynamicImport(specifier)` helper over discovered chunk targets; dynamic-import target resolution now distinguishes statically known links from unresolved expressions; `--compat eval` plumbing now rewrites simple statically-resolvable eval sources; simple `Function()` constructor bodies now rewrite through the same compatibility gate
+**Status:** ✅ Package-audit availability promotion synced; browser-bundle chunk discovery broadened; browser bundles now expose a runtime `loadDynamicImport(specifier)` helper over discovered chunk targets; dynamic-import target resolution now distinguishes statically known links from unresolved expressions; `--compat eval` plumbing now rewrites simple statically-resolvable eval sources and rejects eval/Function() without the compat gate; simple `Function()` constructor bodies now rewrite through the same compatibility gate
 
 ## Summary
 
-Stage 4.1's package-audit work is now reflected consistently across the CLI, package semantics, maturity matrix, and README. The command remains schema-v1 envelope-only JSON, but it is now documented as the Phase 4 context-free registry-analysis/security-audit command instead of lingering in later-compatibility wording. The source-graph CLI surface has also gained explicit `--compat` plumbing for the shared compatibility-feature vocabulary so `compat.features` requests are parsed and rejected through the canonical availability gate instead of being silently ignored. Separately, browser-bundle chunk discovery now recognizes simple statically-resolvable `import(...)` string-concatenation targets in addition to direct string literals, browser bundle JS now carries a generated runtime lookup map plus `loadDynamicImport(specifier)` for discovered chunk targets, the resolver now distinguishes statically known dynamic-import targets from unresolved expressions, and the `eval` compatibility path now accepts `--compat eval` plus inherited `compat.features = ["eval"]` and rewrites simple statically-resolvable eval strings before codegen. The same compatibility gate now also handles simple `Function()` constructor bodies that reduce to a statically resolvable `return` expression.
+Stage 4.1's package-audit work is now reflected consistently across the CLI, package semantics, maturity matrix, and README. The command remains schema-v1 envelope-only JSON, but it is now documented as the Phase 4 context-free registry-analysis/security-audit command instead of lingering in later-compatibility wording. The source-graph CLI surface has also gained explicit `--compat` plumbing for the shared compatibility-feature vocabulary so `compat.features` requests are parsed and rejected through the canonical availability gate instead of being silently ignored. Separately, browser-bundle chunk discovery now recognizes simple statically-resolvable `import(...)` string-concatenation targets in addition to direct string literals, browser bundle JS now carries a generated runtime lookup map plus `loadDynamicImport(specifier)` for discovered chunk targets, the resolver now distinguishes statically known dynamic-import targets from unresolved expressions, and the `eval` compatibility path now accepts `--compat eval` plus inherited `compat.features = ["eval"]`, rewrites simple statically-resolvable eval strings before codegen, and rejects eval/Function() usage when the compat gate is absent. The same compatibility gate now also handles simple `Function()` constructor bodies that reduce to a statically resolvable `return` expression.
 
 ## Evidence
 
@@ -13,10 +13,12 @@ Stage 4.1's package-audit work is now reflected consistently across the CLI, pac
 - `kali package-audit --output json lodash` emits the schema-v1 envelope with `payload: null` ✅
 - `kali package-audit --pretty lodash` remains invalid without `--output json` ✅
 - `check --compat eval` now reaches the Phase-4 compatibility path, and inherited `compat.features = ["eval"]` is accepted as the same effective request ✅
+- `check` / `run` reject `eval` and `Function()` without the shared `--compat eval` gate ✅
 - browser-bundle chunk discovery now follows simple statically-resolvable `import(...)` concatenations during artifact emission ✅
 - dynamic-import resolution now accepts static concatenations and rejects unresolved targets with the dedicated `E4008` diagnostic ✅
 - simple `eval` source strings now rewrite before compilation when the compat flag is present ✅
 - simple `Function()` constructor bodies now rewrite before compilation when the compat flag is present ✅
+- dynamic eval / Function() sources built from constant program-state fragments now rewrite and execute through the compat path ✅
 - `cargo test --workspace` passes ✅
 - browser bundle smoke coverage now exercises the generated dynamic-import loader against a discovered chunk target ✅
 

@@ -84,9 +84,13 @@ pub fn compile_source_file_with_cache_state(
 ) -> Result<CompileOutput, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
 
-    if let Some(cache_path) =
-        incremental_cache_path(source_path, mode, max_specializations, api_surface, compat_eval)?
-    {
+    if let Some(cache_path) = incremental_cache_path(
+        source_path,
+        mode,
+        max_specializations,
+        api_surface,
+        compat_eval,
+    )? {
         match fs::read(&cache_path) {
             Ok(wasm_bytes) => {
                 return Ok(CompileOutput {
@@ -108,8 +112,13 @@ pub fn compile_source_file_with_cache_state(
             }
         }
 
-        let wasm_bytes =
-            compile_source_file_uncached(source_path, mode, max_specializations, api_surface, compat_eval)?;
+        let wasm_bytes = compile_source_file_uncached(
+            source_path,
+            mode,
+            max_specializations,
+            api_surface,
+            compat_eval,
+        )?;
 
         if let Some(parent) = cache_path.parent() {
             let _ = fs::create_dir_all(parent);
@@ -122,8 +131,13 @@ pub fn compile_source_file_with_cache_state(
             cache_path: Some(cache_path),
         })
     } else {
-        let wasm_bytes =
-            compile_source_file_uncached(source_path, mode, max_specializations, api_surface, compat_eval)?;
+        let wasm_bytes = compile_source_file_uncached(
+            source_path,
+            mode,
+            max_specializations,
+            api_surface,
+            compat_eval,
+        )?;
         Ok(CompileOutput {
             wasm_bytes,
             cache_hit: false,
@@ -148,8 +162,14 @@ pub fn compile_source_file_with_specialization_cap(
     api_surface: ApiSurface,
     compat_eval: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    compile_source_file_with_cache_state(source_path, mode, max_specializations, api_surface, compat_eval)
-        .map(|output| output.wasm_bytes)
+    compile_source_file_with_cache_state(
+        source_path,
+        mode,
+        max_specializations,
+        api_surface,
+        compat_eval,
+    )
+    .map(|output| output.wasm_bytes)
 }
 
 fn compile_source_file_uncached(
@@ -264,6 +284,15 @@ fn analyze_source_file(
         source
     };
 
+    let lexer = Lexer::new(FileId::new(0), source.clone());
+    let tokens = lexer.lex_all().tokens;
+    if !compat_eval && source_uses_eval_compat(&tokens) {
+        return Err(vec![Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "compatibility feature 'eval' (including `Function()`) is unavailable without `--compat eval`",
+        )]);
+    }
+
     let lexer = Lexer::new(FileId::new(0), source);
     let tokens = lexer.lex_all().tokens;
     let mut parser = Parser::new(FileId::new(0), tokens);
@@ -290,7 +319,6 @@ fn analyze_source_file(
     })
 }
 
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum EvalConst {
     String(String),
@@ -302,7 +330,9 @@ enum EvalConst {
 impl EvalConst {
     fn render(&self) -> String {
         match self {
-            EvalConst::String(value) => serde_json::to_string(value).unwrap_or_else(|_| format!("\"{}\"", value)),
+            EvalConst::String(value) => {
+                serde_json::to_string(value).unwrap_or_else(|_| format!("\"{}\"", value))
+            }
             EvalConst::Number(value) => value.to_string(),
             EvalConst::Boolean(value) => value.to_string(),
             EvalConst::Null => "null".to_string(),
@@ -318,7 +348,6 @@ impl EvalConst {
         }
     }
 }
-
 
 fn rewrite_eval_compat_source(source: &str) -> String {
     let source = rewrite_static_eval_calls(source);
@@ -498,15 +527,19 @@ fn collect_constant_bindings(tokens: &[Token], source: &str) -> BTreeMap<String,
 
     while index + 3 < tokens.len() {
         let token = &tokens[index];
-        if matches!(token.kind, TokenType::Const | TokenType::Let | TokenType::Var)
-            && matches!(tokens.get(index + 1), Some(name) if name.kind == TokenType::Identifier)
+        if matches!(
+            token.kind,
+            TokenType::Const | TokenType::Let | TokenType::Var
+        ) && matches!(tokens.get(index + 1), Some(name) if name.kind == TokenType::Identifier)
             && matches!(tokens.get(index + 2), Some(eq) if eq.kind == TokenType::Eq)
         {
             let name = tokens[index + 1].value.clone();
             let expr_start = index + 3;
             let expr_end = find_statement_end(tokens, expr_start);
             if expr_end > expr_start {
-                if let Some((value, consumed)) = parse_constant_expression(&tokens[expr_start..expr_end], 0, &bindings) {
+                if let Some((value, consumed)) =
+                    parse_constant_expression(&tokens[expr_start..expr_end], 0, &bindings)
+                {
                     if consumed == expr_end - expr_start {
                         bindings.insert(name, value);
                     }
@@ -529,17 +562,23 @@ fn find_statement_end(tokens: &[Token], start: usize) -> usize {
         match token.kind {
             TokenType::LeftParen => depth_paren += 1,
             TokenType::RightParen => {
-                if depth_paren == 0 { return index; }
+                if depth_paren == 0 {
+                    return index;
+                }
                 depth_paren -= 1;
             }
             TokenType::LeftBracket => depth_bracket += 1,
             TokenType::RightBracket => {
-                if depth_bracket == 0 { return index; }
+                if depth_bracket == 0 {
+                    return index;
+                }
                 depth_bracket -= 1;
             }
             TokenType::LeftBrace => depth_brace += 1,
             TokenType::RightBrace => {
-                if depth_brace == 0 { return index; }
+                if depth_brace == 0 {
+                    return index;
+                }
                 depth_brace -= 1;
             }
             TokenType::Semicolon if depth_paren == 0 && depth_bracket == 0 && depth_brace == 0 => {
@@ -549,6 +588,44 @@ fn find_statement_end(tokens: &[Token], start: usize) -> usize {
         }
     }
     tokens.len()
+}
+
+fn source_uses_eval_compat(tokens: &[Token]) -> bool {
+    for index in 0..tokens.len().saturating_sub(1) {
+        let current = &tokens[index];
+        let next = &tokens[index + 1];
+        let previous_is_dot = index
+            .checked_sub(1)
+            .and_then(|previous| tokens.get(previous))
+            .is_some_and(|token| token.kind == TokenType::Dot);
+
+        if !previous_is_dot
+            && current.kind == TokenType::Identifier
+            && current.value == "eval"
+            && next.kind == TokenType::LeftParen
+        {
+            return true;
+        }
+
+        if !previous_is_dot
+            && current.kind == TokenType::Identifier
+            && current.value == "Function"
+            && next.kind == TokenType::LeftParen
+        {
+            return true;
+        }
+
+        if current.kind == TokenType::New
+            && next.kind == TokenType::Identifier
+            && next.value == "Function"
+            && tokens
+                .get(index + 2)
+                .is_some_and(|token| token.kind == TokenType::LeftParen)
+        {
+            return true;
+        }
+    }
+    false
 }
 
 fn parse_eval_source_snippet(source: &str) -> Option<EvalConst> {
@@ -590,9 +667,10 @@ fn parse_constant_primary(
 ) -> Option<(EvalConst, usize)> {
     let token = tokens.get(index)?;
     match token.kind {
-        TokenType::StringLiteral | TokenType::Template => {
-            Some((EvalConst::String(unquote_string_literal(&token.value)), index + 1))
-        }
+        TokenType::StringLiteral | TokenType::Template => Some((
+            EvalConst::String(unquote_string_literal(&token.value)),
+            index + 1,
+        )),
         TokenType::NumericLiteral => token
             .value
             .parse::<i64>()
@@ -601,7 +679,10 @@ fn parse_constant_primary(
         TokenType::True => Some((EvalConst::Boolean(true), index + 1)),
         TokenType::False => Some((EvalConst::Boolean(false), index + 1)),
         TokenType::Null | TokenType::Undefined => Some((EvalConst::Null, index + 1)),
-        TokenType::Identifier => env.get(&token.value).cloned().map(|value| (value, index + 1)),
+        TokenType::Identifier => env
+            .get(&token.value)
+            .cloned()
+            .map(|value| (value, index + 1)),
         TokenType::Minus => {
             let (value, next_index) = parse_constant_primary(tokens, index + 1, env)?;
             match value {
@@ -623,7 +704,11 @@ fn parse_constant_primary(
 fn eval_plus(left: EvalConst, right: EvalConst) -> EvalConst {
     match (left, right) {
         (EvalConst::Number(a), EvalConst::Number(b)) => EvalConst::Number(a + b),
-        (left, right) => EvalConst::String(format!("{}{}", left.to_string_value(), right.to_string_value())),
+        (left, right) => EvalConst::String(format!(
+            "{}{}",
+            left.to_string_value(),
+            right.to_string_value()
+        )),
     }
 }
 
@@ -1121,8 +1206,15 @@ mod tests {
         )
         .expect("write source");
 
-        let output = build_source_file(&source_path, BuildMode::Fast, ApiSurface::Deno, false, None, None)
-            .expect("build should succeed");
+        let output = build_source_file(
+            &source_path,
+            BuildMode::Fast,
+            ApiSurface::Deno,
+            false,
+            None,
+            None,
+        )
+        .expect("build should succeed");
 
         assert!(output.output_path.exists());
         Validator::new()
