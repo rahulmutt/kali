@@ -1,3 +1,10 @@
+## 2026-04-17 — Stage 4.2 plan-progress sync
+
+I synced the Stage 4.2 plan progress note so it now names the full local RC helper slice, including the zero-count removal / origin / positive-count heap theorems and the release-and-decrement bookkeeping corollaries.
+
+Suggested follow-up:
+- keep the Stage 4.2 progress note aligned with the published boundary inventory whenever the proof slice widens again
+
 ## 2026-04-17 — Stage 4.2 proof-boundary status sync
 
 I refreshed the Stage 4.2 plan tracker after the RC snapshot proof slice widened to include the latest local-collection helper theorems (`releaseAndCollectDropsOriginalZeroCountCells` and `releaseAndCollectHeapCellsHavePositiveCount`) alongside the existing ownership-preservation corollaries and zero-count bookkeeping.
