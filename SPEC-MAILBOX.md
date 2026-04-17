@@ -249,3 +249,11 @@ I widened the proof-backed RC snapshot slice with `KaliCore.Safety.releaseAndDec
 Suggested follow-up:
 - sync `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the published proof-boundary inventory names the new decrement-helper provenance/ownership theorem
 - keep the broader Stage 4.2 ownership/freeing target narrower than this helper-level slice
+
+## 2026-04-17 — Verification summary no-dangling naming sync
+
+I plan to make the proof-summary docs name the helper-level no-dangling-reference corollaries explicitly (`KaliCore.Safety.releaseRefNoDanglingReference`, `KaliCore.Safety.releaseAndDecrementNoDanglingReference`, and `KaliCore.Safety.releaseAndCollectNoDanglingReference`) so the README and spec summaries match the current proof-boundary inventory more tightly.
+
+Suggested follow-up:
+- update `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the proof-summary wording names the no-dangling corollaries explicitly alongside the rest of the RC snapshot slice
+- keep the broader Stage 4.2 ownership/freeing target incremental; this is still a summary-doc naming sync, not a boundary widening
