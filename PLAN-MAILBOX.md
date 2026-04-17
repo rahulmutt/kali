@@ -78,6 +78,14 @@ Suggested follow-up:
 - keep `proofs/BOUNDARY.md` and the Stage 4.2 status note aligned with the widened theorem inventory
 - continue pushing the boundary toward ownership/memory safety and lowering-correctness without reintroducing the proof-overclaim
 
+## 2026-04-17 — Stage 4.2 unrelated-heap preservation follow-up
+
+The RC snapshot proof slice now includes `releaseAndDecrementKeepsOtherHeapEntries`, which shows the decrement helper leaves unrelated heap entries untouched, and `releaseAndDecrementPreservesOtherLiveRefs`, which shows non-target live references remain live after the helper runs. The Stage 4.2 status note and TODO progress tracker were updated to mention that preservation slice explicitly.
+
+Suggested follow-up:
+- keep widening the memory model toward the full ownership / reference-counting target when the next proof step is ready
+- if the boundary widens again, sync `proofs/BOUNDARY.md`, the Stage 4.2 status note, and any release-facing summaries together
+
 # PLAN Mailbox
 
 ## 2026-04-17 — Stage 4.2 proof-backed boundary status sync

@@ -14,6 +14,14 @@ Suggested follow-up:
 - update `proofs/BOUNDARY.md` and the verification chapter wording so the published boundary clearly names the widened fragment
 - keep the canonical repository short summary unchanged unless the proof-backed claim itself changes
 
+## 2026-04-17 — Stage 4.2 unrelated-heap preservation follow-up
+
+I widened the current RC snapshot safety slice with a pair of small helper theorems: `releaseAndDecrementKeepsOtherHeapEntries` now records that the decrement helper leaves unrelated heap entries untouched, and `releaseAndDecrementPreservesOtherLiveRefs` now records that non-target live references remain live after the helper runs. The proof boundary, verification chapter, maturity summary, README, and Stage 4.2 status note were updated to mention that extra preservation slice explicitly.
+
+Suggested follow-up:
+- keep the memory-safety story incremental if the RC model widens again
+- if the boundary widens again, sync `proofs/BOUNDARY.md`, the Stage 4.2 status note, and any release-facing summaries together
+
 # SPEC Mailbox
 
 ## 2026-04-17 — Dynamic-import static-resolution follow-up

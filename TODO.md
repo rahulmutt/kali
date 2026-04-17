@@ -119,3 +119,7 @@
   - `KaliIR.LoweringCorrectness` adds both a small-step lowering-preservation bridge and a finite-trace lowering-preservation bridge for the current HIR subset.
   - `proofs/BOUNDARY.md` now publishes the proof-backed boundary for that slice, and the canonical repository summary is aligned with it.
 
+
+### Stage 4.2 - RC decrement/live-preservation follow-up
+- ✅ `releaseAndDecrementKeepsOtherHeapEntries` now proves the decrement helper leaves unrelated heap entries untouched.
+- ✅ `releaseAndDecrementPreservesOtherLiveRefs` now proves non-target live references remain live after the decrement helper runs.

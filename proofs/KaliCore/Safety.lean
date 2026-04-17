@@ -136,6 +136,29 @@ theorem releaseAndDecrementDecrementsTargetCell (snapshot : RcSnapshot) (ref : S
   intro cell hmem hname
   exact List.mem_map.mpr ⟨cell, hmem, by simp [hname]⟩
 
+/-- A release-and-decrement step leaves unrelated heap entries untouched. -/
+theorem releaseAndDecrementKeepsOtherHeapEntries (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.name ≠ ref →
+      cell ∈ (releaseAndDecrement snapshot ref).heap := by
+  intro cell hmem hname
+  exact List.mem_map.mpr ⟨cell, hmem, by simp [hname]⟩
+
+/-- Live references other than the released target remain live after a release-and-decrement step. -/
+theorem releaseAndDecrementPreservesOtherLiveRefs (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    ∀ r, r ∈ snapshot.liveRefs → r ≠ ref → liveAnnotated (releaseAndDecrement snapshot ref) r := by
+  intro r hr hneq
+  have hannotated : liveAnnotated snapshot r := h r hr
+  constructor
+  · exact hannotated.1
+  · constructor
+    · rcases hannotated.2.1 with ⟨cell, hmem, hname, hpos⟩
+      have hcellname : cell.name ≠ ref := by
+        simpa [hname] using hneq
+      refine ⟨cell, ?_, hname, hpos⟩
+      exact releaseAndDecrementKeepsOtherHeapEntries snapshot ref cell hmem hcellname
+    · simp [releaseAndDecrement, hneq, hannotated.2.2]
+
 /-- Released references remain disjoint from the live set after a release-and-decrement step. -/
 theorem releaseAndDecrementReleasedNotLiveRef (snapshot : RcSnapshot) (ref : String)
     (h : WellFormed snapshot) :
