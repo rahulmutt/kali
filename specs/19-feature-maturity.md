@@ -69,8 +69,8 @@ Verification-baseline clarification:
 - the Phase-1 **proof-ready** baseline is intentionally a repository/process claim first, not automatically a claim that hosted proof automation already exists
 - before concrete proof workflow files land, the minimum evidence for that **proof-ready** row is the published `proofs/BOUNDARY.md` manifest plus its explicit proof-CI trigger policy
 - the current repository proof state should be read from `proofs/BOUNDARY.md`, not from duplicated chapter prose
-- a provisional non-empty proof boundary still counts as proof-ready, not proof-backed, until the named claims are mechanized
-- stronger **proof-backed** release/support claims still require a non-empty published boundary with actual modeled theorems plus the corresponding proof jobs/evidence for the covered subset
+- a mechanized non-empty proof boundary counts as **proof-backed for the published boundary** while still leaving any later target it does not name outside the claim
+- stronger **proof-backed** release/support claims for a wider boundary still require that the newly named claims be mechanized plus the corresponding proof jobs/evidence for the covered subset
 
 This keeps “Phase 1 MVP” and later status labels tied to measurable behavior rather than intent alone.
 
@@ -92,7 +92,7 @@ It is intentionally narrower than the full command/profile matrix below:
 | Browser-targeted support | exactly the shared **Phase-1 browser-targeted command set** from [SPEC.md](../SPEC.md) — concretely, browser-targeted `check [files...]` plus `build --bundle <file>`, with the supported `--sandbox` variants and equivalent inherited-config forms — while keeping that canonical term as the cross-spec owner | no `run --api browser`; no `test --api browser`; no browser library/embed artifact modes |
 | Effects/sandbox | internal sandbox-oriented effect bookkeeping; policy-schema/config validation for the shared **Phase-1 static policy-validation surface**; runtime enforcement for `run --sandbox` / `test --sandbox` | no stable public `kali effects`; no stable public `kali package-effects`; no inferred-effect-vs-policy rejection yet; no dry-run `run` / `test` effect-report workflow |
 | Registry analysis | none shipped in Phase 1 | under the shared **registry-analysis command split**, no stable public single-package registry-analysis commands ship in Phase 1: `kali package-effects` remains the Phase-2 registry-analysis/effect-report command and `kali package-audit` opens in Phase 4 as the context-free registry-analysis/security-audit command |
-| Verification | published **proof-boundary manifest**, proof-CI trigger policy, and **proof-ready** repository state | no **proof-backed** release/support claims while the boundary is still empty |
+| Verification | published **proof-boundary manifest**, proof-CI trigger policy, and **proof-ready** repository state | no **proof-backed** release/support claims while the boundary is still empty or unmechanized |
 
 Interpretation shortcut:
 - `kali package-effects` appears in both the **Effects/sandbox** and **Registry analysis** stories on purpose; follow the shared **`package-effects` dual classification** from [SPEC.md](../SPEC.md): by command/input shape it is a registry-analysis command, and by report/output contract it is also part of the later **public effect-report surface**.
@@ -115,7 +115,7 @@ Release-note/support-claim shortcut:
 | “registry analysis ships in Phase 1” | “No stable public registry-analysis command ships in Phase 1; the documented next steps stay split on purpose: `kali package-effects <package>` is the Phase-2 registry-analysis/effect-report command, while `kali package-audit <package>` opens in Phase 4 as the context-free registry-analysis/security-audit command.” |
 | “JSON output means the command already ships” | “JSON selectors do not create availability: once shipped, `kali effects` / `kali package-effects` are the later **native-JSON commands**, while `kali package-audit` is the Phase 4 schema-v1 **envelope-only JSON command**; before then, the ordinary command gate still wins.” |
 | “npm lifecycle scripts ship in Phase 1” | “Phase 1 ships only the schema-v1 **install-time npm-package hook path**: `kali install --allow-scripts`, and only when the invocation has non-empty **effective npm-scriptable install work**. This does not widen ordinary package/runtime support or imply early `--api node` compatibility.” |
-| “formal verification ships in Phase 1” | “Kali is **proof-ready**, not **proof-backed**; read `proofs/BOUNDARY.md` for the current claim boundary.” |
+| “formal verification ships in Phase 1” | “Kali is **proof-backed for the published boundary**; read `proofs/BOUNDARY.md` for the current claim boundary.” |
 
 Browser-build simplification note:
 - `--bundle` is the browser-only executable packaging path in schema v1, not a generic multi-artifact build switch
@@ -422,7 +422,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - Runtime sandbox enforcement and resource limits work for the documented Phase 1 host APIs.
 - `check/build --sandbox` perform the documented Phase-1 policy-schema/config validation without overclaiming full inferred-effect-vs-policy validation/comparison yet.
 - The shared **effect-surface split** remains intact in Phase 1: internal effect bookkeeping may exist, but both Phase-2 halves of the stable **public effect-report surface** — the reporting half (`kali effects` / `kali package-effects`) and the policy-comparison half (inferred-effect-vs-policy validation) — are still correctly absent from the shipped Phase-1 surface.
-- The Lean-backed verification story is phase-correct: the repository reaches the Phase-1 **proof-ready** baseline with one published **proof-boundary manifest** plus the proof-CI trigger policy, and the shared **placeholder proof-boundary manifest** remains acceptable only while Kali stays proof-ready without advertising formal verification as a shipped capability. A provisional non-empty boundary is also proof-ready, but proof-backed release/support claims still require the named theorem/property inventory to be fully mechanized before release/support wording can rely on it.
+- The Lean-backed verification story is phase-correct: the repository reaches the Phase-1 **proof-ready** baseline with one published **proof-boundary manifest** plus the proof-CI trigger policy, and the published boundary is proof-backed for the widened closed fragment while remaining intentionally narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target. The shared **placeholder proof-boundary manifest** remains acceptable only while Kali stays proof-ready without advertising formal verification as a shipped capability.
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
 - Package support works for the documented pure JS/TS, statically linkable subset, and the same Phase-1 lock/materialization story also covers supported raw-URL dependency graphs.
 - Non-install commands still fail with `E5004` on missing/stale dependency state instead of auto-installing or auto-repairing project-managed dependency state.

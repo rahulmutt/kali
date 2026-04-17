@@ -32,8 +32,8 @@ Current repository status rule:
 - `proofs/BOUNDARY.md` is the single source of truth for the repository's current verification state
 - chapter summaries, release notes, and README copy should cite or quote that manifest rather than restating current proof coverage from memory or from this chapter's roadmap prose
 - if the manifest is still the shared **placeholder proof-boundary manifest**, the honest repository claim remains **proof-ready** rather than **proof-backed**
-- if the manifest is a **provisional non-empty proof boundary**, the honest repository claim still remains **proof-ready** rather than **proof-backed** until the named claims are mechanized
-- repository summaries should reuse the canonical short summary from `proofs/BOUNDARY.md` verbatim: **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
+- if the manifest is a mechanized non-empty proof boundary, the honest repository claim is **proof-backed for the published boundary** while remaining narrower than any later target it does not name
+- repository summaries should reuse the canonical short summary from `proofs/BOUNDARY.md` verbatim: **Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.**
 - [19 — Feature Maturity](19-feature-maturity.md) makes the same guardrail explicit: proof-backed release/support claims while the published boundary is still empty are **Rejected by default**
 
 Copy-paste wording shortcut:
@@ -143,8 +143,8 @@ Prove specific high-value lowering passes preserve the modeled semantics:
 ## Lean 4 Project Structure
 
 Current-state clarification:
-- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the repository now contains a checked-in Lean project tree under `proofs/`, but the published boundary remains provisional rather than proof-backed
-- treat the layout below as the living proof-tree shape that the checked-in Lean model follows today, not as a claim that the boundary is finished or that every future proof-backed file already exists
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the repository now contains a checked-in Lean project tree under `proofs/`, and the published boundary is proof-backed for the widened closed fragment while still remaining narrower than the later Stage 4.2 target
+- treat the layout below as the living proof-tree shape that the checked-in Lean model follows today, not as a claim that the boundary already covers the later ownership/memory-safety and lowering-correctness target
 
 ```text
 proofs/

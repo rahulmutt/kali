@@ -72,3 +72,11 @@ Promoted the public availability claim for `kali package-audit <pkg>` to Phase 4
 Suggested follow-up:
 - keep the envelope-only JSON contract wording aligned with `specs/18-schemas.md` if the audit payload ever grows beyond the current scaffold
 - keep `--preview` hidden/compatibility-only if the shim remains accepted by the CLI
+
+## 2026-04-17 — Proof-boundary wording promotion follow-up
+
+The Lean tree now compiles cleanly and the current published proof boundary is mechanized for the widened closed fragment, but the manifest and summary docs still describe the repo as only proof-ready.
+
+Suggested follow-up:
+- promote `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, and the proof-related maturity wording in `specs/19-feature-maturity.md` to the proof-backed wording that matches the published boundary
+- keep the Stage 4.2 plan text honest about the remaining memory-safety and lowering-correctness widening work

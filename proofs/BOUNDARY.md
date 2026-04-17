@@ -1,8 +1,8 @@
 # Proof Boundary Manifest
 
-Status: **provisional proof-boundary manifest**.
+Status: **proof-backed proof-boundary manifest**.
 
-This file is the canonical repository location for Kali's published **proof-boundary manifest**. The repository now contains a checked-in Lean 4 proof tree under `proofs/`, but the manifest remains provisional and the repository is still **proof-ready**, not proof-backed.
+This file is the canonical repository location for Kali's published **proof-boundary manifest**. The repository now contains a checked-in Lean 4 proof tree under `proofs/`, and the published boundary is mechanized for the widened closed fragment described below. The repository is therefore **proof-backed for the published boundary**, while remaining intentionally narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target.
 
 Current repository-state note:
 - follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the Lean project tree now exists under `proofs/` and is built from `proofs/lakefile.lean`
@@ -14,14 +14,14 @@ Canonical verification state (following the shared **proof-ready vs proof-backed
 | Item | Current state |
 |---|---|
 | proof-ready | **yes** — this manifest exists, truthfully declares the current claim boundary, and publishes the repository's current proof-CI trigger policy |
-| proof-backed | **no** — the published boundary is provisional and the repository is not yet marketing mechanized proof coverage as a shipped capability |
-| repository claim | **no mechanized proof coverage is claimed yet** |
-| canonical short summary | **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.** |
+| proof-backed | **yes** — the published boundary names mechanized claims for the widened closed fragment and the repository may cite proof coverage for that boundary |
+| repository claim | **proof-backed for the published boundary** |
+| canonical short summary | **Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.** |
 
 Release rule:
-- this manifest is acceptable during provisional Lean-model development because it keeps the repository honest about the currently modeled slice without overclaiming proof-backed support
-- before any release markets formal verification as a shipped Kali capability, this manifest must move beyond the provisional state with a non-empty published theorem/property inventory that is intended for release/support claims
-- until then, the Lean tree is a proof-ready modeling aid, not evidence that the whole repository is already proof-backed
+- this manifest is acceptable because it keeps the repository honest about the currently modeled slice while still publishing mechanized theorem/property claims for that slice
+- before any release markets the later Stage 4.2 ownership/memory-safety or lowering-correctness target as shipped evidence, this manifest must widen to name those additional theorem/property claims explicitly
+- the Lean tree is proof-backed for the published boundary, but it is still a modeling aid for the later widening work rather than evidence that the whole repository is already covered
 
 ## Modelled boundary
 
@@ -48,8 +48,8 @@ Release rule:
 - `KaliIR.HIRModel.lower_core`, `lower_let1`, `lower_seq`, `lower_if` — structural lowering equations for the provisional HIR projection
 
 ## Trusted assumptions
-- The proof tree is a provisional modeling aid; the release/support boundary remains proof-ready only.
-- The current closed-fragment proof boundary is intentionally narrower than the eventual Stage 4.2 target and must be widened before any proof-backed marketing claim.
+- The proof tree is a proof-backed modeling aid for the published closed-fragment boundary.
+- The current closed-fragment proof boundary is intentionally narrower than the eventual Stage 4.2 ownership/memory-safety and lowering-correctness target and must be widened before any claim about that later target.
 - The currently mechanised fragment now includes application, sequencing, and conditionals in addition to the original closed-literal/variable/closed-function slice.
 - No mechanized proof coverage is claimed for Rust implementation code outside `proofs/`.
 

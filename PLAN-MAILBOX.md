@@ -164,3 +164,11 @@ The dynamic-import static-resolution slice now also covers parenthesized static 
 Suggested follow-up:
 - keep the Stage 4.1 status note in sync if we widen the static-resolution fragment further
 - do not broaden the Phase 4.1 compatibility wording unless we intentionally add a new dynamic-import shape beyond the already-linked graph contract
+
+## 2026-04-17 — Proof-boundary wording promotion follow-up
+
+The proof tree compiles cleanly and the currently published boundary is mechanized for the widened closed fragment, so the plan/status docs should stop describing the repository as only proof-ready.
+
+Suggested follow-up:
+- update the Stage 4.2 status note and any summary files that quote the verification state so they reflect the proof-backed boundary wording
+- keep the Stage 4.2 definition of done open until the remaining ownership/memory-safety and lowering-correctness targets are actually mechanized

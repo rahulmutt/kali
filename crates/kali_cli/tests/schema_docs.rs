@@ -95,27 +95,27 @@ fn proof_boundary_summary_matches_readme_and_manifest() {
     let readme = fs::read_to_string(root.join("README.md")).expect("read README");
     let boundary = fs::read_to_string(root.join("proofs/BOUNDARY.md")).expect("read boundary");
     let summary =
-        "Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.";
+        "Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.";
 
     assert!(
         readme.contains(summary),
-        "README is missing the canonical proof-ready summary"
+        "README is missing the canonical proof-backed summary"
     );
     assert!(
         boundary.contains(summary),
-        "proof boundary manifest is missing the canonical proof-ready summary"
+        "proof boundary manifest is missing the canonical proof-backed summary"
     );
     assert!(
-        boundary.contains("Status: **provisional proof-boundary manifest**."),
-        "proof boundary manifest should remain explicitly provisional-state"
+        boundary.contains("Status: **proof-backed proof-boundary manifest**."),
+        "proof boundary manifest should declare the proof-backed state"
     );
     assert!(
         boundary.contains("| proof-ready | **yes**"),
         "proof boundary manifest should continue to claim proof-ready status"
     );
     assert!(
-        boundary.contains("| proof-backed | **no**"),
-        "proof boundary manifest should continue to deny proof-backed status"
+        boundary.contains("| proof-backed | **yes**"),
+        "proof boundary manifest should now claim proof-backed status"
     );
 }
 
