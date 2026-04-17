@@ -1130,8 +1130,10 @@ dependencies = [
 name = "kali_api_deno"
 version = "0.1.0"
 dependencies = [
+ "kali_api_web",
  "kali_common",
  "kali_error",
+ "tempfile",
 ]
 
 [[package]]

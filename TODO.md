@@ -53,6 +53,10 @@
 - ✅ `check/build --sandbox` reject inferred effects that exceed the active policy
 - ✅ Positive CLI/runtime smoke coverage replaces the old unavailable-command gates
 
+### Stage 1.8 - Deno API compatibility scaffold
+- ✅ `kali_api_deno` now exposes the Deno-oriented host-support layer on top of the shared Web baseline
+- ✅ Read-only env/args views, deterministic filesystem helpers, and the query-only permissions facade are available for the Phase-1 standalone context
+
 ### Stage 2.1 - HIR object-literal normalization follow-up
 - ✅ Object-literal properties now lower through a dedicated `ObjectProperty` HIR node
 - ✅ Property keys lower as literals, so MIR escape analysis no longer mistakes them for bindings

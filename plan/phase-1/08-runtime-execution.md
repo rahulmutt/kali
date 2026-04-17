@@ -30,6 +30,7 @@ TypeScript/JavaScript programs.
 - The basic console host imports are now wired into the runtime linker, and a first Deno-oriented host-surface subset is now available (filesystem read/write, environment lookup, arguments, fetch, and timer/microtask scheduling); the guest-side `Kali.test(...)` registration protocol now registers callbacks with the host test runner.
 - Web-baseline host primitives for `performance.now()` and `crypto.getRandomValues()` are now wired into the runtime linker so the Stage 1.8 baseline has concrete time/random coverage.
 - The guest-side Web baseline support-library follow-up is now implemented in `kali_api_web` with URL parsing/resolution, UTF-8 text encoding/decoding, `structuredClone`, `AbortController`/`AbortSignal`, and event primitives.
+- The Deno-oriented support-library scaffold is now checked in `kali_api_deno`, providing read-only env/args/filesystem helpers plus the query-only permissions projection on top of the shared Web baseline.
 - Runtime fixture coverage now includes timer/interval clearing, mocked fetch failure, and entrypoint trap diagnostics for the remaining Stage 1.8 edge cases.
 - The default API surface is now locked in by explicit `--api deno` smoke coverage for both `run` and `test`, confirming the spelled-out default behaves the same as the implicit path.
 
