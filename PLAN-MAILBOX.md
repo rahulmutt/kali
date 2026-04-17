@@ -40,12 +40,12 @@ Suggested follow-up:
 - decide whether the preview flag should be documented in the CLI/spec set or remain an implementation-only staging hook until the later public availability row opens
 - keep the maturity matrix unchanged until the later compatibility row is actually promoted
 
-## 2026-04-17 — Stage 3.2 Node process helper/runtime projection expansion
+## 2026-04-17 — Stage 3.2 Node child-process projection expansion
 
-The Stage 3.2 status note now reflects the expanded `kali_api_node` helper surface (`NodeUtil`, `NodeAssert`, and `NodeProcess` argv helpers) plus the runtime-linker coverage for `process.argv` / `process.env` reads under `kali:node`.
+The Stage 3.2 status note now reflects the expanded `kali_api_node` helper surface (`NodeChildProcess`) and the runtime-linker coverage for the `process_spawn` projection under `kali:node`.
 
 Suggested follow-up:
-- continue broadening the Node runtime projection to the rest of the documented Phase-3 built-ins that still lack host-import wiring
+- continue broadening the Node runtime projection to the remaining documented Phase-3 built-ins that still lack host-import wiring
 - keep the Stage 3.2 status text aligned with the actual host-import coverage so it does not imply full Node parity yet
 
 ## 2026-04-12 — Stage 2.1 alias-chain precision completed

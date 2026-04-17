@@ -1,6 +1,6 @@
 //! Runtime execution for Kali-generated WASM modules.
 
-use kali_api_node::{NodeCrypto, NodePath, NodeRuntimeProjection};
+use kali_api_node::{NodeChildProcess, NodeCrypto, NodePath, NodeRuntimeProjection};
 use kali_api_web::{fill_random_values, performance_now};
 use kali_error::{_error_codes::e4, Diagnostic};
 use kali_sandbox::{HostOperation, SandboxPolicy};
@@ -810,6 +810,7 @@ fn register_node_host_imports(
     let process_for_env_get = process.clone();
     let stream = node_projection.stream();
     let http = node_projection.http();
+    let child_process: NodeChildProcess = node_projection.child_process();
     let os = node_projection.os();
 
     linker
@@ -1297,11 +1298,54 @@ fn register_node_host_imports(
         )
         .map_err(|error| host_import_error("process_env_get", error))?;
 
+    linker
+        .func_wrap(
+            "kali:node",
+            "process_spawn",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  command_ptr: i32,
+                  command_len: i32,
+                  args_ptr: i32,
+                  args_len: i32,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                let command = read_guest_string(&mut caller, command_ptr, command_len)?;
+                let encoded_args = read_guest_string(&mut caller, args_ptr, args_len)?;
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::ProcessSpawn {
+                        executable: command.clone(),
+                    },
+                )?;
+                let args = decode_spawn_args(&encoded_args);
+                let output = child_process
+                    .spawn(&command, &args)
+                    .map_err(|error| wasmtime::Error::msg(error.to_string()))?;
+                let stdout = output.stdout();
+                write_guest_bytes(&mut caller, out_ptr, out_cap, stdout)?;
+                Ok(output.status())
+            },
+        )
+        .map_err(|error| host_import_error("process_spawn", error))?;
+
     Ok(())
 }
 
 fn capture_env() -> BTreeMap<String, String> {
     std::env::vars().collect()
+}
+
+fn decode_spawn_args(encoded: &str) -> Vec<String> {
+    if encoded.is_empty() {
+        return Vec::new();
+    }
+
+    let mut args: Vec<String> = encoded.split('|').map(str::to_owned).collect();
+    if args.last().is_some_and(|arg| arg.is_empty()) {
+        args.pop();
+    }
+    args
 }
 
 fn read_guest_string(
@@ -2033,6 +2077,55 @@ mod tests {
             "#,
         );
 
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn runtime_executes_node_child_process_host_imports() {
+        let runtime = RuntimeCtx::with_host_context_with_api_surface(
+            None,
+            Vec::new(),
+            capture_env(),
+            PathBuf::from("."),
+            "node",
+        );
+        let command = "sh";
+        let args = "-lc|printf child-process";
+        let expected_stdout = "child-process";
+        let wat = format!(
+            r#"
+            (module
+                (import "kali:node" "process_spawn" (func $spawn (param i32 i32 i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "{command}")
+                (data (i32.const 32) "{args}")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const {command_len}
+                    i32.const 32
+                    i32.const {args_len}
+                    i32.const 96
+                    i32.const 32
+                    call $spawn
+                    i32.const 0
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{stdout_checks}
+                )
+            )
+            "#,
+            command = command,
+            command_len = command.len(),
+            args = args,
+            args_len = args.len(),
+            stdout_checks = wat_assert_buffer_eq(96, expected_stdout),
+        );
+
+        let wasm = compile_wat(&wat);
         let outcome = runtime.execute(&wasm).expect("runtime outcome");
         assert_eq!(outcome.exit_code, 0);
     }

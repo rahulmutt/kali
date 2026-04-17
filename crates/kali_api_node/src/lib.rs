@@ -11,6 +11,7 @@ use std::{
     collections::BTreeMap,
     env, fs,
     path::{Component, Path, PathBuf},
+    process::{Command, Stdio},
     sync::{Arc, Mutex},
 };
 use url::Url;
@@ -385,6 +386,7 @@ pub struct NodeRuntimeProjection {
     fs_promises: NodeFsPromises,
     stream: NodeStream,
     http: NodeHttp,
+    child_process: NodeChildProcess,
     os: NodeOs,
     events: EventEmitter,
     util: NodeUtil,
@@ -400,6 +402,7 @@ impl NodeRuntimeProjection {
             fs_promises: NodeFsPromises::new(cwd),
             stream: NodeStream,
             http: NodeHttp,
+            child_process: NodeChildProcess,
             os: NodeOs,
             events: EventEmitter::new(),
             util: NodeUtil,
@@ -419,6 +422,7 @@ impl NodeRuntimeProjection {
             fs_promises: NodeFsPromises::new(cwd),
             stream: NodeStream,
             http: NodeHttp,
+            child_process: NodeChildProcess,
             os: NodeOs,
             events: EventEmitter::new(),
             util: NodeUtil,
@@ -448,6 +452,10 @@ impl NodeRuntimeProjection {
 
     pub fn http(&self) -> NodeHttp {
         self.http
+    }
+
+    pub fn child_process(&self) -> NodeChildProcess {
+        self.child_process
     }
 
     pub fn os(&self) -> NodeOs {
@@ -884,6 +892,89 @@ impl NodeHttp {
     }
 }
 
+/// Lightweight child-process helper used by the Node compatibility layer.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NodeChildProcess;
+
+/// Result of a synchronous child-process run.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NodeChildProcessOutput {
+    status: i32,
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+}
+
+impl NodeChildProcessOutput {
+    pub fn status(&self) -> i32 {
+        self.status
+    }
+
+    pub fn stdout(&self) -> &[u8] {
+        &self.stdout
+    }
+
+    pub fn stderr(&self) -> &[u8] {
+        &self.stderr
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NodeChildProcessError {
+    message: String,
+}
+
+impl NodeChildProcessError {
+    fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for NodeChildProcessError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for NodeChildProcessError {}
+
+impl NodeChildProcess {
+    pub fn spawn_sync(
+        command: impl AsRef<str>,
+        args: &[impl AsRef<str>],
+    ) -> Result<NodeChildProcessOutput, NodeChildProcessError> {
+        let mut command = Command::new(command.as_ref());
+        for arg in args {
+            command.arg(arg.as_ref());
+        }
+
+        let program = command.get_program().to_string_lossy().into_owned();
+        let output = command
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .map_err(|error| {
+                NodeChildProcessError::new(format!("failed to spawn '{}': {}", program, error))
+            })?;
+
+        Ok(NodeChildProcessOutput {
+            status: output.status.code().unwrap_or(-1),
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    pub fn spawn(
+        &self,
+        command: impl AsRef<str>,
+        args: &[impl AsRef<str>],
+    ) -> Result<NodeChildProcessOutput, NodeChildProcessError> {
+        Self::spawn_sync(command, args)
+    }
+}
+
 /// Lightweight OS view for Node-style environment helpers.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NodeOs;
@@ -1119,6 +1210,25 @@ mod tests {
         );
         assert_eq!(basename("/tmp/project/src/main.ts"), "main.ts");
         assert_eq!(extname("/tmp/project/src/main.ts"), ".ts");
+    }
+
+    #[test]
+    fn child_process_helpers_capture_command_output() {
+        let (command, args): (&str, &[&str]) = if cfg!(windows) {
+            ("cmd", &["/C", "echo", "child-process"])
+        } else {
+            ("sh", &["-lc", "printf child-process"])
+        };
+
+        let output = NodeChildProcess::spawn_sync(command, args).expect("spawn child process");
+        assert_eq!(output.status(), 0);
+        assert_eq!(
+            String::from_utf8(output.stdout().to_vec())
+                .expect("stdout")
+                .trim_end(),
+            "child-process"
+        );
+        assert!(output.stderr().is_empty(), "stderr: {:?}", output.stderr());
     }
 
     #[test]
@@ -1383,6 +1493,7 @@ mod tests {
         assert!(!projection.os().platform().is_empty());
         assert_eq!(projection.util(), NodeUtil);
         assert_eq!(projection.assert(), NodeAssert);
+        assert_eq!(projection.child_process(), NodeChildProcess);
 
         projection.process_mut().write_stdout("ok");
         assert_eq!(projection.process().stdout(), "ok");
