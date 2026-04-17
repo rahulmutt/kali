@@ -2166,6 +2166,8 @@ struct PackageJson {
     pub exports: Option<serde_json::Value>,
     #[serde(rename = "type")]
     pub package_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub browser: Option<serde_json::Value>,
     pub types: Option<String>,
     pub typings: Option<String>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty", default)]
@@ -2346,6 +2348,14 @@ fn raw_url_file_name(url: &str) -> Option<String> {
 /// Resolve a bare import against the materialized package graph.
 pub fn resolve_materialized_import(root: impl AsRef<Path>, source: &str) -> Option<PathBuf> {
     let root = root.as_ref();
+    let manifest = load_manifest(root).ok().flatten();
+    let browser_context = manifest
+        .as_ref()
+        .and_then(|manifest| manifest.compiler_options.as_ref())
+        .and_then(|options| options.as_object())
+        .and_then(|options| options.get("apiSurface"))
+        .and_then(|value| value.as_str())
+        == Some("browser");
     let (package_name, subpath) = split_bare_package_source(source)?;
     let package_dir = root.join("node_modules").join(&package_name);
     if package_dir.exists() {
@@ -2355,13 +2365,20 @@ pub fn resolve_materialized_import(root: impl AsRef<Path>, source: &str) -> Opti
             .and_then(|contents| serde_json::from_str::<PackageJson>(&contents).ok())?;
 
         if let Some(subpath) = subpath {
-            if let Some(path) = resolve_package_subpath(&package_dir, &package_json, subpath) {
+            match resolve_package_subpath(&package_dir, &package_json, subpath, browser_context) {
+                Some(PackageResolutionOutcome::Resolved(path)) => return Some(path),
+                Some(PackageResolutionOutcome::BrowserBlocked) => return None,
+                None => {}
+            }
+        } else {
+            match resolve_package_entry(&package_dir, &package_json, browser_context) {
+                Some(PackageResolutionOutcome::Resolved(path)) => return Some(path),
+                Some(PackageResolutionOutcome::BrowserBlocked) => return None,
+                None => {}
+            }
+            if let Some(path) = resolve_package_types_entry(&package_dir, &package_json) {
                 return Some(path);
             }
-        } else if let Some(path) = resolve_package_entry(&package_dir, &package_json)
-            .or_else(|| resolve_package_types_entry(&package_dir, &package_json))
-        {
-            return Some(path);
         }
     }
 
@@ -2374,6 +2391,13 @@ fn resolve_types_package_import(
     subpath: Option<&str>,
 ) -> Option<PathBuf> {
     let manifest = load_manifest(root).ok().flatten()?;
+    let browser_context = manifest
+        .compiler_options
+        .as_ref()
+        .and_then(|options| options.as_object())
+        .and_then(|options| options.get("apiSurface"))
+        .and_then(|value| value.as_str())
+        == Some("browser");
     let types_package_name = types_package_name(package_name);
     if !manifest.dev_dependencies.contains_key(&types_package_name) {
         return None;
@@ -2390,9 +2414,17 @@ fn resolve_types_package_import(
         .and_then(|contents| serde_json::from_str::<PackageJson>(&contents).ok())?;
 
     if let Some(subpath) = subpath {
-        resolve_package_subpath(&types_dir, &package_json, subpath)
+        match resolve_package_subpath(&types_dir, &package_json, subpath, browser_context) {
+            Some(PackageResolutionOutcome::Resolved(path)) => Some(path),
+            Some(PackageResolutionOutcome::BrowserBlocked) => None,
+            None => None,
+        }
     } else {
-        resolve_package_types_entry(&types_dir, &package_json)
+        match resolve_package_entry(&types_dir, &package_json, browser_context) {
+            Some(PackageResolutionOutcome::Resolved(path)) => Some(path),
+            Some(PackageResolutionOutcome::BrowserBlocked) => None,
+            None => resolve_package_types_entry(&types_dir, &package_json),
+        }
     }
 }
 
@@ -2448,44 +2480,124 @@ fn split_bare_package_source(source: &str) -> Option<(String, Option<&str>)> {
     Some((package, remainder))
 }
 
-fn resolve_package_entry(package_dir: &Path, package_json: &PackageJson) -> Option<PathBuf> {
+enum PackageResolutionOutcome {
+    Resolved(PathBuf),
+    BrowserBlocked,
+}
+
+fn resolve_package_entry(
+    package_dir: &Path,
+    package_json: &PackageJson,
+    browser_context: bool,
+) -> Option<PackageResolutionOutcome> {
     if let Some(main) = &package_json.main {
         if let Some(path) = resolve_package_file(package_dir, main) {
-            return Some(path);
+            return Some(apply_browser_rewrite(
+                package_dir,
+                package_json,
+                path,
+                true,
+                browser_context,
+            ));
         }
     }
 
     if let Some(module) = &package_json.module {
         if let Some(path) = resolve_package_file(package_dir, module) {
-            return Some(path);
+            return Some(apply_browser_rewrite(
+                package_dir,
+                package_json,
+                path,
+                true,
+                browser_context,
+            ));
         }
     }
 
     resolve_package_file(package_dir, "index.js")
         .or_else(|| resolve_package_file(package_dir, "index.mjs"))
         .or_else(|| resolve_package_file(package_dir, "index.ts"))
+        .map(|path| apply_browser_rewrite(package_dir, package_json, path, true, browser_context))
 }
 
 fn resolve_package_subpath(
     package_dir: &Path,
     package_json: &PackageJson,
     subpath: &str,
-) -> Option<PathBuf> {
+    browser_context: bool,
+) -> Option<PackageResolutionOutcome> {
     let joined = package_dir.join(subpath);
     if joined.is_file() {
-        return Some(joined);
+        return Some(apply_browser_rewrite(
+            package_dir,
+            package_json,
+            joined,
+            false,
+            browser_context,
+        ));
     }
     if let Some(path) = resolve_package_file(package_dir, subpath) {
-        return Some(path);
+        return Some(apply_browser_rewrite(
+            package_dir,
+            package_json,
+            path,
+            false,
+            browser_context,
+        ));
     }
 
     if let Some(exports) = &package_json.exports {
         if let Some(path) = resolve_package_exports(package_dir, exports, subpath) {
-            return Some(path);
+            return Some(apply_browser_rewrite(
+                package_dir,
+                package_json,
+                path,
+                false,
+                browser_context,
+            ));
         }
     }
 
     None
+}
+
+fn apply_browser_rewrite(
+    package_dir: &Path,
+    package_json: &PackageJson,
+    resolved_path: PathBuf,
+    allow_browser_string: bool,
+    browser_context: bool,
+) -> PackageResolutionOutcome {
+    if !browser_context {
+        return PackageResolutionOutcome::Resolved(resolved_path);
+    }
+
+    let Some(browser) = package_json.browser.as_ref() else {
+        return PackageResolutionOutcome::Resolved(resolved_path);
+    };
+
+    match browser {
+        serde_json::Value::String(path) if allow_browser_string => {
+            resolve_package_file(package_dir, path)
+                .map(PackageResolutionOutcome::Resolved)
+                .unwrap_or(PackageResolutionOutcome::BrowserBlocked)
+        }
+        serde_json::Value::Object(map) => {
+            let Some(relative_path) = resolved_path.strip_prefix(package_dir).ok() else {
+                return PackageResolutionOutcome::Resolved(resolved_path);
+            };
+            let key = format!("./{}", relative_path.to_string_lossy().replace('\\', "/"));
+            match map.get(&key) {
+                Some(serde_json::Value::Bool(false)) => PackageResolutionOutcome::BrowserBlocked,
+                Some(serde_json::Value::String(path)) => resolve_package_file(package_dir, path)
+                    .map(PackageResolutionOutcome::Resolved)
+                    .unwrap_or(PackageResolutionOutcome::BrowserBlocked),
+                Some(_) => PackageResolutionOutcome::BrowserBlocked,
+                None => PackageResolutionOutcome::Resolved(resolved_path),
+            }
+        }
+        _ => PackageResolutionOutcome::Resolved(resolved_path),
+    }
 }
 
 fn resolve_package_exports(
@@ -2701,6 +2813,117 @@ mod tests {
 
         let resolved = resolve_materialized_import(dir.path(), "lodash");
         assert_eq!(resolved.unwrap(), types_dir.join("index.d.ts"));
+    }
+
+    #[test]
+    fn browser_replacement_maps_rewrite_selected_root_entries() {
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("kali.json"),
+            r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+        )
+        .unwrap();
+
+        let package_dir = dir.path().join("node_modules/widget");
+        fs::create_dir_all(&package_dir).unwrap();
+        fs::write(
+            package_dir.join("package.json"),
+            r#"{
+  "name": "widget",
+  "main": "index.js",
+  "browser": {
+    "./index.js": "./index.browser.js"
+  }
+}"#,
+        )
+        .unwrap();
+        fs::write(package_dir.join("index.js"), "export default 'node';").unwrap();
+        fs::write(
+            package_dir.join("index.browser.js"),
+            "export default 'browser';",
+        )
+        .unwrap();
+
+        let resolved = resolve_materialized_import(dir.path(), "widget");
+        assert_eq!(resolved.unwrap(), package_dir.join("index.browser.js"));
+    }
+
+    #[test]
+    fn browser_replacement_maps_can_block_selected_root_entries() {
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("kali.json"),
+            r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+        )
+        .unwrap();
+
+        let package_dir = dir.path().join("node_modules/widget");
+        fs::create_dir_all(&package_dir).unwrap();
+        fs::write(
+            package_dir.join("package.json"),
+            r#"{
+  "name": "widget",
+  "main": "index.js",
+  "browser": {
+    "./index.js": false
+  }
+}"#,
+        )
+        .unwrap();
+        fs::write(package_dir.join("index.js"), "export default 'node';").unwrap();
+
+        let resolved = resolve_materialized_import(dir.path(), "widget");
+        assert!(
+            resolved.is_none(),
+            "browser-disabled root entry should not resolve"
+        );
+    }
+
+    #[test]
+    fn browser_replacement_maps_rewrite_selected_subpaths() {
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("kali.json"),
+            r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+        )
+        .unwrap();
+
+        let package_dir = dir.path().join("node_modules/widget");
+        fs::create_dir_all(&package_dir).unwrap();
+        fs::write(
+            package_dir.join("package.json"),
+            r#"{
+  "name": "widget",
+  "browser": {
+    "./feature.js": "./feature.browser.js"
+  }
+}"#,
+        )
+        .unwrap();
+        fs::write(package_dir.join("feature.js"), "export default 'node';").unwrap();
+        fs::write(
+            package_dir.join("feature.browser.js"),
+            "export default 'browser';",
+        )
+        .unwrap();
+
+        let resolved = resolve_materialized_import(dir.path(), "widget/feature");
+        assert_eq!(resolved.unwrap(), package_dir.join("feature.browser.js"));
     }
 
     #[test]

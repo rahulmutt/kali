@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 3.3 browser replacement-map coverage
+
+I widened the browser-targeted package-resolution path so `package.json#browser` replacement maps are honored after entry selection, including exact-path rewrites and `false` blocks, and I plan to keep the Stage 3.3 corpus/status notes aligned with that browser-resolution coverage.
+
+Suggested follow-up:
+- sync `PLAN-3.3-STATUS.md` and `TODO.md` so the Stage 3.3 progress tracker explicitly names browser replacement-map coverage alongside the existing exports-map and browser-condition package corpus cases
+- keep the broader Stage 3.3 corpus widening incremental; this is still a browser-resolution coverage slice, not a new package-support rung
+
 ## 2026-04-17 — Stage 4.2 helper-level no-dangling plan sync
 
 I widened the current RC snapshot proof slice with helper-level no-dangling-reference corollaries for `releaseRefNoDanglingReference`, `releaseAndDecrementNoDanglingReference`, and `releaseAndCollectNoDanglingReference`, and I planned to keep the Stage 4.2 status tracker aligned with those helper-level safety corollaries.
