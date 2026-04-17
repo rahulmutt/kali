@@ -205,6 +205,16 @@ theorem releaseAndDecrementDecrementsTargetCell (snapshot : RcSnapshot) (ref : S
   intro cell hmem hname
   exact List.mem_map.mpr ⟨cell, hmem, by simp [hname]⟩
 
+/-- A release-and-decrement step keeps the targeted heap cell when its decremented count stays positive. -/
+theorem releaseAndDecrementKeepsTargetCellWhenPositiveCount (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.name = ref → cell.refCount > 1 →
+      { cell with refCount := cell.refCount - 1 } ∈ (releaseAndDecrement snapshot ref).heap ∧
+      { cell with refCount := cell.refCount - 1 }.refCount > 0 := by
+  intro cell hmem hname hgt1
+  constructor
+  · exact List.mem_map.mpr ⟨cell, hmem, by simp [hname]⟩
+  · simpa using Nat.sub_pos_of_lt hgt1
+
 /-- Every release-and-decrement heap cell comes from the original heap, with only the released target decremented or left unchanged. -/
 theorem releaseAndDecrementHeapCellOrigin (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ (releaseAndDecrement snapshot ref).heap →
