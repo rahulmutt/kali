@@ -40,6 +40,7 @@ pub struct Scope {
     pub scope_type: ScopeType,
     pub parent: Option<NodeId>,
     pub bindings: IndexMap<String, NodeId>,
+    pub static_values: IndexMap<String, String>,
 }
 
 impl Scope {
@@ -48,6 +49,7 @@ impl Scope {
             scope_type,
             parent,
             bindings: IndexMap::new(),
+            static_values: IndexMap::new(),
         }
     }
 
@@ -508,6 +510,13 @@ impl TypeContext {
         for declarator in &declaration.declarations {
             if let Some(init) = &declarator.init {
                 self.resolve_expression(init);
+                if declaration.kind == "const" {
+                    if let Some(value) = self.resolve_static_string_expression(init) {
+                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                            scope.static_values.insert(declarator.id.clone(), value);
+                        }
+                    }
+                }
             }
         }
     }
@@ -618,23 +627,15 @@ impl TypeContext {
     fn resolve_import_expression(&mut self, expr: &ImportExpression) {
         self.resolve_expression(&expr.source);
 
-        match self.resolve_static_import_source(&expr.source) {
-            Some(source) => {
-                if !self.resolve_import_source(&source) {
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            e3::IMPORT_NOT_FOUND as u32,
-                            format!("dynamic import source '{}' could not be resolved", source),
-                        )
-                        .with_suggestion("check the relative path or package specifier"),
-                    );
-                }
-            }
-            None => {
+        if let Some(source) = self.resolve_static_import_source(&expr.source) {
+            if !self.resolve_import_source(&source) {
                 self.diagnostics.push(
                     Diagnostic::error(
                         e4::DYNAMIC_IMPORT_NOT_IN_LINKED_GRAPH as u32,
-                        "dynamic import target could not be resolved statically".to_string(),
+                        format!(
+                            "dynamic import target '{}' could not be resolved in the linked graph",
+                            source
+                        ),
                     )
                     .with_suggestion(
                         "use a statically known import specifier or link the module in the build graph",
@@ -645,27 +646,51 @@ impl TypeContext {
     }
 
     fn resolve_static_import_source(&self, expression: &Expression) -> Option<String> {
+        self.resolve_static_string_expression(expression)
+    }
+
+    fn resolve_static_string_expression(&self, expression: &Expression) -> Option<String> {
         match expression {
             Expression::Literal(LiteralValue::String(value)) => {
                 Some(Self::normalize_import_segment(value))
             }
+            Expression::Literal(LiteralValue::Number(value)) => Some(value.to_string()),
+            Expression::Literal(LiteralValue::Boolean(value)) => Some(value.to_string()),
+            Expression::Literal(LiteralValue::Null) => Some("null".to_string()),
             Expression::BinaryExpression(expr) if expr.operator == "+" => {
-                let left = self.resolve_static_import_source(&expr.left)?;
-                let right = self.resolve_static_import_source(&expr.right)?;
+                let left = self.resolve_static_string_expression(&expr.left)?;
+                let right = self.resolve_static_string_expression(&expr.right)?;
                 Some(format!("{}{}", left, right))
             }
             Expression::ParenthesizedExpression(expr) => {
-                self.resolve_static_import_source(&expr.expression)
+                self.resolve_static_string_expression(&expr.expression)
             }
-            Expression::TemplateLiteral(template) if template.expressions.is_empty() => Some(
-                template
-                    .quasis
-                    .iter()
-                    .map(|element| element.value.as_str())
-                    .collect(),
-            ),
+            Expression::TemplateLiteral(template) => {
+                let mut rendered = String::new();
+                for (idx, quasi) in template.quasis.iter().enumerate() {
+                    rendered.push_str(&quasi.value);
+                    if let Some(expr) = template.expressions.get(idx) {
+                        rendered.push_str(&self.resolve_static_string_expression(expr)?);
+                    }
+                }
+                Some(rendered)
+            }
+            Expression::Identifier(name) => self.resolve_static_string_binding(name),
             _ => None,
         }
+    }
+
+    fn resolve_static_string_binding(&self, name: &str) -> Option<String> {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let scope = self.scopes.get(&scope_id)?;
+            if let Some(value) = scope.static_values.get(name) {
+                return Some(value.clone());
+            }
+            current = scope.parent;
+        }
+
+        self.global_scope.static_values.get(name).cloned()
     }
 
     fn normalize_import_segment(value: &str) -> String {
@@ -1275,6 +1300,52 @@ mod tests {
                 })),
             }))),
         })];
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn test_resolution_allows_const_bound_dynamic_import_targets() {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.ts");
+        fs::write(dir.path().join("lazy.ts"), "export const lazy = 7;").unwrap();
+        fs::write(
+            &source_path,
+            "const name = \"lazy.ts\"; const root = \"./\"; import(root + name);",
+        )
+        .unwrap();
+
+        let statements = vec![
+            Statement::VariableDeclaration(VariableDeclaration {
+                kind: "const".to_string(),
+                declarations: vec![VariableDeclarator {
+                    id: "name".to_string(),
+                    init: Some(Expression::Literal(LiteralValue::String("lazy.ts".to_string()))),
+                }],
+            }),
+            Statement::VariableDeclaration(VariableDeclaration {
+                kind: "const".to_string(),
+                declarations: vec![VariableDeclarator {
+                    id: "root".to_string(),
+                    init: Some(Expression::Literal(LiteralValue::String("./".to_string()))),
+                }],
+            }),
+            Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+                    source: Expression::BinaryExpression(Box::new(BinaryExpression {
+                        operator: "+".to_string(),
+                        left: Expression::Identifier("root".to_string()),
+                        right: Expression::Identifier("name".to_string()),
+                    })),
+                }))),
+            }),
+        ];
 
         let mut ctx = TypeContext::with_base_path(&source_path);
         let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);

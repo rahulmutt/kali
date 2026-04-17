@@ -103,4 +103,5 @@
 
 - [ ] Truly runtime-resolved non-literal `import()` compatibility path
   - Browser bundle JS now exposes a generated `loadDynamicImport(specifier)` helper that resolves discovered chunk targets through the bundle-local lookup map.
+  - The resolver now also folds const-bound import fragments during name resolution, so statically known linked targets still resolve through the compile-time path before the runtime-mediated fallback is needed.
   - The remaining work is the guest-side / runtime-mediated graph lookup for arbitrary runtime specifiers inside the compiled execution pipeline.

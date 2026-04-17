@@ -132,3 +132,11 @@ Recorded the package-audit availability promotion in the spec/maturity docs so t
 Suggested follow-up:
 - keep the Stage 4.1 status file and phase-4 completion gate aligned with any future audit-payload expansion
 - leave the preview shim as an internal compatibility detail unless we decide to document it explicitly
+
+## 2026-04-17 — Stage 4.1 dynamic-import static-fragment folding progress
+
+The resolver now folds const-bound dynamic-import fragments during name resolution, so `import(root + name)`-style targets can resolve when the fragments are statically known. That keeps the compile-time linked-graph check in place for known targets while leaving the true runtime-mediated graph lookup as the remaining Phase 4.1 follow-up.
+
+Suggested follow-up:
+- keep the TODO entry open for the runtime-mediated fallback path
+- if we later widen the supported constant-expression forms, keep the compile-time diagnostic split between statically known linked targets and genuinely runtime-resolved specifiers
