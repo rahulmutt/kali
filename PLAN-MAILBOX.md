@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 RC decrement/update slice follow-up
+
+I’m planning the next small Stage 4.2 progress update: widen the RC snapshot safety slice with a refcount-decrement update helper that preserves the remaining well-formed live set, while still leaving the fuller freeing story and broader ownership model for later.
+
+Suggested follow-up:
+- update `PLAN-4.2-STATUS.md` and `TODO.md` once the helper/theorem lands so the progress tracker matches the proof boundary
+- keep the story explicitly incremental: this is a decrement/update refinement, not the final RC freeing target
+
 ## 2026-04-17 — Stage 4.2 finite-trace lowering bridge follow-up
 
 The HIR lowering-correctness slice now includes a finite-trace preservation theorem (`KaliIR.LoweringCorrectness.lower_preserves_steps`) on top of the existing single-step bridge, so the proof boundary and the Stage 4.2 progress note should describe both levels of preservation explicitly.

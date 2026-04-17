@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 RC decrement/update slice follow-up
+
+I’m planning the next small Stage 4.2 verification slice: add a refcount-decrement update helper to the current RC snapshot model so the published boundary can talk about a slightly more realistic release path while still staying short of the full freeing story.
+
+Suggested follow-up:
+- update `proofs/BOUNDARY.md`, `specs/17-verification.md`, `specs/16-testing.md`, `specs/19-feature-maturity.md`, `README.md`, and the Stage 4.2 progress note together if the new helper lands
+- keep the next step narrow: this should be a local RC update refinement, not a claim that the full ownership/freeing model is already in place
+
 ## 2026-04-17 — Stage 4.2 proof-boundary widening follow-up
 
 I’m planning the next small Stage 4.2 proof-model widening pass: extend the current Lean boundary to cover assignment and try/catch in the closed core fragment, while still leaving bare throw, full memory safety, and the broader lowering-preservation target for later.

@@ -35,6 +35,17 @@ def releaseRef (snapshot : RcSnapshot) (ref : String) : RcSnapshot :=
     releasedRefs := ref :: snapshot.releasedRefs
   }
 
+/-- Release a live reference while also decrementing the targeted heap cell's
+reference count. This models the current local RC update slice without yet
+claiming the fuller freeing story. -/
+def releaseAndDecrement (snapshot : RcSnapshot) (ref : String) : RcSnapshot :=
+  { snapshot with
+    liveRefs := snapshot.liveRefs.filter (fun r => decide (r ≠ ref))
+    releasedRefs := ref :: snapshot.releasedRefs
+    heap := snapshot.heap.map (fun cell =>
+      if cell.name = ref then { cell with refCount := cell.refCount - 1 } else cell)
+  }
+
 /-- A reference is owned when it has an explicit ownership annotation. -/
 def hasOwnership (ownership : OwnershipEnv) (ref : String) : Prop :=
   ∃ owner, (ref, owner) ∈ ownership
@@ -92,6 +103,25 @@ theorem releasePreservesWellFormed (snapshot : RcSnapshot) (ref : String)
   · exact hannotated.1
   · constructor
     · exact hannotated.2.1
+    · simpa [hneq] using hannotated.2.2
+
+/-- A release-and-decrement step preserves the well-formedness of the remaining
+live set because only the released reference's heap cell is updated. -/
+theorem releaseAndDecrementPreservesWellFormed (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    WellFormed (releaseAndDecrement snapshot ref) := by
+  intro r hr
+  simp [releaseAndDecrement] at hr ⊢
+  rcases hr with ⟨hrLive, hneq⟩
+  have hannotated : liveAnnotated snapshot r := h r hrLive
+  constructor
+  · exact hannotated.1
+  · constructor
+    · rcases hannotated.2.1 with ⟨cell, hmem, hname, hpos⟩
+      refine ⟨cell, ?_, hname, hpos⟩
+      have hcell : (fun cell => if cell.name = ref then { cell with refCount := cell.refCount - 1 } else cell) cell = cell := by
+        simp [hname, hneq]
+      exact List.mem_map.mpr ⟨cell, hmem, hcell⟩
     · simpa [hneq] using hannotated.2.2
 
 /-- A released reference is recorded in the released set after the release step. -/
