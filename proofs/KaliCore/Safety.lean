@@ -348,6 +348,18 @@ theorem releaseAndCollectHeapCellOriginAndOwnership (snapshot : RcSnapshot) (ref
       subst h
       simp
 
+/-- A release-and-collect step keeps every surviving heap cell traceable to the original heap, with its original name, ownership tag, and positive count. -/
+theorem releaseAndCollectHeapCellOriginOwnershipAndPositiveCount (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap →
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        (cell = { cell0 with refCount := cell0.refCount - 1 } ∨ cell = cell0) ∧
+        cell.name = cell0.name ∧
+        cell.owner = cell0.owner ∧
+        cell.refCount > 0 := by
+  intro cell hmem
+  rcases releaseAndCollectHeapCellOriginAndOwnership snapshot ref cell hmem with ⟨cell0, hmem0, hshape, hname, howner⟩
+  exact ⟨cell0, hmem0, hshape, hname, howner, releaseAndCollectHeapCellsHavePositiveCount snapshot ref cell hmem⟩
+
 /-- A release-and-collect step keeps every surviving heap cell both positively counted and traceable to the original heap. -/
 theorem releaseAndCollectHeapCellOriginAndPositiveCount (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap →

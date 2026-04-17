@@ -233,3 +233,11 @@ I widened the proof-boundary and verification summary prose so `KaliCore.Safety.
 Completed follow-up:
 - updated `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the published verification summary explicitly names the ownership-provenance theorem
 - kept the Stage 4.2 claim narrow; this is still the local release-and-collect helper story, not the full ownership/freeing target
+
+## 2026-04-17 — Stage 4.2 RC helper theorem inventory sync
+
+If the proof slice widens with a bundled `releaseAndCollect` heap-cell theorem that combines provenance, ownership/name preservation, and positive-count facts, the proof-boundary summary owners in `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` should stay aligned with the expanded theorem inventory.
+
+Suggested follow-up:
+- keep the proof claims narrow and verbatim to the published boundary
+- update the maturity and verification summaries only if the new theorem is reflected in the proof boundary and actual Lean source set

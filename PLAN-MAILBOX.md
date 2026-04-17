@@ -301,3 +301,11 @@ I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCo
 Suggested follow-up:
 - keep the Stage 4.2 progress notes aligned if the helper-level RC slice widens again
 - continue treating this as a helper-level RC slice; the broader ownership/freeing target is still wider than the current proof-backed boundary
+
+## 2026-04-17 — Stage 4.2 origin/ownership/positivity bundle follow-up
+
+I plan to widen the current RC snapshot proof slice with a bundled theorem for surviving `releaseAndCollect` heap cells that packages the original-heap provenance, name/ownership preservation, and positive-count fact together, so the Stage 4.2 progress notes can name the combined helper fact explicitly if that slice lands.
+
+Suggested follow-up:
+- update `PLAN-4.2-STATUS.md` and `TODO.md` if the bundled helper theorem lands, and keep the proof-boundary summary docs aligned with the new theorem inventory
+- keep the broader Stage 4.2 ownership/freeing target incremental; this would still be a helper-level conjunction theorem, not the full RC target
