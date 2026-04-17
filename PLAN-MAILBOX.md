@@ -1,3 +1,12 @@
+## 2026-04-17 — Stage 4.2 proof-boundary status sync
+
+I refreshed the Stage 4.2 plan tracker after the RC snapshot proof slice widened to include the latest local-collection helper theorems (`releaseAndCollectDropsOriginalZeroCountCells` and `releaseAndCollectHeapCellsHavePositiveCount`) alongside the existing ownership-preservation corollaries and zero-count bookkeeping.
+
+Completed follow-up:
+- synced `TODO.md` so the proof-boundary widening summary names the latest collection-helper theorems and ownership-preservation corollaries explicitly
+- synced `PLAN-4.2-STATUS.md` so the Stage 4.2 status tracker matches the current theorem inventory
+- no spec update was needed because the published boundary and maturity wording were already current
+
 
 ## 2026-04-17 — Stage 4.2 original zero-count follow-up
 
