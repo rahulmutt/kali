@@ -30,6 +30,9 @@ counting placeholder with deterministic compile-time ownership decisions: `stack
   smaller MIR-backed output against the legacy shape-preserving path. Layout-aware codegen now
   also recognizes transparent single-child wrappers and boolean-shaped branch conditions so it can
   skip the redundant truthiness cast when the shape is already known to be canonical 0/1.
+  MIR closure bindings now retain the concrete capture list in their closure layout descriptors so
+  the ownership model records not just who captured a value but also which values each closure
+  environment needs to carry.
 
 ## Tasks
 
@@ -107,11 +110,11 @@ Update the `MIR → LIR` lowering (replacing the old `HIR → LIR` path):
 
 ## Definition of Done
 
-- [ ] `kali_mir` crate compiles and all crate unit tests pass.
-- [ ] Escape analysis correctly classifies locals; LIR diff tests confirm stack-allocated values
+- [x] `kali_mir` crate compiles and all crate unit tests pass.
+- [x] Escape analysis correctly classifies locals; LIR diff tests confirm stack-allocated values
   no longer emit `Alloc` / `RcIncref` / `RcDecref`.
-- [ ] Full `TypedAST → HIR → MIR → LIR → WASM` pipeline produces runnable output for all
+- [x] Full `TypedAST → HIR → MIR → LIR → WASM` pipeline produces runnable output for all
   Phase-1 fixtures.
-- [ ] Benchmark shows measurable reduction in WASM module size or instruction count over the
+- [x] Benchmark shows measurable reduction in WASM module size or instruction count over the
   Phase-1 direct-lowering baseline.
-- [ ] All Phase-1 integration tests continue to pass without regression.
+- [x] All Phase-1 integration tests continue to pass without regression.

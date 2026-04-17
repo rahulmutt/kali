@@ -269,3 +269,11 @@ The Stage 4.2 memory-safety slice now includes `liveRefsAreOwnedAndAllocated`, w
 Suggested follow-up:
 - keep widening the memory model toward the full ownership / RC target in similarly small proof-backed slices
 - if the boundary widens again, sync the status note and boundary manifest together so the canonical proof summary stays honest
+
+## 2026-04-17 — Stage 2.1 closure-capture layout follow-up
+
+`kali_mir` now records the concrete closure capture list in each function binding's layout descriptor, so the MIR ownership model keeps the environment shape explicit in addition to the existing `captured_by` tracking. The Stage 2.1 plan note was updated to reflect that the closure-layout slice is now fully covered.
+
+Suggested follow-up:
+- keep the MIR ownership and layout summaries aligned whenever the closure environment model changes again
+- if later stages start projecting MIR capture lists into LIR or codegen metadata, update the stage note and any release-facing summaries together so the closure-shape story stays consistent

@@ -392,6 +392,7 @@ struct ScopeState {
     bindings: Vec<BindingState>,
     binding_index: BTreeMap<String, usize>,
     function_aliases: BTreeMap<String, String>,
+    captured_bindings: BTreeSet<String>,
 }
 
 impl ScopeState {
@@ -402,6 +403,7 @@ impl ScopeState {
             bindings: Vec::new(),
             binding_index: BTreeMap::new(),
             function_aliases: BTreeMap::new(),
+            captured_bindings: BTreeSet::new(),
         }
     }
 
@@ -435,19 +437,38 @@ impl ScopeState {
             .insert(binding_name.into(), function_name.into());
     }
 
+    fn capture_binding(&mut self, name: impl Into<String>) {
+        self.captured_bindings.insert(name.into());
+    }
+
     fn finalize(self) -> MirFunction {
+        let ScopeState {
+            label,
+            kind,
+            mut bindings,
+            binding_index: _,
+            function_aliases: _,
+            captured_bindings,
+        } = self;
+        let captured_bindings = captured_bindings.into_iter().collect::<Vec<_>>();
+        if !captured_bindings.is_empty() {
+            if let Some(binding) = bindings
+                .iter_mut()
+                .find(|binding| binding.kind == MirBindingKind::Function && binding.name == label)
+            {
+                binding.layout = LayoutDescriptor::Closure {
+                    captures: captured_bindings,
+                };
+            }
+        }
         MirFunction {
-            name: if self.kind == MirFunctionKind::Module {
+            name: if kind == MirFunctionKind::Module {
                 None
             } else {
-                Some(self.label)
+                Some(label)
             },
-            kind: self.kind,
-            bindings: self
-                .bindings
-                .into_iter()
-                .map(BindingState::finalize)
-                .collect(),
+            kind,
+            bindings: bindings.into_iter().map(BindingState::finalize).collect(),
         }
     }
 }
@@ -854,6 +875,9 @@ impl<'a> OwnershipAnalyzer<'a> {
             {
                 binding.captured_by.insert(captured_by);
             }
+            if let Some(scope) = self.scope_stack.get_mut(current_index) {
+                scope.capture_binding(name.to_string());
+            }
         }
 
         if matches!(context, UseContext::Return) {
@@ -1145,12 +1169,20 @@ mod tests {
         let mir = analyze(
             "function outer() { const answer = 1; function inner() { return answer; } return inner; }",
         );
-        let function = mir.function("outer").expect("outer function");
-        let binding = function.binding("answer").expect("answer binding");
+        let outer = mir.function("outer").expect("outer function");
+        let binding = outer.binding("answer").expect("answer binding");
+        let inner = mir.function("inner").expect("inner function");
+        let inner_binding = inner.binding("inner").expect("inner binding");
 
         assert_eq!(binding.ownership, OwnershipClass::SharedHeap);
         assert!(binding.escapes);
         assert_eq!(binding.captured_by, vec!["inner".to_string()]);
+        assert_eq!(
+            inner_binding.layout,
+            LayoutDescriptor::Closure {
+                captures: vec!["answer".to_string()],
+            }
+        );
     }
 
     #[test]
