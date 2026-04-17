@@ -27,3 +27,11 @@ I plan to widen the Stage 4.2 memory-safety slice with a helper-level lemma show
 Suggested follow-up:
 - update `PLAN-4.2-STATUS.md` and `TODO.md` so the progress tracker names the new positive-count preservation lemma
 - if the boundary wording changes, sync the proof-boundary / verification summary docs in the same pass
+
+## 2026-04-17 — Stage 4.2 releaseAndCollect positive-count follow-up
+
+The proof-backed RC snapshot slice now includes `KaliCore.Safety.releaseAndCollectKeepsOtherPositiveCountCells`, so the progress tracker should name the positive-count-preservation/no-leak helper explicitly alongside the existing zero-count collection and disjointness theorems.
+
+Suggested follow-up:
+- update the Stage 4.2 status / progress docs and TODO tracker to mention the new helper theorem
+- keep the story incremental; this is still a local collection-helper slice, not the full ownership/freeing target

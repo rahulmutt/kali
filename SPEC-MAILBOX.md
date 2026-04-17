@@ -28,3 +28,11 @@ I plan to widen the current proof-backed memory-safety slice with a slightly mor
 Suggested follow-up:
 - sync `proofs/BOUNDARY.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `README.md` so the published boundary mentions the positive-count preservation / local no-leak slice
 - keep the claim narrow: this is still the local collection helper story, not the full Stage 4.2 ownership/freeing target
+
+## 2026-04-17 — Stage 4.2 releaseAndCollect positive-count follow-up
+
+I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCollectKeepsOtherPositiveCountCells`, which states that positive-count cells from the original heap remain in the collected heap when they are not the released target.
+
+Suggested follow-up:
+- sync `proofs/BOUNDARY.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `README.md` so the published boundary inventory names the new no-leak helper theorem
+- keep the broader Stage 4.2 ownership/freeing target narrower than this helper-level slice

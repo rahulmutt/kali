@@ -171,6 +171,17 @@ theorem releaseAndCollectKeepsPositiveCountCells (snapshot : RcSnapshot) (ref : 
   dsimp [releaseAndCollect]
   exact List.mem_filter.mpr ⟨hmem, by simpa using hpos⟩
 
+/-- A release-and-collect step keeps positive-count cells from the original heap
+when they are not the released target, so the helper does not leak any other
+live data while it filters away zero-count cells. -/
+theorem releaseAndCollectKeepsOtherPositiveCountCells (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.name ≠ ref → cell.refCount > 0 →
+      cell ∈ (releaseAndCollect snapshot ref).heap := by
+  intro cell hmem hname hpos
+  have hmem' : cell ∈ (releaseAndDecrement snapshot ref).heap := by
+    exact List.mem_map.mpr ⟨cell, hmem, by simp [hname]⟩
+  exact releaseAndCollectKeepsPositiveCountCells snapshot ref cell hmem' hpos
+
 /-- A release-and-collect step preserves the well-formedness of the remaining
 live set because zero-count cells are collected after the decrement pass. -/
 theorem releaseAndCollectPreservesWellFormed (snapshot : RcSnapshot) (ref : String)
