@@ -198,6 +198,11 @@ theorem releaseAndDecrementRecorded (snapshot : RcSnapshot) (ref : String) :
     ref ∈ (releaseAndDecrement snapshot ref).releasedRefs := by
   simp [releaseAndDecrement]
 
+/-- The release-and-decrement helper's released-reference list is exactly the released reference followed by the original released set. -/
+theorem releaseAndDecrementReleasedRefsCons (snapshot : RcSnapshot) (ref : String) :
+    (releaseAndDecrement snapshot ref).releasedRefs = ref :: snapshot.releasedRefs := by
+  rfl
+
 /-- A release-and-decrement step decrements the targeted heap cell when it is present. -/
 theorem releaseAndDecrementDecrementsTargetCell (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ snapshot.heap → cell.name = ref →
@@ -427,6 +432,11 @@ theorem releaseAndCollectRecorded (snapshot : RcSnapshot) (ref : String) :
     ref ∈ (releaseAndCollect snapshot ref).releasedRefs := by
   simp [releaseAndCollect, releaseAndDecrement]
 
+/-- The release-and-collect helper's released-reference list is exactly the released reference followed by the original released set. -/
+theorem releaseAndCollectReleasedRefsCons (snapshot : RcSnapshot) (ref : String) :
+    (releaseAndCollect snapshot ref).releasedRefs = ref :: snapshot.releasedRefs := by
+  rfl
+
 /-- Released references stay disjoint from the live set after a release-and-collect step. -/
 theorem releaseAndCollectReleasedNotLiveRef (snapshot : RcSnapshot) (ref : String)
     (h : WellFormed snapshot) :
@@ -513,6 +523,11 @@ theorem releaseRefReleasedNotLiveRef (snapshot : RcSnapshot) (ref : String)
 theorem releaseRecorded (snapshot : RcSnapshot) (ref : String) :
     ref ∈ (releaseRef snapshot ref).releasedRefs := by
   simp [releaseRef]
+
+/-- The release-only helper's released-reference list is exactly the released reference followed by the original released set. -/
+theorem releaseRefReleasedRefsCons (snapshot : RcSnapshot) (ref : String) :
+    (releaseRef snapshot ref).releasedRefs = ref :: snapshot.releasedRefs := by
+  rfl
 
 /-- A release-only step preserves the no-dangling-reference property on well-formed snapshots. -/
 theorem releaseRefNoDanglingReference (snapshot : RcSnapshot) (ref : String)

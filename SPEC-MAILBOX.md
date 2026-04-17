@@ -257,3 +257,11 @@ I plan to make the proof-summary docs name the helper-level no-dangling-referenc
 Suggested follow-up:
 - update `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the proof-summary wording names the no-dangling corollaries explicitly alongside the rest of the RC snapshot slice
 - keep the broader Stage 4.2 ownership/freeing target incremental; this is still a summary-doc naming sync, not a boundary widening
+
+## 2026-04-17 — Stage 4.2 exact releasedRefs bookkeeping follow-up
+
+I plan to widen the current RC snapshot proof slice with exact `releasedRefs` cons-shape theorems for the release-only, decrement, and collection helpers, so the proof-boundary manifest can name the release bookkeeping shape explicitly alongside the existing live-reference and no-dangling corollaries.
+
+Suggested follow-up:
+- update `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and the Stage 4.2 status tracker so the new releasedRefs bookkeeping theorems are named explicitly
+- keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level bookkeeping slice, not the full RC target

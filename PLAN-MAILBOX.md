@@ -317,3 +317,11 @@ I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndDe
 Suggested follow-up:
 - update `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the progress trackers name the new decrement-helper provenance/ownership theorem alongside the existing RC helper inventory
 - keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level provenance-and-ownership theorem, not the full RC target
+
+## 2026-04-17 — Stage 4.2 exact releasedRefs bookkeeping follow-up
+
+I plan to widen the current RC snapshot proof slice with exact `releasedRefs` cons-shape theorems for the release-only, decrement, and collection helpers, so the published boundary can make the release bookkeeping shape explicit alongside the existing live-reference and no-dangling corollaries.
+
+Suggested follow-up:
+- update the proof-boundary manifest and the verification summaries so the new releasedRefs bookkeeping theorems are named explicitly
+- keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level bookkeeping slice, not the full RC target
