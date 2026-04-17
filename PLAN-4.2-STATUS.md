@@ -1,7 +1,7 @@
 # Stage 4.2 Status Update
 
 **Date:** 2026-04-17  
-**Status:** 🟢 Proof-backed boundary published for the widened closed fragment; safety and lowering lemmas mechanized for the current published slice
+**Status:** 🟢 Proof-backed boundary published for the widened closed fragment; the canonical repository summary is "Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target."
 
 ## Summary
 
@@ -20,8 +20,8 @@
 - `KaliCore/Soundness.lean` now has a clean compile path for the widened closed fragment
 - `KaliCore/Safety.lean` now proves the current no-dangling-reference statement for the reference-free bounded syntax
 - `KaliIR/HIRModel.lean` now records the structural lowering equations for the provisional HIR model
-- `proofs/BOUNDARY.md` now publishes the proof-backed boundary for the widened closed fragment
-- The proof mailbox records the remaining widening work for the full Stage 4.2 story
+- `proofs/BOUNDARY.md` now publishes the proof-backed boundary for the widened closed fragment and matches the canonical repository summary verbatim
+- The proof mailbox records the remaining widening work for the full Stage 4.2 story, especially ownership/memory safety and lowering correctness
 
 ## Current Limits
 
