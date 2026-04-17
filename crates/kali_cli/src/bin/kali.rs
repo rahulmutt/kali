@@ -9,7 +9,7 @@ use kali_cli::{
     output::{self, CliOutputOptions},
     Args, Commands,
 };
-use kali_error::{Diagnostic, _error_codes::e5};
+use kali_error::{_error_codes::e5, Diagnostic};
 use kali_fmt::format_source;
 use kali_lint::lint_with_options;
 use kali_npm::{
@@ -198,10 +198,12 @@ fn main() {
                 std::process::exit(exit_code);
             }
         }
-        Commands::PackageAudit { target } => {
-            if let Err(exit_code) =
+        Commands::PackageAudit { target, preview } => {
+            if let Err(exit_code) = if preview {
+                package_audit_preview_command(target, &output)
+            } else {
                 unavailable_registry_analysis_command("package-audit", target, &output)
-            {
+            } {
                 std::process::exit(exit_code);
             }
         }
@@ -1759,7 +1761,7 @@ fn effects_command(files: Vec<String>, output: &CliOutputOptions) -> Result<(), 
 }
 
 fn package_effects_command(target: String, output: &CliOutputOptions) -> Result<(), i32> {
-    let parsed = match parse_registry_package_target(&target) {
+    let parsed = match parse_registry_package_target("package-effects", &target) {
         Ok(parsed) => parsed,
         Err(diagnostic) => {
             return emit_diagnostics_and_exit(
@@ -1882,6 +1884,45 @@ fn package_effects_command(target: String, output: &CliOutputOptions) -> Result<
         report,
     );
     emit_native_json_payload("package-effects", &payload, output)
+}
+
+fn package_audit_preview_command(target: String, output: &CliOutputOptions) -> Result<(), i32> {
+    let parsed = match parse_registry_package_target("package-audit", &target) {
+        Ok(parsed) => parsed,
+        Err(diagnostic) => {
+            return emit_diagnostics_and_exit(
+                "package-audit",
+                vec![diagnostic],
+                5,
+                output,
+                None,
+                None,
+            );
+        }
+    };
+
+    let summary = format!(
+        "Preview audit scaffold for {} package '{}'; no security findings are computed yet.",
+        parsed.registry, parsed.report_label
+    );
+
+    if output.is_json() {
+        print_envelope(
+            "package-audit",
+            true,
+            vec![],
+            vec![],
+            Value::Null,
+            Some(summary),
+            None,
+            0,
+            output,
+        );
+    } else if !output.quiet {
+        println!("{summary}");
+    }
+
+    Ok(())
 }
 
 fn unavailable_registry_analysis_command(
@@ -2056,7 +2097,10 @@ struct ParsedRegistryPackageTarget {
     report_label: String,
 }
 
-fn parse_registry_package_target(target: &str) -> Result<ParsedRegistryPackageTarget, Diagnostic> {
+fn parse_registry_package_target(
+    command: &str,
+    target: &str,
+) -> Result<ParsedRegistryPackageTarget, Diagnostic> {
     if target.starts_with("http://")
         || target.starts_with("https://")
         || target.starts_with("./")
@@ -2066,7 +2110,7 @@ fn parse_registry_package_target(target: &str) -> Result<ParsedRegistryPackageTa
         return Err(Diagnostic::error(
             e5::INVALID_CLI_USAGE as u32,
             format!(
-                "`kali package-effects` accepts only registry package identifiers, not '{}'",
+                "`kali {command}` accepts only registry package identifiers, not '{}'",
                 target
             ),
         ));
@@ -2077,7 +2121,7 @@ fn parse_registry_package_target(target: &str) -> Result<ParsedRegistryPackageTa
             if is_version_suffixed_package_spec(spec) {
                 return Err(Diagnostic::error(
                     e5::INVALID_CLI_USAGE as u32,
-                    "`kali package-effects` does not accept explicit package versions yet",
+                    format!("`kali {command}` does not accept explicit package versions yet"),
                 ));
             }
             (
@@ -2090,7 +2134,7 @@ fn parse_registry_package_target(target: &str) -> Result<ParsedRegistryPackageTa
             if is_version_suffixed_package_spec(target) {
                 return Err(Diagnostic::error(
                     e5::INVALID_CLI_USAGE as u32,
-                    "`kali package-effects` does not accept explicit package versions yet",
+                    format!("`kali {command}` does not accept explicit package versions yet"),
                 ));
             }
             (

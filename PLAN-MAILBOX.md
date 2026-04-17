@@ -8,6 +8,14 @@
 
 Added a regression test in `crates/kali_npm` that installs the same raw-URL graph twice and asserts the resulting `kali.lock` bytes remain identical across both runs. This closes the most straightforward remaining install-workflow determinism gap in Stage 1.14 without changing the underlying install semantics.
 
+## 2026-04-17 — Stage 3.3 package-audit preview plumbing
+
+Implemented the Phase-3 opt-in `package-audit --preview` gate so the command now has a concrete preview-only execution path instead of failing unconditionally. The preview path currently emits the schema-v1 envelope with `payload: null` and a short summary string in both text and JSON modes while keeping the default, non-preview command gate unavailable in earlier phases.
+
+Suggested follow-up:
+- decide whether the preview flag should be documented in the CLI/spec set or remain an implementation-only staging hook until the later public availability row opens
+- keep the maturity matrix unchanged until the later compatibility row is actually promoted
+
 ## 2026-04-12 — Stage 2.1 alias-chain precision completed
 
 Stage 2.1's remaining escape-analysis gap was closed by teaching `kali_mir` to resolve function-expression aliases through alias chains, including anonymous function expressions lowered to synthetic function names. That keeps direct-call precision intact for `const alias = identity; const alias2 = alias; alias2(...)` style call targets.

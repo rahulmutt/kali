@@ -9,7 +9,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use kali_error::{Diagnostic, _error_codes::e5};
+use kali_error::{_error_codes::e5, Diagnostic};
 use kali_sandbox::SandboxPolicy;
 
 pub mod build;
@@ -284,6 +284,9 @@ pub enum Commands {
     PackageAudit {
         /// Registry package target to audit
         target: String,
+        /// Enable the opt-in preview implementation
+        #[arg(long)]
+        preview: bool,
     },
 }
 

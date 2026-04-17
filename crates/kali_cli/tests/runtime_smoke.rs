@@ -1811,3 +1811,48 @@ fn package_audit_command_is_phase_gated() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
 }
+
+#[test]
+fn package_audit_preview_mode_emits_envelope() {
+    let output = Command::new(kali_bin())
+        .arg("package-audit")
+        .arg("--preview")
+        .arg("--output")
+        .arg("json")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"], serde_json::Value::Null);
+    assert!(json["stdout"]
+        .as_str()
+        .expect("stdout string")
+        .contains("Preview audit scaffold"));
+}
+
+#[test]
+fn package_audit_preview_mode_emits_text_summary() {
+    let output = Command::new(kali_bin())
+        .arg("package-audit")
+        .arg("--preview")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Preview audit scaffold"), "stdout: {stdout}");
+}
