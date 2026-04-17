@@ -291,3 +291,11 @@ I widened the Stage 3.1 optimizer's MIR-aware specialization path so shared clos
 Completed follow-up:
 - updated `PLAN-3.1-STATUS.md` and `TODO.md` so the progress trackers now name the shared closure-layout specialization behavior explicitly
 - kept the broader generic-instantiation and cross-module planner work as the remaining Stage 3.1 follow-up; this is still a layout-signature sharing step, not the full planner
+
+## 2026-04-17 — Stage 4.2 ownership-provenance follow-up
+
+I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCollectHeapCellOriginAndOwnership`, so the helper-level memory-safety story now names the surviving release-and-collect cells' original ownership tag explicitly alongside provenance and positive-count tracking.
+
+Suggested follow-up:
+- keep the Stage 4.2 progress notes aligned if the helper-level RC slice widens again
+- continue treating this as a helper-level RC slice; the broader ownership/freeing target is still wider than the current proof-backed boundary

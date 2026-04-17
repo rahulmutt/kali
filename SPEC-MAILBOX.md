@@ -225,3 +225,11 @@ I tightened `specs/16-testing.md` so the repository-state note and proof-backed-
 Completed follow-up:
 - updated `specs/16-testing.md` to keep the verification summary aligned with the published boundary inventory
 - kept the claim narrow; this is still a summary-doc wording pass, not a boundary widening
+
+## 2026-04-17 — Stage 4.2 ownership-provenance wording sync
+
+I widened the proof-boundary and verification summary prose so `KaliCore.Safety.releaseAndCollectHeapCellOriginAndOwnership` is named explicitly alongside the existing origin and positive-count helper theorems.
+
+Completed follow-up:
+- updated `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the published verification summary explicitly names the ownership-provenance theorem
+- kept the Stage 4.2 claim narrow; this is still the local release-and-collect helper story, not the full ownership/freeing target
