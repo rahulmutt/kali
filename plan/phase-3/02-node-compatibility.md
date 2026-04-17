@@ -49,11 +49,12 @@ scaffolding and unit tests. The helper layer now also includes Node-style assert
 synchronous `util.promisify` bridge, `NodeProcess::exit` mirrors the `process.exit(code)`-style
 termination record, and `NodeBuffer` now round-trips base64/hex so the binary-data slice looks more
 like a real Node Buffer workflow. A `NodeRuntimeProjection` facade now bundles the common
-path/crypto/process surfaces so future host-import registration has one projection point.
-Install-time package host-fit validation now respects `compilerOptions.apiSurface = "node"`, so
-Node-targeted projects can accept Node-only builtins while the default standalone context still
-rejects them. Runtime wiring and `--api node` enablement are now in place for the documented
-Phase-3 subset.
+path/crypto/process surfaces so future host-import registration has one projection point. The
+Node- and Deno-style filesystem metadata wrappers now also expose `is_empty()` alongside `len()`
+so the host-API surface stays ergonomic and clippy-clean. Install-time package host-fit validation
+now respects `compilerOptions.apiSurface = "node"`, so Node-targeted projects can accept
+Node-only builtins while the default standalone context still rejects them. Runtime wiring and
+`--api node` enablement are now in place for the documented Phase-3 subset.
 
 ### 2. `--api node` command path
 

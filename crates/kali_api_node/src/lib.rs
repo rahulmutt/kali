@@ -912,6 +912,10 @@ impl NodeFsMetadata {
         self.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub fn readonly(&self) -> bool {
         self.readonly
     }
