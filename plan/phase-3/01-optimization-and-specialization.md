@@ -99,7 +99,7 @@ Lift the **annotation-required inference boundary** for well-typed public APIs:
 - [ ] `kali build --release` produces measurably faster or smaller WASM than `--fast` on the
   CI benchmark suite.
 - [ ] `kali build --release-advanced` produces a further improvement over `--release`.
-- [ ] Monomorphisation tests confirm no `TagCheck` / `Untag` instructions in specialised
+- [x] Monomorphisation tests confirm no `TagCheck` / `Untag` instructions in specialised
   hot paths.
 - [x] `compilerOptions.maxSpecializations` enforced; code-size explosion test passes, with the
   specialization budget scoped per function so separate hot paths keep independent caps.

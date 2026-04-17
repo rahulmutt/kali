@@ -1,7 +1,7 @@
 # Stage 3.1 Status Update
 
 **Date:** 2026-04-12  
-**Status:** 🟡 Optimization scaffolding and specialization-cap plumbing landed for the Phase-3 pipeline
+**Status:** 🟡 Optimization scaffolding and specialization-cap plumbing landed for the Phase-3 pipeline; hot-path smoke coverage now also checks that optimized numeric paths stay unboxed
 
 ## Summary
 
@@ -14,6 +14,7 @@ Stage 3.1 now has the first real `kali_optimize` implementation wired into the b
 - `release-advanced` adds algebraic simplifications such as `x + 0 -> x` ✅
 - `release` now inlines small function bodies, and `release-advanced` prunes dead top-level functions after those inlines land ✅
 - CLI runtime smoke tests now compare `fast`, `release`, and `release-advanced` instruction counts ✅
+- CLI runtime smoke tests now also assert that a specialized numeric hot path emits no tag-check / untag boxing operators ✅
 - `--max-specializations` now flows through the build pipeline and participates in deterministic cache keys ✅
 - Specialization caps are scoped per function owner, and regression tests cover both shared-root and independent-function budgets ✅
 - Repeated builds now populate and reuse `.kali-cache/incremental/` for unchanged modules ✅
@@ -22,6 +23,7 @@ Stage 3.1 now has the first real `kali_optimize` implementation wired into the b
 ## Notable Deliverables
 
 - `crates/kali_optimize/src/lib.rs` now contains a specialization plan, small-function inlining, and aggressive top-level dead-function pruning instead of the previous no-op placeholder
+- The runtime smoke suite now guards the optimized hot path against tag-check / untag boxing regressions while still verifying numeric codegen shape
 - `crates/kali_cli/src/build.rs` now calls the optimizer before lowering LIR to WASM
 - `crates/kali_lir/src/lib.rs` exposes `into_nodes()` so the optimizer tests can construct deterministic programs from builders
 - CLI smoke tests now assert that `release` removes literal add chains, `release` inlines simple call sites, and `release-advanced` prunes dead inlined helpers

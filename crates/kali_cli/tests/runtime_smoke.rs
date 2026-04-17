@@ -62,6 +62,22 @@ fn count_i64_adds(bytes: &[u8]) -> usize {
     count
 }
 
+fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
+    let mut count = 0;
+    for payload in Parser::new(0).parse_all(bytes) {
+        if let Ok(Payload::CodeSectionEntry(body)) = payload {
+            let mut reader = body.get_operators_reader().expect("operators reader");
+            while !reader.eof() {
+                match reader.read().expect("read operator") {
+                    Operator::I64And | Operator::I64Eq | Operator::I64ShrS => count += 1,
+                    _ => {}
+                }
+            }
+        }
+    }
+    count
+}
+
 fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
     let bundle_dir = bundle_root
         .file_name()
@@ -1276,6 +1292,44 @@ fn release_build_constant_folds_literal_expressions() {
     assert!(
         release_adds < fast_adds,
         "expected release build to reduce add instructions (fast={fast_adds}, release={release_adds})"
+    );
+}
+
+#[test]
+fn release_hot_paths_stay_unboxed_without_tag_checks() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.ts");
+    fs::write(
+        &source_path,
+        "function hot(a, b) { return a + b; } hot(1, 2);",
+    )
+    .expect("write source");
+
+    let release_dir = dir.path().join("release");
+    let release_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--release")
+        .arg("--out-dir")
+        .arg(&release_dir)
+        .arg(&source_path)
+        .output()
+        .expect("run kali release build");
+    assert!(
+        release_output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&release_output.stdout),
+        String::from_utf8_lossy(&release_output.stderr)
+    );
+
+    let release_wasm = fs::read(release_dir.join("math.wasm")).expect("read release wasm");
+    let release_adds = count_i64_adds(&release_wasm);
+    let release_tag_ops = count_tag_boxing_ops(&release_wasm);
+
+    assert!(release_adds > 0, "expected a numeric hot path in the optimized wasm");
+    assert_eq!(
+        release_tag_ops, 0,
+        "expected the specialized hot path to avoid tag-check / untag boxing ops"
     );
 }
 
