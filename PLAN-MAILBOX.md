@@ -1,12 +1,12 @@
-## 2026-04-17 — Stage 4.2 proof-boundary anti-drift follow-up
+## 2026-04-17 — Stage 4.2 proof-summary anti-drift follow-up
 
-I tightened the proof-boundary anti-drift coverage so `crates/kali_cli/tests/schema_docs.rs` now checks both the `proofs/BOUNDARY.md` covered-path inventory and the published theorem/lemma inventory against the concrete Lean source set.
+I tightened the proof-boundary anti-drift coverage so `crates/kali_cli/tests/schema_docs.rs` now checks both the `proofs/BOUNDARY.md` covered-path inventory and the published theorem/lemma inventory against the concrete Lean source set, and now also verifies the canonical proof-summary docs keep the current RC theorem names plus the proof-backed summary string in sync.
 
 Completed follow-up:
-- updated `PLAN-4.2-STATUS.md` and `TODO.md` so the progress trackers now mention the theorem-name inventory check alongside the path-level anti-drift guard
+- updated `PLAN-4.2-STATUS.md` and `TODO.md` so the progress trackers now mention the theorem-name inventory check and the proof-summary doc sync guard alongside the path-level anti-drift guard
 
 Suggested follow-up:
-- keep the proof boundary manifest and theorem inventory aligned whenever the proof slice widens again
+- keep the proof boundary manifest, theorem inventory, and summary docs aligned whenever the proof slice widens again
 
 ## 2026-04-17 — Stage 3.1 array-layout specialization follow-up
 

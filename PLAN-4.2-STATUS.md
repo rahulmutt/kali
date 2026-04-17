@@ -15,7 +15,7 @@
 - `KaliIR.HIRModel` now records the structural lowering equations for the provisional HIR model ✅
 - The current proof model now covers the core application/control-flow fragment plus assignment, bare throw, and try/catch, and a small RC snapshot safety slice with explicit decrement-path release bookkeeping, helper-level ownership/allocation corollaries, and unrelated-heap preservation, and remains narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target ⚠️
 - `KaliIR.LoweringCorrectness.lower_preserves_steps` now lifts the current single-step bridge to finite HIR traces for the same modeled subset ⚠️
-- The proof-boundary inventory is now locked to the actual Lean source set by a dedicated `schema_docs` test that checks both the covered-path inventory and the theorem-name inventory, reducing the risk of boundary drift when proof files are added or removed ✅
+- The proof-boundary inventory is now locked to the actual Lean source set by a dedicated `schema_docs` test that checks both the covered-path inventory and the theorem-name inventory, and now also asserts that the canonical proof-summary docs keep the current RC theorem names and proof-backed summary string in sync, reducing the risk of boundary drift when proof files or summary prose are added or removed ✅
 
 ## Notable Deliverables
 

@@ -170,5 +170,8 @@
 - ✅ `releaseRefReleasedNotLiveRef` now keeps released references disjoint from the live set after the pure release helper runs.
 - ✅ `releaseRecorded` still records the released reference in the released set after the pure release step.
 
+### Stage 3.3 - Exports-map package corpus expansion
+- ✅ Added browser, utility, and Node-runner corpus cases that resolve published exports maps and subpath entrypoints for `react`, `preact`, `vue`, `ramda`, `rxjs`, `uuid`, `vitest`, and `jest`, broadening the package-support corpus beyond the original single-entrypoint stubs.
+
 ### Stage 4.2 - Proof-boundary anti-drift test
-- ✅ `crates/kali_cli/tests/schema_docs.rs` now asserts that the `proofs/BOUNDARY.md` covered-path inventory matches the actual `proofs/*.lean` source set, and now also checks the published theorem inventory against the concrete Lean theorem and lemma names, so deleting or adding a proof file without updating the manifest fails `cargo test`; the progress tracker now calls out that theorem-name inventory check alongside the path-level anti-drift guard.
+- ✅ `crates/kali_cli/tests/schema_docs.rs` now asserts that the `proofs/BOUNDARY.md` covered-path inventory matches the actual `proofs/*.lean` source set, now checks the published theorem inventory against the concrete Lean theorem and lemma names, and now also verifies the canonical proof-summary docs keep the current RC theorem names and proof-backed summary string in sync, so deleting or adding a proof file or drifting summary prose without updating the manifest or docs fails `cargo test`; the progress tracker now calls out that theorem-name inventory and summary-doc inventory check alongside the path-level anti-drift guard.
