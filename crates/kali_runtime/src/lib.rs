@@ -1,6 +1,6 @@
 //! Runtime execution for Kali-generated WASM modules.
 
-use kali_api_node::{NodeChildProcess, NodeCrypto, NodePath, NodeRuntimeProjection};
+use kali_api_node::{NodeChildProcess, NodeCrypto, NodePath, NodeRuntimeProjection, NodeUrl};
 use kali_api_web::{fill_random_values, performance_now};
 use kali_error::{_error_codes::e4, Diagnostic};
 use kali_sandbox::{HostOperation, SandboxPolicy};
@@ -940,6 +940,45 @@ fn register_node_host_imports(
             },
         )
         .map_err(|error| host_import_error("path_relative", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "url_parse",
+            |mut caller: Caller<'_, KaliHostState>,
+             input_ptr: i32,
+             input_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let input = read_guest_string(&mut caller, input_ptr, input_len)?;
+                let parsed = NodeUrl::parse(&input)
+                    .map_err(|error| wasmtime::Error::msg(error.to_string()))?;
+                write_guest_string(&mut caller, out_ptr, out_cap, parsed.as_str())
+            },
+        )
+        .map_err(|error| host_import_error("url_parse", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "url_resolve",
+            |mut caller: Caller<'_, KaliHostState>,
+             base_ptr: i32,
+             base_len: i32,
+             input_ptr: i32,
+             input_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let base = read_guest_string(&mut caller, base_ptr, base_len)?;
+                let input = read_guest_string(&mut caller, input_ptr, input_len)?;
+                let resolved = NodeUrl::resolve(&base, &input)
+                    .map_err(|error| wasmtime::Error::msg(error.to_string()))?;
+                write_guest_string(&mut caller, out_ptr, out_cap, resolved.as_str())
+            },
+        )
+        .map_err(|error| host_import_error("url_resolve", error))?;
 
     linker
         .func_wrap(
@@ -2388,6 +2427,74 @@ mod tests {
             relative_to_len = relative_to.len(),
             relative_len = relative_output.len(),
             relative_checks = wat_assert_buffer_eq(704, relative_output),
+        );
+
+        let wasm = compile_wat(&wat);
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_executes_node_url_host_imports() {
+        let runtime = RuntimeCtx::with_host_context_with_api_surface(
+            None,
+            Vec::new(),
+            capture_env(),
+            PathBuf::from("."),
+            "node",
+        );
+        let parse_input = "https://example.com/path?query=1";
+        let resolve_base = "https://example.com/base/";
+        let resolve_input = "../child";
+        let parse_output = "https://example.com/path?query=1";
+        let resolve_output = "https://example.com/child";
+        let wat = format!(
+            r#"
+            (module
+                (import "kali:node" "url_parse" (func $parse (param i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "url_resolve" (func $resolve (param i32 i32 i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "{parse_input}")
+                (data (i32.const 64) "{resolve_base}")
+                (data (i32.const 96) "{resolve_input}")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const {parse_len}
+                    i32.const 256
+                    i32.const 64
+                    call $parse
+                    i32.const {parse_output_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{parse_checks}
+                    i32.const 64
+                    i32.const {resolve_base_len}
+                    i32.const 96
+                    i32.const {resolve_input_len}
+                    i32.const 320
+                    i32.const 64
+                    call $resolve
+                    i32.const {resolve_output_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{resolve_checks}
+                )
+            )
+            "#,
+            parse_input = parse_input,
+            parse_len = parse_input.len(),
+            parse_output_len = parse_output.len(),
+            parse_checks = wat_assert_buffer_eq(256, parse_output),
+            resolve_base = resolve_base,
+            resolve_base_len = resolve_base.len(),
+            resolve_input = resolve_input,
+            resolve_input_len = resolve_input.len(),
+            resolve_output_len = resolve_output.len(),
+            resolve_checks = wat_assert_buffer_eq(320, resolve_output),
         );
 
         let wasm = compile_wat(&wat);

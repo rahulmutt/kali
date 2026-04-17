@@ -458,6 +458,7 @@ pub struct NodeRuntimeProjection {
     http: NodeHttp,
     child_process: NodeChildProcess,
     os: NodeOs,
+    url: NodeUrl,
     events: EventEmitter,
     util: NodeUtil,
     assert: NodeAssert,
@@ -474,6 +475,7 @@ impl NodeRuntimeProjection {
             http: NodeHttp,
             child_process: NodeChildProcess,
             os: NodeOs,
+            url: NodeUrl,
             events: EventEmitter::new(),
             util: NodeUtil,
             assert: NodeAssert,
@@ -494,6 +496,7 @@ impl NodeRuntimeProjection {
             http: NodeHttp,
             child_process: NodeChildProcess,
             os: NodeOs,
+            url: NodeUrl,
             events: EventEmitter::new(),
             util: NodeUtil,
             assert: NodeAssert,
@@ -530,6 +533,10 @@ impl NodeRuntimeProjection {
 
     pub fn os(&self) -> NodeOs {
         self.os
+    }
+
+    pub fn url(&self) -> NodeUrl {
+        self.url
     }
 
     pub fn events(&self) -> &EventEmitter {
@@ -1138,6 +1145,20 @@ pub fn resolve_url(base: &str, input: &str) -> Result<Url, url::ParseError> {
     Url::parse(base)?.join(input)
 }
 
+/// Namespace-style wrapper for URL helpers.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NodeUrl;
+
+impl NodeUrl {
+    pub fn parse(input: impl AsRef<str>) -> Result<Url, url::ParseError> {
+        parse_url(input.as_ref())
+    }
+
+    pub fn resolve(base: impl AsRef<str>, input: impl AsRef<str>) -> Result<Url, url::ParseError> {
+        resolve_url(base.as_ref(), input.as_ref())
+    }
+}
+
 /// A tiny `util.format`-style helper for deterministic test output.
 pub fn util_format<T: AsRef<str>>(parts: &[T]) -> String {
     parts
@@ -1600,10 +1621,11 @@ mod tests {
             .or_else(|| std::env::var_os("USERPROFILE").map(PathBuf::from));
         assert_eq!(os.home_dir(), expected_home);
 
-        let parsed = parse_url("https://example.com/path?query=1").expect("url");
+        let parsed = NodeUrl::parse("https://example.com/path?query=1").expect("url");
         assert_eq!(parsed.as_str(), "https://example.com/path?query=1");
 
-        let resolved = resolve_url("https://example.com/base/", "../child").expect("resolve");
+        let resolved = NodeUrl::resolve("https://example.com/base/", "../child")
+            .expect("resolve");
         assert_eq!(resolved.as_str(), "https://example.com/child");
     }
 
@@ -1623,6 +1645,7 @@ mod tests {
         assert_eq!(projection.process().env_get("HOME"), Some("/tmp/home"));
         assert_eq!(projection.fs().cwd(), Path::new("/workspace/project"));
         assert!(!projection.os().platform().is_empty());
+        assert_eq!(projection.url(), NodeUrl);
         assert_eq!(projection.util(), NodeUtil);
         assert_eq!(projection.assert(), NodeAssert);
         assert_eq!(projection.child_process(), NodeChildProcess);

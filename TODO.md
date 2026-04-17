@@ -101,9 +101,10 @@
 - [x] Stage 3.2 Node API layer scaffold
   - Added `kali_api_node` helpers for process/path/crypto/events/buffer/util plus fs/url/os scaffolding and unit tests; the Node-targeted command path is now wired through check/build/run/test and node-only import resolution in the analysis context.
   - Expanded the helper layer with Node-style assertion helpers and a synchronous `util.promisify` bridge so the documented Node helper surface is closer to the planned phase-3 subset.
-  - The helper layer now exposes `NodePath`, `NodeCrypto`, `NodeUtil`, `NodeAssert`, and `NodeRuntimeProjection` facades so future linker registration has a single Node-host surface to project through.
+  - The helper layer now exposes `NodePath`, `NodeUrl`, `NodeCrypto`, `NodeUtil`, `NodeAssert`, and `NodeRuntimeProjection` facades so future linker registration has a single Node-host surface to project through.
   - `NodePath::relative` now rounds out the lexical path helper slice alongside normalize/join/resolve/dirname/basename/extname, and the runtime linker projects it through `kali:node`.
-  - The runtime linker now consumes the Node projection facade for `fs/promises`, stream, HTTP, and process argv/env host imports when the effective API surface is `node`.
+  - `NodeUrl::parse` / `NodeUrl::resolve` now round out the URL helper slice, and the runtime linker projects them through `kali:node`.
+  - The runtime linker now consumes the Node projection facade for `fs/promises`, stream, HTTP, URL, and process argv/env host imports when the effective API surface is `node`.
   - Install-time package host-fit validation now keys off the project `compilerOptions.apiSurface`, so Node-targeted installs can accept Node-only builtins while the default standalone context still rejects them with `E6005`.
 - [x] Stage 4.2 proof boundary widening
   - `KaliCore.Soundness` now mechanizes the widened closed fragment (literals, variables, closed functions, application, sequencing, conditionals, assignment, and try/catch).

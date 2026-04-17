@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 3.2 Node URL host-import projection
+
+Extended the pure-Rust Node helper layer with `NodeUrl::parse` / `NodeUrl::resolve`, then threaded those helpers through the runtime linker as `kali:node` URL host imports and added runtime smoke coverage for the new projection path.
+
+Suggested follow-up:
+- keep the Stage 3.2 status note, TODO progress text, and any release-facing Node-compatibility summaries aligned with the actual linked helper surface
+- continue broadening the Node runtime helper surface one concrete workflow at a time so the partial compatibility story stays honest
+
 ## 2026-04-17 — Stage 4.2 proof-boundary widening follow-up
 
 I’m planning the next small Stage 4.2 proof-model widening pass: extend the current Lean boundary to cover assignment and try/catch in the closed core fragment, while still leaving bare throw, full memory safety, and the broader lowering-preservation target for later.
