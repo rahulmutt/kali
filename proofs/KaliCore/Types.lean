@@ -9,7 +9,7 @@ inductive LitVal where
   | symbol : String → LitVal
   | null : LitVal
   | undef : LitVal
-  deriving Repr, DecidableEq
+  deriving Repr
 
 /-- Core Kali types for the provisional Lean model. -/
 inductive Ty where
@@ -29,7 +29,7 @@ inductive Ty where
   | TObj : List (String × Ty) → Ty
   | TUnion : Ty → Ty → Ty
   | TInter : Ty → Ty → Ty
-  deriving Repr, DecidableEq
+  deriving Repr
 
 /-- The core surface expression grammar used by the proof model. -/
 inductive Expr where
@@ -42,7 +42,7 @@ inductive Expr where
   | EAssign : String → Expr → Expr
   | ETry : Expr → String → Expr → Expr
   | EThrow : Expr → Expr
-  deriving Repr, DecidableEq
+  deriving Repr
 
 /-- Type associated with a literal value. -/
 def litTy : LitVal → Ty

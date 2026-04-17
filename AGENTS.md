@@ -84,6 +84,14 @@ These invariants must hold across all phases. They may deepen but never bend:
 
 ## Testing Strategy
 
+### Lean proof workflow
+- The Lean environment is defined by [`devenv.nix`](./devenv.nix) and [`devenv.yaml`](./devenv.yaml).
+- Always use the mise task `mise run lean-proofs` for Lean proof builds; do not invoke `nix shell` directly for proof builds.
+- The `lean-proofs` mise task runs the proof build through `devenv shell` from the repository root.
+- Verify the proof tree with `mise run lean-proofs`.
+- The proof project uses the Lean toolchain pinned in [`proofs/lean-toolchain`](./proofs/lean-toolchain).
+- When Lean files change, rerun `mise run lean-proofs` so Lake rebuilds the affected modules through `devenv shell`. 
+
 ### Conformance Suite
 Phase 1 evidence hardening (stage 1.14) requires:
 - Unit/integration coverage
@@ -222,6 +230,9 @@ Before marking a stage complete, verify:
 - Add all tool and language dependencies to `mise.toml`
 - Keep dependencies aligned with the phases they enable
 - Document any version requirements in stage documents
+- Any important repository workflow should have a corresponding mise task in `mise.toml`
+- Important workflows include building, testing, linting, formatting, proof builds, and other commonly repeated developer/CI entrypoints
+- Prefer documenting and invoking the mise task as the canonical command instead of spelling out the underlying shell command in multiple places
 
 ## Reading the Spec Set
 

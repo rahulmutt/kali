@@ -10,7 +10,7 @@ inductive HIRExpr where
   | let1 : String → HIRExpr → HIRExpr → HIRExpr
   | seq : HIRExpr → HIRExpr → HIRExpr
   | if : HIRExpr → HIRExpr → HIRExpr → HIRExpr
-  deriving Repr, DecidableEq
+  deriving Repr
 
 /-- Provisional lowering from HIR into the small core expression language. -/
 def lower : HIRExpr → KaliCore.Expr

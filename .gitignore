@@ -13,6 +13,11 @@ target
 # Contains mutation testing data
 **/mutants.out*/
 
+# devenv
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
@@ -22,3 +27,4 @@ target
 #
 
 .ralph/
+.lake

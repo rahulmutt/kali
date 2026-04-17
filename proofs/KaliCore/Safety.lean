@@ -20,7 +20,7 @@ abbrev DanglingReference : Expr → Prop := fun _ => False
 
 /-- The intended no-dangling-reference statement for the bounded ownership model.
 This file records the proposition that Stage 4.2 is expected to mechanize fully. -/
-def NoDanglingReference (ownership : OwnershipEnv) (program : Expr) : Prop :=
+def NoDanglingReference (_ownership : OwnershipEnv) (program : Expr) : Prop :=
   ¬ DanglingReference program
 
 end KaliCore
