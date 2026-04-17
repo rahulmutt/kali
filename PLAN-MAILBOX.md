@@ -277,3 +277,11 @@ Suggested follow-up:
 Suggested follow-up:
 - keep the MIR ownership and layout summaries aligned whenever the closure environment model changes again
 - if later stages start projecting MIR capture lists into LIR or codegen metadata, update the stage note and any release-facing summaries together so the closure-shape story stays consistent
+
+## 2026-04-17 — Stage 4.2 release-update preservation follow-up
+
+The RC snapshot safety slice now includes a live-to-released transition theorem (`releasePreservesWellFormed`) plus a recorded release step (`releaseRecorded`). The Stage 4.2 status note and TODO tracker have been updated to reflect that the current proof-backed boundary now includes release-update preservation in addition to the existing live-reference ownership/allocation and release-disjointness claims.
+
+Suggested follow-up:
+- keep the Stage 4.2 status note, TODO tracker, and proof boundary aligned if the RC model widens again
+- continue the remaining ownership / RC target work as the next proof-backed slice when it is ready

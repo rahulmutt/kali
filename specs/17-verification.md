@@ -130,6 +130,7 @@ Prove soundness for the **core typed fragment** first:
 ### Memory Safety
 - Prove ownership analysis is sound for the modeled MIR/core-memory fragment (no use-after-free in the model)
 - Prove reference counting maintains the required safety invariants for acyclic/shared values in the verified model
+- Prove that releasing a live reference preserves the remaining well-formed live set in the current RC snapshot slice
 - Treat cycle handling as a separate engineering/debugging concern unless and until the formal model includes it explicitly
 - Prove escape analysis is conservative (if analysis says "doesn't escape", it truly doesn't)
 
@@ -143,7 +144,7 @@ Prove specific high-value lowering passes preserve the modeled semantics:
 ## Lean 4 Project Structure
 
 Current-state clarification:
-- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the repository now contains a checked-in Lean project tree under `proofs/`, and the published boundary is proof-backed for the widened closed fragment — now including assignment and try/catch in addition to literals, variables, closed functions, application, sequencing, and conditionals — plus a small RC snapshot safety slice (including live-reference ownership/allocation projection) and a widened HIR lowering-correctness slice while still remaining narrower than the later Stage 4.2 target
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the repository now contains a checked-in Lean project tree under `proofs/`, and the published boundary is proof-backed for the widened closed fragment — now including assignment and try/catch in addition to literals, variables, closed functions, application, sequencing, and conditionals — plus a small RC snapshot safety slice (including live-reference ownership/allocation projection and release-update preservation) and a widened HIR lowering-correctness slice while still remaining narrower than the later Stage 4.2 target
 - treat the layout below as the living proof-tree shape that the checked-in Lean model follows today, not as a claim that the boundary already covers the later ownership/memory-safety and lowering-correctness target
 
 ```text

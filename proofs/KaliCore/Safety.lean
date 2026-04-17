@@ -28,6 +28,13 @@ structure RcSnapshot where
   releasedRefs : List String
   deriving Repr
 
+/-- Release a live reference from the snapshot by moving it out of the live set. -/
+def releaseRef (snapshot : RcSnapshot) (ref : String) : RcSnapshot :=
+  { snapshot with
+    liveRefs := snapshot.liveRefs.filter (fun r => decide (r ≠ ref))
+    releasedRefs := ref :: snapshot.releasedRefs
+  }
+
 /-- A reference is owned when it has an explicit ownership annotation. -/
 def hasOwnership (ownership : OwnershipEnv) (ref : String) : Prop :=
   ∃ owner, (ref, owner) ∈ ownership
@@ -72,5 +79,24 @@ theorem releasedNotLiveRef (snapshot : RcSnapshot) (h : WellFormed snapshot) :
   intro ref href hlive
   have hliveAnnotated : liveAnnotated snapshot ref := h ref hlive
   exact hliveAnnotated.2.2 href
+
+/-- Releasing a live reference preserves the well-formedness of the remaining live set. -/
+theorem releasePreservesWellFormed (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    WellFormed (releaseRef snapshot ref) := by
+  intro r hr
+  simp [releaseRef] at hr ⊢
+  rcases hr with ⟨hrLive, hneq⟩
+  have hannotated : liveAnnotated snapshot r := h r hrLive
+  constructor
+  · exact hannotated.1
+  · constructor
+    · exact hannotated.2.1
+    · simpa [hneq] using hannotated.2.2
+
+/-- A released reference is recorded in the released set after the release step. -/
+theorem releaseRecorded (snapshot : RcSnapshot) (ref : String) :
+    ref ∈ (releaseRef snapshot ref).releasedRefs := by
+  simp [releaseRef]
 
 end KaliCore

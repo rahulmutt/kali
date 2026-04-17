@@ -23,7 +23,7 @@ in `proofs/BOUNDARY.md`, and enable **proof-backed** release/support claims.
 - Release notes and documentation may cite formal verification for the published boundary.
 
 Current progress note:
-- the published boundary already includes the live-reference ownership/allocation projection theorem (`KaliCore.Safety.liveRefsAreOwnedAndAllocated`) alongside `noDanglingReference`, `releasedNotLive`, and `releasedNotLiveRef`, so the remaining Stage 4.2 memory work is explicitly down to the broader ownership / RC target rather than the earlier snapshot-ownership gap.
+- the published boundary already includes the live-reference ownership/allocation projection theorem (`KaliCore.Safety.liveRefsAreOwnedAndAllocated`) alongside `noDanglingReference`, `releasePreservesWellFormed`, `releaseRecorded`, `releasedNotLive`, and `releasedNotLiveRef`, so the remaining Stage 4.2 memory work is explicitly down to the broader ownership / RC target rather than the earlier snapshot-ownership gap.
 
 ## Tasks
 
@@ -46,7 +46,8 @@ Model the ownership / reference-counting memory model from Phase 2:
 - Prove that well-typed programs with correct ownership annotations never produce dangling
   references (no use-after-free).
 - Track the current proof-backed slice as it widens: the repository now also proves that
-  well-formed snapshots keep live references anchored in ownership and allocation, and that
+  well-formed snapshots keep live references anchored in ownership and allocation, that
+  releasing a live reference preserves the remaining well-formed live set, and that
   released references remain outside the live-reference set.
 - Prove that the RC decrement path correctly frees all reachable objects (no leaks within the
   modelled subset).

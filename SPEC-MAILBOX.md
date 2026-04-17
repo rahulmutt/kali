@@ -104,3 +104,11 @@ I added a small proof-slice refinement to the Stage 4.2 memory model: well-forme
 Suggested follow-up:
 - keep the proof boundary and verification wording aligned if the RC model widens again
 - treat the current claim as still narrower than the eventual full ownership / RC target
+
+## 2026-04-17 — Stage 4.2 release-update preservation follow-up
+
+I widened the current RC snapshot slice with a simple live-to-released transition theorem: `releaseRef` now records a released reference while preserving the remaining well-formed live set. The proof boundary, verification chapter, maturity summary, README verification bullet, and Stage 4.2 status note now need to mention that release-update preservation slice explicitly.
+
+Suggested follow-up:
+- keep the proof boundary and release-facing summaries aligned with the new release-update preservation theorem inventory
+- continue widening the ownership / RC model toward a fuller decrement/freeing story when the next proof slice is ready
