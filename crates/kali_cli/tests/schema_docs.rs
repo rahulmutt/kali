@@ -157,6 +157,54 @@ fn collect_proof_sources(root: &Path) -> BTreeSet<String> {
     files
 }
 
+fn collect_proof_theorem_names(root: &Path) -> BTreeSet<String> {
+    fn visit(dir: &Path, names: &mut BTreeSet<String>) {
+        for entry in fs::read_dir(dir).expect("read proof directory") {
+            let entry = entry.expect("read proof directory entry");
+            let path = entry.path();
+            let name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("");
+
+            if path.is_dir() {
+                if name == ".lake" || name == "build" {
+                    continue;
+                }
+                visit(&path, names);
+                continue;
+            }
+
+            if path.extension().and_then(|ext| ext.to_str()) != Some("lean") {
+                continue;
+            }
+
+            let text = fs::read_to_string(&path).expect("read proof source");
+            for line in text.lines() {
+                let trimmed = line.trim_start();
+                let remainder = trimmed
+                    .strip_prefix("theorem ")
+                    .or_else(|| trimmed.strip_prefix("lemma "));
+                let Some(remainder) = remainder else {
+                    continue;
+                };
+
+                let name = remainder
+                    .split(|ch: char| ch.is_whitespace() || ch == '(' || ch == ':')
+                    .next()
+                    .unwrap_or("");
+                if !name.is_empty() {
+                    names.insert(name.to_string());
+                }
+            }
+        }
+    }
+
+    let mut names = BTreeSet::new();
+    visit(root, &mut names);
+    names
+}
+
 fn parse_boundary_covered_paths(boundary: &str) -> BTreeSet<String> {
     let mut paths = BTreeSet::new();
     let section = boundary
@@ -223,4 +271,23 @@ fn proof_boundary_manifest_tracks_the_actual_proof_sources() {
         documented, actual,
         "proof boundary manifest should track the actual Lean proof source files"
     );
+}
+
+#[test]
+fn proof_boundary_manifest_tracks_the_published_theorem_inventory() {
+    let root = repo_root();
+    let boundary = fs::read_to_string(root.join("proofs/BOUNDARY.md")).expect("read boundary");
+    let published_theorems = collect_proof_theorem_names(&root.join("proofs"));
+    let internal_helpers = ["subst_closed"];
+
+    for theorem in published_theorems {
+        if internal_helpers.contains(&theorem.as_str()) {
+            continue;
+        }
+
+        assert!(
+            boundary.contains(&theorem),
+            "proof boundary manifest is missing theorem or lemma: {theorem}"
+        );
+    }
 }

@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 proof-boundary anti-drift follow-up
+
+I tightened the proof-boundary anti-drift coverage so `crates/kali_cli/tests/schema_docs.rs` now checks both the `proofs/BOUNDARY.md` covered-path inventory and the published theorem/lemma inventory against the concrete Lean source set.
+
+Suggested follow-up:
+- keep the proof boundary manifest and theorem inventory aligned whenever the proof slice widens again
+- update `PLAN-4.2-STATUS.md` and `TODO.md` so the progress trackers mention the theorem-name inventory check alongside the path-level anti-drift guard
+
 ## 2026-04-17 — Stage 3.1 array-layout specialization follow-up
 
 I widened the Stage 3.1 optimizer's layout prepass so const-bound array element reads now fold when the index is statically known or bound to a constant numeric value, extending the existing object-layout fast path.

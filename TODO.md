@@ -168,4 +168,4 @@
 - ✅ `releaseRecorded` still records the released reference in the released set after the pure release step.
 
 ### Stage 4.2 - Proof-boundary anti-drift test
-- ✅ `crates/kali_cli/tests/schema_docs.rs` now asserts that the `proofs/BOUNDARY.md` covered-path inventory matches the actual `proofs/*.lean` source set, so deleting or adding a proof file without updating the manifest fails `cargo test`.
+- ✅ `crates/kali_cli/tests/schema_docs.rs` now asserts that the `proofs/BOUNDARY.md` covered-path inventory matches the actual `proofs/*.lean` source set, and now also checks the published theorem inventory against the concrete Lean theorem and lemma names, so deleting or adding a proof file without updating the manifest fails `cargo test`.
