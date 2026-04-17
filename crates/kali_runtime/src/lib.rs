@@ -805,6 +805,9 @@ fn register_node_host_imports(
     let fs_promises_for_read_file = fs_promises.clone();
     let fs_promises_for_write_text = fs_promises.clone();
     let fs_promises_for_write_file = fs_promises.clone();
+    let process = node_projection.process().clone();
+    let process_for_argv_get = process.clone();
+    let process_for_env_get = process.clone();
     let stream = node_projection.stream();
     let http = node_projection.http();
 
@@ -1002,6 +1005,55 @@ fn register_node_host_imports(
             },
         )
         .map_err(|error| host_import_error("http_get", error))?;
+
+    linker
+        .func_wrap("kali:node", "process_args_len", move || -> i32 {
+            process.argv_len() as i32
+        })
+        .map_err(|error| host_import_error("process_args_len", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "process_args_get",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  index: i32,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                let Some(value) = process_for_argv_get
+                    .argv_at(index as usize)
+                    .map(str::to_owned)
+                else {
+                    return Ok(-1);
+                };
+                write_guest_bytes(&mut caller, out_ptr, out_cap, value.as_bytes())
+            },
+        )
+        .map_err(|error| host_import_error("process_args_get", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "process_env_get",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  key_ptr: i32,
+                  key_len: i32,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                let key = read_guest_string(&mut caller, key_ptr, key_len)?;
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::EnvironmentRead { key: key.clone() },
+                )?;
+                let Some(value) = process_for_env_get.env_get(&key).map(str::to_owned) else {
+                    return Ok(-1);
+                };
+                write_guest_bytes(&mut caller, out_ptr, out_cap, value.as_bytes())
+            },
+        )
+        .map_err(|error| host_import_error("process_env_get", error))?;
 
     Ok(())
 }
@@ -1656,6 +1708,70 @@ mod tests {
         let outcome = runtime.execute(&wasm).expect("runtime outcome");
         assert_eq!(outcome.exit_code, 0);
         server.join().expect("server thread");
+    }
+
+    #[test]
+    fn runtime_executes_node_process_host_imports() {
+        let runtime = RuntimeCtx::with_host_context_with_api_surface(
+            None,
+            vec!["node".into(), "script.ts".into()],
+            BTreeMap::from([(String::from("HOME"), String::from("/tmp/home"))]),
+            PathBuf::from("."),
+            "node",
+        );
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:node" "process_args_len" (func $args_len (result i32)))
+                (import "kali:node" "process_args_get" (func $args_get (param i32 i32 i32) (result i32)))
+                (import "kali:node" "process_env_get" (func $env_get (param i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "HOME")
+                (func (export "_start")
+                    call $args_len
+                    i32.const 2
+                    i32.ne
+                    if
+                        unreachable
+                    end
+                    i32.const 1
+                    i32.const 64
+                    i32.const 16
+                    call $args_get
+                    i32.const 9
+                    i32.ne
+                    if
+                        unreachable
+                    end
+                    i32.const 64
+                    i32.load8_u
+                    i32.const 115
+                    i32.ne
+                    if
+                        unreachable
+                    end
+                    i32.const 0
+                    i32.const 4
+                    i32.const 96
+                    i32.const 16
+                    call $env_get
+                    i32.const 9
+                    i32.ne
+                    if
+                        unreachable
+                    end
+                    i32.const 96
+                    i32.load8_u
+                    i32.const 47
+                    i32.ne
+                    if
+                        unreachable
+                    end))
+            "#,
+        );
+
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
     }
 
     #[test]

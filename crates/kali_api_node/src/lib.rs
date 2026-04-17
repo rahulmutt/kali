@@ -84,6 +84,16 @@ impl NodeProcess {
         &self.env
     }
 
+    /// Return the number of captured argv entries.
+    pub fn argv_len(&self) -> usize {
+        self.argv.len()
+    }
+
+    /// Return a captured argv entry by index.
+    pub fn argv_at(&self, index: usize) -> Option<&str> {
+        self.argv.get(index).map(String::as_str)
+    }
+
     /// Append text to stdout.
     pub fn write_stdout(&mut self, text: impl AsRef<str>) {
         self.stdout.push_str(text.as_ref());
@@ -377,6 +387,8 @@ pub struct NodeRuntimeProjection {
     http: NodeHttp,
     os: NodeOs,
     events: EventEmitter,
+    util: NodeUtil,
+    assert: NodeAssert,
 }
 
 impl NodeRuntimeProjection {
@@ -390,6 +402,8 @@ impl NodeRuntimeProjection {
             http: NodeHttp,
             os: NodeOs,
             events: EventEmitter::new(),
+            util: NodeUtil,
+            assert: NodeAssert,
         }
     }
 
@@ -407,6 +421,8 @@ impl NodeRuntimeProjection {
             http: NodeHttp,
             os: NodeOs,
             events: EventEmitter::new(),
+            util: NodeUtil,
+            assert: NodeAssert,
         }
     }
 
@@ -448,6 +464,14 @@ impl NodeRuntimeProjection {
 
     pub fn crypto(&self) -> NodeCrypto {
         NodeCrypto
+    }
+
+    pub fn util(&self) -> NodeUtil {
+        self.util
+    }
+
+    pub fn assert(&self) -> NodeAssert {
+        self.assert
     }
 }
 
@@ -551,6 +575,14 @@ impl NodeBuffer {
 
     pub fn as_slice(&self) -> &[u8] {
         &self.0
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     pub fn into_bytes(self) -> Vec<u8> {
@@ -914,6 +946,27 @@ pub fn util_inspect<T: std::fmt::Debug>(value: &T) -> String {
     format!("{:?}", value)
 }
 
+/// Namespace-style wrapper for util helpers.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NodeUtil;
+
+impl NodeUtil {
+    pub fn format<T: AsRef<str>>(parts: &[T]) -> String {
+        util_format(parts)
+    }
+
+    pub fn inspect<T: std::fmt::Debug>(value: &T) -> String {
+        util_inspect(value)
+    }
+
+    pub fn promisify<T: 'static, E: 'static, F>(operation: F) -> Result<T, E>
+    where
+        F: FnOnce(Box<dyn FnOnce(Result<T, E>)>),
+    {
+        util_promisify(operation)
+    }
+}
+
 /// Minimal `util.promisify`-style helper for synchronous callback bridges.
 ///
 /// The callback is invoked exactly once and its result is returned to the caller.
@@ -936,7 +989,7 @@ where
 }
 
 /// Minimal assertion helpers used by Node compatibility tests.
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NodeAssert;
 
 impl NodeAssert {
@@ -978,6 +1031,28 @@ impl NodeAssert {
         Self::equal(actual, expected, message)
     }
 
+    pub fn strict_equal<T>(
+        actual: &T,
+        expected: &T,
+        message: impl Into<String>,
+    ) -> Result<(), String>
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        Self::equal(actual, expected, message)
+    }
+
+    pub fn not_strict_equal<T>(
+        actual: &T,
+        expected: &T,
+        message: impl Into<String>,
+    ) -> Result<(), String>
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        Self::not_equal(actual, expected, message)
+    }
+
     pub fn fail(message: impl Into<String>) -> Result<(), String> {
         Err(message.into())
     }
@@ -1009,6 +1084,8 @@ mod tests {
         );
 
         assert_eq!(process.argv(), &["node", "script.js"]);
+        assert_eq!(process.argv_len(), 2);
+        assert_eq!(process.argv_at(1), Some("script.js"));
         assert_eq!(process.cwd(), Path::new("/workspace/project"));
         assert_eq!(process.env_get("HOME"), Some("/tmp/home"));
         assert_eq!(process.env_get("MISSING"), None);
@@ -1113,6 +1190,8 @@ mod tests {
     fn buffer_and_util_helpers_round_trip() {
         let buffer = NodeBuffer::from_utf8("hello");
         assert_eq!(buffer.as_slice(), b"hello");
+        assert_eq!(buffer.len(), 5);
+        assert!(!buffer.is_empty());
         assert_eq!(buffer.to_utf8().expect("utf8"), "hello");
 
         let bytes = NodeBuffer::from_bytes(vec![1, 2, 3]).into_bytes();
@@ -1120,13 +1199,24 @@ mod tests {
 
         let formatted = util_format(&["node", "compat", "layer"]);
         assert_eq!(formatted, "node compat layer");
+        assert_eq!(
+            NodeUtil::format(&["node", "compat", "layer"]),
+            "node compat layer"
+        );
         assert_eq!(util_inspect(&vec![1, 2, 3]), "[1, 2, 3]");
+        assert_eq!(NodeUtil::inspect(&vec![1, 2, 3]), "[1, 2, 3]");
         assert_eq!(
             util_promisify(|callback| callback(Ok::<_, String>(42))),
             Ok(42)
         );
+        assert_eq!(
+            NodeUtil::promisify(|callback| callback(Ok::<_, String>(21))),
+            Ok(21)
+        );
         assert_eq!(assert_true(true, "ok"), Ok(()));
         assert_eq!(assert_true(false, "fail"), Err("fail".to_string()));
+        assert_eq!(NodeAssert::strict_equal(&4, &4, "strict"), Ok(()));
+        assert_eq!(NodeAssert::not_strict_equal(&4, &5, "not strict"), Ok(()));
     }
 
     #[test]
@@ -1287,9 +1377,12 @@ mod tests {
             projection.process().argv(),
             &vec!["node".to_string(), "script.js".to_string()][..]
         );
+        assert_eq!(projection.process().argv_len(), 2);
         assert_eq!(projection.process().env_get("HOME"), Some("/tmp/home"));
         assert_eq!(projection.fs().cwd(), Path::new("/workspace/project"));
         assert!(!projection.os().platform().is_empty());
+        assert_eq!(projection.util(), NodeUtil);
+        assert_eq!(projection.assert(), NodeAssert);
 
         projection.process_mut().write_stdout("ok");
         assert_eq!(projection.process().stdout(), "ok");
