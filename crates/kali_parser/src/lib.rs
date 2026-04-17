@@ -3,9 +3,10 @@ use kali_ast::{
     ASTBuilder, BinaryExpression, BlockStatement, BreakStatement, CallExpression, CatchClause,
     ClassDeclaration, ContinueStatement, DebuggerStatement, DoWhileStatement, Expression,
     ExpressionStatement, ForInit, ForStatement, FunctionDeclaration, FunctionExpression,
-    FunctionParam, IfStatement, MemberExpression, ParenthesizedExpression, ReturnStatement,
-    Statement, SwitchCase, SwitchStatement, ThrowStatement, TryStatement, VariableDeclaration,
-    VariableDeclarator, WhileStatement, AST,
+    FunctionParam, IfStatement, ImportDeclaration, ImportExpression, ImportName,
+    ImportNamedSpecifier, ImportSpecifier, MemberExpression, ParenthesizedExpression,
+    ReturnStatement, Statement, SwitchCase, SwitchStatement, ThrowStatement, TryStatement,
+    VariableDeclaration, VariableDeclarator, WhileStatement, AST,
 };
 use kali_common::FileId;
 use kali_error::diagnostic::Diagnostic;
@@ -160,6 +161,13 @@ impl Parser {
             TokenType::Try => self.parse_try_statement(),
             TokenType::Debugger => self.parse_debugger_statement(),
             TokenType::Return => self.parse_return_statement(),
+            TokenType::Import => {
+                if self.stream.peek_next_kind() == Some(&TokenType::LeftParen) {
+                    self.parse_expression_statement()
+                } else {
+                    self.parse_import_declaration()
+                }
+            }
             TokenType::Identifier
             | TokenType::This
             | TokenType::True
@@ -624,6 +632,152 @@ impl Parser {
         }))
     }
 
+    fn parse_import_declaration(&mut self) -> Option<Statement> {
+        let _ = self.stream.advance();
+
+        if self.stream.current_kind() == Some(&TokenType::StringLiteral) {
+            let source = self
+                .stream
+                .advance()
+                .map(|token| unquote_string_literal(&token.value))
+                .unwrap_or_default();
+            let _ = self.stream.accept(TokenType::Semicolon);
+            return Some(Statement::ImportDeclaration(ImportDeclaration {
+                specifiers: vec![ImportSpecifier::SideEffect],
+                source,
+            }));
+        }
+
+        let mut specifiers = Vec::new();
+        let mut saw_default = false;
+
+        if self.stream.current_kind() == Some(&TokenType::Type) {
+            let _ = self.stream.advance();
+            let type_specifiers = self.parse_import_named_specifiers();
+            specifiers.push(ImportSpecifier::Type(type_specifiers));
+        } else if self.stream.current_kind() == Some(&TokenType::Star) {
+            if let Some(namespace) = self.parse_import_namespace_specifier() {
+                specifiers.push(namespace);
+            }
+        } else if self.stream.current_kind() == Some(&TokenType::LeftBrace) {
+            let named = self.parse_import_named_specifiers();
+            specifiers.push(ImportSpecifier::Named(named));
+        } else if self.stream.current_kind() == Some(&TokenType::Identifier) {
+            let default_local = self
+                .stream
+                .advance()
+                .map(|token| token.value)
+                .unwrap_or_default();
+            specifiers.push(ImportSpecifier::Default(default_local));
+            saw_default = true;
+        }
+
+        if saw_default && self.stream.current_kind() == Some(&TokenType::Comma) {
+            let _ = self.stream.advance();
+            if self.stream.current_kind() == Some(&TokenType::LeftBrace) {
+                let named = self.parse_import_named_specifiers();
+                specifiers.push(ImportSpecifier::Named(named));
+            } else if self.stream.current_kind() == Some(&TokenType::Star) {
+                if let Some(namespace) = self.parse_import_namespace_specifier() {
+                    specifiers.push(namespace);
+                }
+            }
+        }
+
+        if self.stream.current_kind() == Some(&TokenType::From) {
+            let _ = self.stream.advance();
+        }
+
+        let source = match self.stream.current_kind() {
+            Some(TokenType::StringLiteral) => self
+                .stream
+                .advance()
+                .map(|token| unquote_string_literal(&token.value))
+                .unwrap_or_default(),
+            _ => "unknown".to_string(),
+        };
+        let _ = self.stream.accept(TokenType::Semicolon);
+
+        if specifiers.is_empty() {
+            specifiers.push(ImportSpecifier::SideEffect);
+        }
+
+        Some(Statement::ImportDeclaration(ImportDeclaration {
+            specifiers,
+            source,
+        }))
+    }
+
+    fn parse_import_named_specifiers(&mut self) -> Vec<ImportNamedSpecifier> {
+        let mut specifiers = Vec::new();
+        if self.stream.current_kind() != Some(&TokenType::LeftBrace) {
+            return specifiers;
+        }
+
+        let _ = self.stream.advance();
+        loop {
+            match self.stream.current_kind() {
+                Some(TokenType::RightBrace) => {
+                    let _ = self.stream.advance();
+                    break;
+                }
+                Some(TokenType::Identifier) => {
+                    let imported = self
+                        .stream
+                        .advance()
+                        .map(|token| token.value)
+                        .unwrap_or_default();
+                    let mut local = imported.clone();
+                    let mut imported_name = None;
+
+                    if self.stream.current_kind() == Some(&TokenType::As) {
+                        let _ = self.stream.advance();
+                        if self.stream.current_kind() == Some(&TokenType::Identifier) {
+                            local = self
+                                .stream
+                                .advance()
+                                .map(|token| token.value)
+                                .unwrap_or(imported.clone());
+                            imported_name = Some(ImportName::Identifier(imported));
+                        }
+                    }
+
+                    specifiers.push(ImportNamedSpecifier {
+                        local,
+                        imported: imported_name,
+                    });
+                    let _ = self.stream.accept(TokenType::Comma);
+                }
+                _ => {
+                    let _ = self.stream.advance();
+                }
+            }
+        }
+
+        specifiers
+    }
+
+    fn parse_import_namespace_specifier(&mut self) -> Option<ImportSpecifier> {
+        if self.stream.current_kind() != Some(&TokenType::Star) {
+            return None;
+        }
+
+        let _ = self.stream.advance();
+        if self.stream.current_kind() == Some(&TokenType::As) {
+            let _ = self.stream.advance();
+            if self.stream.current_kind() == Some(&TokenType::Identifier) {
+                let local = self
+                    .stream
+                    .advance()
+                    .map(|token| token.value)
+                    .unwrap_or_default();
+                return Some(ImportSpecifier::Namespace(local));
+            }
+        }
+
+        None
+    }
+
     fn parse_expression(&mut self) -> Expression {
         self.parse_binary_expression(0)
     }
@@ -865,6 +1019,16 @@ impl Parser {
                 }))
             }
             TokenType::Function => self.parse_function_expression(),
+            TokenType::Import => {
+                let _ = self.stream.advance();
+                if self.stream.accept(TokenType::LeftParen) {
+                    let source = self.parse_expression();
+                    let _ = self.stream.accept(TokenType::RightParen);
+                    Expression::ImportExpression(Box::new(ImportExpression { source }))
+                } else {
+                    Expression::Identifier("import".to_string())
+                }
+            }
             TokenType::New => {
                 let _ = self.stream.advance();
                 let callee = self.parse_call_expression();
@@ -894,6 +1058,25 @@ pub struct ParserOutput {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+fn unquote_string_literal(value: &str) -> String {
+    let trimmed = value.trim();
+    let Some(first) = trimmed.chars().next() else {
+        return trimmed.to_string();
+    };
+    let Some(last) = trimmed.chars().last() else {
+        return trimmed.to_string();
+    };
+
+    if (first == '"' && last == '"')
+        || (first == '\'' && last == '\'')
+        || (first == '`' && last == '`')
+    {
+        trimmed[1..trimmed.len().saturating_sub(1)].to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -916,6 +1099,65 @@ mod tests {
             Statement::VariableDeclaration(vd) => {
                 assert_eq!(vd.kind, "var");
                 assert_eq!(vd.declarations.len(), 1);
+            }
+            _ => panic!("Expected VariableDeclaration"),
+        }
+    }
+
+    #[test]
+    fn test_parse_side_effect_import_declaration() {
+        let tokens = lex("import \"mod\";");
+        let mut parser = Parser::new(FileId::new(0), tokens);
+        let output = parser.parse(None);
+        assert_eq!(output.statements.len(), 1);
+
+        match &output.statements[0] {
+            Statement::ImportDeclaration(decl) => {
+                assert_eq!(decl.source, "mod");
+                assert_eq!(decl.specifiers, vec![ImportSpecifier::SideEffect]);
+            }
+            _ => panic!("Expected ImportDeclaration"),
+        }
+    }
+
+    #[test]
+    fn test_parse_default_import_declaration() {
+        let tokens = lex("import value from \"mod\";");
+        let mut parser = Parser::new(FileId::new(0), tokens);
+        let output = parser.parse(None);
+        assert_eq!(output.statements.len(), 1);
+
+        match &output.statements[0] {
+            Statement::ImportDeclaration(decl) => {
+                assert_eq!(decl.source, "mod");
+                assert_eq!(
+                    decl.specifiers,
+                    vec![ImportSpecifier::Default("value".to_string())]
+                );
+            }
+            _ => panic!("Expected ImportDeclaration"),
+        }
+    }
+
+    #[test]
+    fn test_parse_dynamic_import_expression() {
+        let tokens = lex("const mod = import(\"./lazy\");");
+        let mut parser = Parser::new(FileId::new(0), tokens);
+        let output = parser.parse(None);
+        assert_eq!(output.statements.len(), 1);
+
+        match &output.statements[0] {
+            Statement::VariableDeclaration(vd) => {
+                let init = vd.declarations[0].init.as_ref().expect("initializer");
+                match init {
+                    Expression::ImportExpression(expr) => match &expr.source {
+                        Expression::Literal(kali_ast::LiteralValue::String(source)) => {
+                            assert_eq!(source, "\"./lazy\"")
+                        }
+                        other => panic!("unexpected import source: {other:?}"),
+                    },
+                    other => panic!("Expected ImportExpression, got {other:?}"),
+                }
             }
             _ => panic!("Expected VariableDeclaration"),
         }

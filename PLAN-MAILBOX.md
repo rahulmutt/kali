@@ -1,5 +1,13 @@
 # PLAN Mailbox
 
+## 2026-04-17 — Parser import syntax acceptance and package-corpus follow-up
+
+Added parser support for import declarations and literal dynamic `import()` expressions so the AST now follows the already-documented import path instead of dropping those statements. That unblocked the package-corpus tests, which now rely on real import parsing again rather than bypassing the syntax entirely.
+
+Suggested follow-up:
+- keep an eye on later browser code-splitting work, since literal dynamic `import()` now reaches the AST path that those stages expect
+- if a later stage needs explicit import-boundary lowering, wire the plan notes to that stage instead of reintroducing import-syntax gaps
+
 ## 2026-04-17 — Stage 3.3 browser-bundle wrapper/source-map progress note
 
 Updated the Stage 3.3 status note to reflect that browser-bundle output now ships with a deterministic source-map companion and explicit `--format esm|cjs` wrapper selection, and that the JSON output records the selected wrapper format and full artifact list.
@@ -54,7 +62,7 @@ Stage 2.1's remaining escape-analysis gap was closed by teaching `kali_mir` to r
 
 ## 2026-04-12 — Stage 2.4 provisional Lean model update
 
-`PLAN.md`'s Stage 2.4 row was updated to reflect the checked-in Lean workspace and the fact that the current progress/preservation work is still represented by theorem statements with documented-`sorry` placeholders.
+`PLAN.md`'s Stage 2.4 row was updated to reflect the checked-in Lean workspace and the fact that the current progress/preservation work is still represented by theorem statements with documented-sorry placeholders.
 
 No change was made to the Phase 2 completion gate yet; it should continue to read as an open gate until the later proof-backed work closes the remaining obligations.
 

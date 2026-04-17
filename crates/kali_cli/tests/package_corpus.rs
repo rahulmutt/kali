@@ -36,7 +36,6 @@ fn write_stub_package(root: &Path, name: &str, body: &str) {
         format!(
             r#"{{
   "name": "{}",
-  "version": "1.0.0",
   "main": "index.js"
 }}"#,
             name
@@ -44,6 +43,28 @@ fn write_stub_package(root: &Path, name: &str, body: &str) {
     )
     .expect("write package.json");
     fs::write(package_dir.join("index.js"), body).expect("write package entry");
+}
+
+fn write_types_stub_package(root: &Path, name: &str) {
+    let types_name = format!("@types/{}", name);
+    let package_dir = root.join("node_modules").join(&types_name);
+    fs::create_dir_all(&package_dir).expect("create types package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        format!(
+            r#"{{
+  "name": "{}",
+  "types": "index.d.ts"
+}}"#,
+            types_name
+        ),
+    )
+    .expect("write types package.json");
+    fs::write(
+        package_dir.join("index.d.ts"),
+        "declare const value: unknown;\n",
+    )
+    .expect("write types package entry");
 }
 
 fn run_kali<I, S>(root: &Path, args: I) -> std::process::Output
@@ -68,6 +89,7 @@ fn browser_corpus_packages_remain_checkable_and_deployable_through_host() {
             package,
             "export default function widget() { return 'ok'; }\n",
         );
+        write_types_stub_package(dir.path(), package);
         let source_path = dir.path().join("main.ts");
         fs::write(
             &source_path,
@@ -118,6 +140,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
             package,
             "export default function widget() { return 'ok'; }\n",
         );
+        write_types_stub_package(dir.path(), package);
         let source_path = dir.path().join("main.ts");
         fs::write(
             &source_path,
@@ -158,6 +181,7 @@ fn node_runner_corpus_packages_require_the_node_context_but_remain_executable_th
 export default assert;
 "#,
         );
+        write_types_stub_package(dir.path(), package);
         let test_path = dir
             .path()
             .join("tests")

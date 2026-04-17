@@ -9,6 +9,7 @@
 - ✅ `cargo test --workspace` passes
 - ✅ Parser handles variable declarations, blocks, functions, classes, control flow, try/catch, switch, debugger, throw, break/continue
 - ✅ Parser handles primary expressions, function expressions, call chains, member access, binary expressions, and `new`
+- ✅ Parser now accepts import declarations and literal dynamic `import()` expressions, which keeps package-corpus analysis and later code-splitting work on the real AST path
 - ✅ Lexer fixes landed for punctuation advancement, `debugger`, and division tokens
 
 ### Stage 1.4 - Name Resolution
