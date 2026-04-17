@@ -17,8 +17,10 @@ Suggested follow-up:
 
 I found one remaining summary-doc drift point after the proof boundary widened: the published boundary already names `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount`, but the high-level verification summaries still need to mention that final-heap positive-count theorem explicitly alongside the other RC snapshot slice claims.
 
+Completed follow-up:
+- updated `specs/19-feature-maturity.md` so the verification-baseline clarification now names `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` explicitly alongside the other RC snapshot lemmas
+
 Suggested follow-up:
-- sync `README.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the published verification summaries name `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` alongside the other `releaseAndCollect` helper theorems
 - keep the Stage 4.2 claim narrow; this is still a helper-level no-negative-count theorem, not the full ownership/freeing story
 
 ## 2026-04-17 — Stage 4.2 testing-summary sync follow-up
