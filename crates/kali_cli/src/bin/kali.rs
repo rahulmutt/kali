@@ -13,8 +13,8 @@ use kali_error::{_error_codes::e5, Diagnostic};
 use kali_fmt::format_source;
 use kali_lint::lint_with_options;
 use kali_npm::{
-    discover_project_root, ensure_project_ready, install_project, load_manifest, InstallOptions,
-    ProjectManifest,
+    audit_registry_package, discover_project_root, ensure_project_ready, install_project,
+    load_manifest, InstallOptions, ProjectManifest,
 };
 use kali_runtime::RuntimeCtx;
 use kali_sandbox::{
@@ -2586,28 +2586,69 @@ fn package_audit_command(target: String, output: &CliOutputOptions) -> Result<()
         }
     };
 
-    let summary = format!(
-        "Package audit scaffold for {} package '{}'; no security findings are computed yet.",
-        parsed.registry, parsed.report_label
-    );
+    let audit = match audit_registry_package(&parsed.registry, &parsed.package_name) {
+        Ok(audit) => audit,
+        Err(diagnostic) => {
+            return emit_diagnostics_and_exit(
+                "package-audit",
+                vec![diagnostic],
+                1,
+                output,
+                None,
+                None,
+            );
+        }
+    };
+
+    let kali_npm::RegistryPackageAudit {
+        registry,
+        name,
+        version,
+        findings,
+    } = audit;
+    let has_errors = findings.iter().any(|diagnostic| diagnostic.is_error());
+    let summary = if findings.is_empty() {
+        format!(
+            "Package audit completed for {} package '{}@{}'; no security findings were computed.",
+            registry, name, version
+        )
+    } else {
+        let error_count = findings
+            .iter()
+            .filter(|diagnostic| diagnostic.is_error())
+            .count();
+        let warning_count = findings.len() - error_count;
+        format!(
+            "Package audit completed for {} package '{}@{}'; {} error(s), {} warning(s).",
+            registry, name, version, error_count, warning_count
+        )
+    };
 
     if output.is_json() {
+        let (errors, warnings) = split_and_convert_diagnostics(&findings, None, None);
         print_envelope(
             "package-audit",
-            true,
-            vec![],
-            vec![],
+            errors.is_empty(),
+            errors,
+            warnings,
             Value::Null,
             Some(summary),
             None,
-            0,
+            if has_errors { 1 } else { 0 },
             output,
         );
     } else if !output.quiet {
         println!("{summary}");
+        for diagnostic in &findings {
+            eprintln!("{}", diagnostic);
+        }
     }
 
-    Ok(())
+    if has_errors {
+        Err(1)
+    } else {
+        Ok(())
+    }
 }
 
 fn install_command(

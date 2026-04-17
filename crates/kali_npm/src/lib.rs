@@ -177,6 +177,15 @@ pub struct InstallSummary {
     pub installed: Vec<String>,
 }
 
+/// The outcome of a registry package audit.
+#[derive(Debug, Clone)]
+pub struct RegistryPackageAudit {
+    pub registry: String,
+    pub name: String,
+    pub version: String,
+    pub findings: Vec<Diagnostic>,
+}
+
 pub fn discover_project_root(start: impl AsRef<Path>) -> Option<PathBuf> {
     let mut current = start.as_ref().canonicalize().ok()?;
     loop {
@@ -1392,8 +1401,22 @@ fn resolve_npm_package(
     name: &str,
     requested_version: Option<&str>,
 ) -> Result<ResolvedRegistryPackage, Diagnostic> {
-    let metadata_url = format!("{}/{}", DEFAULT_NPM_REGISTRY, encode_package_name(name));
+    let metadata_url = npm_registry_metadata_url(name);
     resolve_npm_like_package("npm", name, name, &metadata_url, requested_version)
+}
+
+fn npm_registry_base_url() -> String {
+    std::env::var("KALI_REGISTRY").unwrap_or_else(|_| DEFAULT_NPM_REGISTRY.to_string())
+}
+
+fn npm_registry_metadata_url(name: &str) -> String {
+    format!("{}/{}", npm_registry_base_url(), encode_package_name(name))
+}
+
+fn jsr_registry_metadata_url(name: &str) -> String {
+    let raw_name = name.trim_start_matches("jsr:");
+    let compat_name = jsr_compat_name(raw_name);
+    format!("https://npm.jsr.io/{}", encode_package_name(&compat_name))
 }
 
 fn fetch_registry_metadata(
@@ -1471,8 +1494,7 @@ fn resolve_jsr_package(
     requested_version: Option<&str>,
 ) -> Result<ResolvedRegistryPackage, Diagnostic> {
     let raw_name = name.trim_start_matches("jsr:");
-    let compat_name = jsr_compat_name(raw_name);
-    let metadata_url = format!("https://npm.jsr.io/{}", encode_package_name(&compat_name));
+    let metadata_url = jsr_registry_metadata_url(name);
     resolve_npm_like_package("jsr", name, raw_name, &metadata_url, requested_version)
 }
 
@@ -1541,6 +1563,146 @@ fn resolve_npm_like_package(
         version,
         resolved: tarball.to_string(),
         integrity,
+    })
+}
+
+fn audit_package_version_metadata(
+    registry: &str,
+    package_name: &str,
+    version: &str,
+    version_meta: &serde_json::Map<String, serde_json::Value>,
+) -> Vec<Diagnostic> {
+    let mut findings = Vec::new();
+
+    let mut lifecycle_phases = Vec::new();
+    if let Some(scripts) = version_meta
+        .get("scripts")
+        .and_then(|value| value.as_object())
+    {
+        for phase in ["preinstall", "install", "postinstall"] {
+            if let Some(script) = scripts.get(phase).and_then(|value| value.as_str()) {
+                if !script.trim().is_empty() {
+                    lifecycle_phases.push(phase);
+                    if script.contains("node-gyp") {
+                        findings.push(Diagnostic::error(
+                            e6::INCOMPATIBLE_PACKAGE as u32,
+                            format!(
+                                "package '{package_name}'@{version} in {registry} uses a node-gyp lifecycle script and falls outside the pure JS/TS package contract",
+                            ),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    if !lifecycle_phases.is_empty() {
+        findings.push(
+            Diagnostic::warning(
+                e6::LIFECYCLE_SCRIPT_REJECTED as u32,
+                format!(
+                    "package '{package_name}'@{version} in {registry} declares lifecycle scripts in {}",
+                    lifecycle_phases.join(", ")
+                ),
+            )
+            .note("package-audit treats install-time scripts as a security finding"),
+        );
+    }
+
+    if version_meta
+        .get("gypfile")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false)
+    {
+        findings.push(Diagnostic::error(
+            e6::INCOMPATIBLE_PACKAGE as u32,
+            format!(
+                "package '{package_name}'@{version} in {registry} declares gypfile=true and falls outside the pure JS/TS package contract",
+            ),
+        ));
+    }
+
+    if let Some(path) = version_meta
+        .get("main")
+        .and_then(|value| value.as_str())
+        .or_else(|| version_meta.get("module").and_then(|value| value.as_str()))
+        .filter(|path| path.ends_with(".node"))
+    {
+        findings.push(Diagnostic::error(
+            e6::INCOMPATIBLE_PACKAGE as u32,
+            format!(
+                "package '{package_name}'@{version} in {registry} publishes a native addon entrypoint '{path}' and falls outside the pure JS/TS package contract",
+            ),
+        ));
+    }
+
+    if let Some(path) = version_meta.get("bin").and_then(|value| match value {
+        serde_json::Value::String(path) if path.ends_with(".node") => Some(path.as_str()),
+        serde_json::Value::Object(map) => map
+            .values()
+            .find_map(|value| value.as_str().filter(|path| path.ends_with(".node"))),
+        _ => None,
+    }) {
+        findings.push(Diagnostic::error(
+            e6::INCOMPATIBLE_PACKAGE as u32,
+            format!(
+                "package '{package_name}'@{version} in {registry} publishes a native addon bin entrypoint '{path}' and falls outside the pure JS/TS package contract",
+            ),
+        ));
+    }
+
+    findings
+}
+
+pub fn audit_registry_package(
+    registry: &str,
+    name: &str,
+) -> Result<RegistryPackageAudit, Diagnostic> {
+    let resolved = resolve_registry_package(registry, name, None)?;
+    let ResolvedRegistryPackage {
+        registry: resolved_registry,
+        name: resolved_name,
+        version: resolved_version,
+        ..
+    } = resolved;
+    let metadata_url = match registry {
+        "npm" => npm_registry_metadata_url(name),
+        "jsr" => jsr_registry_metadata_url(name),
+        other => {
+            return Err(Diagnostic::error(
+                e6::INVALID_PACKAGE_SPECIFIER as u32,
+                format!("unsupported registry '{}' for package '{}'", other, name),
+            ))
+        }
+    };
+    let metadata = fetch_registry_metadata(registry, name, &metadata_url)?;
+    let versions = metadata
+        .get("versions")
+        .and_then(|value| value.as_object())
+        .ok_or_else(|| {
+            Diagnostic::error(
+                e6::NOT_FOUND as u32,
+                format!(
+                    "{} metadata for '{}' does not contain versions",
+                    registry, name
+                ),
+            )
+        })?;
+    let version_meta = versions
+        .get(&resolved_version)
+        .and_then(|value| value.as_object())
+        .ok_or_else(|| {
+            Diagnostic::error(
+                e6::NOT_FOUND as u32,
+                format!("missing metadata for '{}'@{}", name, resolved_version),
+            )
+        })?;
+
+    Ok(RegistryPackageAudit {
+        registry: resolved_registry,
+        name: resolved_name,
+        version: resolved_version.clone(),
+        findings: audit_package_version_metadata(registry, name, &resolved_version, version_meta),
     })
 }
 

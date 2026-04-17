@@ -1,9 +1,16 @@
 use std::{
     collections::BTreeMap,
     fs,
+    io::{Read, Write},
+    net::TcpListener,
     path::{Path, PathBuf},
     process::Command,
-    time::Instant,
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc,
+    },
+    thread,
+    time::{Duration, Instant},
 };
 
 use serde_json::{json, Value};
@@ -27,6 +34,53 @@ fn fixture_path(relative: impl AsRef<Path>) -> PathBuf {
 
 fn parse_json_stdout(output: &std::process::Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("valid json stdout")
+}
+
+fn start_registry_metadata_server(
+    body: &'static str,
+) -> (
+    String,
+    Arc<AtomicUsize>,
+    Arc<AtomicBool>,
+    thread::JoinHandle<()>,
+) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind registry metadata server");
+    listener.set_nonblocking(true).expect("set nonblocking");
+    let addr = listener.local_addr().expect("registry metadata address");
+    let hits = Arc::new(AtomicUsize::new(0));
+    let stop = Arc::new(AtomicBool::new(false));
+    let hits_thread = hits.clone();
+    let stop_thread = stop.clone();
+    let handle = thread::spawn(move || loop {
+        if stop_thread.load(Ordering::SeqCst) {
+            break;
+        }
+
+        match listener.accept() {
+            Ok((mut stream, _)) => {
+                hits_thread.fetch_add(1, Ordering::SeqCst);
+                let mut buffer = [0u8; 1024];
+                let _ = stream.read(&mut buffer);
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                let _ = stream.write_all(response.as_bytes());
+                let _ = stream.flush();
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(5));
+            }
+            Err(_) => break,
+        }
+    });
+    (
+        format!("http://127.0.0.1:{}", addr.port()),
+        hits,
+        stop,
+        handle,
+    )
 }
 
 fn read_artifact_bytes(paths: &[PathBuf]) -> BTreeMap<PathBuf, Vec<u8>> {
@@ -2733,14 +2787,54 @@ fn check_with_sandbox_rejects_inferred_effects() {
     assert!(stderr.contains("E9007"), "stderr: {stderr}");
 }
 
+fn package_audit_metadata_body(
+    postinstall_script: Option<&str>,
+    native_addon: bool,
+) -> &'static str {
+    let mut version = json!({
+        "name": "lodash",
+        "version": "1.0.0",
+        "main": if native_addon { "native.node" } else { "index.js" },
+        "dist": {
+            "tarball": "http://127.0.0.1:0/lodash.tgz",
+            "integrity": "sha512-demo"
+        }
+    });
+
+    if let Some(script) = postinstall_script {
+        version["scripts"] = json!({"postinstall": script});
+    }
+
+    Box::leak(
+        json!({
+            "versions": {
+                "1.0.0": version
+            }
+        })
+        .to_string()
+        .into_boxed_str(),
+    )
+}
+
 #[test]
 fn package_audit_command_emits_envelope() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
     let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
         .arg("package-audit")
         .arg("lodash")
         .output()
         .expect("run kali");
 
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -2748,14 +2842,18 @@ fn package_audit_command_emits_envelope() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("Package audit scaffold"),
+        stdout.contains("no security findings were computed"),
         "stdout: {stdout}"
     );
 }
 
 #[test]
 fn package_audit_command_emits_json_envelope() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
     let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
         .arg("package-audit")
         .arg("--output")
         .arg("json")
@@ -2763,6 +2861,13 @@ fn package_audit_command_emits_json_envelope() {
         .output()
         .expect("run kali");
 
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -2776,25 +2881,50 @@ fn package_audit_command_emits_json_envelope() {
     assert!(json["stdout"]
         .as_str()
         .expect("stdout string")
-        .contains("Package audit scaffold"));
+        .contains("no security findings were computed"));
+    assert_eq!(json["warnings"], serde_json::Value::Array(vec![]));
+    assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
 }
 
 #[test]
-fn package_audit_command_emits_text_summary() {
+fn package_audit_command_reports_findings() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(Some("echo ok"), false));
+
     let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
         .arg("package-audit")
+        .arg("--output")
+        .arg("json")
         .arg("lodash")
         .output()
         .expect("run kali");
 
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
     assert!(
         output.status.success(),
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("Package audit scaffold"),
-        "stdout: {stdout}"
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"], serde_json::Value::Null);
+    assert!(json["stdout"]
+        .as_str()
+        .expect("stdout string")
+        .contains("0 error(s), 1 warning(s)"));
+    assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
+    assert_eq!(
+        json["warnings"].as_array().expect("warnings array").len(),
+        1
     );
+    assert_eq!(json["warnings"][0]["code"], "W6006");
 }
