@@ -208,7 +208,9 @@ theorem releaseAndCollectDropsOriginalZeroCountCells (snapshot : RcSnapshot) (re
   have hfilter : cell ∈ (releaseAndDecrement snapshot ref).heap.filter (fun cell => cell.refCount > 0) := by
     simpa [releaseAndCollect] using hpresent
   have hpos : decide (cell.refCount > 0) = true := (List.mem_filter.mp hfilter).2
-  exact False.elim (by simpa [hzero] using hpos)
+  have hfalse : False := by
+    simp [hzero] at hpos
+  exact False.elim hfalse
 
 /-- The release-and-collect helper's heap is exactly the positive-count filter of the decrement pass. -/
 theorem releaseAndCollectHeapIsPositiveCountFilter (snapshot : RcSnapshot) (ref : String) :
@@ -222,7 +224,8 @@ theorem releaseAndCollectHeapCellsHavePositiveCount (snapshot : RcSnapshot) (ref
   intro cell hmem
   have hfilter : cell ∈ (releaseAndDecrement snapshot ref).heap.filter (fun cell => cell.refCount > 0) := by
     simpa [releaseAndCollect] using hmem
-  simpa using (List.mem_filter.mp hfilter).2
+  have hdec : decide (cell.refCount > 0) = true := (List.mem_filter.mp hfilter).2
+  exact of_decide_eq_true hdec
 
 /-- A release-and-collect step preserves the well-formedness of the remaining
 live set because zero-count cells are collected after the decrement pass. -/
@@ -314,6 +317,26 @@ theorem releaseAndDecrementReleasedNotLiveRef (snapshot : RcSnapshot) (ref : Str
   have hwf : WellFormed (releaseAndDecrement snapshot ref) :=
     releaseAndDecrementPreservesWellFormed snapshot ref h
   exact releasedNotLiveRef (releaseAndDecrement snapshot ref) hwf r hr hlive
+
+/-- A release-only step keeps the surviving live references anchored in ownership and allocation. -/
+theorem releaseRefLiveRefsAreOwnedAndAllocated (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    ∀ r, r ∈ (releaseRef snapshot ref).liveRefs →
+      hasOwnership (releaseRef snapshot ref).ownership r ∧
+      allocated (releaseRef snapshot ref) r := by
+  intro r hr
+  have hwf : WellFormed (releaseRef snapshot ref) :=
+    releasePreservesWellFormed snapshot ref h
+  exact liveRefsAreOwnedAndAllocated (releaseRef snapshot ref) hwf r hr
+
+/-- Released references stay disjoint from the live set after a release-only step. -/
+theorem releaseRefReleasedNotLiveRef (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    ∀ r, r ∈ (releaseRef snapshot ref).releasedRefs → r ∉ (releaseRef snapshot ref).liveRefs := by
+  intro r hr hlive
+  have hwf : WellFormed (releaseRef snapshot ref) :=
+    releasePreservesWellFormed snapshot ref h
+  exact releasedNotLiveRef (releaseRef snapshot ref) hwf r hr hlive
 
 /-- A released reference is recorded in the released set after the release step. -/
 theorem releaseRecorded (snapshot : RcSnapshot) (ref : String) :

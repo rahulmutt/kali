@@ -91,3 +91,11 @@ I added `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount`, which mak
 
 Suggested follow-up:
 - keep the Stage 4.2 RC widening incremental; this is still a helper-level local collection fact, not the broader ownership/freeing target
+
+## 2026-04-17 — Verification summary sync for pure release-helper corollaries
+
+I widened the current proof-backed RC snapshot slice with pure release-helper corollaries (`releaseRefLiveRefsAreOwnedAndAllocated` and `releaseRefReleasedNotLiveRef`) on top of the existing release/decrement/collection helper invariants.
+
+Suggested follow-up:
+- sync `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the proof-backed boundary inventory names the new release-helper theorems
+- keep the broader Stage 4.2 ownership/freeing target narrower than this helper-level slice

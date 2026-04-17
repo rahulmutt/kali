@@ -145,3 +145,9 @@
 - ✅ `releaseAndCollectReleasedNotLiveRef` keeps the local collection helper's live/released disjointness explicit.
 - ✅ `releaseAndCollectHeapIsPositiveCountFilter` records the local collection helper's heap as exactly the positive-count filter of the decrement pass.
 - ✅ `releaseAndCollectHeapCellsHavePositiveCount` now states the local collection helper's final heap contains only positive-count cells.
+
+
+### Stage 4.2 - Pure release-helper follow-up
+- ✅ `releaseRefLiveRefsAreOwnedAndAllocated` now keeps the pure release helper's surviving live references anchored in ownership and allocation.
+- ✅ `releaseRefReleasedNotLiveRef` now keeps released references disjoint from the live set after the pure release helper runs.
+- ✅ `releaseRecorded` still records the released reference in the released set after the pure release step.

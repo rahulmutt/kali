@@ -96,3 +96,11 @@ I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCo
 
 Suggested follow-up:
 - keep the broader Stage 4.2 ownership/freeing story incremental; this remains a helper-level slice, not the full RC target
+
+## 2026-04-17 — Stage 4.2 pure release-helper follow-up
+
+I widened the current RC snapshot proof slice with pure release-helper corollaries (`releaseRefLiveRefsAreOwnedAndAllocated` and `releaseRefReleasedNotLiveRef`) so the proof-backed boundary now covers the release-only helper in addition to the decrement and local collection paths.
+
+Suggested follow-up:
+- sync `PLAN-4.2-STATUS.md`, `TODO.md`, and the proof-boundary / verification summary docs so the progress tracker names the new pure release-helper corollaries
+- keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level slice, not the full ownership/freeing story
