@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 helper-level no-dangling corollaries
+
+I widened the proof-backed RC snapshot slice with helper-level no-dangling-reference corollaries for the release-only, decrement, and collection helpers (`KaliCore.Safety.releaseRefNoDanglingReference`, `KaliCore.Safety.releaseAndDecrementNoDanglingReference`, and `KaliCore.Safety.releaseAndCollectNoDanglingReference`).
+
+Suggested follow-up:
+- sync the proof-boundary manifest and the verification summaries so the no-dangling helper corollaries are named explicitly alongside the existing RC snapshot theorem inventory
+- keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level safety corollary slice, not the full RC target
+
 ## 2026-04-17 — Stage 4.2 decrement positive-count follow-up
 
 I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndDecrementKeepsOtherPositiveCountCells`, then synced the proof-boundary manifest plus the verification summaries in `README.md`, `specs/16-testing.md`, and `specs/19-feature-maturity.md` so the published boundary and release-claim wording now name the decrement-path positive-count preservation theorem explicitly.

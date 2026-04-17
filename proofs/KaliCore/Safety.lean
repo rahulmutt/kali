@@ -466,4 +466,22 @@ theorem releaseRecorded (snapshot : RcSnapshot) (ref : String) :
     ref ∈ (releaseRef snapshot ref).releasedRefs := by
   simp [releaseRef]
 
+/-- A release-only step preserves the no-dangling-reference property on well-formed snapshots. -/
+theorem releaseRefNoDanglingReference (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    ¬ DanglingReference (releaseRef snapshot ref) := by
+  exact noDanglingReference (releaseRef snapshot ref) (releasePreservesWellFormed snapshot ref h)
+
+/-- A release-and-decrement step preserves the no-dangling-reference property on well-formed snapshots. -/
+theorem releaseAndDecrementNoDanglingReference (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    ¬ DanglingReference (releaseAndDecrement snapshot ref) := by
+  exact noDanglingReference (releaseAndDecrement snapshot ref) (releaseAndDecrementPreservesWellFormed snapshot ref h)
+
+/-- A release-and-collect step preserves the no-dangling-reference property on well-formed snapshots. -/
+theorem releaseAndCollectNoDanglingReference (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    ¬ DanglingReference (releaseAndCollect snapshot ref) := by
+  exact noDanglingReference (releaseAndCollect snapshot ref) (releaseAndCollectPreservesWellFormed snapshot ref h)
+
 end KaliCore

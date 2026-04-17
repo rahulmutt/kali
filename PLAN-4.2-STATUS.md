@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 helper-level no-dangling corollaries
+
+I widened the current RC snapshot proof slice with helper-level no-dangling-reference corollaries for `releaseRefNoDanglingReference`, `releaseAndDecrementNoDanglingReference`, and `releaseAndCollectNoDanglingReference`, and the stage tracker should name them explicitly alongside the existing RC helper inventory.
+
+Suggested follow-up:
+- keep the Stage 4.2 progress notes aligned if the helper-level safety slice widens again
+- continue treating this as a helper-level RC slice; the broader ownership/freeing target is still wider than the current proof-backed boundary
+
 # Stage 4.2 Status Update
 
 **Date:** 2026-04-17  
