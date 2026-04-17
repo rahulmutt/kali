@@ -23,4 +23,11 @@ This file records the proposition that Stage 4.2 is expected to mechanize fully.
 def NoDanglingReference (_ownership : OwnershipEnv) (program : Expr) : Prop :=
   ¬ DanglingReference program
 
+/-- In the current bounded syntax fragment there are no reference-producing
+constructs, so the provisional no-dangling-reference statement is derivable for
+all ownership environments and programs. -/
+theorem noDanglingReference (ownership : OwnershipEnv) (program : Expr) : NoDanglingReference ownership program := by
+  intro h
+  exact h.elim
+
 end KaliCore

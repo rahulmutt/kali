@@ -21,4 +21,13 @@ def lower : HIRExpr → KaliCore.Expr
 
 @[simp] theorem lower_core (e : KaliCore.Expr) : lower (.core e) = e := rfl
 
+@[simp] theorem lower_let1 (x : String) (value body : HIRExpr) :
+    lower (.let1 x value body) = .EApp (.EFun x .TAny (lower body)) (lower value) := rfl
+
+@[simp] theorem lower_seq (e1 e2 : HIRExpr) :
+    lower (.seq e1 e2) = .ESeq (lower e1) (lower e2) := rfl
+
+@[simp] theorem lower_if (c t e : HIRExpr) :
+    lower (.if c t e) = .EIf (lower c) (lower t) (lower e) := rfl
+
 end KaliIR

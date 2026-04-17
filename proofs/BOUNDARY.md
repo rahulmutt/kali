@@ -35,17 +35,17 @@ Release rule:
 ### Ownership model (`proofs/KaliCore/Safety.lean`)
 - Ownership classes: `stack`, `ownedHeap`, `sharedHeap`, `borrowed`
 - Claimed property inventory: no dangling references for the provisional ownership model
-- Current proof state: property statement present as a stub for later mechanization
+- Current proof state: the `noDanglingReference` theorem is mechanised for the current reference-free bounded syntax, but the model remains narrower than the eventual Stage 4.2 ownership / RC target
 
 ### HIR model stub (`proofs/KaliIR/HIRModel.lean`)
 - Provisional HIR syntax and a core lowering projection for future lowering-correctness work
-- Current proof state: model stub only; no lowering-correctness claim is made here yet
+- Current proof state: structural lowering equations (`lower_core`, `lower_let1`, `lower_seq`, `lower_if`) are mechanised, but semantic lowering-correctness still remains future work
 
 ## Claimed theorems/properties
 - `KaliCore.Soundness.progress` — progress for the widened closed typed core fragment
 - `KaliCore.Soundness.preservation` — preservation for the widened closed typed core fragment
-- `KaliCore.Safety.NoDanglingReference` — provisional no-dangling-reference statement
-- `KaliIR.HIRModel.lower_core` — sanity lemma for the provisional HIR lowering projection
+- `KaliCore.Safety.noDanglingReference` — mechanised no-dangling-reference theorem for the current reference-free bounded syntax
+- `KaliIR.HIRModel.lower_core`, `lower_let1`, `lower_seq`, `lower_if` — structural lowering equations for the provisional HIR projection
 
 ## Trusted assumptions
 - The proof tree is a provisional modeling aid; the release/support boundary remains proof-ready only.
