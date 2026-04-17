@@ -36,3 +36,11 @@ I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCo
 Suggested follow-up:
 - sync `proofs/BOUNDARY.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `README.md` so the published boundary inventory names the new no-leak helper theorem
 - keep the broader Stage 4.2 ownership/freeing target narrower than this helper-level slice
+
+## 2026-04-17 — Stage 4.2 releaseAndCollect other-live preservation follow-up
+
+I widened the current RC snapshot proof slice with a helper-level lemma that `releaseAndCollect` preserves any other live reference's ownership/allocation story, so the local collection helper now explicitly covers the remaining live set as well as the release/decrement bookkeeping.
+
+Suggested follow-up:
+- sync the proof boundary / verification summaries and the Stage 4.2 progress tracker so the new local-helper theorem is named explicitly
+- keep the claim narrow: this is still the local collection-helper slice, not the full ownership/freeing target

@@ -219,6 +219,17 @@ theorem releaseAndCollectReleasedNotLiveRef (snapshot : RcSnapshot) (ref : Strin
     releaseAndCollectPreservesWellFormed snapshot ref h
   exact releasedNotLiveRef (releaseAndCollect snapshot ref) hwf r hr hlive
 
+/-- Live references other than the released target remain live after the local release-and-collect helper runs. -/
+theorem releaseAndCollectPreservesOtherLiveRefs (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    ∀ r, r ∈ snapshot.liveRefs → r ≠ ref → liveAnnotated (releaseAndCollect snapshot ref) r := by
+  intro r hr hneq
+  have hr' : r ∈ (releaseAndCollect snapshot ref).liveRefs := by
+    simp [releaseAndCollect, releaseAndDecrement, hr, hneq]
+  have hwf : WellFormed (releaseAndCollect snapshot ref) :=
+    releaseAndCollectPreservesWellFormed snapshot ref h
+  exact hwf r hr'
+
 /-- A release-and-decrement step leaves unrelated heap entries untouched. -/
 theorem releaseAndDecrementKeepsOtherHeapEntries (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ snapshot.heap → cell.name ≠ ref →

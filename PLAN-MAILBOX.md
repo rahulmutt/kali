@@ -35,3 +35,11 @@ The proof-backed RC snapshot slice now includes `KaliCore.Safety.releaseAndColle
 Suggested follow-up:
 - update the Stage 4.2 status / progress docs and TODO tracker to mention the new helper theorem
 - keep the story incremental; this is still a local collection-helper slice, not the full ownership/freeing target
+
+## 2026-04-17 — Stage 4.2 releaseAndCollect other-live preservation follow-up
+
+I plan to widen the Stage 4.2 RC snapshot slice with a helper-level theorem that `releaseAndCollect` preserves other live references, so the progress tracker can explicitly name that local collection-helper invariant alongside the existing zero-count collection and disjointness results.
+
+Suggested follow-up:
+- update `PLAN-4.2-STATUS.md` and `TODO.md` so the tracker names the new local-helper preservation theorem
+- if the boundary wording changes, sync the proof-boundary / verification summary docs in the same pass
