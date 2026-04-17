@@ -37,19 +37,22 @@ Release rule:
 - Claimed property inventory: no dangling references for the provisional ownership model
 - Current proof state: the `noDanglingReference` theorem is mechanised for the current reference-free bounded syntax, but the model remains narrower than the eventual Stage 4.2 ownership / RC target
 
-### HIR model stub (`proofs/KaliIR/HIRModel.lean`)
+### HIR lowering model (`proofs/KaliIR/HIRModel.lean`, `proofs/KaliIR/LoweringCorrectness.lean`)
 - Provisional HIR syntax and a core lowering projection for future lowering-correctness work
-- Current proof state: structural lowering equations (`lower_core`, `lower_let1`, `lower_seq`, `lower_if`) are mechanised, but semantic lowering-correctness still remains future work
+- Claimed property inventory: structural lowering equations (`lower_core`, `lower_let1`, `lower_seq`, `lower_if`) plus a small-step lowering-preservation bridge for the current HIR subset
+- Current proof state: the structural equations are mechanised, and `KaliIR.LoweringCorrectness.lower_preserves_step` now proves the current HIR step relation is preserved by lowering for the modeled subset; the subset still stops short of the full Stage 4.2 semantic-preservation target
 
 ## Claimed theorems/properties
 - `KaliCore.Soundness.progress` — progress for the widened closed typed core fragment
 - `KaliCore.Soundness.preservation` — preservation for the widened closed typed core fragment
 - `KaliCore.Safety.noDanglingReference` — mechanised no-dangling-reference theorem for the current reference-free bounded syntax
 - `KaliIR.HIRModel.lower_core`, `lower_let1`, `lower_seq`, `lower_if` — structural lowering equations for the provisional HIR projection
+- `KaliIR.LoweringCorrectness.lower_preserves_step` — lowering-preservation bridge for the current HIR step subset
 
 ## Trusted assumptions
 - The proof tree is a proof-backed modeling aid for the published closed-fragment boundary.
 - The current closed-fragment proof boundary is intentionally narrower than the eventual Stage 4.2 ownership/memory-safety and lowering-correctness target and must be widened before any claim about that later target.
+- The lowering-correctness bridge is intentionally limited to the current HIR subset, not the later full HIR → LIR semantic-preservation target.
 - The currently mechanised fragment now includes application, sequencing, and conditionals in addition to the original closed-literal/variable/closed-function slice.
 - No mechanized proof coverage is claimed for Rust implementation code outside `proofs/`.
 
@@ -69,6 +72,7 @@ Release rule:
 - `proofs/KaliCore/Soundness.lean`
 - `proofs/KaliCore/Safety.lean`
 - `proofs/KaliIR/HIRModel.lean`
+- `proofs/KaliIR/LoweringCorrectness.lean`
 
 ## Required implementation/spec alignment scope
 - `proofs/lakefile.lean` must continue to declare the Lean roots that keep the provisional proof tree complete

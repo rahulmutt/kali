@@ -14,6 +14,7 @@ expected_files=(
   "KaliCore/Safety.lean"
   "KaliIR.lean"
   "KaliIR/HIRModel.lean"
+  "KaliIR/LoweringCorrectness.lean"
 )
 
 mapfile -t actual_files < <(

@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 lowering-correctness bridge added
+
+Added `proofs/KaliIR/LoweringCorrectness.lean` as a small-step preservation bridge for the current HIR subset. The proof boundary now names the extra Lean file and theorem inventory explicitly, but it still stops short of the later full HIR → LIR semantic-preservation target.
+
+Suggested follow-up:
+- keep the Stage 4.2 status note and `proofs/BOUNDARY.md` aligned with the currently claimed HIR subset
+- widen the proof story only when the semantics target is broad enough to merit a stronger lowering-correctness claim
+
 ## 2026-04-17 — Stage 4.2 closed-fragment widening landed
 
 The Lean proof fragment in `proofs/KaliCore/Soundness.lean` now covers the widened closed core calculus: literals, variables, closed functions, application, sequencing, and conditionals. That keeps the proof honest while still leaving assignment/exceptions, memory safety, and lowering-correctness for later Stage 4.2 work.
