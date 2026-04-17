@@ -1,3 +1,10 @@
+## 2026-04-17 — Stage 4.2 zero-count-removal sync
+
+I synced the Stage 4.2 progress summary so the current RC snapshot proof slice now names `releaseAndCollectDropsZeroCountCells` explicitly alongside the other local collection-helper theorems.
+
+Suggested follow-up:
+- keep the later ownership/freeing widening incremental; this is still a local helper-level slice, not the full Stage 4.2 ownership/freeing target
+
 ## 2026-04-17 — Stage 4.2 zero-count freeing follow-up
 
 I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCollectDropsZeroCountCells`, which makes the local collection helper's zero-count removal behavior explicit in the theorem inventory.

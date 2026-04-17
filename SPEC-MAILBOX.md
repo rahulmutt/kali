@@ -1,3 +1,10 @@
+## 2026-04-17 — Stage 4.2 zero-count-removal sync
+
+I synced the proof-backed summary prose in `README.md` and `specs/19-feature-maturity.md` so the published boundary inventory now names `releaseAndCollectDropsZeroCountCells` explicitly.
+
+Suggested follow-up:
+- keep the broader Stage 4.2 ownership/freeing target narrower than this local helper-level slice
+
 ## 2026-04-17 — Stage 4.2 zero-count freeing follow-up
 
 I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCollectDropsZeroCountCells`, which explicitly states that zero-count cells from the decrement pass are removed by the local collection helper.
