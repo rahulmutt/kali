@@ -130,6 +130,7 @@
 
 ### Stage 4.2 - RC zero-count collection follow-up
 - ✅ `releaseAndCollect` now filters zero-count cells after the decrement pass.
+- ✅ `releaseAndCollectRecorded` keeps the local collection helper's release-recording explicit.
 - ✅ `releaseAndCollectRemovesZeroCountCells` proves the freed decrement target is not retained in the collected heap.
 - ✅ `releaseAndCollectPreservesWellFormed` proves the remaining live set stays well-formed after zero-count collection.
 - ✅ `releaseAndCollectReleasedNotLiveRef` keeps the local collection helper's live/released disjointness explicit.

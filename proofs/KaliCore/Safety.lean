@@ -185,6 +185,11 @@ theorem releaseAndCollectPreservesWellFormed (snapshot : RcSnapshot) (ref : Stri
       exact List.mem_filter.mpr ⟨hmem', by simpa using hpos⟩
     · simpa [releaseAndCollect, releaseAndDecrement, hneq] using hannotated.2.2
 
+/-- A release-and-collect step still records the released reference. -/
+theorem releaseAndCollectRecorded (snapshot : RcSnapshot) (ref : String) :
+    ref ∈ (releaseAndCollect snapshot ref).releasedRefs := by
+  simp [releaseAndCollect, releaseAndDecrement]
+
 /-- Released references stay disjoint from the live set after a release-and-collect step. -/
 theorem releaseAndCollectReleasedNotLiveRef (snapshot : RcSnapshot) (ref : String)
     (h : WellFormed snapshot) :

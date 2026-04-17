@@ -12,3 +12,11 @@ I added the explicit `releaseAndCollectReleasedNotLiveRef` theorem to the RC sna
 
 Suggested follow-up:
 - keep widening the Stage 4.2 RC story incrementally, especially any additional release/collection helper invariants that can be mechanized without overclaiming the full ownership/freeing target
+
+## 2026-04-17 — Stage 4.2 releaseAndCollect recording follow-up
+
+I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCollectRecorded`, so the local collection helper now records the released reference in addition to filtering zero-count cells and preserving the remaining live set.
+
+Suggested follow-up:
+- keep the Stage 4.2 memory-safety story incremental; the local collection helper is still a slice, not the full ownership/freeing target
+- if the boundary widens again, sync `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` together so the claim inventory stays aligned
