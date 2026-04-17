@@ -321,6 +321,11 @@ impl EvalConst {
 
 
 fn rewrite_eval_compat_source(source: &str) -> String {
+    let source = rewrite_static_eval_calls(source);
+    rewrite_static_function_constructor_calls(&source)
+}
+
+fn rewrite_static_eval_calls(source: &str) -> String {
     let lexer = Lexer::new(FileId::new(0), source.to_string());
     let tokens = lexer.lex_all().tokens;
     let bindings = collect_constant_bindings(&tokens, source);
@@ -360,6 +365,93 @@ fn rewrite_eval_compat_source(source: &str) -> String {
     }
 
     rewritten
+}
+
+fn rewrite_static_function_constructor_calls(source: &str) -> String {
+    let lexer = Lexer::new(FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let bindings = collect_constant_bindings(&tokens, source);
+    let mut rewritten = source.to_string();
+    let mut search_start = 0usize;
+
+    while let Some(relative) = rewritten[search_start..].find("Function(") {
+        let call_start = search_start + relative;
+        if !is_bare_function_constructor_spelling(&rewritten, call_start) {
+            search_start = call_start + "Function(".len();
+            continue;
+        }
+
+        let prefix_start = if call_start >= 4 && &rewritten[call_start - 4..call_start] == "new " {
+            call_start - 4
+        } else {
+            call_start
+        };
+        let arg_start = call_start + "Function(".len();
+        let Some(call_end) = find_call_end(&rewritten, arg_start) else {
+            break;
+        };
+        let immediate_call_end = match find_immediate_invocation_end(&rewritten, call_end) {
+            Some(end) => end,
+            None => {
+                search_start = call_end + 1;
+                continue;
+            }
+        };
+
+        let arg_source = &rewritten[arg_start..call_end];
+        let lexer = Lexer::new(FileId::new(1), arg_source.to_string());
+        let mut arg_tokens = lexer.lex_all().tokens;
+        while matches!(arg_tokens.last(), Some(token) if token.kind == TokenType::Eof) {
+            arg_tokens.pop();
+        }
+
+        let mut replacement = None;
+        if let Some((value, consumed)) = parse_constant_expression(&arg_tokens, 0, &bindings) {
+            if consumed == arg_tokens.len() {
+                if let EvalConst::String(body_source) = value {
+                    if let Some(result) = parse_function_constructor_body_snippet(&body_source) {
+                        replacement = Some(result.render());
+                    }
+                }
+            }
+        }
+
+        if let Some(replacement) = replacement {
+            rewritten.replace_range(prefix_start..=immediate_call_end, &replacement);
+            search_start = prefix_start + replacement.len();
+        } else {
+            search_start = immediate_call_end + 1;
+        }
+    }
+
+    rewritten
+}
+
+fn is_bare_function_constructor_spelling(source: &str, index: usize) -> bool {
+    match source[..index].chars().next_back() {
+        Some(ch) if ch.is_ascii_alphanumeric() || ch == '_' || ch == '$' || ch == '.' => false,
+        _ => true,
+    }
+}
+
+fn find_immediate_invocation_end(source: &str, constructor_end: usize) -> Option<usize> {
+    let remainder = source.get(constructor_end + 1..)?;
+    let trimmed = remainder.trim_start();
+    let open = constructor_end + 1 + (remainder.len().saturating_sub(trimmed.len()));
+    if source.as_bytes().get(open).copied()? != b'(' {
+        return None;
+    }
+    find_call_end(source, open + 1)
+}
+
+fn parse_function_constructor_body_snippet(source: &str) -> Option<EvalConst> {
+    let trimmed = source.trim();
+    let body = trimmed.strip_prefix("return")?.trim();
+    let body = body.strip_suffix(';').unwrap_or(body).trim();
+    if body.is_empty() {
+        return None;
+    }
+    parse_eval_source_snippet(body)
 }
 
 fn find_call_end(source: &str, start: usize) -> Option<usize> {

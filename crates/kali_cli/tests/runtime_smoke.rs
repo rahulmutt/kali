@@ -598,6 +598,28 @@ fn run_evaluates_static_eval_sources_when_compat_eval_is_enabled() {
 }
 
 #[test]
+fn run_evaluates_simple_function_constructor_sources_when_compat_eval_is_enabled() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const value = new Function(\"return 1 + 2;\")(); if (value !== 3) { throw new Error('bad function result'); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--compat")
+        .arg("eval")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "stdout: {}\nstderr: {}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+}
+
+#[test]
 fn build_embeds_sandbox_policy_custom_section() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

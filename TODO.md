@@ -84,6 +84,8 @@
   - Added `effects`, `package-effects`, `package-audit`, `build --capi`, `build --component`, and `run`/`test` API-surface gating so Phase-2+ surfaces now fail with the canonical `E5006` path instead of plain unknown-command parsing.
 - [x] Shared `--compat` CLI plumbing for the Phase-4 compatibility vocabulary
   - Source-graph commands now parse `--compat` / `compat.features` requests, surface them in the command context, and reject the unavailable `eval` path through the canonical `E5006` gate instead of silently dropping the request.
+- [x] Function() compatibility path for simple statically-resolved bodies
+  - `new Function("return 1 + 2;")()` now rewrites through the shared `--compat eval` path and executes in the runtime smoke suite.
 - [x] Embedding API scaffolding
   - `kali_embed` now exposes `KaliCompiler`, `CompiledArtifact`, `LibArtifact`, and deterministic WIT sidecar generation for the statically known export surface.
 - [x] Stage 3.1 optimization scaffolding
@@ -94,3 +96,6 @@
   - The helper layer now exposes `NodePath`, `NodeCrypto`, `NodeUtil`, `NodeAssert`, and `NodeRuntimeProjection` facades so future linker registration has a single Node-host surface to project through.
   - The runtime linker now consumes the Node projection facade for `fs/promises`, stream, HTTP, and process argv/env host imports when the effective API surface is `node`.
   - Install-time package host-fit validation now keys off the project `compilerOptions.apiSurface`, so Node-targeted installs can accept Node-only builtins while the default standalone context still rejects them with `E6005`.
+
+- [ ] Truly runtime-resolved non-literal `import()` compatibility path
+  - Keep this separate from the eval / Function() work and the existing static-dynamic-import resolution refinement; it still needs the host-mediated runtime graph lookup from Stage 4.1.
