@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 origin/positivity conjunction helper
+
+I widened the current RC snapshot proof slice with a small helper theorem that bundles the surviving-cell origin and positive-count facts for `releaseAndCollect`, so the local collection story now has a single reusable conjunction lemma on top of the existing origin and positivity theorems.
+
+Suggested follow-up:
+- keep the Stage 4.2 progress trackers aligned if the local collection helper widens again
+- continue treating this as a helper-level RC slice; the broader ownership/freeing target is still wider than the current proof-backed boundary
+
 ## 2026-04-17 — Plan completion-gate sync
 
 I reviewed the phase completion gates in `PLAN.md` after verifying the workspace tests and Lean proof build, and the plan text still had one stale effect-report schema reference.

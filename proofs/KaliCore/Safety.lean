@@ -317,6 +317,16 @@ theorem releaseAndCollectHeapCellOrigin (snapshot : RcSnapshot) (ref : String) :
   · refine ⟨cell0, hmem0, Or.inr ?_⟩
     simpa [releaseAndDecrement, hname] using hcell.symm
 
+/-- A release-and-collect step keeps every surviving heap cell both positively counted and traceable to the original heap. -/
+theorem releaseAndCollectHeapCellOriginAndPositiveCount (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap →
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        (cell = { cell0 with refCount := cell0.refCount - 1 } ∨ cell = cell0) ∧
+        cell.refCount > 0 := by
+  intro cell hmem
+  rcases releaseAndCollectHeapCellOrigin snapshot ref cell hmem with ⟨cell0, hmem0, hshape⟩
+  exact ⟨cell0, hmem0, hshape, releaseAndCollectHeapCellsHavePositiveCount snapshot ref cell hmem⟩
+
 /-- A release-and-collect step preserves the well-formedness of the remaining
 live set because zero-count cells are collected after the decrement pass. -/
 theorem releaseAndCollectPreservesWellFormed (snapshot : RcSnapshot) (ref : String)

@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 origin/positivity helper sync
+
+I widened the proof-backed RC snapshot slice with `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCount`, which bundles the surviving-cell origin and positive-count facts for the local collection helper on top of the existing origin and positivity lemmas.
+
+Suggested follow-up:
+- keep the published boundary, verification summaries, and test inventory aligned if the local collection helper widens again
+- treat this as a helper-level proof-maintenance pass, not a boundary-wide ownership/freeing widening
+
 ## 2026-04-17 — Stage 4.2 proof-summary string sync
 
 I updated `specs/19-feature-maturity.md` so it now includes the canonical short proof-backed summary string verbatim alongside the RC snapshot theorem names, which keeps the maturity matrix aligned with `proofs/BOUNDARY.md`, `README.md`, and the proof-boundary tests.

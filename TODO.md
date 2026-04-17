@@ -180,3 +180,7 @@
 
 ### Stage 4.2 - Proof-boundary anti-drift test
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now asserts that the `proofs/BOUNDARY.md` covered-path inventory matches the actual `proofs/*.lean` source set, now checks the published theorem inventory against the concrete Lean theorem and lemma names, and now also verifies the canonical proof-summary docs keep the current RC theorem names and proof-backed summary string in sync, so deleting or adding a proof file or drifting summary prose without updating the manifest or docs fails `cargo test`; the progress tracker now calls out that theorem-name inventory and summary-doc inventory check alongside the path-level anti-drift guard.
+
+### Stage 4.2 - RC origin/positivity conjunction helper
+- ✅ Added a reusable `releaseAndCollectHeapCellOriginAndPositiveCount` helper theorem that packages the surviving-cell provenance and positive-count facts for the local collection helper on top of the existing origin and positivity lemmas.
+- ✅ Synced the boundary manifest and verification summaries so the new helper theorem is named explicitly alongside the rest of the RC snapshot slice.
