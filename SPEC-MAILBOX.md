@@ -114,3 +114,11 @@ I synced the proof-backed verification summaries after widening the RC snapshot 
 
 Suggested follow-up:
 - keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level provenance theorem, not the full RC target
+
+## 2026-04-17 — Stage 4.2 release-and-decrement heap-origin verification sync
+
+I added `KaliCore.Safety.releaseAndDecrementHeapCellOrigin` to the proof-backed RC snapshot slice, making the decrement helper's surviving heap provenance explicit alongside the existing decrement/collect helper invariants.
+
+Suggested follow-up:
+- update `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the published proof boundary inventory names the new release-and-decrement heap-origin theorem
+- keep the broader Stage 4.2 ownership/freeing target narrower than this helper-level provenance slice

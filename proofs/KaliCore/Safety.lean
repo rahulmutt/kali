@@ -169,6 +169,19 @@ theorem releaseAndDecrementDecrementsTargetCell (snapshot : RcSnapshot) (ref : S
   intro cell hmem hname
   exact List.mem_map.mpr ⟨cell, hmem, by simp [hname]⟩
 
+/-- Every release-and-decrement heap cell comes from the original heap, with only the released target decremented or left unchanged. -/
+theorem releaseAndDecrementHeapCellOrigin (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ (releaseAndDecrement snapshot ref).heap →
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        (cell = { cell0 with refCount := cell0.refCount - 1 } ∨ cell = cell0) := by
+  intro cell hmem
+  rcases List.mem_map.mp hmem with ⟨cell0, hmem0, hcell⟩
+  by_cases hname : cell0.name = ref
+  · refine ⟨cell0, hmem0, Or.inl ?_⟩
+    simpa [releaseAndDecrement, hname] using hcell.symm
+  · refine ⟨cell0, hmem0, Or.inr ?_⟩
+    simpa [releaseAndDecrement, hname] using hcell.symm
+
 /-- A release-and-decrement step zeroes the target cell when the released reference was the last live count. -/
 theorem releaseAndDecrementZeroesLastTargetCell (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ snapshot.heap → cell.name = ref → cell.refCount = 1 →

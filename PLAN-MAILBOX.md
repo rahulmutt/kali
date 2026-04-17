@@ -142,3 +142,11 @@ I refreshed the Stage 4.2 progress trackers after widening the RC snapshot proof
 
 Completed follow-up:
 - synced `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the Stage 4.2 progress notes name the heap-origin provenance theorem alongside the other RC helper invariants
+
+## 2026-04-17 — Stage 4.2 release-and-decrement heap-origin follow-up
+
+I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndDecrementHeapCellOrigin`, which makes the decrement helper's surviving heap provenance explicit.
+
+Suggested follow-up:
+- sync `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the Stage 4.2 progress notes name the release-and-decrement heap-origin theorem alongside the other RC helper invariants
+- keep the broader Stage 4.2 ownership/freeing target incremental; this remains a helper-level provenance theorem, not the full RC target
