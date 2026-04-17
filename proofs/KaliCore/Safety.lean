@@ -206,6 +206,14 @@ theorem releaseAndCollectHeapIsPositiveCountFilter (snapshot : RcSnapshot) (ref 
       (releaseAndDecrement snapshot ref).heap.filter (fun cell => cell.refCount > 0) := by
   simp [releaseAndCollect]
 
+/-- The release-and-collect helper's final heap contains only positive-count cells. -/
+theorem releaseAndCollectHeapCellsHavePositiveCount (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap → cell.refCount > 0 := by
+  intro cell hmem
+  have hfilter : cell ∈ (releaseAndDecrement snapshot ref).heap.filter (fun cell => cell.refCount > 0) := by
+    simpa [releaseAndCollect] using hmem
+  simpa using (List.mem_filter.mp hfilter).2
+
 /-- A release-and-collect step preserves the well-formedness of the remaining
 live set because zero-count cells are collected after the decrement pass. -/
 theorem releaseAndCollectPreservesWellFormed (snapshot : RcSnapshot) (ref : String)

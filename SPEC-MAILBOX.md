@@ -75,3 +75,10 @@ I added helper corollaries that both the decrement path and the local collection
 Suggested follow-up:
 - update `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and the Stage 4.2 status tracker so the current published boundary inventory names the helper-level ownership/allocation preservation corollaries
 - keep the broader Stage 4.2 ownership/freeing target incremental; these are helper corollaries on top of the current proof-backed slice
+
+## 2026-04-17 — Stage 4.2 positive-count final-heap follow-up
+
+I added `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount`, which makes the local collection helper's final positive-count-only heap property explicit on top of the existing heap-characterisation theorem.
+
+Suggested follow-up:
+- keep the Stage 4.2 RC widening incremental; this is still a helper-level local collection fact, not the broader ownership/freeing target

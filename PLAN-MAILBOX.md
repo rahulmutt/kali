@@ -80,3 +80,10 @@ I synced the Stage 4.2 progress tracker and TODO notes so the current proof-back
 
 Suggested follow-up:
 - keep the remaining Stage 4.2 memory-safety widening incremental; this is still a helper-level slice, not the full ownership/freeing target
+
+## 2026-04-17 — Stage 4.2 positive-count final-heap follow-up
+
+I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount`, so the proof-backed boundary now names the local collection helper's positive-count-only final heap property alongside the existing heap-characterisation theorem.
+
+Suggested follow-up:
+- keep the broader Stage 4.2 ownership/freeing story incremental; this remains a helper-level slice, not the full RC target

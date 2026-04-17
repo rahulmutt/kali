@@ -70,7 +70,7 @@ Verification-baseline clarification:
 - before concrete proof workflow files land, the minimum evidence for that **proof-ready** row is the published `proofs/BOUNDARY.md` manifest plus its explicit proof-CI trigger policy
 - the current repository proof state should be read from `proofs/BOUNDARY.md`, not from duplicated chapter prose
 - a mechanized non-empty proof boundary counts as **proof-backed for the published boundary** while still leaving any later target it does not name outside the claim
-- stronger **proof-backed** release/support claims for a wider boundary still require that the newly named claims be mechanized plus the corresponding proof jobs/evidence for the covered subset
+- stronger **proof-backed** release/support claims for a wider boundary still require that the newly named claims be mechanized plus the corresponding proof jobs/evidence for the covered subset; the current published boundary now also names the local collection helper's positive-count-only final heap theorem alongside the other RC snapshot safety lemmas
 
 This keeps “Phase 1 MVP” and later status labels tied to measurable behavior rather than intent alone.
 
