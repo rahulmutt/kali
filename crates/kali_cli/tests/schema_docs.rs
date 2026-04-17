@@ -128,7 +128,10 @@ fn collect_proof_sources(root: &Path) -> BTreeSet<String> {
         for entry in fs::read_dir(dir).expect("read proof directory") {
             let entry = entry.expect("read proof directory entry");
             let path = entry.path();
-            let name = path.file_name().and_then(|name| name.to_str()).unwrap_or("");
+            let name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("");
 
             if path.is_dir() {
                 if name == ".lake" || name == "build" {

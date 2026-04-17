@@ -6,7 +6,7 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use kali_cli::{
@@ -222,11 +222,11 @@ pub use build::LibraryExport;
 pub use kali_cli::build::ArtifactMetadata;
 
 fn temporary_source_path() -> PathBuf {
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_nanos())
-        .unwrap_or_default();
-    std::env::temp_dir().join(format!("kali-embed-{nonce}.ts"))
+    static TEMP_SOURCE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    let pid = std::process::id();
+    let nonce = TEMP_SOURCE_COUNTER.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!("kali-embed-{pid}-{nonce}.ts"))
 }
 
 #[cfg(test)]
@@ -286,6 +286,16 @@ mod tests {
                 == Some(kali_error::_error_codes::e5::INVALID_EXPORT_SURFACE as u32)),
             "expected E5011 diagnostic: {error}"
         );
+    }
+
+    #[test]
+    fn temporary_source_paths_are_unique_across_calls() {
+        let first = temporary_source_path();
+        let second = temporary_source_path();
+
+        assert_ne!(first, second);
+        assert!(first.display().to_string().contains("kali-embed-"));
+        assert!(second.display().to_string().contains("kali-embed-"));
     }
 
     #[test]

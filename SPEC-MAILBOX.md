@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 target-cell retention follow-up
+
+I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCollectKeepsTargetCellWhenPositiveCount`, which states that the released target cell survives the local `releaseAndCollect` helper when its decremented count is still positive.
+
+Suggested follow-up:
+- sync `README.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the proof-backed boundary inventory names the new target-cell retention theorem
+- keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level retention theorem, not the full ownership/freeing story
+
 
 ## 2026-04-17 — Stage 4.2 original zero-count follow-up
 
@@ -137,3 +145,11 @@ I widened the proof-backed RC snapshot slice with exact live-reference filtering
 Suggested follow-up:
 - keep the published proof boundary / verification summary docs aligned with the theorem inventory if the live-reference model widens again
 - keep the broader Stage 4.2 ownership/freeing target incremental; these are helper-level shape theorems, not the full RC story
+
+## 2026-04-17 — Stage 4.2 target-cell retention sync
+
+I synced the proof-backed boundary and verification summaries after adding `KaliCore.Safety.releaseAndCollectKeepsTargetCellWhenPositiveCount`, so the published inventory now names the local collection helper's target-cell retention theorem alongside the rest of the RC snapshot slice.
+
+Completed follow-up:
+- updated `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the theorem inventory and status trackers stay aligned
+- kept the claim narrow: this is still a helper-level retention theorem, not the full Stage 4.2 ownership/freeing story

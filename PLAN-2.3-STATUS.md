@@ -21,6 +21,7 @@ Stage 2.3 now has the public embedding surface wired end-to-end. The CLI emits d
 - `kali build --component <file>` emits `*.component.wasm`, `*.wit`, and `*.component.meta.json`
 - `kali_capi` now owns deterministic C-header generation plus the C ABI metadata payload
 - `kali_embed` now exposes stable library/executable compile entry points and the WIT sidecar string
+- the embedding helper's temporary source path now uses a per-process counter to avoid timestamp collision when materializing in-memory sources
 
 ## Current Limits
 
