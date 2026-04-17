@@ -1,4 +1,8 @@
-use std::{fs, path::PathBuf};
+use std::{
+    collections::BTreeSet,
+    fs,
+    path::{Path, PathBuf},
+};
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -119,6 +123,60 @@ fn proof_boundary_summary_matches_readme_and_manifest() {
     );
 }
 
+fn collect_proof_sources(root: &Path) -> BTreeSet<String> {
+    fn visit(dir: &Path, root: &Path, files: &mut BTreeSet<String>) {
+        for entry in fs::read_dir(dir).expect("read proof directory") {
+            let entry = entry.expect("read proof directory entry");
+            let path = entry.path();
+            let name = path.file_name().and_then(|name| name.to_str()).unwrap_or("");
+
+            if path.is_dir() {
+                if name == ".lake" || name == "build" {
+                    continue;
+                }
+                visit(&path, root, files);
+                continue;
+            }
+
+            if path.extension().and_then(|ext| ext.to_str()) == Some("lean") {
+                let relative = path
+                    .strip_prefix(root)
+                    .expect("proof source under root")
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                files.insert(format!("proofs/{relative}"));
+            }
+        }
+    }
+
+    let mut files = BTreeSet::new();
+    visit(root, root, &mut files);
+    files
+}
+
+fn parse_boundary_covered_paths(boundary: &str) -> BTreeSet<String> {
+    let mut paths = BTreeSet::new();
+    let section = boundary
+        .split_once("## Covered implementation/spec paths")
+        .map(|(_, rest)| rest)
+        .expect("covered paths section");
+
+    for line in section.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("## ") {
+            break;
+        }
+        if let Some(path) = trimmed.strip_prefix("- ") {
+            let path = path.trim().trim_matches('`');
+            if path.ends_with(".lean") {
+                paths.insert(path.to_string());
+            }
+        }
+    }
+
+    paths
+}
+
 #[test]
 fn proof_check_workflow_is_configured_for_proofs_changes() {
     let root = repo_root();
@@ -148,5 +206,18 @@ fn proof_check_workflow_is_configured_for_proofs_changes() {
     assert!(
         workflow.contains("cd proofs && lake build"),
         "proof-check job should build the proofs workspace"
+    );
+}
+
+#[test]
+fn proof_boundary_manifest_tracks_the_actual_proof_sources() {
+    let root = repo_root();
+    let boundary = fs::read_to_string(root.join("proofs/BOUNDARY.md")).expect("read boundary");
+    let documented = parse_boundary_covered_paths(&boundary);
+    let actual = collect_proof_sources(&root.join("proofs"));
+
+    assert_eq!(
+        documented, actual,
+        "proof boundary manifest should track the actual Lean proof source files"
     );
 }

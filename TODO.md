@@ -154,3 +154,6 @@
 - ✅ `releaseRefLiveRefsAreOwnedAndAllocated` now keeps the pure release helper's surviving live references anchored in ownership and allocation.
 - ✅ `releaseRefReleasedNotLiveRef` now keeps released references disjoint from the live set after the pure release helper runs.
 - ✅ `releaseRecorded` still records the released reference in the released set after the pure release step.
+
+### Stage 4.2 - Proof-boundary anti-drift test
+- ✅ `crates/kali_cli/tests/schema_docs.rs` now asserts that the `proofs/BOUNDARY.md` covered-path inventory matches the actual `proofs/*.lean` source set, so deleting or adding a proof file without updating the manifest fails `cargo test`.
