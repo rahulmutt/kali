@@ -15,6 +15,8 @@ inductive Typing : Context → Expr → Ty → Prop where
   | app : ∀ {Γ x ty body a argTy retTy}, Typing [] body retTy → Typing Γ a argTy → Typing Γ (.EApp (.EFun x ty body) a) retTy
   | seq : ∀ {Γ e1 e2 t1 t2}, Typing Γ e1 t1 → Typing Γ e2 t2 → Typing Γ (.ESeq e1 e2) t2
   | ite : ∀ {Γ c t f tRet}, Typing Γ c .TBool → Typing Γ t tRet → Typing Γ f tRet → Typing Γ (.EIf c t f) tRet
+  | assign : ∀ {Γ name e t}, Typing Γ e t → Typing Γ (.EAssign name e) t
+  | tr : ∀ {Γ e name h t}, Typing Γ e t → Typing Γ h t → Typing Γ (.ETry e name h) t
 
 /-- Closed typed expressions do not change under the substitution used by beta
 reduction. -/
@@ -54,10 +56,14 @@ theorem subst_closed : ∀ {e : Expr} {T : Ty} {x : String} {v : Expr}, Typing [
           simp [subst, ihC hcond, ihT ht, ihF hf]
   | EAssign name e ih =>
       intro T x v hty
-      cases hty
+      cases hty with
+      | assign h =>
+          simp [subst, ih h]
   | ETry e name h ihE ihH =>
       intro T x v hty
-      cases hty
+      cases hty with
+      | tr hbody hhandler =>
+          simp [subst, ihE hbody, ihH hhandler]
   | EThrow e ih =>
       intro T x v hty
       cases hty
@@ -122,10 +128,18 @@ theorem progress : ∀ (e : Expr) (T : Ty), Typing [] e T → Value e ∨ ∃ e'
           · exact Or.inr ⟨_, step.if_cond hc'⟩
   | EAssign name e ih =>
       intro T hty
-      cases hty
+      cases hty with
+      | assign hrhs =>
+          rcases ih _ hrhs with hval | ⟨e', he⟩
+          · exact Or.inr ⟨_, step.assign_value hval⟩
+          · exact Or.inr ⟨_, step.assign_step he⟩
   | ETry e name h ihE ihH =>
       intro T hty
-      cases hty
+      cases hty with
+      | tr hbody hhandler =>
+          rcases ihE _ hbody with hval | ⟨e', he⟩
+          · exact Or.inr ⟨_, step.try_value hval⟩
+          · exact Or.inr ⟨_, step.try_step he⟩
   | EThrow e ih =>
       intro T hty
       cases hty
@@ -182,10 +196,24 @@ theorem preservation : ∀ (e e' : Expr) (T : Ty), Typing [] e T → step e e' �
               exact hf
   | EAssign name e ih =>
       intro e' T hty hstep
-      cases hty
+      cases hty with
+      | assign hrhs =>
+          cases hstep with
+          | assign_step hs =>
+              exact Typing.assign (ih _ _ hrhs hs)
+          | assign_value hv =>
+              exact hrhs
   | ETry e name h ihE ihH =>
       intro e' T hty hstep
-      cases hty
+      cases hty with
+      | tr hbody hhandler =>
+          cases hstep with
+          | try_step hs =>
+              exact Typing.tr (ihE _ _ hbody hs) hhandler
+          | try_catch hv =>
+              cases hbody
+          | try_value hv =>
+              exact hbody
   | EThrow e ih =>
       intro e' T hty hstep
       cases hty

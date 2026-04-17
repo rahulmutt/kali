@@ -106,7 +106,7 @@
   - The runtime linker now consumes the Node projection facade for `fs/promises`, stream, HTTP, and process argv/env host imports when the effective API surface is `node`.
   - Install-time package host-fit validation now keys off the project `compilerOptions.apiSurface`, so Node-targeted installs can accept Node-only builtins while the default standalone context still rejects them with `E6005`.
 - [x] Stage 4.2 proof boundary widening
-  - `KaliCore.Soundness` now mechanizes the widened closed fragment (literals, variables, closed functions, application, sequencing, and conditionals).
+  - `KaliCore.Soundness` now mechanizes the widened closed fragment (literals, variables, closed functions, application, sequencing, conditionals, assignment, and try/catch).
   - `KaliCore.Safety.noDanglingReference` is mechanized for the current RC snapshot model, and `releasedNotLive` records the release-path liveness split.
   - `KaliIR.HIRModel` records the structural lowering equations for `lower_core`, `lower_let1`, `lower_seq`, and `lower_if`.
   - `KaliIR.LoweringCorrectness` adds a small-step lowering-preservation bridge for the current HIR subset.

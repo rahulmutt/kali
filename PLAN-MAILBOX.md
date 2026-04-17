@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 proof-boundary widening follow-up
+
+I’m planning the next small Stage 4.2 proof-model widening pass: extend the current Lean boundary to cover assignment and try/catch in the closed core fragment, while still leaving bare throw, full memory safety, and the broader lowering-preservation target for later.
+
+Suggested follow-up:
+- update `proofs/BOUNDARY.md` and the verification chapter wording so the published boundary clearly names the widened fragment
+- keep the canonical repository short summary unchanged unless the proof-backed claim itself changes
+
 ## 2026-04-17 — Stage 3.2 NodeBuffer round-tripping follow-up
 
 Extended `kali_api_node::NodeBuffer` with deterministic hex encode/decode alongside the existing base64 helpers, then updated the Stage 3.2 status note and plan progress text to reflect the broader binary-data workflow slice.

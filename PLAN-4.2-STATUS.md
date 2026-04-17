@@ -5,7 +5,7 @@
 
 ## Summary
 
-`proofs/KaliCore/Soundness.lean` now compiles again and the Lean proof tree builds successfully. The proof model now covers literals, variables, closed functions, application, sequencing, and conditionals, so the progress/preservation theorems stay honest and mechanically checked while still stopping short of the later Stage 4.2 ownership/memory-safety and lowering-correctness target described in `plan/phase-4/02-formal-verification-depth.md`. The ownership model now also has a mechanised RC snapshot safety story (`RcSnapshot`, `noDanglingReference`, and `releasedNotLive`), and the HIR lowering model now includes a small-step preservation bridge in `proofs/KaliIR/LoweringCorrectness.lean` on top of the structural equations for `lower_core`, `lower_let1`, `lower_seq`, and `lower_if`.
+`proofs/KaliCore/Soundness.lean` now compiles again and the Lean proof tree builds successfully. The proof model now covers literals, variables, closed functions, application, sequencing, conditionals, assignment, and try/catch, so the progress/preservation theorems stay honest and mechanically checked while still stopping short of bare throw plus the later Stage 4.2 ownership/memory-safety and lowering-correctness target described in `plan/phase-4/02-formal-verification-depth.md`. The ownership model now also has a mechanised RC snapshot safety story (`RcSnapshot`, `noDanglingReference`, and `releasedNotLive`), and the HIR lowering model now includes a small-step preservation bridge in `proofs/KaliIR/LoweringCorrectness.lean` on top of the structural equations for `lower_core`, `lower_let1`, `lower_seq`, and `lower_if`.
 
 ## Evidence
 
@@ -13,11 +13,11 @@
 - `KaliCore.Soundness` now compiles without `sorry` placeholders ✅
 - `KaliCore.Safety.noDanglingReference` is mechanised for the current RC snapshot model, and `releasedNotLive` covers the release-path split ✅
 - `KaliIR.HIRModel` now records the structural lowering equations for the provisional HIR model ✅
-- The current proof model now covers the core application/control-flow fragment and a small RC snapshot safety slice, and remains narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target ⚠️
+- The current proof model now covers the core application/control-flow fragment plus assignment and try/catch, and a small RC snapshot safety slice, and remains narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target ⚠️
 
 ## Notable Deliverables
 
-- `KaliCore/Soundness.lean` now has a clean compile path for the widened closed fragment
+- `KaliCore/Soundness.lean` now has a clean compile path for the widened closed fragment, including assignment and try/catch
 - `KaliCore/Safety.lean` now proves the current no-dangling-reference statement for the RC snapshot model and its release-path liveness split
 - `KaliIR/HIRModel.lean` now records the structural lowering equations for the provisional HIR model
 - `KaliIR.LoweringCorrectness` now proves lowering preserves the modeled HIR step relation for the current subset
@@ -27,7 +27,7 @@
 
 ## Current Limits
 
-- The current Lean boundary now mechanizes application, sequencing, and conditional soundness for the widened closed fragment
+- The current Lean boundary now mechanizes application, sequencing, conditional, assignment, and try/catch soundness for the widened closed fragment
 - The memory-safety theorem is still a bounded RC snapshot model, not the full ownership / RC safety proof target from Stage 4.2
 - The lowering work is still intentionally narrower than full semantic preservation for the HIR → LIR model
 - Context-shifting substitution and the remaining memory/lowering proofs remain future work for the later Stage 4.2 target

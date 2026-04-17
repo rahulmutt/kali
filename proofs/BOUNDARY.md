@@ -2,12 +2,12 @@
 
 Status: **proof-backed proof-boundary manifest**.
 
-This file is the canonical repository location for Kali's published **proof-boundary manifest**. The repository now contains a checked-in Lean 4 proof tree under `proofs/`, and the published boundary is mechanized for the widened closed fragment plus a small ownership / RC snapshot safety slice described below. The repository is therefore **proof-backed for the published boundary**, while remaining intentionally narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target.
+This file is the canonical repository location for Kali's published **proof-boundary manifest**. The repository now contains a checked-in Lean 4 proof tree under `proofs/`, and the published boundary is mechanized for the widened closed fragment — now including assignment and try/catch in addition to literals, variables, closed functions, application, sequencing, and conditionals — plus a small ownership / RC snapshot safety slice described below. The repository is therefore **proof-backed for the published boundary**, while remaining intentionally narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target.
 
 Current repository-state note:
 - follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the Lean project tree now exists under `proofs/` and is built from `proofs/lakefile.lean`
 - the proof sources are organized around `proofs/KaliCore.lean` and `proofs/KaliIR.lean`, which import the provisional model files listed below
-- the current proof claims now cover the widened closed fragment (literals, variables, closed functions, application, sequencing, and conditionals) and the proof file compiles without `sorry` placeholders
+- the current proof claims now cover the widened closed fragment (literals, variables, closed functions, application, sequencing, conditionals, assignment, and try/catch) and the proof file compiles without `sorry` placeholders
 
 Canonical verification state (following the shared **proof-ready vs proof-backed split** from [SPEC.md](../SPEC.md)):
 
@@ -28,9 +28,9 @@ Release rule:
 ### Core type calculus (`proofs/KaliCore/Types.lean`, `proofs/KaliCore/Semantics.lean`, `proofs/KaliCore/Soundness.lean`)
 - Type syntax: `Ty`, `LitVal`, and the provisional function/object/union/intersection forms
 - Expression syntax: literals, variables, annotated functions, application, sequencing, conditionals, assignment, throw, and try/catch
-- Runtime model: value predicate and small-step reduction for the bounded typed fragment; the current proof boundary models the closed literals / variables / closed-functions slice plus the application, sequencing, and conditional subfragment that is now mechanised in `KaliCore.Soundness`
+- Runtime model: value predicate and small-step reduction for the bounded typed fragment; the current proof boundary models the closed literals / variables / closed-functions slice plus the application, sequencing, conditional, assignment, and try/catch subfragment that is now mechanised in `KaliCore.Soundness`
 - Claimed theorem inventory: progress and preservation for the widened closed typed core fragment
-- Current proof state: theorem statements are present and the core proof file now compiles, but the mechanised scope still stops short of assignment, exceptions, and the full Stage 4.2 memory/lowering target
+- Current proof state: theorem statements are present and the core proof file now compiles, but the mechanised scope still stops short of bare throw plus the full Stage 4.2 memory/lowering target
 
 ### Ownership model (`proofs/KaliCore/Safety.lean`)
 - Ownership classes: `stack`, `ownedHeap`, `sharedHeap`, `borrowed`
