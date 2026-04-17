@@ -1152,6 +1152,7 @@ dependencies = [
 name = "kali_api_node"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "getrandom 0.3.4",
  "hmac",
  "kali_common",

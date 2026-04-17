@@ -113,6 +113,14 @@ Suggested follow-up:
 - continue broadening the Node runtime projection to the remaining documented Phase-3 built-ins that still lack host-import wiring
 - keep the Stage 3.2 status text aligned with the actual host-import coverage so it does not imply full Node parity yet
 
+## 2026-04-17 — Stage 3.2 Node buffer helper progress
+
+Added base64 round-tripping to `NodeBuffer` so the helper layer now covers a more realistic slice of Node-style binary data handling instead of only raw bytes and UTF-8 text.
+
+Suggested follow-up:
+- keep broadening the helper surface one concrete Node-style data path at a time
+- if later runtime wiring needs more Buffer-specific behavior, decide whether the extra shape belongs in the pure helper layer or in the wasmtime import projection
+
 ## 2026-04-12 — Stage 2.1 alias-chain precision completed
 
 Stage 2.1's remaining escape-analysis gap was closed by teaching `kali_mir` to resolve function-expression aliases through alias chains, including anonymous function expressions lowered to synthetic function names. That keeps direct-call precision intact for `const alias = identity; const alias2 = alias; alias2(...)` style call targets.

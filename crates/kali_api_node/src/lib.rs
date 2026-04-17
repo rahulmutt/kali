@@ -4,6 +4,7 @@
 //! Phase-3 Node-compatibility work. The runtime still gates `--api node`, but the shared helper
 //! layer is now concrete enough to be extended incrementally instead of remaining a stub.
 
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use getrandom::fill as fill_random_bytes;
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256, Sha384, Sha512};
@@ -595,6 +596,14 @@ impl NodeBuffer {
 
     pub fn into_bytes(self) -> Vec<u8> {
         self.0
+    }
+
+    pub fn to_base64(&self) -> String {
+        STANDARD.encode(&self.0)
+    }
+
+    pub fn from_base64(text: impl AsRef<str>) -> Result<Self, base64::DecodeError> {
+        STANDARD.decode(text.as_ref()).map(Self)
     }
 
     pub fn to_utf8(&self) -> Result<String, std::string::FromUtf8Error> {
@@ -1303,6 +1312,8 @@ mod tests {
         assert_eq!(buffer.len(), 5);
         assert!(!buffer.is_empty());
         assert_eq!(buffer.to_utf8().expect("utf8"), "hello");
+        assert_eq!(buffer.to_base64(), "aGVsbG8=");
+        assert_eq!(NodeBuffer::from_base64("aGVsbG8=").expect("base64").as_slice(), b"hello");
 
         let bytes = NodeBuffer::from_bytes(vec![1, 2, 3]).into_bytes();
         assert_eq!(bytes, vec![1, 2, 3]);
