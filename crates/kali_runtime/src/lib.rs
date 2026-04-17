@@ -1,6 +1,6 @@
 //! Runtime execution for Kali-generated WASM modules.
 
-use kali_api_node::NodeRuntimeProjection;
+use kali_api_node::{NodeCrypto, NodePath, NodeRuntimeProjection};
 use kali_api_web::{fill_random_values, performance_now};
 use kali_error::{_error_codes::e4, Diagnostic};
 use kali_sandbox::{HostOperation, SandboxPolicy};
@@ -810,6 +810,248 @@ fn register_node_host_imports(
     let process_for_env_get = process.clone();
     let stream = node_projection.stream();
     let http = node_projection.http();
+    let os = node_projection.os();
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "path_normalize",
+            |mut caller: Caller<'_, KaliHostState>,
+             path_ptr: i32,
+             path_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let path = read_guest_string(&mut caller, path_ptr, path_len)?;
+                let normalized = NodePath::normalize(Path::new(&path));
+                write_guest_string(&mut caller, out_ptr, out_cap, normalized.to_string_lossy())
+            },
+        )
+        .map_err(|error| host_import_error("path_normalize", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "path_join",
+            |mut caller: Caller<'_, KaliHostState>,
+             base_ptr: i32,
+             base_len: i32,
+             segment_ptr: i32,
+             segment_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let base = read_guest_string(&mut caller, base_ptr, base_len)?;
+                let segment = read_guest_string(&mut caller, segment_ptr, segment_len)?;
+                let joined = NodePath::join(Path::new(&base), Path::new(&segment));
+                write_guest_string(&mut caller, out_ptr, out_cap, joined.to_string_lossy())
+            },
+        )
+        .map_err(|error| host_import_error("path_join", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "path_resolve",
+            |mut caller: Caller<'_, KaliHostState>,
+             base_ptr: i32,
+             base_len: i32,
+             input_ptr: i32,
+             input_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let base = read_guest_string(&mut caller, base_ptr, base_len)?;
+                let input = read_guest_string(&mut caller, input_ptr, input_len)?;
+                let resolved = NodePath::resolve(Path::new(&base), Path::new(&input));
+                write_guest_string(&mut caller, out_ptr, out_cap, resolved.to_string_lossy())
+            },
+        )
+        .map_err(|error| host_import_error("path_resolve", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "path_dirname",
+            |mut caller: Caller<'_, KaliHostState>,
+             path_ptr: i32,
+             path_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let path = read_guest_string(&mut caller, path_ptr, path_len)?;
+                let dirname = NodePath::dirname(Path::new(&path));
+                write_guest_string(&mut caller, out_ptr, out_cap, dirname.to_string_lossy())
+            },
+        )
+        .map_err(|error| host_import_error("path_dirname", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "path_basename",
+            |mut caller: Caller<'_, KaliHostState>,
+             path_ptr: i32,
+             path_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let path = read_guest_string(&mut caller, path_ptr, path_len)?;
+                let basename = NodePath::basename(Path::new(&path));
+                write_guest_string(&mut caller, out_ptr, out_cap, basename)
+            },
+        )
+        .map_err(|error| host_import_error("path_basename", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "path_extname",
+            |mut caller: Caller<'_, KaliHostState>,
+             path_ptr: i32,
+             path_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let path = read_guest_string(&mut caller, path_ptr, path_len)?;
+                let extname = NodePath::extname(Path::new(&path));
+                write_guest_string(&mut caller, out_ptr, out_cap, extname)
+            },
+        )
+        .map_err(|error| host_import_error("path_extname", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "crypto_create_hash",
+            |mut caller: Caller<'_, KaliHostState>,
+             algorithm_ptr: i32,
+             algorithm_len: i32,
+             data_ptr: i32,
+             data_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let algorithm = read_guest_string(&mut caller, algorithm_ptr, algorithm_len)?;
+                let data = read_guest_bytes(&mut caller, data_ptr, data_len)?;
+                let digest = NodeCrypto::create_hash(&algorithm, &data)
+                    .map_err(|error| wasmtime::Error::msg(error.to_string()))?;
+                write_guest_string(&mut caller, out_ptr, out_cap, digest)
+            },
+        )
+        .map_err(|error| host_import_error("crypto_create_hash", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "crypto_create_hmac",
+            |mut caller: Caller<'_, KaliHostState>,
+             algorithm_ptr: i32,
+             algorithm_len: i32,
+             key_ptr: i32,
+             key_len: i32,
+             data_ptr: i32,
+             data_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let algorithm = read_guest_string(&mut caller, algorithm_ptr, algorithm_len)?;
+                let key = read_guest_bytes(&mut caller, key_ptr, key_len)?;
+                let data = read_guest_bytes(&mut caller, data_ptr, data_len)?;
+                let digest = NodeCrypto::create_hmac(&algorithm, &key, &data)
+                    .map_err(|error| wasmtime::Error::msg(error.to_string()))?;
+                write_guest_string(&mut caller, out_ptr, out_cap, digest)
+            },
+        )
+        .map_err(|error| host_import_error("crypto_create_hmac", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "crypto_random_uuid",
+            |mut caller: Caller<'_, KaliHostState>,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let uuid = NodeCrypto::random_uuid_v4()
+                    .map_err(|error| wasmtime::Error::msg(error.to_string()))?;
+                write_guest_string(&mut caller, out_ptr, out_cap, uuid)
+            },
+        )
+        .map_err(|error| host_import_error("crypto_random_uuid", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "crypto_random_bytes",
+            |mut caller: Caller<'_, KaliHostState>,
+             length: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let length = checked_offset(length)?;
+                let bytes = NodeCrypto::random_bytes(length)
+                    .map_err(|error| wasmtime::Error::msg(error.to_string()))?;
+                write_guest_bytes(&mut caller, out_ptr, out_cap, &bytes)
+            },
+        )
+        .map_err(|error| host_import_error("crypto_random_bytes", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "os_platform",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                write_guest_string(&mut caller, out_ptr, out_cap, os.platform())
+            },
+        )
+        .map_err(|error| host_import_error("os_platform", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "os_arch",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                write_guest_string(&mut caller, out_ptr, out_cap, os.arch())
+            },
+        )
+        .map_err(|error| host_import_error("os_arch", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "os_eol",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                write_guest_string(&mut caller, out_ptr, out_cap, os.eol())
+            },
+        )
+        .map_err(|error| host_import_error("os_eol", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "os_tmpdir",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                write_guest_string(&mut caller, out_ptr, out_cap, os.tmpdir().to_string_lossy())
+            },
+        )
+        .map_err(|error| host_import_error("os_tmpdir", error))?;
+
+    linker
+        .func_wrap("kali:node", "os_cpus", move || -> i32 { os.cpus() as i32 })
+        .map_err(|error| host_import_error("os_cpus", error))?;
 
     linker
         .func_wrap(
@@ -1113,6 +1355,15 @@ fn write_guest_bytes(
     Ok(bytes.len() as i32)
 }
 
+fn write_guest_string(
+    caller: &mut Caller<'_, KaliHostState>,
+    ptr: i32,
+    cap: i32,
+    value: impl AsRef<str>,
+) -> wasmtime::Result<i32> {
+    write_guest_bytes(caller, ptr, cap, value.as_ref().as_bytes())
+}
+
 fn guest_memory(caller: &mut Caller<'_, KaliHostState>) -> wasmtime::Result<Memory> {
     match caller.get_export("memory") {
         Some(Extern::Memory(memory)) => Ok(memory),
@@ -1347,6 +1598,18 @@ mod tests {
 
     fn compile_wat(wat: &str) -> Vec<u8> {
         wat::parse_str(wat).expect("valid wat")
+    }
+
+    fn wat_assert_buffer_eq(start: i32, expected: &str) -> String {
+        let mut checks = String::new();
+        for (index, byte) in expected.as_bytes().iter().enumerate() {
+            checks.push_str(&format!(
+                "                i32.const {}\n                i32.load8_u\n                i32.const {}\n                i32.ne\n                if\n                    unreachable\n                end\n",
+                start + index as i32,
+                byte
+            ));
+        }
+        checks
     }
 
     #[test]
@@ -1770,6 +2033,340 @@ mod tests {
             "#,
         );
 
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_executes_node_path_host_imports() {
+        let runtime = RuntimeCtx::with_host_context_with_api_surface(
+            None,
+            Vec::new(),
+            capture_env(),
+            PathBuf::from("."),
+            "node",
+        );
+        let normalize_input = "./foo/../bar//baz";
+        let join_base = "/tmp";
+        let join_segment = "project/src";
+        let resolve_base = "/tmp/project";
+        let resolve_input = "../lib/index.js";
+        let dirname_input = "/tmp/project/src/main.ts";
+        let basename_input = "/tmp/project/src/main.ts";
+        let extname_input = "/tmp/project/src/main.ts";
+        let normalized_output = "bar/baz";
+        let joined_output = "/tmp/project/src";
+        let resolved_output = "/tmp/lib/index.js";
+        let dirname_output = "/tmp/project/src";
+        let basename_output = "main.ts";
+        let extname_output = ".ts";
+        let wat = format!(
+            r#"
+            (module
+                (import "kali:node" "path_normalize" (func $normalize (param i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "path_join" (func $join (param i32 i32 i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "path_resolve" (func $resolve (param i32 i32 i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "path_dirname" (func $dirname (param i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "path_basename" (func $basename (param i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "path_extname" (func $extname (param i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "{normalize_input}")
+                (data (i32.const 64) "{join_base}")
+                (data (i32.const 80) "{join_segment}")
+                (data (i32.const 112) "{resolve_base}")
+                (data (i32.const 144) "{resolve_input}")
+                (data (i32.const 192) "{dirname_input}")
+                (data (i32.const 224) "{basename_input}")
+                (data (i32.const 256) "{extname_input}")
+                (func (export "_start")
+                    ;; normalize
+                    i32.const 0
+                    i32.const {normalize_len}
+                    i32.const 320
+                    i32.const 32
+                    call $normalize
+                    i32.const {normalized_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{normalize_checks}
+                    ;; join
+                    i32.const 64
+                    i32.const {join_base_len}
+                    i32.const 80
+                    i32.const {join_segment_len}
+                    i32.const 384
+                    i32.const 32
+                    call $join
+                    i32.const {joined_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{join_checks}
+                    ;; resolve
+                    i32.const 112
+                    i32.const {resolve_base_len}
+                    i32.const 144
+                    i32.const {resolve_input_len}
+                    i32.const 448
+                    i32.const 32
+                    call $resolve
+                    i32.const {resolved_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{resolve_checks}
+                    ;; dirname
+                    i32.const 192
+                    i32.const {dirname_input_len}
+                    i32.const 512
+                    i32.const 32
+                    call $dirname
+                    i32.const {dirname_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{dirname_checks}
+                    ;; basename
+                    i32.const 224
+                    i32.const {basename_input_len}
+                    i32.const 576
+                    i32.const 32
+                    call $basename
+                    i32.const {basename_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{basename_checks}
+                    ;; extname
+                    i32.const 256
+                    i32.const {extname_input_len}
+                    i32.const 640
+                    i32.const 32
+                    call $extname
+                    i32.const {extname_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{extname_checks}
+                )
+            )
+            "#,
+            normalize_input = normalize_input,
+            normalize_len = normalize_input.len(),
+            normalized_len = normalized_output.len(),
+            normalize_checks = wat_assert_buffer_eq(320, normalized_output),
+            join_base = join_base,
+            join_base_len = join_base.len(),
+            join_segment = join_segment,
+            join_segment_len = join_segment.len(),
+            joined_len = joined_output.len(),
+            join_checks = wat_assert_buffer_eq(384, joined_output),
+            resolve_base = resolve_base,
+            resolve_base_len = resolve_base.len(),
+            resolve_input = resolve_input,
+            resolve_input_len = resolve_input.len(),
+            resolved_len = resolved_output.len(),
+            resolve_checks = wat_assert_buffer_eq(448, resolved_output),
+            dirname_input = dirname_input,
+            dirname_input_len = dirname_input.len(),
+            dirname_len = dirname_output.len(),
+            dirname_checks = wat_assert_buffer_eq(512, dirname_output),
+            basename_input = basename_input,
+            basename_input_len = basename_input.len(),
+            basename_len = basename_output.len(),
+            basename_checks = wat_assert_buffer_eq(576, basename_output),
+            extname_input = extname_input,
+            extname_input_len = extname_input.len(),
+            extname_len = extname_output.len(),
+            extname_checks = wat_assert_buffer_eq(640, extname_output),
+        );
+
+        let wasm = compile_wat(&wat);
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_executes_node_crypto_and_os_host_imports() {
+        let runtime = RuntimeCtx::with_host_context_with_api_surface(
+            None,
+            Vec::new(),
+            capture_env(),
+            PathBuf::from("."),
+            "node",
+        );
+        let hash_input = "hello";
+        let hmac_key = "key";
+        let hmac_input = "The quick brown fox jumps over the lazy dog";
+        let expected_hash = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+        let expected_hmac = "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8";
+        let expected_platform = std::env::consts::OS;
+        let expected_arch = std::env::consts::ARCH;
+        let expected_eol = if cfg!(windows) { "\r\n" } else { "\n" };
+        let eol_checks = if expected_eol.len() == 1 {
+            format!(
+                "                    i32.const 288\n                    i32.load8_u\n                    i32.const {}\n                    i32.ne\n                    if\n                        unreachable\n                    end\n",
+                expected_eol.as_bytes()[0]
+            )
+        } else {
+            format!(
+                "                    i32.const 288\n                    i32.load8_u\n                    i32.const {}\n                    i32.ne\n                    if\n                        unreachable\n                    end\n                    i32.const 289\n                    i32.load8_u\n                    i32.const {}\n                    i32.ne\n                    if\n                        unreachable\n                    end\n",
+                expected_eol.as_bytes()[0],
+                expected_eol.as_bytes()[1]
+            )
+        };
+        let wat = format!(
+            r#"
+            (module
+                (import "kali:node" "crypto_create_hash" (func $hash (param i32 i32 i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "crypto_create_hmac" (func $hmac (param i32 i32 i32 i32 i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "crypto_random_uuid" (func $uuid (param i32 i32) (result i32)))
+                (import "kali:node" "os_platform" (func $platform (param i32 i32) (result i32)))
+                (import "kali:node" "os_arch" (func $arch (param i32 i32) (result i32)))
+                (import "kali:node" "os_eol" (func $eol (param i32 i32) (result i32)))
+                (import "kali:node" "os_cpus" (func $cpus (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "{hash_input}")
+                (data (i32.const 32) "sha256")
+                (data (i32.const 64) "{hmac_key}")
+                (data (i32.const 96) "{hmac_input}")
+                (data (i32.const 160) "{expected_platform}")
+                (data (i32.const 224) "{expected_arch}")
+                (func (export "_start")
+                    i32.const 32
+                    i32.const 6
+                    i32.const 0
+                    i32.const {hash_input_len}
+                    i32.const 320
+                    i32.const 80
+                    call $hash
+                    i32.const {expected_hash_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{hash_checks}
+                    i32.const 32
+                    i32.const 6
+                    i32.const 64
+                    i32.const {hmac_key_len}
+                    i32.const 96
+                    i32.const {hmac_input_len}
+                    i32.const 416
+                    i32.const 80
+                    call $hmac
+                    i32.const {expected_hmac_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{hmac_checks}
+                    i32.const 480
+                    i32.const 36
+                    call $uuid
+                    i32.const 36
+                    i32.ne
+                    if
+                        unreachable
+                    end
+                    i32.const 488
+                    i32.load8_u
+                    i32.const 45
+                    i32.ne
+                    if
+                        unreachable
+                    end
+                    i32.const 493
+                    i32.load8_u
+                    i32.const 45
+                    i32.ne
+                    if
+                        unreachable
+                    end
+                    i32.const 494
+                    i32.load8_u
+                    i32.const 52
+                    i32.ne
+                    if
+                        unreachable
+                    end
+                    i32.const 498
+                    i32.load8_u
+                    i32.const 45
+                    i32.ne
+                    if
+                        unreachable
+                    end
+                    i32.const 503
+                    i32.load8_u
+                    i32.const 45
+                    i32.ne
+                    if
+                        unreachable
+                    end
+                    i32.const 160
+                    i32.const {expected_platform_len}
+                    call $platform
+                    i32.const {expected_platform_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{platform_checks}
+                    i32.const 224
+                    i32.const {expected_arch_len}
+                    call $arch
+                    i32.const {expected_arch_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{arch_checks}
+                    i32.const 288
+                    i32.const {expected_eol_len}
+                    call $eol
+                    i32.const {expected_eol_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{eol_checks}
+                    call $cpus
+                    i32.const 1
+                    i32.lt_s
+                    if
+                        unreachable
+                    end)
+            )
+            "#,
+            hash_input = hash_input,
+            hash_input_len = hash_input.len(),
+            expected_hash_len = expected_hash.len(),
+            hash_checks = wat_assert_buffer_eq(320, expected_hash),
+            hmac_key = hmac_key,
+            hmac_key_len = hmac_key.len(),
+            hmac_input = hmac_input,
+            hmac_input_len = hmac_input.len(),
+            expected_hmac_len = expected_hmac.len(),
+            hmac_checks = wat_assert_buffer_eq(416, expected_hmac),
+            expected_platform = expected_platform,
+            expected_platform_len = expected_platform.len(),
+            platform_checks = wat_assert_buffer_eq(160, expected_platform),
+            expected_arch = expected_arch,
+            expected_arch_len = expected_arch.len(),
+            arch_checks = wat_assert_buffer_eq(224, expected_arch),
+            expected_eol_len = expected_eol.len(),
+            eol_checks = eol_checks,
+        );
+
+        let wasm = compile_wat(&wat);
         let outcome = runtime.execute(&wasm).expect("runtime outcome");
         assert_eq!(outcome.exit_code, 0);
     }
