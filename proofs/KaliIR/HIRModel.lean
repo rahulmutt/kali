@@ -11,6 +11,7 @@ inductive HIRExpr where
   | seq : HIRExpr → HIRExpr → HIRExpr
   | if : HIRExpr → HIRExpr → HIRExpr → HIRExpr
   | assign : String → HIRExpr → HIRExpr
+  | throw : HIRExpr → HIRExpr
   | tr : HIRExpr → String → HIRExpr → HIRExpr
   deriving Repr
 
@@ -21,6 +22,7 @@ def lower : HIRExpr → KaliCore.Expr
   | .seq e1 e2 => .ESeq (lower e1) (lower e2)
   | .if c t e => .EIf (lower c) (lower t) (lower e)
   | .assign x e => .EAssign x (lower e)
+  | .throw e => .EThrow (lower e)
   | .tr e x h => .ETry (lower e) x (lower h)
 
 @[simp] theorem lower_core (e : KaliCore.Expr) : lower (.core e) = e := rfl
@@ -36,6 +38,9 @@ def lower : HIRExpr → KaliCore.Expr
 
 @[simp] theorem lower_assign (x : String) (e : HIRExpr) :
     lower (.assign x e) = .EAssign x (lower e) := rfl
+
+@[simp] theorem lower_throw (e : HIRExpr) :
+    lower (.throw e) = .EThrow (lower e) := rfl
 
 @[simp] theorem lower_tr (e : HIRExpr) (x : String) (h : HIRExpr) :
     lower (.tr e x h) = .ETry (lower e) x (lower h) := rfl

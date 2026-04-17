@@ -62,7 +62,7 @@ Prove that the HIR → LIR lowering preserves the semantics of the core calculus
   the LIR operational semantics.
 
 This is limited to the modelled subset (no `eval`, no dynamic dispatch beyond what the model
-covers).
+covers), and the current HIR slice now also covers bare throw.
 
 ### 5. Update `proofs/BOUNDARY.md`
 

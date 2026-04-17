@@ -7,10 +7,10 @@ open KaliCore
 /--
 A small proof-backed lowering-correctness fragment for the provisional HIR
 model. The current theorem family covers the structural HIR forms already
-present in `HIRModel`, including assignment and try/catch, plus the simple
-`let1` beta case where the body is a core expression. That keeps the model
-honest about the subset we have mechanized while still giving a real
-preservation bridge from HIR to the core semantics.
+present in `HIRModel`, including assignment, bare throw, and try/catch,
+plus the simple `let1` beta case where the body is a core expression. That
+keeps the model honest about the subset we have mechanized while still giving
+a real preservation bridge from HIR to the core semantics.
 -/
 inductive Step : HIRExpr → HIRExpr → Prop where
   | core : ∀ {e e'}, KaliCore.step e e' → Step (.core e) (.core e')
@@ -23,6 +23,7 @@ inductive Step : HIRExpr → HIRExpr → Prop where
   | if_false : ∀ {t e}, Step (.if (.core (.ELit (.bool false))) t e) e
   | assign_step : ∀ {x e e'}, Step e e' → Step (.assign x e) (.assign x e')
   | assign_value : ∀ {x v}, KaliCore.Value v → Step (.assign x (.core v)) (.core (.EAssign x v))
+  | throw_step : ∀ {e e'}, Step e e' → Step (.throw e) (.throw e')
   | tr_step : ∀ {e e' x h}, Step e e' → Step (.tr e x h) (.tr e' x h)
   | tr_catch : ∀ {v x h}, KaliCore.Value v → Step (.tr (.core (.EThrow v)) x (.core h)) (.core (KaliCore.subst x v h))
   | tr_value : ∀ {v x h}, KaliCore.Value v → Step (.tr (.core v) x h) (.core v)
@@ -67,6 +68,8 @@ theorem lower_preserves_step : ∀ {h h' : HIRExpr}, Step h h' → KaliCore.step
       simpa [lower] using (KaliCore.step.assign_step (x := x) (e := lower e) (e' := lower e') ih)
   | assign_value (x := x) (v := v) hv =>
       simpa [lower] using (KaliCore.step.assign_value (x := x) (v := v) hv)
+  | throw_step (e := e) (e' := e') hstep ih =>
+      simpa [lower] using (KaliCore.step.throw_step ih)
   | tr_step (e := e) (e' := e') (x := x) (h := h) hstep ih =>
       simpa [lower] using (KaliCore.step.try_step (x := x) (h := lower h) ih)
   | tr_catch (v := v) (x := x) (h := h) hv =>

@@ -4,9 +4,9 @@ namespace KaliCore
 
 /-- Typing judgment for the bounded core fragment modelled in Lean. The current
 proof boundary now covers literals, variables, closed functions, application,
-sequencing, and conditionals. That keeps the progress and preservation story
-mechanised while still leaving assignment, exceptions, and the wider memory /
-lowering proofs for later work.
+sequencing, conditionals, assignment, and try/catch. That keeps the progress
+and preservation story mechanised while still leaving bare throw plus the wider
+memory / lowering proofs for later work.
 -/
 inductive Typing : Context → Expr → Ty → Prop where
   | lit : ∀ {Γ v}, Typing Γ (.ELit v) (litTy v)

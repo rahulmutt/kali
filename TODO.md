@@ -118,8 +118,8 @@
 - [x] Stage 4.2 proof boundary widening
   - `KaliCore.Soundness` now mechanizes the widened closed fragment (literals, variables, closed functions, application, sequencing, conditionals, assignment, and try/catch).
   - `KaliCore.Safety.noDanglingReference` is mechanized for the current RC snapshot model, `liveRefsAreOwnedAndAllocated` projects live references back to ownership/allocation, `releasePreservesWellFormed` records the live-to-released transition, `releaseAndDecrementPreservesWellFormed` keeps the refcount-decrement update helper honest, `releaseAndDecrementRecorded` / `releaseAndDecrementDecrementsTargetCell` / `releaseAndDecrementZeroesLastTargetCell` / `releaseAndCollectRecorded` / `releaseAndCollectDropsZeroCountCells` / `releaseAndCollectKeepsPositiveCountCells` / `releaseAndCollectKeepsOtherPositiveCountCells` / `releaseAndCollectHeapIsPositiveCountFilter` / `releaseAndCollectPreservesOtherLiveRefs` / `releaseAndCollectReleasedNotLiveRef` / `releaseAndDecrementReleasedNotLiveRef` / `releaseAndDecrementLiveRefsAreOwnedAndAllocated` / `releaseAndCollectLiveRefsAreOwnedAndAllocated` keep the helper's release bookkeeping explicit, and `releasedNotLive` / `releasedNotLiveRef` record the release-path liveness split and live/released disjointness.
-  - `KaliIR.HIRModel` records the structural lowering equations for `lower_core`, `lower_let1`, `lower_seq`, and `lower_if`.
-  - `KaliIR.LoweringCorrectness` adds both a small-step lowering-preservation bridge and a finite-trace lowering-preservation bridge for the current HIR subset.
+  - `KaliIR.HIRModel` records the structural lowering equations for `lower_core`, `lower_let1`, `lower_seq`, `lower_if`, `lower_throw`, and `lower_tr`.
+  - `KaliIR.LoweringCorrectness` adds both a small-step lowering-preservation bridge and a finite-trace lowering-preservation bridge for the current HIR subset, including bare throw.
   - `proofs/BOUNDARY.md` now publishes the proof-backed boundary for that slice, and the canonical repository summary is aligned with it.
 
 
