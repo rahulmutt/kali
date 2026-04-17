@@ -169,3 +169,11 @@ I synced the proof-boundary verification prose so `KaliCore.Safety.releaseAndCol
 Completed follow-up:
 - updated `README.md`, `proofs/BOUNDARY.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the published verification summary explicitly names the target-cell retention theorem
 - kept the Stage 4.2 claim narrow; this is still the local release-and-collect helper story, not the full ownership/freeing target
+
+## 2026-04-17 — Stage 4.2 heap-positive testing-summary sync
+
+I noticed `specs/16-testing.md` still lagged the latest proof-boundary inventory wording in its verification-posture summary, even though the main verification/spec docs already name `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` and `KaliCore.Safety.releaseAndCollectKeepsTargetCellWhenPositiveCount` explicitly.
+
+Suggested follow-up:
+- sync `specs/16-testing.md` so the current repository-state note and proof-backed-claims guidance name the latest RC snapshot theorem inventory explicitly
+- keep the claim narrow; this is still a summary-doc wording pass, not a boundary widening

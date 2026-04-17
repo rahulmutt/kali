@@ -4,7 +4,7 @@ Current repository-state note:
 - this repository is still spec-first; the crate names, test directories, and CI lanes below define the target implementation/testing contract, not a claim that every Rust crate, fixture tree, or hosted CI job already exists today
 - current repo obligations are therefore narrower: keep the spec/docs internally consistent, keep phase-gated workflows honestly marked as unavailable until their maturity rows open, and follow the shared **proof-ready vs proof-backed split** from [SPEC.md](../SPEC.md) plus the published proof-boundary policy in `proofs/BOUNDARY.md`
 - when this chapter needs a one-line statement about the repository's current verification posture, reuse the manifest's canonical short summary verbatim: **Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.**
-- the current published boundary also keeps the pure release helper explicit in the RC snapshot slice, including its ownership/allocation and disjointness corollaries alongside the existing release-recording, zero-count collection, positive-count preservation, and live/released-disjointness bookkeeping, while still stopping short of the fuller ownership/freeing story
+- the current published boundary also keeps the pure release helper explicit in the RC snapshot slice, including its ownership/allocation and disjointness corollaries alongside the existing release-recording, zero-count collection, positive-count preservation, target-cell retention, final-heap positive-count, and live/released-disjointness bookkeeping, while still stopping short of the fuller ownership/freeing story
 
 ## Test Strategy
 
@@ -68,7 +68,7 @@ To keep phase labels and compatibility claims honest, each concern area needs it
 | Registry-analysis commands (`package-effects`, `package-audit`) | command-shape/arity negatives, deterministic single-package version-selection tests, context-participation tests (`package-effects` inherited analysis context vs `package-audit` context-free behavior), and JSON-contract assertions for native-JSON vs envelope-only output |
 | CLI behavior / JSON schemas | golden CLI snapshots + schema validation tests + exit-code assertions |
 | Artifact reproducibility | repeated-build tests over pinned inputs/toolchains + normalized artifact-byte comparisons + stable emitted-metadata assertions |
-| Proof-backed claims | passing Lean proof jobs for the current published proof boundary, scoped by the published **proof-boundary manifest** and the shared **proof-ready vs proof-backed split**; Phase 1 may be merely **proof-ready** earlier, but proof-backed release claims require a non-empty published boundary with named theorem/property claims |
+| Proof-backed claims | passing Lean proof jobs for the current published proof boundary, scoped by the published **proof-boundary manifest** and the shared **proof-ready vs proof-backed split**; Phase 1 may be merely **proof-ready** earlier, but proof-backed release claims require a non-empty published boundary with named theorem/property claims, including the current RC snapshot helper slice's target-cell retention and final-heap positive-count theorems |
 
 Interpretation rule:
 - a feature can stay listed as a future phase target before these tests exist
