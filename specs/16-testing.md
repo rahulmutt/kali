@@ -4,7 +4,7 @@ Current repository-state note:
 - this repository is still spec-first; the crate names, test directories, and CI lanes below define the target implementation/testing contract, not a claim that every Rust crate, fixture tree, or hosted CI job already exists today
 - current repo obligations are therefore narrower: keep the spec/docs internally consistent, keep phase-gated workflows honestly marked as unavailable until their maturity rows open, and follow the shared **proof-ready vs proof-backed split** from [SPEC.md](../SPEC.md) plus the published proof-boundary policy in `proofs/BOUNDARY.md`
 - when this chapter needs a one-line statement about the repository's current verification posture, reuse the manifest's canonical short summary verbatim: **Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.**
-- the current published boundary also keeps a local refcount-decrement update helper explicit in the RC snapshot slice, while still stopping short of the fuller freeing story
+- the current published boundary also keeps a local refcount-decrement update helper explicit in the RC snapshot slice, including its release-recording and live/released-disjointness bookkeeping, while still stopping short of the fuller freeing story
 
 ## Test Strategy
 

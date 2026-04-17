@@ -124,6 +124,20 @@ theorem releaseAndDecrementPreservesWellFormed (snapshot : RcSnapshot) (ref : St
       exact List.mem_map.mpr ⟨cell, hmem, hcell⟩
     · simpa [hneq] using hannotated.2.2
 
+/-- A release-and-decrement step still records the released reference. -/
+theorem releaseAndDecrementRecorded (snapshot : RcSnapshot) (ref : String) :
+    ref ∈ (releaseAndDecrement snapshot ref).releasedRefs := by
+  simp [releaseAndDecrement]
+
+/-- Released references remain disjoint from the live set after a release-and-decrement step. -/
+theorem releaseAndDecrementReleasedNotLiveRef (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    ∀ r, r ∈ (releaseAndDecrement snapshot ref).releasedRefs → r ∉ (releaseAndDecrement snapshot ref).liveRefs := by
+  intro r hr hlive
+  have hwf : WellFormed (releaseAndDecrement snapshot ref) :=
+    releaseAndDecrementPreservesWellFormed snapshot ref h
+  exact releasedNotLiveRef (releaseAndDecrement snapshot ref) hwf r hr hlive
+
 /-- A released reference is recorded in the released set after the release step. -/
 theorem releaseRecorded (snapshot : RcSnapshot) (ref : String) :
     ref ∈ (releaseRef snapshot ref).releasedRefs := by

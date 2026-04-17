@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 RC decrement bookkeeping follow-up
+
+I’m planning the next small Stage 4.2 progress update: make the RC snapshot decrement helper's release bookkeeping explicit by recording the release step and the released/live disjointness on the decrement path, while still leaving the fuller freeing story and broader ownership model for later.
+
+Suggested follow-up:
+- update `PLAN-4.2-STATUS.md`, `TODO.md`, and the proof boundary note once the helper/theorem lands so the progress tracker matches the proof boundary
+- keep the story explicitly incremental: this is a bookkeeping refinement on the decrement helper, not the final RC freeing target
+
 ## 2026-04-17 — Stage 3.2 Node compatibility completion sync
 
 The documented Stage 3.2 Node-compatibility subset is now reflected as complete in the plan progress files. I also added a small `NodeProcess::exit` helper alias in `kali_api_node` so the process helper surface mirrors the plan vocabulary more directly, then updated the Stage 3.2 status note and checklist to match the current Node command/path/package coverage.
