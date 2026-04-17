@@ -128,3 +128,10 @@ I widened the Stage 4.2 RC snapshot proof slice with explicit ownership-envelope
 Suggested follow-up:
 - update `PLAN-4.2-STATUS.md`, `TODO.md`, and the proof-boundary / verification summary docs so the progress tracker names the new ownership-envelope preservation lemmas
 - keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level ownership-map slice, not the full ownership/freeing story
+
+## 2026-04-17 — Stage 4.2 heap-origin provenance sync
+
+I refreshed the Stage 4.2 progress trackers after widening the RC snapshot proof slice with `KaliCore.Safety.releaseAndCollectHeapCellOrigin`, which makes the local `releaseAndCollect` helper's surviving-cell provenance explicit.
+
+Completed follow-up:
+- synced `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the Stage 4.2 progress notes name the heap-origin provenance theorem alongside the other RC helper invariants

@@ -107,3 +107,10 @@ I widened the RC snapshot proof slice with explicit ownership-envelope preservat
 Suggested follow-up:
 - sync `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the proof-backed boundary inventory names the new ownership-envelope preservation lemmas
 - keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level ownership-map slice, not the full ownership/freeing story
+
+## 2026-04-17 — Stage 4.2 heap-origin provenance sync
+
+I synced the proof-backed verification summaries after widening the RC snapshot proof slice with `KaliCore.Safety.releaseAndCollectHeapCellOrigin`, which makes the local `releaseAndCollect` helper's surviving-cell provenance explicit.
+
+Suggested follow-up:
+- keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level provenance theorem, not the full RC target
