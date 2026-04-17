@@ -293,3 +293,11 @@ The RC snapshot safety slice now includes a live-to-released transition theorem 
 Suggested follow-up:
 - keep the Stage 4.2 status note, TODO tracker, and proof boundary aligned if the RC model widens again
 - continue the remaining ownership / RC target work as the next proof-backed slice when it is ready
+
+## 2026-04-17 — Browser-bundle const-bound chunk-discovery follow-up
+
+I’m planning a small browser-bundle discovery refinement: teach the Phase-3/4 browser bundle chunk graph to recognize const-bound static dynamic-import fragments as well as literal concatenations, so chunk emission can follow the same simple compile-time constants the resolver already understands.
+
+Suggested follow-up:
+- update `PLAN-4.1-STATUS.md` and the TODO progress tracker once the browser-bundle chunk graph learns the const-bound slice
+- keep this intentionally narrow: it is a build-time chunk-discovery improvement, not a general runtime import-interpreter change

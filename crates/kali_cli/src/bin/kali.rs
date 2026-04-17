@@ -1393,7 +1393,7 @@ fn write_browser_bundle_files(
             ),
         )]
     })?;
-    let dynamic_import_targets = discover_dynamic_import_targets(source, &source_contents)?;
+    let dynamic_import_targets = build::discover_dynamic_import_targets(source, &source_contents)?;
     let dynamic_import_map =
         browser_bundle_dynamic_import_map(&output_dir, format, &dynamic_import_targets)?;
 
@@ -1491,7 +1491,7 @@ fn collect_browser_bundle_chunk_artifacts(
         )]
     })?;
     let mut artifacts = Vec::new();
-    for chunk_target in discover_dynamic_import_targets(source, &source_contents)? {
+    for chunk_target in build::discover_dynamic_import_targets(source, &source_contents)? {
         if !visited.insert(chunk_target.target.clone()) {
             continue;
         }
@@ -1539,145 +1539,10 @@ fn collect_browser_bundle_chunk_artifacts(
     Ok(artifacts)
 }
 
-#[derive(Clone, Debug)]
-struct DynamicImportTarget {
-    specifier: String,
-    target: PathBuf,
-}
-
-fn discover_dynamic_import_targets(
-    source: &Path,
-    source_contents: &str,
-) -> Result<Vec<DynamicImportTarget>, Vec<Diagnostic>> {
-    let mut targets = Vec::new();
-    let mut search_start = 0usize;
-
-    while let Some(relative) = source_contents[search_start..].find("import(") {
-        let import_start = search_start + relative + "import(".len();
-        if let Some((specifier, next_index)) =
-            parse_static_dynamic_import_specifier(source_contents, import_start)
-        {
-            if let Some(target) = resolve_dynamic_import_target(source, &specifier) {
-                targets.push(DynamicImportTarget { specifier, target });
-            }
-            search_start = next_index;
-        } else {
-            search_start = import_start;
-        }
-    }
-
-    Ok(targets)
-}
-
-fn parse_static_dynamic_import_specifier(
-    source_contents: &str,
-    index: usize,
-) -> Option<(String, usize)> {
-    let (specifier, next_index) = parse_static_import_expression(source_contents, index)?;
-    let index = skip_js_whitespace(source_contents, next_index);
-    if source_contents.as_bytes().get(index).copied()? != b')' {
-        return None;
-    }
-    Some((specifier, index + 1))
-}
-
-fn parse_static_import_expression(source_contents: &str, index: usize) -> Option<(String, usize)> {
-    let (mut value, mut index) = parse_static_import_term(source_contents, index)?;
-    loop {
-        index = skip_js_whitespace(source_contents, index);
-        if source_contents.as_bytes().get(index).copied() != Some(b'+') {
-            return Some((value, index));
-        }
-        index += 1;
-        index = skip_js_whitespace(source_contents, index);
-        let (rhs, next_index) = parse_static_import_term(source_contents, index)?;
-        value.push_str(&rhs);
-        index = next_index;
-    }
-}
-
-fn parse_static_import_term(source_contents: &str, index: usize) -> Option<(String, usize)> {
-    let bytes = source_contents.as_bytes();
-    let index = skip_js_whitespace(source_contents, index);
-    let quote = *bytes.get(index)? as char;
-    if matches!(quote, '"' | '\'' | '`') {
-        parse_static_import_string(source_contents, index)
-    } else if quote == '(' {
-        let (value, next_index) = parse_static_import_expression(source_contents, index + 1)?;
-        let next_index = skip_js_whitespace(source_contents, next_index);
-        if source_contents.as_bytes().get(next_index).copied()? != b')' {
-            return None;
-        }
-        Some((value, next_index + 1))
-    } else {
-        None
-    }
-}
-
-fn parse_static_import_string(source_contents: &str, index: usize) -> Option<(String, usize)> {
-    let bytes = source_contents.as_bytes();
-    let quote = *bytes.get(index)? as char;
-    let mut index = index + 1;
-    let start = index;
-    let mut escaped = false;
-    while index < bytes.len() {
-        let ch = bytes[index] as char;
-        index += 1;
-        if escaped {
-            escaped = false;
-            continue;
-        }
-        if ch == '\\' {
-            escaped = true;
-            continue;
-        }
-        if quote == '`' && ch == '$' && bytes.get(index).copied() == Some(b'{') {
-            return None;
-        }
-        if ch == quote {
-            return Some((source_contents[start..index - 1].to_string(), index));
-        }
-    }
-    None
-}
-
-fn skip_js_whitespace(source_contents: &str, mut index: usize) -> usize {
-    let bytes = source_contents.as_bytes();
-    while index < bytes.len() && bytes[index].is_ascii_whitespace() {
-        index += 1;
-    }
-    index
-}
-
-fn resolve_dynamic_import_target(source: &Path, specifier: &str) -> Option<PathBuf> {
-    let specifier = specifier.trim();
-    if !(specifier.starts_with("./") || specifier.starts_with("../")) {
-        return None;
-    }
-    let parent = source.parent()?;
-    let candidate = parent.join(specifier);
-    let try_paths = std::iter::once(candidate.clone()).chain([
-        candidate.with_extension("ts"),
-        candidate.with_extension("tsx"),
-        candidate.with_extension("js"),
-        candidate.with_extension("jsx"),
-        candidate.with_extension("mts"),
-        candidate.with_extension("mjs"),
-        candidate.with_extension("cts"),
-        candidate.with_extension("cjs"),
-    ]);
-    for path in try_paths {
-        if let Ok(canonical) = fs::canonicalize(&path) {
-            return Some(canonical);
-        }
-    }
-    None
-}
-
 fn browser_bundle_dynamic_import_map(
     bundle_root: &Path,
     format: BundleFormat,
-    targets: &[DynamicImportTarget],
+    targets: &[build::DynamicImportTarget],
 ) -> Result<BTreeMap<String, String>, Vec<Diagnostic>> {
     let mut map = BTreeMap::new();
     for target in targets {

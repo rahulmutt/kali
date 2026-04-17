@@ -79,6 +79,7 @@
 ### Stage 4.1 - Runtime dynamic import graph lookup
 - ✅ Browser bundle JS now normalizes runtime `loadDynamicImport(specifier)` requests before target lookup, so path-equivalent runtime specifiers resolve through the bundle-local map instead of requiring an exact static spelling.
 - ✅ Browser bundle smoke coverage now exercises a normalized runtime specifier (`./sub/../lazy.ts`) against a discovered chunk target.
+- ✅ Browser bundle chunk discovery now folds const-bound static `import(...)` fragments before emitting the chunk graph, so `import((root + name))` can discover the same linked target as the literal concatenation cases.
 
 ## Next Work
 - [x] Browser bundle source-map companions

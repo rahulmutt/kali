@@ -35,6 +35,12 @@ pub struct BuildOutput {
     pub wasm_bytes: Vec<u8>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DynamicImportTarget {
+    pub specifier: String,
+    pub target: PathBuf,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct LibraryExport {
     pub name: String,
@@ -551,6 +557,78 @@ fn collect_constant_bindings(tokens: &[Token], source: &str) -> BTreeMap<String,
 
     let _ = source;
     bindings
+}
+
+pub fn discover_dynamic_import_targets(
+    source: &Path,
+    source_contents: &str,
+) -> Result<Vec<DynamicImportTarget>, Vec<Diagnostic>> {
+    let lexer = Lexer::new(FileId::new(0), source_contents.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let bindings = collect_constant_bindings(&tokens, source_contents);
+    let mut targets = Vec::new();
+    let mut search_start = 0usize;
+
+    while let Some(relative) = source_contents[search_start..].find("import(") {
+        let import_start = search_start + relative + "import(".len();
+        if let Some((specifier, next_index)) =
+            parse_static_dynamic_import_specifier(source_contents, import_start, &bindings)
+        {
+            if let Some(target) = resolve_dynamic_import_target(source, &specifier) {
+                targets.push(DynamicImportTarget { specifier, target });
+            }
+            search_start = next_index;
+        } else {
+            search_start = import_start;
+        }
+    }
+
+    Ok(targets)
+}
+
+fn parse_static_dynamic_import_specifier(
+    source_contents: &str,
+    index: usize,
+    env: &BTreeMap<String, EvalConst>,
+) -> Option<(String, usize)> {
+    let call_end = find_call_end(source_contents, index)?;
+    let arg_source = &source_contents[index..call_end];
+    let lexer = Lexer::new(FileId::new(1), arg_source.to_string());
+    let mut tokens = lexer.lex_all().tokens;
+    while matches!(tokens.last(), Some(token) if token.kind == TokenType::Eof) {
+        tokens.pop();
+    }
+    let (value, consumed) = parse_constant_expression(&tokens, 0, env)?;
+    if consumed == tokens.len() {
+        Some((value.to_string_value(), call_end + 1))
+    } else {
+        None
+    }
+}
+
+fn resolve_dynamic_import_target(source: &Path, specifier: &str) -> Option<PathBuf> {
+    let specifier = specifier.trim();
+    if !(specifier.starts_with("./") || specifier.starts_with("../")) {
+        return None;
+    }
+    let parent = source.parent()?;
+    let candidate = parent.join(specifier);
+    let try_paths = std::iter::once(candidate.clone()).chain([
+        candidate.with_extension("ts"),
+        candidate.with_extension("tsx"),
+        candidate.with_extension("js"),
+        candidate.with_extension("jsx"),
+        candidate.with_extension("mts"),
+        candidate.with_extension("mjs"),
+        candidate.with_extension("cts"),
+        candidate.with_extension("cjs"),
+    ]);
+    for path in try_paths {
+        if let Ok(canonical) = fs::canonicalize(&path) {
+            return Some(canonical);
+        }
+    }
+    None
 }
 
 fn find_statement_end(tokens: &[Token], start: usize) -> usize {
