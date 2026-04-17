@@ -1,10 +1,10 @@
 ## 2026-04-17 — Stage 3.3 package-corpus expansion
 
-I expanded the Stage 3.3 package corpus tests with exports-map / subpath coverage for the browser, utility, and Node-runner cases, so the corpus now exercises more realistic real-world package shapes instead of only single-entrypoint stubs.
+I expanded the Stage 3.3 package corpus tests with exports-map / subpath coverage for the browser, utility, and Node-runner cases, and then added dual-package / mixed-format coverage so the corpus now exercises conditional exports plus mixed CJS/ESM entrypoints instead of only single-entrypoint stubs.
 
 Suggested follow-up:
-- continue broadening the corpus as new package shapes are triaged, especially dual-package and mixed-format cases
 - keep the stage progress notes aligned with the corpus tests whenever another representative shape is added
+- continue broadening the corpus as new package shapes are triaged
 
 ## 2026-04-17 — Stage 4.2 proof-summary anti-drift follow-up
 

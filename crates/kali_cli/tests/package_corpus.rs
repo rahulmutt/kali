@@ -101,6 +101,89 @@ fn write_export_map_package(
         .expect("write package subpath");
 }
 
+fn write_dual_exports_package(
+    root: &Path,
+    name: &str,
+    root_import_body: &str,
+    root_require_body: &str,
+    subpath: &str,
+    subpath_import_body: &str,
+    subpath_require_body: &str,
+) {
+    let package_dir = root.join("node_modules").join(name);
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        format!(
+            r#"{{
+  "name": "{}",
+  "exports": {{
+    ".": {{
+      "import": "./index.mjs",
+      "require": "./index.cjs"
+    }},
+    "./{}": {{
+      "import": "./{}.mjs",
+      "require": "./{}.cjs"
+    }}
+  }}
+}}"#,
+            name, subpath, subpath, subpath
+        ),
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.mjs"), root_import_body).expect("write package root import");
+    fs::write(package_dir.join("index.cjs"), root_require_body)
+        .expect("write package root require");
+    fs::write(
+        package_dir.join(format!("{}.mjs", subpath)),
+        subpath_import_body,
+    )
+    .expect("write package subpath import");
+    fs::write(
+        package_dir.join(format!("{}.cjs", subpath)),
+        subpath_require_body,
+    )
+    .expect("write package subpath require");
+}
+
+fn write_mixed_format_package(
+    root: &Path,
+    name: &str,
+    root_cjs_body: &str,
+    root_esm_body: &str,
+    subpath: &str,
+    subpath_cjs_body: &str,
+    subpath_esm_body: &str,
+) {
+    let package_dir = root.join("node_modules").join(name);
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        format!(
+            r#"{{
+  "name": "{}",
+  "main": "index.cjs",
+  "module": "index.mjs"
+}}"#,
+            name
+        ),
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.cjs"), root_cjs_body).expect("write package root cjs");
+    fs::write(package_dir.join("index.mjs"), root_esm_body).expect("write package root esm");
+    fs::write(
+        package_dir.join(format!("{}.cjs", subpath)),
+        subpath_cjs_body,
+    )
+    .expect("write package subpath cjs");
+    fs::write(
+        package_dir.join(format!("{}.mjs", subpath)),
+        subpath_esm_body,
+    )
+    .expect("write package subpath esm");
+}
+
 fn run_kali<I, S>(root: &Path, args: I) -> std::process::Output
 where
     I: IntoIterator<Item = S>,
@@ -230,6 +313,80 @@ fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_thr
 }
 
 #[test]
+fn browser_corpus_packages_with_dual_exports_remain_checkable_and_deployable_through_host() {
+    for (package, subpath) in [
+        ("react", "jsx-runtime"),
+        ("preact", "hooks"),
+        ("vue", "runtime-dom"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_dual_exports_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:import'; }}\n",
+                package = package
+            ),
+            &format!(
+                "module.exports = function root() {{ return '{package}:require'; }};\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "export default function subpath() {{ return '{package}:{subpath}:import'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "module.exports = function subpath() {{ return '{package}:{subpath}:require'; }};\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser dual package {package} should be checkable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser dual package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface() {
     for package in ["ramda", "rxjs", "immer", "uuid", "typescript", "esbuild"] {
         let dir = tempdir().expect("tempdir");
@@ -311,6 +468,65 @@ fn utility_corpus_packages_with_exports_maps_remain_executable_on_the_default_st
         assert!(
             run.status.success(),
             "utility package {package} with exports map should stay executable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+    }
+}
+
+#[test]
+fn utility_corpus_packages_with_mixed_format_entries_remain_executable_on_the_default_standalone_surface(
+) {
+    for (package, subpath) in [("ramda", "add"), ("rxjs", "operators"), ("uuid", "v4")] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), None);
+        write_mixed_format_package(
+            dir.path(),
+            package,
+            &format!(
+                "module.exports = function root() {{ return '{package}:cjs'; }};\n",
+                package = package
+            ),
+            &format!(
+                "export default function root() {{ return '{package}:esm'; }}\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "module.exports = function subpath() {{ return '{package}:{subpath}:cjs'; }};\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "export default function subpath() {{ return '{package}:{subpath}:esm'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write utility source");
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "utility mixed-format package {package} should be checkable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+        assert!(
+            run.status.success(),
+            "utility mixed-format package {package} should stay executable\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr)
         );
@@ -400,6 +616,64 @@ fn node_runner_corpus_packages_with_exports_maps_require_the_node_context_but_re
         assert!(
             test.status.success(),
             "node package {package} with exports map should execute under the Node context\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+    }
+}
+
+#[test]
+fn node_runner_corpus_packages_with_mixed_format_entries_require_the_node_context_but_remain_executable_there(
+) {
+    for (package, subpath) in [("vitest", "config"), ("jest", "globals")] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("node"));
+        write_mixed_format_package(
+            dir.path(),
+            package,
+            &format!(
+                "const assert = require(\"node:assert\");\nmodule.exports = function root() {{ assert.ok(true); return '{package}:cjs'; }};\n",
+                package = package
+            ),
+            &format!(
+                "import assert from \"node:assert\";\nexport default function root() {{ assert.ok(true); return '{package}:esm'; }}\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "const assert = require(\"node:assert\");\nmodule.exports = function subpath() {{ assert.ok(true); return '{package}:{subpath}:cjs'; }};\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "import assert from \"node:assert\";\nexport default function subpath() {{ assert.ok(true); return '{package}:{subpath}:esm'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let test_path = dir
+            .path()
+            .join("tests")
+            .join(format!("{}.test.ts", package));
+        fs::create_dir_all(test_path.parent().expect("test dir")).expect("create test dir");
+        fs::write(
+            &test_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nKali.test('{package} corpus', () => {{\n  console.log(root(), subpath());\n}});\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write node test source");
+
+        let test = run_kali(
+            dir.path(),
+            ["test", "--api", "node", test_path.to_str().unwrap()],
+        );
+        assert!(
+            test.status.success(),
+            "node mixed-format package {package} should execute under the Node context\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&test.stdout),
             String::from_utf8_lossy(&test.stderr)
         );
