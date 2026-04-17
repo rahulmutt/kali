@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 proof-summary string sync
+
+I updated `specs/19-feature-maturity.md` so it now includes the canonical short proof-backed summary string verbatim alongside the RC snapshot theorem names, which keeps the maturity matrix aligned with `proofs/BOUNDARY.md`, `README.md`, and the proof-boundary tests.
+
+Suggested follow-up:
+- keep the summary string verbatim whenever the published proof boundary or its theorem inventory changes
+- treat this as a wording sync only; the mechanized boundary itself did not widen
+
 ## 2026-04-17 — Stage 4.2 testing-summary wording sync
 
 I tightened `specs/16-testing.md` so the repository-state note and proof-backed-claims guidance now name the RC snapshot helper slice more explicitly, including `KaliCore.Safety.releaseAndCollectKeepsTargetCellWhenPositiveCount`, `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter`, `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount`, and the pure release-helper ownership/disjointness corollaries.

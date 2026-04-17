@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 3.3 package-corpus expansion
+
+I expanded the Stage 3.3 package corpus tests with exports-map / subpath coverage for the browser, utility, and Node-runner cases, so the corpus now exercises more realistic real-world package shapes instead of only single-entrypoint stubs.
+
+Suggested follow-up:
+- continue broadening the corpus as new package shapes are triaged, especially dual-package and mixed-format cases
+- keep the stage progress notes aligned with the corpus tests whenever another representative shape is added
+
 ## 2026-04-17 — Stage 4.2 proof-summary anti-drift follow-up
 
 I tightened the proof-boundary anti-drift coverage so `crates/kali_cli/tests/schema_docs.rs` now checks both the `proofs/BOUNDARY.md` covered-path inventory and the published theorem/lemma inventory against the concrete Lean source set, and now also verifies the canonical proof-summary docs keep the current RC theorem names plus the proof-backed summary string in sync.
