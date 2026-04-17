@@ -91,6 +91,7 @@ pub mod _error_codes {
         pub const RESOURCE_LIMIT_EXCEEDED: u16 = 4003;
         pub const DYNAMIC_EFFECT_DETECTED: u16 = 4004;
         pub const STACK_OVERFLOW: u16 = 4005;
+        pub const DYNAMIC_IMPORT_NOT_IN_LINKED_GRAPH: u16 = 4008;
 
         // E4100-4199: Type errors at runtime
         pub const INVALID_TYPE_OPERATION: u16 = 4100;

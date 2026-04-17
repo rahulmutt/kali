@@ -1,5 +1,13 @@
 # SPEC Mailbox
 
+## 2026-04-17 — Dynamic-import static-resolution follow-up
+
+I’m planning a small implementation step for the Phase-4 dynamic-compatibility work: teach the resolver to statically evaluate simple `import(...)` source expressions (string literals, concatenation, and parenthesized forms) so statically known targets resolve through the existing import graph while unknown dynamic targets can emit the documented `E4008` diagnostic.
+
+Suggested follow-up:
+- if this lands, sync `specs/15-errors.md` so `E4008` is explicitly registered in the runtime error namespace
+- keep this distinct from the later true runtime `eval` / interpreter-backed compatibility path; this step is only about source-level dynamic-import target resolution
+
 ## 2026-04-17 — Browser-bundle dynamic-import concatenation follow-up
 
 Browser-bundle chunk discovery now recognizes simple statically-resolved `import(...)` string-concatenation targets in addition to direct string literals. That broadens the build-time chunk graph a little further while still staying within the already-linked module set.

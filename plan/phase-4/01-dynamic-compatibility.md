@@ -97,8 +97,8 @@ license compatibility, dependency count, and known malicious package signals.
 - [ ] `eval(dynamicString)` with `compat.features.eval = true` executes correctly for
   dynamically constructed strings.
 - [ ] `eval("...")` without the compat switch emits the correct diagnostic error.
-- [ ] Non-literal `import(expr)` resolves for statically known specifiers.
-- [ ] Non-literal `import(expr)` with an unknown specifier emits `E4008`.
+- [x] Non-literal `import(expr)` resolves for statically known specifiers.
+- [x] Non-literal `import(expr)` with an unknown specifier emits `E4008`.
 - [x] `kali package-audit <pkg>` publicly available without a `--preview` gate; emits a
   valid schema-v1 audit JSON report.
 - [ ] Hard-invariant preservation tests pass: no language-level JIT or tracing-GC paths

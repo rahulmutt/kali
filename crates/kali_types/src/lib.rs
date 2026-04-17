@@ -11,13 +11,14 @@ use kali_ast::{
     DecoratedExpression, DoWhileStatement, EnumDeclaration, EnumMember, Expression,
     ExpressionOrSpread, ExpressionStatement, ForInLefthand, ForInStatement, ForInit, ForOfLefthand,
     ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression, FunctionParam,
-    IfStatement, ImportDeclaration, ImportSpecifier, InterfaceDeclaration, JsxChild, JsxElement,
-    JsxFragment, LabeledStatement, MemberExpression, NodeId, ObjectExpression, ObjectProperty,
-    OptionalChainExpression, OptionalChainInner, PropertyName, ReturnStatement, Statement,
-    SwitchCase, SwitchStatement, TemplateLiteral, ThrowStatement, TryStatement,
-    TypeAliasDeclaration, TypeAssertion, VariableDeclaration, WhileStatement, WithStatement,
+    IfStatement, ImportDeclaration, ImportExpression, ImportSpecifier, InterfaceDeclaration,
+    JsxChild, JsxElement, JsxFragment, LabeledStatement, LiteralValue, MemberExpression, NodeId,
+    ObjectExpression, ObjectProperty, OptionalChainExpression, OptionalChainInner, PropertyName,
+    ReturnStatement, Statement, SwitchCase, SwitchStatement, TemplateLiteral, ThrowStatement,
+    TryStatement, TypeAliasDeclaration, TypeAssertion, VariableDeclaration, WhileStatement,
+    WithStatement,
 };
-use kali_error::{_error_codes::e3, diagnostic::Diagnostic};
+use kali_error::{_error_codes::e3, _error_codes::e4, diagnostic::Diagnostic};
 use std::path::{Path, PathBuf};
 
 /// Scope types recognized by the stage-1 resolver.
@@ -600,7 +601,7 @@ impl TypeContext {
             Expression::ChainExpression(expr) => self.resolve_expression(&expr.expression),
             Expression::SpreadElement(expr) => self.resolve_expression(&expr.argument),
             Expression::RestElement(expr) => self.resolve_expression(&expr.argument),
-            Expression::ImportExpression(expr) => self.resolve_expression(&expr.source),
+            Expression::ImportExpression(expr) => self.resolve_import_expression(expr),
             Expression::DecoratedExpression(DecoratedExpression { expression }) => {
                 self.resolve_expression(expression)
             }
@@ -612,6 +613,72 @@ impl TypeContext {
             Expression::ThisExpression | Expression::SuperExpression => {}
             Expression::PrivateIdentifier(_) | Expression::BigIntLiteral(_) => {}
         }
+    }
+
+    fn resolve_import_expression(&mut self, expr: &ImportExpression) {
+        self.resolve_expression(&expr.source);
+
+        match self.resolve_static_import_source(&expr.source) {
+            Some(source) => {
+                if !self.resolve_import_source(&source) {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            e3::IMPORT_NOT_FOUND as u32,
+                            format!("dynamic import source '{}' could not be resolved", source),
+                        )
+                        .with_suggestion("check the relative path or package specifier"),
+                    );
+                }
+            }
+            None => {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        e4::DYNAMIC_IMPORT_NOT_IN_LINKED_GRAPH as u32,
+                        "dynamic import target could not be resolved statically".to_string(),
+                    )
+                    .with_suggestion(
+                        "use a statically known import specifier or link the module in the build graph",
+                    ),
+                );
+            }
+        }
+    }
+
+    fn resolve_static_import_source(&self, expression: &Expression) -> Option<String> {
+        match expression {
+            Expression::Literal(LiteralValue::String(value)) => {
+                Some(Self::normalize_import_segment(value))
+            }
+            Expression::BinaryExpression(expr) if expr.operator == "+" => {
+                let left = self.resolve_static_import_source(&expr.left)?;
+                let right = self.resolve_static_import_source(&expr.right)?;
+                Some(format!("{}{}", left, right))
+            }
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_static_import_source(&expr.expression)
+            }
+            Expression::TemplateLiteral(template) if template.expressions.is_empty() => Some(
+                template
+                    .quasis
+                    .iter()
+                    .map(|element| element.value.as_str())
+                    .collect(),
+            ),
+            _ => None,
+        }
+    }
+
+    fn normalize_import_segment(value: &str) -> String {
+        let trimmed = value.trim();
+        if trimmed.len() >= 2 {
+            let mut chars = trimmed.chars();
+            let first = chars.next().unwrap();
+            let last = chars.next_back().unwrap();
+            if matches!((first, last), ('"', '"') | ('\'', '\'') | ('`', '`')) {
+                return trimmed[1..trimmed.len() - 1].to_string();
+            }
+        }
+        trimmed.to_string()
     }
 
     fn resolve_identifier(&mut self, name: &str) {
@@ -1050,7 +1117,7 @@ fn duplicate_binding(name: &str) -> Diagnostic {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kali_ast::{LiteralValue, VariableDeclarator};
+    use kali_ast::{BinaryExpression, LiteralValue, VariableDeclarator};
     use std::fs;
     use tempfile::tempdir;
 
@@ -1189,6 +1256,65 @@ mod tests {
         assert_eq!(
             result.diagnostics[0].code,
             Some(e3::IMPORT_NOT_FOUND as u32)
+        );
+    }
+
+    #[test]
+    fn test_resolution_allows_static_dynamic_import_targets() {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.ts");
+        fs::write(dir.path().join("lazy.ts"), "export const lazy = 7;").unwrap();
+        fs::write(&source_path, "const lazy = import(\"./\" + \"lazy.ts\");").unwrap();
+
+        let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+                source: Expression::BinaryExpression(Box::new(BinaryExpression {
+                    operator: "+".to_string(),
+                    left: Expression::Literal(LiteralValue::String("./".to_string())),
+                    right: Expression::Literal(LiteralValue::String("lazy.ts".to_string())),
+                })),
+            }))),
+        })];
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn test_resolution_reports_unknown_dynamic_import_targets() {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.ts");
+        fs::write(&source_path, "const name = \"lazy.ts\"; import(\"./\" + name);").unwrap();
+
+        let statements = vec![
+            Statement::VariableDeclaration(VariableDeclaration {
+                kind: "const".to_string(),
+                declarations: vec![VariableDeclarator {
+                    id: "name".to_string(),
+                    init: Some(Expression::Literal(LiteralValue::String("lazy.ts".to_string()))),
+                }],
+            }),
+            Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+                    source: Expression::BinaryExpression(Box::new(BinaryExpression {
+                        operator: "+".to_string(),
+                        left: Expression::Literal(LiteralValue::String("./".to_string())),
+                        right: Expression::Identifier("name".to_string()),
+                    })),
+                }))),
+            }),
+        ];
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert_eq!(
+            result.diagnostics[0].code,
+            Some(e4::DYNAMIC_IMPORT_NOT_IN_LINKED_GRAPH as u32)
         );
     }
 

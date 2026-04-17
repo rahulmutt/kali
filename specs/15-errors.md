@@ -88,6 +88,7 @@ Terminology note:
 - `E4002`: API call not permitted
 - `E4003`: Resource limit exceeded (compile-time provable)
 - `E4004`: Dynamic effect detected (cannot statically verify)
+- `E4008`: Dynamic import target is not in the linked graph or cannot be resolved statically
 - `E9007`: Inferred effect not permitted by the active sandbox policy during compile-time `check` / `build --sandbox` validation
 
 ### Import/Module/Availability/Command-Input Errors (E5xxx)

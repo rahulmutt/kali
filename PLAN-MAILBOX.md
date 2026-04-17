@@ -1,12 +1,12 @@
 # PLAN Mailbox
 
-## 2026-04-17 — Browser-bundle dynamic-import concatenation follow-up
+## 2026-04-17 — Dynamic-import static-resolution follow-up
 
-Extended browser-bundle chunk discovery so `import("./" + "lazy.ts")`-style statically resolvable concatenations are now treated like other linked chunk targets during artifact emission. This keeps the browser-bundle chunk graph a little closer to the already-linked module set without changing the later runtime `eval` / dynamic-import compatibility story.
+I’m planning to implement the remaining Phase 4.1 dynamic-import slice by statically evaluating simple `import(...)` target expressions during name resolution. That should let linked targets resolve normally while unknown expressions fail with the canonical `E4008` path instead of silently passing through the resolver.
 
 Suggested follow-up:
-- if the bundle contract docs should call out concatenation-based static resolution explicitly, sync the CLI/schema wording rather than leaving the behavior undocumented
-- keep the later true runtime dynamic-import compatibility work separate from this build-time chunk-discovery refinement
+- update the Stage 4.1 status note once the resolver can distinguish statically known vs. unresolved dynamic-import targets
+- keep this separate from the later eval/runtime-interpreter work and from the already-implemented browser-bundle chunk-discovery refinement
 
 ## 2026-04-17 — Node runtime stdout/stderr projection follow-up
 
