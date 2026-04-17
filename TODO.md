@@ -9,6 +9,9 @@
 - ✅ `--compat eval` now accepts dynamically constructed eval / Function() strings derived from constant program-state fragments.
 - ✅ `check` / `run` now reject `eval` and `Function()` usage unless the shared `--compat eval` gate is enabled.
 
+### Plan completion-gate sync
+- ✅ `PLAN.md` phase completion gates now reflect the current stage status, and the Phase 2 effect-report completion line now matches the schema-v1 contracts used by the stage docs and schema specs.
+
 ### Stage 1.3 - Parser & AST
 - ✅ Parser compiles successfully
 - ✅ `cargo test -p kali_parser --lib` passes

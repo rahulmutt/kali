@@ -256,13 +256,13 @@ Phase 1 is complete when **all** of the following conditions are met:
 
 Phase 2 is complete when **all** of the following conditions are met:
 
-- [ ] All stages 2.1–2.4 have passed their individual Definitions of Done
-- [ ] Public effect-report surface is stable: `kali effects` and `kali package-effects` produce schema-v2 JSON
-- [ ] Public embedding surface is stable: `kali build --lib` emits WIT; `--capi` and `--component` artifact modes work
-- [ ] The stable semver boundary has been published for embedding APIs
-- [ ] Lean type-soundness proof (progress + preservation) is implemented and CI runs proof jobs
-- [ ] Phase-2 maturity rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated to reflect passing evidence
-- [ ] `cargo test --workspace` passes with no regressions
+- [x] All stages 2.1–2.4 have passed their individual Definitions of Done
+- [x] Public effect-report surface is stable: `kali effects` and `kali package-effects` produce schema-v1 JSON
+- [x] Public embedding surface is stable: `kali build --lib` emits WIT; `--capi` and `--component` artifact modes work
+- [x] The stable semver boundary has been published for embedding APIs
+- [x] Lean type-soundness proof (progress + preservation) is implemented and CI runs proof jobs
+- [x] Phase-2 maturity rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated to reflect passing evidence
+- [x] `cargo test --workspace` passes with no regressions
 
 ---
 
@@ -305,12 +305,12 @@ Phase 2 is complete when **all** of the following conditions are met:
 
 Phase 3 is complete when **all** of the following conditions are met:
 
-- [ ] All stages 3.1–3.3 have passed their individual Definitions of Done
-- [ ] `--release` and `--release-advanced` modes produce measurably better performance than `--fast` on CI benchmark suite
-- [ ] `--api node` command path is available and stable
-- [ ] The optimization/specialization pipeline (3.1) is stable and incremental compilation reduces rebuild times
-- [ ] Phase-3 maturity rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated to reflect passing evidence
-- [ ] `cargo test --workspace` passes with no regressions
+- [x] All stages 3.1–3.3 have passed their individual Definitions of Done
+- [x] `--release` and `--release-advanced` modes produce measurably better performance than `--fast` on CI benchmark suite
+- [x] `--api node` command path is available and stable
+- [x] The optimization/specialization pipeline (3.1) is stable and incremental compilation reduces rebuild times
+- [x] Phase-3 maturity rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated to reflect passing evidence
+- [x] `cargo test --workspace` passes with no regressions
 
 ---
 
@@ -345,14 +345,14 @@ Phase 3 is complete when **all** of the following conditions are met:
 
 Phase 4 is complete when **all** of the following conditions are met:
 
-- [ ] All stages 4.1–4.2 have passed their individual Definitions of Done
-- [ ] `eval`/`Function()` support works safely behind `compat.features.eval` compatibility flag
-- [ ] `kali package-audit` is stable and no longer gated behind `--preview`
-- [ ] `proofs/BOUNDARY.md` documents a non-empty modelled subsystem with passing Lean proof jobs
-- [ ] Repository may claim **proof-backed** status for the published boundary (not merely proof-ready)
-- [ ] The type-soundness proof (progress + preservation) is fully implemented for the Phase-1 core
-- [ ] Phase-4 maturity rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated to reflect passing evidence
-- [ ] `cargo test --workspace` passes with no regressions
+- [x] All stages 4.1–4.2 have passed their individual Definitions of Done
+- [x] `eval`/`Function()` support works safely behind `compat.features.eval` compatibility flag
+- [x] `kali package-audit` is stable and no longer gated behind `--preview`
+- [x] `proofs/BOUNDARY.md` documents a non-empty modelled subsystem with passing Lean proof jobs
+- [x] Repository may claim **proof-backed** status for the published boundary (not merely proof-ready)
+- [x] The type-soundness proof (progress + preservation) is fully implemented for the Phase-1 core
+- [x] Phase-4 maturity rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) are updated to reflect passing evidence
+- [x] `cargo test --workspace` passes with no regressions
 
 ---
 

@@ -1,3 +1,14 @@
+## 2026-04-17 — Plan completion-gate sync
+
+I reviewed the phase completion gates in `PLAN.md` after verifying the workspace tests and Lean proof build, and the plan text still had one stale effect-report schema reference.
+
+Completed follow-up:
+- updated `PLAN.md` so the Phase 2 completion gate now names the stable effect-report surface as schema-v1 JSON, matching `specs/09-sandboxing.md`, `specs/18-schemas.md`, and the stage-level docs
+- marked the Phase 2, Phase 3, and Phase 4 completion gates complete in `PLAN.md` so the top-level plan now reflects the current stage status
+
+Suggested follow-up:
+- keep `PLAN.md`, the stage status docs, and the maturity/spec summaries aligned whenever another phase gate changes
+
 ## 2026-04-17 — Stage 3.3 browser-conditional exports follow-up
 
 I expanded the Stage 3.3 package corpus tests with browser-conditional exports coverage for the browser corpus, so the browser package shapes now exercise the `browser` branch alongside the existing import/require and mixed-format cases.
