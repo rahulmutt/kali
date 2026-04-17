@@ -2019,10 +2019,9 @@ fn package_audit_command_emits_envelope() {
 }
 
 #[test]
-fn package_audit_preview_mode_emits_envelope() {
+fn package_audit_command_emits_json_envelope() {
     let output = Command::new(kali_bin())
         .arg("package-audit")
-        .arg("--preview")
         .arg("--output")
         .arg("json")
         .arg("lodash")
@@ -2046,10 +2045,9 @@ fn package_audit_preview_mode_emits_envelope() {
 }
 
 #[test]
-fn package_audit_preview_mode_emits_text_summary() {
+fn package_audit_command_emits_text_summary() {
     let output = Command::new(kali_bin())
         .arg("package-audit")
-        .arg("--preview")
         .arg("lodash")
         .output()
         .expect("run kali");

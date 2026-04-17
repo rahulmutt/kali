@@ -14,7 +14,7 @@ Reading shortcut:
 - this chapter uses three package-workflow buckets on purpose, because the bootstrap brief's broad package goal is easy to overread if they blur together
 - **source-graph commands** (`check` / `effects` / `build` / `run` / `test`) analyze a local source/import graph plus its resolved dependencies under the selected command context
 - **install workflow** (`install`) is the only early command family allowed to mutate manifest/lock/materialized dependency state
-- **registry-analysis commands** (`package-effects` / `package-audit`) are later single-package workflows with documented command/schema shapes, but their actual availability still comes from [19 — Feature Maturity](19-feature-maturity.md) (`package-effects` is **Phase 2 target**; `package-audit` is **Later compatibility**)
+- **registry-analysis commands** (`package-effects` / `package-audit`) are later single-package workflows with documented command/schema shapes, but their actual availability still comes from [19 — Feature Maturity](19-feature-maturity.md) (`package-effects` is **Phase 2 target**; `package-audit` is **Phase 4 compatibility**)
 - follow the shared **`package-effects` dual classification** from [SPEC.md](../SPEC.md): `package-effects` is still a registry-analysis command in this chapter even though, by output contract, it also belongs to the later public effect-report surface
 - use that split before reading any sentence that says a package is “supported”, so package-shape support, install behavior, and later registry-analysis tooling do not get conflated
 
@@ -65,10 +65,10 @@ Compact workflow comparison:
 | **source-graph commands** (`check` / `effects` / `build` / `run` / `test`) | “Can Kali analyze/build/run this local project graph in the selected command context?” | No | resulting **availability context** (derived from the full effective command context for the participating axes) |
 | **install workflow** (`install`) | “What dependency state should be recorded/materialized for this project?” | Yes | intentionally profile-agnostic in Phase 1 |
 | **registry-analysis: `package-effects`** | “What effects would one registry package report under the inherited analysis context?” | No | inherits semantic analysis context once the command exists; version selection still follows the shared **identity-only registry target** + **stable-release selection rule (schema v1)** rather than the current project's installed version |
-| **registry-analysis: `package-audit`** | “What context-free registry-analysis/security-audit result is reported for one package?” | No | context-free in schema v1; version selection still follows the shared **identity-only registry target** + **stable-release selection rule (schema v1)** rather than the current project's installed version |
+| **registry-analysis: `package-audit`** | “What context-free registry-analysis/security-audit result is reported for one package?” | Yes, Phase 4 compatibility | context-free in schema v1; version selection still follows the shared **identity-only registry target** + **stable-release selection rule (schema v1)** rather than the current project's installed version |
 
 Registry-analysis independence reminder:
-- later `package-effects` / `package-audit` are intentionally **not** alternate views over the current project's installed dependency graph
+- `package-effects` / `package-audit` are intentionally **not** alternate views over the current project's installed dependency graph
 - that remains true even under the shared **`package-effects` dual classification**: its effect-report role does not change its one-package registry target, stable-release selection rule, or project independence
 - they analyze one explicit registry package identity using the shared schema-v1 stable-release selection rule unless a later revision adds an explicit version coordinate
 - practical simplification: answer registry-analysis questions and project-command support questions separately, even when they mention the same package name
@@ -152,7 +152,7 @@ Common support-claim examples:
 | “this browser package is supported” | Usually **checkable** and potentially **deployable-through-host** via `build --bundle`, including equivalent inherited-config forms when the effective `apiSurface` is `browser`; not standalone browser-runtime **executable** support in Kali itself |
 | “this package installs” | Only **installable/materializable**; this does not by itself promise that `check`, `build`, `run`, or browser deployment will succeed |
 | “this package needs Node” | Package shape may still be fine, but the claim is blocked on host/API fit and therefore stays on the Phase 3 Node path rather than becoming an early package-compatibility success |
-| “this package can be audited/analyzed” | Answer the registry-analysis question separately: that refers to later `package-effects` / `package-audit` workflows, not to ordinary project-command support |
+| “this package can be audited/analyzed” | Answer the registry-analysis question separately: that refers to `package-effects` / `package-audit` workflows, not to ordinary project-command support |
 
 This keeps five often-confused questions separate: “can Kali materialize this package?”, “can Kali understand its source shape?”, “can the selected command/context actually support the host APIs it expects?”, “can Kali deploy it through a non-Kali host such as the browser bundle path?”, and “what would a later single-package registry-analysis workflow report about it?”.
 
@@ -598,7 +598,7 @@ Registry-analysis summary:
 | Command | Availability | Context model | JSON success shape |
 |---|---|---|---|
 | `package-effects` | Phase 2 target | The analysis-context-aware half of the shared **registry-analysis command split**: inherits the shared **inherited analysis context** | Schema-v1 **native-JSON command**; standard command envelope with `--output json` |
-| `package-audit` | Later compatibility | The context-free half of the shared **registry-analysis command split**: follows **context-free registry analysis (schema v1)** | Schema-v1 **envelope-only JSON command**; audit findings flow through ordinary diagnostics and the envelope keeps canonical `payload: null` rather than a dedicated success payload. `--pretty` remains meaningful only together with `--output json`; see [specs/18-schemas.md](18-schemas.md)'s **Package Audit JSON Output (schema v1)** section |
+| `package-audit` | Phase 4 compatibility | The context-free half of the shared **registry-analysis command split**: follows **context-free registry analysis (schema v1)** | Schema-v1 **envelope-only JSON command**; audit findings flow through ordinary diagnostics and the envelope keeps canonical `payload: null` rather than a dedicated success payload. `--pretty` remains meaningful only together with `--output json`; see [specs/18-schemas.md](18-schemas.md)'s **Package Audit JSON Output (schema v1)** section |
 
 Shared target-selection rule:
 - both commands follow the shared **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md)
@@ -612,7 +612,7 @@ Registry-analysis cache rule:
 - `package-effects` and `package-audit` may use the shared **registry-analysis cache** from [SPEC.md](../SPEC.md) for fetched metadata/tarballs
 - that cache is outside project-managed dependency state and must not mutate `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/`
 - cache identity is keyed by at least the canonical registry identifier plus the resolved concrete version
-- `package-effects` also keys on the **inherited analysis context** so distinct inherited analysis modes cannot collide accidentally, while early context-free `package-audit` does not add those inherited axes to the cache key
+- `package-effects` also keys on the **inherited analysis context** so distinct inherited analysis modes cannot collide accidentally, while `package-audit` does not add those inherited axes to the cache key
 
 `kali package-effects` remains clearly unavailable until the shared effect-report pipeline lands; it should not return a partial bespoke format before then.
 
@@ -628,11 +628,11 @@ Package-effects rule:
 - as a schema-v1 **native-JSON command**, `package-effects --pretty` reformats the native payload and `package-effects --output json` wraps that same payload in the standard CLI command envelope; those formatting switches change presentation only and do not create a second availability path or a third package-effects-only outer format
 
 Package-audit rule:
-- keep `kali package-audit` **single-package** in early phases so it does not overlap with a future whole-project dependency-health workflow
+- keep `kali package-audit` **single-package** so it does not overlap with a future whole-project dependency-health workflow
 - following the shared **workflow-owner split** and the context-free half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md), it is a registry-analysis/security-audit workflow rather than a second host-context-sensitive execution, effect-reporting, or policy-validation command
-- early `package-audit` therefore does **not** take package-analysis-specific `--api`, runtime-profile, `--compat`, or `--sandbox` flags
-- early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md): whether the command runs under discovered config or in configless project mode, inherited host-analysis/runtime config does not gate or rewrite its semantics, and browser-oriented package-resolution context from source-graph commands does not participate here either
-- if unimplemented, Kali should say so explicitly instead of implying a partial audit guarantee
+- `package-audit` therefore does **not** take package-analysis-specific `--api`, runtime-profile, `--compat`, or `--sandbox` flags
+- `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md): whether the command runs under discovered config or in configless project mode, inherited host-analysis/runtime config does not gate or rewrite its semantics, and browser-oriented package-resolution context from source-graph commands does not participate here either
+- if the command is unavailable in earlier phases, Kali should say so explicitly instead of implying a partial audit guarantee
 - schema v1 intentionally keeps `package-audit` on the simpler **envelope-only JSON command** path; `package-audit --output json` follows the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md), and plain `package-audit --pretty <pkg>` remains invalid usage because `--pretty` does not enable JSON mode by itself
 - under that rule, later audit findings are reported via standard diagnostics (`errors` / `warnings`) rather than a second audit-result payload shape, which keeps registry audit aligned with the normal CLI machine contract
 - if a later phase adds richer machine-readable audit details, they should still remain inside that same standard command-envelope path rather than creating a second native bare-JSON audit mode

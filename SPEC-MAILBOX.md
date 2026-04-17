@@ -48,3 +48,11 @@ The CLI now allows `kali package-audit <pkg>` without the `--preview` gate and k
 Suggested follow-up:
 - sync `specs/12-cli.md`, `specs/14-packages.md`, `specs/19-feature-maturity.md`, and any README summary text if the public availability claim should move with the implementation
 - keep the JSON envelope-only contract aligned with the eventual audit payload shape if/when the command is formally promoted
+
+## 2026-04-17 — Stage 4.1 package-audit promotion sync
+
+Promoted the public availability claim for `kali package-audit <pkg>` to Phase 4 compatibility in the spec and summary docs so the matrix, CLI chapter, package semantics chapter, and README all read the shipped command surface consistently.
+
+Suggested follow-up:
+- keep the envelope-only JSON contract wording aligned with `specs/18-schemas.md` if the audit payload ever grows beyond the current scaffold
+- keep `--preview` hidden/compatibility-only if the shim remains accepted by the CLI

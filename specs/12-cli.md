@@ -89,7 +89,7 @@ Canonical config-discovery rule:
 Effective-context validation rule:
 - command validation always runs against the fully merged **effective command context** (built-in defaults, then discovered config, then CLI flags)
 - therefore config-selected values trigger the same maturity/usage checks as explicit flags for the axes that actually participate in that command's semantics; the CLI must not silently "fix up" an inherited participating context by falling back to some other API surface/profile
-- non-participating axes are ignored rather than gated: for example `check` ignores inherited `buildMode`, and early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md)
+- non-participating axes are ignored rather than gated: for example `check` ignores inherited `buildMode`, and `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md)
 - examples: config-selected `apiSurface = node` still causes plain `kali run main.ts` or `kali test` to hit the Node phase gate (`E5006`), and config-selected `apiSurface = browser` still makes plain `kali build main.ts` invalid early-phase usage (`E5008`) until `--bundle` is selected
 - config-selected `apiSurface = browser` also keeps plain `kali run main.ts` and plain `kali test` on the same browser-runtime/test gate as their explicit `--api browser` forms (`E5006`); omitting the flag does not cause a silent fallback to `deno`
 - follow the canonical validation-order rule from [SPEC.md](../SPEC.md): command-shape/arity first, then base command availability, then finer inherited-context/profile gates inside that command
@@ -610,7 +610,7 @@ Quick comparison:
 | Command | Availability | Context model | JSON success mode | Canonical early diagnostic boundary |
 |---|---|---|---|---|
 | `package-effects` | Phase 2 target | inherits the shared **inherited analysis context** | schema-v1 **native-JSON command** | malformed target / package-analysis-specific semantic flags / `--sandbox` → `E5008`; well-formed base invocation (including `--pretty`, `--output json`, or both) before Phase 2 → `E5006` |
-| `package-audit` | Later compatibility | **context-free registry analysis (schema v1)** | schema-v1 **envelope-only JSON command** | malformed target or `--pretty` without `--output json` → `E5008`; well-formed base invocation such as `kali package-audit lodash`, `kali package-audit --output json lodash`, or `kali package-audit --pretty --output json lodash` before the command exists → `E5006` |
+| `package-audit` | Phase 4 compatibility | **context-free registry analysis (schema v1)** | schema-v1 **envelope-only JSON command** | malformed target or `--pretty` without `--output json` → `E5008`; well-formed base invocation such as `kali package-audit lodash`, `kali package-audit --output json lodash`, or `kali package-audit --pretty --output json lodash` before Phase 4 opens → `E5006` |
 
 ### `kali package-effects <package>`
 Analyze effects of one registry package under the canonical schema-v1 registry-analysis rules.
@@ -648,7 +648,7 @@ Analysis rule:
 ### `kali package-audit <package>`
 Security audit for one registry package under the canonical schema-v1 registry-analysis rules.
 
-Status: **Later compatibility**. This section also documents a **defined command family** in schema v1; it should not block Phase 1-2 compiler/runtime delivery, and if unimplemented the CLI should fail clearly rather than implying a partial security guarantee.
+Status: **Phase 4 compatibility**. This section also documents a **defined command family** in schema v1; it should not block Phase 1-2 compiler/runtime delivery, and if unavailable in earlier phases the CLI should fail clearly rather than implying a partial security guarantee.
 ```bash
 kali package-audit lodash                  # Audit specific npm package
 kali package-audit jsr:@std/path           # Audit specific JSR package
@@ -657,13 +657,13 @@ kali package-audit --pretty --output json lodash # Pretty-print that envelope; p
 ```
 
 Base-gate clarification:
-- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-audit lodash`, `kali package-audit --output json lodash`, or `kali package-audit --pretty --output json lodash` reaches the command's own availability gate (`E5006`) until this later command exists
+- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-audit lodash`, `kali package-audit --output json lodash`, or `kali package-audit --pretty --output json lodash` reaches the command's own availability gate (`E5006`) until Phase 4 opens
 - practical simplification: schema-v1 `package-audit` keeps a very small **semantic/context flag surface**: the package selector only. Its command-local presentation/output knobs are the envelope-oriented **JSON-mode selectors** (`--output json`, plus `--pretty` only when JSON mode is already active). Ordinary shared presentation/control flags still follow the shared-flag rules, but package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of growing a second context model
 - output-format flags do not create a second availability path for the command itself
 
 Audit rule:
 - following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command follows the shared **registry-analysis target contract (schema v1)** and is the context-free registry-analysis/security-audit path rather than a second host-context-aware effect/policy command
-- as the `package-audit` half of the shared **registry-analysis command split**, early `package-audit` follows **context-free registry analysis (schema v1)** and therefore does **not** inherit the shared **inherited analysis context** or accept package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
+- as the `package-audit` half of the shared **registry-analysis command split**, `package-audit` follows **context-free registry analysis (schema v1)** and therefore does **not** inherit the shared **inherited analysis context** or accept package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
 - in schema v1 it is an **envelope-only JSON command**, not a **native-JSON command**; because of that envelope-only model, `kali package-audit --pretty <pkg>` without `--output json` is invalid command usage (`E5008`) rather than an implicit request for JSON mode
 - once available, audit findings are reported through the standard envelope `errors` / `warnings` arrays; a clean audit is therefore `success: true` with `payload: null` and no findings rather than a separate payload object
 - follow the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md) for the exact envelope-only machine-output contract instead of restating it here
@@ -719,8 +719,8 @@ Pretty-print interaction rule:
 - `--pretty` is meaningful only in **JSON-producing mode**
 - `--pretty` does **not** opt a command into JSON mode by itself
 - for schema v1 **native-JSON commands**, plain success output is already JSON, so `--pretty` reformats that native payload
-- for any command with `--output json`, including **envelope-only JSON commands** such as early `package-audit --output json`, `--pretty` reformats the outer command envelope
-- if a command is not otherwise emitting JSON (for example `kali check --pretty` without `--output json`, or early `kali package-audit --pretty lodash` without `--output json`), `--pretty` is invalid command usage (`E5008`) rather than a silent no-op
+- for any command with `--output json`, including **envelope-only JSON commands** such as `package-audit --output json`, `--pretty` reformats the outer command envelope
+- if a command is not otherwise emitting JSON (for example `kali check --pretty` without `--output json`, or `kali package-audit --pretty lodash` without `--output json`), `--pretty` is invalid command usage (`E5008`) rather than a silent no-op
 - `--pretty` changes formatting only; it must not change field names, ordering guarantees, or whether stderr/human diagnostics are emitted outside JSON mode
 - JSON-selection flags do **not** bypass command maturity or create a second command surface: if `kali effects`, `kali package-effects`, or `kali package-audit` is still unavailable in the current phase, invocations such as `--pretty` / `--output json` still fail on the command's normal availability gate after any earlier command-shape checks
 
@@ -776,7 +776,7 @@ Omission/default rule for minimal configs:
 
 Configuration simplification rules:
 - `compilerOptions.apiSurface` is the config equivalent of the CLI `--api` flag
-- `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `effects` / `build` / `run` / `test`, and for inherited-context package analysis via `package-effects`, but it does **not** cause `kali install` to maintain separate lock/materialization state per API surface in early phases and it does **not** change the semantics of early `package-audit`
+- `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `effects` / `build` / `run` / `test`, and for inherited-context package analysis via `package-effects`, but it does **not** cause `kali install` to maintain separate lock/materialization state per API surface in early phases and it does **not** change the semantics of `package-audit`
 - `compilerOptions.buildMode` replaces separate optimization booleans
 - `compilerOptions.runtimeProfiles` is an array of explicit semantic runtime-profile switches; an empty array means the default single-threaded baseline, while a future threaded config would use `"runtimeProfiles": ["wasm-threads"]`
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates

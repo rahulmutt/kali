@@ -100,3 +100,11 @@ Suggested follow-up:
 Suggested follow-up:
 - keep the Stage 4.1 plan note in sync with any eventual spec/maturity promotion for package-audit
 - finish the remaining Stage 4.1 dynamic-compatibility work (`eval` / `Function()` and non-literal `import()`) separately
+
+## 2026-04-17 — Stage 4.1 package-audit promotion sync
+
+Recorded the package-audit availability promotion in the spec/maturity docs so the plan notes no longer trail the implemented default command path.
+
+Suggested follow-up:
+- keep the Stage 4.1 status file and phase-4 completion gate aligned with any future audit-payload expansion
+- leave the preview shim as an internal compatibility detail unless we decide to document it explicitly

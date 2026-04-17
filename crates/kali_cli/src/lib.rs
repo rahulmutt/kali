@@ -302,8 +302,8 @@ pub enum Commands {
     PackageAudit {
         /// Registry package target to audit
         target: String,
-        /// Compatibility shim for the staged audit scaffold
-        #[arg(long)]
+        /// Compatibility shim retained for staged rollout
+        #[arg(long, hide = true)]
         preview: bool,
     },
 }

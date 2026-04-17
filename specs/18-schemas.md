@@ -21,7 +21,7 @@ Ownership rule:
 
 JSON-model shortcut:
 - schema v1 later **native-JSON commands** are `kali effects` and `kali package-effects` once those commands are actually available in the current phase
-- schema v1 later **envelope-only JSON command** is `kali package-audit`; when it eventually ships, `--output json` exposes the standard command envelope with `payload: null` rather than a second audit-specific success payload
+- schema v1 later **envelope-only JSON command** is `kali package-audit`; in Phase 4 it exposes the standard command envelope with `payload: null` rather than a second audit-specific success payload
 - JSON selectors/output modes do **not** change feature maturity: read command shape from [12 — CLI](12-cli.md), availability from [19 — Feature Maturity](19-feature-maturity.md), and payload shape from this chapter
 
 ## Versioning Rules
@@ -638,8 +638,8 @@ Interpretation rules:
 - when a tool normalizes `kali.json`, it must not change semantics by adding or removing fields whose values equal these defaults
 - `compilerOptions.apiSurface` is the canonical config name for the host API family; CLI uses `--api`
 - command/context participation follows the canonical table in [SPEC.md](../SPEC.md): `compilerOptions.apiSurface` influences command-time API/package selection for `check` / `effects` / `build` / `run` / `test`, and the inherited analysis context used by `package-effects`, but schema v1 does **not** imply separate per-surface lockfiles or install trees for the same manifest/import graph
-- because early `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md), inherited `compilerOptions.apiSurface`, `compilerOptions.buildMode`, `compilerOptions.runtimeProfiles`, `compat.features`, and top-level `sandbox` do **not** change its semantics
-- when `package-audit` later exists, schema v1 still reports findings through the standard envelope diagnostic arrays rather than through a dedicated success payload; config does not unlock a second audit-result object
+- because `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md), inherited `compilerOptions.apiSurface`, `compilerOptions.buildMode`, `compilerOptions.runtimeProfiles`, `compat.features`, and top-level `sandbox` do **not** change its semantics
+- when `package-audit` is available, schema v1 still reports findings through the standard envelope diagnostic arrays rather than through a dedicated success payload; config does not unlock a second audit-result object
 - `compilerOptions.buildMode` is one of `fast`, `release`, or `release-advanced`
 - `compilerOptions.runtimeProfiles` is an array of semantic runtime-profile names; in schema v1 it is usually empty because later profiles such as `wasm-threads` are still phase-gated
 - `compilerOptions.runtimeProfiles` is order-insensitive and should not contain duplicates

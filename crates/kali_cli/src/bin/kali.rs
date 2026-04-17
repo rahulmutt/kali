@@ -200,8 +200,8 @@ fn main() {
                 std::process::exit(exit_code);
             }
         }
-        Commands::PackageAudit { target, preview: _preview } => {
-            if let Err(exit_code) = package_audit_preview_command(target, &output) {
+        Commands::PackageAudit { target, .. } => {
+            if let Err(exit_code) = package_audit_command(target, &output) {
                 std::process::exit(exit_code);
             }
         }
@@ -2214,7 +2214,7 @@ fn package_effects_command(target: String, output: &CliOutputOptions) -> Result<
     emit_native_json_payload("package-effects", &payload, output)
 }
 
-fn package_audit_preview_command(target: String, output: &CliOutputOptions) -> Result<(), i32> {
+fn package_audit_command(target: String, output: &CliOutputOptions) -> Result<(), i32> {
     let parsed = match parse_registry_package_target("package-audit", &target) {
         Ok(parsed) => parsed,
         Err(diagnostic) => {

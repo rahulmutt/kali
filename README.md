@@ -38,14 +38,14 @@ Phase 1 is intentionally narrow. For exact boundaries, read the **Phase-1 Shippe
 - **Browser support**: Phase 1 browser support is exactly the shared **Phase-1 browser-targeted command set** from [`SPEC.md`](./SPEC.md). Read that canonical term for the exact command boundary, supported `--sandbox` variants, and inherited-config equivalence rules. In support-ladder terms, browser APIs are **checkable** there and browser bundles are **deployable-through-host** there; this is not standalone browser-runtime **executable** support.
 - **Sandboxing/effects**: `run/test --sandbox` remain the runtime-enforcement path. The shared **Phase-1 static policy-validation surface** from [`SPEC.md`](./SPEC.md) still owns policy-schema/config validation, and the later public effect-report surface is now the explicit `kali effects <file>` / `kali package-effects <package>` pair rather than a `run/test --dry` side path.
 - **Packages**: early support is broad only inside the shared **pure JS/TS package contract** plus the documented raw-URL workflow, and every package claim should still be read through the same order: package shape → host/API fit → command maturity, all against the published artifact Kali actually installs, and only then the exact support rung. In practice, Phase-1 Deno-oriented claims may be **installable/materializable**, **checkable**, **buildable**, or **executable**, while browser-targeted claims are usually **checkable** or **deployable-through-host**. npm lifecycle hooks stay the narrow schema-v1 **install-time npm-package hook path** only: `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**. That opt-in never implies early `--api node` runtime/package compatibility.
-- **Registry analysis**: follow the shared **registry-analysis command split** from [`SPEC.md`](./SPEC.md): `kali package-effects <package>` is the single-package registry-analysis/effect-report command, while `kali package-audit <package>` remains **Later compatibility**. Output shape stays split too: `package-effects` is a native-JSON command, while `package-audit` remains the schema-v1 **envelope-only JSON command** when it eventually ships.
+- **Registry analysis**: follow the shared **registry-analysis command split** from [`SPEC.md`](./SPEC.md): `kali package-effects <package>` is the single-package registry-analysis/effect-report command, while `kali package-audit <package>` is the Phase 4 context-free registry-analysis/security-audit command. Output shape stays split too: `package-effects` is a native-JSON command, while `package-audit` remains the schema-v1 **envelope-only JSON command**.
 - **Verification**: reuse the canonical repository summary from [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md): **Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet.**
 
 ### Phase 1 explicit non-goals
 These are the most common bootstrap overreads to reject up front:
 - no standalone browser `run` / `test` contract yet
 - no supported `--api node` command path yet
-- no stable public `kali package-audit` workflow yet
+- no stable public `kali package-audit` workflow in Phase 1
 - no compile/check-time inferred-effect-vs-policy rejection yet on `check/build --sandbox`
 - no stable public embedding surface yet beyond the Phase-1 **base library artifact** (so no stable public Rust embedding API or stable public WIT/C ABI/component flow yet)
 - no executable project-local sandbox policy code
@@ -68,8 +68,8 @@ A few bootstrap asks are intentionally narrower after normalization:
 Some command families and artifact flows are documented before they ship so names and JSON schemas do not drift.
 
 Examples:
-- `kali effects` and `kali package-effects` are native-JSON commands in schema v1; `kali package-audit` remains later compatibility and still uses the envelope-only JSON path when it eventually ships
-- `kali package-audit` is defined early but remains **Later compatibility**, not a Phase-1 command; when it eventually ships, its schema-v1 JSON mode is still the **envelope-only JSON command** path rather than a second native payload shape
+- `kali effects` and `kali package-effects` are native-JSON commands in schema v1; `kali package-audit` is the Phase 4 compatibility command and uses the envelope-only JSON path
+- `kali package-audit` is defined early but remains Phase 4 compatibility rather than a Phase-1 command; its schema-v1 JSON mode is the **envelope-only JSON command** path rather than a second native payload shape
 - plain `--lib` is documented early as the future stable public WIT-first path, but in Phase 1 it is still only the export-oriented **base library artifact**
 - `kali build --capi` and `kali build --component` are defined early but remain later public embedding artifact flows
 - artifact/schema vocabulary such as `kind: wasm-component`, `role: interface-wit`, or `role: embedding-metadata` may be reserved before those flows ship; stable names do not imply earlier availability
