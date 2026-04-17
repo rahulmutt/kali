@@ -96,7 +96,7 @@ packages:
 - [ ] `kali run --api node <file>` executes programs using `fs/promises`, `path`, `crypto`,
   and `http` built-ins correctly.
 - [ ] `kali test --api node <dir>` runs a test suite that uses Node APIs.
-- [ ] npm package corpus expanded to include at least one Node-assuming package (e.g.
+- [x] npm package corpus expanded to include at least one Node-assuming package (e.g.
   `axios`, `express` basic); all newly added packages pass at their documented rung.
 - [ ] Negative test: `kali build --bundle --api node` still returns `E5008`.
 - [ ] Phase-1 and Phase-2 gating tests for `--api node` updated to positive coverage.

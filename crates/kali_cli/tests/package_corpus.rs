@@ -45,6 +45,11 @@ fn write_stub_package(root: &Path, name: &str, body: &str) {
     fs::write(package_dir.join("index.js"), body).expect("write package entry");
 }
 
+fn write_node_assuming_package(root: &Path, name: &str, body: &str) {
+    write_stub_package(root, name, body);
+    write_types_stub_package(root, name);
+}
+
 fn write_types_stub_package(root: &Path, name: &str) {
     let types_name = format!("@types/{}", name);
     let package_dir = root.join("node_modules").join(&types_name);
@@ -205,6 +210,73 @@ export default assert;
             "node package {package} should execute under the Node context\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&test.stdout),
             String::from_utf8_lossy(&test.stderr)
+        );
+    }
+}
+
+#[test]
+fn node_assuming_corpus_packages_require_the_node_context_but_remain_executable_there() {
+    for (package, body) in [
+        (
+            "axios",
+            r#"import path from "node:path";
+export default function axios() {
+    return path.basename("/tmp/axios.js");
+}
+"#,
+        ),
+        (
+            "express",
+            r#"import assert from "node:assert";
+export default function express() {
+    assert.ok(true);
+    return "express";
+}
+"#,
+        ),
+        (
+            "chalk",
+            r#"import { createHash } from "node:crypto";
+export default function chalk() {
+    createHash("sha256").update("chalk").digest("hex");
+    return "chalk";
+}
+"#,
+        ),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("node"));
+        write_node_assuming_package(dir.path(), package, body);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import {package} from '{package}';\nconsole.log({package}());\n",
+                package = package
+            ),
+        )
+        .expect("write node package source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "node", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "node package {package} should check under the Node context\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let run = run_kali(
+            dir.path(),
+            ["run", "--api", "node", source_path.to_str().unwrap()],
+        );
+        assert!(
+            run.status.success(),
+            "node package {package} should execute under the Node context\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
         );
     }
 }
