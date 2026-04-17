@@ -2,7 +2,7 @@
 
 Status: **proof-backed proof-boundary manifest**.
 
-This file is the canonical repository location for Kali's published **proof-boundary manifest**. The repository now contains a checked-in Lean 4 proof tree under `proofs/`, and the published boundary is mechanized for the widened closed fragment — now including assignment and try/catch in addition to literals, variables, closed functions, application, sequencing, and conditionals — plus a small ownership / RC snapshot safety slice with live-reference ownership/allocation projection, release-update preservation, explicit release-recording and live/released-disjointness theorems on the refcount-decrement path, and a widened HIR lowering-correctness slice, including the current single-step and finite-trace lowering bridge, described below. The repository is therefore **proof-backed for the published boundary**, while remaining intentionally narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target.
+This file is the canonical repository location for Kali's published **proof-boundary manifest**. The repository now contains a checked-in Lean 4 proof tree under `proofs/`, and the published boundary is mechanized for the widened closed fragment — now including assignment and try/catch in addition to literals, variables, closed functions, application, sequencing, and conditionals — plus a small ownership / RC snapshot safety slice with live-reference ownership/allocation projection, release-update preservation, explicit release-recording, target-cell decrement bookkeeping, and live/released-disjointness theorems on the refcount-decrement path, and a widened HIR lowering-correctness slice, including the current single-step and finite-trace lowering bridge, described below. The repository is therefore **proof-backed for the published boundary**, while remaining intentionally narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target.
 
 Current repository-state note:
 - follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the Lean project tree now exists under `proofs/` and is built from `proofs/lakefile.lean`
@@ -38,7 +38,7 @@ Release rule:
 - Ownership classes: `stack`, `ownedHeap`, `sharedHeap`, `borrowed`
 - Model shape: `RcCell` heap entries, `RcSnapshot` ownership/heap/live-reference state, released-reference tracking, and a local refcount-decrement update helper on the released cell
 - Claimed property inventory: no dangling references for well-formed RC snapshots; live references remain owned and allocated; releasing a live reference preserves the remaining well-formed live set; released references are not live and stay disjoint from the live-reference set
-- Current proof state: the `noDanglingReference`, `liveRefsAreOwnedAndAllocated`, `releasePreservesWellFormed`, `releaseAndDecrementPreservesWellFormed`, `releaseAndDecrementRecorded`, `releaseAndDecrementReleasedNotLiveRef`, `releaseRecorded`, `releasedNotLive`, and `releasedNotLiveRef` theorems are mechanised for the current RC snapshot model, but the model remains narrower than the eventual Stage 4.2 ownership / RC target
+- Current proof state: the `noDanglingReference`, `liveRefsAreOwnedAndAllocated`, `releasePreservesWellFormed`, `releaseAndDecrementPreservesWellFormed`, `releaseAndDecrementRecorded`, `releaseAndDecrementDecrementsTargetCell`, `releaseAndDecrementReleasedNotLiveRef`, `releaseRecorded`, `releasedNotLive`, and `releasedNotLiveRef` theorems are mechanised for the current RC snapshot model, but the model remains narrower than the eventual Stage 4.2 ownership / RC target
 
 ### HIR lowering model (`proofs/KaliIR/HIRModel.lean`, `proofs/KaliIR/LoweringCorrectness.lean`)
 - Provisional HIR syntax and a core lowering projection for future lowering-correctness work
@@ -53,6 +53,7 @@ Release rule:
 - `KaliCore.Safety.releasePreservesWellFormed` — mechanised theorem that releasing a live reference preserves the remaining well-formed live set
 - `KaliCore.Safety.releaseAndDecrementPreservesWellFormed` — mechanised theorem that the current release-and-decrement helper preserves the remaining well-formed live set
 - `KaliCore.Safety.releaseAndDecrementRecorded` — mechanised theorem that the release-and-decrement helper records the released reference in the released set
+- `KaliCore.Safety.releaseAndDecrementDecrementsTargetCell` — mechanised theorem that the release-and-decrement helper decrements the targeted heap cell when it is present
 - `KaliCore.Safety.releaseAndDecrementReleasedNotLiveRef` — mechanised theorem that released references stay disjoint from the live set after the release-and-decrement helper runs
 - `KaliCore.Safety.releaseRecorded` — mechanised theorem that a released reference is recorded in the released set after the release step
 - `KaliCore.Safety.releasedNotLive` — mechanised theorem that released references are not live in the current RC snapshot model

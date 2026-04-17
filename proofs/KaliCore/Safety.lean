@@ -129,6 +129,13 @@ theorem releaseAndDecrementRecorded (snapshot : RcSnapshot) (ref : String) :
     ref ∈ (releaseAndDecrement snapshot ref).releasedRefs := by
   simp [releaseAndDecrement]
 
+/-- A release-and-decrement step decrements the targeted heap cell when it is present. -/
+theorem releaseAndDecrementDecrementsTargetCell (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.name = ref →
+      { cell with refCount := cell.refCount - 1 } ∈ (releaseAndDecrement snapshot ref).heap := by
+  intro cell hmem hname
+  exact List.mem_map.mpr ⟨cell, hmem, by simp [hname]⟩
+
 /-- Released references remain disjoint from the live set after a release-and-decrement step. -/
 theorem releaseAndDecrementReleasedNotLiveRef (snapshot : RcSnapshot) (ref : String)
     (h : WellFormed snapshot) :

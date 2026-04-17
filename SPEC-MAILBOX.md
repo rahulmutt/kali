@@ -120,3 +120,11 @@ I widened the current RC snapshot slice with a simple live-to-released transitio
 Suggested follow-up:
 - keep the proof boundary and release-facing summaries aligned with the new release-update preservation theorem inventory
 - continue widening the ownership / RC model toward a fuller decrement/freeing story when the next proof slice is ready
+
+## 2026-04-17 — Stage 4.2 RC decrement bookkeeping landed
+
+The RC snapshot proof slice now includes an explicit target-cell decrement bookkeeping theorem (`releaseAndDecrementDecrementsTargetCell`) in addition to the existing release-recording and disjointness lemmas. The verification chapter, maturity matrix, README, and Stage 4.2 status note have been synced to mention the sharper decrement-path claim.
+
+Suggested follow-up:
+- keep the Stage 4.2 memory model incremental if the full freeing story is widened later
+- update the proof boundary again only when the claimed theorem/property inventory grows beyond the current RC snapshot slice

@@ -317,3 +317,11 @@ I’m planning a small browser-bundle discovery refinement: teach the Phase-3/4 
 Suggested follow-up:
 - update `PLAN-4.1-STATUS.md` and the TODO progress tracker once the browser-bundle chunk graph learns the const-bound slice
 - keep this intentionally narrow: it is a build-time chunk-discovery improvement, not a general runtime import-interpreter change
+
+## 2026-04-17 — Stage 4.2 RC decrement bookkeeping landed
+
+The Stage 4.2 proof slice now has an explicit `releaseAndDecrementDecrementsTargetCell` theorem that records the targeted heap-cell update on the decrement path. The status note and TODO tracker now describe the helper slice with that extra bookkeeping detail.
+
+Suggested follow-up:
+- keep the Stage 4.2 progress note aligned with any later widening of the ownership / RC model
+- treat this as a local bookkeeping refinement, not as the full freeing story
