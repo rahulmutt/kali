@@ -6,6 +6,14 @@ Suggested follow-up:
 - update `proofs/BOUNDARY.md` and the verification chapter wording so the published boundary clearly names the widened fragment
 - keep the canonical repository short summary unchanged unless the proof-backed claim itself changes
 
+## 2026-04-17 — Stage 4.2 HIR lowering-correctness widening landed
+
+The HIR lowering bridge now covers assignment and try/catch as well as the existing `let1`, sequencing, and conditional cases. The lowering-correctness theorem now explicitly carries those new step cases through to the core `EAssign` / `ETry` semantics.
+
+Suggested follow-up:
+- keep the Stage 4.2 status note and `proofs/BOUNDARY.md` in sync with the widened HIR subset
+- continue the memory-safety / lowering-correctness work in small proof-backed slices so the boundary stays honest as it grows
+
 ## 2026-04-17 — Stage 3.2 NodeBuffer round-tripping follow-up
 
 Extended `kali_api_node::NodeBuffer` with deterministic hex encode/decode alongside the existing base64 helpers, then updated the Stage 3.2 status note and plan progress text to reflect the broader binary-data workflow slice.

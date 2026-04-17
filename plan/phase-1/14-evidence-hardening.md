@@ -145,11 +145,11 @@ Complete coverage of the `kali install` edge cases defined in `specs/16-testing.
 
 - `proofs/BOUNDARY.md` must accurately reflect the current repository proof state.
 - The proof-CI trigger policy must fire on every commit that touches `proofs/`.
-- In Phase 1 the proof jobs are trivially-passing stubs, but they must be present and configured.
+- The proof jobs must be present and configured, and the current repository state already runs real Lean checks through the published proof boundary.
 - Update `README.md` to quote the canonical short summary verbatim:
-  **"Kali is proof-ready, not proof-backed; no mechanized proof coverage is claimed yet."**
+  **"Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target."**
 - Assert in CI that no chapter prose, README summary, or test claims **proof-backed** status
-  while `proofs/BOUNDARY.md` describes an empty boundary.
+  while `proofs/BOUNDARY.md` describes an empty or otherwise unmechanized boundary.
 
 ### 10. CI matrix and performance budget
 

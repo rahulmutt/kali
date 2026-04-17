@@ -6,10 +6,11 @@ open KaliCore
 
 /--
 A small proof-backed lowering-correctness fragment for the provisional HIR
-model. The current theorem family only covers the structural HIR forms already
-present in `HIRModel` plus the simple `let1` beta case where the body is a core
-expression. That keeps the model honest about the subset we have mechanized
-while still giving a real preservation bridge from HIR to the core semantics.
+model. The current theorem family covers the structural HIR forms already
+present in `HIRModel`, including assignment and try/catch, plus the simple
+`let1` beta case where the body is a core expression. That keeps the model
+honest about the subset we have mechanized while still giving a real
+preservation bridge from HIR to the core semantics.
 -/
 inductive Step : HIRExpr → HIRExpr → Prop where
   | core : ∀ {e e'}, KaliCore.step e e' → Step (.core e) (.core e')
@@ -20,6 +21,11 @@ inductive Step : HIRExpr → HIRExpr → Prop where
   | if_cond : ∀ {c c' t e}, Step c c' → Step (.if c t e) (.if c' t e)
   | if_true : ∀ {t e}, Step (.if (.core (.ELit (.bool true))) t e) t
   | if_false : ∀ {t e}, Step (.if (.core (.ELit (.bool false))) t e) e
+  | assign_step : ∀ {x e e'}, Step e e' → Step (.assign x e) (.assign x e')
+  | assign_value : ∀ {x v}, KaliCore.Value v → Step (.assign x (.core v)) (.core (.EAssign x v))
+  | tr_step : ∀ {e e' x h}, Step e e' → Step (.tr e x h) (.tr e' x h)
+  | tr_catch : ∀ {v x h}, KaliCore.Value v → Step (.tr (.core (.EThrow v)) x (.core h)) (.core (KaliCore.subst x v h))
+  | tr_value : ∀ {v x h}, KaliCore.Value v → Step (.tr (.core v) x h) (.core v)
 
 /-- Lowering preserves the small-step relation for the current HIR subset. -/
 theorem lower_preserves_step : ∀ {h h' : HIRExpr}, Step h h' → KaliCore.step (lower h) (lower h') := by
@@ -47,5 +53,15 @@ theorem lower_preserves_step : ∀ {h h' : HIRExpr}, Step h h' → KaliCore.step
       simpa [lower] using (KaliCore.step.if_true (t := lower t) (e := lower e))
   | if_false (t := t) (e := e) =>
       simpa [lower] using (KaliCore.step.if_false (t := lower t) (e := lower e))
+  | assign_step (x := x) (e := e) (e' := e') hstep ih =>
+      simpa [lower] using (KaliCore.step.assign_step (x := x) (e := lower e) (e' := lower e') ih)
+  | assign_value (x := x) (v := v) hv =>
+      simpa [lower] using (KaliCore.step.assign_value (x := x) (v := v) hv)
+  | tr_step (e := e) (e' := e') (x := x) (h := h) hstep ih =>
+      simpa [lower] using (KaliCore.step.try_step (x := x) (h := lower h) ih)
+  | tr_catch (v := v) (x := x) (h := h) hv =>
+      simpa [lower] using (KaliCore.step.try_catch (x := x) (h := lower h) hv)
+  | tr_value (v := v) (x := x) (h := h) hv =>
+      simpa [lower] using (KaliCore.step.try_value (x := x) (h := lower h) hv)
 
 end KaliIR

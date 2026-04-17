@@ -16,6 +16,14 @@ Suggested follow-up:
 - if this lands, sync `specs/15-errors.md` so `E4008` is explicitly registered in the runtime error namespace
 - keep this distinct from the later true runtime `eval` / interpreter-backed compatibility path; this step is only about source-level dynamic-import target resolution
 
+## 2026-04-17 — Stage 4.2 HIR lowering-correctness widening
+
+I widened the provisional HIR lowering model to cover assignment and try/catch alongside the existing `let1`, sequencing, and conditional bridge. The new HIR constructors lower directly to `EAssign` / `ETry`, and the lowering-preservation theorem now carries the assignment and try/catch step cases through to the core semantics.
+
+Suggested follow-up:
+- keep `proofs/BOUNDARY.md`, `specs/17-verification.md`, and the Stage 4.2 status note aligned with the widened HIR lowering subset
+- continue widening the lowering/memory proof story only when the next claim is broad enough to justify another published boundary update
+
 ## 2026-04-17 — Browser-bundle dynamic-import concatenation follow-up
 
 Browser-bundle chunk discovery now recognizes simple statically-resolved `import(...)` string-concatenation targets in addition to direct string literals. That broadens the build-time chunk graph a little further while still staying within the already-linked module set.
