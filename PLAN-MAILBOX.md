@@ -140,3 +140,11 @@ The resolver now folds const-bound dynamic-import fragments during name resoluti
 Suggested follow-up:
 - keep the TODO entry open for the runtime-mediated fallback path
 - if we later widen the supported constant-expression forms, keep the compile-time diagnostic split between statically known linked targets and genuinely runtime-resolved specifiers
+
+## 2026-04-17 — Stage 4.2 soundness proof scope narrowed to a closed fragment
+
+I got `proofs/KaliCore/Soundness.lean` compiling again, but only by narrowing the current proof model to literals, variables, and closed functions. That lets the progress/preservation shape stay mechanised while leaving application/control-flow soundness, context-shifting substitution, and the rest of the full Stage 4.2 proof backlog for a later pass.
+
+Suggested follow-up:
+- update the Stage 4.2 status note / boundary text to match the actually modelled closed fragment
+- decide whether the remaining application/flow proofs should live in a future proof-boundary widening step or under a separate, more explicit subfragment

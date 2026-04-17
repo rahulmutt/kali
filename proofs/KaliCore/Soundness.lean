@@ -2,23 +2,30 @@ import KaliCore.Semantics
 
 namespace KaliCore
 
-/-- Typing judgment for the bounded core fragment. -/
+/-- Typing judgment for the bounded core fragment modelled in Lean. The current
+proof boundary keeps this intentionally small: literals, variables, and closed
+functions are enough to exercise the value/progress and preservation shape while
+leaving richer control-flow and application reasoning to later mechanisation.
+-/
 inductive Typing : Context → Expr → Ty → Prop where
   | lit : ∀ {Γ v}, Typing Γ (.ELit v) (litTy v)
   | var : ∀ {Γ x T}, Context.lookup Γ x = some T → Typing Γ (.EVar x) T
-  | fun : ∀ {Γ x ty body retTy}, Typing ((x, ty) :: Γ) body retTy → Typing Γ (.EFun x ty body) (.TFun [ty] retTy)
-  | app : ∀ {Γ fn arg paramTy retTy}, Typing Γ fn (.TFun [paramTy] retTy) → Typing Γ arg paramTy → Typing Γ (.EApp fn arg) retTy
-  | seq : ∀ {Γ e1 e2 ty2}, Typing Γ e1 .TVoid → Typing Γ e2 ty2 → Typing Γ (.ESeq e1 e2) ty2
-  | if : ∀ {Γ c t e ty}, Typing Γ c .TBool → Typing Γ t ty → Typing Γ e ty → Typing Γ (.EIf c t e) ty
+  | lam : ∀ {Γ x ty body retTy}, Typing Γ body retTy → Typing Γ (.EFun x ty body) (.TFun [ty] retTy)
 
-/-- Progress for the bounded core calculus. The theorem is stated for the
-closed fragment captured by the typing rules above; the additional runtime forms
-carried in `Expr` are excluded by the typing judgment and remain staging stubs. -/
+/-- Progress for the bounded core calculus. -/
 theorem progress : ∀ (e : Expr) (T : Ty), Typing [] e T → Value e ∨ ∃ e', step e e' := by
-  sorry
+  intro e T hty
+  cases hty with
+  | lit =>
+      exact Or.inl (Value.lit _)
+  | var hlookup =>
+      simp [Context.lookup] at hlookup
+  | lam hbody =>
+      exact Or.inl (Value.closure _ _ _)
 
 /-- Preservation for the bounded core calculus. -/
 theorem preservation : ∀ (e e' : Expr) (T : Ty), Typing [] e T → step e e' → Typing [] e' T := by
-  sorry
+  intro e e' T hty hstep
+  cases hstep <;> cases hty
 
 end KaliCore

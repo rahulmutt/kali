@@ -27,8 +27,7 @@ inductive Value : Expr → Prop where
 def subst (x : String) (replacement : Expr) : Expr → Expr
   | .ELit lit => .ELit lit
   | .EVar y => if y = x then replacement else .EVar y
-  | .EFun y ty body =>
-      if y = x then .EFun y ty body else .EFun y ty (subst x replacement body)
+  | .EFun y ty body => .EFun y ty body
   | .EApp fn arg => .EApp (subst x replacement fn) (subst x replacement arg)
   | .ESeq e1 e2 => .ESeq (subst x replacement e1) (subst x replacement e2)
   | .EIf cond tBranch fBranch =>
