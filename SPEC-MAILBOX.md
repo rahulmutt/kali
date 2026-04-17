@@ -1,3 +1,10 @@
+## 2026-04-17 — Stage 4.2 testing-summary wording sync
+
+I tightened `specs/16-testing.md` so the repository-state note and proof-backed-claims guidance now name the RC snapshot helper slice more explicitly, including `KaliCore.Safety.releaseAndCollectKeepsTargetCellWhenPositiveCount`, `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter`, `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount`, and the pure release-helper ownership/disjointness corollaries.
+
+Suggested follow-up:
+- keep the wording narrow; this is a summary-doc precision pass, not a boundary widening
+
 ## 2026-04-17 — Stage 4.2 heap-positive-heap follow-up
 
 I found one remaining summary-doc drift point after the proof boundary widened: the published boundary already names `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount`, but the high-level verification summaries still need to mention that final-heap positive-count theorem explicitly alongside the other RC snapshot slice claims.
