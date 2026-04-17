@@ -136,3 +136,11 @@ The RC snapshot proof slice now includes an explicit target-cell decrement bookk
 Suggested follow-up:
 - keep the Stage 4.2 memory model incremental if the full freeing story is widened later
 - update the proof boundary again only when the claimed theorem/property inventory grows beyond the current RC snapshot slice
+
+## 2026-04-17 — Stage 4.2 RC last-ref zeroing follow-up
+
+I’m planning a small verification-claim wording update for the Stage 4.2 RC snapshot slice: add the new `releaseAndDecrementZeroesLastTargetCell` theorem to the published boundary language so the spec-side verification summary reflects the current decrement-path zeroing proof, while still keeping the overall boundary narrower than the full ownership/freeing target.
+
+Suggested follow-up:
+- update the verification summary wording in `specs/19-feature-maturity.md` and, if needed, the verification chapter text that summarizes the published proof boundary
+- keep the release/support claim explicitly scoped to the published boundary rather than widening the Stage 4.2 target itself

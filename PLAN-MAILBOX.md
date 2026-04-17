@@ -333,3 +333,11 @@ The Stage 4.2 proof slice now has an explicit `releaseAndDecrementDecrementsTarg
 Suggested follow-up:
 - keep the Stage 4.2 progress note aligned with any later widening of the ownership / RC model
 - treat this as a local bookkeeping refinement, not as the full freeing story
+
+## 2026-04-17 — Stage 4.2 last-ref zeroing follow-up
+
+I’m planning the next small Stage 4.2 RC-safety slice: add an explicit theorem that the refcount-decrement helper zeroes the targeted cell when the released reference was the last live count, so the boundary can name a slightly more realistic release-step refinement without claiming the full freeing story yet.
+
+Suggested follow-up:
+- update `PLAN-4.2-STATUS.md` and `TODO.md` to mention the new zeroing/refcount bookkeeping slice once the theorem lands
+- keep the story incremental: this is still a local RC release/decrement refinement, not the full no-leak / freeing target
