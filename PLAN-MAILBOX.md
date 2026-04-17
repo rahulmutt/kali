@@ -16,6 +16,14 @@ Suggested follow-up:
 - update the stage-3.3 status note to mention the browser-bundle debug artifact increment
 - if we decide to formalize the new output shape, sync the browser bundle artifact docs/schemas afterward
 
+## 2026-04-17 — Stage 3.3 browser-bundle format targets
+
+`kali build --bundle` now accepts a `--format` selector for the browser bundle wrapper: `esm` stays the default and `cjs` emits a CommonJS-flavored JS companion plus a `.cjs.map` source-map sibling. The runtime smoke suite now covers both output shapes and the CLI also rejects `--format` when `--bundle` is absent.
+
+Suggested follow-up:
+- update the Stage 3.3 status note to mention the format selector work
+- decide whether the CLI/spec docs should describe the bundle-format selector now or defer until the surrounding bundle vocabulary is finalized
+
 ## 2026-04-17 — Stage 3.3 package-audit preview plumbing
 
 Implemented the Phase-3 opt-in `package-audit --preview` gate so the command now has a concrete preview-only execution path instead of failing unconditionally. The preview path currently emits the schema-v1 envelope with `payload: null` and a short summary string in both text and JSON modes while keeping the default, non-preview command gate unavailable in earlier phases.

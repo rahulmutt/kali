@@ -7,7 +7,7 @@ use kali_cli::{
     build, discover_source_files, discover_test_files, init, is_declaration_only_source_file,
     load_sandbox_policy,
     output::{self, CliOutputOptions},
-    Args, Commands,
+    Args, BundleFormat, Commands,
 };
 use kali_error::{_error_codes::e5, Diagnostic};
 use kali_fmt::format_source;
@@ -72,6 +72,7 @@ fn main() {
             release_advanced,
             max_specializations,
             bundle,
+            format,
             lib,
             capi,
             component,
@@ -86,6 +87,7 @@ fn main() {
                 release_advanced,
                 max_specializations,
                 bundle,
+                format,
                 lib,
                 capi,
                 component,
@@ -331,6 +333,7 @@ fn build_command(
     release_advanced: bool,
     max_specializations: Option<usize>,
     bundle: bool,
+    format: Option<BundleFormat>,
     lib: bool,
     capi: bool,
     component: bool,
@@ -352,6 +355,14 @@ fn build_command(
             return emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
         }
     };
+    if format.is_some() && !bundle {
+        let diagnostic = Diagnostic::error(
+            e5::INVALID_CLI_USAGE as u32,
+            "`--format` is only meaningful when `--bundle` is selected",
+        );
+        return emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
+    }
+
     if bundle {
         if !matches!(effective_api, kali_cli::ApiSurface::Browser) {
             let diagnostic = Diagnostic::error(
@@ -376,6 +387,7 @@ fn build_command(
     let mode = build::build_mode_from_flags(fast, release, release_advanced);
     let max_specializations = max_specializations.unwrap_or(16);
     let out_dir_path = out_dir.as_deref();
+    let bundle_format = format.unwrap_or(BundleFormat::Esm);
     let artifact_mode = if lib {
         BuildArtifactSelection::Library
     } else if capi {
@@ -428,6 +440,7 @@ fn build_command(
             out_dir_path,
             policy.as_ref(),
             effective_api,
+            bundle_format,
         ),
     };
 
@@ -559,6 +572,7 @@ enum BuildResult {
         meta_path: PathBuf,
         wasm_bytes: Vec<u8>,
         metadata: build::ArtifactMetadata,
+        format: BundleFormat,
     },
 }
 
@@ -650,6 +664,7 @@ impl BuildResult {
                 meta_path,
                 wasm_bytes,
                 metadata,
+                format,
             } => json!({
                 "artifactKind": "bundle",
                 "outputPath": output_dir,
@@ -663,6 +678,7 @@ impl BuildResult {
                     { "kind": "meta-json", "path": meta_path },
                 ],
                 "exports": metadata.exports.clone().unwrap_or_default(),
+                "bundleFormat": format.to_string(),
             }),
         }
     }
@@ -681,8 +697,8 @@ impl BuildResult {
             BuildResult::Component { output_path, .. } => {
                 format!("Built component artifact at {}", output_path.display())
             }
-            BuildResult::BrowserBundle { output_dir, .. } => {
-                format!("Built browser bundle at {}", output_dir.display())
+            BuildResult::BrowserBundle { output_dir, format, .. } => {
+                format!("Built browser bundle ({}) at {}", format, output_dir.display())
             }
         }
     }
@@ -1094,6 +1110,7 @@ fn build_browser_bundle_artifact(
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
+    format: BundleFormat,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
     let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
@@ -1125,7 +1142,7 @@ fn build_browser_bundle_artifact(
     }
 
     let (wasm_path, js_path, source_map_path, meta_path) =
-        build::bundle_output_paths_for(&source, out_dir);
+        build::bundle_output_paths_for(&source, out_dir, format);
     let output_dir = js_path
         .parent()
         .map(Path::to_path_buf)
@@ -1193,7 +1210,7 @@ fn build_browser_bundle_artifact(
     })?;
     fs::write(
         &js_path,
-        generate_browser_bundle_js(&wasm_path, &source_map_path, &exports),
+        generate_browser_bundle_js(&wasm_path, &source_map_path, &exports, format),
     )
     .map_err(|error| {
         vec![Diagnostic::error(
@@ -1214,6 +1231,7 @@ fn build_browser_bundle_artifact(
         meta_path,
         wasm_bytes,
         metadata,
+        format,
     })
 }
 
@@ -1221,12 +1239,21 @@ fn generate_browser_bundle_js(
     wasm_path: &Path,
     source_map_path: &Path,
     exports: &[build::LibraryExport],
+    format: BundleFormat,
 ) -> String {
     let wasm_file = wasm_path
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("bundle.wasm");
-    let mut content = r#"const wasmUrl = new URL("./__WASM_FILE__", import.meta.url);
+    let map_file = source_map_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(match format {
+            BundleFormat::Esm => "bundle.js.map",
+            BundleFormat::Cjs => "bundle.cjs.map",
+        });
+    let mut content = match format {
+        BundleFormat::Esm => r#"const wasmUrl = new URL("./__WASM_FILE__", import.meta.url);
 
 const importObject = {
   "kali:rt": {
@@ -1254,19 +1281,60 @@ export async function load() {
   return await instancePromise;
 }
 
-"#
+"#.to_string(),
+        BundleFormat::Cjs => r#"const { pathToFileURL } = require("url");
+const wasmUrl = new URL("./__WASM_FILE__", pathToFileURL(__filename));
+
+const importObject = {
+  "kali:rt": {
+    test_register() {}
+  }
+};
+
+async function instantiate() {
+  if (typeof WebAssembly.instantiateStreaming === "function" && typeof fetch === "function") {
+    try {
+      const response = await fetch(wasmUrl);
+      return await WebAssembly.instantiateStreaming(response, importObject);
+    } catch (_) {
+      // fall back to ArrayBuffer instantiation.
+    }
+  }
+  const response = await fetch(wasmUrl);
+  const bytes = await response.arrayBuffer();
+  return await WebAssembly.instantiate(bytes, importObject);
+}
+
+const instancePromise = instantiate();
+
+async function load() {
+  return await instancePromise;
+}
+
+const exported = { load };
+
+"#.to_string(),
+    }
     .replace("__WASM_FILE__", wasm_file);
     for export in exports {
-        content.push_str(&format!(
-            "export async function {}(...args) {{\n  const {{ instance }} = await instancePromise;\n  return instance.exports.{}(...args);\n}}\n\n",
-            export.name, export.name
-        ));
+        match format {
+            BundleFormat::Esm => content.push_str(&format!(
+                "export async function {}(...args) {{\n  const {{ instance }} = await instancePromise;\n  return instance.exports.{}(...args);\n}}\n\n",
+                export.name, export.name
+            )),
+            BundleFormat::Cjs => content.push_str(&format!(
+                "exported.{0} = async function {0}(...args) {{\n  const {{ instance }} = await instancePromise;\n  return instance.exports.{0}(...args);\n}};\n\n",
+                export.name
+            )),
+        }
     }
-    let map_file = source_map_path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("bundle.js.map");
-    content.push_str(&format!("//# sourceMappingURL={}\n", map_file));
+    match format {
+        BundleFormat::Esm => content.push_str(&format!("//# sourceMappingURL={}\n", map_file)),
+        BundleFormat::Cjs => content.push_str(&format!(
+            "module.exports = exported;\n//# sourceMappingURL={}\n",
+            map_file
+        )),
+    }
     content
 }
 

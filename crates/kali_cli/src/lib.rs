@@ -108,6 +108,21 @@ impl std::fmt::Display for ApiSurface {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum BundleFormat {
+    Esm,
+    Cjs,
+}
+
+impl std::fmt::Display for BundleFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BundleFormat::Esm => f.write_str("esm"),
+            BundleFormat::Cjs => f.write_str("cjs"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum ColorChoice {
     Auto,
     Always,
@@ -187,6 +202,9 @@ pub enum Commands {
         /// Select the browser bundle artifact mode
         #[arg(long, conflicts_with_all = ["lib", "capi", "component"])]
         bundle: bool,
+        /// Select the browser bundle output format
+        #[arg(long, value_enum)]
+        format: Option<BundleFormat>,
         /// Select the base library artifact mode
         #[arg(long, conflicts_with_all = ["bundle", "capi", "component"])]
         lib: bool,

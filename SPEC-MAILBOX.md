@@ -8,6 +8,14 @@ Suggested follow-up:
 - sync the browser bundle artifact tables and schema text in `specs/08-wasm-codegen.md`, `specs/12-cli.md`, `specs/18-schemas.md`, and any availability summaries that enumerate the bundle outputs
 - keep the Phase-1/Phase-3 availability rows unchanged unless the bundle support rung itself changes
 
+## 2026-04-17 — Stage 3.3 browser-bundle format targets
+
+Implemented a browser-bundle output format selector so `kali build --bundle --format esm` remains the default ESM wrapper while `kali build --bundle --format cjs` now emits a CommonJS-flavored JS companion and `.cjs.map` source map. The JSON command output now includes a `bundleFormat` field for the emitted bundle result.
+
+Suggested follow-up:
+- sync the browser-bundle command/docs/schema wording in `specs/12-cli.md`, `specs/18-schemas.md`, `specs/08-wasm-codegen.md`, `specs/19-feature-maturity.md`, and `README.md` if we want the new format selector to be described publicly
+- keep the browser-bundle availability row unchanged unless the support rung itself changes
+
 ## 2026-04-17 — Stage 3.3 package-audit preview plumbing
 
 Implemented an opt-in `kali package-audit --preview` path in the CLI so the later registry-audit surface now has a concrete preview-only execution mode instead of an unconditional gate. The canonical availability matrix still keeps `package-audit` at **Later compatibility**, so the preview flag is intentionally not being advertised as public support.

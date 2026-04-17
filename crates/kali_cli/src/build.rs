@@ -20,7 +20,7 @@ use serde::Serialize;
 use serde_json::json;
 use wasm_encoder::{CustomSection, Section};
 
-use crate::{is_declaration_only_source_file, ApiSurface};
+use crate::{is_declaration_only_source_file, ApiSurface, BundleFormat};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildMode {
@@ -375,16 +375,21 @@ pub fn library_output_paths_for(
 pub fn bundle_output_paths_for(
     source_path: &Path,
     out_dir: Option<&Path>,
+    format: BundleFormat,
 ) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
     let stem = source_stem(source_path);
     let root = match out_dir {
         Some(dir) => dir.join(&stem),
         None => source_path.with_file_name(&stem),
     };
+    let js_extension = match format {
+        BundleFormat::Esm => "js",
+        BundleFormat::Cjs => "cjs",
+    };
     (
         root.join(format!("{}.wasm", stem)),
-        root.join(format!("{}.js", stem)),
-        root.join(format!("{}.js.map", stem)),
+        root.join(format!("{}.{}", stem, js_extension)),
+        root.join(format!("{}.{}.map", stem, js_extension)),
         root.join(format!("{}.meta.json", stem)),
     )
 }

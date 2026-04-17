@@ -718,6 +718,72 @@ fn build_emits_browser_bundle_artifacts() {
 }
 
 #[test]
+fn build_emits_browser_bundle_cjs_artifacts() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(&source_path, "function greet(name) { return name; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--format")
+        .arg("cjs")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let wasm_path = bundle_dir.join("app.wasm");
+    let js_path = bundle_dir.join("app.cjs");
+    let source_map_path = bundle_dir.join("app.cjs.map");
+    let meta_path = bundle_dir.join("app.meta.json");
+    assert!(wasm_path.exists(), "missing {}", wasm_path.display());
+    assert!(js_path.exists(), "missing {}", js_path.display());
+    assert!(
+        source_map_path.exists(),
+        "missing {}",
+        source_map_path.display()
+    );
+    assert!(meta_path.exists(), "missing {}", meta_path.display());
+
+    let js = fs::read_to_string(&js_path).expect("read bundle js");
+    assert!(js.contains("pathToFileURL"), "bundle js: {js}");
+    assert!(js.contains("module.exports = exported"), "bundle js: {js}");
+    assert!(
+        js.contains("sourceMappingURL=app.cjs.map"),
+        "bundle js: {js}"
+    );
+
+    let source_map: Value =
+        serde_json::from_str(&fs::read_to_string(&source_map_path).expect("read source map"))
+            .expect("parse source map json");
+    assert_eq!(source_map["version"], 3);
+    assert_eq!(source_map["file"], "app.cjs");
+    assert_eq!(source_map["sources"][0], "app.ts");
+
+    let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
+        .expect("parse metadata json");
+    assert_eq!(metadata["artifactKind"], "bundle");
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("Built browser bundle (cjs)"),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+}
+
+#[test]
 fn release_build_constant_folds_literal_expressions() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("math.ts");
@@ -1057,6 +1123,28 @@ fn build_rejects_explicit_node_bundle_api_surface() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5008"), "stderr: {stderr}");
     assert!(stderr.contains("browser API surface"), "stderr: {stderr}");
+}
+
+#[test]
+fn build_rejects_bundle_format_without_bundle() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(&source_path, "function greet(name) { return name; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--format")
+        .arg("cjs")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("--format"), "stderr: {stderr}");
 }
 
 #[test]
