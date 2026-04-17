@@ -8,6 +8,14 @@ Suggested follow-up:
 - update the Stage 4.1 status note once the resolver can distinguish statically known vs. unresolved dynamic-import targets
 - keep this separate from the later eval/runtime-interpreter work and from the already-implemented browser-bundle chunk-discovery refinement
 
+## 2026-04-17 — Stage 4.1 eval compat plumbing
+
+The CLI/runtime pipeline now accepts `--compat eval` / inherited `compat.features = ["eval"]` instead of rejecting the feature outright, and the build path rewrites simple statically-resolvable eval strings before lowering so the runtime can exercise the Phase 4 compat gate without a second compilation tier.
+
+Suggested follow-up:
+- keep expanding the evaluator only within the documented Phase 4 `eval` compatibility path; `Function()` still needs its own execution handling
+- keep the rewrite pass narrow so it stays a precompiled-stub bridge, not a hidden general-purpose interpreter
+
 ## 2026-04-17 — Node runtime stdout/stderr projection follow-up
 
 Added `kali:node` host-import coverage for `process_stdout_write` and `process_stderr_write` in the runtime linker, so the Node compatibility path can now bridge guest writes into the captured runtime output stream as well as the existing argv/env helpers.

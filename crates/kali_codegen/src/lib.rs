@@ -32,6 +32,8 @@ pub struct TargetConfig {
     pub optimize: bool,
     /// Upper bound on specialization fan-out.
     pub max_specializations: usize,
+    /// Whether compatibility eval source stubs were pre-resolved earlier in the pipeline.
+    pub compat_eval: bool,
 }
 
 impl Default for TargetConfig {
@@ -39,6 +41,7 @@ impl Default for TargetConfig {
         Self {
             optimize: false,
             max_specializations: 16,
+            compat_eval: false,
         }
     }
 }
@@ -809,6 +812,7 @@ mod tests {
         let mut ctx = CodegenCtx::new(TargetConfig {
             optimize: false,
             max_specializations: 16,
+            compat_eval: false,
         });
         let result = lower_lir_to_wasm(&mut ctx, &program);
 
@@ -848,6 +852,7 @@ mod tests {
         let mut ctx = CodegenCtx::new(TargetConfig {
             optimize: false,
             max_specializations: 16,
+            compat_eval: false,
         });
         let result = lower_lir_to_wasm(&mut ctx, &program);
 
@@ -938,6 +943,7 @@ mod tests {
         let mut ctx = CodegenCtx::new(TargetConfig {
             optimize: false,
             max_specializations: 16,
+            compat_eval: false,
         });
         let result = lower_lir_to_wasm(&mut ctx, program);
         assert!(

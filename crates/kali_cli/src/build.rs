@@ -9,7 +9,7 @@ use kali_codegen::{lower_lir_to_wasm, CodegenCtx, TargetConfig};
 use kali_common::FileId;
 use kali_error::{_error_codes::e5, _error_codes::e8, Diagnostic};
 use kali_hir::HirLowerer;
-use kali_lexer::Lexer;
+use kali_lexer::{Lexer, Token, TokenType};
 use kali_lir::LirLowerer;
 use kali_mir::MirLowerer;
 use kali_optimize::{OptimizationLevel, Optimizer};
@@ -64,7 +64,7 @@ pub fn check_source_file(
     source_path: impl AsRef<Path>,
     api_surface: ApiSurface,
 ) -> Result<(), Vec<Diagnostic>> {
-    let _analysis = analyze_source_file(source_path.as_ref(), api_surface)?;
+    let _analysis = analyze_source_file(source_path.as_ref(), api_surface, false)?;
     Ok(())
 }
 
@@ -80,11 +80,12 @@ pub fn compile_source_file_with_cache_state(
     mode: BuildMode,
     max_specializations: usize,
     api_surface: ApiSurface,
+    compat_eval: bool,
 ) -> Result<CompileOutput, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
 
     if let Some(cache_path) =
-        incremental_cache_path(source_path, mode, max_specializations, api_surface)?
+        incremental_cache_path(source_path, mode, max_specializations, api_surface, compat_eval)?
     {
         match fs::read(&cache_path) {
             Ok(wasm_bytes) => {
@@ -108,7 +109,7 @@ pub fn compile_source_file_with_cache_state(
         }
 
         let wasm_bytes =
-            compile_source_file_uncached(source_path, mode, max_specializations, api_surface)?;
+            compile_source_file_uncached(source_path, mode, max_specializations, api_surface, compat_eval)?;
 
         if let Some(parent) = cache_path.parent() {
             let _ = fs::create_dir_all(parent);
@@ -122,7 +123,7 @@ pub fn compile_source_file_with_cache_state(
         })
     } else {
         let wasm_bytes =
-            compile_source_file_uncached(source_path, mode, max_specializations, api_surface)?;
+            compile_source_file_uncached(source_path, mode, max_specializations, api_surface, compat_eval)?;
         Ok(CompileOutput {
             wasm_bytes,
             cache_hit: false,
@@ -135,8 +136,9 @@ pub fn compile_source_file(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
     api_surface: ApiSurface,
+    compat_eval: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    compile_source_file_with_specialization_cap(source_path, mode, 16, api_surface)
+    compile_source_file_with_specialization_cap(source_path, mode, 16, api_surface, compat_eval)
 }
 
 pub fn compile_source_file_with_specialization_cap(
@@ -144,8 +146,9 @@ pub fn compile_source_file_with_specialization_cap(
     mode: BuildMode,
     max_specializations: usize,
     api_surface: ApiSurface,
+    compat_eval: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    compile_source_file_with_cache_state(source_path, mode, max_specializations, api_surface)
+    compile_source_file_with_cache_state(source_path, mode, max_specializations, api_surface, compat_eval)
         .map(|output| output.wasm_bytes)
 }
 
@@ -154,8 +157,9 @@ fn compile_source_file_uncached(
     mode: BuildMode,
     max_specializations: usize,
     api_surface: ApiSurface,
+    compat_eval: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    let analyzed = analyze_source_file(source_path.as_ref(), api_surface)?;
+    let analyzed = analyze_source_file(source_path.as_ref(), api_surface, compat_eval)?;
 
     let mut hir_lowerer = HirLowerer::new();
     let hir = hir_lowerer.lower_statements(&analyzed.statements);
@@ -179,6 +183,7 @@ fn compile_source_file_uncached(
     let mut ctx = CodegenCtx::new(TargetConfig {
         optimize: !matches!(mode, BuildMode::Fast),
         max_specializations,
+        compat_eval,
     });
     let result = lower_lir_to_wasm(&mut ctx, &lir);
     diagnostics.extend(result.diagnostics);
@@ -195,6 +200,7 @@ fn incremental_cache_path(
     mode: BuildMode,
     max_specializations: usize,
     api_surface: ApiSurface,
+    compat_eval: bool,
 ) -> Result<Option<PathBuf>, Vec<Diagnostic>> {
     let source_hash = source_hash_for_file(source_path).map_err(|error| {
         vec![Diagnostic::error(
@@ -210,11 +216,12 @@ fn incremental_cache_path(
         return Ok(None);
     };
     let cache_key = format!(
-        "{}-{}-{}-{}-{}",
+        "{}-{}-{}-{}-{}-{}",
         source_hash,
         build_mode_name(mode),
         api_surface,
         max_specializations,
+        compat_eval,
         env!("CARGO_PKG_VERSION")
     );
     Ok(Some(
@@ -238,6 +245,7 @@ fn project_root_for_source(source_path: &Path) -> Option<PathBuf> {
 fn analyze_source_file(
     source_path: &Path,
     api_surface: ApiSurface,
+    compat_eval: bool,
 ) -> Result<AnalyzedSource, Vec<Diagnostic>> {
     let source = fs::read_to_string(source_path).map_err(|error| {
         vec![Diagnostic::error(
@@ -249,6 +257,12 @@ fn analyze_source_file(
             ),
         )]
     })?;
+
+    let source = if compat_eval {
+        rewrite_eval_compat_source(&source)
+    } else {
+        source
+    };
 
     let lexer = Lexer::new(FileId::new(0), source);
     let tokens = lexer.lex_all().tokens;
@@ -276,6 +290,267 @@ fn analyze_source_file(
     })
 }
 
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum EvalConst {
+    String(String),
+    Number(i64),
+    Boolean(bool),
+    Null,
+}
+
+impl EvalConst {
+    fn render(&self) -> String {
+        match self {
+            EvalConst::String(value) => serde_json::to_string(value).unwrap_or_else(|_| format!("\"{}\"", value)),
+            EvalConst::Number(value) => value.to_string(),
+            EvalConst::Boolean(value) => value.to_string(),
+            EvalConst::Null => "null".to_string(),
+        }
+    }
+
+    fn to_string_value(&self) -> String {
+        match self {
+            EvalConst::String(value) => value.clone(),
+            EvalConst::Number(value) => value.to_string(),
+            EvalConst::Boolean(value) => value.to_string(),
+            EvalConst::Null => "null".to_string(),
+        }
+    }
+}
+
+
+fn rewrite_eval_compat_source(source: &str) -> String {
+    let lexer = Lexer::new(FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let bindings = collect_constant_bindings(&tokens, source);
+    let mut rewritten = source.to_string();
+    let mut search_start = 0usize;
+
+    while let Some(relative) = rewritten[search_start..].find("eval(") {
+        let call_start = search_start + relative;
+        let arg_start = call_start + "eval(".len();
+        let Some(call_end) = find_call_end(&rewritten, arg_start) else {
+            break;
+        };
+        let arg_source = &rewritten[arg_start..call_end];
+        let lexer = Lexer::new(FileId::new(1), arg_source.to_string());
+        let mut arg_tokens = lexer.lex_all().tokens;
+        while matches!(arg_tokens.last(), Some(token) if token.kind == TokenType::Eof) {
+            arg_tokens.pop();
+        }
+
+        let mut replacement = None;
+        if let Some((value, consumed)) = parse_constant_expression(&arg_tokens, 0, &bindings) {
+            if consumed == arg_tokens.len() {
+                if let EvalConst::String(source_snippet) = value {
+                    if let Some(result) = parse_eval_source_snippet(&source_snippet) {
+                        replacement = Some(result.render());
+                    }
+                }
+            }
+        }
+
+        if let Some(replacement) = replacement {
+            rewritten.replace_range(call_start..=call_end, &replacement);
+            search_start = call_start + replacement.len();
+        } else {
+            search_start = call_end + 1;
+        }
+    }
+
+    rewritten
+}
+
+fn find_call_end(source: &str, start: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let mut depth = 0i32;
+    let mut index = start;
+    let mut string_delimiter: Option<u8> = None;
+    let mut escape = false;
+
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if let Some(delimiter) = string_delimiter {
+            if escape {
+                escape = false;
+            } else if byte == b'\\' {
+                escape = true;
+            } else if byte == delimiter {
+                string_delimiter = None;
+            }
+            index += 1;
+            continue;
+        }
+
+        match byte {
+            b'\'' | b'\"' | b'`' => string_delimiter = Some(byte),
+            b'(' => depth += 1,
+            b')' => {
+                if depth == 0 {
+                    return Some(index);
+                }
+                depth -= 1;
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+
+    None
+}
+
+fn collect_constant_bindings(tokens: &[Token], source: &str) -> BTreeMap<String, EvalConst> {
+    let mut bindings = BTreeMap::new();
+    let mut index = 0usize;
+
+    while index + 3 < tokens.len() {
+        let token = &tokens[index];
+        if matches!(token.kind, TokenType::Const | TokenType::Let | TokenType::Var)
+            && matches!(tokens.get(index + 1), Some(name) if name.kind == TokenType::Identifier)
+            && matches!(tokens.get(index + 2), Some(eq) if eq.kind == TokenType::Eq)
+        {
+            let name = tokens[index + 1].value.clone();
+            let expr_start = index + 3;
+            let expr_end = find_statement_end(tokens, expr_start);
+            if expr_end > expr_start {
+                if let Some((value, consumed)) = parse_constant_expression(&tokens[expr_start..expr_end], 0, &bindings) {
+                    if consumed == expr_end - expr_start {
+                        bindings.insert(name, value);
+                    }
+                }
+            }
+        }
+        index += 1;
+    }
+
+    let _ = source;
+    bindings
+}
+
+fn find_statement_end(tokens: &[Token], start: usize) -> usize {
+    let mut depth_paren = 0i32;
+    let mut depth_bracket = 0i32;
+    let mut depth_brace = 0i32;
+
+    for (index, token) in tokens.iter().enumerate().skip(start) {
+        match token.kind {
+            TokenType::LeftParen => depth_paren += 1,
+            TokenType::RightParen => {
+                if depth_paren == 0 { return index; }
+                depth_paren -= 1;
+            }
+            TokenType::LeftBracket => depth_bracket += 1,
+            TokenType::RightBracket => {
+                if depth_bracket == 0 { return index; }
+                depth_bracket -= 1;
+            }
+            TokenType::LeftBrace => depth_brace += 1,
+            TokenType::RightBrace => {
+                if depth_brace == 0 { return index; }
+                depth_brace -= 1;
+            }
+            TokenType::Semicolon if depth_paren == 0 && depth_bracket == 0 && depth_brace == 0 => {
+                return index;
+            }
+            _ => {}
+        }
+    }
+    tokens.len()
+}
+
+fn parse_eval_source_snippet(source: &str) -> Option<EvalConst> {
+    let lexer = Lexer::new(FileId::new(1), source.to_string());
+    let mut tokens = lexer.lex_all().tokens;
+    while matches!(tokens.last(), Some(token) if token.kind == TokenType::Eof) {
+        tokens.pop();
+    }
+    let env = BTreeMap::new();
+    let (value, consumed) = parse_constant_expression(&tokens, 0, &env)?;
+    if consumed == tokens.len() {
+        Some(value)
+    } else {
+        None
+    }
+}
+
+fn parse_constant_expression(
+    tokens: &[Token],
+    index: usize,
+    env: &BTreeMap<String, EvalConst>,
+) -> Option<(EvalConst, usize)> {
+    let (mut left, mut index) = parse_constant_primary(tokens, index, env)?;
+    while let Some(token) = tokens.get(index) {
+        if token.kind != TokenType::Plus {
+            break;
+        }
+        let (right, next_index) = parse_constant_primary(tokens, index + 1, env)?;
+        left = eval_plus(left, right);
+        index = next_index;
+    }
+    Some((left, index))
+}
+
+fn parse_constant_primary(
+    tokens: &[Token],
+    index: usize,
+    env: &BTreeMap<String, EvalConst>,
+) -> Option<(EvalConst, usize)> {
+    let token = tokens.get(index)?;
+    match token.kind {
+        TokenType::StringLiteral | TokenType::Template => {
+            Some((EvalConst::String(unquote_string_literal(&token.value)), index + 1))
+        }
+        TokenType::NumericLiteral => token
+            .value
+            .parse::<i64>()
+            .ok()
+            .map(|value| (EvalConst::Number(value), index + 1)),
+        TokenType::True => Some((EvalConst::Boolean(true), index + 1)),
+        TokenType::False => Some((EvalConst::Boolean(false), index + 1)),
+        TokenType::Null | TokenType::Undefined => Some((EvalConst::Null, index + 1)),
+        TokenType::Identifier => env.get(&token.value).cloned().map(|value| (value, index + 1)),
+        TokenType::Minus => {
+            let (value, next_index) = parse_constant_primary(tokens, index + 1, env)?;
+            match value {
+                EvalConst::Number(number) => Some((EvalConst::Number(-number), next_index)),
+                _ => None,
+            }
+        }
+        TokenType::LeftParen => {
+            let (value, next_index) = parse_constant_expression(tokens, index + 1, env)?;
+            match tokens.get(next_index) {
+                Some(token) if token.kind == TokenType::RightParen => Some((value, next_index + 1)),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+fn eval_plus(left: EvalConst, right: EvalConst) -> EvalConst {
+    match (left, right) {
+        (EvalConst::Number(a), EvalConst::Number(b)) => EvalConst::Number(a + b),
+        (left, right) => EvalConst::String(format!("{}{}", left.to_string_value(), right.to_string_value())),
+    }
+}
+
+fn unquote_string_literal(value: &str) -> String {
+    let trimmed = value.trim();
+    let Some(first) = trimmed.chars().next() else {
+        return trimmed.to_string();
+    };
+    let Some(last) = trimmed.chars().last() else {
+        return trimmed.to_string();
+    };
+
+    if matches!((first, last), ('"', '"') | ('\'', '\'') | ('`', '`')) {
+        trimmed[1..trimmed.len().saturating_sub(1)].to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
 struct AnalyzedSource {
     statements: Vec<kali_ast::Statement>,
     diagnostics: Vec<Diagnostic>,
@@ -285,11 +560,12 @@ pub fn build_source_file(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
     api_surface: ApiSurface,
+    compat_eval: bool,
     out_dir: Option<&Path>,
     sandbox_policy: Option<&SandboxPolicy>,
 ) -> Result<BuildOutput, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
-    let mut wasm_bytes = compile_source_file(source_path, mode, api_surface)?;
+    let mut wasm_bytes = compile_source_file(source_path, mode, api_surface, compat_eval)?;
     let metadata = build_artifact_metadata(
         source_path,
         "executable",
@@ -753,7 +1029,7 @@ mod tests {
         )
         .expect("write source");
 
-        let output = build_source_file(&source_path, BuildMode::Fast, ApiSurface::Deno, None, None)
+        let output = build_source_file(&source_path, BuildMode::Fast, ApiSurface::Deno, false, None, None)
             .expect("build should succeed");
 
         assert!(output.output_path.exists());
@@ -774,6 +1050,7 @@ mod tests {
             BuildMode::Release,
             16,
             ApiSurface::Deno,
+            false,
         )
         .expect("first compile");
         assert!(!first.cache_hit);
@@ -791,6 +1068,7 @@ mod tests {
             BuildMode::Release,
             16,
             ApiSurface::Deno,
+            false,
         )
         .expect("second compile");
         assert!(second.cache_hit);

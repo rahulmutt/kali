@@ -530,7 +530,7 @@ fn test_rejects_coverage_flag_until_report_contract_exists() {
 }
 
 #[test]
-fn check_rejects_compat_eval_flag_until_phase_four() {
+fn check_accepts_compat_eval_flag() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "1 + 2;").expect("write source");
@@ -544,15 +544,13 @@ fn check_rejects_compat_eval_flag_until_phase_four() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
-    assert!(stderr.contains("compatibility feature"), "stderr: {stderr}");
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Checked 1 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
-fn check_rejects_inherited_compat_eval_feature_from_manifest() {
+fn check_accepts_inherited_compat_eval_feature_from_manifest() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "1 + 2;").expect("write source");
@@ -574,10 +572,29 @@ fn check_rejects_inherited_compat_eval_feature_from_manifest() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+}
+
+#[test]
+fn run_evaluates_static_eval_sources_when_compat_eval_is_enabled() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const source = \"1 + 2\"; if (eval(source) !== 3) { throw new Error('bad eval result'); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--compat")
+        .arg("eval")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "stdout: {}\nstderr: {}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
 }
 
 #[test]

@@ -370,6 +370,7 @@ fn build_command(
     {
         return Err(exit_code);
     }
+    let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
 
     if let Some(policy) = policy.as_ref() {
         if let Err(diagnostics) = policy.validate() {
@@ -436,6 +437,7 @@ fn build_command(
             out_dir_path,
             policy.as_ref(),
             effective_api,
+            compat_eval,
         ),
         BuildArtifactSelection::Library => build_library_artifact(
             &source,
@@ -444,6 +446,7 @@ fn build_command(
             out_dir_path,
             policy.as_ref(),
             effective_api,
+            compat_eval,
         ),
         BuildArtifactSelection::Capi => build_capi_artifact(
             &source,
@@ -452,6 +455,7 @@ fn build_command(
             out_dir_path,
             policy.as_ref(),
             effective_api,
+            compat_eval,
         ),
         BuildArtifactSelection::Component => build_component_artifact(
             &source,
@@ -460,6 +464,7 @@ fn build_command(
             out_dir_path,
             policy.as_ref(),
             effective_api,
+            compat_eval,
         ),
         BuildArtifactSelection::BrowserBundle => build_browser_bundle_artifact(
             &source,
@@ -468,6 +473,7 @@ fn build_command(
             out_dir_path,
             policy.as_ref(),
             effective_api,
+            compat_eval,
             bundle_format,
         ),
     };
@@ -628,7 +634,13 @@ fn reject_unavailable_compat_features(
     source_path: Option<&Path>,
     source_contents: Option<&str>,
 ) -> Result<(), i32> {
-    if compat_features.is_empty() {
+    let unavailable: Vec<String> = compat_features
+        .iter()
+        .filter(|feature| feature.as_str() != "eval")
+        .cloned()
+        .collect();
+
+    if unavailable.is_empty() {
         return Ok(());
     }
 
@@ -636,7 +648,7 @@ fn reject_unavailable_compat_features(
         e5::FEATURE_UNAVAILABLE as u32,
         format!(
             "selected compatibility feature(s) {:?} are unavailable in this phase",
-            compat_features
+            unavailable
         ),
     );
     emit_diagnostics_and_exit(
@@ -864,6 +876,7 @@ fn build_executable_artifact(
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
+    compat_eval: bool,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
     let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
@@ -871,6 +884,7 @@ fn build_executable_artifact(
         mode,
         max_specializations,
         api_surface,
+        compat_eval,
     )?;
     let metadata = build::build_artifact_metadata(
         &source,
@@ -932,6 +946,7 @@ fn build_library_artifact(
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
+    compat_eval: bool,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
     let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
@@ -939,6 +954,7 @@ fn build_library_artifact(
         mode,
         max_specializations,
         api_surface,
+        compat_eval,
     )?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
@@ -1027,6 +1043,7 @@ fn build_capi_artifact(
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
+    compat_eval: bool,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
     let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
@@ -1034,6 +1051,7 @@ fn build_capi_artifact(
         mode,
         max_specializations,
         api_surface,
+        compat_eval,
     )?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
@@ -1158,6 +1176,7 @@ fn build_component_artifact(
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
+    compat_eval: bool,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
     let wasm_bytes = build::compile_source_file_with_specialization_cap(
@@ -1165,6 +1184,7 @@ fn build_component_artifact(
         mode,
         max_specializations,
         api_surface,
+        compat_eval,
     )?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
@@ -1263,6 +1283,7 @@ fn build_browser_bundle_artifact(
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
+    compat_eval: bool,
     format: BundleFormat,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
@@ -1276,6 +1297,7 @@ fn build_browser_bundle_artifact(
         out_dir,
         policy,
         api_surface,
+        compat_eval,
         format,
     )?;
     let extra_artifacts = collect_browser_bundle_chunk_artifacts(
@@ -1285,6 +1307,7 @@ fn build_browser_bundle_artifact(
         Some(bundle.output_dir.as_path()),
         policy,
         api_surface,
+        compat_eval,
         format,
         &mut visited,
     )?;
@@ -1309,6 +1332,7 @@ fn write_browser_bundle_files(
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
+    compat_eval: bool,
     format: BundleFormat,
 ) -> Result<BrowserBundleBuild, Vec<Diagnostic>> {
     let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
@@ -1316,6 +1340,7 @@ fn write_browser_bundle_files(
         mode,
         max_specializations,
         api_surface,
+        compat_eval,
     )?;
     let exports = build::collect_library_exports(source).unwrap_or_default();
     let metadata = build::build_artifact_metadata(
@@ -1441,6 +1466,7 @@ fn collect_browser_bundle_chunk_artifacts(
     out_dir: Option<&Path>,
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
+    compat_eval: bool,
     format: BundleFormat,
     visited: &mut std::collections::BTreeSet<PathBuf>,
 ) -> Result<Vec<BundleArtifact>, Vec<Diagnostic>> {
@@ -1467,6 +1493,7 @@ fn collect_browser_bundle_chunk_artifacts(
             Some(&chunk_out_dir),
             policy,
             api_surface,
+            compat_eval,
             format,
         )?;
         artifacts.push(BundleArtifact {
@@ -1493,6 +1520,7 @@ fn collect_browser_bundle_chunk_artifacts(
             out_dir,
             policy,
             api_surface,
+            compat_eval,
             format,
             visited,
         )?;
@@ -1777,6 +1805,7 @@ fn run_command(
     {
         return Err(exit_code);
     }
+    let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
     let Some(source) = single_or_error(files, "run", output)? else {
         return Err(1);
     };
@@ -1786,7 +1815,7 @@ fn run_command(
     }
 
     let wasm_bytes =
-        match build::compile_source_file(&source, build::BuildMode::Fast, effective_api) {
+        match build::compile_source_file(&source, build::BuildMode::Fast, effective_api, compat_eval) {
             Ok(bytes) => bytes,
             Err(diagnostics) => {
                 return emit_diagnostics_and_exit(
@@ -1908,6 +1937,7 @@ fn test_command(
     {
         return Err(exit_code);
     }
+    let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
 
     let selected_files = if files.is_empty() {
         discover_test_files(".")
@@ -1975,7 +2005,7 @@ fn test_command(
     for file in filtered_files {
         let source = PathBuf::from(&file);
         let wasm_bytes =
-            match build::compile_source_file(&source, build::BuildMode::Fast, effective_api) {
+            match build::compile_source_file(&source, build::BuildMode::Fast, effective_api, compat_eval) {
                 Ok(bytes) => bytes,
                 Err(errs) => {
                     diagnostics.extend(errs.clone());
