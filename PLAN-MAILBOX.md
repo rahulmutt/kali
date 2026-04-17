@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 zero-count freeing follow-up
+
+I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCollectDropsZeroCountCells`, which makes the local collection helper's zero-count removal behavior explicit in the theorem inventory.
+
+Suggested follow-up:
+- update `PLAN-4.2-STATUS.md`, `TODO.md`, and the proof-boundary / verification summary docs so the progress tracker names the new zero-count-removal lemma
+- keep the story incremental: this is still a local freeing slice, not the full Stage 4.2 ownership/freeing target
+
 ## 2026-04-17 — Stage 4.2 zero-count collection follow-up
 
 The RC snapshot proof slice now includes a local freeing step: `releaseAndCollect` filters zero-count cells after the decrement pass, and the proof boundary should now mention that collection helper alongside the existing release/decrement bookkeeping.

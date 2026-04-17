@@ -173,6 +173,13 @@ theorem releaseAndCollectRemovesZeroCountCells (snapshot : RcSnapshot) (ref : St
   intro cell hmem hname hcount hpresent
   simp [releaseAndCollect, releaseAndDecrement, hname, hcount] at hpresent
 
+/-- A release-and-collect step drops every zero-count cell from the decrement pass. -/
+theorem releaseAndCollectDropsZeroCountCells (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ (releaseAndDecrement snapshot ref).heap → cell.refCount = 0 →
+      cell ∉ (releaseAndCollect snapshot ref).heap := by
+  intro cell hmem hcount hpresent
+  simp [releaseAndCollect, hcount] at hpresent
+
 /-- A release-and-collect step keeps every positive-count cell from the
 decrement pass, so the local helper only drops zero-count entries. -/
 theorem releaseAndCollectKeepsPositiveCountCells (snapshot : RcSnapshot) (ref : String) :
