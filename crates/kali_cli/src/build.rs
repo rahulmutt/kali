@@ -394,6 +394,22 @@ pub fn bundle_output_paths_for(
     )
 }
 
+pub fn bundle_chunk_output_dir_for(source_path: &Path, out_dir: Option<&Path>) -> PathBuf {
+    let stem = source_stem(source_path);
+    let mut hasher = Sha256::new();
+    hasher.update(source_path.to_string_lossy().as_bytes());
+    let digest = hasher.finalize();
+    let suffix = u32::from_be_bytes([digest[0], digest[1], digest[2], digest[3]]);
+    let chunk_label = format!("{}-{:08x}", stem, suffix);
+    match out_dir {
+        Some(dir) => dir.join("chunks").join(chunk_label),
+        None => source_path
+            .with_file_name(stem)
+            .join("chunks")
+            .join(chunk_label),
+    }
+}
+
 pub fn capi_output_paths_for(
     source_path: &Path,
     out_dir: Option<&Path>,

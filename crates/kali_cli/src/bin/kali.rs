@@ -536,6 +536,24 @@ enum BuildArtifactSelection {
     Component,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BundleArtifact {
+    kind: String,
+    path: PathBuf,
+}
+
+struct BrowserBundleBuild {
+    output_dir: PathBuf,
+    wasm_path: PathBuf,
+    js_path: PathBuf,
+    source_map_path: PathBuf,
+    meta_path: PathBuf,
+    wasm_bytes: Vec<u8>,
+    metadata: build::ArtifactMetadata,
+    format: BundleFormat,
+    extra_artifacts: Vec<BundleArtifact>,
+}
+
 enum BuildResult {
     Executable {
         output_path: PathBuf,
@@ -573,6 +591,7 @@ enum BuildResult {
         wasm_bytes: Vec<u8>,
         metadata: build::ArtifactMetadata,
         format: BundleFormat,
+        extra_artifacts: Vec<BundleArtifact>,
     },
 }
 
@@ -665,21 +684,28 @@ impl BuildResult {
                 wasm_bytes,
                 metadata,
                 format,
-            } => json!({
-                "artifactKind": "bundle",
-                "outputPath": output_dir,
-                "sizeBytes": wasm_bytes.len(),
-                "buildMode": metadata.build_mode.clone(),
-                "sourceHash": metadata.source_hash.clone(),
-                "artifacts": [
-                    { "kind": "wasm-module", "path": wasm_path },
-                    { "kind": "js-glue", "path": js_path },
-                    { "kind": "source-map", "path": source_map_path },
-                    { "kind": "meta-json", "path": meta_path },
-                ],
-                "exports": metadata.exports.clone().unwrap_or_default(),
-                "bundleFormat": format.to_string(),
-            }),
+                extra_artifacts,
+            } => {
+                let mut artifacts = vec![
+                    json!({ "kind": "wasm-module", "path": wasm_path }),
+                    json!({ "kind": "js-glue", "path": js_path }),
+                    json!({ "kind": "source-map", "path": source_map_path }),
+                    json!({ "kind": "meta-json", "path": meta_path }),
+                ];
+                artifacts.extend(extra_artifacts.iter().map(
+                    |artifact| json!({ "kind": artifact.kind.clone(), "path": artifact.path }),
+                ));
+                json!({
+                    "artifactKind": "bundle",
+                    "outputPath": output_dir,
+                    "sizeBytes": wasm_bytes.len(),
+                    "buildMode": metadata.build_mode.clone(),
+                    "sourceHash": metadata.source_hash.clone(),
+                    "artifacts": artifacts,
+                    "exports": metadata.exports.clone().unwrap_or_default(),
+                    "bundleFormat": format.to_string(),
+                })
+            }
         }
     }
 
@@ -1119,15 +1145,60 @@ fn build_browser_bundle_artifact(
     format: BundleFormat,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
+    let canonical_source = fs::canonicalize(&source).unwrap_or_else(|_| source.clone());
+    let mut visited = std::collections::BTreeSet::new();
+    visited.insert(canonical_source);
+    let bundle = write_browser_bundle_files(
         &source,
+        mode,
+        max_specializations,
+        out_dir,
+        policy,
+        api_surface,
+        format,
+    )?;
+    let extra_artifacts = collect_browser_bundle_chunk_artifacts(
+        &source,
+        mode,
+        max_specializations,
+        Some(bundle.output_dir.as_path()),
+        policy,
+        api_surface,
+        format,
+        &mut visited,
+    )?;
+
+    Ok(BuildResult::BrowserBundle {
+        output_dir: bundle.output_dir,
+        wasm_path: bundle.wasm_path,
+        js_path: bundle.js_path,
+        source_map_path: bundle.source_map_path,
+        meta_path: bundle.meta_path,
+        wasm_bytes: bundle.wasm_bytes,
+        metadata: bundle.metadata,
+        format: bundle.format,
+        extra_artifacts,
+    })
+}
+
+fn write_browser_bundle_files(
+    source: &Path,
+    mode: build::BuildMode,
+    max_specializations: usize,
+    out_dir: Option<&Path>,
+    policy: Option<&SandboxPolicy>,
+    api_surface: kali_cli::ApiSurface,
+    format: BundleFormat,
+) -> Result<BrowserBundleBuild, Vec<Diagnostic>> {
+    let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
+        source,
         mode,
         max_specializations,
         api_surface,
     )?;
-    let exports = build::collect_library_exports(&source).unwrap_or_default();
+    let exports = build::collect_library_exports(source).unwrap_or_default();
     let metadata = build::build_artifact_metadata(
-        &source,
+        source,
         "bundle",
         mode,
         &api_surface.to_string(),
@@ -1136,7 +1207,7 @@ fn build_browser_bundle_artifact(
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
 
     if let Some(policy) = policy {
-        validate_source_effects_against_policy(&source, policy, api_surface)?;
+        validate_source_effects_against_policy(source, policy, api_surface)?;
         let policy_bytes = policy
             .to_embedded_json_bytes()
             .map_err(|diagnostic| vec![diagnostic])?;
@@ -1148,7 +1219,7 @@ fn build_browser_bundle_artifact(
     }
 
     let (wasm_path, js_path, source_map_path, meta_path) =
-        build::bundle_output_paths_for(&source, out_dir, format);
+        build::bundle_output_paths_for(source, out_dir, format);
     let output_dir = js_path
         .parent()
         .map(Path::to_path_buf)
@@ -1190,7 +1261,7 @@ fn build_browser_bundle_artifact(
             ),
         )]
     })?;
-    let source_contents = fs::read_to_string(&source).map_err(|error| {
+    let source_contents = fs::read_to_string(source).map_err(|error| {
         vec![Diagnostic::error(
             e5::OUTPUT_ERROR as u32,
             format!(
@@ -1202,7 +1273,7 @@ fn build_browser_bundle_artifact(
     })?;
     fs::write(
         &source_map_path,
-        build::browser_bundle_source_map(&source, &js_path, &source_contents, &exports),
+        build::browser_bundle_source_map(source, &js_path, &source_contents, &exports),
     )
     .map_err(|error| {
         vec![Diagnostic::error(
@@ -1229,7 +1300,7 @@ fn build_browser_bundle_artifact(
         )]
     })?;
 
-    Ok(BuildResult::BrowserBundle {
+    Ok(BrowserBundleBuild {
         output_dir,
         wasm_path,
         js_path,
@@ -1238,7 +1309,150 @@ fn build_browser_bundle_artifact(
         wasm_bytes,
         metadata,
         format,
+        extra_artifacts: Vec::new(),
     })
+}
+
+fn collect_browser_bundle_chunk_artifacts(
+    source: &Path,
+    mode: build::BuildMode,
+    max_specializations: usize,
+    out_dir: Option<&Path>,
+    policy: Option<&SandboxPolicy>,
+    api_surface: kali_cli::ApiSurface,
+    format: BundleFormat,
+    visited: &mut std::collections::BTreeSet<PathBuf>,
+) -> Result<Vec<BundleArtifact>, Vec<Diagnostic>> {
+    let source_contents = fs::read_to_string(source).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to read browser bundle source '{}': {}",
+                source.display(),
+                error
+            ),
+        )]
+    })?;
+    let mut artifacts = Vec::new();
+    for chunk_source in discover_literal_dynamic_import_targets(source, &source_contents)? {
+        if !visited.insert(chunk_source.clone()) {
+            continue;
+        }
+        let chunk_out_dir = build::bundle_chunk_output_dir_for(&chunk_source, out_dir);
+        let chunk = write_browser_bundle_files(
+            &chunk_source,
+            mode,
+            max_specializations,
+            Some(&chunk_out_dir),
+            policy,
+            api_surface,
+            format,
+        )?;
+        artifacts.push(BundleArtifact {
+            kind: "chunk-wasm".to_string(),
+            path: chunk.wasm_path.clone(),
+        });
+        artifacts.push(BundleArtifact {
+            kind: "chunk-js".to_string(),
+            path: chunk.js_path.clone(),
+        });
+        artifacts.push(BundleArtifact {
+            kind: "chunk-source-map".to_string(),
+            path: chunk.source_map_path.clone(),
+        });
+        artifacts.push(BundleArtifact {
+            kind: "chunk-meta-json".to_string(),
+            path: chunk.meta_path.clone(),
+        });
+        artifacts.extend(chunk.extra_artifacts);
+        let nested = collect_browser_bundle_chunk_artifacts(
+            &chunk_source,
+            mode,
+            max_specializations,
+            out_dir,
+            policy,
+            api_surface,
+            format,
+            visited,
+        )?;
+        artifacts.extend(nested);
+    }
+    Ok(artifacts)
+}
+
+fn discover_literal_dynamic_import_targets(
+    source: &Path,
+    source_contents: &str,
+) -> Result<Vec<PathBuf>, Vec<Diagnostic>> {
+    let mut targets = Vec::new();
+    let mut index = 0;
+    while let Some(relative) = source_contents[index..].find("import(") {
+        index += relative + "import(".len();
+        let bytes = source_contents.as_bytes();
+        while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+            index += 1;
+        }
+        if index >= bytes.len() {
+            break;
+        }
+        let quote = bytes[index] as char;
+        if !matches!(quote, '"' | '\'' | '`') {
+            continue;
+        }
+        index += 1;
+        let start = index;
+        let mut escaped = false;
+        while index < bytes.len() {
+            let ch = bytes[index] as char;
+            index += 1;
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            if ch == '\\' {
+                escaped = true;
+                continue;
+            }
+            if ch == quote {
+                let specifier = &source_contents[start..index - 1];
+                while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+                    index += 1;
+                }
+                if index < bytes.len() && bytes[index] as char == ')' {
+                    if let Some(target) = resolve_dynamic_import_target(source, specifier) {
+                        targets.push(target);
+                    }
+                }
+                break;
+            }
+        }
+    }
+    Ok(targets)
+}
+
+fn resolve_dynamic_import_target(source: &Path, specifier: &str) -> Option<PathBuf> {
+    let specifier = specifier.trim();
+    if !(specifier.starts_with("./") || specifier.starts_with("../")) {
+        return None;
+    }
+    let parent = source.parent()?;
+    let candidate = parent.join(specifier);
+    let try_paths = std::iter::once(candidate.clone()).chain([
+        candidate.with_extension("ts"),
+        candidate.with_extension("tsx"),
+        candidate.with_extension("js"),
+        candidate.with_extension("jsx"),
+        candidate.with_extension("mts"),
+        candidate.with_extension("mjs"),
+        candidate.with_extension("cts"),
+        candidate.with_extension("cjs"),
+    ]);
+    for path in try_paths {
+        if let Ok(canonical) = fs::canonicalize(&path) {
+            return Some(canonical);
+        }
+    }
+    None
 }
 
 fn generate_browser_bundle_js(
