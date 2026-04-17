@@ -241,3 +241,11 @@ If the proof slice widens with a bundled `releaseAndCollect` heap-cell theorem t
 Suggested follow-up:
 - keep the proof claims narrow and verbatim to the published boundary
 - update the maturity and verification summaries only if the new theorem is reflected in the proof boundary and actual Lean source set
+
+## 2026-04-17 — Stage 4.2 release-and-decrement ownership sync
+
+I widened the proof-backed RC snapshot slice with `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndOwnership`, which makes the decrement helper's surviving heap provenance and ownership tag explicit alongside the existing target-cell and collection-helper bundle theorems.
+
+Suggested follow-up:
+- sync `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the published proof-boundary inventory names the new decrement-helper provenance/ownership theorem
+- keep the broader Stage 4.2 ownership/freeing target narrower than this helper-level slice

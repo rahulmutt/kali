@@ -309,3 +309,11 @@ I plan to widen the current RC snapshot proof slice with a bundled theorem for s
 Suggested follow-up:
 - update `PLAN-4.2-STATUS.md` and `TODO.md` if the bundled helper theorem lands, and keep the proof-boundary summary docs aligned with the new theorem inventory
 - keep the broader Stage 4.2 ownership/freeing target incremental; this would still be a helper-level conjunction theorem, not the full RC target
+
+## 2026-04-17 — Stage 4.2 release-and-decrement ownership follow-up
+
+I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndOwnership`, so the helper-level memory-safety story now names the decrement helper's surviving heap provenance together with its original ownership tag.
+
+Suggested follow-up:
+- update `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the progress trackers name the new decrement-helper provenance/ownership theorem alongside the existing RC helper inventory
+- keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level provenance-and-ownership theorem, not the full RC target
