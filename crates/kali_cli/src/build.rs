@@ -301,7 +301,7 @@ pub fn build_source_file(
 
     if let Some(policy) = sandbox_policy {
         let policy_bytes = policy
-            .to_canonical_json_bytes()
+            .to_embedded_json_bytes()
             .map_err(|diagnostic| vec![diagnostic])?;
         CustomSection {
             name: Cow::Borrowed("kali:policy"),

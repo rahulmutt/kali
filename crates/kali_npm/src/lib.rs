@@ -2,7 +2,7 @@
 
 use base64::Engine;
 use flate2::read::GzDecoder;
-use kali_error::{Diagnostic, _error_codes::e5, _error_codes::e6};
+use kali_error::{_error_codes::e5, _error_codes::e6, Diagnostic};
 use reqwest::blocking::Client;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};

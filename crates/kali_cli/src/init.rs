@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use kali_error::{Diagnostic, _error_codes::e5};
+use kali_error::{_error_codes::e5, Diagnostic};
 use kali_npm::{save_manifest, ProjectManifest};
 
 #[derive(Debug, Clone, PartialEq, Eq)]

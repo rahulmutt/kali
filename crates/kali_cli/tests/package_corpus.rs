@@ -1,4 +1,8 @@
-use std::{fs, path::{Path, PathBuf}, process::Command};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use tempfile::tempdir;
 
@@ -87,7 +91,13 @@ fn browser_corpus_packages_remain_checkable_and_deployable_through_host() {
 
         let build = run_kali(
             dir.path(),
-            ["build", "--bundle", "--api", "browser", source_path.to_str().unwrap()],
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
         );
         assert!(
             build.status.success(),
@@ -148,7 +158,10 @@ fn node_runner_corpus_packages_require_the_node_context_but_remain_executable_th
 export default assert;
 "#,
         );
-        let test_path = dir.path().join("tests").join(format!("{}.test.ts", package));
+        let test_path = dir
+            .path()
+            .join("tests")
+            .join(format!("{}.test.ts", package));
         fs::create_dir_all(test_path.parent().expect("test dir")).expect("create test dir");
         fs::write(
             &test_path,

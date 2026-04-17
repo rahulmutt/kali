@@ -2551,6 +2551,7 @@ mod tests {
                 max_threads: Some(0),
             },
             base_dir: PathBuf::from("."),
+            serialized_source: None,
         };
         let runtime = RuntimeCtx::with_host_context(
             Some(policy),

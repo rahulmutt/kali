@@ -554,19 +554,24 @@ fn build_embeds_sandbox_policy_custom_section() {
     );
 
     let built = fs::read(dir.path().join("main.wasm")).expect("read wasm artifact");
-    let mut seen_policy = false;
+    let policy_bytes = fs::read(&policy_path).expect("read policy bytes");
+    let mut seen_policy = None;
     let mut seen_metadata = false;
     for payload in Parser::new(0).parse_all(&built) {
         if let Ok(Payload::CustomSection(section)) = payload {
             if section.name() == "kali:policy" {
-                seen_policy = true;
+                seen_policy = Some(section.data().to_vec());
             }
             if section.name() == "kali:metadata" {
                 seen_metadata = true;
             }
         }
     }
-    assert!(seen_policy, "custom section 'kali:policy' was not embedded");
+    let embedded_policy = seen_policy.expect("custom section 'kali:policy' was not embedded");
+    assert_eq!(
+        embedded_policy, policy_bytes,
+        "custom section 'kali:policy' should match the input policy bytes exactly"
+    );
     assert!(
         seen_metadata,
         "custom section 'kali:metadata' was not embedded"
@@ -779,7 +784,9 @@ fn build_emits_browser_bundle_cjs_artifacts() {
     assert_eq!(metadata["apiSurface"], "browser");
 
     let envelope = parse_json_stdout(&output);
-    let payload = envelope["payload"].as_object().expect("build payload object");
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
     assert_eq!(payload["artifactKind"], "bundle");
     assert_eq!(payload["bundleFormat"], "cjs");
     let artifacts = payload["artifacts"].as_array().expect("artifacts array");

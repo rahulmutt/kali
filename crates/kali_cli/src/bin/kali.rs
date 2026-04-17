@@ -697,8 +697,14 @@ impl BuildResult {
             BuildResult::Component { output_path, .. } => {
                 format!("Built component artifact at {}", output_path.display())
             }
-            BuildResult::BrowserBundle { output_dir, format, .. } => {
-                format!("Built browser bundle ({}) at {}", format, output_dir.display())
+            BuildResult::BrowserBundle {
+                output_dir, format, ..
+            } => {
+                format!(
+                    "Built browser bundle ({}) at {}",
+                    format,
+                    output_dir.display()
+                )
             }
         }
     }
@@ -731,7 +737,7 @@ fn build_executable_artifact(
     if let Some(policy) = policy {
         validate_source_effects_against_policy(&source, policy, api_surface)?;
         let policy_bytes = policy
-            .to_canonical_json_bytes()
+            .to_embedded_json_bytes()
             .map_err(|diagnostic| vec![diagnostic])?;
         CustomSection {
             name: std::borrow::Cow::Borrowed("kali:policy"),
@@ -801,7 +807,7 @@ fn build_library_artifact(
     if let Some(policy) = policy {
         validate_source_effects_against_policy(&source, policy, api_surface)?;
         let policy_bytes = policy
-            .to_canonical_json_bytes()
+            .to_embedded_json_bytes()
             .map_err(|diagnostic| vec![diagnostic])?;
         CustomSection {
             name: std::borrow::Cow::Borrowed("kali:policy"),
@@ -896,7 +902,7 @@ fn build_capi_artifact(
     if let Some(policy) = policy {
         validate_source_effects_against_policy(&source, policy, api_surface)?;
         let policy_bytes = policy
-            .to_canonical_json_bytes()
+            .to_embedded_json_bytes()
             .map_err(|diagnostic| vec![diagnostic])?;
         CustomSection {
             name: std::borrow::Cow::Borrowed("kali:policy"),
@@ -1034,7 +1040,7 @@ fn build_component_artifact(
     if let Some(policy) = policy {
         validate_source_effects_against_policy(&source, policy, api_surface)?;
         let policy_bytes = policy
-            .to_canonical_json_bytes()
+            .to_embedded_json_bytes()
             .map_err(|diagnostic| vec![diagnostic])?;
         CustomSection {
             name: std::borrow::Cow::Borrowed("kali:policy"),
@@ -1132,7 +1138,7 @@ fn build_browser_bundle_artifact(
     if let Some(policy) = policy {
         validate_source_effects_against_policy(&source, policy, api_surface)?;
         let policy_bytes = policy
-            .to_canonical_json_bytes()
+            .to_embedded_json_bytes()
             .map_err(|diagnostic| vec![diagnostic])?;
         CustomSection {
             name: std::borrow::Cow::Borrowed("kali:policy"),
@@ -1281,7 +1287,8 @@ export async function load() {
   return await instancePromise;
 }
 
-"#.to_string(),
+"#
+        .to_string(),
         BundleFormat::Cjs => r#"const { pathToFileURL } = require("url");
 const wasmUrl = new URL("./__WASM_FILE__", pathToFileURL(__filename));
 
@@ -1313,7 +1320,8 @@ async function load() {
 
 const exported = { load };
 
-"#.to_string(),
+"#
+        .to_string(),
     }
     .replace("__WASM_FILE__", wasm_file);
     for export in exports {

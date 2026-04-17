@@ -19,6 +19,7 @@ Stage 1.14 is now complete. The Phase-1 evidence suite now has the expected posi
 
 - Browser-bundle smoke harness now exercises the generated ESM bundle path
 - Repeated-build checks cover executable, base-library, and browser-bundle artifacts
+- Sandbox policy embedding is asserted byte-for-byte against the source policy file in artifact smoke coverage
 - Phase-2+ surfaces remain negatively tested through canonical gating paths
 - The proof-ready summary stays aligned across `README.md` and `proofs/BOUNDARY.md`
 

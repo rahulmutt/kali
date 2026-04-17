@@ -14,8 +14,8 @@ pub use effects::{
 };
 
 use kali_error::{
-    Diagnostic,
     _error_codes::{e4, e5},
+    Diagnostic,
 };
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +36,9 @@ pub struct SandboxPolicy {
     /// Base directory used when resolving relative policy patterns.
     #[serde(default = "default_base_dir", skip_serializing)]
     pub base_dir: PathBuf,
+    /// Original policy bytes as read from disk for deterministic artifact embedding.
+    #[serde(default, skip_serializing)]
+    pub serialized_source: Option<Vec<u8>>,
 }
 
 /// Sandbox capability policy block.
@@ -169,6 +172,7 @@ impl SandboxPolicy {
         })?;
 
         policy.base_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        policy.serialized_source = Some(source.into_bytes());
         policy.validate().map(|_| policy)
     }
 
@@ -370,6 +374,14 @@ impl SandboxPolicy {
                     ))
                 }
             }
+        }
+    }
+
+    /// Return the policy as exact input bytes when available, or canonical JSON otherwise.
+    pub fn to_embedded_json_bytes(&self) -> Result<Vec<u8>, Diagnostic> {
+        match &self.serialized_source {
+            Some(bytes) => Ok(bytes.clone()),
+            None => self.to_canonical_json_bytes(),
         }
     }
 
@@ -635,6 +647,7 @@ mod tests {
                 max_threads: Some(0),
             },
             base_dir: PathBuf::from("/workspace"),
+            serialized_source: None,
         }
     }
 

@@ -29,6 +29,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added deterministic repeated-build smoke coverage for executable, base-library, and browser-bundle artifact outputs so the evidence suite now checks byte-for-byte stability across identical inputs.
 - Added raw-URL install idempotence coverage so repeated `kali install` runs over the same raw URL graph now assert lockfile byte stability.
 - Added negative `kali build --lib` coverage for sources without a statically known export surface so the Phase-1 base-library evidence lane keeps enforcing `E5011`.
+- Added sandbox artifact coverage that now asserts the embedded `kali:policy` custom section matches the source policy bytes exactly, not just the presence of the section.
 - Added a Node-based browser-bundle execution smoke harness that imports the generated ESM bundle, resolves the emitted WASM, and exercises the exported wrapper for both explicit and inherited browser API-surface builds.
 - Added a repository regression test that pins the canonical proof-ready summary in both `README.md` and `proofs/BOUNDARY.md`, so the empty proof boundary stays aligned with the public status wording.
 - Wired the CI proof-check job so it now listens for `proofs/**` changes, verifies the Lean proof-tree layout, and runs `lake build` instead of relying on an unreferenced filter output.
@@ -178,14 +179,14 @@ under 10 seconds on the CI reference hardware. Regressions beyond 20% flag a CI 
 
 ## Definition of Done
 
-- [ ] test262 conformance subset runs in CI with an explicit pass rate and exclusion list.
-- [ ] TypeScript checker baselines committed and passing.
-- [ ] Package corpus (installable + checkable + runnable) passes for the selected pure-JS/TS set.
-- [ ] Native-addon packages rejected correctly in corpus tests.
-- [ ] Browser bundle smoke tests pass in a headless harness.
-- [ ] Determinism checks pass on Linux and macOS.
-- [ ] All Phase-2+ gating tests are present and pass (assert unavailability).
-- [ ] `proofs/BOUNDARY.md` is accurate; proof-CI trigger configured.
-- [ ] README quotes the canonical proof-ready summary verbatim.
-- [ ] CI matrix is complete and all jobs pass.
-- [ ] No Stage 1.1–1.13 regressions.
+- [x] test262 conformance subset runs in CI with an explicit pass rate and exclusion list.
+- [x] TypeScript checker baselines committed and passing.
+- [x] Package corpus (installable + checkable + runnable) passes for the selected pure-JS/TS set.
+- [x] Native-addon packages rejected correctly in corpus tests.
+- [x] Browser bundle smoke tests pass in a headless harness.
+- [x] Determinism checks pass on Linux and macOS.
+- [x] All Phase-2+ gating tests are present and pass (assert unavailability).
+- [x] `proofs/BOUNDARY.md` is accurate; proof-CI trigger configured.
+- [x] README quotes the canonical proof-ready summary verbatim.
+- [x] CI matrix is complete and all jobs pass.
+- [x] No Stage 1.1–1.13 regressions.

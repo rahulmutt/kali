@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use kali_ast::{BlockStatement, Statement};
 use kali_common::FileId;
-use kali_error::{Diagnostic, _error_codes::w2};
+use kali_error::{_error_codes::w2, Diagnostic};
 use kali_fmt::format_source;
 use kali_lexer::{Lexer, Token, TokenType};
 use kali_parser::Parser;

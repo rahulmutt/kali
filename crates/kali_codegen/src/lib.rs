@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, HashSet};
 
-use kali_error::{Diagnostic, _error_codes::e8};
+use kali_error::{_error_codes::e8, Diagnostic};
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
 use serde::{Deserialize, Serialize};
 use wasm_encoder::{

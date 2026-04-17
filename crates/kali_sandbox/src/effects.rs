@@ -6,7 +6,7 @@ use std::{
 
 use kali_ast::{ExportNamedDeclaration, ImportDeclaration, Statement};
 use kali_common::FileId;
-use kali_error::{Diagnostic, _error_codes::e5, _error_codes::e8, _error_codes::e9};
+use kali_error::{_error_codes::e5, _error_codes::e8, _error_codes::e9, Diagnostic};
 use kali_lexer::{Lexer, Token, TokenType};
 use kali_parser::Parser;
 use serde::{Deserialize, Serialize};
