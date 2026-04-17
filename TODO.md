@@ -85,6 +85,8 @@
 - ✅ `KaliCore.Safety.releaseRefPreservesOwnership`, `KaliCore.Safety.releaseAndDecrementPreservesOwnership`, and `KaliCore.Safety.releaseAndCollectPreservesOwnership` now keep the ownership environment unchanged across the release-only, decrement, and collection helpers.
 
 ## Next Work
+- [x] Stage 4.2 heap-positive testing-summary sync
+  - Synced `specs/16-testing.md` so the repository-state note and proof-backed claims guidance explicitly name the current RC snapshot helper slice's heap-characterisation, target-cell retention, and final-heap positive-count theorems alongside the other release-helper claims.
 - [x] Browser bundle source-map companions
   - `kali build --bundle` now emits a deterministic `.js.map` companion and appends the matching `sourceMappingURL` footer.
 - [x] Browser bundle chunk artifacts for literal dynamic imports

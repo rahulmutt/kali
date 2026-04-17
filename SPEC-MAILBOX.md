@@ -6,6 +6,13 @@ Suggested follow-up:
 - sync `README.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the published verification summaries name `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` alongside the other `releaseAndCollect` helper theorems
 - keep the Stage 4.2 claim narrow; this is still a helper-level no-negative-count theorem, not the full ownership/freeing story
 
+## 2026-04-17 — Stage 4.2 testing-summary sync follow-up
+
+I synced `specs/16-testing.md` so the repository-state note and proof-backed claims guidance now explicitly mention the current RC snapshot helper slice's heap-characterisation, target-cell retention, and final-heap positive-count theorems alongside the other release-helper claims.
+
+Suggested follow-up:
+- keep the Stage 4.2 claim narrow; this is still a summary-doc wording pass, not a boundary widening
+
 ## 2026-04-17 — Stage 4.2 target-cell retention follow-up
 
 I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCollectKeepsTargetCellWhenPositiveCount`, which states that the released target cell survives the local `releaseAndCollect` helper when its decremented count is still positive.
