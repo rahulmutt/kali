@@ -153,3 +153,11 @@ I synced the proof-backed boundary and verification summaries after adding `Kali
 Completed follow-up:
 - updated `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the theorem inventory and status trackers stay aligned
 - kept the claim narrow: this is still a helper-level retention theorem, not the full Stage 4.2 ownership/freeing story
+
+## 2026-04-17 — Stage 4.2 target-cell retention wording sync
+
+I synced the proof-boundary verification prose so `KaliCore.Safety.releaseAndCollectKeepsTargetCellWhenPositiveCount` is named explicitly in the repository summaries and phase-maturity wording.
+
+Completed follow-up:
+- updated `README.md`, `proofs/BOUNDARY.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the published verification summary explicitly names the target-cell retention theorem
+- kept the Stage 4.2 claim narrow; this is still the local release-and-collect helper story, not the full ownership/freeing target

@@ -195,3 +195,11 @@ I synced the Stage 4.2 progress trackers and summary docs after widening the RC 
 Completed follow-up:
 - updated `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, `TODO.md`, `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the progress tracker, boundary manifest, and release claims stay in sync
 - kept the Stage 4.2 claim narrow: this is still a helper-level retention theorem, not the full ownership/freeing target
+
+## 2026-04-17 — Stage 4.2 target-cell retention wording sync
+
+I synced the Stage 4.2 progress trackers so `KaliCore.Safety.releaseAndCollectKeepsTargetCellWhenPositiveCount` is named explicitly in the summary prose.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md` and `TODO.md` so the current Stage 4.2 progress note explicitly names the target-cell retention theorem
+- kept the broader Stage 4.2 ownership/freeing target incremental; this remains a local helper-level retention theorem
