@@ -1,6 +1,9 @@
 //! Runtime execution for Kali-generated WASM modules.
 
-use kali_api_node::{NodeChildProcess, NodeCrypto, NodePath, NodeRuntimeProjection, NodeUrl};
+use kali_api_node::{
+    NodeAssert, NodeBuffer, NodeChildProcess, NodeCrypto, NodePath, NodeRuntimeProjection,
+    NodeUrl, NodeUtil,
+};
 use kali_api_web::{fill_random_values, performance_now};
 use kali_error::{_error_codes::e4, Diagnostic};
 use kali_sandbox::{HostOperation, SandboxPolicy};
@@ -1309,6 +1312,80 @@ fn register_node_host_imports(
         .map_err(|error| host_import_error("http_get", error))?;
 
     linker
+        .func_wrap(
+            "kali:node",
+            "buffer_to_hex",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  data_ptr: i32,
+                  data_len: i32,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                let data = read_guest_bytes(&mut caller, data_ptr, data_len)?;
+                let hex = NodeBuffer::from_bytes(data).to_hex();
+                write_guest_string(&mut caller, out_ptr, out_cap, hex)
+            },
+        )
+        .map_err(|error| host_import_error("buffer_to_hex", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "buffer_from_hex",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  input_ptr: i32,
+                  input_len: i32,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                let input = read_guest_string(&mut caller, input_ptr, input_len)?;
+                let buffer = NodeBuffer::from_hex(&input)
+                    .map_err(|error| wasmtime::Error::msg(error.to_string()))?;
+                write_guest_bytes(&mut caller, out_ptr, out_cap, buffer.as_slice())
+            },
+        )
+        .map_err(|error| host_import_error("buffer_from_hex", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "util_format",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  left_ptr: i32,
+                  left_len: i32,
+                  right_ptr: i32,
+                  right_len: i32,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                let left = read_guest_string(&mut caller, left_ptr, left_len)?;
+                let right = read_guest_string(&mut caller, right_ptr, right_len)?;
+                let formatted = NodeUtil::format(&[left.as_str(), right.as_str()]);
+                write_guest_string(&mut caller, out_ptr, out_cap, formatted)
+            },
+        )
+        .map_err(|error| host_import_error("util_format", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "assert_equal",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  actual_ptr: i32,
+                  actual_len: i32,
+                  expected_ptr: i32,
+                  expected_len: i32|
+                  -> wasmtime::Result<i32> {
+                let actual = read_guest_string(&mut caller, actual_ptr, actual_len)?;
+                let expected = read_guest_string(&mut caller, expected_ptr, expected_len)?;
+                NodeAssert::equal(&actual, &expected, "assert_equal")
+                    .map_err(wasmtime::Error::msg)?;
+                Ok(0)
+            },
+        )
+        .map_err(|error| host_import_error("assert_equal", error))?;
+
+    linker
         .func_wrap("kali:node", "process_args_len", move || -> i32 {
             process
                 .lock()
@@ -2245,6 +2322,99 @@ mod tests {
             args = args,
             args_len = args.len(),
             stdout_checks = wat_assert_buffer_eq(96, expected_stdout),
+        );
+
+        let wasm = compile_wat(&wat);
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_executes_node_util_buffer_and_assert_host_imports() {
+        let runtime = RuntimeCtx::with_host_context_with_api_surface(
+            None,
+            Vec::new(),
+            capture_env(),
+            PathBuf::from("."),
+            "node",
+        );
+        let format_left = "node";
+        let format_right = "compat";
+        let buffer_input = "hello node";
+        let buffer_hex = "68656c6c6f206e6f6465";
+        let wat = format!(
+            r#"
+            (module
+                (import "kali:node" "util_format" (func $format (param i32 i32 i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "buffer_to_hex" (func $buffer_to_hex (param i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "buffer_from_hex" (func $buffer_from_hex (param i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "assert_equal" (func $assert_equal (param i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "{format_left}")
+                (data (i32.const 32) "{format_right}")
+                (data (i32.const 64) "{buffer_input}")
+                (data (i32.const 128) "{buffer_hex}")
+                (data (i32.const 192) "kali")
+                (data (i32.const 224) "kali")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const {format_left_len}
+                    i32.const 32
+                    i32.const {format_right_len}
+                    i32.const 256
+                    i32.const 64
+                    call $format
+                    i32.const {format_output_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{format_checks}
+                    i32.const 64
+                    i32.const {buffer_input_len}
+                    i32.const 320
+                    i32.const 32
+                    call $buffer_to_hex
+                    i32.const {buffer_hex_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{buffer_hex_checks}
+                    i32.const 128
+                    i32.const {buffer_hex_len}
+                    i32.const 384
+                    i32.const {buffer_input_len}
+                    call $buffer_from_hex
+                    i32.const {buffer_input_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{buffer_round_trip_checks}
+                    i32.const 192
+                    i32.const 4
+                    i32.const 224
+                    i32.const 4
+                    call $assert_equal
+                    i32.const 0
+                    i32.ne
+                    if
+                        unreachable
+                    end)
+            )
+            "#,
+            format_left = format_left,
+            format_left_len = format_left.len(),
+            format_right = format_right,
+            format_right_len = format_right.len(),
+            format_output_len = format!("{} {}", format_left, format_right).len(),
+            format_checks = wat_assert_buffer_eq(256, &format!("{} {}", format_left, format_right)),
+            buffer_input = buffer_input,
+            buffer_input_len = buffer_input.len(),
+            buffer_hex_len = buffer_hex.len(),
+            buffer_hex_checks = wat_assert_buffer_eq(320, buffer_hex),
+            buffer_round_trip_checks = wat_assert_buffer_eq(384, buffer_input),
         );
 
         let wasm = compile_wat(&wat);
