@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 finite-trace lowering bridge follow-up
+
+The HIR lowering-correctness slice now includes a finite-trace preservation theorem (`KaliIR.LoweringCorrectness.lower_preserves_steps`) on top of the existing single-step bridge, so the proof boundary and the Stage 4.2 progress note should describe both levels of preservation explicitly.
+
+Suggested follow-up:
+- keep `proofs/BOUNDARY.md`, the Stage 4.2 status note, and the TODO progress tracker aligned with the broader HIR lowering-correctness inventory
+- continue widening the proof model in small slices so the semantic-preservation story remains honest as it grows
+
 ## 2026-04-17 — Stage 3.2 Node URL host-import projection
 
 Extended the pure-Rust Node helper layer with `NodeUrl::parse` / `NodeUrl::resolve`, then threaded those helpers through the runtime linker as `kali:node` URL host imports and added runtime smoke coverage for the new projection path.

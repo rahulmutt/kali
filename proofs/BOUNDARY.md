@@ -2,12 +2,13 @@
 
 Status: **proof-backed proof-boundary manifest**.
 
-This file is the canonical repository location for Kali's published **proof-boundary manifest**. The repository now contains a checked-in Lean 4 proof tree under `proofs/`, and the published boundary is mechanized for the widened closed fragment — now including assignment and try/catch in addition to literals, variables, closed functions, application, sequencing, and conditionals — plus a small ownership / RC snapshot safety slice and a widened HIR lowering-correctness slice described below. The repository is therefore **proof-backed for the published boundary**, while remaining intentionally narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target.
+This file is the canonical repository location for Kali's published **proof-boundary manifest**. The repository now contains a checked-in Lean 4 proof tree under `proofs/`, and the published boundary is mechanized for the widened closed fragment — now including assignment and try/catch in addition to literals, variables, closed functions, application, sequencing, and conditionals — plus a small ownership / RC snapshot safety slice and a widened HIR lowering-correctness slice, including the current single-step and finite-trace lowering bridge, described below. The repository is therefore **proof-backed for the published boundary**, while remaining intentionally narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target.
 
 Current repository-state note:
 - follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the Lean project tree now exists under `proofs/` and is built from `proofs/lakefile.lean`
 - the proof sources are organized around `proofs/KaliCore.lean` and `proofs/KaliIR.lean`, which import the provisional model files listed below
 - the current proof claims now cover the widened closed fragment (literals, variables, closed functions, application, sequencing, conditionals, assignment, and try/catch) and the proof file compiles without `sorry` placeholders
+- the lowering-correctness slice now includes both the single-step bridge and a finite HIR-trace preservation bridge for the current modeled subset
 
 Canonical verification state (following the shared **proof-ready vs proof-backed split** from [SPEC.md](../SPEC.md)):
 
@@ -40,8 +41,8 @@ Release rule:
 
 ### HIR lowering model (`proofs/KaliIR/HIRModel.lean`, `proofs/KaliIR/LoweringCorrectness.lean`)
 - Provisional HIR syntax and a core lowering projection for future lowering-correctness work
-- Claimed property inventory: structural lowering equations (`lower_core`, `lower_let1`, `lower_seq`, `lower_if`, `lower_assign`, `lower_tr`) plus a small-step lowering-preservation bridge for the current HIR subset
-- Current proof state: the structural equations are mechanised, and `KaliIR.LoweringCorrectness.lower_preserves_step` now proves the current HIR step relation is preserved by lowering for the modeled subset, including assignment and try/catch; the subset still stops short of the full Stage 4.2 semantic-preservation target
+- Claimed property inventory: structural lowering equations (`lower_core`, `lower_let1`, `lower_seq`, `lower_if`, `lower_assign`, `lower_tr`) plus a small-step lowering-preservation bridge and a finite-trace lowering-preservation bridge for the current HIR subset
+- Current proof state: the structural equations are mechanised, `KaliIR.LoweringCorrectness.lower_preserves_step` now proves the current HIR step relation is preserved by lowering for the modeled subset, and `KaliIR.LoweringCorrectness.lower_preserves_steps` lifts that result to finite traces for the same subset, including assignment and try/catch; the subset still stops short of the full Stage 4.2 semantic-preservation target
 
 ## Claimed theorems/properties
 - `KaliCore.Soundness.progress` — progress for the widened closed typed core fragment
@@ -51,6 +52,7 @@ Release rule:
 - `KaliCore.Safety.releasedNotLiveRef` — mechanised theorem that well-formed snapshots keep released and live references disjoint
 - `KaliIR.HIRModel.lower_core`, `lower_let1`, `lower_seq`, `lower_if`, `lower_assign`, `lower_tr` — structural lowering equations for the provisional HIR projection
 - `KaliIR.LoweringCorrectness.lower_preserves_step` — lowering-preservation bridge for the current HIR step subset
+- `KaliIR.LoweringCorrectness.lower_preserves_steps` — finite-trace lowering-preservation bridge for the same modeled HIR subset
 
 ## Trusted assumptions
 - The proof tree is a proof-backed modeling aid for the published closed-fragment boundary.

@@ -27,6 +27,16 @@ inductive Step : HIRExpr → HIRExpr → Prop where
   | tr_catch : ∀ {v x h}, KaliCore.Value v → Step (.tr (.core (.EThrow v)) x (.core h)) (.core (KaliCore.subst x v h))
   | tr_value : ∀ {v x h}, KaliCore.Value v → Step (.tr (.core v) x h) (.core v)
 
+/-- Reflexive transitive closure over the current HIR step relation. -/
+inductive Steps : HIRExpr → HIRExpr → Prop where
+  | refl : ∀ {h}, Steps h h
+  | step : ∀ {h h' h''}, Step h h' → Steps h' h'' → Steps h h''
+
+/-- Reflexive transitive closure over the current core step relation. -/
+inductive CoreSteps : KaliCore.Expr → KaliCore.Expr → Prop where
+  | refl : ∀ {e}, CoreSteps e e
+  | step : ∀ {e e' e''}, KaliCore.step e e' → CoreSteps e' e'' → CoreSteps e e''
+
 /-- Lowering preserves the small-step relation for the current HIR subset. -/
 theorem lower_preserves_step : ∀ {h h' : HIRExpr}, Step h h' → KaliCore.step (lower h) (lower h') := by
   intro h h' hs
@@ -63,5 +73,14 @@ theorem lower_preserves_step : ∀ {h h' : HIRExpr}, Step h h' → KaliCore.step
       simpa [lower] using (KaliCore.step.try_catch (x := x) (h := lower h) hv)
   | tr_value (v := v) (x := x) (h := h) hv =>
       simpa [lower] using (KaliCore.step.try_value (x := x) (h := lower h) hv)
+
+/-- Lowering also preserves finite HIR traces in the current model. -/
+theorem lower_preserves_steps : ∀ {h h' : HIRExpr}, Steps h h' → CoreSteps (lower h) (lower h') := by
+  intro h h' hs
+  induction hs with
+  | refl =>
+      exact CoreSteps.refl
+  | step (h := h₁) (h' := h₂) (h'' := h₃) hstep ih =>
+      exact CoreSteps.step (lower_preserves_step hstep) ih
 
 end KaliIR
