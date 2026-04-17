@@ -6,7 +6,7 @@ This file is the canonical repository location for Kali's published **proof-boun
 
 Current repository-state note:
 - follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the Lean project tree now exists under `proofs/` and is built from `proofs/lakefile.lean`
-- the proof sources are organized around `proofs/KaliCore.lean` and `proofs/KaliIR.lean`, which import the provisional model files listed below
+- the proof sources are organized around `proofs/KaliCore.lean` and `proofs/KaliIR.lean`, which import the model files listed below
 - the current proof claims now cover the widened closed fragment (literals, variables, closed functions, application, sequencing, conditionals, assignment, and try/catch) and the proof file compiles without `sorry` placeholders
 - the ownership slice now includes the release-only helper's live-reference ownership/allocation corollary, live-reference filtering corollary, and disjointness corollary, plus the live-to-released transition preservation, explicit release-recording, release-set preservation across the release-only, decrement, and collection helpers, zero-count collection on the decrement path, zero-count removal from the decrement pass, positive-count preservation on the local collection helper, the helper-level theorem that positive-count cells from the original heap survive when they are not the released target, unrelated-heap preservation, other-live-reference preservation on the local `releaseAndCollect` helper, the helper-level theorem that `releaseAndCollect` is exactly the positive-count filter of the decrement pass, the helper-level theorem that the local collection helper's final heap contains only positive-count cells, helper-level live-reference filtering theorems on the release-only, decrement, and collection helpers, helper-level ownership/allocation preservation corollaries on the decrement and collection paths, and live/released-disjointness bookkeeping on the decrement and collection helpers
 - the ownership slice now includes the live-reference ownership/allocation projection, live-reference filtering corollaries on the release-only, decrement, and collection helpers, live-to-released transition preservation, explicit release-recording, heap-origin provenance for the release-and-decrement helper, zero-count collection on the decrement path, zero-count removal from the decrement pass, positive-count preservation on the local collection helper, the helper-level theorem that positive-count cells from the original heap survive when they are not the released target, the helper-level theorem that every surviving `releaseAndCollect` heap cell still comes from the original heap with only the released target decremented, unrelated-heap preservation, other-live-reference preservation on the local `releaseAndCollect` helper, the helper-level theorem that `releaseAndCollect` is exactly the positive-count filter of the decrement pass, the helper-level theorem that original zero-count cells are dropped from the final heap, helper-level ownership/allocation preservation corollaries on the decrement and collection paths, ownership-envelope preservation on the release-only, decrement, and collection helpers, release-set preservation on the release-only, decrement, and collection helpers, and live/released-disjointness theorems on the refcount-decrement helper and the local `releaseAndCollect` helper, including the local collection helper's release-recording theorem, plus the no-dangling / release-liveness claims
@@ -82,7 +82,7 @@ Release rule:
 - `KaliCore.Safety.releaseRecorded` — mechanised theorem that a released reference is recorded in the released set after the release step
 - `KaliCore.Safety.releasedNotLive` — mechanised theorem that released references are not live in the current RC snapshot model
 - `KaliCore.Safety.releasedNotLiveRef` — mechanised theorem that well-formed snapshots keep released and live references disjoint
-- `KaliIR.HIRModel.lower_core`, `lower_let1`, `lower_seq`, `lower_if`, `lower_assign`, `lower_throw`, `lower_tr` — structural lowering equations for the provisional HIR projection
+- `KaliIR.HIRModel.lower_core`, `lower_let1`, `lower_seq`, `lower_if`, `lower_assign`, `lower_throw`, `lower_tr` — structural lowering equations for the modeled HIR projection
 - `KaliIR.LoweringCorrectness.lower_preserves_step` — lowering-preservation bridge for the current HIR step subset
 - `KaliIR.LoweringCorrectness.lower_preserves_steps` — finite-trace lowering-preservation bridge for the same modeled HIR subset
 
@@ -113,16 +113,16 @@ Release rule:
 - `proofs/KaliIR/LoweringCorrectness.lean`
 
 ## Required implementation/spec alignment scope
-- `proofs/lakefile.lean` must continue to declare the Lean roots that keep the provisional proof tree complete
-- `proofs/KaliCore.lean` and `proofs/KaliIR.lean` serve as the root import surfaces for the provisional Lean model
+- `proofs/lakefile.lean` must continue to declare the Lean roots that keep the proof tree complete
+- `proofs/KaliCore.lean` and `proofs/KaliIR.lean` serve as the root import surfaces for the Lean model
 - any change to the named proof files above should keep the boundary text and trigger policy in sync with the current modeled slice
 
 ## Proof-CI trigger policy
 - Trigger proof CI when `proofs/**` changes.
-- Because the published boundary is still provisional and only names Lean model files under `proofs/`, no broader Rust/spec trigger set is currently claimed.
+- Because the published boundary currently names only Lean model files under `proofs/`, no broader Rust/spec trigger set is currently claimed.
 - If the boundary later names covered implementation/spec subsystems outside `proofs/`, proof CI must also trigger for changes to those covered areas.
 
 ## Boundary-maintenance rule
-- once the published boundary becomes non-provisional, a change to any covered path must land with matching proof updates or an explicit narrowing of the boundary first
+- a change to any covered path must land with matching proof updates or an explicit narrowing of the boundary first
 - widening the boundary also requires updating the named theorem/property inventory; new Lean files alone do not widen the claim surface
 - release/support wording must always follow this file's current boundary immediately after such a change
