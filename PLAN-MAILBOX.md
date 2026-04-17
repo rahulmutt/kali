@@ -1,9 +1,11 @@
 ## 2026-04-17 — Stage 4.2 helper-level no-dangling plan sync
 
-I widened the current RC snapshot proof slice with helper-level no-dangling-reference corollaries for `releaseRefNoDanglingReference`, `releaseAndDecrementNoDanglingReference`, and `releaseAndCollectNoDanglingReference`, and I plan to keep the Stage 4.2 status tracker aligned with those helper-level safety corollaries.
+I widened the current RC snapshot proof slice with helper-level no-dangling-reference corollaries for `releaseRefNoDanglingReference`, `releaseAndDecrementNoDanglingReference`, and `releaseAndCollectNoDanglingReference`, and I planned to keep the Stage 4.2 status tracker aligned with those helper-level safety corollaries.
+
+Completed follow-up:
+- synced `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the progress trackers now name the helper-level no-dangling corollaries explicitly alongside the existing RC snapshot inventory
 
 Suggested follow-up:
-- sync `PLAN-4.2-STATUS.md` so the status summary names the helper-level no-dangling corollaries explicitly alongside the existing RC snapshot inventory
 - keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level safety corollary slice, not the full RC target
 
 ## 2026-04-17 — Stage 4.2 decrement positive-count plan sync
