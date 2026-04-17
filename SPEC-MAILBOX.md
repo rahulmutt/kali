@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 decrement positive-count follow-up
+
+I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndDecrementKeepsOtherPositiveCountCells`, then synced the proof-boundary manifest plus the verification summaries in `README.md`, `specs/16-testing.md`, and `specs/19-feature-maturity.md` so the published boundary and release-claim wording now name the decrement-path positive-count preservation theorem explicitly.
+
+Suggested follow-up:
+- keep the Stage 4.2 RC snapshot inventory aligned if the decrement helper widens again
+- keep the published boundary intentionally narrower than the full ownership/freeing target
+
 ## 2026-04-17 — Stage 4.2 origin/positivity helper sync
 
 I widened the proof-backed RC snapshot slice with `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCount`, which bundles the surviving-cell origin and positive-count facts for the local collection helper on top of the existing origin and positivity lemmas.

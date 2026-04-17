@@ -393,6 +393,16 @@ theorem releaseAndDecrementKeepsOtherHeapEntries (snapshot : RcSnapshot) (ref : 
   intro cell hmem hname
   exact List.mem_map.mpr ⟨cell, hmem, by simp [hname]⟩
 
+/-- A release-and-decrement step keeps positive-count cells from the original heap
+when they are not the released target. -/
+theorem releaseAndDecrementKeepsOtherPositiveCountCells (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.name ≠ ref → cell.refCount > 0 →
+      cell ∈ (releaseAndDecrement snapshot ref).heap ∧ cell.refCount > 0 := by
+  intro cell hmem hname hpos
+  constructor
+  · exact releaseAndDecrementKeepsOtherHeapEntries snapshot ref cell hmem hname
+  · exact hpos
+
 /-- Live references other than the released target remain live after a release-and-decrement step. -/
 theorem releaseAndDecrementPreservesOtherLiveRefs (snapshot : RcSnapshot) (ref : String)
     (h : WellFormed snapshot) :

@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 decrement positive-count plan sync
+
+I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndDecrementKeepsOtherPositiveCountCells` and synced the Stage 4.2 progress trackers in `plan/phase-4/02-formal-verification-depth.md`, `PLAN-4.2-STATUS.md`, and `TODO.md` so the plan now names the decrement-path positive-count preservation theorem alongside the existing RC helper slice.
+
+Suggested follow-up:
+- keep the Stage 4.2 progress trackers aligned if the decrement helper widens again
+- continue treating this as a helper-level RC slice; the broader ownership/freeing target is still wider than the current proof-backed boundary
+
 ## 2026-04-17 — Stage 4.2 origin/positivity conjunction helper
 
 I widened the current RC snapshot proof slice with a small helper theorem that bundles the surviving-cell origin and positive-count facts for `releaseAndCollect`, so the local collection story now has a single reusable conjunction lemma on top of the existing origin and positivity theorems.
