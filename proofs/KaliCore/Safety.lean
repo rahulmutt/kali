@@ -54,6 +54,12 @@ theorem noDanglingReference (snapshot : RcSnapshot) (h : WellFormed snapshot) : 
   rcases hd with ⟨ref, href, hbad⟩
   exact hbad (h ref href)
 
+/-- Well-formed snapshots keep each live reference anchored in ownership and allocation. -/
+theorem liveRefsAreOwnedAndAllocated (snapshot : RcSnapshot) (h : WellFormed snapshot) :
+    ∀ ref, ref ∈ snapshot.liveRefs → hasOwnership snapshot.ownership ref ∧ allocated snapshot ref := by
+  intro ref href
+  exact ⟨(h ref href).1, (h ref href).2.1⟩
+
 /-- Released references are not considered live in the model. -/
 theorem releasedNotLive (snapshot : RcSnapshot) :
     ∀ ref, ref ∈ snapshot.releasedRefs → ¬ liveAnnotated snapshot ref := by

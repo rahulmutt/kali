@@ -96,3 +96,11 @@ The Lean tree now compiles cleanly and the current published proof boundary is m
 Suggested follow-up:
 - promote `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, and the proof-related maturity wording in `specs/19-feature-maturity.md` to the proof-backed wording that matches the published boundary
 - keep the Stage 4.2 plan text honest about the remaining memory-safety and lowering-correctness widening work
+
+## 2026-04-17 — Stage 4.2 RC live-reference projection follow-up
+
+I added a small proof-slice refinement to the Stage 4.2 memory model: well-formed RC snapshots now explicitly project each live reference back to ownership and allocation (`liveRefsAreOwnedAndAllocated`). The published boundary and verification chapter now mention that extra theorem alongside the existing no-dangling and release-liveness claims.
+
+Suggested follow-up:
+- keep the proof boundary and verification wording aligned if the RC model widens again
+- treat the current claim as still narrower than the eventual full ownership / RC target

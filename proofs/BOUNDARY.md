@@ -8,6 +8,7 @@ Current repository-state note:
 - follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the Lean project tree now exists under `proofs/` and is built from `proofs/lakefile.lean`
 - the proof sources are organized around `proofs/KaliCore.lean` and `proofs/KaliIR.lean`, which import the provisional model files listed below
 - the current proof claims now cover the widened closed fragment (literals, variables, closed functions, application, sequencing, conditionals, assignment, and try/catch) and the proof file compiles without `sorry` placeholders
+- the ownership slice now includes the live-reference ownership/allocation projection in addition to the no-dangling, release-liveness, and live/released-disjointness claims
 - the lowering-correctness slice now includes both the single-step bridge and a finite HIR-trace preservation bridge for the current modeled subset
 
 Canonical verification state (following the shared **proof-ready vs proof-backed split** from [SPEC.md](../SPEC.md)):
@@ -36,8 +37,8 @@ Release rule:
 ### Ownership model (`proofs/KaliCore/Safety.lean`)
 - Ownership classes: `stack`, `ownedHeap`, `sharedHeap`, `borrowed`
 - Model shape: `RcCell` heap entries, `RcSnapshot` ownership/heap/live-reference state, and released-reference tracking
-- Claimed property inventory: no dangling references for well-formed RC snapshots; released references are not live and stay disjoint from the live-reference set
-- Current proof state: the `noDanglingReference`, `releasedNotLive`, and `releasedNotLiveRef` theorems are mechanised for the current RC snapshot model, but the model remains narrower than the eventual Stage 4.2 ownership / RC target
+- Claimed property inventory: no dangling references for well-formed RC snapshots; live references remain owned and allocated; released references are not live and stay disjoint from the live-reference set
+- Current proof state: the `noDanglingReference`, `liveRefsAreOwnedAndAllocated`, `releasedNotLive`, and `releasedNotLiveRef` theorems are mechanised for the current RC snapshot model, but the model remains narrower than the eventual Stage 4.2 ownership / RC target
 
 ### HIR lowering model (`proofs/KaliIR/HIRModel.lean`, `proofs/KaliIR/LoweringCorrectness.lean`)
 - Provisional HIR syntax and a core lowering projection for future lowering-correctness work
@@ -48,6 +49,7 @@ Release rule:
 - `KaliCore.Soundness.progress` — progress for the widened closed typed core fragment
 - `KaliCore.Soundness.preservation` — preservation for the widened closed typed core fragment
 - `KaliCore.Safety.noDanglingReference` — mechanised no-dangling-reference theorem for the current RC snapshot model
+- `KaliCore.Safety.liveRefsAreOwnedAndAllocated` — mechanised theorem that well-formed snapshots keep live references anchored in ownership and allocation
 - `KaliCore.Safety.releasedNotLive` — mechanised theorem that released references are not live in the current RC snapshot model
 - `KaliCore.Safety.releasedNotLiveRef` — mechanised theorem that well-formed snapshots keep released and live references disjoint
 - `KaliIR.HIRModel.lower_core`, `lower_let1`, `lower_seq`, `lower_if`, `lower_assign`, `lower_tr` — structural lowering equations for the provisional HIR projection

@@ -143,7 +143,7 @@ Prove specific high-value lowering passes preserve the modeled semantics:
 ## Lean 4 Project Structure
 
 Current-state clarification:
-- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the repository now contains a checked-in Lean project tree under `proofs/`, and the published boundary is proof-backed for the widened closed fragment — now including assignment and try/catch in addition to literals, variables, closed functions, application, sequencing, and conditionals — plus a small RC snapshot safety slice and a widened HIR lowering-correctness slice while still remaining narrower than the later Stage 4.2 target
+- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the repository now contains a checked-in Lean project tree under `proofs/`, and the published boundary is proof-backed for the widened closed fragment — now including assignment and try/catch in addition to literals, variables, closed functions, application, sequencing, and conditionals — plus a small RC snapshot safety slice (including live-reference ownership/allocation projection) and a widened HIR lowering-correctness slice while still remaining narrower than the later Stage 4.2 target
 - treat the layout below as the living proof-tree shape that the checked-in Lean model follows today, not as a claim that the boundary already covers the later ownership/memory-safety and lowering-correctness target
 
 ```text

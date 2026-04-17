@@ -261,3 +261,11 @@ I widened the Stage 4.2 RC snapshot safety slice by adding `releasedNotLiveRef`,
 Suggested follow-up:
 - keep widening the memory model toward the full ownership / RC target when the next proof step is ready
 - if the boundary widens again, sync `proofs/BOUNDARY.md`, the Stage 4.2 status note, and any release-facing summaries together
+
+## 2026-04-17 — Stage 4.2 RC live-reference projection widening
+
+The Stage 4.2 memory-safety slice now includes `liveRefsAreOwnedAndAllocated`, which projects well-formed live references back to ownership and allocation in the RC snapshot model. `proofs/BOUNDARY.md`, the Stage 4.2 status note, and the verification chapter now mention that extra theorem explicitly.
+
+Suggested follow-up:
+- keep widening the memory model toward the full ownership / RC target in similarly small proof-backed slices
+- if the boundary widens again, sync the status note and boundary manifest together so the canonical proof summary stays honest

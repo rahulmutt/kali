@@ -1,7 +1,7 @@
 # Stage 4.2 Status Update
 
 **Date:** 2026-04-17  
-**Status:** 🟢 Proof-backed boundary published for the widened closed fragment plus the RC snapshot safety slice and widened HIR lowering-correctness slice; the canonical repository summary is "Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target."
+**Status:** 🟢 Proof-backed boundary published for the widened closed fragment plus the RC snapshot safety slice and widened HIR lowering-correctness slice; the canonical repository summary is "Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target." The current memory-safety slice now also projects live references back to ownership and allocation.
 
 ## Summary
 
@@ -11,7 +11,7 @@
 
 - `mise run lean-proofs` succeeds ✅
 - `KaliCore.Soundness` now compiles without `sorry` placeholders ✅
-- `KaliCore.Safety.noDanglingReference` is mechanised for the current RC snapshot model, and `releasedNotLive` / `releasedNotLiveRef` cover the release-path split and live/released disjointness ✅
+- `KaliCore.Safety.noDanglingReference` is mechanised for the current RC snapshot model, `liveRefsAreOwnedAndAllocated` projects live references back to ownership/allocation, and `releasedNotLive` / `releasedNotLiveRef` cover the release-path split and live/released disjointness ✅
 - `KaliIR.HIRModel` now records the structural lowering equations for the provisional HIR model ✅
 - The current proof model now covers the core application/control-flow fragment plus assignment and try/catch, and a small RC snapshot safety slice, and remains narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target ⚠️
 - `KaliIR.LoweringCorrectness.lower_preserves_steps` now lifts the current single-step bridge to finite HIR traces for the same modeled subset ⚠️
@@ -24,7 +24,7 @@
 - `KaliIR.LoweringCorrectness` now proves lowering preserves the modeled HIR step relation for the current subset, including assignment and try/catch, and also lifts it to finite traces
 - `proofs/BOUNDARY.md` now publishes the proof-backed boundary for the widened closed fragment plus the RC snapshot safety slice and widened HIR lowering-correctness slice, and still matches the canonical repository summary verbatim
 - The proof mailbox records the remaining widening work for the full Stage 4.2 story, especially ownership/memory safety and lowering correctness
-- The published memory-safety slice now includes live-reference tracking, release tracking, and live/released disjointness, but it still stops short of the full ownership / RC target
+- The published memory-safety slice now includes live-reference tracking, ownership/allocation projection, release tracking, and live/released disjointness, but it still stops short of the full ownership / RC target
 
 ## Current Limits
 
