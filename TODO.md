@@ -82,6 +82,8 @@
   - `kali build` now rejects multi-file invocations with the canonical `E5008` usage diagnostic and remains a single-primary-input command.
 - [x] Phase-gated later-surface placeholders and smoke coverage
   - Added `effects`, `package-effects`, `package-audit`, `build --capi`, `build --component`, and `run`/`test` API-surface gating so Phase-2+ surfaces now fail with the canonical `E5006` path instead of plain unknown-command parsing.
+- [x] Shared `--compat` CLI plumbing for the Phase-4 compatibility vocabulary
+  - Source-graph commands now parse `--compat` / `compat.features` requests, surface them in the command context, and reject the unavailable `eval` path through the canonical `E5006` gate instead of silently dropping the request.
 - [x] Embedding API scaffolding
   - `kali_embed` now exposes `KaliCompiler`, `CompiledArtifact`, `LibArtifact`, and deterministic WIT sidecar generation for the statically known export surface.
 - [x] Stage 3.1 optimization scaffolding

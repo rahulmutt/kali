@@ -173,6 +173,9 @@ pub enum Commands {
         /// Select the effective API surface
         #[arg(long, value_enum)]
         api: Option<ApiSurface>,
+        /// Enable documented compatibility features
+        #[arg(long = "compat", value_delimiter = ',')]
+        compat: Vec<String>,
         /// Source files to check
         files: Vec<String>,
     },
@@ -185,6 +188,9 @@ pub enum Commands {
         /// Select the effective API surface
         #[arg(long, value_enum)]
         api: Option<ApiSurface>,
+        /// Enable documented compatibility features
+        #[arg(long = "compat", value_delimiter = ',')]
+        compat: Vec<String>,
         /// Source files to build
         files: Vec<String>,
         /// Explicit fast build mode
@@ -227,6 +233,9 @@ pub enum Commands {
         /// Select the effective API surface
         #[arg(long, value_enum)]
         api: Option<ApiSurface>,
+        /// Enable documented compatibility features
+        #[arg(long = "compat", value_delimiter = ',')]
+        compat: Vec<String>,
         /// Source files to run
         files: Vec<String>,
     },
@@ -239,6 +248,9 @@ pub enum Commands {
         /// Select the effective API surface
         #[arg(long, value_enum)]
         api: Option<ApiSurface>,
+        /// Enable documented compatibility features
+        #[arg(long = "compat", value_delimiter = ',')]
+        compat: Vec<String>,
         /// Only run tests matching this pattern
         #[arg(long)]
         filter: Option<String>,
@@ -288,6 +300,9 @@ pub enum Commands {
     #[command(name = "effects")]
     /// Analyze source-file effects
     Effects {
+        /// Enable documented compatibility features
+        #[arg(long = "compat", value_delimiter = ',')]
+        compat: Vec<String>,
         /// Source files to analyze
         files: Vec<String>,
     },

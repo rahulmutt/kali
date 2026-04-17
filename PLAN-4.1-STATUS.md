@@ -5,13 +5,14 @@
 
 ## Summary
 
-Stage 4.1's package-audit work is now reflected consistently across the CLI, package semantics, maturity matrix, and README. The command remains schema-v1 envelope-only JSON, but it is now documented as the Phase 4 context-free registry-analysis/security-audit command instead of lingering in later-compatibility wording.
+Stage 4.1's package-audit work is now reflected consistently across the CLI, package semantics, maturity matrix, and README. The command remains schema-v1 envelope-only JSON, but it is now documented as the Phase 4 context-free registry-analysis/security-audit command instead of lingering in later-compatibility wording. The source-graph CLI surface has also gained explicit `--compat` plumbing for the shared compatibility-feature vocabulary so `compat.features` requests are parsed and rejected through the canonical availability gate instead of being silently ignored.
 
 ## Evidence
 
 - `kali package-audit lodash` succeeds on the default command path ✅
 - `kali package-audit --output json lodash` emits the schema-v1 envelope with `payload: null` ✅
 - `kali package-audit --pretty lodash` remains invalid without `--output json` ✅
+- `check --compat eval` now rejects through the canonical E5006 availability path, and inherited `compat.features = ["eval"]` hits the same gate ✅
 - `cargo test --workspace` passes ✅
 
 ## Notable Deliverables
@@ -22,4 +23,4 @@ Stage 4.1's package-audit work is now reflected consistently across the CLI, pac
 
 ## Next Step
 
-Finish the remaining Stage 4.1 dynamic-compatibility work (`eval` / `Function()` and non-literal `import()`) separately.
+Finish the remaining Stage 4.1 dynamic-compatibility work (`eval` / `Function()` execution and non-literal `import()`) separately.

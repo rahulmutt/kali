@@ -23,6 +23,7 @@ use kali_sandbox::{
 };
 use serde_json::{json, Value};
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
     time::Instant,
@@ -57,15 +58,17 @@ fn main() {
         Commands::Check {
             sandbox,
             api,
+            compat,
             files,
         } => {
-            if let Err(exit_code) = check_command(files, sandbox, api, &output) {
+            if let Err(exit_code) = check_command(files, sandbox, api, compat, &output) {
                 std::process::exit(exit_code);
             }
         }
         Commands::Build {
             sandbox,
             api,
+            compat,
             files,
             fast,
             release,
@@ -82,6 +85,7 @@ fn main() {
                 files,
                 sandbox,
                 api,
+                compat,
                 fast,
                 release,
                 release_advanced,
@@ -100,20 +104,24 @@ fn main() {
         Commands::Run {
             sandbox,
             api,
+            compat,
             files,
         } => {
-            if let Err(exit_code) = run_command(files, api, sandbox, &output) {
+            if let Err(exit_code) = run_command(files, api, compat, sandbox, &output) {
                 std::process::exit(exit_code);
             }
         }
         Commands::Test {
             sandbox,
             api,
+            compat,
             files,
             filter,
             coverage,
         } => {
-            if let Err(exit_code) = test_command(files, api, filter, coverage, sandbox, &output) {
+            if let Err(exit_code) =
+                test_command(files, api, compat, filter, coverage, sandbox, &output)
+            {
                 std::process::exit(exit_code);
             }
         }
@@ -190,8 +198,8 @@ fn main() {
                 std::process::exit(exit_code);
             }
         }
-        Commands::Effects { files } => {
-            if let Err(exit_code) = effects_command(files, &output) {
+        Commands::Effects { compat, files } => {
+            if let Err(exit_code) = effects_command(files, compat, &output) {
                 std::process::exit(exit_code);
             }
         }
@@ -212,6 +220,7 @@ fn check_command(
     files: Vec<String>,
     sandbox: Option<PathBuf>,
     api: Option<kali_cli::ApiSurface>,
+    compat: Vec<String>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
     let effective_api = match resolve_effective_api_surface(api) {
@@ -223,6 +232,17 @@ fn check_command(
 
     let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
+    let effective_compat = match resolve_effective_compat_features(compat) {
+        Ok(features) => features,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)
+        }
+    };
+    if let Err(exit_code) =
+        reject_unavailable_compat_features("check", &effective_compat, output, None, None)
+    {
+        return Err(exit_code);
+    }
 
     let selected_files = if files.is_empty() {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -324,6 +344,7 @@ fn build_command(
     files: Vec<String>,
     sandbox: Option<PathBuf>,
     api: Option<kali_cli::ApiSurface>,
+    compat: Vec<String>,
     fast: bool,
     release: bool,
     release_advanced: bool,
@@ -338,6 +359,17 @@ fn build_command(
 ) -> Result<(), i32> {
     let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
+    let effective_compat = match resolve_effective_compat_features(compat) {
+        Ok(features) => features,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
+        }
+    };
+    if let Err(exit_code) =
+        reject_unavailable_compat_features("build", &effective_compat, output, None, None)
+    {
+        return Err(exit_code);
+    }
 
     if let Some(policy) = policy.as_ref() {
         if let Err(diagnostics) = policy.validate() {
@@ -522,6 +554,99 @@ fn manifest_api_surface(
             format!("unsupported apiSurface '{}' in kali.json", api_surface),
         )]),
     }
+}
+
+fn resolve_effective_compat_features(
+    explicit_compat: Vec<String>,
+) -> Result<Vec<String>, Vec<Diagnostic>> {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let project_root = discover_project_root(&cwd).unwrap_or(cwd);
+    let Some(manifest) = load_manifest(&project_root).map_err(|diagnostic| vec![diagnostic])?
+    else {
+        return Ok(normalize_compat_features(explicit_compat));
+    };
+
+    let mut features = normalize_compat_features(explicit_compat);
+    features.extend(manifest_compat_features(&manifest)?);
+    features.sort();
+    features.dedup();
+    Ok(features)
+}
+
+fn manifest_compat_features(manifest: &ProjectManifest) -> Result<Vec<String>, Vec<Diagnostic>> {
+    let Some(compat) = manifest.compat.as_ref() else {
+        return Ok(Vec::new());
+    };
+
+    let Some(compat) = compat.as_object() else {
+        return Err(vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            "`compat` must be a JSON object",
+        )]);
+    };
+
+    let Some(features) = compat.get("features") else {
+        return Ok(Vec::new());
+    };
+
+    let Some(features) = features.as_array() else {
+        return Err(vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            "`compat.features` must be an array of strings",
+        )]);
+    };
+
+    let mut normalized = Vec::new();
+    for feature in features {
+        let Some(feature) = feature.as_str() else {
+            return Err(vec![Diagnostic::error(
+                e5::INVALID_CONFIG as u32,
+                "`compat.features` entries must be strings",
+            )]);
+        };
+        normalized.push(feature.to_string());
+    }
+
+    Ok(normalized)
+}
+
+fn normalize_compat_features(features: Vec<String>) -> Vec<String> {
+    let mut normalized = BTreeSet::new();
+    for feature in features {
+        let feature = feature.trim();
+        if !feature.is_empty() {
+            normalized.insert(feature.to_string());
+        }
+    }
+    normalized.into_iter().collect()
+}
+
+fn reject_unavailable_compat_features(
+    command: &str,
+    compat_features: &[String],
+    output: &CliOutputOptions,
+    source_path: Option<&Path>,
+    source_contents: Option<&str>,
+) -> Result<(), i32> {
+    if compat_features.is_empty() {
+        return Ok(());
+    }
+
+    let diagnostic = Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        format!(
+            "selected compatibility feature(s) {:?} are unavailable in this phase",
+            compat_features
+        ),
+    );
+    emit_diagnostics_and_exit(
+        command,
+        vec![diagnostic],
+        5,
+        output,
+        source_path,
+        source_contents,
+    )
 }
 
 enum BuildArtifactSelection {
@@ -1559,6 +1684,7 @@ const exported = { load };
 fn run_command(
     files: Vec<String>,
     api: Option<kali_cli::ApiSurface>,
+    compat: Vec<String>,
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
@@ -1579,6 +1705,17 @@ fn run_command(
 
     let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
+    let effective_compat = match resolve_effective_compat_features(compat) {
+        Ok(features) => features,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
+        }
+    };
+    if let Err(exit_code) =
+        reject_unavailable_compat_features("run", &effective_compat, output, None, None)
+    {
+        return Err(exit_code);
+    }
     let Some(source) = single_or_error(files, "run", output)? else {
         return Err(1);
     };
@@ -1652,6 +1789,7 @@ fn run_command(
 fn test_command(
     files: Vec<String>,
     api: Option<kali_cli::ApiSurface>,
+    compat: Vec<String>,
     filter: Option<String>,
     coverage: bool,
     sandbox: Option<PathBuf>,
@@ -1698,6 +1836,17 @@ fn test_command(
 
     let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
+    let effective_compat = match resolve_effective_compat_features(compat) {
+        Ok(features) => features,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
+        }
+    };
+    if let Err(exit_code) =
+        reject_unavailable_compat_features("test", &effective_compat, output, None, None)
+    {
+        return Err(exit_code);
+    }
 
     let selected_files = if files.is_empty() {
         discover_test_files(".")
@@ -2036,7 +2185,11 @@ fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Res
     }
 }
 
-fn effects_command(files: Vec<String>, output: &CliOutputOptions) -> Result<(), i32> {
+fn effects_command(
+    files: Vec<String>,
+    compat: Vec<String>,
+    output: &CliOutputOptions,
+) -> Result<(), i32> {
     let Some(source) = single_or_error(files, "effects", output)? else {
         return Err(1);
     };
@@ -2065,6 +2218,28 @@ fn effects_command(files: Vec<String>, output: &CliOutputOptions) -> Result<(), 
             );
         }
     };
+    let effective_compat = match resolve_effective_compat_features(compat) {
+        Ok(features) => features,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit(
+                "effects",
+                diagnostics,
+                5,
+                output,
+                Some(&source),
+                fs::read_to_string(&source).ok().as_deref(),
+            );
+        }
+    };
+    if let Err(exit_code) = reject_unavailable_compat_features(
+        "effects",
+        &effective_compat,
+        output,
+        Some(&source),
+        fs::read_to_string(&source).ok().as_deref(),
+    ) {
+        return Err(exit_code);
+    }
     let context = analysis_context_for_api(effective_api);
     let inference = match infer_effects_from_roots(&[source.clone()], context.clone()) {
         Ok(inference) => inference,
@@ -2252,7 +2427,6 @@ fn package_audit_command(target: String, output: &CliOutputOptions) -> Result<()
 
     Ok(())
 }
-
 
 fn install_command(
     target: Option<String>,

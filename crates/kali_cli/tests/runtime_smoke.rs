@@ -530,6 +530,57 @@ fn test_rejects_coverage_flag_until_report_contract_exists() {
 }
 
 #[test]
+fn check_rejects_compat_eval_flag_until_phase_four() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "1 + 2;").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--compat")
+        .arg("eval")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("compatibility feature"), "stderr: {stderr}");
+}
+
+#[test]
+fn check_rejects_inherited_compat_eval_feature_from_manifest() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "1 + 2;").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compat": {
+    "features": ["eval"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+}
+
+#[test]
 fn build_embeds_sandbox_policy_custom_section() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -2058,5 +2109,8 @@ fn package_audit_command_emits_text_summary() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Package audit scaffold"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("Package audit scaffold"),
+        "stdout: {stdout}"
+    );
 }
