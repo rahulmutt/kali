@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 heap-characterisation sync
+
+I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter`, which makes the local collection helper's heap/positive-count characterisation explicit in the theorem inventory.
+
+Suggested follow-up:
+- sync `proofs/BOUNDARY.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `README.md` so the proof-backed boundary names the new heap-characterisation lemma alongside the existing collection helper bookkeeping
+- keep the broader Stage 4.2 ownership/freeing target narrower than this helper-level slice
+
 ## 2026-04-17 — Stage 4.2 zero-count-removal sync
 
 I synced the proof-backed summary prose in `README.md` and `specs/19-feature-maturity.md` so the published boundary inventory now names `releaseAndCollectDropsZeroCountCells` explicitly.

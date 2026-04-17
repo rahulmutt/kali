@@ -1,3 +1,10 @@
+## 2026-04-17 — Stage 4.2 heap-characterisation sync
+
+I added `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter`, which characterises the local collection helper's heap as exactly the positive-count filter of the decrement pass.
+
+Suggested follow-up:
+- keep the broader ownership/freeing widening incremental; this remains a helper-level local collection fact, not the full Stage 4.2 ownership/freeing target
+
 ## 2026-04-17 — Stage 4.2 zero-count-removal sync
 
 I synced the Stage 4.2 progress summary so the current RC snapshot proof slice now names `releaseAndCollectDropsZeroCountCells` explicitly alongside the other local collection-helper theorems.
