@@ -20,3 +20,11 @@ I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCo
 Suggested follow-up:
 - keep the Stage 4.2 memory-safety story incremental; the local collection helper is still a slice, not the full ownership/freeing target
 - if the boundary widens again, sync `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` together so the claim inventory stays aligned
+
+## 2026-04-17 — Stage 4.2 RC freeing follow-up
+
+I plan to widen the current proof-backed memory-safety slice with a slightly more general RC freeing lemma: `releaseAndCollect` will explicitly preserve positive-count cells from the decrement pass, complementing the existing target-cell zero-count removal theorem.
+
+Suggested follow-up:
+- sync `proofs/BOUNDARY.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `README.md` so the published boundary mentions the positive-count preservation / local no-leak slice
+- keep the claim narrow: this is still the local collection helper story, not the full Stage 4.2 ownership/freeing target

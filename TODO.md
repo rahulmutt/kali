@@ -114,7 +114,7 @@
   - Runtime-linker coverage now also exercises Node-style event listener registration/emission imports with dedicated smoke coverage.
 - [x] Stage 4.2 proof boundary widening
   - `KaliCore.Soundness` now mechanizes the widened closed fragment (literals, variables, closed functions, application, sequencing, conditionals, assignment, and try/catch).
-  - `KaliCore.Safety.noDanglingReference` is mechanized for the current RC snapshot model, `liveRefsAreOwnedAndAllocated` projects live references back to ownership/allocation, `releasePreservesWellFormed` records the live-to-released transition, `releaseAndDecrementPreservesWellFormed` keeps the refcount-decrement update helper honest, `releaseAndDecrementRecorded` / `releaseAndDecrementDecrementsTargetCell` / `releaseAndDecrementZeroesLastTargetCell` / `releaseAndDecrementReleasedNotLiveRef` keep the helper's release bookkeeping explicit, and `releasedNotLive` / `releasedNotLiveRef` record the release-path liveness split and live/released disjointness.
+  - `KaliCore.Safety.noDanglingReference` is mechanized for the current RC snapshot model, `liveRefsAreOwnedAndAllocated` projects live references back to ownership/allocation, `releasePreservesWellFormed` records the live-to-released transition, `releaseAndDecrementPreservesWellFormed` keeps the refcount-decrement update helper honest, `releaseAndDecrementRecorded` / `releaseAndDecrementDecrementsTargetCell` / `releaseAndDecrementZeroesLastTargetCell` / `releaseAndCollectRecorded` / `releaseAndCollectKeepsPositiveCountCells` / `releaseAndDecrementReleasedNotLiveRef` keep the helper's release bookkeeping explicit, and `releasedNotLive` / `releasedNotLiveRef` record the release-path liveness split and live/released disjointness.
   - `KaliIR.HIRModel` records the structural lowering equations for `lower_core`, `lower_let1`, `lower_seq`, and `lower_if`.
   - `KaliIR.LoweringCorrectness` adds both a small-step lowering-preservation bridge and a finite-trace lowering-preservation bridge for the current HIR subset.
   - `proofs/BOUNDARY.md` now publishes the proof-backed boundary for that slice, and the canonical repository summary is aligned with it.
@@ -131,6 +131,7 @@
 ### Stage 4.2 - RC zero-count collection follow-up
 - ✅ `releaseAndCollect` now filters zero-count cells after the decrement pass.
 - ✅ `releaseAndCollectRecorded` keeps the local collection helper's release-recording explicit.
+- ✅ `releaseAndCollectKeepsPositiveCountCells` proves the local collection helper keeps the positive-count cells from the decrement pass.
 - ✅ `releaseAndCollectRemovesZeroCountCells` proves the freed decrement target is not retained in the collected heap.
 - ✅ `releaseAndCollectPreservesWellFormed` proves the remaining live set stays well-formed after zero-count collection.
 - ✅ `releaseAndCollectReleasedNotLiveRef` keeps the local collection helper's live/released disjointness explicit.

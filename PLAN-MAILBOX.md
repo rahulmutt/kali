@@ -19,3 +19,11 @@ I added `releaseAndCollectRecorded` to the RC snapshot proof slice, so the Stage
 
 Suggested follow-up:
 - keep widening the memory-safety slice incrementally; the current helper-level claim is still narrower than the full ownership/freeing target
+
+## 2026-04-17 — Stage 4.2 RC freeing follow-up
+
+I plan to widen the Stage 4.2 memory-safety slice with a helper-level lemma showing that `releaseAndCollect` preserves positive-count cells from the decrement pass, so the current local collection story has an explicit "only zero-count cells are dropped" theorem alongside the existing target-cell removal result.
+
+Suggested follow-up:
+- update `PLAN-4.2-STATUS.md` and `TODO.md` so the progress tracker names the new positive-count preservation lemma
+- if the boundary wording changes, sync the proof-boundary / verification summary docs in the same pass
