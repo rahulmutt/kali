@@ -15,7 +15,7 @@
 - `KaliIR.HIRModel` now records the structural lowering equations for the provisional HIR model ✅
 - The current proof model now covers the core application/control-flow fragment plus assignment, bare throw, and try/catch, and a small RC snapshot safety slice with explicit decrement-path release bookkeeping, helper-level ownership/allocation corollaries, and unrelated-heap preservation, and remains narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target ⚠️
 - `KaliIR.LoweringCorrectness.lower_preserves_steps` now lifts the current single-step bridge to finite HIR traces for the same modeled subset ⚠️
-- The proof-boundary inventory is now locked to the actual Lean source set by a dedicated `schema_docs` test, reducing the risk of boundary drift when proof files are added or removed ✅
+- The proof-boundary inventory is now locked to the actual Lean source set by a dedicated `schema_docs` test that checks both the covered-path inventory and the theorem-name inventory, reducing the risk of boundary drift when proof files are added or removed ✅
 
 ## Notable Deliverables
 
@@ -24,7 +24,7 @@
 - `KaliIR/HIRModel.lean` now records the structural lowering equations for the provisional HIR model, including `lower_throw`
 - `KaliIR.LoweringCorrectness` now proves lowering preserves the modeled HIR step relation for the current subset, including assignment, bare throw, and try/catch, and also lifts it to finite traces
 - `proofs/BOUNDARY.md` now publishes the proof-backed boundary for the widened closed fragment plus the RC snapshot safety slice and widened HIR lowering-correctness slice, and still matches the canonical repository summary verbatim
-- `crates/kali_cli/tests/schema_docs.rs` now includes an anti-drift test that compares the boundary's covered-path inventory and published theorem inventory against the actual `proofs/*.lean` source set
+- `crates/kali_cli/tests/schema_docs.rs` now includes an anti-drift test that compares the boundary's covered-path inventory and published theorem inventory against the actual `proofs/*.lean` source set, so the theorem-name inventory check stays aligned with the path-level guard
 - The proof mailbox records the remaining widening work for the full Stage 4.2 story, especially ownership/memory safety and lowering correctness
 - The published memory-safety slice now includes live-reference tracking, ownership/allocation projection, release tracking, live/released disjointness, release-update preservation, target-cell decrement bookkeeping, last-ref zeroing, release-recording for the local `releaseAndCollect` helper, zero-count collection, zero-count removal from the decrement pass, positive-count preservation on the local `releaseAndCollect` helper, the local `releaseAndCollect` other-live-preservation theorem, the local `releaseAndCollect` heap-characterisation theorem, the local `releaseAndCollect` provenance theorem, the local `releaseAndCollect` disjointness theorem, and a refcount-decrement update helper theorem, but it still stops short of the full ownership / RC target
 
