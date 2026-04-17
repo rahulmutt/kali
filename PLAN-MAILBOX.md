@@ -213,3 +213,11 @@ The proof tree compiles cleanly and the currently published boundary is mechaniz
 Suggested follow-up:
 - update the Stage 4.2 status note and any summary files that quote the verification state so they reflect the proof-backed boundary wording
 - keep the Stage 4.2 definition of done open until the remaining ownership/memory-safety and lowering-correctness targets are actually mechanized
+
+## 2026-04-17 — Stage 3.2 path-relative helper broadening
+
+Added `NodePath::relative` / `relative_path` to the pure-Rust Node compatibility helper layer and wired the runtime linker to expose `path.relative` to guest modules. The Stage 3.2 status note now reflects the lexical relative-path helper, the linked host-import projection, and the still-partial broader Node coverage.
+
+Suggested follow-up:
+- keep broadening the Node helper surface one concrete API at a time so the runtime linker and pure helper layer stay aligned
+- if later Node compatibility work needs more path semantics, widen the documented helper surface together with the runtime-linker projection and the stage status note

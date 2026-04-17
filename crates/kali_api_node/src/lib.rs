@@ -174,6 +174,71 @@ pub fn resolve_path(base: impl AsRef<Path>, input: impl AsRef<Path>) -> PathBuf 
     }
 }
 
+/// Compute a lexical relative path between two locations.
+///
+/// This keeps the helper deterministic while still mirroring the shape of
+/// Node's `path.relative` API closely enough for the compatibility layer.
+pub fn relative_path(from: impl AsRef<Path>, to: impl AsRef<Path>) -> PathBuf {
+    let from = resolve_node_path(from);
+    let to = resolve_node_path(to);
+
+    if path_root_key(&from) != path_root_key(&to) {
+        return to;
+    }
+
+    let from_components: Vec<_> = from.components().collect();
+    let to_components: Vec<_> = to.components().collect();
+    let mut shared_prefix = 0;
+    while shared_prefix < from_components.len()
+        && shared_prefix < to_components.len()
+        && from_components[shared_prefix] == to_components[shared_prefix]
+    {
+        shared_prefix += 1;
+    }
+
+    let mut relative = PathBuf::new();
+    for component in from_components.iter().skip(shared_prefix) {
+        if matches!(
+            component,
+            Component::Normal(_) | Component::CurDir | Component::ParentDir
+        ) {
+            relative.push("..");
+        }
+    }
+
+    for component in to_components.iter().skip(shared_prefix) {
+        match component {
+            Component::RootDir | Component::Prefix(_) => {}
+            _ => relative.push(component.as_os_str()),
+        }
+    }
+
+    if relative.as_os_str().is_empty() {
+        PathBuf::from(".")
+    } else {
+        relative
+    }
+}
+
+fn resolve_node_path(path: impl AsRef<Path>) -> PathBuf {
+    let path = path.as_ref();
+    if path.is_absolute() {
+        normalize_path(path)
+    } else {
+        let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        normalize_path(join_path(cwd, path))
+    }
+}
+
+fn path_root_key(path: impl AsRef<Path>) -> Option<String> {
+    let mut components = path.as_ref().components();
+    match components.next()? {
+        Component::Prefix(prefix) => Some(prefix.as_os_str().to_string_lossy().into_owned()),
+        Component::RootDir => Some(String::from("/")),
+        _ => None,
+    }
+}
+
 /// Return the parent directory of a path, or `.` if it has no parent.
 pub fn dirname(path: impl AsRef<Path>) -> PathBuf {
     path.as_ref()
@@ -222,6 +287,10 @@ impl NodePath {
 
     pub fn resolve(base: impl AsRef<Path>, input: impl AsRef<Path>) -> PathBuf {
         resolve_path(base, input)
+    }
+
+    pub fn relative(from: impl AsRef<Path>, to: impl AsRef<Path>) -> PathBuf {
+        relative_path(from, to)
     }
 
     pub fn dirname(path: impl AsRef<Path>) -> PathBuf {
@@ -1251,6 +1320,10 @@ mod tests {
             PathBuf::from("/tmp/lib/index.js")
         );
         assert_eq!(
+            relative_path("/tmp/project/src", "/tmp/project/lib/index.js"),
+            PathBuf::from("../lib/index.js")
+        );
+        assert_eq!(
             dirname("/tmp/project/src/main.ts"),
             PathBuf::from("/tmp/project/src")
         );
@@ -1350,9 +1423,17 @@ mod tests {
         assert!(!buffer.is_empty());
         assert_eq!(buffer.to_utf8().expect("utf8"), "hello");
         assert_eq!(buffer.to_base64(), "aGVsbG8=");
-        assert_eq!(NodeBuffer::from_base64("aGVsbG8=").expect("base64").as_slice(), b"hello");
+        assert_eq!(
+            NodeBuffer::from_base64("aGVsbG8=")
+                .expect("base64")
+                .as_slice(),
+            b"hello"
+        );
         assert_eq!(buffer.to_hex(), "68656c6c6f");
-        assert_eq!(NodeBuffer::from_hex("68656c6c6f").expect("hex").as_slice(), b"hello");
+        assert_eq!(
+            NodeBuffer::from_hex("68656c6c6f").expect("hex").as_slice(),
+            b"hello"
+        );
         assert!(NodeBuffer::from_hex("abc").is_err());
 
         let bytes = NodeBuffer::from_bytes(vec![1, 2, 3]).into_bytes();
@@ -1552,6 +1633,10 @@ mod tests {
         assert_eq!(
             NodePath::dirname("/tmp/project/src/main.ts"),
             PathBuf::from("/tmp/project/src")
+        );
+        assert_eq!(
+            NodePath::relative("/tmp/project/src", "/tmp/project/lib/index.js"),
+            PathBuf::from("../lib/index.js")
         );
         assert_eq!(NodePath::basename("/tmp/project/src/main.ts"), "main.ts");
         assert_eq!(NodePath::extname("/tmp/project/src/main.ts"), ".ts");

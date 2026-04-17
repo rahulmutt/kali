@@ -924,6 +924,26 @@ fn register_node_host_imports(
     linker
         .func_wrap(
             "kali:node",
+            "path_relative",
+            |mut caller: Caller<'_, KaliHostState>,
+             from_ptr: i32,
+             from_len: i32,
+             to_ptr: i32,
+             to_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let from = read_guest_string(&mut caller, from_ptr, from_len)?;
+                let to = read_guest_string(&mut caller, to_ptr, to_len)?;
+                let relative = NodePath::relative(Path::new(&from), Path::new(&to));
+                write_guest_string(&mut caller, out_ptr, out_cap, relative.to_string_lossy())
+            },
+        )
+        .map_err(|error| host_import_error("path_relative", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
             "crypto_create_hash",
             |mut caller: Caller<'_, KaliHostState>,
              algorithm_ptr: i32,
@@ -2210,12 +2230,15 @@ mod tests {
         let dirname_input = "/tmp/project/src/main.ts";
         let basename_input = "/tmp/project/src/main.ts";
         let extname_input = "/tmp/project/src/main.ts";
+        let relative_from = "/tmp/project/src";
+        let relative_to = "/tmp/project/lib/index.js";
         let normalized_output = "bar/baz";
         let joined_output = "/tmp/project/src";
         let resolved_output = "/tmp/lib/index.js";
         let dirname_output = "/tmp/project/src";
         let basename_output = "main.ts";
         let extname_output = ".ts";
+        let relative_output = "../lib/index.js";
         let wat = format!(
             r#"
             (module
@@ -2225,6 +2248,7 @@ mod tests {
                 (import "kali:node" "path_dirname" (func $dirname (param i32 i32 i32 i32) (result i32)))
                 (import "kali:node" "path_basename" (func $basename (param i32 i32 i32 i32) (result i32)))
                 (import "kali:node" "path_extname" (func $extname (param i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "path_relative" (func $relative (param i32 i32 i32 i32 i32 i32) (result i32)))
                 (memory (export "memory") 1)
                 (data (i32.const 0) "{normalize_input}")
                 (data (i32.const 64) "{join_base}")
@@ -2234,6 +2258,8 @@ mod tests {
                 (data (i32.const 192) "{dirname_input}")
                 (data (i32.const 224) "{basename_input}")
                 (data (i32.const 256) "{extname_input}")
+                (data (i32.const 768) "{relative_from}")
+                (data (i32.const 832) "{relative_to}")
                 (func (export "_start")
                     ;; normalize
                     i32.const 0
@@ -2311,6 +2337,20 @@ mod tests {
                         unreachable
                     end
 {extname_checks}
+                    ;; relative
+                    i32.const 768
+                    i32.const {relative_from_len}
+                    i32.const 832
+                    i32.const {relative_to_len}
+                    i32.const 704
+                    i32.const 32
+                    call $relative
+                    i32.const {relative_len}
+                    i32.ne
+                    if
+                        unreachable
+                    end
+{relative_checks}
                 )
             )
             "#,
@@ -2342,6 +2382,12 @@ mod tests {
             extname_input_len = extname_input.len(),
             extname_len = extname_output.len(),
             extname_checks = wat_assert_buffer_eq(640, extname_output),
+            relative_from = relative_from,
+            relative_from_len = relative_from.len(),
+            relative_to = relative_to,
+            relative_to_len = relative_to.len(),
+            relative_len = relative_output.len(),
+            relative_checks = wat_assert_buffer_eq(704, relative_output),
         );
 
         let wasm = compile_wat(&wat);
