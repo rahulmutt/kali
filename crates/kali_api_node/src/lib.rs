@@ -372,6 +372,9 @@ pub fn random_uuid_v4() -> Result<String, getrandom::Error> {
 pub struct NodeRuntimeProjection {
     process: NodeProcess,
     fs: NodeFs,
+    fs_promises: NodeFsPromises,
+    stream: NodeStream,
+    http: NodeHttp,
     os: NodeOs,
     events: EventEmitter,
 }
@@ -381,7 +384,10 @@ impl NodeRuntimeProjection {
         let cwd = cwd.into();
         Self {
             process: NodeProcess::with_host_context(Vec::new(), BTreeMap::new(), cwd.clone()),
-            fs: NodeFs::new(cwd),
+            fs: NodeFs::new(cwd.clone()),
+            fs_promises: NodeFsPromises::new(cwd),
+            stream: NodeStream,
+            http: NodeHttp,
             os: NodeOs,
             events: EventEmitter::new(),
         }
@@ -395,7 +401,10 @@ impl NodeRuntimeProjection {
         let cwd = cwd.into();
         Self {
             process: NodeProcess::with_host_context(argv, env, cwd.clone()),
-            fs: NodeFs::new(cwd),
+            fs: NodeFs::new(cwd.clone()),
+            fs_promises: NodeFsPromises::new(cwd),
+            stream: NodeStream,
+            http: NodeHttp,
             os: NodeOs,
             events: EventEmitter::new(),
         }
@@ -411,6 +420,18 @@ impl NodeRuntimeProjection {
 
     pub fn fs(&self) -> &NodeFs {
         &self.fs
+    }
+
+    pub fn fs_promises(&self) -> &NodeFsPromises {
+        &self.fs_promises
+    }
+
+    pub fn stream(&self) -> NodeStream {
+        self.stream
+    }
+
+    pub fn http(&self) -> NodeHttp {
+        self.http
     }
 
     pub fn os(&self) -> NodeOs {
@@ -630,6 +651,68 @@ impl NodeFs {
     }
 }
 
+/// Promise-style filesystem helpers for Node compatibility.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NodeFsPromises {
+    fs: NodeFs,
+}
+
+impl NodeFsPromises {
+    pub fn new(cwd: impl Into<PathBuf>) -> Self {
+        Self {
+            fs: NodeFs::new(cwd),
+        }
+    }
+
+    pub fn cwd(&self) -> &Path {
+        self.fs.cwd()
+    }
+
+    pub fn read_text_file(&self, path: impl AsRef<Path>) -> Result<String, std::io::Error> {
+        self.fs.read_text_file(path)
+    }
+
+    pub fn read_file(&self, path: impl AsRef<Path>) -> Result<Vec<u8>, std::io::Error> {
+        self.fs.read_file(path)
+    }
+
+    pub fn write_text_file(
+        &self,
+        path: impl AsRef<Path>,
+        contents: impl AsRef<str>,
+    ) -> Result<(), std::io::Error> {
+        self.fs.write_text_file(path, contents)
+    }
+
+    pub fn write_file(
+        &self,
+        path: impl AsRef<Path>,
+        contents: impl AsRef<[u8]>,
+    ) -> Result<(), std::io::Error> {
+        self.fs.write_file(path, contents)
+    }
+
+    pub fn mkdir(&self, path: impl AsRef<Path>, recursive: bool) -> Result<(), std::io::Error> {
+        self.fs.mkdir(path, recursive)
+    }
+
+    pub fn readdir(&self, path: impl AsRef<Path>) -> Result<Vec<String>, std::io::Error> {
+        self.fs.readdir(path)
+    }
+
+    pub fn remove(&self, path: impl AsRef<Path>, recursive: bool) -> Result<(), std::io::Error> {
+        self.fs.remove(path, recursive)
+    }
+
+    pub fn stat(&self, path: impl AsRef<Path>) -> Result<NodeFsMetadata, std::io::Error> {
+        self.fs.stat(path)
+    }
+
+    pub fn exists(&self, path: impl AsRef<Path>) -> bool {
+        self.fs.exists(path)
+    }
+}
+
 /// Basic file metadata for Node-style `stat()` helpers.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NodeFsMetadata {
@@ -663,6 +746,109 @@ impl NodeFsMetadata {
 
     pub fn readonly(&self) -> bool {
         self.readonly
+    }
+}
+
+/// A minimal namespace of stream-style byte helpers for Node compatibility.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NodeStream;
+
+impl NodeStream {
+    pub fn from_bytes(bytes: impl Into<Vec<u8>>) -> Vec<u8> {
+        bytes.into()
+    }
+
+    pub fn from_utf8(text: impl AsRef<str>) -> Vec<u8> {
+        text.as_ref().as_bytes().to_vec()
+    }
+
+    pub fn concat(left: impl AsRef<[u8]>, right: impl AsRef<[u8]>) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(left.as_ref().len() + right.as_ref().len());
+        bytes.extend_from_slice(left.as_ref());
+        bytes.extend_from_slice(right.as_ref());
+        bytes
+    }
+
+    pub fn concat_bytes(&self, left: impl AsRef<[u8]>, right: impl AsRef<[u8]>) -> Vec<u8> {
+        Self::concat(left, right)
+    }
+
+    pub fn to_utf8(bytes: impl AsRef<[u8]>) -> Result<String, std::string::FromUtf8Error> {
+        String::from_utf8(bytes.as_ref().to_vec())
+    }
+}
+
+/// Node-style HTTP error.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NodeHttpError {
+    message: String,
+}
+
+impl NodeHttpError {
+    fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for NodeHttpError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for NodeHttpError {}
+
+/// Minimal Node-style HTTP client helpers.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NodeHttp;
+
+/// Minimal Node-style HTTP response wrapper.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NodeHttpResponse {
+    status: u16,
+    body: Vec<u8>,
+}
+
+impl NodeHttpResponse {
+    pub fn status(&self) -> u16 {
+        self.status
+    }
+
+    pub fn body(&self) -> &[u8] {
+        &self.body
+    }
+
+    pub fn text(&self) -> Result<String, std::string::FromUtf8Error> {
+        String::from_utf8(self.body.clone())
+    }
+}
+
+impl NodeHttp {
+    pub fn get(url: impl AsRef<str>) -> Result<NodeHttpResponse, NodeHttpError> {
+        let response = reqwest::blocking::get(url.as_ref())
+            .and_then(|resp| resp.error_for_status())
+            .map_err(|error| {
+                NodeHttpError::new(format!("failed to GET '{}': {}", url.as_ref(), error))
+            })?;
+
+        let status = response.status().as_u16();
+        let body = response
+            .bytes()
+            .map_err(|error| {
+                NodeHttpError::new(format!(
+                    "failed to read '{}' response body: {}",
+                    url.as_ref(),
+                    error
+                ))
+            })?
+            .to_vec();
+        Ok(NodeHttpResponse { status, body })
+    }
+
+    pub fn request_get(&self, url: impl AsRef<str>) -> Result<NodeHttpResponse, NodeHttpError> {
+        Self::get(url)
     }
 }
 
@@ -805,6 +991,11 @@ pub fn assert_true(condition: bool, message: impl Into<String>) -> Result<(), St
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        thread,
+    };
     use tempfile::tempdir;
 
     #[test]
@@ -991,6 +1182,76 @@ mod tests {
         fs.remove("nested/beta.bin", false).expect("remove file");
         fs.remove("nested", true).expect("remove dir");
         assert!(!fs.exists("nested"));
+    }
+
+    #[test]
+    fn fs_promises_helpers_match_sync_helpers() {
+        let dir = tempdir().expect("tempdir");
+        let fs = NodeFsPromises::new(dir.path());
+
+        fs.mkdir("nested", false).expect("mkdir");
+        fs.write_text_file("nested/alpha.txt", "alpha")
+            .expect("write text");
+        fs.write_file("nested/beta.bin", [0, 1, 2])
+            .expect("write file");
+
+        assert_eq!(
+            fs.read_text_file("nested/alpha.txt").expect("read text"),
+            "alpha"
+        );
+        assert_eq!(
+            fs.read_file("nested/beta.bin").expect("read file"),
+            vec![0, 1, 2]
+        );
+        assert_eq!(
+            fs.readdir("nested").expect("readdir"),
+            vec!["alpha.txt".to_string(), "beta.bin".to_string()]
+        );
+
+        let stat = fs.stat("nested/alpha.txt").expect("stat");
+        assert!(stat.is_file());
+        assert!(!stat.is_dir());
+        assert_eq!(stat.len(), 5);
+
+        fs.remove("nested/beta.bin", false).expect("remove file");
+        fs.remove("nested", true).expect("remove dir");
+        assert!(!fs.exists("nested"));
+    }
+
+    #[test]
+    fn stream_helpers_concatenate_bytes() {
+        let bytes = NodeStream::concat(b"hello ", b"world");
+        assert_eq!(bytes, b"hello world");
+        assert_eq!(NodeStream::from_utf8("abc"), b"abc");
+        assert_eq!(NodeStream::from_bytes(vec![1, 2, 3]), vec![1, 2, 3]);
+        assert_eq!(NodeStream::to_utf8(b"kali").expect("utf8"), "kali");
+    }
+
+    #[test]
+    fn http_helpers_fetch_local_response_body() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+        let addr = listener.local_addr().expect("local addr");
+        let body = "hello node http";
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        let server = thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut buffer = [0u8; 1024];
+                let _ = stream.read(&mut buffer);
+                let _ = stream.write_all(response.as_bytes());
+            }
+        });
+
+        let url = format!("http://127.0.0.1:{}/", addr.port());
+        let response = NodeHttp::get(&url).expect("http get");
+        assert_eq!(response.status(), 200);
+        assert_eq!(response.body(), body.as_bytes());
+        assert_eq!(response.text().expect("text"), body);
+
+        server.join().expect("server thread");
     }
 
     #[test]

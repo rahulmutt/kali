@@ -10,6 +10,7 @@ kali_error = { workspace = true }
 sha2 = { workspace = true }
 hmac = { workspace = true }
 getrandom = { workspace = true }
+reqwest = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]

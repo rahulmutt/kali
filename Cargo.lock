@@ -1156,6 +1156,7 @@ dependencies = [
  "hmac",
  "kali_common",
  "kali_error",
+ "reqwest",
  "sha2",
  "tempfile",
  "url",
@@ -1374,6 +1375,7 @@ dependencies = [
 name = "kali_runtime"
 version = "0.1.0"
 dependencies = [
+ "kali_api_node",
  "kali_api_web",
  "kali_common",
  "kali_error",

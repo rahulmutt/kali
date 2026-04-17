@@ -1,7 +1,8 @@
 //! Runtime execution for Kali-generated WASM modules.
 
+use kali_api_node::NodeRuntimeProjection;
 use kali_api_web::{fill_random_values, performance_now};
-use kali_error::{Diagnostic, _error_codes::e4};
+use kali_error::{_error_codes::e4, Diagnostic};
 use kali_sandbox::{HostOperation, SandboxPolicy};
 use reqwest::blocking;
 use std::{
@@ -222,6 +223,15 @@ impl RuntimeCtx {
             })?;
         let mut linker = Linker::new(&engine);
         register_default_host_imports(&mut linker).map_err(|diagnostic| vec![diagnostic])?;
+        if self.api_surface == "node" {
+            let node_projection = NodeRuntimeProjection::from_host_context(
+                self.args.clone(),
+                self.env.clone(),
+                self.cwd.clone(),
+            );
+            register_node_host_imports(&mut linker, node_projection)
+                .map_err(|diagnostic| vec![diagnostic])?;
+        }
 
         let instance = linker.instantiate(&mut store, &module).map_err(|error| {
             vec![runtime_error_diagnostic(format!(
@@ -787,6 +797,215 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
     Ok(())
 }
 
+fn register_node_host_imports(
+    linker: &mut Linker<KaliHostState>,
+    node_projection: NodeRuntimeProjection,
+) -> Result<(), Diagnostic> {
+    let fs_promises = node_projection.fs_promises().clone();
+    let fs_promises_for_read_file = fs_promises.clone();
+    let fs_promises_for_write_text = fs_promises.clone();
+    let fs_promises_for_write_file = fs_promises.clone();
+    let stream = node_projection.stream();
+    let http = node_projection.http();
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "fs_promises_read_text_file",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  path_ptr: i32,
+                  path_len: i32,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                let path = read_guest_string(&mut caller, path_ptr, path_len)?;
+                let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::FileRead {
+                        path: host_path.clone(),
+                    },
+                )?;
+                let text = fs_promises.read_text_file(&host_path).map_err(|error| {
+                    wasmtime::Error::msg(format!(
+                        "failed to read '{}': {}",
+                        host_path.display(),
+                        error
+                    ))
+                })?;
+                write_guest_bytes(&mut caller, out_ptr, out_cap, text.as_bytes())
+            },
+        )
+        .map_err(|error| host_import_error("fs_promises_read_text_file", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "fs_promises_read_file",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  path_ptr: i32,
+                  path_len: i32,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                let path = read_guest_string(&mut caller, path_ptr, path_len)?;
+                let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::FileRead {
+                        path: host_path.clone(),
+                    },
+                )?;
+                let bytes = fs_promises_for_read_file
+                    .read_file(&host_path)
+                    .map_err(|error| {
+                        wasmtime::Error::msg(format!(
+                            "failed to read '{}': {}",
+                            host_path.display(),
+                            error
+                        ))
+                    })?;
+                write_guest_bytes(&mut caller, out_ptr, out_cap, &bytes)
+            },
+        )
+        .map_err(|error| host_import_error("fs_promises_read_file", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "fs_promises_write_text_file",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  path_ptr: i32,
+                  path_len: i32,
+                  data_ptr: i32,
+                  data_len: i32|
+                  -> wasmtime::Result<i32> {
+                let path = read_guest_string(&mut caller, path_ptr, path_len)?;
+                let data = read_guest_bytes(&mut caller, data_ptr, data_len)?;
+                let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::FileWrite {
+                        path: host_path.clone(),
+                    },
+                )?;
+                if let Some(parent) = host_path.parent() {
+                    fs::create_dir_all(parent).map_err(|error| {
+                        wasmtime::Error::msg(format!(
+                            "failed to create '{}': {}",
+                            parent.display(),
+                            error
+                        ))
+                    })?;
+                }
+                let text = String::from_utf8(data).map_err(|error| {
+                    wasmtime::Error::msg(format!(
+                        "node fs/promises write_text_file expects UTF-8: {}",
+                        error
+                    ))
+                })?;
+                fs_promises_for_write_text
+                    .write_text_file(&host_path, text)
+                    .map_err(|error| {
+                        wasmtime::Error::msg(format!(
+                            "failed to write '{}': {}",
+                            host_path.display(),
+                            error
+                        ))
+                    })?;
+                Ok(0)
+            },
+        )
+        .map_err(|error| host_import_error("fs_promises_write_text_file", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "fs_promises_write_file",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  path_ptr: i32,
+                  path_len: i32,
+                  data_ptr: i32,
+                  data_len: i32|
+                  -> wasmtime::Result<i32> {
+                let path = read_guest_string(&mut caller, path_ptr, path_len)?;
+                let data = read_guest_bytes(&mut caller, data_ptr, data_len)?;
+                let host_path = resolve_host_path(caller.data(), Path::new(&path));
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::FileWrite {
+                        path: host_path.clone(),
+                    },
+                )?;
+                if let Some(parent) = host_path.parent() {
+                    fs::create_dir_all(parent).map_err(|error| {
+                        wasmtime::Error::msg(format!(
+                            "failed to create '{}': {}",
+                            parent.display(),
+                            error
+                        ))
+                    })?;
+                }
+                fs_promises_for_write_file
+                    .write_file(&host_path, &data)
+                    .map_err(|error| {
+                        wasmtime::Error::msg(format!(
+                            "failed to write '{}': {}",
+                            host_path.display(),
+                            error
+                        ))
+                    })?;
+                Ok(0)
+            },
+        )
+        .map_err(|error| host_import_error("fs_promises_write_file", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "stream_concat",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  left_ptr: i32,
+                  left_len: i32,
+                  right_ptr: i32,
+                  right_len: i32,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                let left = read_guest_bytes(&mut caller, left_ptr, left_len)?;
+                let right = read_guest_bytes(&mut caller, right_ptr, right_len)?;
+                let concatenated = stream.concat_bytes(&left, &right);
+                write_guest_bytes(&mut caller, out_ptr, out_cap, &concatenated)
+            },
+        )
+        .map_err(|error| host_import_error("stream_concat", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "http_get",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  url_ptr: i32,
+                  url_len: i32,
+                  out_ptr: i32,
+                  out_cap: i32|
+                  -> wasmtime::Result<i32> {
+                let url = read_guest_string(&mut caller, url_ptr, url_len)?;
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::NetworkFetch { url: url.clone() },
+                )?;
+                let response = http
+                    .request_get(&url)
+                    .map_err(|error| wasmtime::Error::msg(error.to_string()))?;
+                write_guest_bytes(&mut caller, out_ptr, out_cap, response.body())
+            },
+        )
+        .map_err(|error| host_import_error("http_get", error))?;
+
+    Ok(())
+}
+
 fn capture_env() -> BTreeMap<String, String> {
     std::env::vars().collect()
 }
@@ -1295,6 +1514,147 @@ mod tests {
             "diagnostic: {:?}",
             diagnostics[0]
         );
+        server.join().expect("server thread");
+    }
+
+    #[test]
+    fn runtime_executes_node_fs_promises_host_imports() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let runtime = RuntimeCtx::with_host_context_with_api_surface(
+            None,
+            Vec::new(),
+            capture_env(),
+            dir.path().to_path_buf(),
+            "node",
+        );
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:node" "fs_promises_write_text_file" (func $write (param i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "fs_promises_read_text_file" (func $read (param i32 i32 i32 i32) (result i32)))
+                (import "kali:rt" "console_log" (func $console_log (param i64)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "./node-promises.txt")
+                (data (i32.const 64) "hello node fs")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 19
+                    i32.const 64
+                    i32.const 13
+                    call $write
+                    drop
+                    i32.const 0
+                    i32.const 19
+                    i32.const 128
+                    i32.const 64
+                    call $read
+                    i32.const 13
+                    i32.eq
+                    if
+                        i64.const 13
+                        call $console_log
+                    else
+                        unreachable
+                    end))
+            "#,
+        );
+
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+        let written =
+            fs::read_to_string(dir.path().join("node-promises.txt")).expect("written file");
+        assert_eq!(written, "hello node fs");
+    }
+
+    #[test]
+    fn runtime_executes_node_stream_host_imports() {
+        let runtime = RuntimeCtx::with_host_context_with_api_surface(
+            None,
+            Vec::new(),
+            capture_env(),
+            PathBuf::from("."),
+            "node",
+        );
+        let wasm = compile_wat(
+            r#"
+            (module
+                (import "kali:node" "stream_concat" (func $concat (param i32 i32 i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "hello ")
+                (data (i32.const 32) "node")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 6
+                    i32.const 32
+                    i32.const 4
+                    i32.const 64
+                    i32.const 32
+                    call $concat
+                    i32.const 10
+                    i32.eq
+                    if
+                    else
+                        unreachable
+                    end))
+            "#,
+        );
+
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
+    }
+
+    #[test]
+    fn runtime_executes_node_http_host_imports() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+        let addr = listener.local_addr().expect("local addr");
+        let body = "hello node http";
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept");
+            let mut buffer = [0u8; 1024];
+            let _ = stream.read(&mut buffer);
+            let _ = stream.write_all(response.as_bytes());
+        });
+
+        let runtime = RuntimeCtx::with_host_context_with_api_surface(
+            None,
+            Vec::new(),
+            capture_env(),
+            PathBuf::from("."),
+            "node",
+        );
+        let url = format!("http://127.0.0.1:{}/", addr.port());
+        let wat = format!(
+            r#"
+            (module
+                (import "kali:node" "http_get" (func $http_get (param i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "{}")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const {}
+                    i32.const 128
+                    i32.const 64
+                    call $http_get
+                    i32.const {}
+                    i32.eq
+                    if
+                    else
+                        unreachable
+                    end))
+            "#,
+            url,
+            url.len(),
+            body.len()
+        );
+
+        let wasm = compile_wat(&wat);
+        let outcome = runtime.execute(&wasm).expect("runtime outcome");
+        assert_eq!(outcome.exit_code, 0);
         server.join().expect("server thread");
     }
 
