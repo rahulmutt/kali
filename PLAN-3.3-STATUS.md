@@ -1,11 +1,11 @@
 # Stage 3.3 Status Update
 
 **Date:** 2026-04-17  
-**Status:** 🟡 Package-audit preview plumbing landed and the browser-bundle wrapper/source-map output is now fully wired for the Phase-3 registry-analysis / packaging breadth track
+**Status:** 🟡 Package-audit preview plumbing landed, and a curated Phase-3 package corpus now covers representative browser, utility, and Node-runner package classes alongside the browser-bundle wrapper/source-map output for the registry-analysis / packaging breadth track
 
 ## Summary
 
-Stage 3.3 now has a concrete `package-audit --preview` path instead of an unconditional gating stub, and browser bundle output now includes both a deterministic source-map companion and an explicit bundle-format selector. The command remains unavailable by default, but preview mode now parses registry-package targets, preserves the envelope-only JSON shape, and returns a deterministic summary string in both text and JSON output modes. The browser bundle path now supports the default ESM wrapper plus a CommonJS-flavored `--format cjs` variant, and the JSON output now records the selected wrapper format explicitly. The later public availability row remains unchanged.
+Stage 3.3 now has a concrete `package-audit --preview` path instead of an unconditional gating stub, browser bundle output includes both a deterministic source-map companion and an explicit bundle-format selector, and the curated package corpus now exercises representative browser, utility, and Node-runner package classes against the documented support ladder. The command remains unavailable by default, but preview mode now parses registry-package targets, preserves the envelope-only JSON shape, and returns a deterministic summary string in both text and JSON output modes. The browser bundle path now supports the default ESM wrapper plus a CommonJS-flavored `--format cjs` variant, and the JSON output now records the selected wrapper format explicitly. The later public availability row remains unchanged.
 
 ## Evidence
 
@@ -14,6 +14,7 @@ Stage 3.3 now has a concrete `package-audit --preview` path instead of an uncond
 - `kali package-audit --preview --output json lodash` emits a schema-v1 envelope with `payload: null` ✅
 - browser bundle builds now emit deterministic source-map companions and basic source-map JSON ✅
 - browser bundle builds now also support `--format cjs` with a `.cjs` wrapper and `.cjs.map` source map ✅
+- package corpus evidence now covers browser-safe packages (`react`, `preact`, `vue`), utility packages (`ramda`, `rxjs`, `immer`, `uuid`, `typescript`, `esbuild`), and Node-runner packages (`vitest`, `jest`) at their documented rungs ✅
 - `cargo test --workspace` passes ✅
 
 ## Notable Deliverables
@@ -23,8 +24,9 @@ Stage 3.3 now has a concrete `package-audit --preview` path instead of an uncond
 - The browser bundle JSON envelope records the selected wrapper format and includes the source-map artifact entry
 - The preview path reuses the registry-target validation rules and emits a stable envelope-only JSON response
 - Text-mode preview output is deterministic and matches the same preview scaffold summary used in JSON mode
+- The curated package corpus exercises the documented support ladder for browser-safe, utility, and Node-runner package classes without weakening the later availability row
 - Stage-3.3 progress is visible without changing the canonical later-compatibility maturity row
 
 ## Next Step
 
-Broaden the Phase-3 breadth work beyond the audit scaffold by tackling code-splitting/tree-shaking, the remaining package-corpus work, and the cross-module inference tasks.
+Broaden the Phase-3 breadth work beyond the audit scaffold by tackling code-splitting/tree-shaking and the cross-module inference tasks, then widen the package corpus further where additional real-world package shapes are still missing.
