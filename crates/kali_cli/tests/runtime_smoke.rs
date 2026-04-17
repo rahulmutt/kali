@@ -3,6 +3,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
+    time::Instant,
 };
 
 use serde_json::{json, Value};
@@ -72,6 +73,20 @@ fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
                     Operator::I64And | Operator::I64Eq | Operator::I64ShrS => count += 1,
                     _ => {}
                 }
+            }
+        }
+    }
+    count
+}
+
+fn count_wasm_instructions(bytes: &[u8]) -> usize {
+    let mut count = 0;
+    for payload in Parser::new(0).parse_all(bytes) {
+        if let Ok(Payload::CodeSectionEntry(body)) = payload {
+            let mut reader = body.get_operators_reader().expect("operators reader");
+            while !reader.eof() {
+                reader.read().expect("read operator");
+                count += 1;
             }
         }
     }
@@ -1390,6 +1405,137 @@ fn release_hot_paths_stay_unboxed_without_tag_checks() {
     assert_eq!(
         release_tag_ops, 0,
         "expected the specialized hot path to avoid tag-check / untag boxing ops"
+    );
+}
+
+#[test]
+fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.ts");
+    fs::write(
+        &source_path,
+        r#"
+function dead0(x) { return (x + 0) + (0 + x); }
+function dead1(x) { return (x + 0) + (0 + x); }
+function dead2(x) { return (x + 0) + (0 + x); }
+function dead3(x) { return (x + 0) + (0 + x); }
+function dead4(x) { return (x + 0) + (0 + x); }
+function dead5(x) { return (x + 0) + (0 + x); }
+
+function hot(x, y) {
+  const folded = (1 + 2) + (3 + 4) + (5 + 6);
+  return ((x + 0) + (y + 0)) + folded;
+}
+
+hot(1, 2);
+"#,
+    )
+    .expect("write source");
+
+    let benchmark = |mode_flag: &str, out_dir_name: &str| {
+        let out_dir = dir.path().join(out_dir_name);
+        let started = Instant::now();
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("build")
+            .arg(mode_flag)
+            .arg("--out-dir")
+            .arg(&out_dir)
+            .arg(&source_path)
+            .output()
+            .expect("run kali build");
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let wasm_path = out_dir.join("math.wasm");
+        let wasm_bytes = fs::read(&wasm_path).expect("read benchmark wasm");
+        let compile_ms = started.elapsed().as_millis();
+        let wasm_size = wasm_bytes.len();
+        let instruction_count = count_wasm_instructions(&wasm_bytes);
+        let add_count = count_i64_adds(&wasm_bytes);
+        let tag_count = count_tag_boxing_ops(&wasm_bytes);
+
+        eprintln!(
+            "{}: compile={}ms size={} instructions={} adds={} tag_ops={}",
+            mode_flag, compile_ms, wasm_size, instruction_count, add_count, tag_count
+        );
+
+        (
+            compile_ms,
+            wasm_size,
+            instruction_count,
+            add_count,
+            tag_count,
+        )
+    };
+
+    let (fast_compile_ms, fast_size, fast_instructions, fast_adds, fast_tag_ops) =
+        benchmark("--fast", "fast");
+    let (release_compile_ms, release_size, release_instructions, release_adds, release_tag_ops) =
+        benchmark("--release", "release");
+    let (
+        advanced_compile_ms,
+        advanced_size,
+        advanced_instructions,
+        advanced_adds,
+        advanced_tag_ops,
+    ) = benchmark("--release-advanced", "advanced");
+
+    assert!(
+        fast_compile_ms > 0,
+        "fast build should measure compile time"
+    );
+    assert!(
+        release_compile_ms > 0,
+        "release build should measure compile time"
+    );
+    assert!(
+        advanced_compile_ms > 0,
+        "release-advanced build should measure compile time"
+    );
+
+    assert!(
+        release_size < fast_size,
+        "expected release build to reduce wasm size (fast={fast_size}, release={release_size})"
+    );
+    assert!(
+        advanced_size < release_size,
+        "expected release-advanced build to reduce wasm size further (release={release_size}, advanced={advanced_size})"
+    );
+
+    assert!(
+        release_instructions < fast_instructions,
+        "expected release build to reduce total wasm instructions (fast={fast_instructions}, release={release_instructions})"
+    );
+    assert!(
+        advanced_instructions < release_instructions,
+        "expected release-advanced build to reduce total wasm instructions further (release={release_instructions}, advanced={advanced_instructions})"
+    );
+
+    assert!(
+        release_adds <= fast_adds,
+        "expected release build to avoid more add instructions than fast (fast={fast_adds}, release={release_adds})"
+    );
+    assert!(
+        advanced_adds <= release_adds,
+        "expected release-advanced build to avoid more add instructions than release (release={release_adds}, advanced={advanced_adds})"
+    );
+
+    assert_eq!(
+        fast_tag_ops, 0,
+        "benchmark fast path should not box numeric ops"
+    );
+    assert_eq!(
+        release_tag_ops, 0,
+        "benchmark release path should not box numeric ops"
+    );
+    assert_eq!(
+        advanced_tag_ops, 0,
+        "benchmark release-advanced path should not box numeric ops"
     );
 }
 
