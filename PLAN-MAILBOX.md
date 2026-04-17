@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 closed-fragment widening landed
+
+The Lean proof fragment in `proofs/KaliCore/Soundness.lean` now covers the widened closed core calculus: literals, variables, closed functions, application, sequencing, and conditionals. That keeps the proof honest while still leaving assignment/exceptions, memory safety, and lowering-correctness for later Stage 4.2 work.
+
+Suggested follow-up:
+- keep `proofs/BOUNDARY.md` and the Stage 4.2 status note aligned with the widened theorem inventory
+- continue pushing the boundary toward ownership/memory safety and lowering-correctness without reintroducing the proof-overclaim
+
 # PLAN Mailbox
 
 ## 2026-04-17 — Dynamic-import static-resolution follow-up

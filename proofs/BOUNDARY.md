@@ -7,7 +7,7 @@ This file is the canonical repository location for Kali's published **proof-boun
 Current repository-state note:
 - follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the Lean project tree now exists under `proofs/` and is built from `proofs/lakefile.lean`
 - the proof sources are organized around `proofs/KaliCore.lean` and `proofs/KaliIR.lean`, which import the provisional model files listed below
-- the current proof claims are still intentionally narrow and the proof file now compiles without `sorry` placeholders in the closed fragment
+- the current proof claims now cover the widened closed fragment (literals, variables, closed functions, application, sequencing, and conditionals) and the proof file compiles without `sorry` placeholders
 
 Canonical verification state (following the shared **proof-ready vs proof-backed split** from [SPEC.md](../SPEC.md)):
 
@@ -28,9 +28,9 @@ Release rule:
 ### Core type calculus (`proofs/KaliCore/Types.lean`, `proofs/KaliCore/Semantics.lean`, `proofs/KaliCore/Soundness.lean`)
 - Type syntax: `Ty`, `LitVal`, and the provisional function/object/union/intersection forms
 - Expression syntax: literals, variables, annotated functions, application, sequencing, conditionals, assignment, throw, and try/catch
-- Runtime model: value predicate and small-step reduction for the bounded typed fragment; the current proof boundary only models the closed literals / variables / closed-functions slice of that fragment
-- Claimed theorem inventory: progress and preservation for the closed typed core fragment
-- Current proof state: theorem statements are present and the core proof file now compiles, but the mechanised scope is intentionally narrowed to the closed fragment above rather than the full application/control-flow model
+- Runtime model: value predicate and small-step reduction for the bounded typed fragment; the current proof boundary models the closed literals / variables / closed-functions slice plus the application, sequencing, and conditional subfragment that is now mechanised in `KaliCore.Soundness`
+- Claimed theorem inventory: progress and preservation for the widened closed typed core fragment
+- Current proof state: theorem statements are present and the core proof file now compiles, but the mechanised scope still stops short of assignment, exceptions, and the full Stage 4.2 memory/lowering target
 
 ### Ownership model (`proofs/KaliCore/Safety.lean`)
 - Ownership classes: `stack`, `ownedHeap`, `sharedHeap`, `borrowed`
@@ -42,14 +42,15 @@ Release rule:
 - Current proof state: model stub only; no lowering-correctness claim is made here yet
 
 ## Claimed theorems/properties
-- `KaliCore.Soundness.progress` — progress for the closed typed core fragment
-- `KaliCore.Soundness.preservation` — preservation for the closed typed core fragment
+- `KaliCore.Soundness.progress` — progress for the widened closed typed core fragment
+- `KaliCore.Soundness.preservation` — preservation for the widened closed typed core fragment
 - `KaliCore.Safety.NoDanglingReference` — provisional no-dangling-reference statement
 - `KaliIR.HIRModel.lower_core` — sanity lemma for the provisional HIR lowering projection
 
 ## Trusted assumptions
 - The proof tree is a provisional modeling aid; the release/support boundary remains proof-ready only.
 - The current closed-fragment proof boundary is intentionally narrower than the eventual Stage 4.2 target and must be widened before any proof-backed marketing claim.
+- The currently mechanised fragment now includes application, sequencing, and conditionals in addition to the original closed-literal/variable/closed-function slice.
 - No mechanized proof coverage is claimed for Rust implementation code outside `proofs/`.
 
 ## Explicitly unmodeled features
