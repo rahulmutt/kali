@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 3.1 array-layout specialization follow-up
+
+I widened the Stage 3.1 optimizer's layout prepass so const-bound array element reads now fold when the index is statically known or bound to a constant numeric value, extending the existing object-layout fast path.
+
+Completed follow-up:
+- updated `PLAN-3.1-STATUS.md` and `TODO.md` so the stage tracker names the new array-layout specialization behavior explicitly
+- kept the long-term generic-instantiation and MIR-driven specialization work as the remaining Stage 3.1 follow-up; this is still a layout-folding pass, not the full planner
+
 ## 2026-04-17 — Stage 4.2 heap-positive summary sync
 
 I synced the Stage 4.2 status tracker so the published progress summary now names `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` explicitly alongside the other RC snapshot slice theorems.

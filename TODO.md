@@ -107,6 +107,7 @@
   - `kali_embed` now exposes `KaliCompiler`, `CompiledArtifact`, `LibArtifact`, and deterministic WIT sidecar generation for the statically known export surface.
 - [x] Stage 3.1 optimization scaffolding
   - `kali_optimize` now performs release constant folding, constant-branch elimination, and release-advanced algebraic identities, the CLI build path wires those passes into WASM generation, and `--max-specializations` now overrides the deterministic specialization budget used by the optimizer/cache path.
+  - Layout specialization now also folds const-bound array element reads when the index is statically known or bound to a constant numeric value, extending the object-layout fast path.
 - [x] Stage 3.2 Node API layer scaffold
   - Added `kali_api_node` helpers for process/path/crypto/events/buffer/util plus fs/url/os scaffolding and unit tests; the Node-targeted command path is now wired through check/build/run/test and node-only import resolution in the analysis context.
   - Expanded the helper layer with Node-style assertion helpers and a synchronous `util.promisify` bridge so the documented Node helper surface is closer to the planned phase-3 subset.

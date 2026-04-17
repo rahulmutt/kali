@@ -206,7 +206,7 @@ impl Optimizer {
             self.specialize_layout_bindings(program, child, tracker, owner, env);
         }
 
-        let _ = self.fold_object_member_access(program, id, tracker, owner);
+        let _ = self.fold_layout_member_access(program, id, tracker, owner, env);
     }
 
     fn extract_const_binding(
@@ -251,17 +251,20 @@ impl Optimizer {
                 .as_deref()
                 .and_then(|text| parse_literal_text(Some(text)))
                 .is_some(),
-            LirNodeKind::Value if node.text.is_none() => self.is_object_literal(program, id),
+            LirNodeKind::Value if node.text.is_none() => {
+                self.is_object_literal(program, id) || self.is_array_literal(program, id)
+            }
             _ => false,
         }
     }
 
-    fn fold_object_member_access(
+    fn fold_layout_member_access(
         &self,
         program: &mut LirProgram,
         id: LirNodeId,
         tracker: &mut SpecializationTracker,
         owner: &str,
+        env: &BindingEnv,
     ) -> bool {
         let snapshot = program.nodes[id.0 as usize].clone();
         let Some(property) = snapshot.text.as_deref() else {
@@ -274,12 +277,31 @@ impl Optimizer {
         let Some(object_id) = snapshot.children.first().copied() else {
             return false;
         };
-        let Some(field_value) = self.object_literal_field(program, object_id, property) else {
+
+        if let Some(field_value) = self.object_literal_field(program, object_id, property) {
+            let key = format!(
+                "layout-member:{}:{}",
+                property,
+                node_signature(program, object_id)
+            );
+            if !tracker.allow(owner, key) {
+                return false;
+            }
+
+            program.nodes[id.0 as usize] = program.nodes[field_value.0 as usize].clone();
+            return true;
+        }
+
+        let Some(index) = self.constant_array_index(program, env, property) else {
+            return false;
+        };
+        let Some(element_value) = self.array_literal_element(program, object_id, index) else {
             return false;
         };
 
         let key = format!(
-            "layout-member:{}:{}",
+            "layout-array:{}:{}:{}",
+            index,
             property,
             node_signature(program, object_id)
         );
@@ -287,7 +309,7 @@ impl Optimizer {
             return false;
         }
 
-        program.nodes[id.0 as usize] = program.nodes[field_value.0 as usize].clone();
+        program.nodes[id.0 as usize] = program.nodes[element_value.0 as usize].clone();
         true
     }
 
@@ -317,6 +339,40 @@ impl Optimizer {
         None
     }
 
+    fn array_literal_element(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+        index: usize,
+    ) -> Option<LirNodeId> {
+        if !self.is_array_literal(program, id) {
+            return None;
+        }
+
+        let node = program.nodes.get(id.0 as usize)?;
+        node.children.get(index).copied()
+    }
+
+    fn constant_array_index(
+        &self,
+        program: &LirProgram,
+        env: &BindingEnv,
+        property: &str,
+    ) -> Option<usize> {
+        property
+            .parse::<usize>()
+            .ok()
+            .or_else(|| {
+                env.bindings
+                    .get(property)
+                    .and_then(|bound| literal_value(program, *bound))
+                    .and_then(|value| match value {
+                        ConstantValue::Number(value) if value >= 0 => Some(value as usize),
+                        _ => None,
+                    })
+            })
+    }
+
     fn is_object_literal(&self, program: &LirProgram, id: LirNodeId) -> bool {
         let Some(node) = program.nodes.get(id.0 as usize) else {
             return false;
@@ -342,6 +398,17 @@ impl Optimizer {
                             .is_some_and(|key| key.kind == LirNodeKind::Literal)
                 })
         })
+    }
+
+    fn is_array_literal(&self, program: &LirProgram, id: LirNodeId) -> bool {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.is_empty() {
+            return false;
+        }
+
+        !self.is_object_literal(program, id)
     }
 
     fn optimize_constant_expression(
@@ -1355,5 +1422,45 @@ mod tests {
         let node = &program.nodes[access.0 as usize];
         assert_eq!(node.kind, LirNodeKind::Literal);
         assert_eq!(node.text.as_deref(), Some("2"));
+    }
+
+    #[test]
+    fn release_specializes_const_array_element_access() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let index_decl = builder.alloc_text(LirNodeKind::Instruction, "const");
+        let index_binding = builder.alloc_text(LirNodeKind::Instruction, "index");
+        let index_name = builder.alloc_text(LirNodeKind::Value, "index");
+        let index_value = literal(&mut builder, "1");
+        builder.node_mut(index_binding).unwrap().children = vec![index_name, index_value];
+        builder.node_mut(index_decl).unwrap().children = vec![index_binding];
+
+        let bag_decl = builder.alloc_text(LirNodeKind::Instruction, "const");
+        let bag_binding = builder.alloc_text(LirNodeKind::Instruction, "bag");
+        let bag_name = builder.alloc_text(LirNodeKind::Value, "bag");
+        let array = builder.alloc(LirNodeKind::Value);
+        let first = literal(&mut builder, "10");
+        let second = literal(&mut builder, "20");
+        builder.node_mut(array).unwrap().children = vec![first, second];
+        builder.node_mut(bag_binding).unwrap().children = vec![bag_name, array];
+        builder.node_mut(bag_decl).unwrap().children = vec![bag_binding];
+
+        let access = builder.alloc_text(LirNodeKind::Value, "index");
+        let bag_ref = builder.alloc_text(LirNodeKind::Value, "bag");
+        builder.node_mut(access).unwrap().children = vec![bag_ref];
+
+        builder.node_mut(root).unwrap().children = vec![index_decl, bag_decl, access];
+
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+        let node = &program.nodes[access.0 as usize];
+        assert_eq!(node.kind, LirNodeKind::Literal);
+        assert_eq!(node.text.as_deref(), Some("20"));
     }
 }
