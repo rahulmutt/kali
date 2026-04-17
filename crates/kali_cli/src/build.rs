@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use kali_ast::{ExportDefaultDeclaration, Statement};
+use kali_ast::{ExportDefaultDeclaration, Expression, Statement};
 use kali_codegen::{lower_lir_to_wasm, CodegenCtx, TargetConfig};
 use kali_common::FileId;
 use kali_error::{_error_codes::e5, _error_codes::e8, Diagnostic};
@@ -1108,6 +1108,42 @@ pub fn collect_library_exports(
     source_path: impl AsRef<Path>,
 ) -> Result<Vec<LibraryExport>, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
+    let parsed = parse_source_file(source_path)?;
+    collect_library_exports_from_statements(&parsed, source_path)
+}
+
+pub fn collect_browser_bundle_exports(
+    source_path: impl AsRef<Path>,
+    tree_shake: bool,
+) -> Result<Vec<LibraryExport>, Vec<Diagnostic>> {
+    let source_path = source_path.as_ref();
+    let statements = parse_source_file(source_path)?;
+    let exports = collect_library_exports_from_statements(&statements, source_path)?;
+
+    if !tree_shake {
+        return Ok(exports);
+    }
+
+    let candidate_names = exports
+        .iter()
+        .map(|export| export.name.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    let comment_roots = collect_tree_shake_roots(source_path)?;
+    let reachable = collect_reachable_bundle_exports(&statements, &candidate_names, &comment_roots);
+
+    if reachable.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let filtered = exports
+        .into_iter()
+        .filter(|export| reachable.contains(&export.name))
+        .collect::<Vec<_>>();
+
+    Ok(filtered)
+}
+
+fn parse_source_file(source_path: &Path) -> Result<Vec<Statement>, Vec<Diagnostic>> {
     let source = fs::read_to_string(source_path).map_err(|error| {
         vec![Diagnostic::error(
             e8::INTERNAL_ERROR as u32,
@@ -1123,14 +1159,22 @@ pub fn collect_library_exports(
     let tokens = lexer.lex_all().tokens;
     let mut parser = Parser::new(FileId::new(0), tokens);
     let parsed = parser.parse(Some(source_path.to_string_lossy().to_string()));
-    let mut diagnostics = parsed.diagnostics;
+    let diagnostics = parsed.diagnostics;
 
     if has_errors(&diagnostics) {
         return Err(diagnostics);
     }
 
+    Ok(parsed.statements)
+}
+
+fn collect_library_exports_from_statements(
+    statements: &[Statement],
+    source_path: &Path,
+) -> Result<Vec<LibraryExport>, Vec<Diagnostic>> {
+    let mut diagnostics = Vec::new();
     let mut exports = BTreeMap::<String, String>::new();
-    for statement in parsed.statements {
+    for statement in statements {
         match statement {
             Statement::FunctionDeclaration(func) => {
                 exports
@@ -1146,7 +1190,7 @@ pub fn collect_library_exports(
                     continue;
                 }
 
-                for specifier in declaration.specifiers {
+                for specifier in &declaration.specifiers {
                     exports
                         .entry(specifier.exported.clone())
                         .or_insert_with(|| signature_from_export_specifier(&specifier.local));
@@ -1213,6 +1257,387 @@ pub fn collect_library_exports(
     }
 
     Ok(exports)
+}
+
+fn collect_tree_shake_roots(
+    source_path: &Path,
+) -> Result<std::collections::BTreeSet<String>, Vec<Diagnostic>> {
+    let source = fs::read_to_string(source_path).map_err(|error| {
+        vec![Diagnostic::error(
+            e8::INTERNAL_ERROR as u32,
+            format!(
+                "failed to read source file '{}': {}",
+                source_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    let mut roots = std::collections::BTreeSet::new();
+    for line in source.lines() {
+        let trimmed = line.trim_start();
+        if let Some(rest) = trimmed.strip_prefix("// kali-tree-shake:") {
+            for name in rest.split(|ch: char| ch == ',' || ch.is_whitespace()) {
+                let name = name.trim();
+                if !name.is_empty() {
+                    roots.insert(name.to_string());
+                }
+            }
+        }
+    }
+
+    Ok(roots)
+}
+
+fn collect_reachable_bundle_exports(
+    statements: &[Statement],
+    candidate_names: &std::collections::BTreeSet<String>,
+    initial_roots: &std::collections::BTreeSet<String>,
+) -> std::collections::BTreeSet<String> {
+    let function_map = statements
+        .iter()
+        .filter_map(|statement| match statement {
+            Statement::FunctionDeclaration(function)
+                if candidate_names.contains(&function.name) =>
+            {
+                Some((function.name.clone(), function))
+            }
+            _ => None,
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    let mut reachable = std::collections::BTreeSet::new();
+    let mut worklist = collect_direct_bundle_calls_from_statements(statements, candidate_names);
+    worklist.extend(initial_roots.iter().cloned());
+    if candidate_names.contains("main") {
+        worklist.insert("main".to_string());
+    }
+    while let Some(name) = worklist.pop_first() {
+        if !reachable.insert(name.clone()) {
+            continue;
+        }
+
+        if let Some(function) = function_map.get(&name) {
+            collect_direct_bundle_calls_from_statements(&function.body.body, candidate_names)
+                .into_iter()
+                .filter(|dep| !reachable.contains(dep))
+                .for_each(|dep| {
+                    worklist.insert(dep);
+                });
+        }
+    }
+
+    reachable
+}
+
+fn collect_direct_bundle_calls_from_statements(
+    statements: &[Statement],
+    candidate_names: &std::collections::BTreeSet<String>,
+) -> std::collections::BTreeSet<String> {
+    let mut calls = std::collections::BTreeSet::new();
+    for statement in statements {
+        collect_direct_bundle_calls_from_statement(statement, candidate_names, &mut calls);
+    }
+    calls
+}
+
+fn collect_direct_bundle_calls_from_statement(
+    statement: &Statement,
+    candidate_names: &std::collections::BTreeSet<String>,
+    calls: &mut std::collections::BTreeSet<String>,
+) {
+    match statement {
+        Statement::ExpressionStatement(expr) => collect_direct_bundle_calls_from_expression(
+            expr.expression.as_ref(),
+            candidate_names,
+            calls,
+        ),
+        Statement::ReturnStatement(statement) => {
+            if let Some(argument) = &statement.argument {
+                collect_direct_bundle_calls_from_expression(argument, candidate_names, calls);
+            }
+        }
+        Statement::ThrowStatement(statement) => {
+            collect_direct_bundle_calls_from_expression(
+                &statement.argument,
+                candidate_names,
+                calls,
+            );
+        }
+        Statement::WithStatement(statement) => {
+            collect_direct_bundle_calls_from_expression(&statement.object, candidate_names, calls);
+            collect_direct_bundle_calls_from_statement(
+                statement.body.as_ref(),
+                candidate_names,
+                calls,
+            );
+        }
+        Statement::LabeledStatement(statement) => {
+            collect_direct_bundle_calls_from_statement(
+                statement.body.as_ref(),
+                candidate_names,
+                calls,
+            );
+        }
+        Statement::IfStatement(statement) => {
+            collect_direct_bundle_calls_from_expression(&statement.test, candidate_names, calls);
+            collect_direct_bundle_calls_from_block(
+                statement.consequent.as_ref(),
+                candidate_names,
+                calls,
+            );
+            if let Some(alternate) = &statement.alternate {
+                collect_direct_bundle_calls_from_block(alternate.as_ref(), candidate_names, calls);
+            }
+        }
+        Statement::SwitchStatement(statement) => {
+            collect_direct_bundle_calls_from_expression(
+                &statement.discriminant,
+                candidate_names,
+                calls,
+            );
+            for case in &statement.cases {
+                if let Some(test) = &case.test {
+                    collect_direct_bundle_calls_from_expression(test, candidate_names, calls);
+                }
+                for inner in &case.consequent {
+                    collect_direct_bundle_calls_from_statement(inner, candidate_names, calls);
+                }
+            }
+        }
+        Statement::TryStatement(statement) => {
+            collect_direct_bundle_calls_from_block(
+                statement.block.as_ref(),
+                candidate_names,
+                calls,
+            );
+            if let Some(handler) = &statement.handler {
+                collect_direct_bundle_calls_from_block(
+                    handler.body.as_ref(),
+                    candidate_names,
+                    calls,
+                );
+            }
+            if let Some(finalizer) = &statement.finalizer {
+                collect_direct_bundle_calls_from_block(finalizer, candidate_names, calls);
+            }
+        }
+        Statement::BlockStatement(block) => {
+            collect_direct_bundle_calls_from_block(block, candidate_names, calls)
+        }
+        Statement::ForStatement(statement) => {
+            if let Some(init) = &statement.init {
+                match init {
+                    kali_ast::ForInit::Expression(expression) => {
+                        collect_direct_bundle_calls_from_expression(
+                            expression,
+                            candidate_names,
+                            calls,
+                        )
+                    }
+                    kali_ast::ForInit::VariableDeclaration(declaration) => {
+                        collect_direct_bundle_calls_from_variable_declaration(
+                            declaration,
+                            candidate_names,
+                            calls,
+                        )
+                    }
+                }
+            }
+            if let Some(test) = &statement.test {
+                collect_direct_bundle_calls_from_expression(test, candidate_names, calls);
+            }
+            if let Some(update) = &statement.update {
+                collect_direct_bundle_calls_from_expression(update, candidate_names, calls);
+            }
+            collect_direct_bundle_calls_from_block(statement.body.as_ref(), candidate_names, calls);
+        }
+        Statement::ForInStatement(statement) => {
+            match &statement.left {
+                kali_ast::ForInLefthand::Expression(expression) => {
+                    collect_direct_bundle_calls_from_expression(expression, candidate_names, calls)
+                }
+                kali_ast::ForInLefthand::VariableDeclaration(declaration) => {
+                    collect_direct_bundle_calls_from_variable_declaration(
+                        declaration,
+                        candidate_names,
+                        calls,
+                    )
+                }
+            }
+            collect_direct_bundle_calls_from_expression(&statement.right, candidate_names, calls);
+            collect_direct_bundle_calls_from_statement(
+                statement.body.as_ref(),
+                candidate_names,
+                calls,
+            );
+        }
+        Statement::ForOfStatement(statement) => {
+            match &statement.left {
+                kali_ast::ForOfLefthand::Expression(expression) => {
+                    collect_direct_bundle_calls_from_expression(expression, candidate_names, calls)
+                }
+                kali_ast::ForOfLefthand::VariableDeclaration(declaration) => {
+                    collect_direct_bundle_calls_from_variable_declaration(
+                        declaration,
+                        candidate_names,
+                        calls,
+                    )
+                }
+            }
+            collect_direct_bundle_calls_from_expression(&statement.right, candidate_names, calls);
+            collect_direct_bundle_calls_from_statement(
+                statement.body.as_ref(),
+                candidate_names,
+                calls,
+            );
+        }
+        Statement::WhileStatement(statement) => {
+            collect_direct_bundle_calls_from_expression(&statement.test, candidate_names, calls);
+            collect_direct_bundle_calls_from_block(statement.body.as_ref(), candidate_names, calls);
+        }
+        Statement::DoWhileStatement(statement) => {
+            collect_direct_bundle_calls_from_block(statement.body.as_ref(), candidate_names, calls);
+            collect_direct_bundle_calls_from_expression(&statement.test, candidate_names, calls);
+        }
+        Statement::VariableDeclaration(statement) => {
+            collect_direct_bundle_calls_from_variable_declaration(statement, candidate_names, calls)
+        }
+        Statement::EnumDeclaration(statement) => {
+            for member in &statement.members {
+                if let Some(value) = &member.value {
+                    collect_direct_bundle_calls_from_expression(value, candidate_names, calls);
+                }
+            }
+        }
+        Statement::FunctionDeclaration(_)
+        | Statement::ClassDeclaration(_)
+        | Statement::ImportDeclaration(_)
+        | Statement::BreakStatement(_)
+        | Statement::ContinueStatement(_)
+        | Statement::DebuggerStatement(_)
+        | Statement::TypeAliasDeclaration(_)
+        | Statement::InterfaceDeclaration(_)
+        | Statement::ExportNamed(_)
+        | Statement::ExportDefault(_) => {}
+    }
+}
+
+fn collect_direct_bundle_calls_from_block(
+    block: &kali_ast::BlockStatement,
+    candidate_names: &std::collections::BTreeSet<String>,
+    calls: &mut std::collections::BTreeSet<String>,
+) {
+    for statement in &block.body {
+        collect_direct_bundle_calls_from_statement(statement, candidate_names, calls);
+    }
+}
+
+fn collect_direct_bundle_calls_from_variable_declaration(
+    declaration: &kali_ast::VariableDeclaration,
+    candidate_names: &std::collections::BTreeSet<String>,
+    calls: &mut std::collections::BTreeSet<String>,
+) {
+    for declarator in &declaration.declarations {
+        if let Some(init) = &declarator.init {
+            collect_direct_bundle_calls_from_expression(init, candidate_names, calls);
+        }
+    }
+}
+
+fn collect_direct_bundle_calls_from_expression(
+    expression: &Expression,
+    candidate_names: &std::collections::BTreeSet<String>,
+    calls: &mut std::collections::BTreeSet<String>,
+) {
+    match expression {
+        Expression::Identifier(name) if candidate_names.contains(name) => {
+            calls.insert(name.clone());
+        }
+        Expression::Identifier(_) => {}
+        Expression::Literal(_)
+        | Expression::ThisExpression
+        | Expression::SuperExpression
+        | Expression::PrivateIdentifier(_)
+        | Expression::BigIntLiteral(_)
+        | Expression::JsxEmptyExpression => {}
+        Expression::BinaryExpression(expr) => {
+            collect_direct_bundle_calls_from_expression(&expr.left, candidate_names, calls);
+            collect_direct_bundle_calls_from_expression(&expr.right, candidate_names, calls);
+        }
+        Expression::UnaryExpression(expr) => {
+            collect_direct_bundle_calls_from_expression(&expr.argument, candidate_names, calls);
+        }
+        Expression::CallExpression(expr) => {
+            if let Expression::Identifier(name) = expr.callee.as_ref() {
+                if candidate_names.contains(name) {
+                    calls.insert(name.clone());
+                }
+            }
+            collect_direct_bundle_calls_from_expression(
+                expr.callee.as_ref(),
+                candidate_names,
+                calls,
+            );
+            for arg in &expr.args {
+                collect_direct_bundle_calls_from_expression(arg, candidate_names, calls);
+            }
+        }
+        Expression::MemberExpression(expr) => {
+            collect_direct_bundle_calls_from_expression(&expr.object, candidate_names, calls);
+        }
+        Expression::ArrayExpression(expr) => {
+            for element in &expr.elements {
+                match element {
+                    Some(kali_ast::ExpressionOrSpread::Expression(value)) => {
+                        collect_direct_bundle_calls_from_expression(value, candidate_names, calls)
+                    }
+                    Some(kali_ast::ExpressionOrSpread::Spread(spread)) => {
+                        collect_direct_bundle_calls_from_expression(
+                            &spread.argument,
+                            candidate_names,
+                            calls,
+                        )
+                    }
+                    Some(kali_ast::ExpressionOrSpread::Empty) | None => {}
+                }
+            }
+        }
+        Expression::ObjectExpression(expr) => {
+            for property in &expr.properties {
+                collect_direct_bundle_calls_from_expression(
+                    &property.value,
+                    candidate_names,
+                    calls,
+                );
+            }
+        }
+        Expression::FunctionExpression(_)
+        | Expression::ArrowFunctionExpression(_)
+        | Expression::ClassExpression(_)
+        | Expression::NewExpression(_)
+        | Expression::MetaProperty(_)
+        | Expression::TemplateLiteral(_)
+        | Expression::TaggedTemplateExpression(_)
+        | Expression::UpdateExpression(_)
+        | Expression::AssignmentExpression(_)
+        | Expression::LogicalExpression(_)
+        | Expression::ConditionalExpression(_)
+        | Expression::SequenceExpression(_)
+        | Expression::ParenthesizedExpression(_)
+        | Expression::YieldExpression(_)
+        | Expression::AwaitExpression(_)
+        | Expression::OptionalChainExpression(_)
+        | Expression::ChainExpression(_)
+        | Expression::SpreadElement(_)
+        | Expression::RestElement(_)
+        | Expression::ImportExpression(_)
+        | Expression::DecoratedExpression(_)
+        | Expression::JsxElement(_)
+        | Expression::JsxFragment(_)
+        | Expression::TypeAssertion(_)
+        | Expression::SatisfiesExpression(_) => {}
+    }
 }
 
 fn function_signature(params: &[String]) -> String {

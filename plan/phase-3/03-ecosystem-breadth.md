@@ -89,10 +89,10 @@ While `kali package-audit` remains **Later compatibility**, use this stage to:
 
 ## Definition of Done
 
-- [ ] Package corpus expanded; all newly added packages pass at their documented support rung.
-- [ ] Code-splitting tests produce multiple bundle chunks from dynamic `import()` boundaries.
-- [ ] Tree-shaking tests confirm unused exports are absent from emitted bundles.
+- [x] Package corpus expanded; all newly added packages pass at their documented support rung.
+- [x] Code-splitting tests produce multiple bundle chunks from dynamic `import()` boundaries.
+- [x] Tree-shaking tests confirm unused exports are absent from emitted bundles.
 - [x] Cross-module inference tests pass within the Phase-3 solver budget.
 - [x] `kali package-audit` available as a `--preview` opt-in; final public availability deferred
   to Phase 4.
-- [ ] All Phase-1 and Phase-2 tests continue to pass without regression.
+- [x] All Phase-1 and Phase-2 tests continue to pass without regression.

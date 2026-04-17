@@ -1299,6 +1299,7 @@ fn build_browser_bundle_artifact(
         api_surface,
         compat_eval,
         format,
+        true,
     )?;
     let extra_artifacts = collect_browser_bundle_chunk_artifacts(
         &source,
@@ -1309,6 +1310,7 @@ fn build_browser_bundle_artifact(
         api_surface,
         compat_eval,
         format,
+        true,
         &mut visited,
     )?;
 
@@ -1334,6 +1336,7 @@ fn write_browser_bundle_files(
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
     format: BundleFormat,
+    tree_shake_exports: bool,
 ) -> Result<BrowserBundleBuild, Vec<Diagnostic>> {
     let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
         source,
@@ -1342,7 +1345,8 @@ fn write_browser_bundle_files(
         api_surface,
         compat_eval,
     )?;
-    let exports = build::collect_library_exports(source).unwrap_or_default();
+    let exports =
+        build::collect_browser_bundle_exports(source, tree_shake_exports).unwrap_or_default();
     let metadata = build::build_artifact_metadata(
         source,
         "bundle",
@@ -1478,6 +1482,7 @@ fn collect_browser_bundle_chunk_artifacts(
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
     format: BundleFormat,
+    _tree_shake_exports: bool,
     visited: &mut std::collections::BTreeSet<PathBuf>,
 ) -> Result<Vec<BundleArtifact>, Vec<Diagnostic>> {
     let source_contents = fs::read_to_string(source).map_err(|error| {
@@ -1505,6 +1510,7 @@ fn collect_browser_bundle_chunk_artifacts(
             api_surface,
             compat_eval,
             format,
+            false,
         )?;
         artifacts.push(BundleArtifact {
             kind: "chunk-wasm".to_string(),
@@ -1532,6 +1538,7 @@ fn collect_browser_bundle_chunk_artifacts(
             api_surface,
             compat_eval,
             format,
+            false,
             visited,
         )?;
         artifacts.extend(nested);

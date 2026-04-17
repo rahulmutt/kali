@@ -892,7 +892,11 @@ fn build_rejects_library_sources_without_static_exports() {
 fn build_emits_browser_bundle_artifacts() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
-    fs::write(&source_path, "function greet(name) { return name; }").expect("write source");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: greet\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -947,6 +951,57 @@ fn build_emits_browser_bundle_artifacts() {
         .expect("parse metadata json");
     assert_eq!(metadata["artifactKind"], "bundle");
     assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "greet");
+}
+
+#[test]
+fn build_trees_shakes_unused_browser_bundle_exports() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: greet\nfunction greet(name) { return name; } function unused() { return 1; }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let js = fs::read_to_string(bundle_dir.join("app.js")).expect("read bundle js");
+    assert!(
+        js.contains("export async function greet"),
+        "bundle js: {js}"
+    );
+    assert!(
+        !js.contains("export async function unused"),
+        "bundle js: {js}"
+    );
+
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    let exports = metadata["exports"].as_array().expect("exports array");
+    assert_eq!(exports.len(), 1);
+    assert_eq!(exports[0]["name"], "greet");
 
     assert_browser_bundle_executes(&bundle_dir, "greet");
 }
@@ -1238,7 +1293,11 @@ fn browser_bundle_js_normalizes_runtime_dynamic_import_specifiers() {
 fn build_emits_browser_bundle_cjs_artifacts() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
-    fs::write(&source_path, "function greet(name) { return name; }").expect("write source");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: greet\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -1730,7 +1789,11 @@ fn build_artifacts_are_deterministic_across_repeated_invocations() {
 fn build_uses_inherited_browser_api_surface_for_bundle() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
-    fs::write(&source_path, "function greet(name) { return name; }").expect("write source");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: greet\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
     fs::write(
         dir.path().join("kali.json"),
         r#"{
