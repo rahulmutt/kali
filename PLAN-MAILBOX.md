@@ -25,6 +25,14 @@ Suggested follow-up:
 - if the proof boundary widens again, update the status note and any release-facing summaries together so the canonical summary stays in lockstep
 
 
+## 2026-04-17 — Stage 4.2 RC snapshot safety follow-up
+
+The proof tree now models ownership / RC state with `RcSnapshot`, live-reference tracking, and released-reference liveness checks instead of the earlier reference-free placeholder story. `noDanglingReference` and `releasedNotLive` are both mechanized, and the boundary/status docs now describe the smaller RC snapshot slice explicitly.
+
+Suggested follow-up:
+- keep widening the memory model toward the full ownership / reference-counting target when the next proof step is ready
+- if the boundary widens again, sync `proofs/BOUNDARY.md`, the Stage 4.2 status note, and any release-facing summaries together
+
 ## 2026-04-17 — Dynamic-import static-resolution follow-up
 
 I’m planning to implement the remaining Phase 4.1 dynamic-import slice by statically evaluating simple `import(...)` target expressions during name resolution. That should let linked targets resolve normally while unknown expressions fail with the canonical `E4008` path instead of silently passing through the resolver.

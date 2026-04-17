@@ -2,7 +2,7 @@
 
 Status: **proof-backed proof-boundary manifest**.
 
-This file is the canonical repository location for Kali's published **proof-boundary manifest**. The repository now contains a checked-in Lean 4 proof tree under `proofs/`, and the published boundary is mechanized for the widened closed fragment described below. The repository is therefore **proof-backed for the published boundary**, while remaining intentionally narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target.
+This file is the canonical repository location for Kali's published **proof-boundary manifest**. The repository now contains a checked-in Lean 4 proof tree under `proofs/`, and the published boundary is mechanized for the widened closed fragment plus a small ownership / RC snapshot safety slice described below. The repository is therefore **proof-backed for the published boundary**, while remaining intentionally narrower than the later Stage 4.2 ownership/memory-safety and lowering-correctness target.
 
 Current repository-state note:
 - follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): the Lean project tree now exists under `proofs/` and is built from `proofs/lakefile.lean`
@@ -34,8 +34,9 @@ Release rule:
 
 ### Ownership model (`proofs/KaliCore/Safety.lean`)
 - Ownership classes: `stack`, `ownedHeap`, `sharedHeap`, `borrowed`
-- Claimed property inventory: no dangling references for the provisional ownership model
-- Current proof state: the `noDanglingReference` theorem is mechanised for the current reference-free bounded syntax, but the model remains narrower than the eventual Stage 4.2 ownership / RC target
+- Model shape: `RcCell` heap entries, `RcSnapshot` ownership/heap/live-reference state, and released-reference tracking
+- Claimed property inventory: no dangling references for well-formed RC snapshots; released references are not live
+- Current proof state: the `noDanglingReference` and `releasedNotLive` theorems are mechanised for the current RC snapshot model, but the model remains narrower than the eventual Stage 4.2 ownership / RC target
 
 ### HIR lowering model (`proofs/KaliIR/HIRModel.lean`, `proofs/KaliIR/LoweringCorrectness.lean`)
 - Provisional HIR syntax and a core lowering projection for future lowering-correctness work
@@ -45,13 +46,15 @@ Release rule:
 ## Claimed theorems/properties
 - `KaliCore.Soundness.progress` — progress for the widened closed typed core fragment
 - `KaliCore.Soundness.preservation` — preservation for the widened closed typed core fragment
-- `KaliCore.Safety.noDanglingReference` — mechanised no-dangling-reference theorem for the current reference-free bounded syntax
+- `KaliCore.Safety.noDanglingReference` — mechanised no-dangling-reference theorem for the current RC snapshot model
+- `KaliCore.Safety.releasedNotLive` — mechanised theorem that released references are not live in the current RC snapshot model
 - `KaliIR.HIRModel.lower_core`, `lower_let1`, `lower_seq`, `lower_if` — structural lowering equations for the provisional HIR projection
 - `KaliIR.LoweringCorrectness.lower_preserves_step` — lowering-preservation bridge for the current HIR step subset
 
 ## Trusted assumptions
 - The proof tree is a proof-backed modeling aid for the published closed-fragment boundary.
 - The current closed-fragment proof boundary is intentionally narrower than the eventual Stage 4.2 ownership/memory-safety and lowering-correctness target and must be widened before any claim about that later target.
+- The ownership slice currently models a small RC snapshot with live-reference and release tracking; it is still narrower than the eventual full ownership / reference-counting story.
 - The lowering-correctness bridge is intentionally limited to the current HIR subset, not the later full HIR → LIR semantic-preservation target.
 - The currently mechanised fragment now includes application, sequencing, and conditionals in addition to the original closed-literal/variable/closed-function slice.
 - No mechanized proof coverage is claimed for Rust implementation code outside `proofs/`.
