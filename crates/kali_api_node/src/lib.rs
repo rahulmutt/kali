@@ -606,8 +606,45 @@ impl NodeBuffer {
         STANDARD.decode(text.as_ref()).map(Self)
     }
 
+    pub fn to_hex(&self) -> String {
+        use std::fmt::Write as _;
+
+        let mut output = String::with_capacity(self.0.len() * 2);
+        for byte in &self.0 {
+            write!(&mut output, "{:02x}", byte).expect("hex formatting should be infallible");
+        }
+        output
+    }
+
+    pub fn from_hex(text: impl AsRef<str>) -> Result<Self, String> {
+        let text = text.as_ref();
+        if text.len() % 2 != 0 {
+            return Err("hex input must contain an even number of digits".to_string());
+        }
+
+        let mut bytes = Vec::with_capacity(text.len() / 2);
+        for chunk in text.as_bytes().chunks_exact(2) {
+            let hi = hex_digit(chunk[0])
+                .ok_or_else(|| format!("invalid hex digit '{}'", chunk[0] as char))?;
+            let lo = hex_digit(chunk[1])
+                .ok_or_else(|| format!("invalid hex digit '{}'", chunk[1] as char))?;
+            bytes.push((hi << 4) | lo);
+        }
+
+        Ok(Self(bytes))
+    }
+
     pub fn to_utf8(&self) -> Result<String, std::string::FromUtf8Error> {
         String::from_utf8(self.0.clone())
+    }
+}
+
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
     }
 }
 
@@ -1314,6 +1351,9 @@ mod tests {
         assert_eq!(buffer.to_utf8().expect("utf8"), "hello");
         assert_eq!(buffer.to_base64(), "aGVsbG8=");
         assert_eq!(NodeBuffer::from_base64("aGVsbG8=").expect("base64").as_slice(), b"hello");
+        assert_eq!(buffer.to_hex(), "68656c6c6f");
+        assert_eq!(NodeBuffer::from_hex("68656c6c6f").expect("hex").as_slice(), b"hello");
+        assert!(NodeBuffer::from_hex("abc").is_err());
 
         let bytes = NodeBuffer::from_bytes(vec![1, 2, 3]).into_bytes();
         assert_eq!(bytes, vec![1, 2, 3]);

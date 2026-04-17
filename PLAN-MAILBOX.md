@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 3.2 NodeBuffer round-tripping follow-up
+
+Extended `kali_api_node::NodeBuffer` with deterministic hex encode/decode alongside the existing base64 helpers, then updated the Stage 3.2 status note and plan progress text to reflect the broader binary-data workflow slice.
+
+Suggested follow-up:
+- keep broadening the Node helper surface one concrete workflow at a time so the runtime linker and pure-Rust helper layer stay aligned
+- if the buffer surface widens again, update the Stage 3.2 progress note and any release-facing summaries together so the status text keeps matching the actual helper slice
+
 ## 2026-04-17 — Stage 4.2 lowering-correctness bridge added
 
 Added `proofs/KaliIR/LoweringCorrectness.lean` as a small-step preservation bridge for the current HIR subset. The proof boundary now names the extra Lean file and theorem inventory explicitly, but it still stops short of the later full HIR → LIR semantic-preservation target.

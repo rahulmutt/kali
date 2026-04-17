@@ -46,7 +46,7 @@ following the same pattern as `kali_api_deno`.
 Progress note: the repository now has an expanded pure-Rust Node helper layer in
 `kali_api_node` covering process/path/crypto/events/buffer/util primitives plus fs/url/os
 scaffolding and unit tests. The helper layer now also includes Node-style assertion helpers and a
-synchronous `util.promisify` bridge, and `NodeBuffer` now round-trips base64 so the binary-data
+synchronous `util.promisify` bridge, and `NodeBuffer` now round-trips base64/hex so the binary-data
 slice looks more like a real Node Buffer workflow. A `NodeRuntimeProjection` facade now bundles
 the common path/crypto/process surfaces so future host-import registration has one projection
 point. Install-time package host-fit validation now respects `compilerOptions.apiSurface = "node"`,
