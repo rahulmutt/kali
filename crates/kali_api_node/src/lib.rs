@@ -121,6 +121,12 @@ impl NodeProcess {
         self.exit_code = Some(exit_code);
     }
 
+    /// Mirror Node's `process.exit(code)`-style termination record in the
+    /// compatibility helper surface.
+    pub fn exit(&mut self, exit_code: i32) {
+        self.set_exit_code(exit_code);
+    }
+
     /// Return the recorded exit code, if any.
     pub fn exit_code(&self) -> Option<i32> {
         self.exit_code
@@ -1324,6 +1330,9 @@ mod tests {
         assert_eq!(process.stdout(), "hello");
         assert_eq!(process.stderr(), "oops");
         assert_eq!(process.exit_code(), Some(7));
+
+        process.exit(3);
+        assert_eq!(process.exit_code(), Some(3));
     }
 
     #[test]

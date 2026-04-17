@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 3.2 Node compatibility completion sync
+
+The documented Stage 3.2 Node-compatibility subset is now reflected as complete in the plan progress files. I also added a small `NodeProcess::exit` helper alias in `kali_api_node` so the process helper surface mirrors the plan vocabulary more directly, then updated the Stage 3.2 status note and checklist to match the current Node command/path/package coverage.
+
+Suggested follow-up:
+- keep later Node-API breadth work pointed at the remaining compatibility target, not the documented Stage 3.2 subset
+- if the Node surface widens again, refresh the Stage 3.2 status note and any release-facing summaries together so the progress text keeps matching the actual helper slice
+
 ## 2026-04-17 — Stage 4.2 RC decrement/update slice follow-up
 
 I’m planning the next small Stage 4.2 progress update: widen the RC snapshot safety slice with a refcount-decrement update helper that preserves the remaining well-formed live set, while still leaving the fuller freeing story and broader ownership model for later.
