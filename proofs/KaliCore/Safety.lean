@@ -46,6 +46,15 @@ def releaseAndDecrement (snapshot : RcSnapshot) (ref : String) : RcSnapshot :=
       if cell.name = ref then { cell with refCount := cell.refCount - 1 } else cell)
   }
 
+/-- Release a live reference, decrement its target cell, and collect any zero-count
+heap cells. This adds the local freeing step that the later Stage 4.2 memory
+story will eventually widen further. -/
+def releaseAndCollect (snapshot : RcSnapshot) (ref : String) : RcSnapshot :=
+  let decremented := releaseAndDecrement snapshot ref
+  { decremented with
+    heap := decremented.heap.filter (fun cell => cell.refCount > 0)
+  }
+
 /-- A reference is owned when it has an explicit ownership annotation. -/
 def hasOwnership (ownership : OwnershipEnv) (ref : String) : Prop :=
   ∃ owner, (ref, owner) ∈ ownership
@@ -145,6 +154,36 @@ theorem releaseAndDecrementZeroesLastTargetCell (snapshot : RcSnapshot) (ref : S
   constructor
   · exact List.mem_map.mpr ⟨cell, hmem, by simp [hname]⟩
   · simp [hcount]
+
+/-- A release-and-collect step removes zero-count cells after the decrement pass. -/
+theorem releaseAndCollectRemovesZeroCountCells (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.name = ref → cell.refCount = 1 →
+      { cell with refCount := cell.refCount - 1 } ∉ (releaseAndCollect snapshot ref).heap := by
+  intro cell hmem hname hcount hpresent
+  simp [releaseAndCollect, releaseAndDecrement, hname, hcount] at hpresent
+
+/-- A release-and-collect step preserves the well-formedness of the remaining
+live set because zero-count cells are collected after the decrement pass. -/
+theorem releaseAndCollectPreservesWellFormed (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    WellFormed (releaseAndCollect snapshot ref) := by
+  intro r hr
+  have hr' : r ∈ snapshot.liveRefs ∧ r ≠ ref := by
+    simpa [releaseAndCollect, releaseAndDecrement] using hr
+  have hrLive : r ∈ snapshot.liveRefs := hr'.1
+  have hneq : r ≠ ref := hr'.2
+  have hannotated : liveAnnotated snapshot r := h r hrLive
+  constructor
+  · exact hannotated.1
+  · constructor
+    · rcases hannotated.2.1 with ⟨cell, hmem, hname, hpos⟩
+      refine ⟨cell, ?_, hname, hpos⟩
+      have hcell : (fun cell => if cell.name = ref then { cell with refCount := cell.refCount - 1 } else cell) cell = cell := by
+        simp [hname, hneq]
+      have hmem' : cell ∈ (releaseAndDecrement snapshot ref).heap :=
+        List.mem_map.mpr ⟨cell, hmem, hcell⟩
+      exact List.mem_filter.mpr ⟨hmem', by simpa using hpos⟩
+    · simpa [releaseAndCollect, releaseAndDecrement, hneq] using hannotated.2.2
 
 /-- A release-and-decrement step leaves unrelated heap entries untouched. -/
 theorem releaseAndDecrementKeepsOtherHeapEntries (snapshot : RcSnapshot) (ref : String) :

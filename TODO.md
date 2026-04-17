@@ -127,3 +127,8 @@
 ### Stage 4.2 - RC decrement/live-preservation follow-up
 - ✅ `releaseAndDecrementKeepsOtherHeapEntries` now proves the decrement helper leaves unrelated heap entries untouched.
 - ✅ `releaseAndDecrementPreservesOtherLiveRefs` now proves non-target live references remain live after the decrement helper runs.
+
+### Stage 4.2 - RC zero-count collection follow-up
+- ✅ `releaseAndCollect` now filters zero-count cells after the decrement pass.
+- ✅ `releaseAndCollectRemovesZeroCountCells` proves the freed decrement target is not retained in the collected heap.
+- ✅ `releaseAndCollectPreservesWellFormed` proves the remaining live set stays well-formed after zero-count collection.
