@@ -26,6 +26,9 @@
 - ✅ `cargo test -p kali_cli --test runtime_smoke` passes
 - ✅ `cargo test --workspace` passes
 
+### Stage 1.5 - Type Annotation Resolution
+- ✅ Type annotation strings now resolve identifier references against the current scope and global bindings, so undefined type references surface through the existing name-resolution diagnostic path.
+
 ### Stage 1.6 - HIR/LIR Lowering
 - ✅ Deterministic AST/statement → HIR lowering implemented
 - ✅ HIR → MIR lowering implemented

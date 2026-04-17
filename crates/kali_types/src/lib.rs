@@ -216,7 +216,9 @@ impl TypeContext {
         self.diagnostics.clear();
     }
 
-    pub fn check_type_annotation(&mut self, _node_id: NodeId, _annotation: &str) {}
+    pub fn check_type_annotation(&mut self, _node_id: NodeId, annotation: &str) {
+        self.resolve_type_annotation_text(annotation);
+    }
 
     pub fn check_node(&mut self, _node_id: NodeId) {}
 
@@ -926,10 +928,47 @@ impl TypeContext {
     }
 
     fn resolve_type_annotation_text(&mut self, annotation: &str) {
-        if annotation.trim().is_empty() {
+        let annotation = annotation.trim();
+        if annotation.is_empty() {
             return;
         }
-        let _ = annotation;
+
+        let chars: Vec<char> = annotation.chars().collect();
+        let mut index = 0;
+        while index < chars.len() {
+            let ch = chars[index];
+            if matches!(ch, '\'' | '"' | '`') {
+                index = skip_quoted_annotation_segment(&chars, index);
+                continue;
+            }
+
+            if is_ident_start(ch) {
+                let start = index;
+                index += 1;
+                while index < chars.len() && is_ident_continue(chars[index]) {
+                    index += 1;
+                }
+
+                let ident: String = chars[start..index].iter().collect();
+                if !is_type_annotation_keyword(&ident)
+                    && !is_property_name_context(&chars, start, index)
+                    && self.resolve_name(&ident).is_none()
+                {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            e3::UNDEFINED_IDENTIFIER as u32,
+                            format!("undefined type reference '{}'", ident),
+                        )
+                        .with_suggestion(
+                            "declare the type or import it before using it in an annotation",
+                        ),
+                    );
+                }
+                continue;
+            }
+
+            index += 1;
+        }
     }
 
     fn resolve_import_source(&self, source: &str) -> bool {
@@ -996,7 +1035,7 @@ impl<'a> ScopeRef<'a> {
     }
 }
 
-/// A type checker placeholder.
+/// A lightweight type-checking facade.
 #[derive(Default)]
 pub struct TypeChecker {
     context: TypeContext,
@@ -1016,8 +1055,8 @@ impl TypeChecker {
         self.diagnostics.clear();
     }
 
-    pub fn check_type_annotation(&mut self, _node_id: NodeId, _annotation: &str) {
-        let _ = &self.context;
+    pub fn check_type_annotation(&mut self, _node_id: NodeId, annotation: &str) {
+        self.context.resolve_type_annotation_text(annotation);
     }
 
     pub fn check_node(&mut self, _node_id: NodeId) {
@@ -1028,6 +1067,102 @@ impl TypeChecker {
         self.clear_diagnostics();
         self.diagnostics.clone()
     }
+}
+
+fn is_ident_start(ch: char) -> bool {
+    ch == '_' || ch == '$' || ch.is_ascii_alphabetic()
+}
+
+fn is_ident_continue(ch: char) -> bool {
+    is_ident_start(ch) || ch.is_ascii_digit()
+}
+
+fn is_type_annotation_keyword(ident: &str) -> bool {
+    matches!(
+        ident,
+        "any"
+            | "as"
+            | "bigint"
+            | "boolean"
+            | "const"
+            | "extends"
+            | "false"
+            | "infer"
+            | "in"
+            | "intrinsic"
+            | "is"
+            | "keyof"
+            | "never"
+            | "null"
+            | "number"
+            | "object"
+            | "out"
+            | "readonly"
+            | "string"
+            | "symbol"
+            | "this"
+            | "true"
+            | "typeof"
+            | "undefined"
+            | "unique"
+            | "unknown"
+            | "void"
+    )
+}
+
+fn is_property_name_context(chars: &[char], start: usize, end: usize) -> bool {
+    if matches!(next_non_whitespace_char(chars, end), Some(':')) {
+        return true;
+    }
+
+    if matches!(next_non_whitespace_char(chars, end), Some('?')) {
+        let mut index = end + 1;
+        while index < chars.len() && chars[index].is_whitespace() {
+            index += 1;
+        }
+        return matches!(chars.get(index), Some(':'));
+    }
+
+    if start > 0 {
+        let mut index = start;
+        while index > 0 {
+            index -= 1;
+            if chars[index].is_whitespace() {
+                continue;
+            }
+            return matches!(chars.get(index), Some('.'));
+        }
+    }
+
+    false
+}
+
+fn next_non_whitespace_char(chars: &[char], mut index: usize) -> Option<char> {
+    while index < chars.len() {
+        let ch = chars[index];
+        if !ch.is_whitespace() {
+            return Some(ch);
+        }
+        index += 1;
+    }
+    None
+}
+
+fn skip_quoted_annotation_segment(chars: &[char], start: usize) -> usize {
+    let quote = chars[start];
+    let mut index = start + 1;
+    while index < chars.len() {
+        let ch = chars[index];
+        if ch == '\\' {
+            index = index.saturating_add(2);
+            continue;
+        }
+        if ch == quote {
+            return index + 1;
+        }
+        index += 1;
+    }
+    chars.len()
 }
 
 fn builtin_globals() -> &'static [&'static str] {
@@ -1142,7 +1277,10 @@ fn duplicate_binding(name: &str) -> Diagnostic {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kali_ast::{BinaryExpression, LiteralValue, ParenthesizedExpression, VariableDeclarator};
+    use kali_ast::{
+        BinaryExpression, LiteralValue, ParenthesizedExpression, TypeAliasDeclaration,
+        VariableDeclarator,
+    };
     use std::fs;
     use tempfile::tempdir;
 
@@ -1174,6 +1312,42 @@ mod tests {
         let binding = ctx.define("x");
         assert_eq!(binding.name(), "x");
         assert!(ctx.resolve_name("x").is_some());
+    }
+
+    #[test]
+    fn test_type_annotation_resolution_accepts_known_names() {
+        let mut ctx = TypeContext::new();
+        let statements = vec![
+            Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+                name: "Foo".to_string(),
+                type_params: vec![],
+                type_annotation: "string".to_string(),
+            }),
+            Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+                name: "Box".to_string(),
+                type_params: vec![],
+                type_annotation: "Foo | Array<string>".to_string(),
+            }),
+        ];
+
+        let result = ctx.resolve_statements(&statements);
+        assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn test_type_annotation_resolution_reports_unknown_names() {
+        let mut ctx = TypeContext::new();
+        let statements = vec![Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+            name: "Box".to_string(),
+            type_params: vec![],
+            type_annotation: "Missing | string".to_string(),
+        })];
+
+        let result = ctx.resolve_statements(&statements);
+        assert!(result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e3::UNDEFINED_IDENTIFIER as u32)));
     }
 
     #[test]
