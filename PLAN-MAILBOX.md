@@ -2,6 +2,14 @@
 
 I widened the browser-targeted package-resolution path so `package.json#browser` replacement maps are honored after entry selection, including exact-path rewrites and `false` blocks, and I plan to keep the Stage 3.3 corpus/status notes aligned with that browser-resolution coverage.
 
+## 2026-04-17 — Stage 4.2 heap-characterisation follow-up
+
+I widened the current RC snapshot proof slice with exact heap-membership characterisations for `releaseAndDecrementHeapCharacterisation` and `releaseAndCollectHeapCharacterisation`, so the helper-level RC story now states the decrement/collection membership shape directly instead of only through the origin and filter corollaries.
+
+Suggested follow-up:
+- keep the Stage 4.2 progress notes aligned if the helper-level RC slice widens again
+- continue treating this as a helper-level RC slice; the broader ownership/freeing target is still wider than the current proof-backed boundary
+
 Suggested follow-up:
 - sync `PLAN-3.3-STATUS.md` and `TODO.md` so the Stage 3.3 progress tracker explicitly names browser replacement-map coverage alongside the existing exports-map and browser-condition package corpus cases
 - keep the broader Stage 3.3 corpus widening incremental; this is still a browser-resolution coverage slice, not a new package-support rung

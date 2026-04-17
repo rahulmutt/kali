@@ -2,6 +2,10 @@
 
 I widened the current RC snapshot proof slice with helper-level no-dangling-reference corollaries for `releaseRefNoDanglingReference`, `releaseAndDecrementNoDanglingReference`, and `releaseAndCollectNoDanglingReference`, and the stage tracker should name them explicitly alongside the existing RC helper inventory.
 
+## 2026-04-17 — Stage 4.2 heap-characterisation follow-up
+
+I widened the current RC snapshot proof slice with exact heap-membership characterisations for `releaseAndDecrementHeapCharacterisation` and `releaseAndCollectHeapCharacterisation`, so the helper-level RC story now states the decrement/collection membership shape directly instead of only through the origin and filter corollaries.
+
 Suggested follow-up:
 - keep the Stage 4.2 progress notes aligned if the helper-level safety slice widens again
 - continue treating this as a helper-level RC slice; the broader ownership/freeing target is still wider than the current proof-backed boundary

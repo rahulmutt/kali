@@ -251,6 +251,28 @@ theorem releaseAndDecrementHeapCellOriginAndOwnership (snapshot : RcSnapshot) (r
       subst h
       simp
 
+/-- The release-and-decrement helper's heap is exactly the original heap with the released target decremented and every other cell unchanged. -/
+theorem releaseAndDecrementHeapCharacterisation (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ (releaseAndDecrement snapshot ref).heap ↔
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        ((cell0.name = ref ∧ cell = { cell0 with refCount := cell0.refCount - 1 }) ∨
+         (cell0.name ≠ ref ∧ cell = cell0)) := by
+  intro cell
+  constructor
+  · intro hmem
+    rcases List.mem_map.mp hmem with ⟨cell0, hmem0, hcell⟩
+    by_cases hname : cell0.name = ref
+    · refine ⟨cell0, hmem0, Or.inl ⟨hname, ?_⟩⟩
+      simpa [releaseAndDecrement, hname] using hcell.symm
+    · refine ⟨cell0, hmem0, Or.inr ⟨hname, ?_⟩⟩
+      simpa [releaseAndDecrement, hname] using hcell.symm
+  · intro hmem
+    rcases hmem with ⟨cell0, hmem0, hcase⟩
+    rcases hcase with ⟨hname, hcell⟩ | ⟨hname, hcell⟩
+    · subst hname
+      exact List.mem_map.mpr ⟨cell0, hmem0, by simpa [releaseAndDecrement] using hcell.symm⟩
+    · exact List.mem_map.mpr ⟨cell0, hmem0, by simp [hname, hcell]⟩
+
 /-- A release-and-decrement step zeroes the target cell when the released reference was the last live count. -/
 theorem releaseAndDecrementZeroesLastTargetCell (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ snapshot.heap → cell.name = ref → cell.refCount = 1 →
@@ -382,6 +404,28 @@ theorem releaseAndCollectHeapCellOriginOwnershipAndPositiveCount (snapshot : RcS
   intro cell hmem
   rcases releaseAndCollectHeapCellOriginAndOwnership snapshot ref cell hmem with ⟨cell0, hmem0, hshape, hname, howner⟩
   exact ⟨cell0, hmem0, hshape, hname, howner, releaseAndCollectHeapCellsHavePositiveCount snapshot ref cell hmem⟩
+
+/-- The release-and-collect helper's heap is exactly the original heap with the released target decremented, all other cells unchanged, and only positive-count survivors retained. -/
+theorem releaseAndCollectHeapCharacterisation (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap ↔
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        ((cell0.name = ref ∧ cell = { cell0 with refCount := cell0.refCount - 1 }) ∨
+         (cell0.name ≠ ref ∧ cell = cell0)) ∧
+        cell.refCount > 0 := by
+  intro cell
+  constructor
+  · intro hmem
+    have hpos : cell.refCount > 0 := releaseAndCollectHeapCellsHavePositiveCount snapshot ref cell hmem
+    have hfilter : cell ∈ (releaseAndDecrement snapshot ref).heap.filter (fun cell => cell.refCount > 0) := by
+      simpa [releaseAndCollect] using hmem
+    rcases List.mem_filter.mp hfilter with ⟨hdecr, _⟩
+    rcases (releaseAndDecrementHeapCharacterisation snapshot ref cell).mp hdecr with ⟨cell0, hmem0, hcase⟩
+    exact ⟨cell0, hmem0, hcase, hpos⟩
+  · intro hmem
+    rcases hmem with ⟨cell0, hmem0, hcase, hpos⟩
+    have hdecr : cell ∈ (releaseAndDecrement snapshot ref).heap :=
+      (releaseAndDecrementHeapCharacterisation snapshot ref cell).mpr ⟨cell0, hmem0, hcase⟩
+    exact List.mem_filter.mpr ⟨hdecr, by simpa using hpos⟩
 
 /-- A release-and-collect step keeps every surviving heap cell both positively counted and traceable to the original heap. -/
 theorem releaseAndCollectHeapCellOriginAndPositiveCount (snapshot : RcSnapshot) (ref : String) :

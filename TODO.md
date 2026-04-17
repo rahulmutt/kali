@@ -93,6 +93,8 @@
 ### Stage 4.2 - Release-and-decrement ownership follow-up
 - ✅ `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndOwnership` now makes the decrement helper's surviving heap provenance explicit alongside its original ownership tag.
 
+- ✅ `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` and `KaliCore.Safety.releaseAndCollectHeapCharacterisation` now give exact heap-membership characterisations for the decrement and collection helpers.
+
 ## Next Work
 - [x] Stage 4.2 heap-positive testing-summary sync
   - Synced `specs/16-testing.md` so the repository-state note and proof-backed-claims guidance now explicitly name the latest RC snapshot theorem inventory, including the zero-count collection/removal and positive-count/target-cell helper theorems.
