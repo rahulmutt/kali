@@ -23,9 +23,9 @@ use kali_sandbox::{
 };
 use serde_json::{json, Value};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs,
-    path::{Path, PathBuf},
+    path::{Component as PathComponent, Path, PathBuf},
     time::Instant,
 };
 use wasm_encoder::{Component, ComponentSectionId, CustomSection, RawSection, Section};
@@ -1383,6 +1383,20 @@ fn write_browser_bundle_files(
         })?;
     }
 
+    let source_contents = fs::read_to_string(source).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to read browser bundle source '{}': {}",
+                source.display(),
+                error
+            ),
+        )]
+    })?;
+    let dynamic_import_targets = discover_dynamic_import_targets(source, &source_contents)?;
+    let dynamic_import_map =
+        browser_bundle_dynamic_import_map(&output_dir, format, &dynamic_import_targets)?;
+
     fs::write(&wasm_path, &wasm_bytes).map_err(|error| {
         vec![Diagnostic::error(
             e5::OUTPUT_ERROR as u32,
@@ -1407,16 +1421,6 @@ fn write_browser_bundle_files(
             ),
         )]
     })?;
-    let source_contents = fs::read_to_string(source).map_err(|error| {
-        vec![Diagnostic::error(
-            e5::OUTPUT_ERROR as u32,
-            format!(
-                "failed to read browser bundle source '{}': {}",
-                source.display(),
-                error
-            ),
-        )]
-    })?;
     fs::write(
         &source_map_path,
         build::browser_bundle_source_map(source, &js_path, &source_contents, &exports),
@@ -1433,7 +1437,13 @@ fn write_browser_bundle_files(
     })?;
     fs::write(
         &js_path,
-        generate_browser_bundle_js(&wasm_path, &source_map_path, &exports, format),
+        generate_browser_bundle_js(
+            &wasm_path,
+            &source_map_path,
+            &exports,
+            &dynamic_import_map,
+            format,
+        ),
     )
     .map_err(|error| {
         vec![Diagnostic::error(
@@ -1481,13 +1491,13 @@ fn collect_browser_bundle_chunk_artifacts(
         )]
     })?;
     let mut artifacts = Vec::new();
-    for chunk_source in discover_dynamic_import_targets(source, &source_contents)? {
-        if !visited.insert(chunk_source.clone()) {
+    for chunk_target in discover_dynamic_import_targets(source, &source_contents)? {
+        if !visited.insert(chunk_target.target.clone()) {
             continue;
         }
-        let chunk_out_dir = build::bundle_chunk_output_dir_for(&chunk_source, out_dir);
+        let chunk_out_dir = build::bundle_chunk_output_dir_for(&chunk_target.target, out_dir);
         let chunk = write_browser_bundle_files(
-            &chunk_source,
+            &chunk_target.target,
             mode,
             max_specializations,
             Some(&chunk_out_dir),
@@ -1514,7 +1524,7 @@ fn collect_browser_bundle_chunk_artifacts(
         });
         artifacts.extend(chunk.extra_artifacts);
         let nested = collect_browser_bundle_chunk_artifacts(
-            &chunk_source,
+            &chunk_target.target,
             mode,
             max_specializations,
             out_dir,
@@ -1529,18 +1539,26 @@ fn collect_browser_bundle_chunk_artifacts(
     Ok(artifacts)
 }
 
+#[derive(Clone, Debug)]
+struct DynamicImportTarget {
+    specifier: String,
+    target: PathBuf,
+}
+
 fn discover_dynamic_import_targets(
     source: &Path,
     source_contents: &str,
-) -> Result<Vec<PathBuf>, Vec<Diagnostic>> {
+) -> Result<Vec<DynamicImportTarget>, Vec<Diagnostic>> {
     let mut targets = Vec::new();
     let mut search_start = 0usize;
 
     while let Some(relative) = source_contents[search_start..].find("import(") {
         let import_start = search_start + relative + "import(".len();
-        if let Some((specifier, next_index)) = parse_static_dynamic_import_specifier(source_contents, import_start) {
+        if let Some((specifier, next_index)) =
+            parse_static_dynamic_import_specifier(source_contents, import_start)
+        {
             if let Some(target) = resolve_dynamic_import_target(source, &specifier) {
-                targets.push(target);
+                targets.push(DynamicImportTarget { specifier, target });
             }
             search_start = next_index;
         } else {
@@ -1563,10 +1581,7 @@ fn parse_static_dynamic_import_specifier(
     Some((specifier, index + 1))
 }
 
-fn parse_static_import_expression(
-    source_contents: &str,
-    index: usize,
-) -> Option<(String, usize)> {
+fn parse_static_import_expression(source_contents: &str, index: usize) -> Option<(String, usize)> {
     let (mut value, mut index) = parse_static_import_term(source_contents, index)?;
     loop {
         index = skip_js_whitespace(source_contents, index);
@@ -1581,10 +1596,7 @@ fn parse_static_import_expression(
     }
 }
 
-fn parse_static_import_term(
-    source_contents: &str,
-    index: usize,
-) -> Option<(String, usize)> {
+fn parse_static_import_term(source_contents: &str, index: usize) -> Option<(String, usize)> {
     let bytes = source_contents.as_bytes();
     let index = skip_js_whitespace(source_contents, index);
     let quote = *bytes.get(index)? as char;
@@ -1602,10 +1614,7 @@ fn parse_static_import_term(
     }
 }
 
-fn parse_static_import_string(
-    source_contents: &str,
-    index: usize,
-) -> Option<(String, usize)> {
+fn parse_static_import_string(source_contents: &str, index: usize) -> Option<(String, usize)> {
     let bytes = source_contents.as_bytes();
     let quote = *bytes.get(index)? as char;
     let mut index = index + 1;
@@ -1665,10 +1674,64 @@ fn resolve_dynamic_import_target(source: &Path, specifier: &str) -> Option<PathB
     None
 }
 
+fn browser_bundle_dynamic_import_map(
+    bundle_root: &Path,
+    format: BundleFormat,
+    targets: &[DynamicImportTarget],
+) -> Result<BTreeMap<String, String>, Vec<Diagnostic>> {
+    let mut map = BTreeMap::new();
+    for target in targets {
+        let chunk_out_dir = build::bundle_chunk_output_dir_for(&target.target, Some(bundle_root));
+        let (_, chunk_js_path, _, _) =
+            build::bundle_output_paths_for(&target.target, Some(&chunk_out_dir), format);
+        let relative = relative_path(bundle_root, &chunk_js_path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let relative = if relative.starts_with('.') {
+            relative
+        } else {
+            format!("./{}", relative)
+        };
+        map.insert(target.specifier.clone(), relative);
+    }
+
+    Ok(map)
+}
+
+fn relative_path(from: &Path, to: &Path) -> PathBuf {
+    let from_components: Vec<PathComponent<'_>> = from.components().collect();
+    let to_components: Vec<PathComponent<'_>> = to.components().collect();
+
+    let mut common_prefix = 0usize;
+    while common_prefix < from_components.len()
+        && common_prefix < to_components.len()
+        && from_components[common_prefix] == to_components[common_prefix]
+    {
+        common_prefix += 1;
+    }
+
+    let mut path = PathBuf::new();
+    for component in &from_components[common_prefix..] {
+        if !matches!(component, PathComponent::CurDir) {
+            path.push("..");
+        }
+    }
+    for component in &to_components[common_prefix..] {
+        path.push(component.as_os_str());
+    }
+
+    if path.as_os_str().is_empty() {
+        path.push(".");
+    }
+
+    path
+}
+
 fn generate_browser_bundle_js(
     wasm_path: &Path,
     source_map_path: &Path,
     exports: &[build::LibraryExport],
+    dynamic_import_targets: &BTreeMap<String, String>,
     format: BundleFormat,
 ) -> String {
     let wasm_file = wasm_path
@@ -1682,72 +1745,113 @@ fn generate_browser_bundle_js(
             BundleFormat::Esm => "bundle.js.map",
             BundleFormat::Cjs => "bundle.cjs.map",
         });
+    let dynamic_import_entries = dynamic_import_targets
+        .iter()
+        .map(|(specifier, target)| {
+            format!(
+                "  [{}, {}],\n",
+                serde_json::to_string(specifier).expect("serialize import specifier"),
+                serde_json::to_string(target).expect("serialize import target")
+            )
+        })
+        .collect::<String>();
     let mut content = match format {
-        BundleFormat::Esm => r#"const wasmUrl = new URL("./__WASM_FILE__", import.meta.url);
+        BundleFormat::Esm => format!(
+            r#"const wasmUrl = new URL("./{wasm_file}", import.meta.url);
+const bundleBaseUrl = import.meta.url;
+const dynamicImportTargets = new Map([
+{dynamic_import_entries}]);
 
-const importObject = {
-  "kali:rt": {
-    test_register() {}
-  }
-};
+const importObject = {{
+  "kali:rt": {{
+    test_register() {{}}
+  }}
+}};
 
-async function instantiate() {
-  if (typeof WebAssembly.instantiateStreaming === "function" && typeof fetch === "function") {
-    try {
+async function instantiate() {{
+  if (typeof WebAssembly.instantiateStreaming === "function" && typeof fetch === "function") {{
+    try {{
       const response = await fetch(wasmUrl);
       return await WebAssembly.instantiateStreaming(response, importObject);
-    } catch (_) {
+    }} catch (_) {{
       // fall back to ArrayBuffer instantiation.
-    }
-  }
+    }}
+  }}
   const response = await fetch(wasmUrl);
   const bytes = await response.arrayBuffer();
   return await WebAssembly.instantiate(bytes, importObject);
-}
+}}
 
 const instancePromise = instantiate();
 
-export async function load() {
+function resolveDynamicImportTarget(specifier) {{
+  const target = dynamicImportTargets.get(specifier);
+  if (!target) {{
+    throw new Error(`unknown dynamic import target: ${{specifier}}`);
+  }}
+  return new URL(target, bundleBaseUrl);
+}}
+
+export async function load() {{
   return await instancePromise;
-}
+}}
+
+export async function loadDynamicImport(specifier) {{
+  return await import(resolveDynamicImportTarget(specifier).href);
+}}
 
 "#
-        .to_string(),
-        BundleFormat::Cjs => r#"const { pathToFileURL } = require("url");
-const wasmUrl = new URL("./__WASM_FILE__", pathToFileURL(__filename));
+        ),
+        BundleFormat::Cjs => format!(
+            r#"const {{ pathToFileURL }} = require("url");
+const wasmUrl = new URL("./{wasm_file}", pathToFileURL(__filename));
+const bundleBaseUrl = pathToFileURL(__filename);
+const dynamicImportTargets = new Map([
+{dynamic_import_entries}]);
 
-const importObject = {
-  "kali:rt": {
-    test_register() {}
-  }
-};
+const importObject = {{
+  "kali:rt": {{
+    test_register() {{}}
+  }}
+}};
 
-async function instantiate() {
-  if (typeof WebAssembly.instantiateStreaming === "function" && typeof fetch === "function") {
-    try {
+async function instantiate() {{
+  if (typeof WebAssembly.instantiateStreaming === "function" && typeof fetch === "function") {{
+    try {{
       const response = await fetch(wasmUrl);
       return await WebAssembly.instantiateStreaming(response, importObject);
-    } catch (_) {
+    }} catch (_) {{
       // fall back to ArrayBuffer instantiation.
-    }
-  }
+    }}
+  }}
   const response = await fetch(wasmUrl);
   const bytes = await response.arrayBuffer();
   return await WebAssembly.instantiate(bytes, importObject);
-}
+}}
 
 const instancePromise = instantiate();
 
-async function load() {
-  return await instancePromise;
-}
+function resolveDynamicImportTarget(specifier) {{
+  const target = dynamicImportTargets.get(specifier);
+  if (!target) {{
+    throw new Error(`unknown dynamic import target: ${{specifier}}`);
+  }}
+  return new URL(target, bundleBaseUrl);
+}}
 
-const exported = { load };
+async function load() {{
+  return await instancePromise;
+}}
+
+async function loadDynamicImport(specifier) {{
+  return await import(resolveDynamicImportTarget(specifier).href);
+}}
+
+const exported = {{ load, loadDynamicImport }};
 
 "#
-        .to_string(),
-    }
-    .replace("__WASM_FILE__", wasm_file);
+        ),
+    };
     for export in exports {
         match format {
             BundleFormat::Esm => content.push_str(&format!(
@@ -1814,20 +1918,24 @@ fn run_command(
         return emit_diagnostics_and_exit("run", vec![diagnostic], 5, output, None, None);
     }
 
-    let wasm_bytes =
-        match build::compile_source_file(&source, build::BuildMode::Fast, effective_api, compat_eval) {
-            Ok(bytes) => bytes,
-            Err(diagnostics) => {
-                return emit_diagnostics_and_exit(
-                    "run",
-                    diagnostics,
-                    1,
-                    output,
-                    Some(&source),
-                    fs::read_to_string(&source).ok().as_deref(),
-                )
-            }
-        };
+    let wasm_bytes = match build::compile_source_file(
+        &source,
+        build::BuildMode::Fast,
+        effective_api,
+        compat_eval,
+    ) {
+        Ok(bytes) => bytes,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit(
+                "run",
+                diagnostics,
+                1,
+                output,
+                Some(&source),
+                fs::read_to_string(&source).ok().as_deref(),
+            )
+        }
+    };
 
     let runtime = RuntimeCtx::with_api_surface(policy.clone(), effective_api.to_string());
     let start = Instant::now();
@@ -2004,20 +2112,24 @@ fn test_command(
 
     for file in filtered_files {
         let source = PathBuf::from(&file);
-        let wasm_bytes =
-            match build::compile_source_file(&source, build::BuildMode::Fast, effective_api, compat_eval) {
-                Ok(bytes) => bytes,
-                Err(errs) => {
-                    diagnostics.extend(errs.clone());
-                    if !output.is_json() {
-                        for diagnostic in errs {
-                            eprintln!("{}", diagnostic);
-                        }
+        let wasm_bytes = match build::compile_source_file(
+            &source,
+            build::BuildMode::Fast,
+            effective_api,
+            compat_eval,
+        ) {
+            Ok(bytes) => bytes,
+            Err(errs) => {
+                diagnostics.extend(errs.clone());
+                if !output.is_json() {
+                    for diagnostic in errs {
+                        eprintln!("{}", diagnostic);
                     }
-                    failed += 1;
-                    continue;
                 }
-            };
+                failed += 1;
+                continue;
+            }
+        };
 
         match runtime.execute_tests(&wasm_bytes) {
             Ok(outcome) => {

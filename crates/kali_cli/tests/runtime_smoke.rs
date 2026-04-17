@@ -115,6 +115,65 @@ console.log(String(result));
     assert!(stdout.contains('0'), "stdout: {stdout}");
 }
 
+fn assert_browser_bundle_dynamic_import_loader(bundle_root: &Path) {
+    let bundle_dir = bundle_root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("bundle directory name");
+    let harness_path = bundle_root
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-dynamic-import-smoke.mjs");
+    let harness = format!(
+        r#"import fs from 'node:fs/promises';
+import {{ fileURLToPath }} from 'node:url';
+
+const bundleJs = new URL('./{bundle_dir}/{bundle_dir}.js', import.meta.url);
+const bundleRoot = new URL('./{bundle_dir}/', import.meta.url);
+
+globalThis.fetch = async (input) => {{
+  const url = input instanceof URL ? input : new URL(String(input));
+  if (url.href.startsWith(bundleRoot.href) && url.pathname.endsWith('.wasm')) {{
+    const bytes = await fs.readFile(fileURLToPath(url));
+    return new Response(bytes, {{ headers: {{ 'content-type': 'application/wasm' }} }});
+  }}
+  throw new Error(`unexpected fetch ${{String(input)}}`);
+}};
+
+const mod = await import(bundleJs.href);
+if (typeof mod.loadDynamicImport !== 'function') {{
+  throw new Error('missing loadDynamicImport helper');
+}}
+const chunk = await mod.loadDynamicImport('./lazy.ts');
+if (typeof chunk.lazyValue !== 'function') {{
+  throw new Error('missing lazyValue export');
+}}
+const value = await chunk.lazyValue();
+if (value !== 0n) {{
+  throw new Error(`unexpected chunk result ${{value}}`);
+}}
+console.log(String(value));
+"#,
+        bundle_dir = bundle_dir,
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let output = Command::new("node")
+        .current_dir(bundle_root)
+        .arg(&harness_path)
+        .output()
+        .expect("run node browser harness");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('0'), "stdout: {stdout}");
+}
+
 fn write_valid_policy(path: &Path) {
     fs::write(
         path,
@@ -544,7 +603,11 @@ fn check_accepts_compat_eval_flag() {
         .output()
         .expect("run kali");
 
-    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Checked 1 file(s)"), "stdout: {stdout}");
 }
@@ -572,7 +635,11 @@ fn check_accepts_inherited_compat_eval_feature_from_manifest() {
         .output()
         .expect("run kali");
 
-    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -594,7 +661,12 @@ fn run_evaluates_static_eval_sources_when_compat_eval_is_enabled() {
         .output()
         .expect("run kali");
 
-    assert!(output.status.success(), "stdout: {}\nstderr: {}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -616,7 +688,12 @@ fn run_evaluates_simple_function_constructor_sources_when_compat_eval_is_enabled
         .output()
         .expect("run kali");
 
-    assert!(output.status.success(), "stdout: {}\nstderr: {}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -936,8 +1013,14 @@ fn build_emits_browser_bundle_chunks_for_simple_string_concat_dynamic_imports() 
         .collect();
     assert!(kinds.contains(&"chunk-wasm"), "artifacts: {artifacts:?}");
     assert!(kinds.contains(&"chunk-js"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"chunk-source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"chunk-meta-json"), "artifacts: {artifacts:?}");
+    assert!(
+        kinds.contains(&"chunk-source-map"),
+        "artifacts: {artifacts:?}"
+    );
+    assert!(
+        kinds.contains(&"chunk-meta-json"),
+        "artifacts: {artifacts:?}"
+    );
 
     let chunk_dirs: Vec<_> = fs::read_dir(&chunk_root)
         .expect("read chunk root")
@@ -954,6 +1037,46 @@ fn build_emits_browser_bundle_chunks_for_simple_string_concat_dynamic_imports() 
             chunk_dir.display()
         );
     }
+}
+
+#[test]
+fn browser_bundle_js_exposes_runtime_dynamic_import_loader() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    let chunk_path = dir.path().join("lazy.ts");
+    fs::write(
+        &source_path,
+        "const lazy = import(\"./\" + \"lazy.ts\");\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+    fs::write(&chunk_path, "export function lazyValue() { return 7; }")
+        .expect("write chunk source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let js = fs::read_to_string(bundle_dir.join("app.js")).expect("read bundle js");
+    assert!(js.contains("loadDynamicImport"), "bundle js: {js}");
+    assert!(js.contains("lazy.ts"), "bundle js: {js}");
+
+    assert_browser_bundle_dynamic_import_loader(&bundle_dir);
 }
 
 #[test]

@@ -98,4 +98,5 @@
   - Install-time package host-fit validation now keys off the project `compilerOptions.apiSurface`, so Node-targeted installs can accept Node-only builtins while the default standalone context still rejects them with `E6005`.
 
 - [ ] Truly runtime-resolved non-literal `import()` compatibility path
-  - Keep this separate from the eval / Function() work and the existing static-dynamic-import resolution refinement; it still needs the host-mediated runtime graph lookup from Stage 4.1.
+  - Browser bundle JS now exposes a generated `loadDynamicImport(specifier)` helper that resolves discovered chunk targets through the bundle-local lookup map.
+  - The remaining work is the guest-side / runtime-mediated graph lookup for arbitrary runtime specifiers inside the compiled execution pipeline.
