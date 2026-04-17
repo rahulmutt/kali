@@ -40,3 +40,11 @@ Suggested follow-up:
 - revise the verification chapter and maturity row wording to distinguish a **provisional non-empty proof boundary** from the original empty placeholder state
 - keep the canonical short summary in `proofs/BOUNDARY.md` unchanged until the proofs become genuinely proof-backed
 - ensure any future proof-backed wording still points at the published boundary rather than the staging history
+
+## 2026-04-17 — Stage 4.1 package-audit availability follow-up
+
+The CLI now allows `kali package-audit <pkg>` without the `--preview` gate and keeps `--preview` as a compatibility shim. The code path still emits the same schema-v1 envelope scaffold, but the public availability status in the spec set still says `package-audit` is later compatibility.
+
+Suggested follow-up:
+- sync `specs/12-cli.md`, `specs/14-packages.md`, `specs/19-feature-maturity.md`, and any README summary text if the public availability claim should move with the implementation
+- keep the JSON envelope-only contract aligned with the eventual audit payload shape if/when the command is formally promoted

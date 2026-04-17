@@ -200,12 +200,8 @@ fn main() {
                 std::process::exit(exit_code);
             }
         }
-        Commands::PackageAudit { target, preview } => {
-            if let Err(exit_code) = if preview {
-                package_audit_preview_command(target, &output)
-            } else {
-                unavailable_registry_analysis_command("package-audit", target, &output)
-            } {
+        Commands::PackageAudit { target, preview: _preview } => {
+            if let Err(exit_code) = package_audit_preview_command(target, &output) {
                 std::process::exit(exit_code);
             }
         }
@@ -2234,7 +2230,7 @@ fn package_audit_preview_command(target: String, output: &CliOutputOptions) -> R
     };
 
     let summary = format!(
-        "Preview audit scaffold for {} package '{}'; no security findings are computed yet.",
+        "Package audit scaffold for {} package '{}'; no security findings are computed yet.",
         parsed.registry, parsed.report_label
     );
 
@@ -2257,17 +2253,6 @@ fn package_audit_preview_command(target: String, output: &CliOutputOptions) -> R
     Ok(())
 }
 
-fn unavailable_registry_analysis_command(
-    command: &str,
-    _target: String,
-    output: &CliOutputOptions,
-) -> Result<(), i32> {
-    let diagnostic = Diagnostic::error(
-        e5::FEATURE_UNAVAILABLE as u32,
-        format!("`kali {}` is unavailable in this phase", command),
-    );
-    emit_diagnostics_and_exit(command, vec![diagnostic], 1, output, None, None)
-}
 
 fn install_command(
     target: Option<String>,

@@ -2,6 +2,9 @@
 
 ## Completed
 
+### Stage 4.1 - Package-audit availability
+- ✅ `kali package-audit` now runs without requiring `--preview`; the preview flag remains accepted as a no-op compatibility shim.
+
 ### Stage 1.3 - Parser & AST
 - ✅ Parser compiles successfully
 - ✅ `cargo test -p kali_parser --lib` passes

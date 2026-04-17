@@ -1999,16 +1999,23 @@ fn check_with_sandbox_rejects_inferred_effects() {
 }
 
 #[test]
-fn package_audit_command_is_phase_gated() {
+fn package_audit_command_emits_envelope() {
     let output = Command::new(kali_bin())
         .arg("package-audit")
         .arg("lodash")
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Package audit scaffold"),
+        "stdout: {stdout}"
+    );
 }
 
 #[test]
@@ -2035,7 +2042,7 @@ fn package_audit_preview_mode_emits_envelope() {
     assert!(json["stdout"]
         .as_str()
         .expect("stdout string")
-        .contains("Preview audit scaffold"));
+        .contains("Package audit scaffold"));
 }
 
 #[test]
@@ -2053,8 +2060,5 @@ fn package_audit_preview_mode_emits_text_summary() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("Preview audit scaffold"),
-        "stdout: {stdout}"
-    );
+    assert!(stdout.contains("Package audit scaffold"), "stdout: {stdout}");
 }

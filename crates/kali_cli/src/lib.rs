@@ -302,7 +302,7 @@ pub enum Commands {
     PackageAudit {
         /// Registry package target to audit
         target: String,
-        /// Enable the opt-in preview implementation
+        /// Compatibility shim for the staged audit scaffold
         #[arg(long)]
         preview: bool,
     },

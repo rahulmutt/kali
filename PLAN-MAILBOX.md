@@ -92,3 +92,11 @@ Suggested follow-up:
 - keep the Stage 3.2 plan/status notes aligned with this package-host-fit split
 - continue wiring the remaining CLI/runtime `--api node` paths so this install-time allowance becomes part of a real Node compatibility command context
 - no spec change was needed for this increment
+
+## 2026-04-17 — Stage 4.1 package-audit availability progress
+
+`kali package-audit` now runs from the default command path instead of requiring `--preview`, while preserving the existing scaffold output and keeping the preview flag as a compatibility shim.
+
+Suggested follow-up:
+- keep the Stage 4.1 plan note in sync with any eventual spec/maturity promotion for package-audit
+- finish the remaining Stage 4.1 dynamic-compatibility work (`eval` / `Function()` and non-literal `import()`) separately
