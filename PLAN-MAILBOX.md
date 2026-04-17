@@ -1,3 +1,11 @@
+## 2026-04-17 — Stage 4.2 heap-positive summary sync
+
+I synced the Stage 4.2 status tracker so the published progress summary now names `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` explicitly alongside the other RC snapshot slice theorems.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md` so the progress summary now names the final-heap positive-count theorem explicitly
+- kept the broader Stage 4.2 ownership/freeing target narrow; this is still a helper-level collection theorem, not the full RC target
+
 ## 2026-04-17 — Stage 4.2 target-cell retention follow-up
 
 I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndCollectKeepsTargetCellWhenPositiveCount`, which makes the local collection helper's released-target retention behavior explicit when the decremented count remains positive.
