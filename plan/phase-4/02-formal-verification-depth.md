@@ -23,7 +23,7 @@ in `proofs/BOUNDARY.md`, and enable **proof-backed** release/support claims.
 - Release notes and documentation may cite formal verification for the published boundary.
 
 Current progress note:
-- the published boundary already includes the live-reference ownership/allocation projection theorem (`KaliCore.Safety.liveRefsAreOwnedAndAllocated`) alongside `noDanglingReference`, `releasePreservesWellFormed`, `releaseRecorded`, `releasedNotLive`, and `releasedNotLiveRef`, and now also the local zero-count collection helper on the decrement path plus the helper-level ownership/allocation preservation corollaries (`KaliCore.Safety.releaseAndDecrementLiveRefsAreOwnedAndAllocated` and `KaliCore.Safety.releaseAndCollectLiveRefsAreOwnedAndAllocated`) on the decrement and collection paths, together with the local positive-count filter characterisation theorem for `releaseAndCollect`, the new theorem that the local collection helper's final heap contains only positive-count cells, so the remaining Stage 4.2 memory work is explicitly down to the broader ownership / RC target rather than the earlier snapshot-ownership gap.
+- the published boundary already includes the live-reference ownership/allocation projection theorem (`KaliCore.Safety.liveRefsAreOwnedAndAllocated`) alongside `noDanglingReference`, `releasePreservesWellFormed`, `releaseRecorded`, `releasedNotLive`, and `releasedNotLiveRef`, and now also the local zero-count collection helper on the decrement path plus the helper-level ownership/allocation preservation corollaries (`KaliCore.Safety.releaseAndDecrementLiveRefsAreOwnedAndAllocated` and `KaliCore.Safety.releaseAndCollectLiveRefsAreOwnedAndAllocated`) on the decrement and collection paths, together with the local positive-count filter characterisation theorem for `releaseAndCollect`, the new theorem that the local collection helper's final heap contains only positive-count cells, and the new theorem that original zero-count cells are dropped from the final heap, so the remaining Stage 4.2 memory work is explicitly down to the broader ownership / RC target rather than the earlier snapshot-ownership gap.
 
 ## Tasks
 
@@ -49,7 +49,8 @@ Model the ownership / reference-counting memory model from Phase 2:
   well-formed snapshots keep live references anchored in ownership and allocation, that
   releasing a live reference preserves the remaining well-formed live set, that
   released references remain outside the live-reference set, and that the local zero-count
-  collection helper removes the freed decrement target.
+  collection helper removes the freed decrement target and drops original zero-count cells from the
+  final heap.
 - Prove that the RC decrement path correctly frees all reachable objects (no leaks within the
   modelled subset).
 
