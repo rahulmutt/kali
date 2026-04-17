@@ -15,6 +15,7 @@ Stage 3.3 now has a concrete `package-audit --preview` path instead of an uncond
 - browser bundle builds now emit deterministic source-map companions and basic source-map JSON ✅
 - browser bundle builds now also support `--format cjs` with a `.cjs` wrapper and `.cjs.map` source map ✅
 - browser bundle builds now emit deterministic chunk artifacts for literal dynamic import boundaries ✅
+- Phase-3 cross-module inference smoke coverage now exercises a multi-file import chain with inferred public API types under the solver budget ✅
 - package corpus evidence now covers browser-safe packages (`react`, `preact`, `vue`), utility packages (`ramda`, `rxjs`, `immer`, `uuid`, `typescript`, `esbuild`), and Node-runner packages (`vitest`, `jest`) at their documented rungs ✅
 - `cargo test --workspace` passes ✅
 
@@ -30,4 +31,4 @@ Stage 3.3 now has a concrete `package-audit --preview` path instead of an uncond
 
 ## Next Step
 
-Broaden the Phase-3 breadth work beyond the audit scaffold by deepening tree-shaking and the cross-module inference tasks, then widen the package corpus further where additional real-world package shapes are still missing.
+Broaden the Phase-3 breadth work beyond the audit scaffold by deepening tree-shaking, then widen the package corpus further where additional real-world package shapes are still missing.

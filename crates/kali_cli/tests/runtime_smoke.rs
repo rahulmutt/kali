@@ -1620,6 +1620,71 @@ console.log(1);
 }
 
 #[test]
+fn node_cross_module_inference_stays_within_the_phase_3_budget() {
+    let dir = tempdir().expect("tempdir");
+    let math_path = dir.path().join("math.ts");
+    let helper_path = dir.path().join("helper.ts");
+    let source_path = dir.path().join("main.ts");
+
+    fs::write(
+        &math_path,
+        r#"export function double(value) {
+    return value + value;
+}
+"#,
+    )
+    .expect("write math module");
+    fs::write(
+        &helper_path,
+        r#"import { double } from './math.ts';
+
+export function quadruple(value) {
+    return double(double(value));
+}
+"#,
+    )
+    .expect("write helper module");
+    fs::write(
+        &source_path,
+        r#"import { quadruple } from './helper.ts';
+
+console.log(quadruple(21));
+"#,
+    )
+    .expect("write source");
+
+    let check = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali check");
+
+    assert!(
+        check.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali build");
+
+    assert!(
+        build.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    assert!(source_path.with_file_name("main.wasm").exists());
+}
+
+#[test]
 fn build_rejects_explicit_browser_library_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("lib.ts");
