@@ -60,4 +60,11 @@ theorem releasedNotLive (snapshot : RcSnapshot) :
   intro ref href hlive
   exact hlive.2.2 href
 
+/-- Well-formed snapshots keep the live and released reference sets disjoint. -/
+theorem releasedNotLiveRef (snapshot : RcSnapshot) (h : WellFormed snapshot) :
+    ∀ ref, ref ∈ snapshot.releasedRefs → ref ∉ snapshot.liveRefs := by
+  intro ref href hlive
+  have hliveAnnotated : liveAnnotated snapshot ref := h ref hlive
+  exact hliveAnnotated.2.2 href
+
 end KaliCore

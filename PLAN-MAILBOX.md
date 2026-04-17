@@ -237,3 +237,11 @@ Added `NodePath::relative` / `relative_path` to the pure-Rust Node compatibility
 Suggested follow-up:
 - keep broadening the Node helper surface one concrete API at a time so the runtime linker and pure helper layer stay aligned
 - if later Node compatibility work needs more path semantics, widen the documented helper surface together with the runtime-linker projection and the stage status note
+
+## 2026-04-17 — Stage 4.2 RC disjointness follow-up
+
+I widened the Stage 4.2 RC snapshot safety slice by adding `releasedNotLiveRef`, which makes the live/reference and released/reference sets explicitly disjoint for well-formed snapshots. `proofs/BOUNDARY.md`, the Stage 4.2 status note, and the TODO progress tracker now mention that extra theorem alongside the existing `noDanglingReference` and `releasedNotLive` story.
+
+Suggested follow-up:
+- keep widening the memory model toward the full ownership / RC target when the next proof step is ready
+- if the boundary widens again, sync `proofs/BOUNDARY.md`, the Stage 4.2 status note, and any release-facing summaries together
