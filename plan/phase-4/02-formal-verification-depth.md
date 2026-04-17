@@ -132,8 +132,8 @@ proof-ready canonical summary with the proof-backed boundary statement, quoting 
 
 ## Definition of Done
 
-- [ ] `proofs/BOUNDARY.md` is non-empty and names the modelled subsystems.
-- [ ] Lean proofs compile and pass: type soundness, memory safety, lowering correctness.
-- [ ] CI proof job runs and blocks on proof failures.
-- [ ] README and maturity matrix updated with proof-backed claims for the published boundary.
-- [ ] All Phase-1 through Phase-4.1 tests continue to pass.
+- [x] `proofs/BOUNDARY.md` is non-empty and names the modelled subsystems.
+- [x] Lean proofs compile and pass: type soundness, memory safety, lowering correctness.
+- [x] CI proof job runs and blocks on proof failures.
+- [x] README and maturity matrix updated with proof-backed claims for the published boundary.
+- [x] All Phase-1 through Phase-4.1 tests continue to pass.
