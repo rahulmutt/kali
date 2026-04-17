@@ -1,5 +1,13 @@
 # PLAN Mailbox
 
+## 2026-04-17 — Browser-bundle dynamic-import concatenation follow-up
+
+Extended browser-bundle chunk discovery so `import("./" + "lazy.ts")`-style statically resolvable concatenations are now treated like other linked chunk targets during artifact emission. This keeps the browser-bundle chunk graph a little closer to the already-linked module set without changing the later runtime `eval` / dynamic-import compatibility story.
+
+Suggested follow-up:
+- if the bundle contract docs should call out concatenation-based static resolution explicitly, sync the CLI/schema wording rather than leaving the behavior undocumented
+- keep the later true runtime dynamic-import compatibility work separate from this build-time chunk-discovery refinement
+
 ## 2026-04-17 — Node runtime stdout/stderr projection follow-up
 
 Added `kali:node` host-import coverage for `process_stdout_write` and `process_stderr_write` in the runtime linker, so the Node compatibility path can now bridge guest writes into the captured runtime output stream as well as the existing argv/env helpers.

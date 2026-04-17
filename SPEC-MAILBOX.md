@@ -1,5 +1,13 @@
 # SPEC Mailbox
 
+## 2026-04-17 — Browser-bundle dynamic-import concatenation follow-up
+
+Browser-bundle chunk discovery now recognizes simple statically-resolved `import(...)` string-concatenation targets in addition to direct string literals. That broadens the build-time chunk graph a little further while still staying within the already-linked module set.
+
+Suggested follow-up:
+- decide whether `specs/08-wasm-codegen.md` / `specs/12-cli.md` / `specs/18-schemas.md` should explicitly mention concatenation-based static resolution, or whether this stays an implementation detail for now
+- keep the later runtime `eval` / non-literal import compatibility wording separate from this build-time chunk-discovery refinement
+
 ## 2026-04-17 — Stage 3.3 browser-bundle source-map / format docs sync
 
 Updated the browser-bundle contract docs to match the implemented wrapper/source-map output: `kali build --bundle` now documents the `--format esm|cjs` selector, the browser-bundle artifact tables now include the `source-map` companion, and the schema notes call out the `bundleFormat` field in JSON output.
