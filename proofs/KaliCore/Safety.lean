@@ -240,6 +240,22 @@ theorem releaseAndCollectHeapCellsHavePositiveCount (snapshot : RcSnapshot) (ref
   have hdec : decide (cell.refCount > 0) = true := (List.mem_filter.mp hfilter).2
   exact of_decide_eq_true hdec
 
+/-- Every surviving release-and-collect heap cell comes from the original heap, with only the released target decremented. -/
+theorem releaseAndCollectHeapCellOrigin (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap →
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        (cell = { cell0 with refCount := cell0.refCount - 1 } ∨ cell = cell0) := by
+  intro cell hmem
+  have hfilter : cell ∈ (releaseAndDecrement snapshot ref).heap.filter (fun cell => cell.refCount > 0) := by
+    simpa [releaseAndCollect] using hmem
+  rcases List.mem_filter.mp hfilter with ⟨hdecr, _⟩
+  rcases List.mem_map.mp hdecr with ⟨cell0, hmem0, hcell⟩
+  by_cases hname : cell0.name = ref
+  · refine ⟨cell0, hmem0, Or.inl ?_⟩
+    simpa [releaseAndDecrement, hname] using hcell.symm
+  · refine ⟨cell0, hmem0, Or.inr ?_⟩
+    simpa [releaseAndDecrement, hname] using hcell.symm
+
 /-- A release-and-collect step preserves the well-formedness of the remaining
 live set because zero-count cells are collected after the decrement pass. -/
 theorem releaseAndCollectPreservesWellFormed (snapshot : RcSnapshot) (ref : String)
