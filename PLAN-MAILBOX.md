@@ -229,3 +229,11 @@ I synced the Stage 4.2 progress trackers so `KaliCore.Safety.releaseAndCollectKe
 Completed follow-up:
 - updated `PLAN-4.2-STATUS.md` and `TODO.md` so the current Stage 4.2 progress note explicitly names the target-cell retention theorem
 - kept the broader Stage 4.2 ownership/freeing target incremental; this remains a local helper-level retention theorem
+
+## 2026-04-17 — Stage 3.1 closure-layout specialization follow-up
+
+I widened the Stage 3.1 optimizer's MIR-aware specialization path so shared closure-valued bindings now collapse to one specialized clone when multiple higher-order call sites share the same MIR layout signature.
+
+Completed follow-up:
+- updated `PLAN-3.1-STATUS.md` and `TODO.md` so the progress trackers now name the shared closure-layout specialization behavior explicitly
+- kept the broader generic-instantiation and cross-module planner work as the remaining Stage 3.1 follow-up; this is still a layout-signature sharing step, not the full planner
