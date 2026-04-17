@@ -1,5 +1,13 @@
 # SPEC Mailbox
 
+## 2026-04-17 — Stage 3.3 browser-bundle source-map / format docs sync
+
+Updated the browser-bundle contract docs to match the implemented wrapper/source-map output: `kali build --bundle` now documents the `--format esm|cjs` selector, the browser-bundle artifact tables now include the `source-map` companion, and the schema notes call out the `bundleFormat` field in JSON output.
+
+Suggested follow-up:
+- keep the browser-bundle artifact examples, CLI flag tables, and schema notes aligned if the wrapper/output shape changes again
+- do not widen the Phase-1 browser-targeted availability row unless the support rung itself changes
+
 ## 2026-04-17 — Stage 3.3 browser-bundle source-map companion output
 
 Implemented browser-bundle source-map companion emission so `kali build --bundle` now writes a deterministic `.js.map` file alongside the generated JS glue and adds a `sourceMappingURL` footer. The browser bundle JSON artifact list now also includes a `source-map` artifact entry.

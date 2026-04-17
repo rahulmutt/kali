@@ -320,7 +320,8 @@ Interpretation rules:
 - `role` exists so tools do not have to infer semantic intent from filenames alone when multiple artifact modes reuse the same `kind`
 - schema-v1 reserves these `kind` / `role` names for stable machine readability even when the owning command/artifact flow is still phase-gated; read actual availability from [19 — Feature Maturity](19-feature-maturity.md) rather than inferring it from the presence of a schema value alone
 - within one emitted artifact list, `primary-executable`, `primary-library`, and `primary-component` are each unique roles: at most one artifact may carry each of those roles
-- browser-bundle outputs therefore normally contain one `primary-executable` core `wasm-module` plus one `browser-glue` JS companion, rather than two competing "primary" artifacts of the same executable flow
+- browser-bundle outputs therefore normally contain one `primary-executable` core `wasm-module` plus one `browser-glue` JS companion and one `source-map` debug companion, rather than two competing "primary" artifacts of the same executable flow
+- browser-bundle JSON envelopes may also surface a `bundleFormat` field so tools can distinguish the `esm` and `cjs` wrapper variants without inferring that detail from filenames alone
 - in component-oriented outputs, the wrapped core `wasm-module` normally keeps role `primary-library` while the outer `wasm-component` carries role `primary-component`; this avoids making tools guess which artifact is the deployable wrapper versus the linked core payload
 - adding a new stable `role` value is a schema-contract change and should get the same review discipline as new artifact `kind` values
 
@@ -846,7 +847,7 @@ Canonical schema-v1 `kind` values:
 - `source-map`
 
 Interpretation rule:
-- `source-map` is a valid artifact kind when debug/source-map output is emitted, but ordinary Phase 1 builds do not need to produce source maps by default
+- `source-map` is a valid artifact kind when debug/source-map output is emitted, and browser bundles may emit that companion artifact even when the bundle wrapper itself is the main product; ordinary Phase 1 builds do not need to produce source maps by default
 - when a command emits artifact metadata, it should include `role` whenever that makes the artifact mode clearer (for example distinguishing the default executable `wasm-module` from a `--lib` `wasm-module`)
 
 Simplification rule:

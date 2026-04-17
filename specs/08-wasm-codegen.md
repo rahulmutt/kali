@@ -129,7 +129,7 @@ Artifact-mode selection itself is owned by the canonical matrix in [SPEC.md](../
 
 Shared artifact-shape rules:
 - omitting `--bundle`, `--lib`, `--capi`, and `--component` yields the default executable artifact: one `wasm-module` with role `primary-executable`
-- `--bundle` under an effective `apiSurface` of `browser` keeps executable compile intent and adds browser JS glue (`kind: js-glue`, `role: browser-glue`) beside that same executable core module
+- `--bundle` under an effective `apiSurface` of `browser` keeps executable compile intent and adds browser JS glue (`kind: js-glue`, `role: browser-glue`) plus a matching source-map companion (`kind: source-map`, `role: debug-source-map`) beside that same executable core module; the browser-bundle wrapper format is selected separately by `--format esm|cjs`
 - that browser-bundle artifact shape is selected by the fully merged effective context, so explicit `--api browser` and equivalent inherited-config browser forms emit the same artifact set
 - when summarizing whether that browser-bundle path is actually supported, prefer the resulting **availability context** term from [SPEC.md](../SPEC.md) rather than re-expanding the raw merged axes in prose
 - `--lib`, `--capi`, and `--component` are the library-oriented artifact modes: they all reuse the same **statically known export surface** and the shared **library-oriented instantiation rule** from [SPEC.md](../SPEC.md)
@@ -143,7 +143,7 @@ Illustrative artifact sets by valid build mode *(reading aid only; filenames are
 | Valid build mode | Earliest phase | Illustrative emitted artifacts |
 |---|---|---|
 | default executable build (`kali build foo.ts`) | Phase 1 MVP | `foo.wasm` (`kind: wasm-module`, `role: primary-executable`) |
-| browser bundle (`kali build --bundle foo.ts` when the effective `apiSurface` is `browser`) | Phase 1 MVP | `foo.wasm` (`kind: wasm-module`, `role: primary-executable`) + `foo.js` (`kind: js-glue`, `role: browser-glue`) |
+| browser bundle (`kali build --bundle foo.ts` when the effective `apiSurface` is `browser`) | Phase 1 MVP | `foo.wasm` (`kind: wasm-module`, `role: primary-executable`) + `foo.js` (`kind: js-glue`, `role: browser-glue`) + `foo.js.map` (`kind: source-map`, `role: debug-source-map`); `--format cjs` swaps the JS wrapper to `foo.cjs` and the map to `foo.cjs.map` |
 | base library artifact (`kali build --lib lib.ts`) | Phase 1 MVP | Phase 1: basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) as the **base library artifact** for **exact-version consumers** only. From the Phase 2 target onward, add basename-derived `lib.wit` (`kind: wit`, `role: interface-wit`) by default once the public library/WIT contract is stable. |
 | C-ABI embedding build (`kali build --capi lib.ts`) | Phase 2 target | Basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) + `lib.wit` (`kind: wit`, `role: interface-wit`) + generated `lib.exports.h` (`kind: c-header`, `role: embedding-header`) + generated `lib.cabi.json` (`kind: cabi-metadata`, `role: embedding-metadata`). The generated exports header is distinct from the stable host ABI header `kali.h`. |
 | Component Model build (`kali build --component lib.ts`) | Phase 2 target | Basename-derived `lib.wasm` (`kind: wasm-module`, `role: primary-library`) + `lib.wit` (`kind: wit`, `role: interface-wit`) + `lib.component.wasm` (`kind: wasm-component`, `role: primary-component`) |
@@ -156,7 +156,7 @@ Availability reminder:
 
 ## Source Maps
 
-When debug/source-map output is requested, Kali may emit WASM source maps (DWARF-based) mapping WASM offsets back to TypeScript/JavaScript source positions for debugging. Artifact metadata exposed through the CLI JSON envelope should describe source maps using the shared artifact schema in [specs/18-schemas.md](18-schemas.md).
+When debug/source-map output is requested, Kali may emit WASM source maps (DWARF-based) mapping WASM offsets back to TypeScript/JavaScript source positions for debugging. Browser bundles also carry a source-map companion in the browser bundle output set, and artifact metadata exposed through the CLI JSON envelope should describe source maps using the shared artifact schema in [specs/18-schemas.md](18-schemas.md).
 
 Clarification:
 - source maps are optional companion debug artifacts, not part of the minimal Phase 1 default artifact contract

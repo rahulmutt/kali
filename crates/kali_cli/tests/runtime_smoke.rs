@@ -731,6 +731,8 @@ fn build_emits_browser_bundle_cjs_artifacts() {
         .arg("cjs")
         .arg("--api")
         .arg("browser")
+        .arg("--output")
+        .arg("json")
         .arg(&source_path)
         .output()
         .expect("run kali");
@@ -776,11 +778,19 @@ fn build_emits_browser_bundle_cjs_artifacts() {
     assert_eq!(metadata["artifactKind"], "bundle");
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert!(
-        String::from_utf8_lossy(&output.stdout).contains("Built browser bundle (cjs)"),
-        "stdout: {}",
-        String::from_utf8_lossy(&output.stdout)
-    );
+    let envelope = parse_json_stdout(&output);
+    let payload = envelope["payload"].as_object().expect("build payload object");
+    assert_eq!(payload["artifactKind"], "bundle");
+    assert_eq!(payload["bundleFormat"], "cjs");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
 }
 
 #[test]

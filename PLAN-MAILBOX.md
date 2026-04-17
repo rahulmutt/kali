@@ -1,5 +1,13 @@
 # PLAN Mailbox
 
+## 2026-04-17 — Stage 3.3 browser-bundle wrapper/source-map progress note
+
+Updated the Stage 3.3 status note to reflect that browser-bundle output now ships with a deterministic source-map companion and explicit `--format esm|cjs` wrapper selection, and that the JSON output records the selected wrapper format and full artifact list.
+
+Suggested follow-up:
+- keep the Stage 3.3 status note in sync with any future browser-bundle output-shape changes
+- broaden the remaining Stage 3.3 breadth tasks (code-splitting, tree-shaking, package corpus, and cross-module inference) separately from this wrapper/source-map scaffold
+
 ## 2026-04-12 — Stage 1.14 configless-install wording aligned to SPEC
 
 `plan/phase-1/14-evidence-hardening.md` previously described `kali install` on a project with no `kali.json` as a clear error, but `specs/14-packages.md` defines the configless-install split as a clean no-op success that must not create a placeholder manifest. The stage note has been updated to match the spec-correct behavior.

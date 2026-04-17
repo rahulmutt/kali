@@ -152,6 +152,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | Flag | Scope | Description |
 |------|-------|-------------|
 | `--bundle` | `build` | In Phase 1, selects the browser-targeted artifact path and therefore requires the **effective** `apiSurface` to be `browser` (from CLI or config); it is not a generic "multi-artifact output" switch, and any future extension must be specified explicitly |
+| `--format <esm/cjs>` | `build --bundle` | Select the browser-bundle wrapper format. `esm` remains the default; `cjs` emits a CommonJS-flavored wrapper plus a matching `.cjs.map` source map. This selector is only meaningful when `--bundle` is selected |
 | `--lib` | `build`, `init` | For `build`: select the library-oriented artifact mode. In Phase 1 this is the **base library artifact** path, and from the Phase 2 target onward the same selector becomes the stable public **WIT-first** library contract. For `init`: scaffold a library-oriented project template only |
 | `--capi` | `build` | Select the later public C-embedding artifact flow over the same exported-library contract; once that Phase-2 flow exists, it emits `wasm-module` + `wit` + `c-header` + `cabi-metadata` |
 | `--component` | `build` | Select the later Component Model packaging flow over the same exported-library contract; once that Phase-2 flow exists, it emits the linked library core plus the outer `wasm-component` wrapper |
@@ -282,7 +283,7 @@ Artifact-mode quick summary:
 | Selector | Compile intent | Earliest phase | Early-phase meaning |
 |---|---|---|---|
 | *(default)* | executable | Phase 1 MVP | one linked executable-oriented WASM artifact |
-| `--bundle` | executable | Phase 1 MVP | browser-targeted bundle path only, and only when the effective `apiSurface` is `browser` |
+| `--bundle` | executable | Phase 1 MVP | browser-targeted bundle path only, and only when the effective `apiSurface` is `browser`; `esm` is the default wrapper format and `cjs` is the optional CommonJS wrapper, both with a source-map companion |
 | `--lib` | library | Phase 1 MVP | Phase-1 **base library artifact** only, and only when Kali can determine a **statically known export surface**; stable public **WIT-first** library contract is later |
 | `--capi` | library | Phase 2 target | public embedding artifact flow over the same **statically known export surface** |
 | `--component` | library | Phase 2 target | Component Model packaging over the same **statically known export surface** |
@@ -298,6 +299,7 @@ Canonical artifact-mode rule:
 - omitting `--bundle`, `--lib`, `--capi`, and `--component` selects the default executable artifact mode and therefore the default **executable compile intent**
 - `--bundle`, `--lib`, `--capi`, and `--component` are mutually exclusive artifact-mode selectors unless a later spec explicitly defines one as an implication of another
 - `--bundle` preserves executable compile intent while changing the host adapter/output contract to the browser-targeted bundle path
+- browser bundles emit a source-map companion, and `--format` only applies to that browser-bundle path (`esm` by default, `cjs` for CommonJS interoperability)
 - explicit `--api ...` and inherited `compilerOptions.apiSurface = ...` are equivalent here too: plain `kali build main.ts`, `kali build --sandbox kali.policy.json main.ts`, `kali build --lib lib.ts`, `kali build --capi lib.ts`, and `kali build --component lib.ts` must validate against the same effective API surface as their explicit `--api ...` forms rather than silently falling back
 - for the browser bundle shortcut specifically, the plain spelling `kali build --bundle main.ts` has two canonical outcomes owned by [19 — Feature Maturity](19-feature-maturity.md) — under any effective API surface other than `browser` it is `E5008`, while under an inherited browser API surface it is the supported browser-bundle shortcut
 - `--lib`, `--capi`, and `--component` switch the build to library compile intent
@@ -322,7 +324,8 @@ Sandbox clarification:
 kali build main.ts                         # → main.wasm (--fast mode, default; artifact: kind=wasm-module, role=primary-executable)
 kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
-kali build --bundle --api browser main.ts  # main.wasm + main.js (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue)
+kali build --bundle --api browser main.ts  # main.wasm + main.js + main.js.map (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue; main.js.map kind=source-map role=debug-source-map)
+kali build --bundle --format cjs --api browser main.ts  # main.wasm + main.cjs + main.cjs.map (CommonJS wrapper; artifacts: main.wasm kind=wasm-module role=primary-executable; main.cjs kind=js-glue role=browser-glue; main.cjs.map kind=source-map role=debug-source-map)
 kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
 kali build --api browser main.ts           # Invalid usage (E5008) in early phases; the shared **Phase-1 browser-targeted command set** keeps browser builds on the explicit `--bundle` path
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early for builds either
