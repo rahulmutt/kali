@@ -129,3 +129,11 @@ I widened the current RC snapshot proof slice with release-set monotonicity coro
 
 Suggested follow-up:
 - keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level monotonicity slice, not the full RC target
+
+## 2026-04-17 — Stage 4.2 live-reference filtering follow-up
+
+I widened the proof-backed RC snapshot slice with exact live-reference filtering theorems for the release-only, decrement, and collection helpers (`KaliCore.Safety.releaseRefLiveRefsFiltered`, `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered`, and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered`).
+
+Suggested follow-up:
+- keep the published proof boundary / verification summary docs aligned with the theorem inventory if the live-reference model widens again
+- keep the broader Stage 4.2 ownership/freeing target incremental; these are helper-level shape theorems, not the full RC story

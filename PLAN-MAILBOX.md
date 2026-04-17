@@ -157,3 +157,11 @@ I synced the Stage 4.2 progress trackers after widening the RC snapshot proof sl
 
 Suggested follow-up:
 - keep the broader Stage 4.2 memory-safety widening incremental; this is still a helper-level release-set monotonicity slice, not the full ownership/freeing target
+
+## 2026-04-17 — Stage 4.2 live-reference filtering sync
+
+I synced the Stage 4.2 proof-progress notes after adding exact live-reference filtering theorems for the release-only, decrement, and collection helpers.
+
+Suggested follow-up:
+- keep the proof boundary / progress notes aligned if the live-reference slice widens again
+- keep the broader Stage 4.2 ownership/freeing story incremental; these are helper-level shape theorems, not the full RC story

@@ -35,6 +35,12 @@ def releaseRef (snapshot : RcSnapshot) (ref : String) : RcSnapshot :=
     releasedRefs := ref :: snapshot.releasedRefs
   }
 
+/-- The release-only helper's live-reference list is exactly the target-filtered
+original live set. -/
+theorem releaseRefLiveRefsFiltered (snapshot : RcSnapshot) (ref : String) :
+    (releaseRef snapshot ref).liveRefs = snapshot.liveRefs.filter (fun r => decide (r ≠ ref)) := by
+  rfl
+
 /-- Release a live reference while also decrementing the targeted heap cell's
 reference count. This models the current local RC update slice without yet
 claiming the fuller freeing story. -/
@@ -46,6 +52,12 @@ def releaseAndDecrement (snapshot : RcSnapshot) (ref : String) : RcSnapshot :=
       if cell.name = ref then { cell with refCount := cell.refCount - 1 } else cell)
   }
 
+/-- The decrement helper's live-reference list is exactly the target-filtered
+original live set. -/
+theorem releaseAndDecrementLiveRefsFiltered (snapshot : RcSnapshot) (ref : String) :
+    (releaseAndDecrement snapshot ref).liveRefs = snapshot.liveRefs.filter (fun r => decide (r ≠ ref)) := by
+  rfl
+
 /-- Release a live reference, decrement its target cell, and collect any zero-count
 heap cells. This adds the local freeing step that the later Stage 4.2 memory
 story will eventually widen further. -/
@@ -54,6 +66,12 @@ def releaseAndCollect (snapshot : RcSnapshot) (ref : String) : RcSnapshot :=
   { decremented with
     heap := decremented.heap.filter (fun cell => cell.refCount > 0)
   }
+
+/-- The local collection helper's live-reference list is still exactly the target-filtered
+original live set. -/
+theorem releaseAndCollectLiveRefsFiltered (snapshot : RcSnapshot) (ref : String) :
+    (releaseAndCollect snapshot ref).liveRefs = snapshot.liveRefs.filter (fun r => decide (r ≠ ref)) := by
+  rfl
 
 /-- Release-only, decrement, and collection helpers leave the ownership map untouched. -/
 theorem releaseRefPreservesOwnership (snapshot : RcSnapshot) (ref : String) :
