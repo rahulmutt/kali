@@ -186,8 +186,8 @@ Completed follow-up:
 
 ## 2026-04-17 — Stage 4.2 heap-positive testing-summary sync
 
-I noticed `specs/16-testing.md` still lagged the latest proof-boundary inventory wording in its verification-posture summary, even though the main verification/spec docs already name `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` and `KaliCore.Safety.releaseAndCollectKeepsTargetCellWhenPositiveCount` explicitly.
+I tightened `specs/16-testing.md` so the repository-state note and proof-backed-claims guidance now explicitly name the latest RC snapshot theorem inventory, including the zero-count collection/removal and positive-count/target-cell helper theorems.
 
-Suggested follow-up:
-- sync `specs/16-testing.md` so the current repository-state note and proof-backed-claims guidance name the latest RC snapshot theorem inventory explicitly
-- keep the claim narrow; this is still a summary-doc wording pass, not a boundary widening
+Completed follow-up:
+- updated `specs/16-testing.md` to keep the verification summary aligned with the published boundary inventory
+- kept the claim narrow; this is still a summary-doc wording pass, not a boundary widening
