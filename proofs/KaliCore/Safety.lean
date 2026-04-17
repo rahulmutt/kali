@@ -55,6 +55,19 @@ def releaseAndCollect (snapshot : RcSnapshot) (ref : String) : RcSnapshot :=
     heap := decremented.heap.filter (fun cell => cell.refCount > 0)
   }
 
+/-- Release-only, decrement, and collection helpers leave the ownership map untouched. -/
+theorem releaseRefPreservesOwnership (snapshot : RcSnapshot) (ref : String) :
+    (releaseRef snapshot ref).ownership = snapshot.ownership := by
+  rfl
+
+theorem releaseAndDecrementPreservesOwnership (snapshot : RcSnapshot) (ref : String) :
+    (releaseAndDecrement snapshot ref).ownership = snapshot.ownership := by
+  rfl
+
+theorem releaseAndCollectPreservesOwnership (snapshot : RcSnapshot) (ref : String) :
+    (releaseAndCollect snapshot ref).ownership = snapshot.ownership := by
+  rfl
+
 /-- A reference is owned when it has an explicit ownership annotation. -/
 def hasOwnership (ownership : OwnershipEnv) (ref : String) : Prop :=
   ∃ owner, (ref, owner) ∈ ownership

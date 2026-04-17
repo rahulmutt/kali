@@ -81,6 +81,9 @@
 - ✅ Browser bundle smoke coverage now exercises a normalized runtime specifier (`./sub/../lazy.ts`) against a discovered chunk target.
 - ✅ Browser bundle chunk discovery now folds const-bound static `import(...)` fragments before emitting the chunk graph, so `import((root + name))` can discover the same linked target as the literal concatenation cases.
 
+### Stage 4.2 - Ownership-envelope preservation follow-up
+- ✅ `KaliCore.Safety.releaseRefPreservesOwnership`, `KaliCore.Safety.releaseAndDecrementPreservesOwnership`, and `KaliCore.Safety.releaseAndCollectPreservesOwnership` now keep the ownership environment unchanged across the release-only, decrement, and collection helpers.
+
 ## Next Work
 - [x] Browser bundle source-map companions
   - `kali build --bundle` now emits a deterministic `.js.map` companion and appends the matching `sourceMappingURL` footer.

@@ -99,3 +99,11 @@ I widened the current proof-backed RC snapshot slice with pure release-helper co
 Suggested follow-up:
 - sync `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the proof-backed boundary inventory names the new release-helper theorems
 - keep the broader Stage 4.2 ownership/freeing target narrower than this helper-level slice
+
+## 2026-04-17 — Stage 4.2 ownership-envelope preservation follow-up
+
+I widened the RC snapshot proof slice with explicit ownership-envelope preservation theorems for the release-only, decrement, and collection helpers (`KaliCore.Safety.releaseRefPreservesOwnership`, `KaliCore.Safety.releaseAndDecrementPreservesOwnership`, and `KaliCore.Safety.releaseAndCollectPreservesOwnership`).
+
+Suggested follow-up:
+- sync `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the proof-backed boundary inventory names the new ownership-envelope preservation lemmas
+- keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level ownership-map slice, not the full ownership/freeing story
