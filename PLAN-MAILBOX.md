@@ -1,3 +1,14 @@
+## 2026-04-17 — Stage 3.3 browser-conditional exports follow-up
+
+I expanded the Stage 3.3 package corpus tests with browser-conditional exports coverage for the browser corpus, so the browser package shapes now exercise the `browser` branch alongside the existing import/require and mixed-format cases.
+
+Completed follow-up:
+- updated `PLAN-3.3-STATUS.md` and `TODO.md` so the progress trackers now call out browser-conditional-export coverage explicitly
+
+Suggested follow-up:
+- keep the stage progress notes aligned with the corpus tests whenever another representative shape is added
+- continue broadening the corpus as new package shapes are triaged
+
 ## 2026-04-17 — Stage 3.3 package-corpus expansion
 
 I expanded the Stage 3.3 package corpus tests with exports-map / subpath coverage for the browser, utility, and Node-runner cases, and then added dual-package / mixed-format coverage so the corpus now exercises conditional exports plus mixed CJS/ESM entrypoints instead of only single-entrypoint stubs.

@@ -184,6 +184,68 @@ fn write_mixed_format_package(
     .expect("write package subpath esm");
 }
 
+fn write_browser_condition_exports_package(
+    root: &Path,
+    name: &str,
+    root_browser_body: &str,
+    root_import_body: &str,
+    root_require_body: &str,
+    subpath: &str,
+    subpath_browser_body: &str,
+    subpath_import_body: &str,
+    subpath_require_body: &str,
+) {
+    let package_dir = root.join("node_modules").join(name);
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        format!(
+            r#"{{
+  "name": "{}",
+  "main": "./index.js",
+  "exports": {{
+    ".": {{
+      "browser": "./index.browser.js",
+      "import": "./index.import.js",
+      "require": "./index.require.cjs",
+      "default": "./index.import.js"
+    }},
+    "./{}": {{
+      "browser": "./{}.browser.js",
+      "import": "./{}.import.js",
+      "require": "./{}.require.cjs",
+      "default": "./{}.import.js"
+    }}
+  }}
+}}"#,
+            name, subpath, subpath, subpath, subpath, subpath
+        ),
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), root_browser_body).expect("write package root main");
+    fs::write(package_dir.join("index.browser.js"), root_browser_body)
+        .expect("write package root browser");
+    fs::write(package_dir.join("index.import.js"), root_import_body)
+        .expect("write package root import");
+    fs::write(package_dir.join("index.require.cjs"), root_require_body)
+        .expect("write package root require");
+    fs::write(
+        package_dir.join(format!("{}.browser.js", subpath)),
+        subpath_browser_body,
+    )
+    .expect("write package subpath browser");
+    fs::write(
+        package_dir.join(format!("{}.import.js", subpath)),
+        subpath_import_body,
+    )
+    .expect("write package subpath import");
+    fs::write(
+        package_dir.join(format!("{}.require.cjs", subpath)),
+        subpath_require_body,
+    )
+    .expect("write package subpath require");
+}
+
 fn run_kali<I, S>(root: &Path, args: I) -> std::process::Output
 where
     I: IntoIterator<Item = S>,
@@ -380,6 +442,89 @@ fn browser_corpus_packages_with_dual_exports_remain_checkable_and_deployable_thr
         assert!(
             build.status.success(),
             "browser dual package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
+fn browser_corpus_packages_with_browser_exports_remain_checkable_and_deployable_through_host() {
+    for (package, subpath) in [
+        ("react", "jsx-runtime"),
+        ("preact", "hooks"),
+        ("vue", "runtime-dom"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_condition_exports_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:browser'; }}\n",
+                package = package
+            ),
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function root() {{ return '{package}:import'; }}\n",
+                package = package
+            ),
+            &format!(
+                "const assert = require('node:assert');\nassert.ok(true);\nmodule.exports = function root() {{ return '{package}:require'; }};\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "export default function subpath() {{ return '{package}:{subpath}:browser'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function subpath() {{ return '{package}:{subpath}:import'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "const assert = require('node:assert');\nassert.ok(true);\nmodule.exports = function subpath() {{ return '{package}:{subpath}:require'; }};\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser conditional-exports package {package} should resolve its browser branch\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser conditional-exports package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&build.stdout),
             String::from_utf8_lossy(&build.stderr)
         );
