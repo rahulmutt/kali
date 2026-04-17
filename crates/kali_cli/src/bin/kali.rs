@@ -555,6 +555,7 @@ enum BuildResult {
         output_dir: PathBuf,
         wasm_path: PathBuf,
         js_path: PathBuf,
+        source_map_path: PathBuf,
         meta_path: PathBuf,
         wasm_bytes: Vec<u8>,
         metadata: build::ArtifactMetadata,
@@ -645,6 +646,7 @@ impl BuildResult {
                 output_dir,
                 wasm_path,
                 js_path,
+                source_map_path,
                 meta_path,
                 wasm_bytes,
                 metadata,
@@ -657,6 +659,7 @@ impl BuildResult {
                 "artifacts": [
                     { "kind": "wasm-module", "path": wasm_path },
                     { "kind": "js-glue", "path": js_path },
+                    { "kind": "source-map", "path": source_map_path },
                     { "kind": "meta-json", "path": meta_path },
                 ],
                 "exports": metadata.exports.clone().unwrap_or_default(),
@@ -1121,7 +1124,8 @@ fn build_browser_bundle_artifact(
         .append_to(&mut wasm_bytes);
     }
 
-    let (wasm_path, js_path, meta_path) = build::bundle_output_paths_for(&source, out_dir);
+    let (wasm_path, js_path, source_map_path, meta_path) =
+        build::bundle_output_paths_for(&source, out_dir);
     let output_dir = js_path
         .parent()
         .map(Path::to_path_buf)
@@ -1163,7 +1167,35 @@ fn build_browser_bundle_artifact(
             ),
         )]
     })?;
-    fs::write(&js_path, generate_browser_bundle_js(&wasm_path, &exports)).map_err(|error| {
+    let source_contents = fs::read_to_string(&source).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to read browser bundle source '{}': {}",
+                source.display(),
+                error
+            ),
+        )]
+    })?;
+    fs::write(
+        &source_map_path,
+        build::browser_bundle_source_map(&source, &js_path, &source_contents, &exports),
+    )
+    .map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write browser bundle source map '{}': {}",
+                source_map_path.display(),
+                error
+            ),
+        )]
+    })?;
+    fs::write(
+        &js_path,
+        generate_browser_bundle_js(&wasm_path, &source_map_path, &exports),
+    )
+    .map_err(|error| {
         vec![Diagnostic::error(
             e5::OUTPUT_ERROR as u32,
             format!(
@@ -1178,13 +1210,18 @@ fn build_browser_bundle_artifact(
         output_dir,
         wasm_path,
         js_path,
+        source_map_path,
         meta_path,
         wasm_bytes,
         metadata,
     })
 }
 
-fn generate_browser_bundle_js(wasm_path: &Path, exports: &[build::LibraryExport]) -> String {
+fn generate_browser_bundle_js(
+    wasm_path: &Path,
+    source_map_path: &Path,
+    exports: &[build::LibraryExport],
+) -> String {
     let wasm_file = wasm_path
         .file_name()
         .and_then(|name| name.to_str())
@@ -1225,6 +1262,11 @@ export async function load() {
             export.name, export.name
         ));
     }
+    let map_file = source_map_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("bundle.js.map");
+    content.push_str(&format!("//# sourceMappingURL={}\n", map_file));
     content
 }
 

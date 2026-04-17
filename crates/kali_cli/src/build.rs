@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use kali_ast::{ExportDefaultDeclaration, Statement};
 use kali_codegen::{lower_lir_to_wasm, CodegenCtx, TargetConfig};
 use kali_common::FileId;
-use kali_error::{Diagnostic, _error_codes::e5, _error_codes::e8};
+use kali_error::{_error_codes::e5, _error_codes::e8, Diagnostic};
 use kali_hir::HirLowerer;
 use kali_lexer::Lexer;
 use kali_lir::LirLowerer;
@@ -17,6 +17,7 @@ use kali_parser::Parser;
 use kali_sandbox::SandboxPolicy;
 use kali_types::TypeContext;
 use serde::Serialize;
+use serde_json::json;
 use wasm_encoder::{CustomSection, Section};
 
 use crate::{is_declaration_only_source_file, ApiSurface};
@@ -374,7 +375,7 @@ pub fn library_output_paths_for(
 pub fn bundle_output_paths_for(
     source_path: &Path,
     out_dir: Option<&Path>,
-) -> (PathBuf, PathBuf, PathBuf) {
+) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
     let stem = source_stem(source_path);
     let root = match out_dir {
         Some(dir) => dir.join(&stem),
@@ -383,6 +384,7 @@ pub fn bundle_output_paths_for(
     (
         root.join(format!("{}.wasm", stem)),
         root.join(format!("{}.js", stem)),
+        root.join(format!("{}.js.map", stem)),
         root.join(format!("{}.meta.json", stem)),
     )
 }
@@ -505,6 +507,35 @@ pub fn append_metadata_section(
     }
     .append_to(wasm_bytes);
     Ok(())
+}
+
+pub fn browser_bundle_source_map(
+    source_path: &Path,
+    js_path: &Path,
+    source_contents: &str,
+    exports: &[LibraryExport],
+) -> String {
+    let source_name = source_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("input.ts")
+        .to_string();
+    let js_name = js_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("bundle.js")
+        .to_string();
+    let names: Vec<String> = exports.iter().map(|export| export.name.clone()).collect();
+    json!({
+        "version": 3,
+        "file": js_name,
+        "sourceRoot": "",
+        "sources": [source_name],
+        "sourcesContent": [source_contents],
+        "names": names,
+        "mappings": "",
+    })
+    .to_string()
 }
 
 pub fn library_wit_for(module_name: &str, exports: &[LibraryExport]) -> String {

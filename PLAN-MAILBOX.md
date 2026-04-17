@@ -8,6 +8,14 @@
 
 Added a regression test in `crates/kali_npm` that installs the same raw-URL graph twice and asserts the resulting `kali.lock` bytes remain identical across both runs. This closes the most straightforward remaining install-workflow determinism gap in Stage 1.14 without changing the underlying install semantics.
 
+## 2026-04-17 — Stage 3.3 browser-bundle source-map companion output
+
+`kali build --bundle` now emits a deterministic `.js.map` companion and appends a `sourceMappingURL` footer to the generated browser bundle JS. The runtime smoke test now checks for the source-map file and validates its basic JSON shape.
+
+Suggested follow-up:
+- update the stage-3.3 status note to mention the browser-bundle debug artifact increment
+- if we decide to formalize the new output shape, sync the browser bundle artifact docs/schemas afterward
+
 ## 2026-04-17 — Stage 3.3 package-audit preview plumbing
 
 Implemented the Phase-3 opt-in `package-audit --preview` gate so the command now has a concrete preview-only execution path instead of failing unconditionally. The preview path currently emits the schema-v1 envelope with `payload: null` and a short summary string in both text and JSON modes while keeping the default, non-preview command gate unavailable in earlier phases.

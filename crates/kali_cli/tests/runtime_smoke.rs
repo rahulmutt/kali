@@ -680,9 +680,15 @@ fn build_emits_browser_bundle_artifacts() {
     let bundle_dir = dir.path().join("app");
     let wasm_path = bundle_dir.join("app.wasm");
     let js_path = bundle_dir.join("app.js");
+    let source_map_path = bundle_dir.join("app.js.map");
     let meta_path = bundle_dir.join("app.meta.json");
     assert!(wasm_path.exists(), "missing {}", wasm_path.display());
     assert!(js_path.exists(), "missing {}", js_path.display());
+    assert!(
+        source_map_path.exists(),
+        "missing {}",
+        source_map_path.display()
+    );
     assert!(meta_path.exists(), "missing {}", meta_path.display());
 
     let js = fs::read_to_string(&js_path).expect("read bundle js");
@@ -691,6 +697,17 @@ fn build_emits_browser_bundle_artifacts() {
         js.contains("export async function greet"),
         "bundle js: {js}"
     );
+    assert!(
+        js.contains("sourceMappingURL=app.js.map"),
+        "bundle js: {js}"
+    );
+
+    let source_map: Value =
+        serde_json::from_str(&fs::read_to_string(&source_map_path).expect("read source map"))
+            .expect("parse source map json");
+    assert_eq!(source_map["version"], 3);
+    assert_eq!(source_map["file"], "app.js");
+    assert_eq!(source_map["sources"][0], "app.ts");
 
     let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
         .expect("parse metadata json");
@@ -1854,5 +1871,8 @@ fn package_audit_preview_mode_emits_text_summary() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Preview audit scaffold"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("Preview audit scaffold"),
+        "stdout: {stdout}"
+    );
 }

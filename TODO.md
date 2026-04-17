@@ -66,6 +66,8 @@
 - ✅ Alias chains of function expressions now resolve to the canonical lowered target, including anonymous function expressions
 
 ## Next Work
+- [x] Browser bundle source-map companions
+  - `kali build --bundle` now emits a deterministic `.js.map` companion and appends the matching `sourceMappingURL` footer.
 - [x] Broader package-shape / host-fit diagnostics matrix coverage
   - Added host-fit coverage for `node:fs` and `require("child_process")` package entrypoints.
 - [x] CLI integration coverage for install repair/prune scenarios

@@ -1,5 +1,13 @@
 # SPEC Mailbox
 
+## 2026-04-17 — Stage 3.3 browser-bundle source-map companion output
+
+Implemented browser-bundle source-map companion emission so `kali build --bundle` now writes a deterministic `.js.map` file alongside the generated JS glue and adds a `sourceMappingURL` footer. The browser bundle JSON artifact list now also includes a `source-map` artifact entry.
+
+Suggested follow-up:
+- sync the browser bundle artifact tables and schema text in `specs/08-wasm-codegen.md`, `specs/12-cli.md`, `specs/18-schemas.md`, and any availability summaries that enumerate the bundle outputs
+- keep the Phase-1/Phase-3 availability rows unchanged unless the bundle support rung itself changes
+
 ## 2026-04-17 — Stage 3.3 package-audit preview plumbing
 
 Implemented an opt-in `kali package-audit --preview` path in the CLI so the later registry-audit surface now has a concrete preview-only execution mode instead of an unconditional gate. The canonical availability matrix still keeps `package-audit` at **Later compatibility**, so the preview flag is intentionally not being advertised as public support.
