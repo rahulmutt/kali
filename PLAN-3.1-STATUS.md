@@ -1,11 +1,11 @@
 # Stage 3.1 Status Update
 
 **Date:** 2026-04-17  
-**Status:** 🟡 Optimization scaffolding and specialization-cap plumbing now includes a representative benchmark suite; hot-path smoke coverage and compile-size measurements both confirm optimized numeric paths stay unboxed and shrink further under `release-advanced`
+**Status:** 🟡 Optimization scaffolding and specialization-cap plumbing now includes a representative benchmark suite; hot-path smoke coverage and compile-size measurements both confirm optimized numeric paths stay unboxed and shrink further under `release-advanced`, and const-bound object layouts now fold through member access in the optimizer
 
 ## Summary
 
-Stage 3.1 now has the first real `kali_optimize` implementation wired into the build pipeline. `release` builds perform deterministic constant folding, branch elimination, and small-call inlining, while `release-advanced` adds algebraic-identity simplification plus dead top-level function pruning after inlining. The CLI build path now invokes the optimizer before WASM codegen, the build command accepts `--max-specializations` as a specialization-budget override, and the incremental cache key now incorporates that cap so different budgets do not collide. The specialization budget is now enforced per function owner, so separate hot paths keep independent caps while the code-size guard still blocks runaway fan-out. A representative benchmark suite now captures compile time, WASM size, and instruction-count regressions across `fast`, `release`, and `release-advanced`, and the workspace test suite remains green.
+Stage 3.1 now has the first real `kali_optimize` implementation wired into the build pipeline. `release` builds perform deterministic constant folding, branch elimination, and small-call inlining, while `release-advanced` adds algebraic-identity simplification plus dead top-level function pruning after inlining. The CLI build path now invokes the optimizer before WASM codegen, the build command accepts `--max-specializations` as a specialization-budget override, and the incremental cache key now incorporates that cap so different budgets do not collide. The specialization budget is now enforced per function owner, so separate hot paths keep independent caps while the code-size guard still blocks runaway fan-out. A new layout-aware prepass now tracks const-bound object literals and folds property reads to their statically known fields before codegen, so simple object-layout specialization is visible in the emitted pipeline. A representative benchmark suite now captures compile time, WASM size, and instruction-count regressions across `fast`, `release`, and `release-advanced`, and the workspace test suite remains green.
 
 ## Evidence
 
@@ -13,6 +13,7 @@ Stage 3.1 now has the first real `kali_optimize` implementation wired into the b
 - `release` folds literal expressions and constant branches before codegen ✅
 - `release-advanced` adds algebraic simplifications such as `x + 0 -> x` ✅
 - `release` now inlines small function bodies, and `release-advanced` prunes dead top-level functions after those inlines land ✅
+- The optimizer now folds const-bound object property reads to the corresponding literal field values before codegen ✅
 - CLI runtime smoke tests now compare `fast`, `release`, and `release-advanced` instruction counts ✅
 - CLI runtime smoke tests now also assert that a specialized numeric hot path emits no tag-check / untag boxing operators ✅
 - A representative optimization benchmark now records compile time, WASM size, instruction count, and add-op deltas across the three build modes ✅
@@ -31,10 +32,10 @@ Stage 3.1 now has the first real `kali_optimize` implementation wired into the b
 
 ## Current Limits
 
-- Full generic/function/layout specialization is still pending; the current work only covers small-function call-site specialization and pruning.
+- Full generic/function/layout specialization is still pending; the current work now covers small-function call-site specialization, const-bound object layout folding, and pruning, but not the broader array/layout or generic-instantiation planner.
 - `release` / `release-advanced` still rely on the current LIR-level pass set rather than the later MIR-driven specialization model.
 - The optimizer now respects a deterministic specialization budget for distinct optimization shapes, scoped per function owner, but the richer MIR-driven specialization planner described in the long-term stage plan is still ahead.
 
 ## Next Step
 
-Continue Stage 3.1 by broadening from scalar call-site specialization to the full generic/layout specialization model and richer MIR-driven planning so the remaining phase-3 breadth targets can be closed.
+Continue Stage 3.1 by broadening from scalar call-site specialization and const-bound object layout folding toward the full generic/layout specialization model, including array-layout handling and richer MIR-driven planning, so the remaining phase-3 breadth targets can be closed.

@@ -57,8 +57,17 @@ impl Optimizer {
         match self.level {
             OptimizationLevel::Fast | OptimizationLevel::Default => {}
             OptimizationLevel::Release | OptimizationLevel::ReleaseAdvanced => {
-                let plan = self.build_specialization_plan(program);
                 let mut tracker = SpecializationTracker::new(self.max_specializations);
+                let mut binding_env = BindingEnv::default();
+                self.specialize_layout_bindings(
+                    program,
+                    program.root,
+                    &mut tracker,
+                    "<root>",
+                    &mut binding_env,
+                );
+
+                let plan = self.build_specialization_plan(program);
                 self.optimize_node(
                     program,
                     program.root,
@@ -135,6 +144,204 @@ impl Optimizer {
             }
             _ => {}
         }
+    }
+
+    fn specialize_layout_bindings(
+        &self,
+        program: &mut LirProgram,
+        id: LirNodeId,
+        tracker: &mut SpecializationTracker,
+        owner: &str,
+        env: &mut BindingEnv,
+    ) {
+        let snapshot = program.nodes[id.0 as usize].clone();
+        match snapshot.kind {
+            LirNodeKind::Program | LirNodeKind::Block => {
+                let mut local_env = env.clone();
+                for child in snapshot.children {
+                    let child_node = program.nodes[child.0 as usize].clone();
+                    if matches!(child_node.kind, LirNodeKind::Program | LirNodeKind::Block) {
+                        self.specialize_layout_bindings(
+                            program,
+                            child,
+                            tracker,
+                            owner,
+                            &mut local_env,
+                        );
+                    } else {
+                        self.specialize_layout_bindings(
+                            program,
+                            child,
+                            tracker,
+                            owner,
+                            &mut local_env,
+                        );
+                    }
+
+                    if let Some((name, init)) = self.extract_const_binding(program, child) {
+                        if self.is_specializable_binding(program, init) {
+                            local_env.bindings.insert(name, init);
+                        }
+                    }
+                }
+                return;
+            }
+            _ => {}
+        }
+
+        if snapshot.kind == LirNodeKind::Value && snapshot.children.is_empty() {
+            if let Some(name) = snapshot.text.as_deref() {
+                if let Some(bound) = env.bindings.get(name).copied() {
+                    let key = format!("bind:{}:{}", name, node_signature(program, bound));
+                    if tracker.allow(owner, key) {
+                        program.nodes[id.0 as usize] = program.nodes[bound.0 as usize].clone();
+                        self.specialize_layout_bindings(program, id, tracker, owner, env);
+                    }
+                }
+            }
+            return;
+        }
+
+        for child in snapshot.children {
+            self.specialize_layout_bindings(program, child, tracker, owner, env);
+        }
+
+        let _ = self.fold_object_member_access(program, id, tracker, owner);
+    }
+
+    fn extract_const_binding(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+    ) -> Option<(String, LirNodeId)> {
+        let node = program.nodes.get(id.0 as usize)?;
+        if node.kind != LirNodeKind::Instruction {
+            return None;
+        }
+        if node.text.as_deref() != Some("const") {
+            return None;
+        }
+
+        for declarator in &node.children {
+            let declarator_node = program.nodes.get(declarator.0 as usize)?;
+            if declarator_node.kind != LirNodeKind::Instruction {
+                continue;
+            }
+            let Some(name) = declarator_node.text.clone() else {
+                continue;
+            };
+            let Some(init) = declarator_node.children.get(1).copied() else {
+                continue;
+            };
+            return Some((name, init));
+        }
+
+        None
+    }
+
+    fn is_specializable_binding(&self, program: &LirProgram, id: LirNodeId) -> bool {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return false;
+        };
+
+        match node.kind {
+            LirNodeKind::Literal => true,
+            LirNodeKind::Value if node.children.is_empty() => node
+                .text
+                .as_deref()
+                .and_then(|text| parse_literal_text(Some(text)))
+                .is_some(),
+            LirNodeKind::Value if node.text.is_none() => self.is_object_literal(program, id),
+            _ => false,
+        }
+    }
+
+    fn fold_object_member_access(
+        &self,
+        program: &mut LirProgram,
+        id: LirNodeId,
+        tracker: &mut SpecializationTracker,
+        owner: &str,
+    ) -> bool {
+        let snapshot = program.nodes[id.0 as usize].clone();
+        let Some(property) = snapshot.text.as_deref() else {
+            return false;
+        };
+        if snapshot.kind != LirNodeKind::Value || snapshot.children.len() != 1 {
+            return false;
+        }
+
+        let Some(object_id) = snapshot.children.first().copied() else {
+            return false;
+        };
+        let Some(field_value) = self.object_literal_field(program, object_id, property) else {
+            return false;
+        };
+
+        let key = format!(
+            "layout-member:{}:{}",
+            property,
+            node_signature(program, object_id)
+        );
+        if !tracker.allow(owner, key) {
+            return false;
+        }
+
+        program.nodes[id.0 as usize] = program.nodes[field_value.0 as usize].clone();
+        true
+    }
+
+    fn object_literal_field(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+        field: &str,
+    ) -> Option<LirNodeId> {
+        if !self.is_object_literal(program, id) {
+            return None;
+        }
+
+        let node = program.nodes.get(id.0 as usize)?;
+        for property in &node.children {
+            let property_node = program.nodes.get(property.0 as usize)?;
+            if property_node.children.len() != 2 {
+                continue;
+            }
+            let key_node = program.nodes.get(property_node.children[0].0 as usize)?;
+            let key = key_node.text.as_deref()?;
+            if key == field {
+                return property_node.children.get(1).copied();
+            }
+        }
+
+        None
+    }
+
+    fn is_object_literal(&self, program: &LirProgram, id: LirNodeId) -> bool {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.is_empty() {
+            return false;
+        }
+
+        node.children.iter().all(|child| {
+            program
+                .nodes
+                .get(child.0 as usize)
+                .is_some_and(|child_node| {
+                    matches!(child_node.kind, LirNodeKind::Value)
+                        && matches!(
+                            child_node.text.as_deref(),
+                            Some("init") | Some("get") | Some("set")
+                        )
+                        && child_node.children.len() == 2
+                        && program
+                            .nodes
+                            .get(child_node.children[0].0 as usize)
+                            .is_some_and(|key| key.kind == LirNodeKind::Literal)
+                })
+        })
     }
 
     fn optimize_constant_expression(
@@ -741,6 +948,11 @@ struct SpecializationPlan {
     functions: BTreeMap<String, FunctionSummary>,
 }
 
+#[derive(Clone, Debug, Default)]
+struct BindingEnv {
+    bindings: BTreeMap<String, LirNodeId>,
+}
+
 #[derive(Clone, Debug)]
 struct FunctionSummary {
     name: String,
@@ -1104,6 +1316,43 @@ mod tests {
         Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
 
         let node = &program.nodes[branch.0 as usize];
+        assert_eq!(node.kind, LirNodeKind::Literal);
+        assert_eq!(node.text.as_deref(), Some("2"));
+    }
+
+    #[test]
+    fn release_specializes_const_object_property_access() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+        let const_decl = builder.alloc_text(LirNodeKind::Instruction, "const");
+        let declarator = builder.alloc_text(LirNodeKind::Instruction, "point");
+        let binding_name = builder.alloc_text(LirNodeKind::Value, "point");
+        let object = builder.alloc(LirNodeKind::Value);
+        let prop_x = builder.alloc_text(LirNodeKind::Value, "init");
+        let key_x = literal(&mut builder, "x");
+        let value_x = literal(&mut builder, "1");
+        let prop_y = builder.alloc_text(LirNodeKind::Value, "init");
+        let key_y = literal(&mut builder, "y");
+        let value_y = literal(&mut builder, "2");
+        let access = builder.alloc_text(LirNodeKind::Value, "y");
+        let point_ref = builder.alloc_text(LirNodeKind::Value, "point");
+
+        builder.node_mut(prop_x).unwrap().children = vec![key_x, value_x];
+        builder.node_mut(prop_y).unwrap().children = vec![key_y, value_y];
+        builder.node_mut(object).unwrap().children = vec![prop_x, prop_y];
+        builder.node_mut(declarator).unwrap().children = vec![binding_name, object];
+        builder.node_mut(const_decl).unwrap().children = vec![declarator];
+        builder.node_mut(access).unwrap().children = vec![point_ref];
+        builder.node_mut(root).unwrap().children = vec![const_decl, access];
+
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+        let node = &program.nodes[access.0 as usize];
         assert_eq!(node.kind, LirNodeKind::Literal);
         assert_eq!(node.text.as_deref(), Some("2"));
     }
