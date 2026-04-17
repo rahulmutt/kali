@@ -68,6 +68,24 @@ theorem releaseAndCollectPreservesOwnership (snapshot : RcSnapshot) (ref : Strin
     (releaseAndCollect snapshot ref).ownership = snapshot.ownership := by
   rfl
 
+/-- Release-only, decrement, and collection helpers preserve the set of already-released references. -/
+theorem releaseRefPreservesReleasedRefs (snapshot : RcSnapshot) (ref : String) :
+    ∀ r, r ∈ snapshot.releasedRefs → r ∈ (releaseRef snapshot ref).releasedRefs := by
+  intro r hr
+  simpa [releaseRef] using (List.mem_cons_of_mem ref hr)
+
+/-- The release-and-decrement helper preserves the set of already-released references. -/
+theorem releaseAndDecrementPreservesReleasedRefs (snapshot : RcSnapshot) (ref : String) :
+    ∀ r, r ∈ snapshot.releasedRefs → r ∈ (releaseAndDecrement snapshot ref).releasedRefs := by
+  intro r hr
+  simpa [releaseAndDecrement] using (List.mem_cons_of_mem ref hr)
+
+/-- The local release-and-collect helper preserves the set of already-released references. -/
+theorem releaseAndCollectPreservesReleasedRefs (snapshot : RcSnapshot) (ref : String) :
+    ∀ r, r ∈ snapshot.releasedRefs → r ∈ (releaseAndCollect snapshot ref).releasedRefs := by
+  intro r hr
+  simpa [releaseAndCollect, releaseAndDecrement] using (List.mem_cons_of_mem ref hr)
+
 /-- A reference is owned when it has an explicit ownership annotation. -/
 def hasOwnership (ownership : OwnershipEnv) (ref : String) : Prop :=
   ∃ owner, (ref, owner) ∈ ownership

@@ -150,3 +150,10 @@ I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndDe
 Suggested follow-up:
 - sync `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the Stage 4.2 progress notes name the release-and-decrement heap-origin theorem alongside the other RC helper invariants
 - keep the broader Stage 4.2 ownership/freeing target incremental; this remains a helper-level provenance theorem, not the full RC target
+
+## 2026-04-17 — Stage 4.2 release-set monotonicity sync
+
+I synced the Stage 4.2 progress trackers after widening the RC snapshot proof slice with the release-set preservation corollaries (`releaseRefPreservesReleasedRefs`, `releaseAndDecrementPreservesReleasedRefs`, and `releaseAndCollectPreservesReleasedRefs`).
+
+Suggested follow-up:
+- keep the broader Stage 4.2 memory-safety widening incremental; this is still a helper-level release-set monotonicity slice, not the full ownership/freeing target
