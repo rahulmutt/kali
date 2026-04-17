@@ -148,3 +148,11 @@ I got `proofs/KaliCore/Soundness.lean` compiling again, but only by narrowing th
 Suggested follow-up:
 - update the Stage 4.2 status note / boundary text to match the actually modelled closed fragment
 - decide whether the remaining application/flow proofs should live in a future proof-boundary widening step or under a separate, more explicit subfragment
+
+## 2026-04-17 — Stage 4.1 parenthesized dynamic-import follow-up
+
+The dynamic-import static-resolution slice now also covers parenthesized static fragments in both the resolver tests and the browser-bundle smoke path. That keeps the already-documented Phase 4.1 behavior aligned with the parser's ability to see grouped constant expressions instead of treating them as unresolved dynamic targets.
+
+Suggested follow-up:
+- keep the Stage 4.1 status note in sync if we widen the static-resolution fragment further
+- do not broaden the Phase 4.1 compatibility wording unless we intentionally add a new dynamic-import shape beyond the already-linked graph contract

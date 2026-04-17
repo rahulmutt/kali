@@ -1117,7 +1117,7 @@ fn browser_bundle_js_normalizes_runtime_dynamic_import_specifiers() {
     let chunk_path = dir.path().join("lazy.ts");
     fs::write(
         &source_path,
-        "const lazy = import(\"./\" + \"lazy.ts\");\nfunction greet(name) { return name; }",
+        "const lazy = import((\"./\" + \"lazy.ts\"));\nfunction greet(name) { return name; }",
     )
     .expect("write source");
     fs::write(&chunk_path, "export function lazyValue() { return 7; }")

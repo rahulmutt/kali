@@ -1142,7 +1142,7 @@ fn duplicate_binding(name: &str) -> Diagnostic {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kali_ast::{BinaryExpression, LiteralValue, VariableDeclarator};
+    use kali_ast::{BinaryExpression, LiteralValue, ParenthesizedExpression, VariableDeclarator};
     use std::fs;
     use tempfile::tempdir;
 
@@ -1326,7 +1326,9 @@ mod tests {
                 kind: "const".to_string(),
                 declarations: vec![VariableDeclarator {
                     id: "name".to_string(),
-                    init: Some(Expression::Literal(LiteralValue::String("lazy.ts".to_string()))),
+                    init: Some(Expression::Literal(LiteralValue::String(
+                        "lazy.ts".to_string(),
+                    ))),
                 }],
             }),
             Statement::VariableDeclaration(VariableDeclaration {
@@ -1357,17 +1359,77 @@ mod tests {
     }
 
     #[test]
-    fn test_resolution_reports_unknown_dynamic_import_targets() {
+    fn test_resolution_allows_parenthesized_dynamic_import_targets() {
         let dir = tempfile::tempdir().unwrap();
         let source_path = dir.path().join("main.ts");
-        fs::write(&source_path, "const name = \"lazy.ts\"; import(\"./\" + name);").unwrap();
+        fs::write(dir.path().join("lazy.ts"), "export const lazy = 7;").unwrap();
+        fs::write(
+            &source_path,
+            "const name = \"lazy.ts\"; const root = \"./\"; import((root + name));",
+        )
+        .unwrap();
 
         let statements = vec![
             Statement::VariableDeclaration(VariableDeclaration {
                 kind: "const".to_string(),
                 declarations: vec![VariableDeclarator {
                     id: "name".to_string(),
-                    init: Some(Expression::Literal(LiteralValue::String("lazy.ts".to_string()))),
+                    init: Some(Expression::Literal(LiteralValue::String(
+                        "lazy.ts".to_string(),
+                    ))),
+                }],
+            }),
+            Statement::VariableDeclaration(VariableDeclaration {
+                kind: "const".to_string(),
+                declarations: vec![VariableDeclarator {
+                    id: "root".to_string(),
+                    init: Some(Expression::Literal(LiteralValue::String("./".to_string()))),
+                }],
+            }),
+            Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+                    source: Expression::ParenthesizedExpression(Box::new(
+                        ParenthesizedExpression {
+                            expression: Box::new(Expression::BinaryExpression(Box::new(
+                                BinaryExpression {
+                                    operator: "+".to_string(),
+                                    left: Expression::Identifier("root".to_string()),
+                                    right: Expression::Identifier("name".to_string()),
+                                },
+                            ))),
+                        },
+                    )),
+                }))),
+            }),
+        ];
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn test_resolution_reports_unknown_dynamic_import_targets() {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            "const name = \"lazy.ts\"; import(\"./\" + name);",
+        )
+        .unwrap();
+
+        let statements = vec![
+            Statement::VariableDeclaration(VariableDeclaration {
+                kind: "const".to_string(),
+                declarations: vec![VariableDeclarator {
+                    id: "name".to_string(),
+                    init: Some(Expression::Literal(LiteralValue::String(
+                        "lazy.ts".to_string(),
+                    ))),
                 }],
             }),
             Statement::ExpressionStatement(ExpressionStatement {
