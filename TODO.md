@@ -139,6 +139,7 @@
 - ✅ `releaseAndCollectRemovesZeroCountCells` proves the freed decrement target is not retained in the collected heap.
 - ✅ `releaseAndCollectKeepsPositiveCountCells` proves the local collection helper keeps the positive-count cells from the decrement pass.
 - ✅ `releaseAndCollectKeepsOtherPositiveCountCells` proves positive-count cells from the original heap survive when they are not the released target.
+- ✅ `releaseAndCollectDropsOriginalZeroCountCells` proves original zero-count cells are removed from the final heap.
 - ✅ `releaseAndCollectPreservesOtherLiveRefs` now proves other live references remain live after the local collection helper runs.
 - ✅ `releaseAndCollectPreservesWellFormed` proves the remaining live set stays well-formed after zero-count collection.
 - ✅ `releaseAndCollectReleasedNotLiveRef` keeps the local collection helper's live/released disjointness explicit.

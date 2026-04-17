@@ -200,6 +200,16 @@ theorem releaseAndCollectKeepsOtherPositiveCountCells (snapshot : RcSnapshot) (r
     exact List.mem_map.mpr ⟨cell, hmem, by simp [hname]⟩
   exact releaseAndCollectKeepsPositiveCountCells snapshot ref cell hmem' hpos
 
+/-- A release-and-collect step drops any original zero-count cell from the final heap. -/
+theorem releaseAndCollectDropsOriginalZeroCountCells (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.refCount = 0 →
+      cell ∉ (releaseAndCollect snapshot ref).heap := by
+  intro cell hmem hzero hpresent
+  have hfilter : cell ∈ (releaseAndDecrement snapshot ref).heap.filter (fun cell => cell.refCount > 0) := by
+    simpa [releaseAndCollect] using hpresent
+  have hpos : decide (cell.refCount > 0) = true := (List.mem_filter.mp hfilter).2
+  exact False.elim (by simpa [hzero] using hpos)
+
 /-- The release-and-collect helper's heap is exactly the positive-count filter of the decrement pass. -/
 theorem releaseAndCollectHeapIsPositiveCountFilter (snapshot : RcSnapshot) (ref : String) :
     (releaseAndCollect snapshot ref).heap =
