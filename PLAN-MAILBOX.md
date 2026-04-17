@@ -1,5 +1,13 @@
 # PLAN Mailbox
 
+## 2026-04-17 — Node runtime stdout/stderr projection follow-up
+
+Added `kali:node` host-import coverage for `process_stdout_write` and `process_stderr_write` in the runtime linker, so the Node compatibility path can now bridge guest writes into the captured runtime output stream as well as the existing argv/env helpers.
+
+Suggested follow-up:
+- keep broadening the remaining Phase-3 Node helper surface in the same runtime-linker projection pattern
+- if future Node imports need richer stdout/stderr semantics, decide whether they should append raw text or newline-terminated records before widening the contract
+
 ## 2026-04-17 — Parser import syntax acceptance and package-corpus follow-up
 
 Added parser support for import declarations and literal dynamic `import()` expressions so the AST now follows the already-documented import path instead of dropping those statements. That unblocked the package-corpus tests, which now rely on real import parsing again rather than bypassing the syntax entirely.

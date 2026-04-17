@@ -805,9 +805,9 @@ fn register_node_host_imports(
     let fs_promises_for_read_file = fs_promises.clone();
     let fs_promises_for_write_text = fs_promises.clone();
     let fs_promises_for_write_file = fs_promises.clone();
-    let process = node_projection.process().clone();
-    let process_for_argv_get = process.clone();
-    let process_for_env_get = process.clone();
+    let process = std::sync::Arc::new(std::sync::Mutex::new(node_projection.process().clone()));
+    let process_for_argv_get = std::sync::Arc::clone(&process);
+    let process_for_env_get = std::sync::Arc::clone(&process);
     let stream = node_projection.stream();
     let http = node_projection.http();
     let child_process: NodeChildProcess = node_projection.child_process();
@@ -1251,7 +1251,10 @@ fn register_node_host_imports(
 
     linker
         .func_wrap("kali:node", "process_args_len", move || -> i32 {
-            process.argv_len() as i32
+            process
+                .lock()
+                .expect("node process mutex poisoned")
+                .argv_len() as i32
         })
         .map_err(|error| host_import_error("process_args_len", error))?;
 
@@ -1265,6 +1268,8 @@ fn register_node_host_imports(
                   out_cap: i32|
                   -> wasmtime::Result<i32> {
                 let Some(value) = process_for_argv_get
+                    .lock()
+                    .expect("node process mutex poisoned")
                     .argv_at(index as usize)
                     .map(str::to_owned)
                 else {
@@ -1290,13 +1295,48 @@ fn register_node_host_imports(
                     caller.data_mut(),
                     HostOperation::EnvironmentRead { key: key.clone() },
                 )?;
-                let Some(value) = process_for_env_get.env_get(&key).map(str::to_owned) else {
+                let Some(value) = process_for_env_get
+                    .lock()
+                    .expect("node process mutex poisoned")
+                    .env_get(&key)
+                    .map(str::to_owned)
+                else {
                     return Ok(-1);
                 };
                 write_guest_bytes(&mut caller, out_ptr, out_cap, value.as_bytes())
             },
         )
         .map_err(|error| host_import_error("process_env_get", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "process_stdout_write",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  text_ptr: i32,
+                  text_len: i32|
+                  -> wasmtime::Result<i32> {
+                let text = read_guest_string(&mut caller, text_ptr, text_len)?;
+                append_stdout_raw(caller.data_mut(), text);
+                Ok(0)
+            },
+        )
+        .map_err(|error| host_import_error("process_stdout_write", error))?;
+
+    linker
+        .func_wrap(
+            "kali:node",
+            "process_stderr_write",
+            move |mut caller: Caller<'_, KaliHostState>,
+                  text_ptr: i32,
+                  text_len: i32|
+                  -> wasmtime::Result<i32> {
+                let text = read_guest_string(&mut caller, text_ptr, text_len)?;
+                append_stderr_raw(caller.data_mut(), text);
+                Ok(0)
+            },
+        )
+        .map_err(|error| host_import_error("process_stderr_write", error))?;
 
     linker
         .func_wrap(
@@ -1432,9 +1472,17 @@ fn append_stdout(state: &mut KaliHostState, text: String) {
     state.stdout.push('\n');
 }
 
+fn append_stdout_raw(state: &mut KaliHostState, text: String) {
+    state.stdout.push_str(&text);
+}
+
 fn append_stderr(state: &mut KaliHostState, text: String) {
     state.stderr.push_str(&text);
     state.stderr.push('\n');
+}
+
+fn append_stderr_raw(state: &mut KaliHostState, text: String) {
+    state.stderr.push_str(&text);
 }
 
 fn format_tagged_val(value: i64) -> String {
@@ -2032,8 +2080,13 @@ mod tests {
                 (import "kali:node" "process_args_len" (func $args_len (result i32)))
                 (import "kali:node" "process_args_get" (func $args_get (param i32 i32 i32) (result i32)))
                 (import "kali:node" "process_env_get" (func $env_get (param i32 i32 i32 i32) (result i32)))
+                (import "kali:node" "process_stdout_write" (func $stdout_write (param i32 i32) (result i32)))
+                (import "kali:node" "process_stderr_write" (func $stderr_write (param i32 i32) (result i32)))
                 (memory (export "memory") 1)
                 (data (i32.const 0) "HOME")
+                (data (i32.const 32) "script.ts")
+                (data (i32.const 64) "node stdout")
+                (data (i32.const 96) "node stderr")
                 (func (export "_start")
                     call $args_len
                     i32.const 2
@@ -2042,7 +2095,7 @@ mod tests {
                         unreachable
                     end
                     i32.const 1
-                    i32.const 64
+                    i32.const 160
                     i32.const 16
                     call $args_get
                     i32.const 9
@@ -2050,7 +2103,7 @@ mod tests {
                     if
                         unreachable
                     end
-                    i32.const 64
+                    i32.const 160
                     i32.load8_u
                     i32.const 115
                     i32.ne
@@ -2059,7 +2112,7 @@ mod tests {
                     end
                     i32.const 0
                     i32.const 4
-                    i32.const 96
+                    i32.const 192
                     i32.const 16
                     call $env_get
                     i32.const 9
@@ -2067,18 +2120,28 @@ mod tests {
                     if
                         unreachable
                     end
-                    i32.const 96
+                    i32.const 192
                     i32.load8_u
                     i32.const 47
                     i32.ne
                     if
                         unreachable
-                    end))
+                    end
+                    i32.const 64
+                    i32.const 11
+                    call $stdout_write
+                    drop
+                    i32.const 96
+                    i32.const 11
+                    call $stderr_write
+                    drop))
             "#,
         );
 
         let outcome = runtime.execute(&wasm).expect("runtime outcome");
         assert_eq!(outcome.exit_code, 0);
+        assert_eq!(outcome.stdout, "node stdout");
+        assert_eq!(outcome.stderr, "node stderr");
     }
 
     #[cfg(not(windows))]
