@@ -127,6 +127,10 @@
 ### Stage 4.2 - RC decrement/live-preservation follow-up
 - ✅ `releaseAndDecrementKeepsOtherHeapEntries` now proves the decrement helper leaves unrelated heap entries untouched.
 - ✅ `releaseAndDecrementPreservesOtherLiveRefs` now proves non-target live references remain live after the decrement helper runs.
+- ✅ `releaseAndDecrementLiveRefsAreOwnedAndAllocated` now keeps the surviving live refs anchored in ownership/allocation after the decrement step.
+
+### Stage 4.2 - RC helper ownership/allocation follow-up
+- ✅ `releaseAndCollectLiveRefsAreOwnedAndAllocated` now keeps the surviving live refs anchored in ownership/allocation after the local collection helper runs.
 
 ### Stage 4.2 - RC zero-count collection follow-up
 - ✅ `releaseAndCollect` now filters zero-count cells after the decrement pass.

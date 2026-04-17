@@ -44,3 +44,11 @@ I widened the current RC snapshot proof slice with a helper-level lemma that `re
 Suggested follow-up:
 - sync the proof boundary / verification summaries and the Stage 4.2 progress tracker so the new local-helper theorem is named explicitly
 - keep the claim narrow: this is still the local collection-helper slice, not the full ownership/freeing target
+
+## 2026-04-17 — Stage 4.2 live-reference ownership/allocation follow-up
+
+I added helper corollaries that both the decrement path and the local collection helper preserve the ownership/allocation story for surviving live references (`releaseAndDecrementLiveRefsAreOwnedAndAllocated` and `releaseAndCollectLiveRefsAreOwnedAndAllocated`).
+
+Suggested follow-up:
+- update `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and the Stage 4.2 status tracker so the current published boundary inventory names the helper-level ownership/allocation preservation corollaries
+- keep the broader Stage 4.2 ownership/freeing target incremental; these are helper corollaries on top of the current proof-backed slice

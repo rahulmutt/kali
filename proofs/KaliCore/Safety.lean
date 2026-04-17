@@ -133,6 +133,17 @@ theorem releaseAndDecrementPreservesWellFormed (snapshot : RcSnapshot) (ref : St
       exact List.mem_map.mpr ⟨cell, hmem, hcell⟩
     · simpa [hneq] using hannotated.2.2
 
+/-- The release-and-decrement helper keeps the surviving live references anchored in ownership and allocation. -/
+theorem releaseAndDecrementLiveRefsAreOwnedAndAllocated (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    ∀ r, r ∈ (releaseAndDecrement snapshot ref).liveRefs →
+      hasOwnership (releaseAndDecrement snapshot ref).ownership r ∧
+      allocated (releaseAndDecrement snapshot ref) r := by
+  intro r hr
+  have hwf : WellFormed (releaseAndDecrement snapshot ref) :=
+    releaseAndDecrementPreservesWellFormed snapshot ref h
+  exact liveRefsAreOwnedAndAllocated (releaseAndDecrement snapshot ref) hwf r hr
+
 /-- A release-and-decrement step still records the released reference. -/
 theorem releaseAndDecrementRecorded (snapshot : RcSnapshot) (ref : String) :
     ref ∈ (releaseAndDecrement snapshot ref).releasedRefs := by
@@ -204,6 +215,17 @@ theorem releaseAndCollectPreservesWellFormed (snapshot : RcSnapshot) (ref : Stri
         List.mem_map.mpr ⟨cell, hmem, hcell⟩
       exact List.mem_filter.mpr ⟨hmem', by simpa using hpos⟩
     · simpa [releaseAndCollect, releaseAndDecrement, hneq] using hannotated.2.2
+
+/-- The release-and-collect helper keeps the surviving live references anchored in ownership and allocation. -/
+theorem releaseAndCollectLiveRefsAreOwnedAndAllocated (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    ∀ r, r ∈ (releaseAndCollect snapshot ref).liveRefs →
+      hasOwnership (releaseAndCollect snapshot ref).ownership r ∧
+      allocated (releaseAndCollect snapshot ref) r := by
+  intro r hr
+  have hwf : WellFormed (releaseAndCollect snapshot ref) :=
+    releaseAndCollectPreservesWellFormed snapshot ref h
+  exact liveRefsAreOwnedAndAllocated (releaseAndCollect snapshot ref) hwf r hr
 
 /-- A release-and-collect step still records the released reference. -/
 theorem releaseAndCollectRecorded (snapshot : RcSnapshot) (ref : String) :

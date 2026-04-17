@@ -43,3 +43,11 @@ I plan to widen the Stage 4.2 RC snapshot slice with a helper-level theorem that
 Suggested follow-up:
 - update `PLAN-4.2-STATUS.md` and `TODO.md` so the tracker names the new local-helper preservation theorem
 - if the boundary wording changes, sync the proof-boundary / verification summary docs in the same pass
+
+## 2026-04-17 — Stage 4.2 live-reference ownership/allocation follow-up
+
+I added helper corollaries that both the decrement path and the local collection helper preserve the ownership/allocation story for surviving live references (`releaseAndDecrementLiveRefsAreOwnedAndAllocated` and `releaseAndCollectLiveRefsAreOwnedAndAllocated`).
+
+Suggested follow-up:
+- update `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the progress tracker explicitly names the helper-level ownership/allocation preservation corollaries
+- keep the broader Stage 4.2 ownership/freeing target incremental; these are helper corollaries on top of the current proof-backed slice

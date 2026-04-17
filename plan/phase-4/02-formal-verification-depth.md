@@ -23,7 +23,7 @@ in `proofs/BOUNDARY.md`, and enable **proof-backed** release/support claims.
 - Release notes and documentation may cite formal verification for the published boundary.
 
 Current progress note:
-- the published boundary already includes the live-reference ownership/allocation projection theorem (`KaliCore.Safety.liveRefsAreOwnedAndAllocated`) alongside `noDanglingReference`, `releasePreservesWellFormed`, `releaseRecorded`, `releasedNotLive`, and `releasedNotLiveRef`, and now also the local zero-count collection helper on the decrement path, so the remaining Stage 4.2 memory work is explicitly down to the broader ownership / RC target rather than the earlier snapshot-ownership gap.
+- the published boundary already includes the live-reference ownership/allocation projection theorem (`KaliCore.Safety.liveRefsAreOwnedAndAllocated`) alongside `noDanglingReference`, `releasePreservesWellFormed`, `releaseRecorded`, `releasedNotLive`, and `releasedNotLiveRef`, and now also the local zero-count collection helper on the decrement path plus the helper-level ownership/allocation preservation corollaries on the decrement and collection paths, so the remaining Stage 4.2 memory work is explicitly down to the broader ownership / RC target rather than the earlier snapshot-ownership gap.
 
 ## Tasks
 
