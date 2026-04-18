@@ -601,3 +601,12 @@ I found the Stage 4.2 summary tracker still described the unrelated-heap and oth
 Suggested follow-up:
 - update `PLAN-4.2-STATUS.md` so the progress note names `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, and `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` explicitly alongside the rest of the RC snapshot inventory
 - keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
+
+## 2026-04-18 — Stage 3.3 internal dependency-chain corpus coverage
+
+I widened the Stage 3.3 package corpus with browser-field internal rewrite chains and module-entry internal dependency chains so the browser and utility corpus now exercise package-local dependency graphs in addition to the existing exports/browser/module shapes.
+
+Completed follow-up:
+- added browser internal-browser-rewrite corpus coverage for browser packages in `crates/kali_cli/tests/package_corpus.rs`
+- added module-entry internal-dependency corpus coverage for utility packages in `crates/kali_cli/tests/package_corpus.rs`
+- kept the change narrow: this is a package-corpus widening slice, not a new support rung

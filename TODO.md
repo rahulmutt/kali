@@ -246,6 +246,8 @@
 - ✅ Added `./*` exports-pattern corpus coverage so the representative browser and utility package sets now exercise wildcard subpath exports routed through nested `src/` subtrees.
 - ✅ Added dual-package, browser-conditional-export, mixed-format, browser string-entry, browser false-blocking, browser replacement-map, module-only, scoped-package, and typed-export-branch corpus coverage so the representative package set now exercises conditional exports across browser/import/require branches plus browser-field rewrites, browser-string overrides, browser-field blocking, and mixed CJS/ESM entrypoints.
 - ✅ Added module-only corpus coverage so the representative browser and utility package sets now exercise `package.json#module` fallback resolution as a standalone published shape.
+- ✅ Added browser internal-browser-rewrite corpus coverage so the representative browser package set now exercises browser-field rewrites across an internal dependency chain instead of only top-level entrypoint rewrites.
+- ✅ Added module-entry internal-dependency corpus coverage so the representative utility package set now exercises internal relative imports inside a module-only package instead of only a single-file module entrypoint.
 - ✅ Added scoped-package corpus coverage so the representative package set now exercises `@scope/name` identities plus the scoped `@types/scope__name` fallback naming convention in both browser-targeted and standalone contexts.
 - ✅ Added typed-export-branch corpus coverage so the representative browser package set now exercises `exports` objects that carry `types` conditions alongside the runtime branches, keeping the corpus aligned with common modern package metadata.
 

@@ -1039,6 +1039,67 @@ fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_depl
 }
 
 #[test]
+fn browser_corpus_packages_with_internal_browser_rewrites_remain_checkable_and_deployable_through_host() {
+    for package in ["solid-js", "lit"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_replacement_map_package(
+            dir.path(),
+            package,
+            "import helper from './internal.js';\nexport default function root() { return 'node:' + helper(); }\n",
+            "import helper from './internal.js';\nexport default function root() { return 'browser:' + helper(); }\n",
+            "internal",
+            &format!(
+                "export default function helper() {{ return '{package}:node'; }}\n",
+                package = package
+            ),
+            &format!(
+                "export default function helper() {{ return '{package}:browser'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser internal-browser-rewrite package {package} should resolve its browser rewrite chain\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser internal-browser-rewrite package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deployable_through_host() {
     for (package, subpath) in [
         ("@emotion/react", "jsx-runtime"),
@@ -1357,6 +1418,54 @@ fn utility_corpus_packages_with_module_entries_remain_executable_on_the_default_
         assert!(
             run.status.success(),
             "utility module-only package {package} should stay executable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+    }
+}
+
+#[test]
+fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_default_standalone_surface()
+{
+    for package in ["ramda", "uuid"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), None);
+        write_module_only_package(
+            dir.path(),
+            package,
+            "import helper from './internal.mjs';\nexport default function widget() { return helper(); }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+        fs::write(
+            dir.path().join("node_modules").join(package).join("internal.mjs"),
+            format!(
+                "export default function helper() {{ return '{package}:internal'; }}\n",
+                package = package
+            ),
+        )
+        .expect("write utility internal module");
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write utility source");
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "utility module-chain package {package} should resolve its internal module dependency\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+        assert!(
+            run.status.success(),
+            "utility module-chain package {package} should stay executable\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr)
         );
