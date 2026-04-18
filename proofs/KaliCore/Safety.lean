@@ -451,6 +451,20 @@ theorem releaseAndCollectHeapCellsHavePositiveCount (snapshot : RcSnapshot) (ref
   have hdec : decide (cell.refCount > 0) = true := (List.mem_filter.mp hfilter).2
   exact of_decide_eq_true hdec
 
+private theorem releaseAndCollectTargetCellPresentIffPositiveCount (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.name = ref →
+      ({ cell with refCount := cell.refCount - 1 } ∈ (releaseAndCollect snapshot ref).heap ↔ cell.refCount > 1) := by
+  intro cell hmem hname
+  constructor
+  · intro hkeep
+    have hpos : { cell with refCount := cell.refCount - 1 }.refCount > 0 :=
+      releaseAndCollectHeapCellsHavePositiveCount snapshot ref { cell with refCount := cell.refCount - 1 } hkeep
+    have hsub : 0 < cell.refCount - 1 := by
+      simpa [hname] using hpos
+    simpa using (Nat.sub_pos_iff_lt.mp hsub)
+  · intro hgt1
+    exact releaseAndCollectKeepsTargetCellWhenPositiveCount snapshot ref cell hmem hname hgt1
+
 /-- Every surviving release-and-collect heap cell comes from the original heap, with only the released target decremented. -/
 theorem releaseAndCollectHeapCellOrigin (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap →
