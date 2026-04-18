@@ -381,3 +381,11 @@ I found one remaining proof-summary drift point: the published boundary already 
 Suggested follow-up:
 - update `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the summary prose names `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, and `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` explicitly
 - keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
+
+## 2026-04-18 — Stage 4.2 live-reference filtering theorem naming sync
+
+I noticed the published boundary and the high-level verification summaries still describe the decrement and collection live-reference filtering slice a bit generically, even though the proof tree already mechanizes the explicit theorems `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered` and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` alongside the release-only `KaliCore.Safety.releaseRefLiveRefsFiltered` helper theorem.
+
+Planned update:
+- update `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, and `TODO.md` so the proof-backed boundary and progress notes name the decrement/collection live-reference filtering theorems explicitly alongside the release-only helper theorem
+- keep the claim narrow: this is a proof-summary / drift-guard naming sync for the published boundary, not a boundary widening beyond the current RC snapshot model

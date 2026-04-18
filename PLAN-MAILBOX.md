@@ -652,3 +652,12 @@ Completed follow-up:
 - added browser internal-browser-rewrite corpus coverage for browser packages in `crates/kali_cli/tests/package_corpus.rs`
 - added module-entry internal-dependency corpus coverage for utility packages in `crates/kali_cli/tests/package_corpus.rs`
 - kept the change narrow: this is a package-corpus widening slice, not a new support rung
+
+## 2026-04-18 — Stage 4.2 live-reference filtering theorem naming sync
+
+I tightened the Stage 4.2 plan/progress summary so it now names the decrement/collection live-reference filtering theorems `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered` and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` explicitly alongside the release-only helper theorem, keeping the plan wording aligned with the published boundary inventory.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md` so the top-level Stage 4.2 summary now names the decrement/collection live-reference filtering theorems explicitly
+- updated the proof-summary drift guard in `crates/kali_cli/tests/schema_docs.rs` so the theorem inventory check now includes the decrement/collection live-reference filtering theorem names
+- kept the change narrow: this is a plan/progress wording sync for the published boundary, not a boundary widening
