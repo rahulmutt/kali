@@ -35,6 +35,10 @@ I tightened the proof-summary anti-drift guard so `crates/kali_cli/tests/schema_
 Suggested follow-up:
 - keep the claim narrow: this is a test-guard sync for the published boundary, not a boundary widening
 
+## 2026-04-18 — Stage 4.2 proof-summary anti-drift guard widening
+
+I widened the proof-summary anti-drift guard in `crates/kali_cli/tests/schema_docs.rs` so it now pins a broader current RC snapshot helper inventory — including the no-dangling-reference corollaries, released-reference cons-shape theorems, target-cell bookkeeping, zero-count collection/removal, and heap-characterisation corollaries — instead of only the smaller proof-backend slice.
+
 # Stage 4.2 Status Update
 
 **Date:** 2026-04-17  
