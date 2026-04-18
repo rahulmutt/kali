@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 pure release-origin helper widening
+
+I found a small gap in the published RC snapshot wording: the pure release helper had a heap-characterisation theorem and an origin/ownership theorem, but the proof boundary did not name the plain origin theorem `KaliCore.Safety.releaseRefHeapCellOrigin` explicitly.
+
+Planned update:
+- add `KaliCore.Safety.releaseRefHeapCellOrigin` to the RC snapshot proof slice, then sync `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `proofs/BOUNDARY.md` so the pure release-helper provenance story is explicit at the same granularity as the other helper families
+- keep the claim narrow: this is a proof-summary / helper-theorem sync for the published boundary, not a boundary widening beyond the current RC snapshot model
+
 ## 2026-04-18 — Stage 4.2 release-only helper wording sync
 
 I found that the summary docs and proof-summary guard still understate the currently mechanised release-only helper slice, even though the published boundary already names `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseRefLiveRefsFiltered`, and `KaliCore.Safety.releasePreservesWellFormed` explicitly in the proof boundary narrative.

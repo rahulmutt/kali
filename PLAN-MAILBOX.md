@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 pure release-origin helper widening
+
+I found a small proof-summary gap in the pure release helper slice: the RC snapshot boundary already names `KaliCore.Safety.releaseRefHeapCharacterisation` and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, but it does not yet call out the plain origin theorem `KaliCore.Safety.releaseRefHeapCellOrigin` explicitly.
+
+Planned update:
+- add `KaliCore.Safety.releaseRefHeapCellOrigin` to `proofs/KaliCore/Safety.lean`, then sync the Stage 4.2 plan/progress notes (`plan/phase-4/02-formal-verification-depth.md`, `PLAN-4.2-STATUS.md`, and `TODO.md`) so the pure release-helper provenance story is explicit at the same granularity as the decrement and collection helper families
+- keep the claim narrow: this is a helper-theorem / progress-tracker sync for the published boundary, not a boundary widening beyond the current RC snapshot model
+
 ## 2026-04-18 — Stage 4.2 unrelated-heap / other-live guard follow-up
 
 I tightened the Stage 4.2 proof-summary anti-drift guard so it now also pins `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, and `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` explicitly alongside the existing RC snapshot inventory.
