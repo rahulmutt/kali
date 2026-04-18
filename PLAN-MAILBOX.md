@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 pure release helper wording follow-up
+
+I tightened the Stage 4.2 progress summary so it now also names the pure release helper's heap-characterisation and origin/ownership theorems, `KaliCore.Safety.releaseRefHeapCharacterisation` and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, explicitly alongside the release-only live-reference corollaries and the rest of the RC snapshot inventory.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md` so the top-level memory-safety summary now names the pure release helper theorem pair explicitly alongside the existing RC inventory
+- kept the change narrow: this is a plan-summary wording sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 release-only helper wording sync
 
 I found that the Stage 4.2 progress trackers still do not call out the release-only helper corollaries `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseRefLiveRefsFiltered`, and `KaliCore.Safety.releasePreservesWellFormed` as explicitly as the published boundary does.

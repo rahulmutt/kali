@@ -237,6 +237,7 @@
 
 ### Stage 4.2 - Pure release-helper follow-up
 - ✅ `releaseRefLiveRefsAreOwnedAndAllocated` now keeps the pure release helper's surviving live references anchored in ownership and allocation, and `releaseRefHeapCellOriginAndOwnership` now makes the release-only provenance story explicit.
+- ✅ `PLAN-4.2-STATUS.md` now also names `KaliCore.Safety.releaseRefHeapCharacterisation` and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership` in the top-level memory-safety summary, so the plan tracker stays as explicit as the published boundary.
 - ✅ `releaseRefLiveRefsFiltered`, `releaseAndDecrementLiveRefsFiltered`, and `releaseAndCollectLiveRefsFiltered` now keep the live-reference list filtered to the released target across the release-only, decrement, and collection helpers.
 - ✅ `releaseRefReleasedNotLiveRef` now keeps released references disjoint from the live set after the pure release helper runs.
 - ✅ `releaseRecorded` still records the released reference in the released set after the pure release step.
