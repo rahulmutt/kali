@@ -166,6 +166,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         ("proofs/BOUNDARY.md", summary),
         ("specs/17-verification.md", summary),
         ("specs/19-feature-maturity.md", proof_backed_phrase),
+        ("plan/phase-4/02-formal-verification-depth.md", summary),
         ("PLAN-4.2-STATUS.md", summary),
     ];
 

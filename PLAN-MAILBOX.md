@@ -1,3 +1,12 @@
+## 2026-04-18 — Stage 4.2 plan-note anti-drift guard widening
+
+I widened the Stage 4.2 proof-summary guard so it now also checks `plan/phase-4/02-formal-verification-depth.md` for the canonical proof-backed summary and theorem inventory, keeping the stage plan note aligned with the published boundary wording.
+
+Completed follow-up:
+- updated `crates/kali_cli/tests/schema_docs.rs` so the proof-summary guard now also includes the Stage 4.2 plan note in its summary-doc coverage
+- updated `plan/phase-4/02-formal-verification-depth.md` so the current progress note now carries the canonical proof-backed summary string and theorem inventory wording that the guard expects
+- kept the change narrow: this is a plan-note / anti-drift sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 pure release-helper origin/ownership/positivity widening
 
 I found one more symmetry gap in the Stage 4.2 RC snapshot tracker: the release-only helper already has heap-characterisation, origin, and origin/ownership theorems, but it does not yet package the surviving positive-count fact together with those provenance facts.
