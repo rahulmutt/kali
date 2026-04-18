@@ -79,6 +79,10 @@ This keeps “Phase 1 MVP” and later status labels tied to measurable behavior
 
 This section is a compact reading aid for the most common Phase-1 question: **what is actually shipped end to end?**
 
+Current-repository-state note:
+- this section is intentionally a **Phase-1** reading aid, not a full description of the current repository state after later phases
+- when the repository has advanced further, read this section as the historical/shipping minimum for Phase 1 and use the owning later rows plus `proofs/BOUNDARY.md` to answer the current-state question
+
 It is intentionally narrower than the full command/profile matrix below:
 - it lists only the core command/context families that should be treated as shipped in Phase 1,
 - it keeps later documented command families visible as explicitly **not yet shipped**,

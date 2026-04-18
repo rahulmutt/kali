@@ -1,5 +1,17 @@
 # TODO
 
+## Current Remaining Work
+
+The repository has closed the stage-plan milestones reflected in `PLAN.md`; the remaining work is
+follow-up widening rather than unfinished baseline delivery:
+
+- widen specialization depth beyond the current MIR-aware layout-specialized path while keeping the
+  specialization budget and benchmark evidence honest,
+- widen the representative package corpus and browser/runtime interoperability without overclaiming
+  support rungs,
+- widen the proof-backed boundary beyond the current published RC snapshot + lowering slice while
+  keeping `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and summary docs synchronized.
+
 ## Completed
 
 ### Stage 4.2 - Collection target-cell iff summary sync
@@ -179,7 +191,7 @@
 - ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and `plan/phase-4/02-formal-verification-depth.md` now name `KaliCore.Safety.releaseAndDecrementTargetCellOrigin` explicitly alongside the rest of the RC snapshot inventory.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
 
-## Next Work
+## Recently Closed Work
 - [x] Stage 4.2 pure release-origin helper sync closed
   - Confirmed `KaliCore.Safety.releaseRefHeapCellOrigin` is already present in the proof-backed boundary and that the summary / tracker docs are already aligned with the published RC snapshot wording for the pure release helper slice.
   - Closed the stale planned-update note without widening the published boundary.
