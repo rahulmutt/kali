@@ -273,3 +273,11 @@ I plan to widen the current RC snapshot proof slice with exact `releasedRefs` co
 Suggested follow-up:
 - update `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and the Stage 4.2 status tracker so the new releasedRefs bookkeeping theorems are named explicitly
 - keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level bookkeeping slice, not the full RC target
+
+## 2026-04-18 — Stage 4.2 exact releasedRefs wording sync
+
+I found one remaining verification-summary drift point: the published boundary already names the exact released-reference cons-shape theorems, but the root summary docs still describe that slice a bit too generically.
+
+Suggested follow-up:
+- update `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the release-only, decrement, and collection helpers are named explicitly via `KaliCore.Safety.releaseRefReleasedRefsCons`, `KaliCore.Safety.releaseAndDecrementReleasedRefsCons`, and `KaliCore.Safety.releaseAndCollectReleasedRefsCons`
+- keep the claim narrow: this is a wording sync for the published boundary, not a boundary widening

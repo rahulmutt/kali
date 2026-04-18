@@ -12,6 +12,9 @@
 ### Plan completion-gate sync
 - ✅ `PLAN.md` phase completion gates now reflect the current stage status, and the Phase 2 effect-report completion line now matches the schema-v1 contracts used by the stage docs and schema specs.
 
+### Stage 4.2 exact releasedRefs wording sync
+- ✅ Synced `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the verification summary now names `KaliCore.Safety.releaseRefReleasedRefsCons`, `KaliCore.Safety.releaseAndDecrementReleasedRefsCons`, and `KaliCore.Safety.releaseAndCollectReleasedRefsCons` explicitly alongside the existing RC snapshot inventory.
+
 ### Stage 1.3 - Parser & AST
 - ✅ Parser compiles successfully
 - ✅ `cargo test -p kali_parser --lib` passes

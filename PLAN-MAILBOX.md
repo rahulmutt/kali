@@ -379,3 +379,11 @@ I widened the Stage 3.3 package corpus with module-only entrypoint packages, so 
 Suggested follow-up:
 - keep the Stage 3.3 corpus/status notes aligned if the module-only coverage widens again
 - continue treating this as a package-corpus widening slice, not a new support rung
+
+## 2026-04-18 — Stage 4.2 exact releasedRefs wording sync
+
+I synced the plan-facing progress tracker after the verification summaries were tightened to name the exact released-reference cons-shape theorems explicitly.
+
+Completed follow-up:
+- updated `TODO.md` so the Stage 4.2 progress log now names `KaliCore.Safety.releaseRefReleasedRefsCons`, `KaliCore.Safety.releaseAndDecrementReleasedRefsCons`, and `KaliCore.Safety.releaseAndCollectReleasedRefsCons` explicitly alongside the current RC snapshot inventory
+- kept the change narrow: this is a wording / progress-note sync, not a boundary widening
