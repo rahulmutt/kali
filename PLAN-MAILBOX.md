@@ -91,6 +91,10 @@ Planned update:
 - sync `PLAN-4.2-STATUS.md` and `TODO.md` so the progress notes name the release-only helper corollaries explicitly alongside the existing RC snapshot theorem inventory
 - keep the claim narrow: this is a progress-tracker wording sync for the published boundary, not a boundary widening
 
+Completed follow-up:
+- confirmed the Stage 4.2 plan/progress notes already name the release-only helper corollaries explicitly, so the earlier tracker gap is closed
+- kept the change narrow: this is a mailbox / tracker sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 lowering-correctness theorem-name sync
 
 I tightened the Stage 4.2 progress trackers to name the explicit HIR lowering-preservation theorems `KaliIR.LoweringCorrectness.lower_preserves_step` and `KaliIR.LoweringCorrectness.lower_preserves_steps`, so the plan/progress notes keep the lower-correctness slice just as concrete as the RC snapshot inventory.
