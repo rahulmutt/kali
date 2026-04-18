@@ -29,7 +29,7 @@
 - ✅ `PLAN-4.2-STATUS.md` and the Stage 4.2 progress note now call out the release-only heap-characterisation theorem explicitly, keeping the pure release helper slice aligned with the published boundary inventory.
 
 ### Stage 4.2 - Pure release heap characterisation wording sync
-- ✅ `TODO.md` now calls out `KaliCore.Safety.releaseRefHeapCharacterisation`, `KaliCore.Safety.releaseRefHeapCellOrigin` explicitly in the Stage 4.2 tracker, so the pure release-helper slice stays named alongside the release-only live-reference and disjointness corollaries.
+- ✅ `TODO.md` now calls out `KaliCore.Safety.releaseRefHeapCharacterisation`, `KaliCore.Safety.releaseRefHeapCellOrigin` explicitly in the Stage 4.2 tracker, and the proof-boundary theorem inventory now also names `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership` explicitly, so the pure release-helper slice stays named alongside the release-only live-reference and disjointness corollaries.
 - ✅ The existing `PLAN-4.2-STATUS.md` progress note already reflects the same helper-level wording, keeping the proof-backed boundary inventory aligned with the current RC theorem set.
 
 ### Stage 4.2 - Proof-summary anti-drift guard widening

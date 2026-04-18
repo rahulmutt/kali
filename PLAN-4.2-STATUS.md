@@ -4,7 +4,7 @@ I tightened the Stage 4.2 summary prose so the published boundary now names `Kal
 
 ## 2026-04-18 — Stage 4.2 release-only helper wording sync
 
-I tightened the Stage 4.2 summary prose so the published boundary now names `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseRefLiveRefsFiltered`, and `KaliCore.Safety.releasePreservesWellFormed` explicitly alongside the rest of the RC snapshot inventory.
+I tightened the Stage 4.2 summary prose so the published boundary now names `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseRefLiveRefsFiltered`, and `KaliCore.Safety.releasePreservesWellFormed` explicitly alongside the rest of the RC snapshot inventory, and the proof-boundary theorem inventory now also names `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership` explicitly so the boundary list matches the prose.
 
 ## 2026-04-18 — Stage 4.2 unrelated-heap / other-live wording sync
 
