@@ -18,6 +18,10 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Newly created MIR-specialized clones are now recursively revisited under their own owner key, so clone-specific optimization can expose deeper specializable call sites while keeping the specialization budget deterministic.
 - ✅ Kept the update narrow: this widens specialization depth within the existing optimization model; it does not change the published benchmark or support claims.
 
+### Stage 3.3 - Web Blob/File baseline
+- ✅ `kali_api_web` now exposes in-memory `Blob` and `File` primitives for the Web baseline, and `kali_api_deno` reexports them so the browser/runtime support library can model common blob/file payloads without changing the public support-rung story.
+- ✅ `crates/kali_types` now recognizes `Blob` and `File` as builtin globals, keeping the ambient typing surface aligned with the support-library additions.
+
 ### Stage 4.2 - Collection target-cell iff summary sync
 - ✅ `README.md` now names `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount` explicitly alongside the existing proof-backed RC snapshot inventory.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.

@@ -27,6 +27,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   overrides, browser false-blocking, browser internal-browser-rewrite chains, module-only and
   module-entry internal-dependency chains, dual-package and mixed-format entrypoints, and typed
   export branches.
+- The shared browser/runtime support library now also carries in-memory `Blob` and `File` primitives,
+  which gives the browser interoperability slice a more realistic payload baseline without changing
+  the package-support rungs claimed for the corpus.
 - The utility corpus also now includes `commander` alongside the existing utility representatives,
   widening the plain-package breadth without changing the documented support rungs.
 - Phase-3 cross-module inference smoke coverage now exercises a multi-file import chain with
@@ -107,7 +110,7 @@ Stage 3.3 is complete. The remaining work in this area is breadth/depth follow-u
 unfinished Stage-3.3 implementation:
 
 - keep widening the representative package corpus without overclaiming support rungs,
-- deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice,
+- deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice and the current in-memory Blob/File baseline,
 - widen cross-module inference carefully within the published solver/specialization budgets.
 
 ## Historical Out of Scope for Stage 3.3

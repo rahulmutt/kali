@@ -31,6 +31,110 @@ pub fn structured_clone<T: Clone>(value: &T) -> T {
     value.clone()
 }
 
+/// An in-memory Web `Blob`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Blob {
+    bytes: Arc<[u8]>,
+    mime_type: Option<String>,
+}
+
+impl Blob {
+    /// Create a blob from byte chunks and an optional MIME type.
+    pub fn new<I, B>(parts: I, mime_type: Option<String>) -> Self
+    where
+        I: IntoIterator<Item = B>,
+        B: AsRef<[u8]>,
+    {
+        let mut bytes = Vec::new();
+        for part in parts {
+            bytes.extend_from_slice(part.as_ref());
+        }
+
+        Self {
+            bytes: Arc::from(bytes),
+            mime_type,
+        }
+    }
+
+    /// Return the blob's bytes.
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// Return the blob's size in bytes.
+    pub fn size(&self) -> usize {
+        self.bytes.len()
+    }
+
+    /// Return the blob's MIME type, if one was supplied.
+    pub fn mime_type(&self) -> Option<&str> {
+        self.mime_type.as_deref()
+    }
+
+    /// Decode the blob as UTF-8 text.
+    pub fn text(&self) -> Result<String, std::string::FromUtf8Error> {
+        String::from_utf8(self.bytes.to_vec())
+    }
+}
+
+/// An in-memory Web `File`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct File {
+    blob: Blob,
+    name: String,
+    last_modified: u64,
+}
+
+impl File {
+    /// Create a file from byte chunks, a file name, and an optional MIME type.
+    pub fn new<I, B>(
+        name: impl Into<String>,
+        parts: I,
+        mime_type: Option<String>,
+        last_modified: u64,
+    ) -> Self
+    where
+        I: IntoIterator<Item = B>,
+        B: AsRef<[u8]>,
+    {
+        Self {
+            blob: Blob::new(parts, mime_type),
+            name: name.into(),
+            last_modified,
+        }
+    }
+
+    /// Return the file name.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Return the file's last-modified timestamp.
+    pub fn last_modified(&self) -> u64 {
+        self.last_modified
+    }
+
+    /// Return the file's bytes.
+    pub fn bytes(&self) -> &[u8] {
+        self.blob.bytes()
+    }
+
+    /// Return the file's size in bytes.
+    pub fn size(&self) -> usize {
+        self.blob.size()
+    }
+
+    /// Return the embedded blob view.
+    pub fn blob(&self) -> &Blob {
+        &self.blob
+    }
+
+    /// Decode the file as UTF-8 text.
+    pub fn text(&self) -> Result<String, std::string::FromUtf8Error> {
+        self.blob.text()
+    }
+}
+
 /// Parse a URL string using the shared support library's URL parser.
 pub fn parse_url(input: &str) -> Result<Url, url::ParseError> {
     Url::parse(input)
@@ -236,6 +340,34 @@ mod tests {
         let original = vec![1, 2, 3];
         let cloned = structured_clone(&original);
         assert_eq!(cloned, original);
+    }
+
+    #[test]
+    fn blob_collects_bytes_and_text() {
+        let blob = Blob::new(
+            ["hello ".as_bytes(), "world".as_bytes()],
+            Some("text/plain".to_string()),
+        );
+        assert_eq!(blob.size(), 11);
+        assert_eq!(blob.mime_type(), Some("text/plain"));
+        assert_eq!(blob.bytes(), b"hello world");
+        assert_eq!(blob.text().expect("blob text"), "hello world");
+    }
+
+    #[test]
+    fn file_wraps_blob_metadata() {
+        let file = File::new(
+            "report.txt",
+            ["hello ".as_bytes(), "world".as_bytes()],
+            Some("text/plain".to_string()),
+            42,
+        );
+        assert_eq!(file.name(), "report.txt");
+        assert_eq!(file.last_modified(), 42);
+        assert_eq!(file.size(), 11);
+        assert_eq!(file.bytes(), b"hello world");
+        assert_eq!(file.blob().mime_type(), Some("text/plain"));
+        assert_eq!(file.text().expect("file text"), "hello world");
     }
 
     #[test]
