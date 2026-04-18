@@ -282,3 +282,11 @@ I promoted the local collection helper's target-cell survival/removal split to t
 Suggested follow-up:
 - keep the claim narrow: this is a proof-boundary / tracker sync for the published RC snapshot slice, not a widening of the broader ownership/freeing target
 
+
+## 2026-04-18 — Stage 1.5 type-checker diagnostics sync
+
+I widened the Stage 1.5 type-checker foundation slightly: `TypeChecker` now drains and preserves annotation-resolution diagnostics instead of behaving like a pure no-op, and the Stage 1.5 plan note now reflects that the annotation-diagnostics plumbing is wired.
+
+Suggested follow-up:
+- keep the Stage 1.5 summary honest if the checker grows beyond annotation diagnostics into flow-sensitive or inference-heavy passes
+- treat this as a small plan/status sync, not a phase-level availability change

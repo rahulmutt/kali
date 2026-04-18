@@ -212,6 +212,10 @@ impl TypeContext {
         &self.diagnostics
     }
 
+    pub fn drain_diagnostics(&mut self) -> Vec<Diagnostic> {
+        std::mem::take(&mut self.diagnostics)
+    }
+
     pub fn clear_diagnostics(&mut self) {
         self.diagnostics.clear();
     }
@@ -1052,11 +1056,13 @@ impl TypeChecker {
     }
 
     pub fn clear_diagnostics(&mut self) {
+        self.context.clear_diagnostics();
         self.diagnostics.clear();
     }
 
     pub fn check_type_annotation(&mut self, _node_id: NodeId, annotation: &str) {
         self.context.resolve_type_annotation_text(annotation);
+        self.diagnostics.extend(self.context.drain_diagnostics());
     }
 
     pub fn check_node(&mut self, _node_id: NodeId) {
@@ -1064,7 +1070,6 @@ impl TypeChecker {
     }
 
     pub fn typecheck(&mut self, _program_root: NodeId) -> Vec<Diagnostic> {
-        self.clear_diagnostics();
         self.diagnostics.clone()
     }
 }
@@ -1346,6 +1351,17 @@ mod tests {
         let result = ctx.resolve_statements(&statements);
         assert!(result
             .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e3::UNDEFINED_IDENTIFIER as u32)));
+    }
+
+    #[test]
+    fn test_type_checker_collects_annotation_diagnostics() {
+        let mut checker = TypeChecker::new();
+        checker.check_type_annotation(NodeId::new(1), "Missing | string");
+
+        let diagnostics = checker.typecheck(NodeId::new(0));
+        assert!(diagnostics
             .iter()
             .any(|diag| diag.code == Some(e3::UNDEFINED_IDENTIFIER as u32)));
     }
