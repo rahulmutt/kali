@@ -1,3 +1,8 @@
+## 2026-04-18 — Stage 4.2 decrement origin/positive-count progress-note sync
+
+Completed follow-up:
+- `PLAN-4.2-STATUS.md` and `TODO.md` now keep `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndPositiveCount` explicit alongside the rest of the RC snapshot inventory, closing out the follow-up for the decrement-path provenance/positivity wording.
+
 ## 2026-04-18 — Stage 4.2 target-allocation ownership/allocation corollaries
 
 I widened the Stage 4.2 RC progress trackers with target-specific ownership/allocation corollaries for the decrement and collection helpers: `KaliCore.Safety.releaseAndDecrementTargetCellOwnedAndAllocatedWhenPositiveCount` and `KaliCore.Safety.releaseAndCollectTargetCellOwnedAndAllocatedWhenPositiveCount`.

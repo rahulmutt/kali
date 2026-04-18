@@ -2,6 +2,9 @@
 
 ## Completed
 
+### Stage 4.2 - Decrement origin/positive-count progress-note sync
+- ✅ `PLAN-4.2-STATUS.md` and the TODO stage summary now keep `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndPositiveCount` explicit alongside the rest of the RC snapshot inventory, closing out the follow-up that widened the decrement-path provenance/positivity wording.
+
 ### Stage 4.2 - Proof-boundary heap-characterisation inventory sync
 - ✅ `proofs/BOUNDARY.md` now names `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` and `KaliCore.Safety.releaseAndCollectHeapCharacterisation` explicitly in the claimed theorem inventory, keeping the manifest aligned with the proof-state summary and the summary docs.
 - ✅ The pure release helper now also has an explicit heap-characterisation theorem, `KaliCore.Safety.releaseRefHeapCharacterisation`, so the RC helper slice states the unchanged-heap case directly alongside the decrement/collection heap characterisation theorems.
