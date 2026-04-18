@@ -341,3 +341,11 @@ I plan to widen the current RC snapshot proof slice with exact `releasedRefs` co
 Suggested follow-up:
 - update the proof-boundary manifest and the verification summaries so the new releasedRefs bookkeeping theorems are named explicitly
 - keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level bookkeeping slice, not the full RC target
+
+## 2026-04-17 — Stage 3.3 module-only corpus coverage
+
+I widened the Stage 3.3 package corpus with module-only entrypoint packages, so the representative browser and utility sets now exercise `package.json#module` fallback resolution as a published shape instead of only through mixed-format packages.
+
+Suggested follow-up:
+- keep the Stage 3.3 corpus/status notes aligned if the module-only coverage widens again
+- continue treating this as a package-corpus widening slice, not a new support rung

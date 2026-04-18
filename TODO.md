@@ -188,6 +188,7 @@
 ### Stage 3.3 - Package corpus breadth expansion
 - ✅ Added browser, utility, and Node-runner corpus cases that resolve published exports maps and subpath entrypoints for `react`, `preact`, `vue`, `ramda`, `rxjs`, `uuid`, `vitest`, and `jest`, broadening the package-support corpus beyond the original single-entrypoint stubs.
 - ✅ Added dual-package, browser-conditional-export, mixed-format, and browser replacement-map corpus coverage so the representative package set now exercises conditional exports across browser/import/require branches plus browser-field rewrites and mixed CJS/ESM entrypoints.
+- ✅ Added module-only corpus coverage so the representative browser and utility package sets now exercise `package.json#module` fallback resolution as a standalone published shape.
 
 ### Stage 4.2 - Proof-boundary anti-drift test
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now asserts that the `proofs/BOUNDARY.md` covered-path inventory matches the actual `proofs/*.lean` source set, now checks the published theorem inventory against the concrete Lean theorem and lemma names, and now also verifies the canonical proof-summary docs keep the current RC theorem names and proof-backed summary string in sync, so deleting or adding a proof file or drifting summary prose without updating the manifest or docs fails `cargo test`; the progress tracker now calls out that theorem-name inventory and summary-doc inventory check alongside the path-level anti-drift guard.
