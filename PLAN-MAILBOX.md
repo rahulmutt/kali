@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 original positive-count survivor theorem
+
+I added the helper-level RC summary theorem `KaliCore.Safety.releaseAndCollectKeepsOriginalPositiveCountCells`, which packages the positive-count survivorship story for the release-and-collect helper so the no-leak slice is easier to cite directly.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md`, `TODO.md`, `plan/phase-4/02-formal-verification-depth.md`, and the published verification summaries so the new theorem is named explicitly alongside the existing RC snapshot inventory
+- kept the change narrow: this is a helper-theorem / progress-tracker widening on top of the published boundary, not a new boundary shape
+
 ## 2026-04-18 — Stage 4.2 proof-summary tracker coverage
 
 I widened the proof-summary anti-drift guard so `crates/kali_cli/tests/schema_docs.rs` now also checks `TODO.md` for the current RC theorem inventory, keeping the progress tracker aligned with the already-published proof-boundary wording.

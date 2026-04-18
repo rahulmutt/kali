@@ -115,6 +115,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         "releaseAndCollectNoDanglingReference",
         "releaseAndCollectDropsZeroCountCells",
         "releaseAndCollectKeepsOtherPositiveCountCells",
+        "releaseAndCollectKeepsOriginalPositiveCountCells",
         "releaseAndCollectKeepsTargetCellWhenPositiveCount",
         "releaseAndCollectHeapCellOrigin",
         "releaseAndCollectHeapCellOriginAndOwnership",

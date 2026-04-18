@@ -400,6 +400,23 @@ theorem releaseAndCollectKeepsOtherPositiveCountCells (snapshot : RcSnapshot) (r
     exact releaseAndCollectKeepsPositiveCountCells snapshot ref cell hmem' hpos
   exact ⟨hkeep, hpos⟩
 
+/-- The local release-and-collect helper keeps every original positive-count cell alive: non-target cells survive unchanged, and the released target survives when its decremented count stays positive. This packages the helper-level no-leak story explicitly. -/
+theorem releaseAndCollectKeepsOriginalPositiveCountCells (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.refCount > 0 →
+      (cell.name = ref → cell.refCount > 1 →
+        { cell with refCount := cell.refCount - 1 } ∈ (releaseAndCollect snapshot ref).heap ∧
+        { cell with refCount := cell.refCount - 1 }.refCount > 0) ∧
+      (cell.name ≠ ref →
+        cell ∈ (releaseAndCollect snapshot ref).heap ∧ cell.refCount > 0) := by
+  intro cell hmem hpos
+  constructor
+  · intro hname hgt1
+    constructor
+    · exact releaseAndCollectKeepsTargetCellWhenPositiveCount snapshot ref cell hmem hname hgt1
+    · simpa using Nat.sub_pos_of_lt hgt1
+  · intro hname
+    exact releaseAndCollectKeepsOtherPositiveCountCells snapshot ref cell hmem hname hpos
+
 /-- A release-and-collect step keeps unrelated positive-count heap entries in the collected heap. -/
 theorem releaseAndCollectKeepsOtherHeapEntries (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ snapshot.heap → cell.name ≠ ref → cell.refCount > 0 →

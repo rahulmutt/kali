@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 original positive-count survivor theorem
+
+I added the helper-level RC theorem `KaliCore.Safety.releaseAndCollectKeepsOriginalPositiveCountCells` so the proof-backed boundary can cite the no-leak survivorship story for the collection helper directly.
+
+Completed follow-up:
+- updated `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and the plan/progress trackers so the new theorem name is explicit in the published boundary inventory
+- kept the change narrow: this is a proof-summary / boundary-inventory sync for the already-published RC slice, not a new proof target
+
 ## 2026-04-18 — Stage 4.2 target-allocation ownership/allocation corollaries
 
 I widened the published RC snapshot inventory with target-specific ownership/allocation corollaries for the decrement and collection helpers: `KaliCore.Safety.releaseAndDecrementTargetCellOwnedAndAllocatedWhenPositiveCount` and `KaliCore.Safety.releaseAndCollectTargetCellOwnedAndAllocatedWhenPositiveCount`.
