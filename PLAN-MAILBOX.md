@@ -452,8 +452,11 @@ Completed follow-up:
 
 I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndPositiveCount`, so the Stage 4.2 progress trackers should name the new bundled helper theorem explicitly alongside the existing RC helper inventory.
 
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the progress trackers now name `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndPositiveCount` explicitly alongside the current helper slice
+- reran the schema-doc anti-drift test so the published boundary wording stays locked to the mechanised theorem inventory
+
 Suggested follow-up:
-- update `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the progress trackers name the new decrement origin/positive-count theorem alongside the current helper slice
 - keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level conjunction theorem, not the full RC target
 
 ## 2026-04-18 — Stage 4.2 heap-filter anti-drift guard
