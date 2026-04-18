@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 release-only helper wording sync
+
+I found that the summary docs and proof-summary guard still understate the currently mechanised release-only helper slice, even though the published boundary already names `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseRefLiveRefsFiltered`, and `KaliCore.Safety.releasePreservesWellFormed` explicitly in the proof boundary narrative.
+
+Planned update:
+- sync `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, `TODO.md`, and the proof-summary guard in `crates/kali_cli/tests/schema_docs.rs` so the release-only helper corollaries are named explicitly alongside the existing RC snapshot inventory
+- keep the claim narrow: this is a wording / drift-guard sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 original positive-count decrement theorem
 
 I added the helper-level RC theorem `KaliCore.Safety.releaseAndDecrementKeepsOriginalPositiveCountCells`, which packages the positive-count survivorship story for the release-and-decrement helper so the published boundary can cite it directly alongside the existing RC snapshot inventory.

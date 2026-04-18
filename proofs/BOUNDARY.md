@@ -51,6 +51,7 @@ Release rule:
 - `KaliCore.Soundness.preservation` — preservation for the widened closed typed core fragment
 - `KaliCore.Safety.noDanglingReference` — mechanised no-dangling-reference theorem for the current RC snapshot model
 - `KaliCore.Safety.liveRefsAreOwnedAndAllocated` — mechanised theorem that well-formed snapshots keep live references anchored in ownership and allocation
+- `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated` — mechanised theorem that the pure release helper keeps surviving live references anchored in ownership and allocation
 - `KaliCore.Safety.releaseRefLiveRefsFiltered`, `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered`, and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` — mechanised theorems that the release-only, decrement, and collection helpers keep the live-reference list as the target-filtered original live set
 - `KaliCore.Safety.releasePreservesWellFormed` — mechanised theorem that releasing a live reference preserves the remaining well-formed live set
 - `KaliCore.Safety.releaseAndDecrementPreservesWellFormed` — mechanised theorem that the current release-and-decrement helper preserves the remaining well-formed live set
