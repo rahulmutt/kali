@@ -43,8 +43,8 @@ Release rule:
 
 ### HIR lowering model (`proofs/KaliIR/HIRModel.lean`, `proofs/KaliIR/LoweringCorrectness.lean`)
 - Provisional HIR syntax and a core lowering projection for future lowering-correctness work
-- Claimed property inventory: structural lowering equations (`lower_core`, `lower_let1`, `lower_seq`, `lower_if`, `lower_assign`, `lower_throw`, `lower_tr`) plus a small-step lowering-preservation bridge and a finite-trace lowering-preservation bridge for the current HIR subset
-- Current proof state: the structural equations are mechanised, `KaliIR.LoweringCorrectness.lower_preserves_step` now proves the current HIR step relation is preserved by lowering for the modeled subset, and `KaliIR.LoweringCorrectness.lower_preserves_steps` lifts that result to finite traces for the same subset, including assignment, bare throw, and try/catch; the subset still stops short of the full Stage 4.2 semantic-preservation target
+- Claimed property inventory: structural lowering equations (`lower_core`, `lower_let1`, `lower_seq`, `lower_if`, `lower_assign`, `lower_throw`, `lower_tr`) plus a current HIR value fragment, a small-step lowering-preservation bridge, and a finite-trace lowering-preservation bridge for the current HIR subset
+- Current proof state: the structural equations are mechanised, `KaliIR.Value` records the current HIR value fragment, `KaliIR.LoweringCorrectness.lower_preserves_value` now proves that fragment lowers to core values, `KaliIR.LoweringCorrectness.lower_preserves_step` now proves the current HIR step relation is preserved by lowering for the modeled subset, and `KaliIR.LoweringCorrectness.lower_preserves_steps` lifts that result to finite traces for the same subset, including assignment, bare throw, and try/catch; the subset still stops short of the full Stage 4.2 semantic-preservation target
 
 ## Claimed theorems/properties
 - `KaliCore.Soundness.progress` — progress for the widened closed typed core fragment
@@ -94,6 +94,8 @@ Release rule:
 - `KaliCore.Safety.releasedNotLive` — mechanised theorem that released references are not live in the current RC snapshot model
 - `KaliCore.Safety.releasedNotLiveRef` — mechanised theorem that well-formed snapshots keep released and live references disjoint
 - `KaliIR.HIRModel.lower_core`, `lower_let1`, `lower_seq`, `lower_if`, `lower_assign`, `lower_throw`, `lower_tr` — structural lowering equations for the modeled HIR projection
+- `KaliIR.Value` — current HIR value fragment for the lowering model
+- `KaliIR.LoweringCorrectness.lower_preserves_value` — lowering-preservation bridge for the current HIR value fragment
 - `KaliIR.LoweringCorrectness.lower_preserves_step` — lowering-preservation bridge for the current HIR step subset
 - `KaliIR.LoweringCorrectness.lower_preserves_steps` — finite-trace lowering-preservation bridge for the same modeled HIR subset
 

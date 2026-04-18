@@ -4,6 +4,16 @@ namespace KaliIR
 
 open KaliCore
 
+/-- HIR values in the current model are just the core-lifted values. -/
+inductive Value : HIRExpr → Prop where
+  | core : ∀ {v}, KaliCore.Value v → Value (.core v)
+
+/-- Lowering preserves the current HIR value fragment. -/
+theorem lower_preserves_value : ∀ {h : HIRExpr}, Value h → KaliCore.Value (lower h) := by
+  intro h hv
+  cases hv with
+  | core hv => simpa [lower] using hv
+
 /--
 A small proof-backed lowering-correctness fragment for the provisional HIR
 model. The current theorem family covers the structural HIR forms already

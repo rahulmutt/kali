@@ -405,3 +405,7 @@ I noticed the published boundary and the high-level verification summaries still
 Planned update:
 - update `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, and `TODO.md` so the proof-backed boundary and progress notes name the decrement/collection live-reference filtering theorems explicitly alongside the release-only helper theorem
 - keep the claim narrow: this is a proof-summary / drift-guard naming sync for the published boundary, not a boundary widening beyond the current RC snapshot model
+
+## 2026-04-18 — Lowering value-preservation boundary sync
+
+I added `KaliIR.LoweringCorrectness.lower_preserves_value` plus the small `KaliIR.Value` fragment it needs, so the proof-backed boundary now needs a corresponding verification-summary widening in `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and the Stage 4.2 summary docs. The anti-drift guard in `crates/kali_cli/tests/schema_docs.rs` also needs to pin the new lowering theorem name so the published boundary stays aligned with the mechanised theorem inventory.

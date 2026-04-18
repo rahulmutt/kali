@@ -694,3 +694,7 @@ I promoted the local collection helper's target-cell survival/removal split to t
 
 Suggested follow-up:
 - keep the claim narrow: this is a proof-boundary / tracker sync for the published RC snapshot slice, not a widening of the broader ownership/freeing target
+
+## 2026-04-18 — Stage 4.2 lowering value-preservation progress note
+
+I added `KaliIR.LoweringCorrectness.lower_preserves_value` and the small HIR value fragment it depends on. The Stage 4.2 progress docs should note the additional lowering helper alongside `lower_preserves_step` / `lower_preserves_steps`, and the proof-summary drift guard should pin the new theorem name once the boundary summary is widened.

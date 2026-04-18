@@ -187,6 +187,8 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
     }
 
     let lowering_theorem_names = [
+        "KaliIR.Value",
+        "KaliIR.LoweringCorrectness.lower_preserves_value",
         "KaliIR.LoweringCorrectness.lower_preserves_step",
         "KaliIR.LoweringCorrectness.lower_preserves_steps",
     ];
