@@ -8,6 +8,9 @@
 ### Stage 4.2 - Proof-summary anti-drift guard widening
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now pins a broader current RC snapshot helper inventory, including the no-dangling-reference corollaries, released-reference cons-shape theorems, target-cell bookkeeping, zero-count collection/removal, and heap-characterisation corollaries.
 
+### Stage 4.2 - Heap-filter anti-drift guard
+- ✅ `crates/kali_cli/tests/schema_docs.rs` now also pins `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter` explicitly, and the verification summaries now name the filter theorem alongside the rest of the RC snapshot inventory.
+
 ### Stage 4.1 - Package-audit availability
 - ✅ `kali package-audit` now runs without requiring `--preview`; the removed `--preview` path is rejected with the canonical `E5008` invalid-usage diagnostic instead of acting as a compatibility shim.
 

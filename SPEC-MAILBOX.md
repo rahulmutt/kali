@@ -305,3 +305,11 @@ I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndDe
 Suggested follow-up:
 - sync `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `proofs/BOUNDARY.md` so the published boundary names the new decrement origin/positive-count helper explicitly
 - keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level provenance/positivity theorem, not the full RC target
+
+## 2026-04-18 — Stage 4.2 heap-filter anti-drift widening
+
+I found one remaining proof-summary drift point in the verification wording: the published boundary already names `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter` explicitly, but the high-level release-claim summaries still describe that helper only indirectly.
+
+Suggested follow-up:
+- update the README and verification/maturity summaries so the heap/filter theorem is named explicitly alongside the current RC snapshot inventory
+- keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
