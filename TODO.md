@@ -162,6 +162,10 @@
 
 - ✅ `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` and `KaliCore.Safety.releaseAndCollectHeapCharacterisation` now give exact heap-membership characterisations for the decrement and collection helpers.
 
+### Stage 4.2 - Decrement target-origin wording sync
+- ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and `plan/phase-4/02-formal-verification-depth.md` now name `KaliCore.Safety.releaseAndDecrementTargetCellOrigin` explicitly alongside the rest of the RC snapshot inventory.
+- ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
+
 ## Next Work
 - [x] Stage 4.2 pure release-origin helper sync closed
   - Confirmed `KaliCore.Safety.releaseRefHeapCellOrigin` is already present in the proof-backed boundary and that the summary / tracker docs are already aligned with the published RC snapshot wording for the pure release helper slice.

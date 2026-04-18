@@ -255,6 +255,22 @@ theorem releaseAndDecrementHeapCellOrigin (snapshot : RcSnapshot) (ref : String)
   · refine ⟨cell0, hmem0, Or.inr ?_⟩
     simpa [releaseAndDecrement, hname] using hcell.symm
 
+/-- A release-and-decrement step keeps the released target cell traceable to the original heap. -/
+theorem releaseAndDecrementTargetCellOrigin (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ (releaseAndDecrement snapshot ref).heap →
+      cell.name = ref →
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        cell = { cell0 with refCount := cell0.refCount - 1 } := by
+  intro cell hmem hname
+  rcases List.mem_map.mp hmem with ⟨cell0, hmem0, hcell⟩
+  by_cases htarget : cell0.name = ref
+  · refine ⟨cell0, hmem0, ?_⟩
+    simpa [releaseAndDecrement, htarget] using hcell.symm
+  · have hcell' : cell = cell0 := by
+      simpa [releaseAndDecrement, htarget] using hcell.symm
+    subst hcell'
+    exact False.elim (htarget hname)
+
 /-- Every release-and-decrement heap cell also preserves its original name and ownership tag. -/
 theorem releaseAndDecrementHeapCellOriginAndOwnership (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ (releaseAndDecrement snapshot ref).heap →

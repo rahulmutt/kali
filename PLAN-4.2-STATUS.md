@@ -48,7 +48,7 @@ Suggested follow-up:
 
 ## 2026-04-18 — Stage 4.2 target allocation follow-up
 
-I tightened the current RC snapshot summary so it now names the target-allocation bridge corollaries `KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount`, `KaliCore.Safety.releaseAndDecrementTargetCellOwnedAndAllocatedWhenPositiveCount`, `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`, and `KaliCore.Safety.releaseAndCollectTargetCellOwnedAndAllocatedWhenPositiveCount` explicitly alongside the existing target-cell positive-count and provenance lemmas, keeping the progress tracker aligned with the published boundary.
+I tightened the current RC snapshot summary so it now names the target-allocation bridge corollaries `KaliCore.Safety.releaseAndDecrementTargetCellOrigin`, `KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount`, `KaliCore.Safety.releaseAndDecrementTargetCellOwnedAndAllocatedWhenPositiveCount`, `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`, and `KaliCore.Safety.releaseAndCollectTargetCellOwnedAndAllocatedWhenPositiveCount` explicitly alongside the existing target-cell positive-count and provenance lemmas, keeping the progress tracker aligned with the published boundary.
 
 Suggested follow-up:
 - keep the claim narrow: this is a progress-tracker wording sync for the published boundary, not a boundary widening

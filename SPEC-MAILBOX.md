@@ -429,3 +429,11 @@ I confirmed the proof-backed boundary and summary docs already name `KaliIR.Valu
 Completed follow-up:
 - kept the current proof-backed boundary wording aligned with the mechanised lowering slice
 - closed the stale planned-update note without widening the published boundary
+
+## 2026-04-18 — Stage 4.2 decrement target-origin follow-up
+
+I widened the proof model with a target-origin theorem for the release-and-decrement helper, so the published boundary can now name `KaliCore.Safety.releaseAndDecrementTargetCellOrigin` explicitly alongside the existing target-cell bookkeeping and heap-characterisation theorems.
+
+Suggested follow-up:
+- update the verification summaries and maturity docs so the new theorem is named explicitly
+- keep the claim narrow: this is still a helper-level RC slice, not the fuller ownership/freeing target
