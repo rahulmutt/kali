@@ -153,6 +153,27 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         }
     }
 
+    let lowering_theorem_names = [
+        "KaliIR.LoweringCorrectness.lower_preserves_step",
+        "KaliIR.LoweringCorrectness.lower_preserves_steps",
+    ];
+    let lowering_theorem_docs = [
+        "proofs/BOUNDARY.md",
+        "plan/phase-4/02-formal-verification-depth.md",
+        "PLAN-4.2-STATUS.md",
+        "TODO.md",
+    ];
+
+    for relative in lowering_theorem_docs {
+        let text = fs::read_to_string(root.join(relative)).expect("read lowering doc");
+        for theorem in lowering_theorem_names {
+            assert!(
+                text.contains(theorem),
+                "{relative} is missing lowering theorem name: {theorem}"
+            );
+        }
+    }
+
     let theorem_only_docs = ["TODO.md"];
 
     for relative in theorem_only_docs {

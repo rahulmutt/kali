@@ -1,3 +1,12 @@
+## 2026-04-18 — Stage 4.2 lowering-correctness theorem-name sync
+
+I tightened the Stage 4.2 progress trackers to name the explicit HIR lowering-preservation theorems `KaliIR.LoweringCorrectness.lower_preserves_step` and `KaliIR.LoweringCorrectness.lower_preserves_steps`, so the plan/progress notes keep the lower-correctness slice just as concrete as the RC snapshot inventory.
+
+Completed follow-up:
+- updated `plan/phase-4/02-formal-verification-depth.md`, `PLAN-4.2-STATUS.md`, and `TODO.md` so the lower-correctness progress notes name both lowering-preservation theorems explicitly alongside the current HIR slice
+- extended the proof-summary anti-drift guard in `crates/kali_cli/tests/schema_docs.rs` so the lowering theorem names are now checked alongside the existing proof-boundary inventory
+- kept the change narrow: this is a progress-tracker / guard sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 original positive-count decrement theorem
 
 I added the helper-level RC summary theorem `KaliCore.Safety.releaseAndDecrementKeepsOriginalPositiveCountCells`, which packages the positive-count survivorship story for the release-and-decrement helper so the plan/progress trackers can cite it directly.
