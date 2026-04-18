@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 pure release-origin helper sync closed
+
+I confirmed the pure release helper’s plain origin theorem `KaliCore.Safety.releaseRefHeapCellOrigin` is already present in `proofs/KaliCore/Safety.lean`, and the Stage 4.2 summary/progress docs are already aligned with the published boundary wording for that helper slice.
+
+Completed follow-up:
+- treated the earlier pure release-origin planned update as complete and left the current Stage 4.2 tracker wording unchanged
+- closed the stale plan note without widening the published boundary
+
 ## 2026-04-18 — Stage 4.2 live-reference filtering theorem naming sync
 
 I tightened the Stage 4.2 summary and tracker prose so the published boundary now names `KaliCore.Safety.releaseRefLiveRefsFiltered`, `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered`, and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` explicitly alongside `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated` and the rest of the RC snapshot inventory.

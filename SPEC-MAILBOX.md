@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 pure release-origin helper sync closed
+
+I confirmed the pure release helper’s plain origin theorem `KaliCore.Safety.releaseRefHeapCellOrigin` is already present in `proofs/KaliCore/Safety.lean`, and the published boundary / summary docs already name it alongside `KaliCore.Safety.releaseRefHeapCharacterisation` and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`.
+
+Completed follow-up:
+- kept the proof-summary and verification docs aligned with the current RC snapshot slice
+- closed the stale planned-update note without widening the published boundary
+
 ## 2026-04-18 — Stage 4.2 lowering value-preservation summary sync
 
 I tightened the HIR lowering-summary wording so the published boundary now names `KaliIR.Value`, `KaliIR.LoweringCorrectness.lower_preserves_value`, `KaliIR.LoweringCorrectness.lower_preserves_step`, and `KaliIR.LoweringCorrectness.lower_preserves_steps` explicitly alongside the widened HIR lowering-correctness slice.
