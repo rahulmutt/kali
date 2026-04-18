@@ -10,6 +10,10 @@
 - ✅ `proofs/BOUNDARY.md` now explicitly says `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` preserves the release-only cells' positive count in addition to their original ownership tag.
 - ✅ Kept the update narrow: this is wording sync for the published boundary, not a new proof target.
 
+### Stage 4.2 - Pure release helper origin/ownership follow-up closed
+- ✅ `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership` is already present and named explicitly in the proof boundary plus the plan/progress summaries.
+- ✅ Kept the stale follow-up closed without widening the published boundary.
+
 ### Stage 4.2 - Live-reference filtering theorem naming sync
 - ✅ `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and this tracker now name `KaliCore.Safety.releaseRefLiveRefsFiltered`, `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered`, and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` explicitly alongside `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated` and the rest of the RC snapshot inventory.
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now also pins the exact live-reference filtering theorem names, so the proof-summary drift guard keeps the helper slice aligned with the published boundary inventory and the stage plan note.

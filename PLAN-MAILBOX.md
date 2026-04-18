@@ -637,13 +637,13 @@ Completed follow-up:
 - updated `PLAN-4.2-STATUS.md` so the stage summary now mentions the helper-level positive-count survivors explicitly alongside the rest of the RC snapshot inventory
 - kept the change narrow: this is a progress-tracker wording sync, not a boundary widening
 
-## 2026-04-18 — Stage 4.2 pure release helper origin/ownership follow-up
+## 2026-04-18 — Stage 4.2 pure release helper origin/ownership follow-up closed
 
-I added the direct pure release-helper theorem `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, which packages origin and ownership preservation for `releaseRef` so the plan/status notes can name the release-only heap provenance story more explicitly alongside `releaseRefHeapCharacterisation`.
+I confirmed `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership` is already named explicitly in the proof boundary and the plan/progress summaries, so the earlier origin/ownership follow-up is already satisfied.
 
-Suggested follow-up:
-- update `PLAN-4.2-STATUS.md`, `TODO.md`, `plan/phase-4/02-formal-verification-depth.md`, and the proof-boundary summaries so the new theorem is named explicitly
-- keep the claim narrow: this is still a helper-level provenance theorem on the published boundary, not a broader ownership/freeing target
+Completed follow-up:
+- left `PLAN-4.2-STATUS.md`, `TODO.md`, `plan/phase-4/02-formal-verification-depth.md`, and the proof-boundary summaries unchanged because they already carry the theorem name explicitly
+- closed the stale note without widening the published boundary
 
 ## 2026-04-18 — Stage 3.3 pattern-exports corpus coverage
 
@@ -720,10 +720,10 @@ Completed follow-up:
 - kept the Stage 4.2 progress wording aligned with the mechanised lowering slice
 - closed the stale follow-up note without widening the published boundary
 
-## 2026-04-18 — Stage 4.2 decrement target-origin follow-up
+## 2026-04-18 — Stage 4.2 decrement target-origin follow-up closed
 
-I found one small widening step still worth surfacing in the Stage 4.2 RC snapshot story: the decrement-path proof model can now expose the target-cell origin theorem explicitly, so the published boundary can name `KaliCore.Safety.releaseAndDecrementTargetCellOrigin` alongside the existing target-cell and heap-characterisation corollaries.
+I confirmed `KaliCore.Safety.releaseAndDecrementTargetCellOrigin` is already named explicitly across the Stage 4.2 plan/status summaries, proof-boundary manifest, README, and verification/maturity docs, so the earlier target-origin widening note is already satisfied.
 
-Suggested follow-up:
-- update the Stage 4.2 plan/status summaries, proof-boundary manifest, README, and verification/maturity docs so the new theorem is named explicitly
-- keep the claim narrow: this is a helper-level proof-summary widening for the published boundary, not a broader ownership/freeing claim
+Completed follow-up:
+- left the Stage 4.2 summary docs unchanged because they already carry the theorem name explicitly
+- closed the stale note without widening the published boundary
