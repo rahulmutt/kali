@@ -27,6 +27,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   overrides, browser false-blocking, browser internal-browser-rewrite chains, module-only and
   module-entry internal-dependency chains, dual-package and mixed-format entrypoints, and typed
   export branches.
+- Scoped browser conditional-exports coverage now exercises packages whose browser branch wins over
+  import/require fallbacks, tightening the browser/runtime interoperability slice without changing
+  the package-support rungs claimed for the corpus.
 - The shared browser/runtime support library now also carries in-memory `Blob` and `File` primitives,
   which gives the browser interoperability slice a more realistic payload baseline without changing
   the package-support rungs claimed for the corpus.

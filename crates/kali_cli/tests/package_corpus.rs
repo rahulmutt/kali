@@ -1241,6 +1241,90 @@ fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deploya
 }
 
 #[test]
+fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkable_and_deployable_through_host(
+) {
+    for (package, subpath) in [
+        ("@emotion/react", "jsx-runtime"),
+        ("@floating-ui/react", "dom"),
+        ("@tanstack/react-query", "query-core"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_condition_exports_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:browser'; }}\n",
+                package = package
+            ),
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function root() {{ return '{package}:import'; }}\n",
+                package = package
+            ),
+            &format!(
+                "const assert = require('node:assert');\nassert.ok(true);\nmodule.exports = function root() {{ return '{package}:require'; }};\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "export default function subpath() {{ return '{package}:{subpath}:browser'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function subpath() {{ return '{package}:{subpath}:import'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "const assert = require('node:assert');\nassert.ok(true);\nmodule.exports = function subpath() {{ return '{package}:{subpath}:require'; }};\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "scoped browser package {package} with browser condition exports should be checkable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "scoped browser package {package} with browser condition exports should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_packages_that_block_the_selected_path_are_rejected_in_browser_context() {
     for package in ["react", "preact", "vue"] {
         let dir = tempdir().expect("tempdir");
