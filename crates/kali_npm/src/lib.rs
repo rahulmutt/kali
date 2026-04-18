@@ -2627,16 +2627,19 @@ fn resolve_package_exports(
                     Some((key, capture, value))
                 })
                 .collect::<Vec<_>>();
-            pattern_matches.sort_by(|(left_key, left_capture, _), (right_key, right_capture, _)| {
-                right_key
-                    .len()
-                    .cmp(&left_key.len())
-                    .then_with(|| left_capture.len().cmp(&right_capture.len()))
-                    .then_with(|| left_key.cmp(right_key))
-            });
+            pattern_matches.sort_by(
+                |(left_key, left_capture, _), (right_key, right_capture, _)| {
+                    right_key
+                        .len()
+                        .cmp(&left_key.len())
+                        .then_with(|| left_capture.len().cmp(&right_capture.len()))
+                        .then_with(|| left_key.cmp(right_key))
+                },
+            );
 
             for (_, capture, value) in pattern_matches {
-                if let Some(path) = resolve_package_exports_target(package_dir, value, Some(capture))
+                if let Some(path) =
+                    resolve_package_exports_target(package_dir, value, Some(capture))
                 {
                     return Some(path);
                 }

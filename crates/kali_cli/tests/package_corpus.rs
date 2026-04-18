@@ -416,6 +416,23 @@ fn write_browser_string_package(
         .expect("write package root browser");
 }
 
+fn write_string_exports_package(root: &Path, name: &str, root_body: &str) {
+    let package_dir = root.join("node_modules").join(name);
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        format!(
+            r#"{{
+  "name": "{}",
+  "exports": "./index.js"
+}}"#,
+            name
+        ),
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), root_body).expect("write package root");
+}
+
 fn write_browser_blocked_package(root: &Path, name: &str, body: &str) {
     let package_dir = root.join("node_modules").join(name);
     fs::create_dir_all(&package_dir).expect("create package dir");
@@ -568,7 +585,11 @@ fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_thr
 
 #[test]
 fn browser_corpus_packages_with_pattern_exports_remain_checkable_and_deployable_through_host() {
-    for (package, subpath) in [("react", "jsx-runtime"), ("preact", "hooks"), ("vue", "runtime-dom")] {
+    for (package, subpath) in [
+        ("react", "jsx-runtime"),
+        ("preact", "hooks"),
+        ("vue", "runtime-dom"),
+    ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
         write_pattern_exports_package(
@@ -1039,7 +1060,62 @@ fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_depl
 }
 
 #[test]
-fn browser_corpus_packages_with_internal_browser_rewrites_remain_checkable_and_deployable_through_host() {
+fn browser_corpus_packages_with_string_exports_remain_checkable_and_deployable_through_host() {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_string_exports_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:exports'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser string-exports package {package} should resolve its exports string\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser string-exports package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
+fn browser_corpus_packages_with_internal_browser_rewrites_remain_checkable_and_deployable_through_host(
+) {
     for package in ["solid-js", "lit"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
@@ -1333,7 +1409,51 @@ fn utility_corpus_packages_with_exports_maps_remain_executable_on_the_default_st
 }
 
 #[test]
-fn utility_corpus_packages_with_pattern_exports_remain_executable_on_the_default_standalone_surface() {
+fn utility_corpus_packages_with_string_exports_remain_executable_on_the_default_standalone_surface()
+{
+    for package in ["ramda", "rxjs", "uuid"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), None);
+        write_string_exports_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function widget() {{ return '{package}:exports'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write utility source");
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "utility string-exports package {package} should resolve its exports string\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+        assert!(
+            run.status.success(),
+            "utility string-exports package {package} should stay executable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+    }
+}
+
+#[test]
+fn utility_corpus_packages_with_pattern_exports_remain_executable_on_the_default_standalone_surface(
+) {
     for (package, subpath) in [("ramda", "add"), ("rxjs", "operators"), ("uuid", "v4")] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
@@ -1425,8 +1545,8 @@ fn utility_corpus_packages_with_module_entries_remain_executable_on_the_default_
 }
 
 #[test]
-fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_default_standalone_surface()
-{
+fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_default_standalone_surface(
+) {
     for package in ["ramda", "uuid"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
@@ -1437,7 +1557,10 @@ fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_def
         );
         write_types_stub_package(dir.path(), package);
         fs::write(
-            dir.path().join("node_modules").join(package).join("internal.mjs"),
+            dir.path()
+                .join("node_modules")
+                .join(package)
+                .join("internal.mjs"),
             format!(
                 "export default function helper() {{ return '{package}:internal'; }}\n",
                 package = package

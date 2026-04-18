@@ -1,3 +1,12 @@
+## 2026-04-18 — Stage 3.3 string-exports corpus coverage
+
+I found one more common real-world package-shape case still missing from the Stage 3.3 corpus breadth: packages whose top-level `exports` field is a plain string rather than an exports map.
+
+Completed follow-up:
+- added browser and utility corpus coverage for plain string `exports` roots in `crates/kali_cli/tests/package_corpus.rs`
+- synced `PLAN-3.3-STATUS.md`, `TODO.md`, and `plan/phase-3/03-ecosystem-breadth.md` so the Stage 3.3 corpus inventory now names the new shape explicitly alongside the existing exports-map / browser-field cases
+- kept the claim narrow: this is another package-corpus breadth slice, not a new support rung
+
 ## 2026-04-18 — Stage 4.2 pure release-origin helper widening
 
 I found a small proof-summary gap in the pure release helper slice: the RC snapshot boundary already names `KaliCore.Safety.releaseRefHeapCharacterisation` and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, but it does not yet call out the plain origin theorem `KaliCore.Safety.releaseRefHeapCellOrigin` explicitly.

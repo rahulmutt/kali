@@ -26,7 +26,7 @@ Extend the curated package corpus to include:
 - `typescript`, `esbuild` (as pure-JS tools invoked via Kali's API).
 - `vitest`, `jest` (test runner libraries — in `--api node` context).
 - Utility libraries: `ramda`, `rxjs`, `immer`, `uuid`.
-- Representative package-shape cases that exercise the current browser and utility corpus breadth: exports-map / subpath entries, `./*` exports-patterns, browser-conditional exports, browser replacement maps, browser string-entry overrides, browser false-blocking, browser internal-browser-rewrite chains, module-only entries, module-entry internal dependency chains, dual-package shapes, mixed-format packages, scoped packages, and typed-export-branch variants.
+- Representative package-shape cases that exercise the current browser and utility corpus breadth: exports-string roots, exports-map / subpath entries, `./*` exports-patterns, browser-conditional exports, browser replacement maps, browser string-entry overrides, browser false-blocking, browser internal-browser-rewrite chains, module-only entries, module-entry internal dependency chains, dual-package shapes, mixed-format packages, scoped packages, and typed-export-branch variants.
 
 For each package, run through the full **package-support decision order** and document the exact
 rung achieved (`checkable`, `buildable`, `executable`, `deployable-through-host`).
