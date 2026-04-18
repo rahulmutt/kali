@@ -577,3 +577,11 @@ Completed follow-up:
 - added pattern-exports corpus coverage for browser and utility packages in `crates/kali_cli/tests/package_corpus.rs`
 - extended `crates/kali_npm/src/lib.rs` so `exports` pattern keys with a single `*` resolve deterministically before browser rewrites are applied
 - kept the change narrow: this is a package-corpus / resolver breadth step, not a new support rung
+
+## 2026-04-18 — Stage 4.2 memory-safety summary sync
+
+I tightened the top-level Stage 4.2 status summary so it now names `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership` and `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter` explicitly alongside the existing RC snapshot inventory, keeping the plan-facing summary aligned with the published boundary wording.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md` so the top-level memory-safety summary now calls out the pure release-helper provenance theorem and the collection-helper heap/filter theorem explicitly
+- kept the change narrow: this is a progress-summary wording sync for the published boundary, not a boundary widening
