@@ -2,6 +2,11 @@
 
 ## Completed
 
+### Stage 4.2 - Remaining bookkeeping wording sync
+- ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` now name `KaliCore.Safety.releaseRecorded`, `KaliCore.Safety.releaseAndDecrementRecorded`, `KaliCore.Safety.releaseAndDecrementDecrementsTargetCell`, `KaliCore.Safety.releaseAndDecrementPreservesWellFormed`, `KaliCore.Safety.releaseAndDecrementLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseAndDecrementReleasedNotLiveRef`, `KaliCore.Safety.releaseAndDecrementZeroesLastTargetCell`, `KaliCore.Safety.releaseAndCollectRecorded`, `KaliCore.Safety.releaseAndCollectKeepsPositiveCountCells`, `KaliCore.Safety.releaseAndCollectDropsOriginalZeroCountCells`, `KaliCore.Safety.releaseAndCollectPreservesWellFormed`, `KaliCore.Safety.releaseAndCollectReleasedNotLiveRef`, `KaliCore.Safety.releaseAndCollectRemovesZeroCountCells`, `KaliCore.Safety.releaseRefPreservesOwnership`, `KaliCore.Safety.releaseRefReleasedNotLiveRef`, `releasedNotLive`, and `releasedNotLiveRef` explicitly alongside the rest of the RC snapshot inventory.
+- ✅ `crates/kali_cli/tests/schema_docs.rs` now also pins the same remaining bookkeeping corollaries, so the proof-summary drift guard keeps the helper slice aligned with the published boundary inventory.
+- ✅ Kept the update narrow: this is a wording sync for the published boundary, not a boundary widening.
+
 ### Stage 4.2 - Release-only helper wording sync
 - ✅ `plan/phase-4/02-formal-verification-depth.md`, `PLAN-4.2-STATUS.md`, and the TODO stage summary now name `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseRefLiveRefsFiltered`, and `KaliCore.Safety.releasePreservesWellFormed` explicitly alongside the rest of the RC snapshot inventory.
 - ✅ Kept the update narrow: this is a wording sync for the published boundary, not a boundary widening.
