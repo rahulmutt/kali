@@ -27,6 +27,8 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   overrides, browser false-blocking, browser internal-browser-rewrite chains, module-only and
   module-entry internal-dependency chains, dual-package and mixed-format entrypoints, and typed
   export branches.
+- The utility corpus also now includes `commander` alongside the existing utility representatives,
+  widening the plain-package breadth without changing the documented support rungs.
 - Phase-3 cross-module inference smoke coverage now exercises a multi-file import chain with
   inferred public API types within the solver budget.
 - Historical note: this stage originally introduced `kali package-audit` as a Phase-3 preview.

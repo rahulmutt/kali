@@ -305,6 +305,7 @@ follow-up widening rather than unfinished baseline delivery:
 
 ### Stage 3.3 - Package corpus breadth expansion
 - ✅ Added browser, utility, and Node-runner corpus cases that resolve published exports maps and subpath entrypoints for `react`, `preact`, `vue`, `svelte`, `lit`, `ramda`, `rxjs`, `immer`, `uuid`, `typescript`, `esbuild`, `date-fns`, `lodash-es`, `vitest`, `jest`, and `mocha`, broadening the package-support corpus beyond the original single-entrypoint stubs.
+- ✅ Added `commander` to the utility corpus breadth so the plain-package coverage now includes one more common CLI library shape without changing the documented support rungs.
 - ✅ Added `./*` exports-pattern corpus coverage so the representative browser and utility package sets now exercise wildcard subpath exports routed through nested `src/` subtrees.
 - ✅ Added browser replacement-map coverage so the representative browser package set now exercises exact-path rewrites and `false` blocks after entry selection, alongside the existing exports-map/subpath and browser-conditional-export cases.
 - ✅ Added dual-package, browser-conditional-export, mixed-format, browser string-entry, browser false-blocking, module-only, scoped-package, and typed-export-branch corpus coverage so the representative package set now exercises conditional exports across browser/import/require branches plus browser-string overrides, browser-field blocking, and mixed CJS/ESM entrypoints.

@@ -1322,6 +1322,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "esbuild",
         "date-fns",
         "lodash-es",
+        "commander",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
@@ -1361,7 +1362,12 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
 
 #[test]
 fn utility_corpus_packages_with_exports_maps_remain_executable_on_the_default_standalone_surface() {
-    for (package, subpath) in [("ramda", "add"), ("rxjs", "operators"), ("uuid", "v4")] {
+    for (package, subpath) in [
+        ("ramda", "add"),
+        ("rxjs", "operators"),
+        ("uuid", "v4"),
+        ("commander", "command"),
+    ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_export_map_package(
@@ -1411,7 +1417,7 @@ fn utility_corpus_packages_with_exports_maps_remain_executable_on_the_default_st
 #[test]
 fn utility_corpus_packages_with_string_exports_remain_executable_on_the_default_standalone_surface()
 {
-    for package in ["ramda", "rxjs", "uuid"] {
+    for package in ["ramda", "rxjs", "uuid", "commander"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_string_exports_package(
@@ -1454,7 +1460,12 @@ fn utility_corpus_packages_with_string_exports_remain_executable_on_the_default_
 #[test]
 fn utility_corpus_packages_with_pattern_exports_remain_executable_on_the_default_standalone_surface(
 ) {
-    for (package, subpath) in [("ramda", "add"), ("rxjs", "operators"), ("uuid", "v4")] {
+    for (package, subpath) in [
+        ("ramda", "add"),
+        ("rxjs", "operators"),
+        ("uuid", "v4"),
+        ("commander", "command"),
+    ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_pattern_exports_package(
@@ -1504,7 +1515,7 @@ fn utility_corpus_packages_with_pattern_exports_remain_executable_on_the_default
 #[test]
 fn utility_corpus_packages_with_module_entries_remain_executable_on_the_default_standalone_surface()
 {
-    for package in ["ramda", "rxjs", "uuid"] {
+    for package in ["ramda", "rxjs", "uuid", "commander"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_module_only_package(
@@ -1547,7 +1558,7 @@ fn utility_corpus_packages_with_module_entries_remain_executable_on_the_default_
 #[test]
 fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_default_standalone_surface(
 ) {
-    for package in ["ramda", "uuid"] {
+    for package in ["ramda", "uuid", "commander"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_module_only_package(
@@ -1598,7 +1609,12 @@ fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_def
 #[test]
 fn utility_corpus_packages_with_mixed_format_entries_remain_executable_on_the_default_standalone_surface(
 ) {
-    for (package, subpath) in [("ramda", "add"), ("rxjs", "operators"), ("uuid", "v4")] {
+    for (package, subpath) in [
+        ("ramda", "add"),
+        ("rxjs", "operators"),
+        ("uuid", "v4"),
+        ("commander", "command"),
+    ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_mixed_format_package(
