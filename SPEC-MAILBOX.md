@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 live-reference filtering theorem naming sync
+
+I tightened the proof-boundary wording so the published boundary now names `KaliCore.Safety.releaseRefLiveRefsFiltered`, `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered`, and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` explicitly alongside `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated` and the rest of the RC snapshot inventory.
+
+Completed follow-up:
+- updated `proofs/BOUNDARY.md` so the current proof-state note now names the release-only, decrement, and collection live-reference filtering theorems explicitly alongside the existing RC snapshot inventory
+- kept the change narrow: this is a proof-boundary wording sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 pure release-helper origin/ownership/positivity widening
 
 I found one more symmetry gap in the RC snapshot proof slice: the release-only helper already has heap-characterisation, origin, and origin/ownership theorems, but it does not yet package the surviving positive-count fact together with those provenance facts.
