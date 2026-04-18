@@ -778,8 +778,8 @@ Completed follow-up:
 
 ## 2026-04-18 — Stage 4.2 linear-memory shape widening
 
-I am widening the proof-backed RC snapshot model to include an explicit linear-memory payload alongside the existing ownership / heap / live-reference state. The intent is to keep the current memory-safety boundary honest while making the model match the Stage 4.2 "linear memory + RC heap" shape a little more closely.
+I widened the proof-backed RC snapshot model to include an explicit linear-memory payload alongside the existing ownership / heap / live-reference state. The current memory-safety boundary now matches the Stage 4.2 "linear memory + RC heap" shape more closely.
 
-Planned follow-up:
-- add the linear-memory field and preserve it through the release-only, decrement, and collection helpers
-- sync the proof-boundary manifest and summary docs to name the new preservation corollaries explicitly
+Completed follow-up:
+- added the linear-memory field and preserved it through the release-only, decrement, and collection helpers
+- synced the proof-boundary manifest and summary docs to name the new preservation corollaries explicitly

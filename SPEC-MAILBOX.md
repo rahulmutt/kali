@@ -424,11 +424,11 @@ Suggested follow-up:
 
 ## 2026-04-18 — Stage 4.2 live-reference filtering theorem naming sync
 
-I noticed the published boundary and the high-level verification summaries still describe the decrement and collection live-reference filtering slice a bit generically, even though the proof tree already mechanizes the explicit theorems `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered` and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` alongside the release-only `KaliCore.Safety.releaseRefLiveRefsFiltered` helper theorem.
+I noticed the published boundary and the high-level verification summaries still described the decrement and collection live-reference filtering slice a bit generically, even though the proof tree already mechanized the explicit theorems `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered` and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` alongside the release-only `KaliCore.Safety.releaseRefLiveRefsFiltered` helper theorem.
 
-Planned update:
-- update `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, and `TODO.md` so the proof-backed boundary and progress notes name the decrement/collection live-reference filtering theorems explicitly alongside the release-only helper theorem
-- keep the claim narrow: this is a proof-summary / drift-guard naming sync for the published boundary, not a boundary widening beyond the current RC snapshot model
+Completed follow-up:
+- updated `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, and `TODO.md` so the proof-backed boundary and progress notes name the decrement/collection live-reference filtering theorems explicitly alongside the release-only helper theorem
+- kept the claim narrow: this is a proof-summary / drift-guard naming sync for the published boundary, not a boundary widening beyond the current RC snapshot model
 
 ## 2026-04-18 — Lowering value-preservation boundary sync
 
@@ -455,4 +455,8 @@ Completed follow-up:
 
 ## 2026-04-18 — Stage 4.2 linear-memory shape note
 
-The current proof-backed RC snapshot model is being widened to carry an explicit linear-memory payload alongside the ownership / heap / live-reference state. This is a model-shape refinement, not a change to the published proof-backed claim boundary, but the boundary docs will need a small wording sync once the helper-preservation corollaries land.
+The proof-backed RC snapshot model now carries an explicit linear-memory payload alongside the ownership / heap / live-reference state. This is a model-shape refinement rather than a change to the published proof-backed claim boundary, and the boundary docs now name the helper-preservation corollaries explicitly.
+
+Completed follow-up:
+- added the linear-memory field and preserved it through the release-only, decrement, and collection helpers
+- synced the proof-boundary manifest and summary docs to name the new preservation corollaries explicitly
