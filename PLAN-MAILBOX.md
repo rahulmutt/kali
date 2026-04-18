@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 origin/positivity helper wording sync
+
+I found the plan-facing RC snapshot summary still referred to the origin/positivity conjunction theorem a bit too generically, even though the published boundary already names `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCount` explicitly.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md` so the progress note now names `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCount` explicitly alongside the other RC snapshot helper theorems
+- kept the change narrow: this is a wording sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 exact releasedRefs wording sync
 
 I found one remaining verification-summary drift point: the published boundary already names the exact released-reference cons-shape theorems, but the plan-facing progress note still summarized that slice a bit too generically.
