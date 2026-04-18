@@ -100,6 +100,8 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         "Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.";
     let proof_backed_phrase = "proof-backed for the published boundary";
     let rc_theorem_names = [
+        "releaseAndDecrementHeapCharacterisation",
+        "releaseAndCollectHeapCharacterisation",
         "releaseAndCollectHeapCellsHavePositiveCount",
         "releaseAndCollectKeepsTargetCellWhenPositiveCount",
     ];

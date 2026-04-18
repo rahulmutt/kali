@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 heap-characterisation anti-drift guard
+
+I tightened the proof-boundary anti-drift test so `crates/kali_cli/tests/schema_docs.rs` now explicitly pins the heap-characterisation theorem names `releaseAndDecrementHeapCharacterisation` and `releaseAndCollectHeapCharacterisation` alongside the existing RC summary guards.
+
+Suggested follow-up:
+- keep `PLAN-4.2-STATUS.md` and `TODO.md` aligned with the stronger proof-summary guard if the published boundary widens again
+- continue treating this as a wording / drift-guard sync, not a boundary widening
+
 ## 2026-04-17 — Stage 3.3 browser replacement-map coverage
 
 I widened the browser-targeted package-resolution path so `package.json#browser` replacement maps are honored after entry selection, including exact-path rewrites and `false` blocks, and I plan to keep the Stage 3.3 corpus/status notes aligned with that browser-resolution coverage.
