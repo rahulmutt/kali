@@ -902,7 +902,8 @@ fn utility_corpus_packages_with_exports_maps_remain_executable_on_the_default_st
 }
 
 #[test]
-fn utility_corpus_packages_with_module_entries_remain_executable_on_the_default_standalone_surface() {
+fn utility_corpus_packages_with_module_entries_remain_executable_on_the_default_standalone_surface()
+{
     for package in ["ramda", "rxjs", "uuid"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);

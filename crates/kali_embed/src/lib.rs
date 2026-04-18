@@ -13,7 +13,7 @@ use kali_cli::{
     build::{self, BuildMode},
     ApiSurface,
 };
-use kali_error::Diagnostic;
+use kali_error::{_error_codes::e8, Diagnostic};
 
 /// Compiler configuration for the embedding API.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,6 +102,61 @@ impl KaliCompiler {
             wit,
             metadata,
         })
+    }
+
+    /// Compile a raw source string into a library artifact plus a deterministic WIT sidecar.
+    pub fn compile_lib_source(
+        &self,
+        module_name: &str,
+        source: &str,
+    ) -> Result<LibArtifact, CompileError> {
+        let temp_path = temporary_source_path(module_name);
+        if let Some(parent) = temp_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+
+        let result = (|| {
+            fs::write(&temp_path, source).map_err(|error| {
+                CompileError::from(vec![Diagnostic::error(
+                    e8::INTERNAL_ERROR as u32,
+                    format!(
+                        "failed to materialize embedded library source '{}': {}",
+                        temp_path.display(),
+                        error
+                    ),
+                )])
+            })?;
+
+            let exports = build::collect_library_exports(&temp_path).map_err(CompileError::from)?;
+            let mut wasm_bytes = build::compile_source_file(
+                &temp_path,
+                self.config.build_mode,
+                self.config.api_surface,
+                false,
+            )
+            .map_err(CompileError::from)?;
+            let mut metadata = build::build_artifact_metadata(
+                &temp_path,
+                "lib",
+                self.config.build_mode,
+                &self.config.api_surface.to_string(),
+                Some(exports.clone()),
+            )
+            .map_err(CompileError::from)?;
+            metadata.entrypoint = module_name.to_string();
+            build::append_metadata_section(&mut wasm_bytes, &metadata)
+                .map_err(CompileError::from)?;
+            let wit = build::library_wit_for(module_name, &exports);
+
+            Ok(LibArtifact {
+                wasm_bytes,
+                wit,
+                metadata,
+            })
+        })();
+
+        let _ = fs::remove_file(&temp_path);
+        result
     }
 }
 
@@ -197,36 +252,42 @@ impl EmbeddingCtx {
         }
     }
 
-    /// Build a library artifact from raw source text by materializing it to a
-    /// temporary file and reusing the stable compiler API.
+    /// Build a library artifact from raw source text by reusing the stable compiler API.
     pub fn build_library(&self, source: &str) -> Vec<u8> {
-        let temp_path = temporary_source_path();
-        if let Some(parent) = temp_path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        if fs::write(&temp_path, source).is_err() {
-            return Vec::new();
-        }
-
-        let bytes = self
-            .compiler
-            .compile_lib(&temp_path)
+        self.compiler
+            .compile_lib_source("embedded", source)
             .map(|artifact| artifact.wasm_bytes().to_vec())
-            .unwrap_or_default();
-        let _ = fs::remove_file(&temp_path);
-        bytes
+            .unwrap_or_default()
     }
 }
 
 pub use build::LibraryExport;
 pub use kali_cli::build::ArtifactMetadata;
 
-fn temporary_source_path() -> PathBuf {
+fn temporary_source_path(module_name: &str) -> PathBuf {
     static TEMP_SOURCE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     let pid = std::process::id();
     let nonce = TEMP_SOURCE_COUNTER.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!("kali-embed-{pid}-{nonce}.ts"))
+    let module_name = sanitize_module_name(module_name);
+    std::env::temp_dir().join(format!("kali-embed-{pid}-{nonce}-{module_name}.ts"))
+}
+
+fn sanitize_module_name(module_name: &str) -> String {
+    let mut sanitized = String::with_capacity(module_name.len());
+    for ch in module_name.chars() {
+        if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_') {
+            sanitized.push(ch);
+        } else {
+            sanitized.push('_');
+        }
+    }
+
+    if sanitized.is_empty() {
+        String::from("embedded")
+    } else {
+        sanitized
+    }
 }
 
 #[cfg(test)]
@@ -290,12 +351,31 @@ mod tests {
 
     #[test]
     fn temporary_source_paths_are_unique_across_calls() {
-        let first = temporary_source_path();
-        let second = temporary_source_path();
+        let first = temporary_source_path("first-module");
+        let second = temporary_source_path("second/module");
 
         assert_ne!(first, second);
         assert!(first.display().to_string().contains("kali-embed-"));
         assert!(second.display().to_string().contains("kali-embed-"));
+        assert!(first.display().to_string().contains("first-module"));
+        assert!(second.display().to_string().contains("second_module"));
+    }
+
+    #[test]
+    fn compile_lib_from_raw_source_uses_a_stable_module_name() {
+        let compiler = KaliCompiler::new(CompilerConfig::default());
+        let artifact = compiler
+            .compile_lib_source(
+                "math/embedded",
+                "export function add(a, b) { return a + b; }",
+            )
+            .expect("compile lib source");
+
+        assert!(!artifact.wasm_bytes().is_empty());
+        assert_eq!(artifact.metadata().artifact_kind, "lib");
+        assert_eq!(artifact.metadata().entrypoint, "math/embedded");
+        assert!(artifact.wit().contains("// module: math/embedded"));
+        assert!(artifact.wit().contains("export add: func();"));
     }
 
     #[test]

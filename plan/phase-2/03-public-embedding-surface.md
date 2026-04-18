@@ -22,6 +22,10 @@ stabilise the public Rust embedding API in `kali_embed`.
 
 ## Progress
 
+- 2026-04-18: `kali_embed` now also accepts raw source text through a stable
+  `compile_lib_source` convenience entry point, so the embedding surface can
+  produce a library artifact + WIT sidecar without requiring callers to manage
+  their own temporary materialization path.
 - 2026-04-12: `kali_embed` now exposes a stable `KaliCompiler` API with
   `compile_file` / `compile_lib` entry points, deterministic artifact metadata,
   and a library-side WIT sidecar generated from the statically known export surface.
