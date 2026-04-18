@@ -246,4 +246,4 @@ In addition to compiler tests, run compiled WASM programs and verify:
 - browser-targeted compatibility is evidenced separately through emitted-bundle smoke tests in a real browser host via the browser host adapter rather than by treating browser APIs as part of the standalone runtime baseline
 - phase-gated features produce the canonical `E5006` diagnostic instead of silent fallback
 
-- Linear-memory payload preservation corollaries: `KaliCore.Safety.releaseRefPreservesLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesLinearMemory`.
+- Linear-memory payload preservation corollaries: `KaliCore.Safety.releaseRefPreservesLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesLinearMemory`, plus the combined ownership/linear-memory corollaries `KaliCore.Safety.releaseRefPreservesOwnershipAndLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesOwnershipAndLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesOwnershipAndLinearMemory`.

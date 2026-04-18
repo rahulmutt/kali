@@ -92,13 +92,40 @@ theorem releaseRefPreservesLinearMemory (snapshot : RcSnapshot) (ref : String) :
     (releaseRef snapshot ref).linearMemory = snapshot.linearMemory := by
   rfl
 
+/-- The release-only helper preserves both the ownership environment and the
+linear-memory payload. -/
+theorem releaseRefPreservesOwnershipAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (releaseRef snapshot ref).ownership = snapshot.ownership ∧
+    (releaseRef snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseRefPreservesOwnership snapshot ref
+  · exact releaseRefPreservesLinearMemory snapshot ref
+
 theorem releaseAndDecrementPreservesLinearMemory (snapshot : RcSnapshot) (ref : String) :
     (releaseAndDecrement snapshot ref).linearMemory = snapshot.linearMemory := by
   rfl
 
+/-- The release-and-decrement helper preserves both the ownership environment and the
+linear-memory payload. -/
+theorem releaseAndDecrementPreservesOwnershipAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (releaseAndDecrement snapshot ref).ownership = snapshot.ownership ∧
+    (releaseAndDecrement snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndDecrementPreservesOwnership snapshot ref
+  · exact releaseAndDecrementPreservesLinearMemory snapshot ref
+
 theorem releaseAndCollectPreservesLinearMemory (snapshot : RcSnapshot) (ref : String) :
     (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
   rfl
+
+/-- The local release-and-collect helper preserves both the ownership environment and the
+linear-memory payload. -/
+theorem releaseAndCollectPreservesOwnershipAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (releaseAndCollect snapshot ref).ownership = snapshot.ownership ∧
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndCollectPreservesOwnership snapshot ref
+  · exact releaseAndCollectPreservesLinearMemory snapshot ref
 
 /-- Release-only, decrement, and collection helpers preserve the set of already-released references. -/
 theorem releaseRefPreservesReleasedRefs (snapshot : RcSnapshot) (ref : String) :

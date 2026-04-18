@@ -313,3 +313,4 @@
 ### Stage 4.2 - Linear-memory payload preservation
 - ✅ The proof-backed RC snapshot model now carries an explicit linear-memory payload alongside the existing ownership / heap / live-reference state.
 - ✅ The release-only, decrement, and collection helpers preserve that payload via `KaliCore.Safety.releaseRefPreservesLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesLinearMemory`.
+- ✅ The same helpers now also package ownership and linear-memory preservation together via `KaliCore.Safety.releaseRefPreservesOwnershipAndLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesOwnershipAndLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesOwnershipAndLinearMemory`.

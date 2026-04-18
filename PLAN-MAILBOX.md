@@ -787,3 +787,4 @@ I widened the proof-backed RC snapshot model to include an explicit linear-memor
 Completed follow-up:
 - added the linear-memory field and preserved it through the release-only, decrement, and collection helpers
 - synced the proof-boundary manifest and summary docs to name the new preservation corollaries explicitly
+- packaged the ownership/linear-memory invariance together with combined helper theorems so the proof inventory can cite the RC snapshot shape in one place
