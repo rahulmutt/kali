@@ -424,4 +424,8 @@ Planned update:
 
 ## 2026-04-18 — Lowering value-preservation boundary sync
 
-I added `KaliIR.LoweringCorrectness.lower_preserves_value` plus the small `KaliIR.Value` fragment it needs, so the proof-backed boundary now needs a corresponding verification-summary widening in `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and the Stage 4.2 summary docs. The anti-drift guard in `crates/kali_cli/tests/schema_docs.rs` also needs to pin the new lowering theorem name so the published boundary stays aligned with the mechanised theorem inventory.
+I confirmed the proof-backed boundary and summary docs already name `KaliIR.Value` and `KaliIR.LoweringCorrectness.lower_preserves_value` explicitly, and the anti-drift guard in `crates/kali_cli/tests/schema_docs.rs` already pins the new lowering theorem name alongside `KaliIR.LoweringCorrectness.lower_preserves_step` and `KaliIR.LoweringCorrectness.lower_preserves_steps`.
+
+Completed follow-up:
+- kept the current proof-backed boundary wording aligned with the mechanised lowering slice
+- closed the stale planned-update note without widening the published boundary

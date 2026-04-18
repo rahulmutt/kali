@@ -714,4 +714,8 @@ Suggested follow-up:
 
 ## 2026-04-18 — Stage 4.2 lowering value-preservation progress note
 
-I added `KaliIR.LoweringCorrectness.lower_preserves_value` and the small HIR value fragment it depends on. The Stage 4.2 progress docs should note the additional lowering helper alongside `lower_preserves_step` / `lower_preserves_steps`, and the proof-summary drift guard should pin the new theorem name once the boundary summary is widened.
+I confirmed the Stage 4.2 progress docs and proof-boundary summaries already name `KaliIR.Value` and `KaliIR.LoweringCorrectness.lower_preserves_value` explicitly, and the proof-summary drift guard already pins the lowering theorem alongside `KaliIR.LoweringCorrectness.lower_preserves_step` and `KaliIR.LoweringCorrectness.lower_preserves_steps`.
+
+Completed follow-up:
+- kept the Stage 4.2 progress wording aligned with the mechanised lowering slice
+- closed the stale follow-up note without widening the published boundary
