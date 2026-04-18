@@ -20,6 +20,23 @@ types are statically known.
 - Open-ended cross-module constraint solving is available for the **bounded inference contract**
   within the Phase-3 budget.
 
+## Progress
+
+- `kali_optimize` is now wired into the build pipeline and `release` / `release-advanced` run real,
+  deterministic optimization passes instead of placeholders.
+- The current optimizer performs constant folding, branch elimination, small-function inlining,
+  aggressive dead top-level-function pruning, and MIR-aware call-site specialization for
+  layout-stable callees.
+- Layout-aware specialization now fingerprints struct and array descriptors precisely while still
+  normalizing closure capture arity, so identical higher-order call-site layouts reuse one
+  specialized clone without conflating distinct shapes.
+- Const-bound object property reads and constant-index array reads now fold before codegen, and
+  optimized numeric hot paths are regression-tested to stay free of tag-check / untag boxing.
+- Incremental compilation now reuses `.kali-cache/incremental/` for unchanged modules, and the
+  specialization budget is enforced per function owner so separate hot paths keep independent caps.
+- A representative benchmark suite now records compile time, WASM size, instruction count, and
+  add-op deltas across `fast`, `release`, and `release-advanced`.
+
 ## Tasks
 
 ### 1. Generic / function specialisation (monomorphisation)

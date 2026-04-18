@@ -16,6 +16,22 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - Browser bundle output includes richer code-splitting and interoperability options.
 - Cross-module constraint solving is available and evidence-backed.
 
+## Progress
+
+- `kali package-audit` now has a deterministic Phase-3 preview path (`--preview`) that preserves
+  the envelope-only JSON contract without opening the later public availability row early.
+- Browser bundle output now emits deterministic source-map companions, supports both ESM and CJS
+  wrappers, emits deterministic chunk artifacts for literal dynamic-import boundaries, and
+  tree-shakes unused exports from the emitted bundle surface.
+- The curated package corpus now covers browser, utility, Node-runner, and scoped-package classes
+  across representative real-world package shapes: exports-string roots, exports-map / subpath and
+  `./*` pattern entries, browser-conditional exports, browser replacement maps, browser string
+  overrides, browser false-blocking, browser internal-browser-rewrite chains, module-only and
+  module-entry internal-dependency chains, dual-package and mixed-format entrypoints, and typed
+  export branches.
+- Phase-3 cross-module inference smoke coverage now exercises a multi-file import chain with
+  inferred public API types within the solver budget.
+
 ## Tasks
 
 ### 1. Package corpus expansion

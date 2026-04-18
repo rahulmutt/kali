@@ -1,3 +1,24 @@
+## 2026-04-18 — Stage 4.2 remaining proof-depth widening
+
+Pending follow-up:
+- continue widening the proof model beyond the current published boundary toward the fuller Stage 4.2 target
+- focus next on the broader ownership / RC decrement-and-freeing story and the wider HIR → LIR semantic-preservation proof, while keeping `proofs/BOUNDARY.md` honest about the narrower proof-backed slice that exists today
+- keep the proof-summary anti-drift guard and plan/progress docs aligned whenever the theorem inventory widens
+
+## 2026-04-18 — Stage 3.1 remaining specialization planner work
+
+Pending follow-up:
+- broaden MIR-aware specialization from the current layout-stable clone path toward the fuller generic-instantiation planner and cross-module specialization model
+- keep widening closure/struct layout-sharing coverage without weakening deterministic specialization-budget enforcement
+- preserve the current benchmark/evidence suite as the specialization planner deepens
+
+## 2026-04-18 — Stage 3.3 remaining corpus breadth follow-up
+
+Pending follow-up:
+- continue widening the Phase-3 package corpus where additional representative real-world package shapes are still missing
+- keep package-audit availability and package-support rung claims unchanged while breadth work continues
+- keep the Stage 3.3 plan inventory aligned with the package corpus as more shapes are added
+
 ## 2026-04-18 — Stage 4.2 collection target-origin follow-up
 
 I widened the Stage 4.2 proof-backed RC snapshot slice with `KaliCore.Safety.releaseAndCollectTargetCellOrigin`, which keeps the released target traceable to the original heap on the collection path when it survives the positive-count filter.

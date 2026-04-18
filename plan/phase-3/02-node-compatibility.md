@@ -17,6 +17,22 @@ programs and pure-JS npm packages that rely on Node built-ins can be compiled an
   when the host/API fit passes the `--api node` context check.
 - `kali build --api node <file>` produces an executable WASM artifact for the Node context.
 
+## Progress
+
+- The `--api node` command path is now wired through `check`, `build`, `run`, and `test`, and the
+  type/name-resolution path accepts `node:` imports only in the Node analysis context.
+- `kali_api_node` now covers the documented common Node subset end to end: process/path/crypto,
+  URL parsing and resolution, event emitters, buffer conversions, util formatting, assertions,
+  OS probes, child-process scaffolding, and the current `fs` / stream / HTTP runtime projection.
+- Runtime linker coverage now includes `process.argv` / `process.env`, process stdout/stderr,
+  path normalization/join/resolve/relative, crypto hashing and HMAC helpers, URL parse/resolve,
+  event-emitter registration/emission, and Buffer base64/hex round-tripping.
+- Package host-fit validation now respects `compilerOptions.apiSurface = "node"`, so Node-only
+  built-ins are accepted in the Node context while the default standalone context still rejects
+  them with the canonical `E6005` path.
+- The package corpus now includes representative Node-assuming packages (`axios`, `express`, and
+  `chalk`) and positive runtime smoke coverage for the documented Stage 3.2 subset.
+
 ## Tasks
 
 ### 1. Node API layer (`kali_api_node`)
