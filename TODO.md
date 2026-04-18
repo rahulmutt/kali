@@ -2,6 +2,11 @@
 
 ## Completed
 
+### Stage 4.2 - Live-reference filtering theorem naming sync
+- ✅ `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and this tracker now name `KaliCore.Safety.releaseRefLiveRefsFiltered`, `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered`, and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` explicitly alongside `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated` and the rest of the RC snapshot inventory.
+- ✅ `crates/kali_cli/tests/schema_docs.rs` now also pins the exact live-reference filtering theorem names, so the proof-summary drift guard keeps the helper slice aligned with the published boundary inventory and the stage plan note.
+- ✅ Kept the update narrow: this is a wording sync for the published boundary, not a boundary widening.
+
 ### Stage 4.2 - Remaining bookkeeping wording sync
 - ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` now name `KaliCore.Safety.releaseRecorded`, `KaliCore.Safety.releaseAndDecrementRecorded`, `KaliCore.Safety.releaseAndDecrementDecrementsTargetCell`, `KaliCore.Safety.releaseAndDecrementPreservesWellFormed`, `KaliCore.Safety.releaseAndDecrementLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseAndDecrementReleasedNotLiveRef`, `KaliCore.Safety.releaseAndDecrementZeroesLastTargetCell`, `KaliCore.Safety.releaseAndCollectRecorded`, `KaliCore.Safety.releaseAndCollectKeepsPositiveCountCells`, `KaliCore.Safety.releaseAndCollectDropsOriginalZeroCountCells`, `KaliCore.Safety.releaseAndCollectPreservesWellFormed`, `KaliCore.Safety.releaseAndCollectReleasedNotLiveRef`, `KaliCore.Safety.releaseAndCollectRemovesZeroCountCells`, `KaliCore.Safety.releaseRefPreservesOwnership`, `KaliCore.Safety.releaseRefReleasedNotLiveRef`, `releasedNotLive`, and `releasedNotLiveRef` explicitly alongside the rest of the RC snapshot inventory.
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now also pins the same remaining bookkeeping corollaries and checks `plan/phase-4/02-formal-verification-depth.md` for the canonical proof-backed summary and theorem inventory, so the proof-summary drift guard keeps the helper slice aligned with the published boundary inventory and the stage plan note.

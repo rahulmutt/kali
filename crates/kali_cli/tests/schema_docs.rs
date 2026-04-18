@@ -101,6 +101,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
     let proof_backed_phrase = "proof-backed for the published boundary";
     let rc_theorem_names = [
         "releaseRefNoDanglingReference",
+        // Keep the release-only helper and the decrement/collection live-reference filtering corollaries pinned together.
         "releaseRefLiveRefsAreOwnedAndAllocated",
         "releaseRefLiveRefsFiltered",
         "releaseAndDecrementLiveRefsFiltered",

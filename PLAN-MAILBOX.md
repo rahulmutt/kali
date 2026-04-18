@@ -1,3 +1,12 @@
+## 2026-04-18 — Stage 4.2 live-reference filtering theorem naming sync
+
+I tightened the Stage 4.2 summary and tracker prose so the published boundary now names `KaliCore.Safety.releaseRefLiveRefsFiltered`, `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered`, and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` explicitly alongside `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated` and the rest of the RC snapshot inventory.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md`, `TODO.md`, and `plan/phase-4/02-formal-verification-depth.md` so the Stage 4.2 progress notes and tracker now name the exact live-reference filtering theorem slice explicitly
+- updated `crates/kali_cli/tests/schema_docs.rs` so the proof-summary anti-drift guard now pins the exact live-reference filtering theorem names alongside the rest of the RC snapshot inventory
+- kept the change narrow: this is a wording / tracker sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 plan-note anti-drift guard widening
 
 I widened the Stage 4.2 proof-summary guard so it now also checks `plan/phase-4/02-formal-verification-depth.md` for the canonical proof-backed summary and theorem inventory, keeping the stage plan note aligned with the published boundary wording.
