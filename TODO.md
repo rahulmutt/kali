@@ -2,6 +2,10 @@
 
 ## Completed
 
+### Stage 4.2 - Release-only helper wording sync
+- ✅ `plan/phase-4/02-formal-verification-depth.md`, `PLAN-4.2-STATUS.md`, and the TODO stage summary now name `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseRefLiveRefsFiltered`, and `KaliCore.Safety.releasePreservesWellFormed` explicitly alongside the rest of the RC snapshot inventory.
+- ✅ Kept the update narrow: this is a wording sync for the published boundary, not a boundary widening.
+
 ### Stage 4.2 - Unrelated-heap / other-live wording sync
 - ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` now name `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, and `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` explicitly alongside the rest of the RC snapshot helper slice.
 - ✅ `PLAN-4.2-STATUS.md` now records the same wording sync in the Stage 4.2 progress notes.

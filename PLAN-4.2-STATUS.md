@@ -1,3 +1,7 @@
+## 2026-04-18 — Stage 4.2 release-only helper wording sync
+
+I tightened the Stage 4.2 summary prose so the published boundary now names `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseRefLiveRefsFiltered`, and `KaliCore.Safety.releasePreservesWellFormed` explicitly alongside the rest of the RC snapshot inventory.
+
 ## 2026-04-18 — Stage 4.2 unrelated-heap / other-live wording sync
 
 I tightened the Stage 4.2 summary prose so the published boundary now names `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, and `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` explicitly alongside the existing RC snapshot inventory.
