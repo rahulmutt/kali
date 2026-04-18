@@ -456,13 +456,16 @@ Suggested follow-up:
 - update `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the progress trackers name the new decrement origin/positive-count theorem alongside the current helper slice
 - keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level conjunction theorem, not the full RC target
 
-## 2026-04-18 — Stage 4.2 heap-filter anti-drift widening
+## 2026-04-18 — Stage 4.2 heap-filter anti-drift guard
 
-I plan to widen the Stage 4.2 proof-summary anti-drift guard so it explicitly pins `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter` alongside the existing RC snapshot helper inventory, keeping the summary docs honest about the current published boundary.
+I tightened the proof-summary anti-drift guard so it now also pins `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter` explicitly, and the verification summaries now name the filter theorem alongside the rest of the RC snapshot inventory.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md` and `TODO.md` so the progress notes now mention `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter` explicitly alongside the other RC snapshot helper theorems
+- reran the schema-doc anti-drift test so the published boundary wording stays locked to the current theorem inventory
 
 Suggested follow-up:
-- update the Stage 4.2 status tracker and TODO so the progress notes mention the heap/filter theorem explicitly
-- keep the change narrow: this is a guard / wording sync for the published boundary, not a proof-boundary widening
+- keep the claim narrow: this is a wording / drift-guard sync for the published boundary, not a boundary widening
 
 ## 2026-04-18 — Stage 4.2 pure release heap-characterisation wording sync
 
