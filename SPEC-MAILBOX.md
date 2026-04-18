@@ -2,9 +2,9 @@
 
 I found one more symmetry gap in the RC snapshot proof slice: the release-only helper already has heap-characterisation, origin, and origin/ownership theorems, but it does not yet package the surviving positive-count fact together with those provenance facts.
 
-Planned update:
-- add `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` to the RC snapshot proof slice, then sync `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `proofs/BOUNDARY.md` so the release-only helper story is explicit at the same granularity as the decrement and collection helper families
-- keep the claim narrow: this is a proof-summary / helper-theorem sync for the published boundary, not a boundary widening beyond the current RC snapshot model
+Completed follow-up:
+- `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `proofs/BOUNDARY.md` already name `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` explicitly, so the release-only helper story is explicit at the same granularity as the decrement and collection helper families.
+- kept the change narrow: this is a proof-summary / helper-theorem sync for the published boundary, not a boundary widening beyond the current RC snapshot model
 
 ## 2026-04-18 — Stage 4.2 pure release-origin helper widening
 
