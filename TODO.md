@@ -3,7 +3,7 @@
 ## Completed
 
 ### Stage 4.1 - Package-audit availability
-- ✅ `kali package-audit` now runs without requiring `--preview`; the preview flag remains accepted as a no-op compatibility shim.
+- ✅ `kali package-audit` now runs without requiring `--preview`; the removed `--preview` path is rejected with the canonical `E5008` invalid-usage diagnostic instead of acting as a compatibility shim.
 
 ### Stage 4.1 - Eval compatibility gating
 - ✅ `--compat eval` now accepts dynamically constructed eval / Function() strings derived from constant program-state fragments.

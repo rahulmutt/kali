@@ -208,8 +208,8 @@ fn main() {
                 std::process::exit(exit_code);
             }
         }
-        Commands::PackageAudit { target, .. } => {
-            if let Err(exit_code) = package_audit_command(target, &output) {
+        Commands::PackageAudit { target, preview } => {
+            if let Err(exit_code) = package_audit_command(target, preview, &output) {
                 std::process::exit(exit_code);
             }
         }
@@ -2571,7 +2571,19 @@ fn package_effects_command(target: String, output: &CliOutputOptions) -> Result<
     emit_native_json_payload("package-effects", &payload, output)
 }
 
-fn package_audit_command(target: String, output: &CliOutputOptions) -> Result<(), i32> {
+fn package_audit_command(
+    target: String,
+    preview: bool,
+    output: &CliOutputOptions,
+) -> Result<(), i32> {
+    if preview {
+        let diagnostic = Diagnostic::error(
+            e5::INVALID_CLI_USAGE as u32,
+            "`--preview` is no longer accepted for package-audit",
+        );
+        return emit_diagnostics_and_exit("package-audit", vec![diagnostic], 5, output, None, None);
+    }
+
     let parsed = match parse_registry_package_target("package-audit", &target) {
         Ok(parsed) => parsed,
         Err(diagnostic) => {

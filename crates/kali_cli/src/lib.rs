@@ -317,7 +317,7 @@ pub enum Commands {
     PackageAudit {
         /// Registry package target to audit
         target: String,
-        /// Compatibility shim retained for staged rollout
+        /// Hidden legacy flag rejected by the command handler with E5008
         #[arg(long, hide = true)]
         preview: bool,
     },

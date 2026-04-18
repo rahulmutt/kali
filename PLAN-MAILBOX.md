@@ -1,3 +1,14 @@
+## 2026-04-18 — Stage 4.1 package-audit preview-shim removal
+
+I removed the last acceptance path for the package-audit `--preview` compatibility shim: the CLI now rejects that flag with the canonical `E5008` invalid-usage diagnostic instead of treating it as a hidden no-op.
+
+Completed follow-up:
+- updated `PLAN-4.1-STATUS.md` and `TODO.md` so the Stage 4.1 progress trackers now say the removed `--preview` path is rejected with `E5008`
+- kept the change narrow: this is a CLI-usage cleanup for the already-shipped package-audit command, not a new package-analysis surface
+
+Suggested follow-up:
+- keep the Stage 4.1 status text and help-output wording aligned if package-audit gets another presentation-only tweak later
+
 ## 2026-04-18 — Stage 4.2 target allocation follow-up
 
 I plan to widen the current RC snapshot proof slice with explicit target-allocation corollaries for the refcount update helpers (`KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount` and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`), so the progress trackers can name the allocation bridge alongside the existing positive-count and provenance lemmas.
