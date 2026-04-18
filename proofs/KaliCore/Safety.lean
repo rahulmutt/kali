@@ -220,6 +220,16 @@ theorem releaseAndDecrementKeepsTargetCellWhenPositiveCount (snapshot : RcSnapsh
   · exact List.mem_map.mpr ⟨cell, hmem, by simp [hname]⟩
   · simpa using Nat.sub_pos_of_lt hgt1
 
+/-- A release-and-decrement step keeps the targeted reference allocated when its decremented count stays positive. -/
+theorem releaseAndDecrementTargetCellAllocatedWhenPositiveCount (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.name = ref → cell.refCount > 1 →
+      allocated (releaseAndDecrement snapshot ref) ref := by
+  intro cell hmem hname hgt1
+  refine ⟨{ cell with refCount := cell.refCount - 1 }, ?_, ?_, ?_⟩
+  · exact (releaseAndDecrementKeepsTargetCellWhenPositiveCount snapshot ref cell hmem hname hgt1).1
+  · simp [hname]
+  · simpa using Nat.sub_pos_of_lt hgt1
+
 /-- Every release-and-decrement heap cell comes from the original heap, with only the released target decremented or left unchanged. -/
 theorem releaseAndDecrementHeapCellOrigin (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ (releaseAndDecrement snapshot ref).heap →
@@ -341,6 +351,16 @@ theorem releaseAndCollectKeepsTargetCellWhenPositiveCount (snapshot : RcSnapshot
   have hpos : { cell with refCount := cell.refCount - 1 }.refCount > 0 := by
     simpa using Nat.sub_pos_of_lt hgt1
   exact releaseAndCollectKeepsPositiveCountCells snapshot ref { cell with refCount := cell.refCount - 1 } hmem' hpos
+
+/-- A release-and-collect step keeps the targeted reference allocated when its decremented count stays positive. -/
+theorem releaseAndCollectTargetCellAllocatedWhenPositiveCount (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.name = ref → cell.refCount > 1 →
+      allocated (releaseAndCollect snapshot ref) ref := by
+  intro cell hmem hname hgt1
+  refine ⟨{ cell with refCount := cell.refCount - 1 }, ?_, ?_, ?_⟩
+  · exact releaseAndCollectKeepsTargetCellWhenPositiveCount snapshot ref cell hmem hname hgt1
+  · simp [hname]
+  · simpa using Nat.sub_pos_of_lt hgt1
 
 /-- A release-and-collect step keeps positive-count cells from the original heap
 when they are not the released target, and those survivors remain positive-count

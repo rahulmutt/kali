@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 target allocation follow-up
+
+I plan to widen the current RC snapshot proof slice with explicit target-allocation corollaries for the refcount update helpers (`KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount` and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`), so the published boundary can name the allocation bridge alongside the existing positive-count and provenance lemmas.
+
+Suggested follow-up:
+- update the proof-boundary manifest and verification summaries so the new allocation corollaries are named explicitly alongside the current RC helper inventory
+- keep the claim narrow: this is an allocation-bridge widening on top of the existing RC slice, not the full Stage 4.2 ownership/freeing target
+
 ## 2026-04-18 — Stage 4.2 heap-characterisation wording sync
 
 I found that the verification summary docs still describe the RC snapshot heap-characterisation story a bit too generically, even though the published boundary already names `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` and `KaliCore.Safety.releaseAndCollectHeapCharacterisation` explicitly.
