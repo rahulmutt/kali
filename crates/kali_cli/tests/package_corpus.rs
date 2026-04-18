@@ -304,6 +304,31 @@ fn write_browser_replacement_map_package(
     .expect("write package subpath browser");
 }
 
+fn write_browser_string_package(
+    root: &Path,
+    name: &str,
+    root_node_body: &str,
+    root_browser_body: &str,
+) {
+    let package_dir = root.join("node_modules").join(name);
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        format!(
+            r#"{{
+  "name": "{}",
+  "main": "index.js",
+  "browser": "./index.browser.js"
+}}"#,
+            name
+        ),
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), root_node_body).expect("write package root node");
+    fs::write(package_dir.join("index.browser.js"), root_browser_body)
+        .expect("write package root browser");
+}
+
 fn run_kali<I, S>(root: &Path, args: I) -> std::process::Output
 where
     I: IntoIterator<Item = S>,
@@ -712,6 +737,65 @@ fn browser_corpus_packages_with_browser_replacement_maps_remain_checkable_and_de
         assert!(
             build.status.success(),
             "browser replacement-map package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
+fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_deployable_through_host(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_string_package(
+            dir.path(),
+            package,
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function root() {{ return '{package}:node'; }}\n",
+                package = package
+            ),
+            &format!(
+                "export default function root() {{ return '{package}:browser'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser string-entry package {package} should resolve its browser override\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser string-entry package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&build.stdout),
             String::from_utf8_lossy(&build.stderr)
         );

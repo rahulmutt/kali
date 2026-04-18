@@ -1,3 +1,14 @@
+## 2026-04-18 — Stage 3.3 browser string-entry corpus follow-up
+
+I widened the Phase-3 package corpus with browser-field string override coverage (`browser: "./index.browser.js"`) so the browser-targeted package-support track now exercises the string-entry browser rewrite shape in addition to the existing replacement-map, module-only, dual-package, and mixed-format cases.
+
+Completed follow-up:
+- updated `PLAN-3.3-STATUS.md` and `TODO.md` so the Stage 3.3 progress trackers now name browser string-entry coverage explicitly alongside the existing browser corpus shapes
+
+Suggested follow-up:
+- keep widening the browser corpus incrementally if additional real-world browser-field shapes are still missing
+- continue treating this as a corpus-coverage slice, not a new support rung
+
 ## 2026-04-18 — Stage 4.2 heap-characterisation anti-drift guard
 
 I tightened the proof-boundary anti-drift test so `crates/kali_cli/tests/schema_docs.rs` now explicitly pins the heap-characterisation theorem names `releaseAndDecrementHeapCharacterisation` and `releaseAndCollectHeapCharacterisation` alongside the existing RC summary guards.

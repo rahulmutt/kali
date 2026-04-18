@@ -189,7 +189,7 @@
 
 ### Stage 3.3 - Package corpus breadth expansion
 - ✅ Added browser, utility, and Node-runner corpus cases that resolve published exports maps and subpath entrypoints for `react`, `preact`, `vue`, `ramda`, `rxjs`, `uuid`, `vitest`, and `jest`, broadening the package-support corpus beyond the original single-entrypoint stubs.
-- ✅ Added dual-package, browser-conditional-export, mixed-format, and browser replacement-map corpus coverage so the representative package set now exercises conditional exports across browser/import/require branches plus browser-field rewrites and mixed CJS/ESM entrypoints.
+- ✅ Added dual-package, browser-conditional-export, mixed-format, browser string-entry, and browser replacement-map corpus coverage so the representative package set now exercises conditional exports across browser/import/require branches plus browser-field rewrites, browser-string overrides, and mixed CJS/ESM entrypoints.
 - ✅ Added module-only corpus coverage so the representative browser and utility package sets now exercise `package.json#module` fallback resolution as a standalone published shape.
 
 ### Stage 4.2 - Proof-boundary anti-drift test
