@@ -10,7 +10,7 @@ not “make the boundary exist” but “widen the boundary without overclaiming
 
 ## Published RC snapshot theorem inventory
 
-The current published boundary explicitly names the RC snapshot helper slice, including:
+The current published boundary explicitly names the RC snapshot helper slice, including the pure release helper's plain origin theorem `releaseRefHeapCellOrigin` alongside the rest of the RC snapshot helper slice:
 
 - `releaseRefNoDanglingReference`
 - `releaseRefLiveRefsAreOwnedAndAllocated`

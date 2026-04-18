@@ -40,6 +40,10 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership` is already present and named explicitly in the proof boundary plus the plan/progress summaries.
 - ✅ Kept the stale follow-up closed without widening the published boundary.
 
+### Stage 4.2 - Pure release-origin helper sync
+- ✅ `KaliCore.Safety.releaseRefHeapCellOrigin` is still explicitly named in `proofs/BOUNDARY.md`, `plan/phase-4/02-formal-verification-depth.md`, and `PLAN-4.2-STATUS.md` alongside `KaliCore.Safety.releaseRefHeapCharacterisation`, `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, and `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount`.
+- ✅ Kept the update narrow: this is a wording sync for the published boundary, not a boundary widening.
+
 ### Stage 4.2 - Live-reference filtering theorem naming sync
 - ✅ `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and this tracker now name `KaliCore.Safety.releaseRefLiveRefsFiltered`, `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered`, and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` explicitly alongside `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated` and the rest of the RC snapshot inventory.
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now also pins the exact live-reference filtering theorem names, so the proof-summary drift guard keeps the helper slice aligned with the published boundary inventory and the stage plan note.
