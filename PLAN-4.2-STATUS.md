@@ -28,7 +28,7 @@ I widened the current RC snapshot proof slice with exact heap-membership charact
 
 ## 2026-04-18 — Stage 4.2 pure release heap characterisation
 
-I added `KaliCore.Safety.releaseRefHeapCharacterisation` plus the plain origin theorem `KaliCore.Safety.releaseRefHeapCellOrigin`, and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount`, which packages the release-only origin/ownership story explicitly alongside the live-reference filtering and disjointness corollaries.
+I added `KaliCore.Safety.releaseRefHeapCharacterisation` plus the plain origin theorem `KaliCore.Safety.releaseRefHeapCellOrigin`, and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount`, which packages the release-only origin/ownership/positive-count story explicitly alongside the live-reference filtering and disjointness corollaries.
 
 Suggested follow-up:
 - keep the Stage 4.2 progress notes aligned if the helper-level safety slice widens again
