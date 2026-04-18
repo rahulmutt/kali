@@ -107,6 +107,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
     ];
     let summary_docs = [
         ("README.md", summary),
+        ("specs/16-testing.md", summary),
         ("proofs/BOUNDARY.md", summary),
         ("specs/17-verification.md", summary),
         ("specs/19-feature-maturity.md", proof_backed_phrase),

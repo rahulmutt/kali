@@ -1,3 +1,14 @@
+## 2026-04-18 — Stage 4.2 heap-characterisation wording sync
+
+I found that the verification summary docs still describe the RC snapshot heap-characterisation story a bit too generically, even though the published boundary already names `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` and `KaliCore.Safety.releaseAndCollectHeapCharacterisation` explicitly.
+
+Completed follow-up:
+- updated `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the heap-characterisation theorems are named explicitly alongside the current RC snapshot inventory
+- widened the proof-summary anti-drift guard in `crates/kali_cli/tests/schema_docs.rs` so it also checks `specs/16-testing.md` for the canonical proof-backed summary and theorem inventory
+
+Suggested follow-up:
+- keep the claim narrow: this is a wording sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 3.3 browser string-entry corpus follow-up
 
 I widened the Phase-3 package corpus with browser-field string override coverage (`browser: "./index.browser.js"`) so the browser-targeted package-support track now exercises the string-entry browser rewrite shape in addition to the existing replacement-map, module-only, dual-package, and mixed-format cases.

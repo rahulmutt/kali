@@ -101,6 +101,7 @@
   - Synced `specs/19-feature-maturity.md` so the verification-baseline clarification now names `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` explicitly alongside the other RC snapshot lemmas.
 - [x] Stage 4.2 heap-characterisation wording sync
   - Synced `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the proof-backed boundary summary now names `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` and `KaliCore.Safety.releaseAndCollectHeapCharacterisation` explicitly alongside the surrounding RC snapshot inventory.
+  - Extended the proof-summary anti-drift guard so `crates/kali_cli/tests/schema_docs.rs` now also checks `specs/16-testing.md` for the canonical proof-backed summary and RC theorem inventory.
 - [x] Browser bundle source-map companions
   - `kali build --bundle` now emits a deterministic `.js.map` companion and appends the matching `sourceMappingURL` footer.
 - [x] Browser bundle chunk artifacts for literal dynamic imports
