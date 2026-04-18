@@ -679,6 +679,15 @@ Completed follow-up:
 - added module-entry internal-dependency corpus coverage for utility packages in `crates/kali_cli/tests/package_corpus.rs`
 - kept the change narrow: this is a package-corpus widening slice, not a new support rung
 
+## 2026-04-18 — Stage 4.2 lowering value-preservation summary sync
+
+I tightened the Stage 4.2 plan/progress summary so it now names `KaliIR.Value`, `KaliIR.LoweringCorrectness.lower_preserves_value`, `KaliIR.LoweringCorrectness.lower_preserves_step`, and `KaliIR.LoweringCorrectness.lower_preserves_steps` explicitly alongside the widened HIR lowering-correctness slice.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md` and `TODO.md` so the lowering-correctness progress notes now name the value-preservation helper explicitly alongside the existing lowering bridges
+- updated `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the published boundary wording matches the mechanised HIR lowering slice
+- kept the change narrow: this is a plan/progress wording sync for the published boundary, not a widening of the HIR semantic-preservation target
+
 ## 2026-04-18 — Stage 4.2 live-reference filtering theorem naming sync
 
 I tightened the Stage 4.2 plan/progress summary so it now names the decrement/collection live-reference filtering theorems `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered` and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` explicitly alongside the release-only helper theorem, keeping the plan wording aligned with the published boundary inventory.

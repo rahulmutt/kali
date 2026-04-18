@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 lowering value-preservation summary sync
+
+I tightened the lowering-summary wording so the published boundary now names `KaliIR.Value`, `KaliIR.LoweringCorrectness.lower_preserves_value`, `KaliIR.LoweringCorrectness.lower_preserves_step`, and `KaliIR.LoweringCorrectness.lower_preserves_steps` explicitly alongside the widened HIR lowering-correctness slice.
+
+Completed follow-up:
+- updated `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the lowering-correctness summary prose now names the value-preservation helper explicitly alongside the existing lowering bridges
+- kept the change narrow: this is a proof-summary wording sync for the published boundary, not a widening of the HIR semantic-preservation target
+
 ## 2026-04-18 — Stage 4.2 lowering value-preservation helper
 
 I added the small HIR value fragment plus `KaliIR.LoweringCorrectness.lower_preserves_value`, so the lowering story now also records that the core-lifted HIR value forms lower back to core values in the current proof model.

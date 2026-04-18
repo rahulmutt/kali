@@ -2,6 +2,10 @@
 
 ## Completed
 
+### Stage 4.2 - Lowering value-preservation summary sync
+- ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` now name `KaliIR.Value`, `KaliIR.LoweringCorrectness.lower_preserves_value`, `KaliIR.LoweringCorrectness.lower_preserves_step`, and `KaliIR.LoweringCorrectness.lower_preserves_steps` alongside the widened HIR lowering-correctness slice.
+- ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a widening of the HIR semantic-preservation target.
+
 ### Stage 4.2 - Pure release-helper positive-count wording sync
 - ✅ `proofs/BOUNDARY.md` now explicitly says `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` preserves the release-only cells' positive count in addition to their original ownership tag.
 - ✅ Kept the update narrow: this is wording sync for the published boundary, not a new proof target.
