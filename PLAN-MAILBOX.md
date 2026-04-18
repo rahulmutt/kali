@@ -478,6 +478,17 @@ Completed follow-up:
 Suggested follow-up:
 - keep the claim narrow: this is a wording / drift-guard sync for the published boundary, not a boundary widening
 
+## 2026-04-18 — Stage 4.2 positive-count anti-drift guard widening
+
+I widened the proof-summary anti-drift guard so it now also pins `KaliCore.Safety.releaseAndCollectKeepsOtherPositiveCountCells` explicitly, keeping the surviving non-target positivity wording locked to the published boundary inventory.
+
+Completed follow-up:
+- updated `crates/kali_cli/tests/schema_docs.rs` to pin `KaliCore.Safety.releaseAndCollectKeepsOtherPositiveCountCells` alongside the existing RC snapshot theorem inventory
+- updated `PLAN-4.2-STATUS.md` and `TODO.md` so the Stage 4.2 progress notes record the guard widening
+
+Suggested follow-up:
+- keep the claim narrow: this is a test-guard / progress-tracker sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 pure release heap-characterisation wording sync
 
 I found one remaining Stage 4.2 progress-note drift point: `PLAN-4.2-STATUS.md` was still missing the new pure release helper theorem `KaliCore.Safety.releaseRefHeapCharacterisation` in the large summary bullet / evidence bullets, even though the stage note and the proof-boundary docs already named it.

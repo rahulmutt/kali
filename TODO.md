@@ -2,6 +2,10 @@
 
 ## Completed
 
+### Stage 4.2 - Positive-count anti-drift guard widening
+- ✅ `crates/kali_cli/tests/schema_docs.rs` now also pins `KaliCore.Safety.releaseAndCollectKeepsOtherPositiveCountCells` explicitly, so the proof-summary guard keeps the surviving non-target positivity wording aligned with the published boundary inventory.
+- ✅ `PLAN-4.2-STATUS.md` now records the same guard widening in the Stage 4.2 progress notes.
+
 ### Stage 4.2 - Decrement origin/positive-count progress-note sync
 - ✅ `PLAN-4.2-STATUS.md` and the TODO stage summary now keep `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndPositiveCount` explicit alongside the rest of the RC snapshot inventory, closing out the follow-up that widened the decrement-path provenance/positivity wording.
 
