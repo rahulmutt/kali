@@ -752,3 +752,11 @@ I added a small internal `Context.lookup_remove_head` helper in `proofs/KaliCore
 Completed follow-up:
 - updated `PLAN-4.2-STATUS.md` and `TODO.md` so the progress trackers note the new internal helper explicitly
 - kept the change narrow: this is helper groundwork for future proof work, not a boundary widening
+
+## 2026-04-18 — Stage 3.1 MIR layout fingerprint precision
+
+I tightened the Stage 3.1 specialization planner so the MIR-aware layout signature path now fingerprints struct/array descriptors more precisely while still normalizing closure capture arity, which keeps shared higher-order reuse intact without conflating distinct struct shapes.
+
+Completed follow-up:
+- updated `PLAN-3.1-STATUS.md` and `TODO.md` so the Stage 3.1 tracker now calls out the descriptor-fingerprint precision explicitly alongside the existing shared-layout reuse note
+- kept the change narrow: this is a Stage 3.1 optimizer precision improvement, not a new public surface
