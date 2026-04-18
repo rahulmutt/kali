@@ -538,9 +538,9 @@ Suggested follow-up:
 - if any future plan-stage tracker is added late, keep the per-stage status files in sync so the phase index stays complete
 ## 2026-04-18 — Stage 3.1 struct-layout sharing follow-up
 
-I am widening the Stage 3.1 MIR-aware specialization coverage with a new regression test for shared struct-layout bindings, so the current closure-layout sharing path is no longer the only documented layout-sharing shape.
+I widened the Stage 3.1 MIR-aware specialization coverage with a regression test that proves identical struct-layout bindings reuse the same MIR-specialized clone across three matching call sites, so the current closure-layout sharing path is no longer the only documented layout-sharing shape.
 
-Planned follow-up:
-- add a specialized-call regression test that proves identical struct-layout bindings reuse the same MIR-specialized clone
-- update the Stage 3.1 status tracker and TODO notes so the new layout-sharing evidence is named explicitly alongside the existing closure-layout sharing note
-- keep the change narrow: this is another layout-sharing regression check, not the fuller generic-instantiation planner
+Completed follow-up:
+- updated `crates/kali_optimize/src/lib.rs` with the regression coverage for three matching struct-layout call sites
+- updated `PLAN-3.1-STATUS.md` and `TODO.md` so the stage tracker now names the expanded struct-layout regression explicitly alongside the existing closure-layout sharing note
+- kept the change narrow: this is another layout-sharing regression check, not the fuller generic-instantiation planner

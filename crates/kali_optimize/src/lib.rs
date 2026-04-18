@@ -2092,7 +2092,13 @@ mod tests {
         let value_b = literal(&mut builder, "1");
         builder.node_mut(call_b).unwrap().children = vec![callee_b, point_b, value_b];
 
-        builder.node_mut(root).unwrap().children = vec![function, call_a, call_b];
+        let call_c = builder.alloc(LirNodeKind::Call);
+        let callee_c = builder.alloc_text(LirNodeKind::Value, "consume_point");
+        let point_c = builder.alloc_text(LirNodeKind::Value, "point_c");
+        let value_c = literal(&mut builder, "1");
+        builder.node_mut(call_c).unwrap().children = vec![callee_c, point_c, value_c];
+
+        builder.node_mut(root).unwrap().children = vec![function, call_a, call_b, call_c];
         let mut program = LirProgram {
             root,
             nodes: builder.into_nodes(),
@@ -2134,6 +2140,14 @@ mod tests {
                             escapes: false,
                             captured_by: Vec::new(),
                         },
+                        kali_mir::MirBinding {
+                            name: "point_c".to_string(),
+                            kind: MirBindingKind::Local,
+                            ownership: kali_mir::OwnershipClass::Borrowed,
+                            layout: struct_layout.clone(),
+                            escapes: false,
+                            captured_by: Vec::new(),
+                        },
                     ],
                 },
                 kali_mir::MirFunction {
@@ -2165,6 +2179,7 @@ mod tests {
 
         let call_a_node = &program.nodes[call_a.0 as usize];
         let call_b_node = &program.nodes[call_b.0 as usize];
+        let call_c_node = &program.nodes[call_c.0 as usize];
         let specialized_name_a = call_a_node
             .children
             .first()
@@ -2177,7 +2192,14 @@ mod tests {
             .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
             .and_then(|callee| callee.text.as_deref())
             .expect("specialized call target should exist for call_b");
+        let specialized_name_c = call_c_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for call_c");
         assert_eq!(specialized_name_a, specialized_name_b);
+        assert_eq!(specialized_name_a, specialized_name_c);
         assert!(specialized_name_a.starts_with("consume_point$spec$"));
 
         let specialized_count = program
@@ -2190,7 +2212,7 @@ mod tests {
             .count();
         assert_eq!(
             specialized_count, 1,
-            "struct-layout specialization should be shared"
+            "struct-layout specialization should be shared across identical bindings"
         );
     }
 }
