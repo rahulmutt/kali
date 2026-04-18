@@ -18,6 +18,9 @@
 ### Stage 4.2 no-dangling wording sync
 - ✅ Synced `PLAN-4.2-STATUS.md` so the stage summary now names `KaliCore.Safety.releaseRefNoDanglingReference`, `KaliCore.Safety.releaseAndDecrementNoDanglingReference`, and `KaliCore.Safety.releaseAndCollectNoDanglingReference` explicitly alongside the rest of the RC snapshot inventory.
 
+### Stage 4.2 decrement origin/positive-count anti-drift guard
+- ✅ The proof-summary anti-drift guard in `crates/kali_cli/tests/schema_docs.rs` now also pins `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndPositiveCount`, keeping the decrement-path provenance/positivity slice aligned with the published boundary inventory.
+
 ### Stage 4.2 release-and-decrement origin/ownership/positivity follow-up
 - ✅ `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCount` now packages the decrement helper's surviving-cell provenance, ownership tag, and positive-count fact in one helper theorem, and the proof-boundary / verification summaries now name it explicitly alongside the current RC helper inventory.
 - ✅ The proof-summary anti-drift guard in `crates/kali_cli/tests/schema_docs.rs` now also pins `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCount` so the decrement-path provenance/ownership/positivity slice stays locked to the published boundary inventory.
