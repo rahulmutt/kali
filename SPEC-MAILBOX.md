@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 heap-characterisation wording sync
+
+I found that the verification summary docs still describe the RC snapshot heap-characterisation story a bit too generically, even though the published boundary already names `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` and `KaliCore.Safety.releaseAndCollectHeapCharacterisation` explicitly.
+
+Suggested follow-up:
+- update `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the heap-characterisation theorems are named explicitly alongside the current RC snapshot inventory
+- keep the claim narrow: this is a wording sync for the published boundary, not a boundary widening
+
 ## 2026-04-17 — Stage 4.2 helper-level no-dangling corollaries
 
 I widened the proof-backed RC snapshot slice with helper-level no-dangling-reference corollaries for the release-only, decrement, and collection helpers (`KaliCore.Safety.releaseRefNoDanglingReference`, `KaliCore.Safety.releaseAndDecrementNoDanglingReference`, and `KaliCore.Safety.releaseAndCollectNoDanglingReference`).
