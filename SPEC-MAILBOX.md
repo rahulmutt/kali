@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 target-allocation ownership/allocation corollaries
+
+I widened the published RC snapshot inventory with target-specific ownership/allocation corollaries for the decrement and collection helpers: `KaliCore.Safety.releaseAndDecrementTargetCellOwnedAndAllocatedWhenPositiveCount` and `KaliCore.Safety.releaseAndCollectTargetCellOwnedAndAllocatedWhenPositiveCount`.
+
+Completed follow-up:
+- synced the proof-boundary manifest and the verification summaries so the new target-specific corollaries are named alongside the existing RC snapshot theorem inventory
+- kept the claim narrow: this is still a helper-level RC widening, not the full Stage 4.2 ownership/freeing story
+
 ## 2026-04-18 — Stage 4.2 target allocation follow-up
 
 I plan to widen the current RC snapshot proof slice with explicit target-allocation corollaries for the refcount update helpers (`KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount` and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`), so the published boundary can name the allocation bridge alongside the existing positive-count and provenance lemmas.

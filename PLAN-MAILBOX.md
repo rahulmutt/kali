@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 target-allocation ownership/allocation corollaries
+
+I widened the Stage 4.2 RC progress trackers with target-specific ownership/allocation corollaries for the decrement and collection helpers: `KaliCore.Safety.releaseAndDecrementTargetCellOwnedAndAllocatedWhenPositiveCount` and `KaliCore.Safety.releaseAndCollectTargetCellOwnedAndAllocatedWhenPositiveCount`.
+
+Completed follow-up:
+- synced `PLAN-4.2-STATUS.md` and `TODO.md` so the progress trackers now name the new target-specific corollaries alongside the existing target-allocation bridge notes
+- kept the update narrow: this is still a progress-tracker / helper-theorem widening, not the full ownership/freeing target
+
 ## 2026-04-18 — Stage 4.1 package-audit preview-shim removal
 
 I removed the last acceptance path for the package-audit `--preview` compatibility shim: the CLI now rejects that flag with the canonical `E5008` invalid-usage diagnostic instead of treating it as a hidden no-op.
