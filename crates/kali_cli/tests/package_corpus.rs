@@ -398,6 +398,8 @@ fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_thr
         ("react", "jsx-runtime"),
         ("preact", "hooks"),
         ("vue", "runtime-dom"),
+        ("svelte", "compiler"),
+        ("lit", "decorators"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
@@ -804,7 +806,16 @@ fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_depl
 
 #[test]
 fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface() {
-    for package in ["ramda", "rxjs", "immer", "uuid", "typescript", "esbuild"] {
+    for package in [
+        "ramda",
+        "rxjs",
+        "immer",
+        "uuid",
+        "typescript",
+        "esbuild",
+        "date-fns",
+        "lodash-es",
+    ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_stub_package(
@@ -993,7 +1004,7 @@ fn utility_corpus_packages_with_mixed_format_entries_remain_executable_on_the_de
 
 #[test]
 fn node_runner_corpus_packages_require_the_node_context_but_remain_executable_there() {
-    for package in ["vitest", "jest"] {
+    for package in ["vitest", "jest", "mocha"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
         write_stub_package(
