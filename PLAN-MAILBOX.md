@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 3.3 browser corpus representative widening
+
+I widened the Stage 3.3 browser corpus with an additional `solid-js` representative in the exports-map slice, so the package corpus now carries one more browser-oriented package name without changing the support-rung story.
+
+Planned update:
+- sync `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` so the Stage 3.3 progress notes name the additional browser representative explicitly
+- keep the claim narrow: this is a corpus widening, not a new support rung
+
 ## 2026-04-18 — Stage 4.2 pure release-origin helper widening
 
 I found a small proof-summary gap in the pure release helper slice: the RC snapshot boundary already names `KaliCore.Safety.releaseRefHeapCharacterisation` and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, but it does not yet call out the plain origin theorem `KaliCore.Safety.releaseRefHeapCellOrigin` explicitly.

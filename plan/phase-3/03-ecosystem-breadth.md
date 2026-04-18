@@ -36,6 +36,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The package corpus now also exercises `AbortController`, `EventTarget`, and `structuredClone` in
   representative browser and utility package cases, widening the browser/runtime interoperability
   slice without changing the documented support rungs.
+- The browser corpus now additionally exercises `solid-js` alongside the existing browser
+  representatives in the exports-map slice, keeping the interoperability widening concrete without
+  changing the support-rung story.
 - The utility corpus also now includes `commander` alongside the existing utility representatives,
   widening the plain-package breadth without changing the documented support rungs.
 - Phase-3 cross-module inference smoke coverage now exercises a multi-file import chain with

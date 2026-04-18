@@ -535,6 +535,7 @@ fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_thr
         ("vue", "runtime-dom"),
         ("svelte", "compiler"),
         ("lit", "decorators"),
+        ("solid-js", "store"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
