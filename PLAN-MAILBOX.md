@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 pure release-helper origin/ownership/positivity widening
+
+I found one more symmetry gap in the Stage 4.2 RC snapshot tracker: the release-only helper already has heap-characterisation, origin, and origin/ownership theorems, but it does not yet package the surviving positive-count fact together with those provenance facts.
+
+Planned update:
+- add `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` to `proofs/KaliCore/Safety.lean`, then sync the Stage 4.2 plan/progress notes (`plan/phase-4/02-formal-verification-depth.md`, `PLAN-4.2-STATUS.md`, and `TODO.md`) so the release-only helper provenance story is explicit at the same granularity as the decrement and collection helper families
+- keep the claim narrow: this is a helper-theorem / progress-tracker sync for the published boundary, not a boundary widening beyond the current RC snapshot model
+
 ## 2026-04-18 — Stage 3.3 string-exports corpus coverage
 
 I found one more common real-world package-shape case still missing from the Stage 3.3 corpus breadth: packages whose top-level `exports` field is a plain string rather than an exports map.
