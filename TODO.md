@@ -2,6 +2,10 @@
 
 ## Completed
 
+### Stage 4.2 - Unrelated-heap / other-live wording sync
+- ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` now name `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, and `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` explicitly alongside the rest of the RC snapshot helper slice.
+- ✅ `PLAN-4.2-STATUS.md` now records the same wording sync in the Stage 4.2 progress notes.
+
 ### Stage 4.2 - Positive-count anti-drift guard widening
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now also pins `KaliCore.Safety.releaseAndCollectKeepsOtherPositiveCountCells`, `KaliCore.Safety.releaseAndCollectKeepsOriginalPositiveCountCells` explicitly, so the proof-summary guard keeps the surviving non-target positivity wording aligned with the published boundary inventory.
 - ✅ `PLAN-4.2-STATUS.md` now records the same guard widening in the Stage 4.2 progress notes.

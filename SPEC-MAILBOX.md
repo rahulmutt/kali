@@ -357,3 +357,11 @@ Completed follow-up:
 Suggested follow-up:
 - keep the Stage 4.2 RC inventory wording synchronized if the release-set story widens again
 - continue treating this as a wording / guard sync for the published boundary, not a boundary widening
+
+## 2026-04-18 — Stage 4.2 unrelated-heap / other-live wording sync
+
+I found one remaining proof-summary drift point: the published boundary already mechanizes the unrelated-heap and other-live helper theorems, but the top-level summary docs still described those slices only generically.
+
+Suggested follow-up:
+- update `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the summary prose names `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, and `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` explicitly
+- keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening

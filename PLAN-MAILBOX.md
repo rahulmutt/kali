@@ -585,3 +585,11 @@ I tightened the top-level Stage 4.2 status summary so it now names `KaliCore.Saf
 Completed follow-up:
 - updated `PLAN-4.2-STATUS.md` so the top-level memory-safety summary now calls out the pure release-helper provenance theorem and the collection-helper heap/filter theorem explicitly
 - kept the change narrow: this is a progress-summary wording sync for the published boundary, not a boundary widening
+
+## 2026-04-18 — Stage 4.2 unrelated-heap / other-live wording sync
+
+I found the Stage 4.2 summary tracker still described the unrelated-heap and other-live helper slices generically, even though the published boundary already mechanizes them.
+
+Suggested follow-up:
+- update `PLAN-4.2-STATUS.md` so the progress note names `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, and `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` explicitly alongside the rest of the RC snapshot inventory
+- keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
