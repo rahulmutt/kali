@@ -233,3 +233,5 @@ CI consistency rules:
 - Verification of the WASM binary encoder (rely on `wasm-validate` + testing)
 - Full verification of concrete host integrations (OS/filesystem/network behavior is tested, not mechanically proved end-to-end)
 - Real-time proof checking during development; proof checking is a CI/policy concern rather than an every-edit requirement, and until a real Lean project exists in `proofs/` the repository only carries the published proof-boundary manifest plus its trigger policy
+
+- Linear-memory payload preservation corollaries: `KaliCore.Safety.releaseRefPreservesLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesLinearMemory`.

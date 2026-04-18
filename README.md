@@ -104,3 +104,5 @@ To keep the README aligned with `SPEC.md`, use the same implementation strata:
 
 Reading simplification:
 - `13 — Embedding, WIT & C ABI` cross-cuts runtime and tooling concerns, but the public artifact/embedding contract is grouped with the product/tooling surface to match the top-level spec's delivery planning.
+
+- **Linear-memory payload**: the current RC snapshot model now also preserves an explicit linear-memory payload via `KaliCore.Safety.releaseRefPreservesLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesLinearMemory`.

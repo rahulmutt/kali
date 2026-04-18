@@ -566,3 +566,5 @@ See also:
 - [01 — Architecture](01-architecture.md)
 - [10 — Runtime](10-runtime.md)
 - [14 — Package Management](14-packages.md)
+
+- Linear-memory payload preservation corollaries: `KaliCore.Safety.releaseRefPreservesLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesLinearMemory`.

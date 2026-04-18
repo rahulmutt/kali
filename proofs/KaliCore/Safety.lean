@@ -23,6 +23,7 @@ structure RcCell where
 /-- A bounded snapshot of the modelled ownership / RC state. -/
 structure RcSnapshot where
   ownership : OwnershipEnv
+  linearMemory : List Nat
   heap : List RcCell
   liveRefs : List String
   releasedRefs : List String
@@ -84,6 +85,19 @@ theorem releaseAndDecrementPreservesOwnership (snapshot : RcSnapshot) (ref : Str
 
 theorem releaseAndCollectPreservesOwnership (snapshot : RcSnapshot) (ref : String) :
     (releaseAndCollect snapshot ref).ownership = snapshot.ownership := by
+  rfl
+
+/-- Release-only, decrement, and collection helpers leave the linear-memory payload untouched. -/
+theorem releaseRefPreservesLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (releaseRef snapshot ref).linearMemory = snapshot.linearMemory := by
+  rfl
+
+theorem releaseAndDecrementPreservesLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (releaseAndDecrement snapshot ref).linearMemory = snapshot.linearMemory := by
+  rfl
+
+theorem releaseAndCollectPreservesLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
   rfl
 
 /-- Release-only, decrement, and collection helpers preserve the set of already-released references. -/

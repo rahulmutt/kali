@@ -134,3 +134,7 @@ Suggested follow-up:
 ## Next Step
 
 Continue widening the proof model toward the remaining Stage 4.2 targets: fuller ownership/memory safety (including a more complete RC decrement/freeing story) and the broader HIR → LIR semantic-preservation story, while keeping the published boundary honest about what is mechanized today.
+
+## 2026-04-18 — Stage 4.2 linear-memory payload preservation
+
+I widened the proof-backed RC snapshot model to carry an explicit linear-memory payload alongside the existing ownership / heap / live-reference state, and the release-only, decrement, and collection helpers now preserve that payload via `KaliCore.Safety.releaseRefPreservesLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesLinearMemory`.

@@ -309,3 +309,7 @@
 ### Stage 4.2 - RC target-allocation follow-up
 - ✅ `releaseAndDecrementTargetCellAllocatedWhenPositiveCount`, `releaseAndDecrementTargetCellOwnedAndAllocatedWhenPositiveCount`, `releaseAndCollectTargetCellAllocatedWhenPositiveCount`, `releaseAndCollectTargetCellOriginOwnershipAndPositiveCount`, and `releaseAndCollectTargetCellOwnedAndAllocatedWhenPositiveCount` now make the surviving target-cell allocation bridge explicit on the decrement and collection helpers when the count stays positive.
 - ✅ Synced `PLAN-4.2-STATUS.md` and the proof-backed verification summaries so the progress trackers name the target-allocation corollaries alongside the existing RC helper slice.
+
+### Stage 4.2 - Linear-memory payload preservation
+- ✅ The proof-backed RC snapshot model now carries an explicit linear-memory payload alongside the existing ownership / heap / live-reference state.
+- ✅ The release-only, decrement, and collection helpers preserve that payload via `KaliCore.Safety.releaseRefPreservesLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesLinearMemory`.

@@ -452,3 +452,7 @@ I tightened `specs/16-testing.md` so the proof-backed claims summary now names `
 
 Completed follow-up:
 - kept the change narrow: this is a summary-doc wording sync for the published boundary, not a boundary widening
+
+## 2026-04-18 — Stage 4.2 linear-memory shape note
+
+The current proof-backed RC snapshot model is being widened to carry an explicit linear-memory payload alongside the ownership / heap / live-reference state. This is a model-shape refinement, not a change to the published proof-backed claim boundary, but the boundary docs will need a small wording sync once the helper-preservation corollaries land.

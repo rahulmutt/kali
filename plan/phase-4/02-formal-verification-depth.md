@@ -137,3 +137,7 @@ proof-ready canonical summary with the proof-backed boundary statement, quoting 
 - [x] CI proof job runs and blocks on proof failures.
 - [x] README and maturity matrix updated with proof-backed claims for the published boundary.
 - [x] All Phase-1 through Phase-4.1 tests continue to pass.
+
+## Linear-memory payload preservation
+
+The current proof-backed RC snapshot model now carries an explicit linear-memory payload alongside the ownership / heap / live-reference state, and the release-only, decrement, and collection helpers preserve it via `KaliCore.Safety.releaseRefPreservesLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesLinearMemory`.
