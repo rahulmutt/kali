@@ -4,7 +4,7 @@ I tightened the Stage 4.2 summary prose so the published boundary now names `Kal
 
 ## 2026-04-18 — Stage 4.2 unrelated-heap / other-live wording sync
 
-I tightened the Stage 4.2 summary prose so the published boundary now names `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, and `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` explicitly alongside the existing RC snapshot inventory.
+I tightened the Stage 4.2 summary prose so the published boundary now names `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, and `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` explicitly alongside the existing RC snapshot inventory. The proof-summary anti-drift guard in `crates/kali_cli/tests/schema_docs.rs` now also pins those unrelated-heap / other-live theorem names explicitly, so the verifier stays aligned with the published helper slice.
 
 ## 2026-04-17 — Stage 4.2 helper-level no-dangling corollaries
 

@@ -1,3 +1,12 @@
+## 2026-04-18 — Stage 4.2 unrelated-heap / other-live guard follow-up
+
+I tightened the Stage 4.2 proof-summary anti-drift guard so it now also pins `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, and `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` explicitly alongside the existing RC snapshot inventory.
+
+Completed follow-up:
+- updated `crates/kali_cli/tests/schema_docs.rs` so the proof-summary guard now also checks the unrelated-heap / other-live theorem names explicitly
+- updated `PLAN-4.2-STATUS.md` and `TODO.md` so the progress notes now reflect the widened anti-drift guard alongside the published helper slice
+- kept the change narrow: this is a guard / progress-tracker sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 pure release helper wording follow-up
 
 I tightened the Stage 4.2 progress summary so it now also names the pure release helper's heap-characterisation and origin/ownership theorems, `KaliCore.Safety.releaseRefHeapCharacterisation` and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, explicitly alongside the release-only live-reference corollaries and the rest of the RC snapshot inventory.
