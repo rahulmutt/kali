@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 3.1 tagged-parameter specialization widening
+
+I widened the MIR-aware specialization path so `kali_optimize` can now specialize tagged parameters when the actual call arguments have a concrete, stable layout or literal shape. That lets the optimizer revisit a deeper monomorphisation slice instead of stopping at the existing non-tagged-layout path.
+
+Planned update:
+- sync `TODO.md` so the Stage 3.1 progress notes name the tagged-parameter specialization widening explicitly
+- keep the claim narrow: this is a specialization-depth widening, not a new support-rung claim
+
 ## 2026-04-18 — Stage 3.3 browser corpus representative widening
 
 I widened the Stage 3.3 browser corpus with an additional `solid-js` representative in the exports-map slice, so the package corpus now carries one more browser-oriented package name without changing the support-rung story.

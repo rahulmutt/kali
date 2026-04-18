@@ -37,6 +37,9 @@ types are statically known.
 - Newly created MIR-specialized clones are recursively revisited under their own owner key, so
   clone-specific optimization can expose deeper specializable call sites without collapsing the
   parent function's deterministic budget accounting.
+- Tagged-parameter call sites now specialize when the actual arguments have a concrete literal or
+  MIR-backed layout, so the monomorphisation path reaches one level deeper than the previous
+  non-tagged-layout gate while still respecting the deterministic specialization budget.
 - A representative benchmark suite now records compile time, WASM size, instruction count, and
   add-op deltas across `fast`, `release`, and `release-advanced`.
 

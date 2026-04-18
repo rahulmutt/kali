@@ -839,17 +839,30 @@ impl Optimizer {
         let mut substitutions = BTreeMap::new();
         let mut signature_parts = Vec::new();
         for (index, (param, arg)) in summary.params.iter().zip(args.iter()).enumerate() {
-            let Some(layout) = mir_plan.parameter_layout(callee_name, index) else {
+            let Some(layout) = mir_plan.parameter_layout_any(callee_name, index) else {
                 signature_parts.push(self.specialization_signature(program, *arg));
                 continue;
             };
 
+            let arg_signature = self.specialization_signature_with_mir(program, *arg, mir_plan);
             if layout.kind == MirLayoutClass::TaggedVal {
-                signature_parts.push(self.specialization_signature(program, *arg));
+                if summary.node_count <= 16
+                    || !self.argument_has_concrete_layout(program, *arg, mir_plan)
+                {
+                    signature_parts.push(arg_signature);
+                } else {
+                    signature_parts.push(format!("tagged:{}", arg_signature));
+                    let cloned_arg = self.clone_subtree_with_substitution(
+                        program,
+                        *arg,
+                        &BTreeMap::new(),
+                        &mut HashMap::new(),
+                    );
+                    substitutions.insert(param.clone(), cloned_arg);
+                }
                 continue;
             }
 
-            let arg_signature = self.specialization_signature_with_mir(program, *arg, mir_plan);
             signature_parts.push(format!("{}:{}", layout.kind.as_str(), arg_signature));
             let cloned_arg = self.clone_subtree_with_substitution(
                 program,
@@ -937,6 +950,39 @@ impl Optimizer {
             hash = hash.wrapping_mul(0x100000001b3);
         }
         format!("{}$spec${:016x}", callee_name, hash)
+    }
+
+    fn argument_has_concrete_layout(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+        mir_plan: &MirSpecializationPlan,
+    ) -> bool {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return false;
+        };
+
+        if matches!(node.kind, LirNodeKind::Literal) {
+            return true;
+        }
+
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            if let Some(text) = node.text.as_deref() {
+                if parse_literal_text(Some(text)).is_some() {
+                    return true;
+                }
+                if let Some(layout) = mir_plan.binding_layout(text) {
+                    return layout.kind != MirLayoutClass::TaggedVal;
+                }
+            }
+            return false;
+        }
+
+        if node.kind == LirNodeKind::Value && node.text.is_none() {
+            return self.is_object_literal(program, id) || self.is_array_literal(program, id);
+        }
+
+        false
     }
 
     fn specialization_signature_with_mir(
@@ -1372,11 +1418,10 @@ impl MirSpecializationPlan {
             .filter(|layout| layout.kind != MirLayoutClass::TaggedVal)
     }
 
-    fn parameter_layout(&self, function: &str, index: usize) -> Option<MirLayoutSignature> {
+    fn parameter_layout_any(&self, function: &str, index: usize) -> Option<MirLayoutSignature> {
         self.parameter_layouts
             .get(function)
             .and_then(|layouts| layouts.get(index).cloned())
-            .filter(|layout| layout.kind != MirLayoutClass::TaggedVal)
     }
 }
 
@@ -1960,6 +2005,113 @@ mod tests {
         assert!(
             literal_twelve,
             "specialized clone should fold the repeated literals"
+        );
+        assert_eq!(specialized_function.kind, LirNodeKind::Instruction);
+    }
+
+    #[test]
+    fn release_specializes_tagged_parameters_from_concrete_arguments() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "add_pair");
+        let param_left = builder.alloc_text(LirNodeKind::Value, "left");
+        let param_right = builder.alloc_text(LirNodeKind::Value, "right");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add8 = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let two = literal(&mut builder, "2");
+        let three = literal(&mut builder, "3");
+        let four = literal(&mut builder, "4");
+        let five = literal(&mut builder, "5");
+        let six = literal(&mut builder, "6");
+        let seven = literal(&mut builder, "7");
+        let eight = literal(&mut builder, "8");
+        builder.node_mut(add1).unwrap().children = vec![param_left, param_right];
+        builder.node_mut(add2).unwrap().children = vec![add1, one];
+        builder.node_mut(add3).unwrap().children = vec![add2, two];
+        builder.node_mut(add4).unwrap().children = vec![add3, three];
+        builder.node_mut(add5).unwrap().children = vec![add4, four];
+        builder.node_mut(add6).unwrap().children = vec![add5, five];
+        builder.node_mut(add7).unwrap().children = vec![add6, six];
+        builder.node_mut(add8).unwrap().children = vec![add7, seven];
+        builder.node_mut(ret).unwrap().children = vec![add8, eight];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_left, param_right, block];
+
+        let call = builder.alloc(LirNodeKind::Call);
+        let callee = builder.alloc_text(LirNodeKind::Value, "add_pair");
+        let left = literal(&mut builder, "2");
+        let right = literal(&mut builder, "3");
+        builder.node_mut(call).unwrap().children = vec![callee, left, right];
+
+        builder.node_mut(root).unwrap().children = vec![function, call];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![kali_mir::MirFunction {
+                name: Some("add_pair".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![
+                    kali_mir::MirBinding {
+                        name: "left".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::TaggedVal,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                    kali_mir::MirBinding {
+                        name: "right".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::TaggedVal,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                ],
+            }],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let call_node = &program.nodes[call.0 as usize];
+        let specialized_name = call_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for tagged parameters");
+        assert!(specialized_name.starts_with("add_pair$spec$"));
+
+        let specialized_function = program
+            .nodes
+            .iter()
+            .find(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name)
+            })
+            .expect("specialized function should be inserted for tagged parameters");
+        let literal_thirty_three = program
+            .nodes
+            .iter()
+            .any(|node| node.kind == LirNodeKind::Literal && node.text.as_deref() == Some("33"));
+        assert!(
+            literal_thirty_three,
+            "tagged-parameter specialization should still expose the folded literal result"
         );
         assert_eq!(specialized_function.kind, LirNodeKind::Instruction);
     }

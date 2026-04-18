@@ -14,6 +14,11 @@ follow-up widening rather than unfinished baseline delivery:
 
 ## Completed
 
+### Stage 3.1 - Tagged-parameter specialization widening
+- ✅ `kali_optimize` can now specialize tagged parameters when the concrete call arguments have a stable literal or MIR-backed layout, so the MIR-aware monomorphisation path no longer stops at the existing non-tagged-layout gate.
+- ✅ Added a regression test that proves the new tagged-parameter path can still fold a concrete `add_pair(2, 3)` call down to a literal result after specialization.
+- ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
+
 ### Stage 3.3 - Browser/runtime interop corpus widening
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now exercises the web-baseline interop slice with representative browser and utility package cases that create `AbortController`, `EventTarget`, `Blob`, `File`, and `structuredClone` payloads alongside package imports.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `solid-js` in the browser exports-map corpus alongside the existing browser representatives, so the browser/runtime interoperability widening now covers one more representative package shape without changing the documented support rungs.
