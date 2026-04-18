@@ -14,6 +14,10 @@ follow-up widening rather than unfinished baseline delivery:
 
 ## Completed
 
+### Stage 3.3 - Browser/runtime interop corpus widening
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now exercises the web-baseline interop slice with representative browser and utility package cases that create `AbortController`, `EventTarget`, `Blob`, `File`, and `structuredClone` payloads alongside package imports.
+- ✅ Kept the update narrow: this widens the package corpus and browser/runtime interoperability checks without changing the documented support rungs.
+
 ### Stage 3.1 - Recursive MIR-specialization revisit
 - ✅ Newly created MIR-specialized clones are now recursively revisited under their own owner key, so clone-specific optimization can expose deeper specializable call sites while keeping the specialization budget deterministic.
 - ✅ Kept the update narrow: this widens specialization depth within the existing optimization model; it does not change the published benchmark or support claims.

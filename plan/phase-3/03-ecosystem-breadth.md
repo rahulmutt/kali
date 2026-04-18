@@ -33,6 +33,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The shared browser/runtime support library now also carries in-memory `Blob` and `File` primitives,
   which gives the browser interoperability slice a more realistic payload baseline without changing
   the package-support rungs claimed for the corpus.
+- The package corpus now also exercises `AbortController`, `EventTarget`, and `structuredClone` in
+  representative browser and utility package cases, widening the browser/runtime interoperability
+  slice without changing the documented support rungs.
 - The utility corpus also now includes `commander` alongside the existing utility representatives,
   widening the plain-package breadth without changing the documented support rungs.
 - Phase-3 cross-module inference smoke coverage now exercises a multi-file import chain with

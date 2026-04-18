@@ -45,6 +45,17 @@ fn write_stub_package(root: &Path, name: &str, body: &str) {
     fs::write(package_dir.join("index.js"), body).expect("write package entry");
 }
 
+fn write_web_baseline_interop_source(path: &Path, package: &str) {
+    fs::write(
+        path,
+        format!(
+            "import describe from '{package}';\nconst controller = new AbortController();\nconst target = new EventTarget();\nlet count = 0;\ntarget.addEventListener('tick', () => {{\n  count += 1;\n  controller.abort();\n}});\ntarget.dispatchEvent(new Event('tick'));\nconst blob = structuredClone(new Blob(['browser corpus']));\nconst file = structuredClone(new File(['browser corpus'], 'browser.txt'));\nstructuredClone(blob);\nstructuredClone(file);\nconsole.log(describe(count));\n",
+            package = package
+        ),
+    )
+    .expect("write web baseline source");
+}
+
 fn write_node_assuming_package(root: &Path, name: &str, body: &str) {
     write_stub_package(root, name, body);
     write_types_stub_package(root, name);
@@ -1114,6 +1125,51 @@ fn browser_corpus_packages_with_string_exports_remain_checkable_and_deployable_t
 }
 
 #[test]
+fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_deployable_through_host(
+) {
+    for package in ["react", "preact"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_stub_package(
+            dir.path(),
+            package,
+            "export default function describe(value) { return value; }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        write_web_baseline_interop_source(&source_path, package);
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser web-baseline package {package} should be checkable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser web-baseline package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_packages_with_internal_browser_rewrites_remain_checkable_and_deployable_through_host(
 ) {
     for package in ["solid-js", "lit"] {
@@ -1684,6 +1740,39 @@ fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_def
         assert!(
             run.status.success(),
             "utility module-chain package {package} should stay executable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+    }
+}
+
+#[test]
+fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the_default_standalone_surface(
+) {
+    for package in ["ramda", "uuid"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), None);
+        write_stub_package(
+            dir.path(),
+            package,
+            "export default function describe(value) { return value; }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        write_web_baseline_interop_source(&source_path, package);
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "utility web-baseline package {package} should be checkable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+        assert!(
+            run.status.success(),
+            "utility web-baseline package {package} should stay executable\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr)
         );
