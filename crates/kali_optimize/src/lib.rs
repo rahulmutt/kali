@@ -2041,4 +2041,156 @@ mod tests {
             "closure-layout specialization should be shared"
         );
     }
+
+    #[test]
+    fn release_specializes_shared_struct_layout_bindings() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "consume_point");
+        let param_point = builder.alloc_text(LirNodeKind::Value, "point");
+        let param_value = builder.alloc_text(LirNodeKind::Value, "value");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add8 = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let two = literal(&mut builder, "2");
+        let three = literal(&mut builder, "3");
+        let four = literal(&mut builder, "4");
+        let five = literal(&mut builder, "5");
+        let six = literal(&mut builder, "6");
+        let seven = literal(&mut builder, "7");
+        let eight = literal(&mut builder, "8");
+        builder.node_mut(add1).unwrap().children = vec![param_value, one];
+        builder.node_mut(add2).unwrap().children = vec![add1, two];
+        builder.node_mut(add3).unwrap().children = vec![add2, three];
+        builder.node_mut(add4).unwrap().children = vec![add3, four];
+        builder.node_mut(add5).unwrap().children = vec![add4, five];
+        builder.node_mut(add6).unwrap().children = vec![add5, six];
+        builder.node_mut(add7).unwrap().children = vec![add6, seven];
+        builder.node_mut(add8).unwrap().children = vec![add7, eight];
+        builder.node_mut(ret).unwrap().children = vec![add8];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_point, param_value, block];
+
+        let call_a = builder.alloc(LirNodeKind::Call);
+        let callee_a = builder.alloc_text(LirNodeKind::Value, "consume_point");
+        let point_a = builder.alloc_text(LirNodeKind::Value, "point_a");
+        let value_a = literal(&mut builder, "1");
+        builder.node_mut(call_a).unwrap().children = vec![callee_a, point_a, value_a];
+
+        let call_b = builder.alloc(LirNodeKind::Call);
+        let callee_b = builder.alloc_text(LirNodeKind::Value, "consume_point");
+        let point_b = builder.alloc_text(LirNodeKind::Value, "point_b");
+        let value_b = literal(&mut builder, "1");
+        builder.node_mut(call_b).unwrap().children = vec![callee_b, point_b, value_b];
+
+        builder.node_mut(root).unwrap().children = vec![function, call_a, call_b];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let struct_layout = LayoutDescriptor::Struct {
+            fields: vec![
+                (
+                    "x".to_string(),
+                    Box::new(LayoutDescriptor::Scalar("number".to_string())),
+                ),
+                (
+                    "y".to_string(),
+                    Box::new(LayoutDescriptor::Scalar("number".to_string())),
+                ),
+            ],
+        };
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![
+                kali_mir::MirFunction {
+                    name: None,
+                    kind: kali_mir::MirFunctionKind::Module,
+                    bindings: vec![
+                        kali_mir::MirBinding {
+                            name: "point_a".to_string(),
+                            kind: MirBindingKind::Local,
+                            ownership: kali_mir::OwnershipClass::Borrowed,
+                            layout: struct_layout.clone(),
+                            escapes: false,
+                            captured_by: Vec::new(),
+                        },
+                        kali_mir::MirBinding {
+                            name: "point_b".to_string(),
+                            kind: MirBindingKind::Local,
+                            ownership: kali_mir::OwnershipClass::Borrowed,
+                            layout: struct_layout.clone(),
+                            escapes: false,
+                            captured_by: Vec::new(),
+                        },
+                    ],
+                },
+                kali_mir::MirFunction {
+                    name: Some("consume_point".to_string()),
+                    kind: kali_mir::MirFunctionKind::Function,
+                    bindings: vec![
+                        kali_mir::MirBinding {
+                            name: "point".to_string(),
+                            kind: MirBindingKind::Parameter,
+                            ownership: kali_mir::OwnershipClass::Borrowed,
+                            layout: struct_layout,
+                            escapes: false,
+                            captured_by: Vec::new(),
+                        },
+                        kali_mir::MirBinding {
+                            name: "value".to_string(),
+                            kind: MirBindingKind::Parameter,
+                            ownership: kali_mir::OwnershipClass::Borrowed,
+                            layout: LayoutDescriptor::Scalar("number".to_string()),
+                            escapes: false,
+                            captured_by: Vec::new(),
+                        },
+                    ],
+                },
+            ],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let call_a_node = &program.nodes[call_a.0 as usize];
+        let call_b_node = &program.nodes[call_b.0 as usize];
+        let specialized_name_a = call_a_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for call_a");
+        let specialized_name_b = call_b_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for call_b");
+        assert_eq!(specialized_name_a, specialized_name_b);
+        assert!(specialized_name_a.starts_with("consume_point$spec$"));
+
+        let specialized_count = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_a)
+            })
+            .count();
+        assert_eq!(
+            specialized_count, 1,
+            "struct-layout specialization should be shared"
+        );
+    }
 }
