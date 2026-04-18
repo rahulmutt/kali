@@ -192,8 +192,12 @@
 - ✅ `releaseAndCollectHeapCellsHavePositiveCount` now states the local collection helper's final heap contains only positive-count cells.
 - ✅ `releaseAndCollectHeapCellOrigin` proves every surviving collected heap cell still comes from the original heap, with only the released target decremented.
 - ✅ `releaseAndCollectHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCount` now makes the surviving collected heap cells' original name and ownership tag explicit.
+- ✅ `releaseAndCollectKeepsOtherHeapEntries` now keeps unrelated positive-count heap entries in the collected heap.
 - ✅ `releaseRefPreservesOwnership`, `releaseAndDecrementPreservesOwnership`, and `releaseAndCollectPreservesOwnership` keep the ownership environment unchanged across the release-only, decrement, and collection helpers.
 
+
+### Stage 4.2 - RC unrelated-heap preservation follow-up
+- ✅ `releaseAndCollectKeepsOtherHeapEntries` now keeps unrelated positive-count heap entries in the collected heap, making the helper-level unrelated-heap preservation story explicit.
 
 ### Stage 4.2 - Pure release-helper follow-up
 - ✅ `releaseRefLiveRefsAreOwnedAndAllocated` now keeps the pure release helper's surviving live references anchored in ownership and allocation.

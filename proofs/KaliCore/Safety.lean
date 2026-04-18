@@ -376,6 +376,13 @@ theorem releaseAndCollectKeepsOtherPositiveCountCells (snapshot : RcSnapshot) (r
     exact releaseAndCollectKeepsPositiveCountCells snapshot ref cell hmem' hpos
   exact ⟨hkeep, hpos⟩
 
+/-- A release-and-collect step keeps unrelated positive-count heap entries in the collected heap. -/
+theorem releaseAndCollectKeepsOtherHeapEntries (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.name ≠ ref → cell.refCount > 0 →
+      cell ∈ (releaseAndCollect snapshot ref).heap := by
+  intro cell hmem hname hpos
+  exact (releaseAndCollectKeepsOtherPositiveCountCells snapshot ref cell hmem hname hpos).1
+
 /-- A release-and-collect step drops any original zero-count cell from the final heap. -/
 theorem releaseAndCollectDropsOriginalZeroCountCells (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ snapshot.heap → cell.refCount = 0 →
