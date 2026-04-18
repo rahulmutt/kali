@@ -34,6 +34,9 @@ types are statically known.
   optimized numeric hot paths are regression-tested to stay free of tag-check / untag boxing.
 - Incremental compilation now reuses `.kali-cache/incremental/` for unchanged modules, and the
   specialization budget is enforced per function owner so separate hot paths keep independent caps.
+- Newly created MIR-specialized clones are recursively revisited under their own owner key, so
+  clone-specific optimization can expose deeper specializable call sites without collapsing the
+  parent function's deterministic budget accounting.
 - A representative benchmark suite now records compile time, WASM size, instruction count, and
   add-op deltas across `fast`, `release`, and `release-advanced`.
 

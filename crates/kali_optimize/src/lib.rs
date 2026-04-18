@@ -765,7 +765,26 @@ impl Optimizer {
             &owner,
             specialized_functions,
         ) {
-            self.optimize_node(program, new_function, plan, tracker, next_owner.clone());
+            let recursive_owner = program.nodes[new_function.0 as usize]
+                .text
+                .clone()
+                .unwrap_or_else(|| next_owner.clone());
+            self.optimize_node(
+                program,
+                new_function,
+                plan,
+                tracker,
+                recursive_owner.clone(),
+            );
+            self.specialize_mir_call_sites(
+                program,
+                new_function,
+                plan,
+                mir_plan,
+                tracker,
+                recursive_owner,
+                specialized_functions,
+            );
         }
 
         for child in snapshot.children {
