@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 collection target-cell iff helper surfacing
+
+I tightened the Stage 4.2 progress summary so it now names `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount` explicitly in the plan-facing status note, keeping the collection-helper survival/removal split visible without widening the published boundary.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md` so the canonical Stage 4.2 status summary now calls out the collection-helper iff theorem explicitly alongside the rest of the RC snapshot inventory
+- kept the change narrow: this is a progress-tracker wording sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 pure release-origin helper sync closed
 
 I confirmed the pure release helper’s plain origin theorem `KaliCore.Safety.releaseRefHeapCellOrigin` is already present in `proofs/KaliCore/Safety.lean`, and the Stage 4.2 summary/progress docs are already aligned with the published boundary wording for that helper slice.
