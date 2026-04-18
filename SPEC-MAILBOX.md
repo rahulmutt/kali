@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 collection target-origin summary sync
+
+I tightened the proof-backed boundary wording so `KaliCore.Safety.releaseAndCollectTargetCellOrigin` is now named explicitly alongside the existing collection-helper target-cell bookkeeping and origin/ownership corollaries.
+
+Completed follow-up:
+- updated `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `proofs/BOUNDARY.md` so the published summary now names the new target-origin theorem explicitly
+- kept the change narrow: this is a proof-summary wording sync for the published boundary, not a broader ownership/freeing claim
+
 ## 2026-04-18 — Stage 4.2 pure release-origin helper sync closed
 
 I confirmed the pure release helper’s plain origin theorem `KaliCore.Safety.releaseRefHeapCellOrigin` is already present in `proofs/KaliCore/Safety.lean`, and the published boundary / summary docs already name it alongside `KaliCore.Safety.releaseRefHeapCharacterisation` and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`.

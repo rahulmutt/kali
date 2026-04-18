@@ -18,6 +18,11 @@ def remove : Context → String → Context
 
 end Context
 
+/-- Removing the head binding for a name leaves the lookup of that name unchanged in the rest of the context. -/
+theorem Context.lookup_remove_head (Γ : Context) (x : String) (ty : Ty) :
+    Context.lookup (Context.remove ((x, ty) :: Γ) x) x = Context.lookup Γ x := by
+  simp [Context.remove]
+
 /-- Runtime value predicate for the small-step semantics. -/
 inductive Value : Expr → Prop where
   | lit : ∀ v, Value (Expr.ELit v)

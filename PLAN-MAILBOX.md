@@ -1,3 +1,12 @@
+## 2026-04-18 — Stage 4.2 collection target-origin follow-up
+
+I widened the Stage 4.2 proof-backed RC snapshot slice with `KaliCore.Safety.releaseAndCollectTargetCellOrigin`, which keeps the released target traceable to the original heap on the collection path when it survives the positive-count filter.
+
+Completed follow-up:
+- updated `proofs/KaliCore/Safety.lean` with the collection-path target-origin helper theorem
+- updated the Stage 4.2 progress and verification summaries so the new theorem is named explicitly alongside the surrounding RC snapshot inventory
+- kept the change narrow: this is a helper-level provenance theorem for the published boundary, not a wider ownership/freeing claim
+
 ## 2026-04-18 — Stage 4.2 collection target-cell iff helper surfacing
 
 I tightened the Stage 4.2 progress summary so it now names `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount` explicitly in the plan-facing status note, keeping the collection-helper survival/removal split visible without widening the published boundary.
@@ -735,3 +744,11 @@ I confirmed `KaliCore.Safety.releaseAndDecrementTargetCellOrigin` is already nam
 Completed follow-up:
 - left the Stage 4.2 summary docs unchanged because they already carry the theorem name explicitly
 - closed the stale note without widening the published boundary
+
+## 2026-04-18 — Stage 4.2 context lookup/remove groundwork
+
+I added a small internal `Context.lookup_remove_head` helper in `proofs/KaliCore/Semantics.lean` so the proof model now has context-sensitive lookup/remove groundwork available for future substitution widening without widening the published boundary.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md` and `TODO.md` so the progress trackers note the new internal helper explicitly
+- kept the change narrow: this is helper groundwork for future proof work, not a boundary widening
