@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 original positive-count decrement theorem
+
+I added the helper-level RC summary theorem `KaliCore.Safety.releaseAndDecrementKeepsOriginalPositiveCountCells`, which packages the positive-count survivorship story for the release-and-decrement helper so the plan/progress trackers can cite it directly.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md`, `TODO.md`, and `plan/phase-4/02-formal-verification-depth.md` so the progress trackers name the new theorem explicitly alongside the existing RC snapshot inventory
+- kept the change narrow: this is a helper-theorem / progress-tracker widening on top of the published boundary, not a new boundary shape
+
 ## 2026-04-18 — Stage 4.2 original positive-count survivor theorem
 
 I added the helper-level RC summary theorem `KaliCore.Safety.releaseAndCollectKeepsOriginalPositiveCountCells`, which packages the positive-count survivorship story for the release-and-collect helper so the no-leak slice is easier to cite directly.

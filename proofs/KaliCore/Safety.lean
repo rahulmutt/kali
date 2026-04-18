@@ -610,6 +610,25 @@ theorem releaseAndDecrementKeepsOtherPositiveCountCells (snapshot : RcSnapshot) 
   · exact releaseAndDecrementKeepsOtherHeapEntries snapshot ref cell hmem hname
   · exact hpos
 
+/-- A release-and-decrement step keeps every original positive-count cell alive:
+non-target cells survive unchanged, and the released target survives when its
+decremented count stays positive. -/
+theorem releaseAndDecrementKeepsOriginalPositiveCountCells (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.refCount > 0 →
+      (cell.name = ref → cell.refCount > 1 →
+        { cell with refCount := cell.refCount - 1 } ∈ (releaseAndDecrement snapshot ref).heap ∧
+        { cell with refCount := cell.refCount - 1 }.refCount > 0) ∧
+      (cell.name ≠ ref →
+        cell ∈ (releaseAndDecrement snapshot ref).heap ∧ cell.refCount > 0) := by
+  intro cell hmem hpos
+  constructor
+  · intro hname hgt1
+    constructor
+    · exact (releaseAndDecrementKeepsTargetCellWhenPositiveCount snapshot ref cell hmem hname hgt1).1
+    · simpa using Nat.sub_pos_of_lt hgt1
+  · intro hname
+    exact ⟨releaseAndDecrementKeepsOtherHeapEntries snapshot ref cell hmem hname, hpos⟩
+
 /-- Live references other than the released target remain live after a release-and-decrement step. -/
 theorem releaseAndDecrementPreservesOtherLiveRefs (snapshot : RcSnapshot) (ref : String)
     (h : WellFormed snapshot) :
