@@ -458,3 +458,15 @@ I plan to widen the Stage 4.2 proof-summary anti-drift guard so it explicitly pi
 Suggested follow-up:
 - update the Stage 4.2 status tracker and TODO so the progress notes mention the heap/filter theorem explicitly
 - keep the change narrow: this is a guard / wording sync for the published boundary, not a proof-boundary widening
+
+## 2026-04-18 — Stage 4.2 pure release heap-characterisation wording sync
+
+I found one remaining Stage 4.2 progress-note drift point: `PLAN-4.2-STATUS.md` was still missing the new pure release helper theorem `KaliCore.Safety.releaseRefHeapCharacterisation` in the large summary bullet / evidence bullets, even though the stage note and the proof-boundary docs already named it.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md` so the status summary, proof-state inventory, notable deliverables, and current-limits note now name `KaliCore.Safety.releaseRefHeapCharacterisation` explicitly alongside the rest of the RC snapshot helper slice
+- reran the schema-doc anti-drift test so the plan/status wording stays aligned with the published theorem inventory
+
+Suggested follow-up:
+- keep the Stage 4.2 status note aligned if the pure release helper slice widens again
+- continue treating this as a wording / progress-tracker sync, not a boundary widening
