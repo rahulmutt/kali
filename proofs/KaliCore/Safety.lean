@@ -648,6 +648,11 @@ theorem releaseRefReleasedRefsCons (snapshot : RcSnapshot) (ref : String) :
     (releaseRef snapshot ref).releasedRefs = ref :: snapshot.releasedRefs := by
   rfl
 
+/-- The release-only helper's heap is unchanged. -/
+theorem releaseRefHeapCharacterisation (snapshot : RcSnapshot) (ref : String) :
+    (releaseRef snapshot ref).heap = snapshot.heap := by
+  rfl
+
 /-- A release-only step preserves the no-dangling-reference property on well-formed snapshots. -/
 theorem releaseRefNoDanglingReference (snapshot : RcSnapshot) (ref : String)
     (h : WellFormed snapshot) :

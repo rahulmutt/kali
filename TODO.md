@@ -4,6 +4,8 @@
 
 ### Stage 4.2 - Proof-boundary heap-characterisation inventory sync
 - ✅ `proofs/BOUNDARY.md` now names `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` and `KaliCore.Safety.releaseAndCollectHeapCharacterisation` explicitly in the claimed theorem inventory, keeping the manifest aligned with the proof-state summary and the summary docs.
+- ✅ The pure release helper now also has an explicit heap-characterisation theorem, `KaliCore.Safety.releaseRefHeapCharacterisation`, so the RC helper slice states the unchanged-heap case directly alongside the decrement/collection heap characterisation theorems.
+- ✅ `PLAN-4.2-STATUS.md` and the Stage 4.2 progress note now call out the release-only heap-characterisation theorem explicitly, keeping the pure release helper slice aligned with the published boundary inventory.
 
 ### Stage 4.2 - Proof-summary anti-drift guard widening
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now pins a broader current RC snapshot helper inventory, including the no-dangling-reference corollaries, released-reference cons-shape theorems, target-cell bookkeeping, zero-count collection/removal, and heap-characterisation corollaries.
