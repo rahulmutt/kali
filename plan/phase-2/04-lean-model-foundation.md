@@ -25,9 +25,9 @@ release claims.
 - The core type calculus is modelled in `KaliCore/Types.lean`.
 - Progress and preservation are stated and proved for the bounded core calculus.
 - CI runs the Lean jobs on every commit touching `proofs/`; a failing proof blocks merge.
-- The published proof boundary in `proofs/BOUNDARY.md` is updated to reflect the provisional
-  scope; the repository remains **proof-ready**, not yet **proof-backed** (that claim is
-  reserved for Stage 4.2 when the boundary is declared non-provisional and non-empty).
+- The published proof boundary in `proofs/BOUNDARY.md` is updated to reflect the then-current
+  provisional scope. In the current repository state, that later Stage 4.2 follow-up has also
+  landed, so Kali is now **proof-backed for the published boundary**.
 
 ## Tasks
 
@@ -188,8 +188,9 @@ Update the proof-boundary manifest to describe the provisional scope:
 - Proof coverage of the WASM host runtime (wasmtime)
 ```
 
-The repository remains **proof-ready**, not **proof-backed**, until Stage 4.2 publishes a
-non-empty, non-provisional boundary and the CI proof jobs have been passing continuously.
+Historical stage note: Stage 2.4's own milestone was only the proof-ready/provisional-boundary
+step. The current repository has since advanced past that state via Stage 4.2 and now publishes a
+non-empty proof-backed boundary in `proofs/BOUNDARY.md`.
 
 ### 8. Tests
 
@@ -203,12 +204,20 @@ non-empty, non-provisional boundary and the CI proof jobs have been passing cont
   permitted in this stage as a placeholder strategy marker, but any `sorry` must be documented
   and tracked as a Stage 4.2 obligation; a CI warning (not block) is emitted for each `sorry`.
 
-## Out of Scope
+## Current Remaining Work
 
-- Full proof-backed release claims (Stage 4.2 target — requires non-provisional, non-empty
-  published boundary).
-- Lowering-correctness proofs for HIR → LIR / MIR → LIR (Stage 4.2 depth).
-- Proof coverage of `eval` / dynamic compatibility features (Stage 4.2, after Phase 4.1).
+Stage 2.4 itself is complete. The remaining verification work is later-phase widening work:
+
+- broaden proof coverage beyond the current published proof-backed boundary,
+- deepen the ownership / RC model beyond the current snapshot helper slice,
+- deepen lowering correctness beyond the current modeled HIR subset, and
+- keep all proof-summary/status documents synchronized with `proofs/BOUNDARY.md`.
+
+## Historical Out of Scope for Stage 2.4
+
+- Full proof-backed release claims (delivered later in Stage 4.2).
+- Lowering-correctness proofs for HIR → LIR / MIR → LIR (later Stage 4.2 depth).
+- Proof coverage of `eval` / dynamic compatibility features.
 - Automated proof generation or LLM-assisted proof search.
 - Proof coverage of Node or browser API semantics.
 
@@ -223,5 +232,5 @@ non-empty, non-provisional boundary and the CI proof jobs have been passing cont
   no-dangling-reference property statement.
 - [x] CI `proof-check` job runs `lake build` and blocks on failure.
 - [x] Completeness guard and boundary consistency CI tests pass.
-- [x] `proofs/BOUNDARY.md` updated with provisional scope description.
+- [x] `proofs/BOUNDARY.md` updated with the Stage-2.4 provisional scope description (later widened by Stage 4.2).
 - [x] All Phase-1 and Phase-2 (1–3) tests continue to pass.

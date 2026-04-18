@@ -2,7 +2,7 @@
 
 **Phase:** 3 — Specialisation, Optimisation & Ecosystem Breadth  
 **Spec refs:** [`specs/14-packages.md`](../../specs/14-packages.md), [`specs/11-standard-apis.md`](../../specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
-**Depends on:** [3.1 — Specialisation & Optimisation](01-specialisation-and-optimisation.md) (for layout-specialised package builds), [3.2 — Node Compatibility](02-node-compatibility.md) (for Node-assuming package corpus)
+**Depends on:** [3.1 — Optimization & Specialization](01-optimization-and-specialization.md) (for layout-specialized package builds), [3.2 — Node Compatibility](02-node-compatibility.md) (for Node-assuming package corpus)
 
 ## Goal
 
@@ -18,8 +18,6 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 
 ## Progress
 
-- `kali package-audit` now has a deterministic Phase-3 preview path (`--preview`) that preserves
-  the envelope-only JSON contract without opening the later public availability row early.
 - Browser bundle output now emits deterministic source-map companions, supports both ESM and CJS
   wrappers, emits deterministic chunk artifacts for literal dynamic-import boundaries, and
   tree-shakes unused exports from the emitted bundle surface.
@@ -31,6 +29,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   export branches.
 - Phase-3 cross-module inference smoke coverage now exercises a multi-file import chain with
   inferred public API types within the solver budget.
+- Historical note: this stage originally introduced `kali package-audit` as a Phase-3 preview.
+  The current repository has since advanced beyond that: Stage 4.1 made `kali package-audit`
+  publicly available, so the preview-only note below is now a historical stage constraint rather
+  than the current repo-level availability state.
 
 ## Tasks
 
@@ -97,12 +99,21 @@ While `kali package-audit` remains **Later compatibility**, use this stage to:
 - Cross-module inference tests: public API types inferred without annotation in Phase-3 cases.
 - All Phase-1 and Phase-2 tests continue to pass.
 
-## Out of Scope
+## Remaining Work
 
-- Full Web API compatibility (Later compatibility).
-- `eval` / `Function()` (Phase 4 target).
-- `kali package-audit` public availability (Later compatibility; preview only here).
-- Threading / `Worker` full support (Later compatibility).
+Stage 3.3 is complete. The remaining work in this area is breadth/depth follow-up rather than
+unfinished Stage-3.3 implementation:
+
+- keep widening the representative package corpus without overclaiming support rungs,
+- deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice,
+- widen cross-module inference carefully within the published solver/specialization budgets.
+
+## Historical Out of Scope for Stage 3.3
+
+- Full Web API compatibility.
+- `eval` / `Function()` (delivered later in Phase 4 under explicit compatibility gating).
+- `kali package-audit` public availability (delivered later in Stage 4.1).
+- Threading / `Worker` full support.
 
 ## Definition of Done
 
@@ -110,6 +121,5 @@ While `kali package-audit` remains **Later compatibility**, use this stage to:
 - [x] Code-splitting tests produce multiple bundle chunks from dynamic `import()` boundaries.
 - [x] Tree-shaking tests confirm unused exports are absent from emitted bundles.
 - [x] Cross-module inference tests pass within the Phase-3 solver budget.
-- [x] `kali package-audit` available as a `--preview` opt-in; final public availability deferred
-  to Phase 4.
+- [x] `kali package-audit` reached the Stage-3.3 preview milestone that later allowed Stage 4.1 to open public availability.
 - [x] All Phase-1 and Phase-2 tests continue to pass without regression.

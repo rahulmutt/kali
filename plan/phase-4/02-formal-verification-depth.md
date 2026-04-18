@@ -25,18 +25,23 @@ in `proofs/BOUNDARY.md`, and enable **proof-backed** release/support claims.
 Current progress note:
 - the published boundary already includes the live-reference ownership/allocation projection theorem (`KaliCore.Safety.liveRefsAreOwnedAndAllocated`) alongside the release-only helper corollaries `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseRefLiveRefsFiltered`, and `KaliCore.Safety.releasePreservesWellFormed`, plus the exact live-reference filtering theorems for the decrement and collection helpers (`KaliCore.Safety.releaseAndDecrementLiveRefsFiltered` and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered`), the helper-level no-dangling-reference corollaries (`KaliCore.Safety.releaseRefNoDanglingReference`, `KaliCore.Safety.releaseAndDecrementNoDanglingReference`, and `KaliCore.Safety.releaseAndCollectNoDanglingReference`), `releaseRecorded`, `releasedNotLive`, and `releasedNotLiveRef`, and now also the pure release-helper corollaries plus the full local RC helper slice: `KaliCore.Safety.releaseAndDecrementLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseAndDecrementPreservesWellFormed`, `KaliCore.Safety.releaseAndDecrementPreservesOwnership`, `KaliCore.Safety.releaseAndDecrementTargetCellOrigin`, `KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount`, `KaliCore.Safety.releaseAndDecrementTargetCellOwnedAndAllocatedWhenPositiveCount`, `KaliCore.Safety.releaseAndDecrementRecorded`, `KaliCore.Safety.releaseAndDecrementDecrementsTargetCell`, `KaliCore.Safety.releaseAndDecrementKeepsTargetCellWhenPositiveCount`, `KaliCore.Safety.releaseAndDecrementHeapCellOrigin`, `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndPositiveCount`, the release-and-decrement origin/ownership/positivity theorem `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCount`, `KaliCore.Safety.releaseAndDecrementKeepsOtherPositiveCountCells, releaseAndDecrementKeepsOriginalPositiveCountCells`, `KaliCore.Safety.releaseAndDecrementZeroesLastTargetCell`, `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, `KaliCore.Safety.releaseAndDecrementReleasedNotLiveRef`, `KaliCore.Safety.releaseRefPreservesOwnership`, `KaliCore.Safety.releaseRefPreservesReleasedRefs`, `KaliCore.Safety.releaseRefReleasedRefsCons`, `KaliCore.Safety.releaseRefHeapCharacterisation`, `KaliCore.Safety.releaseRefHeapCellOrigin`, `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount`, `KaliCore.Safety.releaseAndDecrementReleasedRefsCons`, `KaliCore.Safety.releaseAndDecrementPreservesReleasedRefs`, `KaliCore.Safety.releaseAndCollectLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseAndCollectPreservesWellFormed`, `KaliCore.Safety.releaseAndCollectPreservesOwnership`, `KaliCore.Safety.releaseAndCollectRecorded`, `KaliCore.Safety.releaseAndCollectDropsZeroCountCells`, `KaliCore.Safety.releaseAndCollectRemovesZeroCountCells`, `KaliCore.Safety.releaseAndCollectKeepsPositiveCountCells`, `KaliCore.Safety.releaseAndCollectKeepsTargetCellWhenPositiveCount`, `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`, `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`, `KaliCore.Safety.releaseAndCollectTargetCellOrigin`, `KaliCore.Safety.releaseAndCollectTargetCellOriginOwnershipAndPositiveCount`, `KaliCore.Safety.releaseAndCollectTargetCellOwnedAndAllocatedWhenPositiveCount`, `KaliCore.Safety.releaseAndCollectKeepsOtherPositiveCountCells`, `KaliCore.Safety.releaseAndCollectKeepsOriginalPositiveCountCells`, `KaliCore.Safety.releaseAndCollectDropsOriginalZeroCountCells`, `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter`, `KaliCore.Safety.releaseAndCollectHeapCellOrigin`, `KaliCore.Safety.releaseAndCollectHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCount`, `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCount`, `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs`, `KaliCore.Safety.releaseAndCollectReleasedNotLiveRef`, `KaliCore.Safety.releaseAndDecrementHeapCharacterisation`, `KaliCore.Safety.releaseAndCollectHeapCharacterisation`, `KaliCore.Safety.releaseAndCollectReleasedRefsCons`, `KaliCore.Safety.releaseRefReleasedNotLiveRef`, `KaliCore.Safety.releaseAndCollectPreservesReleasedRefs`. That keeps the remaining Stage 4.2 memory work explicitly focused on the broader ownership / RC target rather than the earlier snapshot-ownership gap, and the proof-summary anti-drift guard now pins the exact live-reference filtering theorem names too. The canonical short summary is **Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.** The proof-boundary inventory is also guarded by a schema-docs anti-drift test that compares the manifest's covered-path list to the actual proof source set. The proof slice also now has exact heap-characterisation theorems for the release-and-decrement and release-and-collect helpers, so the RC membership story is stated directly in addition to the existing origin/filter corollaries, including `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter`, and the HIR lowering story is explicit via `KaliIR.Value`, `KaliIR.LoweringCorrectness.lower_preserves_value`, `KaliIR.LoweringCorrectness.lower_preserves_step`, and `KaliIR.LoweringCorrectness.lower_preserves_steps`.
 
-## Tasks
+## Current Repository State
+
+Stage 4.2's implementation milestone has landed: the repository is already **proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.**
+
+The remaining work is widening work, not baseline enablement:
+
+- broaden the ownership / RC proof story beyond the current snapshot helper slice,
+- broaden lowering correctness beyond the current HIR subset,
+- keep every proof-status summary and anti-drift test synchronized with `proofs/BOUNDARY.md`.
+
+## Historical Stage Tasks
 
 ### 1. Complete the type-soundness proofs
 
-Stage 2.4 establishes the Lean 4 workspace, core type-calculus model, and initial progress +
-preservation proofs, but may leave `sorry` placeholders in complex proof branches. This task
-replaces every `sorry` in `KaliCore/Soundness.lean` with a complete mechanised proof:
-
-- Close all remaining cases in the **progress** theorem.
-- Close all remaining cases in the **preservation** theorem.
-- Ensure no `sorry` remains in the type-soundness files; the sorry-free gate that was a CI
-  warning in Stage 2.4 becomes a CI block in this stage.
+Stage 2.4 established the Lean 4 workspace and the core type-calculus model. Stage 4.2 then
+closed the remaining proof obligations and made the sorry-free state part of the published
+proof-backed boundary.
 
 ### 3. Memory safety properties
 
@@ -123,6 +128,14 @@ proof-ready canonical summary with the proof-backed boundary statement, quoting 
   files in the repository (CI fails if a proof file is deleted without updating the boundary).
 - Regression: adding a new proof file without updating `proofs/BOUNDARY.md` triggers a CI
   warning (not a block; the update is required but may follow).
+
+## Remaining Work
+
+Even after the proof-backed milestone, the following work remains before the later, wider Stage-4.2 target can be claimed:
+
+- widen the proof-backed boundary beyond the current published RC snapshot helper slice,
+- widen the lowering-correctness model beyond the current HIR subset,
+- avoid letting roadmap language imply broader proof coverage than `proofs/BOUNDARY.md` names.
 
 ## Out of Scope
 

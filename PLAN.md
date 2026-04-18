@@ -138,11 +138,11 @@ proof-ready repository baseline.
 
 | Stage | Document | Workable milestone |
 |---|---|---|
-| 1.1 | [Workspace & Crate Scaffold](plan/phase-1/01-workspace-scaffold.md) | `cargo build` succeeds; `kali --version` prints a version string; `proofs/BOUNDARY.md` exists with proof-ready placeholder **✅ COMPLETE** |
+| 1.1 | [Workspace & Crate Scaffold](plan/phase-1/01-workspace-scaffold.md) | `cargo build` succeeds; `kali --version` prints a version string; `proofs/BOUNDARY.md` establishes the verification-boundary discipline **✅ COMPLETE** |
 | 1.2 | [Lexer](plan/phase-1/02-lexer.md) | Tokenises valid TS/JS source; emits stable `E1xxx` lex errors **✅ COMPLETE** |
 | 1.3 | [Parser & AST](plan/phase-1/03-parser-and-ast.md) | Parses full ECMA-262 + TypeScript grammar; AST node types defined **✅ COMPLETE** |
 
-**NOTE:** Stage 1.1 establishes the **proof-ready** baseline. The repository may claim proof-ready status from day one, but proof-backed claims require a non-empty `proofs/BOUNDARY.md` published boundary.
+**NOTE:** Stage 1.1 establishes the **proof-ready** baseline. In the current repository state, later work has advanced beyond that baseline and the repository is now **proof-backed for the published boundary**; Stage 1.1 still owns the original boundary-discipline bootstrap.
 
 ### Spec Step 1 — Frontend + checking foundation
 
@@ -250,7 +250,7 @@ Phase 1 is complete when **all** of the following conditions are met:
 | 2.1 | [MIR & Ownership Analysis](plan/phase-2/01-mir-and-ownership.md) | MIR is the canonical mid-stage; escape analysis drives stack/heap/shared decisions **✅ COMPLETE** |
 | 2.2 | [Public Effect Reporting](plan/phase-2/02-public-effect-reporting.md) | `kali effects <file>` and `kali package-effects <pkg>` emit stable JSON; `check/build --sandbox` adds inferred-effect-vs-policy rejection **✅ COMPLETE** |
 | 2.3 | [Public Embedding Surface](plan/phase-2/03-public-embedding-surface.md) | Stable Rust embedding API; WIT sidecar on `--lib`; `--capi` and `--component` artifact modes **✅ COMPLETE** |
-| 2.4 | [Lean Model Foundation](plan/phase-2/04-lean-model-foundation.md) | Core type calculus modelled in Lean 4; progress + preservation theorem statements are present with documented-sorry placeholders; CI runs proof checks **✅ COMPLETE** |
+| 2.4 | [Lean Model Foundation](plan/phase-2/04-lean-model-foundation.md) | Lean workspace and core type-calculus model established; proof CI runs; this stage's provisional-boundary groundwork later feeds the current proof-backed boundary **✅ COMPLETE** |
 
 ### Phase 2 completion gate
 
@@ -339,7 +339,7 @@ Phase 3 is complete when **all** of the following conditions are met:
 | Stage | Document | Workable milestone |
 |---|---|---|
 | 4.1 | [Dynamic Compatibility](plan/phase-4/01-dynamic-compatibility.md) | `eval` / `Function()` executable behind `compat.features.eval`; non-literal dynamic loading gated similarly; `package-audit` command stable |
-| 4.2 | [Formal Verification Depth](plan/phase-4/02-formal-verification-depth.md) | Non-provisional Lean boundary published; memory-safety + lowering-correctness proofs complete; repository is proof-backed |
+| 4.2 | [Formal Verification Depth](plan/phase-4/02-formal-verification-depth.md) | Non-provisional Lean boundary published; the repository is proof-backed for the published boundary, while wider verification depth remains a follow-up lane |
 
 ### Phase 4 completion gate
 
@@ -356,7 +356,7 @@ Phase 4 is complete when **all** of the following conditions are met:
 
 ### Current post-completion follow-up lanes
 
-Completed phase gates do **not** mean every long-term breadth target is exhausted. The current top-level follow-up lanes are:
+All four phase groups are implemented in the current repository state, but completed phase gates do **not** mean every long-term breadth target is exhausted. The current top-level follow-up lanes are:
 
 - **Stage 3.1 specialization depth** — continue broadening MIR-aware specialization from the current layout-stable clone path toward the fuller generic-instantiation planner and cross-module specialization model, while preserving deterministic specialization-budget enforcement and the existing benchmark/evidence suite.
 - **Stage 3.3 ecosystem breadth** — continue widening the representative package corpus where real-world browser/utility/Node package shapes are still missing, without changing package-audit availability or package-support rung claims until the evidence matrix says otherwise.
