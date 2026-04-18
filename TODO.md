@@ -15,6 +15,9 @@
 ### Stage 4.2 exact releasedRefs wording sync
 - ✅ Synced `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the verification summary now names `KaliCore.Safety.releaseRefReleasedRefsCons`, `KaliCore.Safety.releaseAndDecrementReleasedRefsCons`, and `KaliCore.Safety.releaseAndCollectReleasedRefsCons` explicitly alongside the existing RC snapshot inventory, and extended the proof-summary anti-drift guard so the released-reference cons-shape theorem names stay locked in the docs.
 
+### Stage 4.2 no-dangling wording sync
+- ✅ Synced `PLAN-4.2-STATUS.md` so the stage summary now names `KaliCore.Safety.releaseRefNoDanglingReference`, `KaliCore.Safety.releaseAndDecrementNoDanglingReference`, and `KaliCore.Safety.releaseAndCollectNoDanglingReference` explicitly alongside the rest of the RC snapshot inventory.
+
 ### Stage 1.3 - Parser & AST
 - ✅ Parser compiles successfully
 - ✅ `cargo test -p kali_parser --lib` passes
