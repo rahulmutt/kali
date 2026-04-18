@@ -2,6 +2,10 @@
 
 I widened the current RC snapshot proof slice with helper-level no-dangling-reference corollaries for `releaseRefNoDanglingReference`, `releaseAndDecrementNoDanglingReference`, and `releaseAndCollectNoDanglingReference`, and the stage tracker should name them explicitly alongside the existing RC helper inventory.
 
+## 2026-04-18 — Stage 4.2 exact releasedRefs wording sync
+
+I tightened the current RC snapshot summary so it now names the exact released-reference cons-shape theorems `KaliCore.Safety.releaseRefReleasedRefsCons`, `KaliCore.Safety.releaseAndDecrementReleasedRefsCons`, and `KaliCore.Safety.releaseAndCollectReleasedRefsCons` explicitly alongside the rest of the helper inventory, keeping the wording aligned with the published boundary.
+
 ## 2026-04-17 — Stage 4.2 heap-characterisation follow-up
 
 I widened the current RC snapshot proof slice with exact heap-membership characterisations for `releaseAndDecrementHeapCharacterisation` and `releaseAndCollectHeapCharacterisation`, so the helper-level RC story now states the decrement/collection membership shape directly instead of only through the origin and filter corollaries.

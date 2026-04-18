@@ -1,3 +1,12 @@
+## 2026-04-18 — Stage 4.2 exact releasedRefs wording sync
+
+I found one remaining verification-summary drift point: the published boundary already names the exact released-reference cons-shape theorems, but the plan-facing progress note still summarized that slice a bit too generically.
+
+Completed follow-up:
+- updated `plan/phase-4/02-formal-verification-depth.md` and `PLAN-4.2-STATUS.md` so the progress note now names `KaliCore.Safety.releaseRefReleasedRefsCons`, `KaliCore.Safety.releaseAndDecrementReleasedRefsCons`, and `KaliCore.Safety.releaseAndCollectReleasedRefsCons` explicitly
+- extended `crates/kali_cli/tests/schema_docs.rs` so the proof-summary anti-drift guard now checks the released-reference cons-shape theorem names alongside the existing RC snapshot inventory
+- kept the change narrow: this is a wording / guard sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 heap-characterisation wording sync
 
 I found that the verification summary docs still describe the RC snapshot heap-characterisation story a bit too generically, even though the published boundary already names `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` and `KaliCore.Safety.releaseAndCollectHeapCharacterisation` explicitly.
