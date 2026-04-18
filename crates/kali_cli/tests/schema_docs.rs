@@ -393,7 +393,7 @@ fn proof_boundary_manifest_tracks_the_published_theorem_inventory() {
     let root = repo_root();
     let boundary = fs::read_to_string(root.join("proofs/BOUNDARY.md")).expect("read boundary");
     let published_theorems = collect_proof_theorem_names(&root.join("proofs"));
-    let internal_helpers = ["subst_closed", "Context.lookup_remove_head"];
+    let internal_helpers = ["subst_closed", "Context.lookup_remove_head", "Context.lookup_remove_head_other"];
 
     for theorem in published_theorems {
         if internal_helpers.contains(&theorem.as_str()) {

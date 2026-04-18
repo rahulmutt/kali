@@ -753,6 +753,14 @@ Completed follow-up:
 - updated `PLAN-4.2-STATUS.md` and `TODO.md` so the progress trackers note the new internal helper explicitly
 - kept the change narrow: this is helper groundwork for future proof work, not a boundary widening
 
+## 2026-04-18 — Stage 4.2 context lookup/remove companion helper
+
+I added `Context.lookup_remove_head_other` in `proofs/KaliCore/Semantics.lean` so the context-removal groundwork now also covers the matching non-head lookup case for future substitution widening.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md`, `TODO.md`, and the schema-doc anti-drift guard so the companion helper is pinned alongside `Context.lookup_remove_head`
+- kept the change narrow: this is still helper groundwork, not a published boundary change
+
 ## 2026-04-18 — Stage 3.1 MIR layout fingerprint precision
 
 I tightened the Stage 3.1 specialization planner so the MIR-aware layout signature path now fingerprints struct/array descriptors more precisely while still normalizing closure capture arity, which keeps shared higher-order reuse intact without conflating distinct struct shapes.

@@ -23,6 +23,11 @@ theorem Context.lookup_remove_head (Γ : Context) (x : String) (ty : Ty) :
     Context.lookup (Context.remove ((x, ty) :: Γ) x) x = Context.lookup Γ x := by
   simp [Context.remove]
 
+/-- Removing a different head binding leaves that head lookup intact. -/
+theorem Context.lookup_remove_head_other (Γ : Context) (x y : String) (ty : Ty) (h : x ≠ y) :
+    Context.lookup (Context.remove ((y, ty) :: Γ) x) y = some ty := by
+  simp [Context.lookup, Context.remove, h]
+
 /-- Runtime value predicate for the small-step semantics. -/
 inductive Value : Expr → Prop where
   | lit : ∀ v, Value (Expr.ELit v)

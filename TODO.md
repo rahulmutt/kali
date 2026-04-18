@@ -8,6 +8,7 @@
 
 ### Stage 4.2 - Context lookup/remove groundwork
 - ✅ Added `Context.lookup_remove_head` in `proofs/KaliCore/Semantics.lean` so the current proof model has a small context-sensitive lookup/remove helper available for future substitution widening.
+- ✅ Added `Context.lookup_remove_head_other` alongside it so the context-removal groundwork now covers the matching non-head lookup case too.
 - ✅ Kept the update narrow: this is helper groundwork for future proof work, not a new published boundary claim.
 
 ### Stage 4.2 - Pure release-helper positive-count wording sync
