@@ -51,7 +51,18 @@ fn write_node_assuming_package(root: &Path, name: &str, body: &str) {
 }
 
 fn write_types_stub_package(root: &Path, name: &str) {
-    let types_name = format!("@types/{}", name);
+    let types_name = if let Some(rest) = name.strip_prefix('@') {
+        let mut parts = rest.splitn(2, '/');
+        let scope = parts.next().unwrap_or(rest);
+        let package = parts.next().unwrap_or("");
+        if package.is_empty() {
+            format!("@types/{}", scope)
+        } else {
+            format!("@types/{}__{}", scope, package)
+        }
+    } else {
+        format!("@types/{}", name)
+    };
     let package_dir = root.join("node_modules").join(&types_name);
     fs::create_dir_all(&package_dir).expect("create types package dir");
     fs::write(
@@ -825,6 +836,71 @@ fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_depl
 }
 
 #[test]
+fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deployable_through_host() {
+    for (package, subpath) in [
+        ("@emotion/react", "jsx-runtime"),
+        ("@floating-ui/react", "dom"),
+        ("@tanstack/react-query", "query-core"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_export_map_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:root'; }}\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "export default function subpath() {{ return '{package}:{subpath}'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "scoped browser package {package} with exports map should be checkable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "scoped browser package {package} with exports map should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_packages_that_block_the_selected_path_are_rejected_in_browser_context() {
     for package in ["react", "preact", "vue"] {
         let dir = tempdir().expect("tempdir");
@@ -1088,6 +1164,48 @@ fn utility_corpus_packages_with_mixed_format_entries_remain_executable_on_the_de
         assert!(
             run.status.success(),
             "utility mixed-format package {package} should stay executable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+    }
+}
+
+#[test]
+fn utility_corpus_scoped_packages_remain_executable_on_the_default_standalone_surface() {
+    for package in ["@babel/runtime", "@npmcli/package-json", "@jridgewell/sourcemap-codec"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), None);
+        write_stub_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function widget() {{ return '{package}:module'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write utility source");
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "scoped utility package {package} should be checkable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+        assert!(
+            run.status.success(),
+            "scoped utility package {package} should stay executable\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr)
         );
