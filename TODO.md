@@ -18,6 +18,9 @@
 ### Stage 4.2 no-dangling wording sync
 - ✅ Synced `PLAN-4.2-STATUS.md` so the stage summary now names `KaliCore.Safety.releaseRefNoDanglingReference`, `KaliCore.Safety.releaseAndDecrementNoDanglingReference`, and `KaliCore.Safety.releaseAndCollectNoDanglingReference` explicitly alongside the rest of the RC snapshot inventory.
 
+### Stage 4.2 release-and-decrement origin/ownership/positivity follow-up
+- ✅ `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCount` now packages the decrement helper's surviving-cell provenance, ownership tag, and positive-count fact in one helper theorem, and the proof-boundary / verification summaries now name it explicitly alongside the current RC helper inventory.
+
 ### Stage 1.3 - Parser & AST
 - ✅ Parser compiles successfully
 - ✅ `cargo test -p kali_parser --lib` passes
@@ -97,7 +100,7 @@
 - ✅ `KaliCore.Safety.releaseAndCollectHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCount` now makes the surviving release-and-collect heap cells' original ownership tag explicit alongside their provenance and name preservation.
 
 ### Stage 4.2 - Release-and-decrement ownership follow-up
-- ✅ `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndOwnership` now makes the decrement helper's surviving heap provenance explicit alongside its original ownership tag.
+- ✅ `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndOwnership` now makes the decrement helper's surviving heap provenance explicit alongside its original ownership tag, and `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCount` packages that provenance with the positive-count fact for surviving cells.
 
 - ✅ `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` and `KaliCore.Safety.releaseAndCollectHeapCharacterisation` now give exact heap-membership characterisations for the decrement and collection helpers.
 

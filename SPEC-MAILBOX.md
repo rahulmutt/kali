@@ -281,3 +281,11 @@ I found one remaining verification-summary drift point: the published boundary a
 Suggested follow-up:
 - update `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the release-only, decrement, and collection helpers are named explicitly via `KaliCore.Safety.releaseRefReleasedRefsCons`, `KaliCore.Safety.releaseAndDecrementReleasedRefsCons`, and `KaliCore.Safety.releaseAndCollectReleasedRefsCons`
 - keep the claim narrow: this is a wording sync for the published boundary, not a boundary widening
+
+## 2026-04-18 — Stage 4.2 release-and-decrement origin/ownership/positivity follow-up
+
+I plan to widen the current RC snapshot proof slice with a bundled theorem for surviving `releaseAndDecrement` heap cells that packages the original-heap provenance, name/ownership preservation, and positive-count fact together, so the proof-boundary summary can name the combined helper fact explicitly if that slice lands.
+
+Suggested follow-up:
+- update `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` if the new theorem lands
+- keep the broader Stage 4.2 ownership/freeing target incremental; this would still be a helper-level conjunction theorem, not the full RC target

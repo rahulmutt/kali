@@ -396,3 +396,11 @@ I synced the plan-facing progress tracker after the verification summaries were 
 Completed follow-up:
 - updated `TODO.md` so the Stage 4.2 progress log now names `KaliCore.Safety.releaseRefReleasedRefsCons`, `KaliCore.Safety.releaseAndDecrementReleasedRefsCons`, and `KaliCore.Safety.releaseAndCollectReleasedRefsCons` explicitly alongside the current RC snapshot inventory
 - kept the change narrow: this is a wording / progress-note sync, not a boundary widening
+
+## 2026-04-18 — Stage 4.2 release-and-decrement origin/ownership/positivity follow-up
+
+I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCount`, so the stage tracker should name the new bundled helper theorem explicitly alongside the existing RC inventory.
+
+Completed follow-up:
+- update `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the progress trackers name the new release-and-decrement origin/ownership/positivity theorem alongside the current helper slice
+- keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level conjunction theorem, not the full RC target
