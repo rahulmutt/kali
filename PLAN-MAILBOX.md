@@ -2,8 +2,11 @@
 
 I plan to widen the current RC snapshot proof slice with explicit target-allocation corollaries for the refcount update helpers (`KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount` and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`), so the progress trackers can name the allocation bridge alongside the existing positive-count and provenance lemmas.
 
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md` and `TODO.md` so the progress trackers now name the target-allocation corollaries explicitly alongside the current RC helper slice
+- the proof-boundary manifest and verification summaries already name the allocation bridge; this note keeps the progress tracker aligned with that published boundary wording
+
 Suggested follow-up:
-- update `PLAN-4.2-STATUS.md`, `TODO.md`, and the proof-boundary / verification summary docs so the progress tracker names the new allocation corollaries alongside the current RC helper slice
 - keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level allocation bridge, not the full RC target
 
 ## 2026-04-18 — Stage 4.2 origin/positivity helper wording sync

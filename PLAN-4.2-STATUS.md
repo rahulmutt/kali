@@ -14,6 +14,13 @@ Suggested follow-up:
 - keep the Stage 4.2 progress notes aligned if the helper-level safety slice widens again
 - continue treating this as a helper-level RC slice; the broader ownership/freeing target is still wider than the current proof-backed boundary
 
+## 2026-04-18 — Stage 4.2 target allocation follow-up
+
+I tightened the current RC snapshot summary so it now names the target-allocation bridge corollaries `KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount` and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount` explicitly alongside the existing target-cell positive-count and provenance lemmas, keeping the progress tracker aligned with the published boundary.
+
+Suggested follow-up:
+- keep the claim narrow: this is a progress-tracker wording sync for the published boundary, not a boundary widening
+
 # Stage 4.2 Status Update
 
 **Date:** 2026-04-17  

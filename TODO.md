@@ -209,3 +209,7 @@
 ### Stage 4.2 - RC origin/positivity conjunction helper
 - ✅ Added a reusable `releaseAndCollectHeapCellOriginAndPositiveCount` helper theorem that packages the surviving-cell provenance and positive-count facts for the local collection helper on top of the existing origin and positivity lemmas.
 - ✅ Synced the boundary manifest and verification summaries so the new helper theorem is named explicitly alongside the rest of the RC snapshot slice.
+
+### Stage 4.2 - RC target-allocation follow-up
+- ✅ `releaseAndDecrementTargetCellAllocatedWhenPositiveCount` and `releaseAndCollectTargetCellAllocatedWhenPositiveCount` now make the surviving target-cell allocation bridge explicit on the decrement and collection helpers when the count stays positive.
+- ✅ Synced `PLAN-4.2-STATUS.md` and the proof-backed verification summaries so the progress trackers name both target-allocation corollaries alongside the existing RC helper slice.
