@@ -251,6 +251,17 @@ theorem releaseAndDecrementHeapCellOriginAndOwnership (snapshot : RcSnapshot) (r
       subst h
       simp
 
+/-- A release-and-decrement step keeps every surviving heap cell traceable to the original heap and positive-count. -/
+theorem releaseAndDecrementHeapCellOriginAndPositiveCount (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ (releaseAndDecrement snapshot ref).heap →
+      cell.refCount > 0 →
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        (cell = { cell0 with refCount := cell0.refCount - 1 } ∨ cell = cell0) ∧
+        cell.refCount > 0 := by
+  intro cell hmem hpos
+  rcases releaseAndDecrementHeapCellOrigin snapshot ref cell hmem with ⟨cell0, hmem0, hshape⟩
+  exact ⟨cell0, hmem0, hshape, hpos⟩
+
 /-- A release-and-decrement step keeps any surviving positive-count cell traceable to the original heap with its original name and ownership tag. -/
 theorem releaseAndDecrementHeapCellOriginOwnershipAndPositiveCount (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ (releaseAndDecrement snapshot ref).heap →

@@ -289,3 +289,11 @@ I plan to widen the current RC snapshot proof slice with a bundled theorem for s
 Suggested follow-up:
 - update `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` if the new theorem lands
 - keep the broader Stage 4.2 ownership/freeing target incremental; this would still be a helper-level conjunction theorem, not the full RC target
+
+## 2026-04-18 — Stage 4.2 decrement origin/positive-count follow-up
+
+I widened the current RC snapshot proof slice with `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndPositiveCount`, which packages the decrement helper's surviving-cell provenance and positive-count fact in one helper theorem alongside the existing RC snapshot inventory.
+
+Suggested follow-up:
+- sync `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `proofs/BOUNDARY.md` so the published boundary names the new decrement origin/positive-count helper explicitly
+- keep the broader Stage 4.2 ownership/freeing target incremental; this is still a helper-level provenance/positivity theorem, not the full RC target
