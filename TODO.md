@@ -20,6 +20,7 @@
 
 ### Stage 4.2 release-and-decrement origin/ownership/positivity follow-up
 - ✅ `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCount` now packages the decrement helper's surviving-cell provenance, ownership tag, and positive-count fact in one helper theorem, and the proof-boundary / verification summaries now name it explicitly alongside the current RC helper inventory.
+- ✅ The proof-summary anti-drift guard in `crates/kali_cli/tests/schema_docs.rs` now also pins `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCount` so the decrement-path provenance/ownership/positivity slice stays locked to the published boundary inventory.
 
 ### Stage 1.3 - Parser & AST
 - ✅ Parser compiles successfully
