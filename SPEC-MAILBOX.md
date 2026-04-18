@@ -1,43 +1,3 @@
-## 2026-04-18 — Stage 4.2 collection target-origin summary sync
-
-I tightened the proof-backed boundary wording so `KaliCore.Safety.releaseAndCollectTargetCellOrigin` is now named explicitly alongside the existing collection-helper target-cell bookkeeping and origin/ownership corollaries.
-
-Completed follow-up:
-- updated `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `proofs/BOUNDARY.md` so the published summary now names the new target-origin theorem explicitly
-- kept the change narrow: this is a proof-summary wording sync for the published boundary, not a broader ownership/freeing claim
-
-## 2026-04-18 — Stage 4.2 pure release-origin helper sync closed
-
-I confirmed the pure release helper’s plain origin theorem `KaliCore.Safety.releaseRefHeapCellOrigin` is already present in `proofs/KaliCore/Safety.lean`, and the published boundary / summary docs already name it alongside `KaliCore.Safety.releaseRefHeapCharacterisation` and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`.
-
-Completed follow-up:
-- kept the proof-summary and verification docs aligned with the current RC snapshot slice
-- closed the stale planned-update note without widening the published boundary
-
-## 2026-04-18 — Stage 4.2 lowering value-preservation summary sync
-
-I tightened the HIR lowering-summary wording so the published boundary now names `KaliIR.Value`, `KaliIR.LoweringCorrectness.lower_preserves_value`, `KaliIR.LoweringCorrectness.lower_preserves_step`, and `KaliIR.LoweringCorrectness.lower_preserves_steps` explicitly alongside the widened HIR lowering-correctness slice.
-
-Completed follow-up:
-- updated `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the lowering-correctness summary prose now names the value-preservation helper explicitly alongside the existing lowering bridges
-- kept the change narrow: this is a proof-summary wording sync for the published boundary, not a widening of the HIR semantic-preservation target
-
-## 2026-04-18 — Stage 4.2 live-reference filtering theorem naming sync
-
-I tightened the proof-boundary wording so the published boundary now names `KaliCore.Safety.releaseRefLiveRefsFiltered`, `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered`, and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` explicitly alongside `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated` and the rest of the RC snapshot inventory.
-
-Completed follow-up:
-- updated `proofs/BOUNDARY.md` so the current proof-state note now names the release-only, decrement, and collection live-reference filtering theorems explicitly alongside the existing RC snapshot inventory
-- kept the change narrow: this is a proof-boundary wording sync for the published boundary, not a boundary widening
-
-## 2026-04-18 — Stage 4.2 pure release-helper origin/ownership/positivity widening
-
-I found one more symmetry gap in the RC snapshot proof slice: the release-only helper already has heap-characterisation, origin, and origin/ownership theorems, but it does not yet package the surviving positive-count fact together with those provenance facts.
-
-Completed follow-up:
-- `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `proofs/BOUNDARY.md` already name `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` explicitly, so the release-only helper story is explicit at the same granularity as the decrement and collection helper families.
-- kept the change narrow: this is a proof-summary / helper-theorem sync for the published boundary, not a boundary widening beyond the current RC snapshot model
-
 ## 2026-04-18 — Stage 4.2 pure release-origin helper widening
 
 I found a small gap in the published RC snapshot wording: the pure release helper had a heap-characterisation theorem and an origin/ownership theorem, but the proof boundary did not name the plain origin theorem `KaliCore.Safety.releaseRefHeapCellOrigin` explicitly.
@@ -45,42 +5,6 @@ I found a small gap in the published RC snapshot wording: the pure release helpe
 Planned update:
 - add `KaliCore.Safety.releaseRefHeapCellOrigin` to the RC snapshot proof slice, then sync `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and `proofs/BOUNDARY.md` so the pure release-helper provenance story is explicit at the same granularity as the other helper families
 - keep the claim narrow: this is a proof-summary / helper-theorem sync for the published boundary, not a boundary widening beyond the current RC snapshot model
-
-## 2026-04-18 — Stage 4.2 release-only helper wording sync
-
-I found that the summary docs and proof-summary guard still understate the currently mechanised release-only helper slice, even though the published boundary already names `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseRefLiveRefsFiltered`, and `KaliCore.Safety.releasePreservesWellFormed` explicitly in the proof boundary narrative.
-
-Planned update:
-- sync `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, `TODO.md`, and the proof-summary guard in `crates/kali_cli/tests/schema_docs.rs` so the release-only helper corollaries are named explicitly alongside the existing RC snapshot inventory
-- keep the claim narrow: this is a wording / drift-guard sync for the published boundary, not a boundary widening
-
-Completed follow-up:
-- confirmed the release-only helper corollaries are already named explicitly in the published boundary, the Stage 4.2 progress notes, and the proof-summary guard, so the earlier wording gap is closed
-- kept the change narrow: this is a mailbox / tracker sync for the published boundary, not a boundary widening
-
-## 2026-04-18 — Stage 4.2 original positive-count decrement theorem
-
-I added the helper-level RC theorem `KaliCore.Safety.releaseAndDecrementKeepsOriginalPositiveCountCells`, which packages the positive-count survivorship story for the release-and-decrement helper so the published boundary can cite it directly alongside the existing RC snapshot inventory.
-
-Completed follow-up:
-- updated `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the theorem name is explicit in the published boundary inventory
-- kept the change narrow: this is a proof-summary / boundary-inventory sync for the already-published RC slice, not a new proof target
-
-## 2026-04-18 — Stage 4.2 original positive-count survivor theorem
-
-I added the helper-level RC theorem `KaliCore.Safety.releaseAndCollectKeepsOriginalPositiveCountCells` so the proof-backed boundary can cite the no-leak survivorship story for the collection helper directly.
-
-Completed follow-up:
-- updated `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and the plan/progress trackers so the new theorem name is explicit in the published boundary inventory
-- kept the change narrow: this is a proof-summary / boundary-inventory sync for the already-published RC slice, not a new proof target
-
-## 2026-04-18 — Stage 4.2 target-allocation ownership/allocation corollaries
-
-I widened the published RC snapshot inventory with target-specific ownership/allocation corollaries for the decrement and collection helpers: `KaliCore.Safety.releaseAndDecrementTargetCellOwnedAndAllocatedWhenPositiveCount` and `KaliCore.Safety.releaseAndCollectTargetCellOwnedAndAllocatedWhenPositiveCount`.
-
-Completed follow-up:
-- synced the proof-boundary manifest and the verification summaries so the new target-specific corollaries are named alongside the existing RC snapshot theorem inventory
-- kept the claim narrow: this is still a helper-level RC widening, not the full Stage 4.2 ownership/freeing story
 
 ## 2026-04-18 — Stage 4.2 target allocation follow-up
 
@@ -136,16 +60,6 @@ I tightened `specs/16-testing.md` so the repository-state note and proof-backed-
 
 Suggested follow-up:
 - keep the wording narrow; this is a summary-doc precision pass, not a boundary widening
-
-## 2026-04-17 — Stage 4.2 heap-positive-heap follow-up
-
-I found one remaining summary-doc drift point after the proof boundary widened: the published boundary already names `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount`, but the high-level verification summaries still need to mention that final-heap positive-count theorem explicitly alongside the other RC snapshot slice claims.
-
-Completed follow-up:
-- updated `specs/19-feature-maturity.md` so the verification-baseline clarification now names `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` explicitly alongside the other RC snapshot lemmas
-
-Suggested follow-up:
-- keep the Stage 4.2 claim narrow; this is still a helper-level no-negative-count theorem, not the full ownership/freeing story
 
 ## 2026-04-17 — Stage 4.2 testing-summary sync follow-up
 
@@ -302,38 +216,6 @@ Suggested follow-up:
 - keep the published proof boundary / verification summary docs aligned with the theorem inventory if the live-reference model widens again
 - keep the broader Stage 4.2 ownership/freeing target incremental; these are helper-level shape theorems, not the full RC story
 
-## 2026-04-17 — Stage 4.2 target-cell retention sync
-
-I synced the proof-backed boundary and verification summaries after adding `KaliCore.Safety.releaseAndCollectKeepsTargetCellWhenPositiveCount`, so the published inventory now names the local collection helper's target-cell retention theorem alongside the rest of the RC snapshot slice.
-
-Completed follow-up:
-- updated `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the theorem inventory and status trackers stay aligned
-- kept the claim narrow: this is still a helper-level retention theorem, not the full Stage 4.2 ownership/freeing story
-
-## 2026-04-17 — Stage 4.2 target-cell retention wording sync
-
-I synced the proof-boundary verification prose so `KaliCore.Safety.releaseAndCollectKeepsTargetCellWhenPositiveCount` is named explicitly in the repository summaries and phase-maturity wording.
-
-Completed follow-up:
-- updated `README.md`, `proofs/BOUNDARY.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the published verification summary explicitly names the target-cell retention theorem
-- kept the Stage 4.2 claim narrow; this is still the local release-and-collect helper story, not the full ownership/freeing target
-
-## 2026-04-17 — Stage 4.2 heap-positive testing-summary sync
-
-I tightened `specs/16-testing.md` so the repository-state note and proof-backed-claims guidance now explicitly name the latest RC snapshot theorem inventory, including the zero-count collection/removal and positive-count/target-cell helper theorems.
-
-Completed follow-up:
-- updated `specs/16-testing.md` to keep the verification summary aligned with the published boundary inventory
-- kept the claim narrow; this is still a summary-doc wording pass, not a boundary widening
-
-## 2026-04-17 — Stage 4.2 ownership-provenance wording sync
-
-I widened the proof-boundary and verification summary prose so `KaliCore.Safety.releaseAndCollectHeapCellOriginAndOwnership` is named explicitly alongside the existing origin and positive-count helper theorems.
-
-Completed follow-up:
-- updated `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the published verification summary explicitly names the ownership-provenance theorem
-- kept the Stage 4.2 claim narrow; this is still the local release-and-collect helper story, not the full ownership/freeing target
-
 ## 2026-04-17 — Stage 4.2 RC helper theorem inventory sync
 
 If the proof slice widens with a bundled `releaseAndCollect` heap-cell theorem that combines provenance, ownership/name preservation, and positive-count facts, the proof-boundary summary owners in `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` should stay aligned with the expanded theorem inventory.
@@ -406,18 +288,6 @@ Suggested follow-up:
 - update `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the new theorem is named explicitly
 - keep the claim narrow: this is still a helper-level provenance theorem on the published boundary, not a broader ownership/freeing target
 
-## 2026-04-18 — Stage 4.2 release-set preservation wording sync
-
-I widened the Stage 4.2 proof-summary wording and anti-drift coverage to name the release-set preservation theorems explicitly: `KaliCore.Safety.releaseRefPreservesReleasedRefs`, `KaliCore.Safety.releaseAndDecrementPreservesReleasedRefs`, and `KaliCore.Safety.releaseAndCollectPreservesReleasedRefs`.
-
-Completed follow-up:
-- updated `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the public proof-backed summaries now name the release-set preservation theorem slice explicitly alongside the existing RC inventory
-- widened `crates/kali_cli/tests/schema_docs.rs` so the proof-summary anti-drift guard now pins the release-set preservation theorem names alongside the existing RC snapshot inventory
-
-Suggested follow-up:
-- keep the Stage 4.2 RC inventory wording synchronized if the release-set story widens again
-- continue treating this as a wording / guard sync for the published boundary, not a boundary widening
-
 ## 2026-04-18 — Stage 4.2 unrelated-heap / other-live wording sync
 
 I found one remaining proof-summary drift point: the published boundary already mechanizes the unrelated-heap and other-live helper theorems, but the top-level summary docs still described those slices only generically.
@@ -425,22 +295,6 @@ I found one remaining proof-summary drift point: the published boundary already 
 Suggested follow-up:
 - update `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the summary prose names `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, and `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` explicitly
 - keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
-
-## 2026-04-18 — Stage 4.2 live-reference filtering theorem naming sync
-
-I noticed the published boundary and the high-level verification summaries still described the decrement and collection live-reference filtering slice a bit generically, even though the proof tree already mechanized the explicit theorems `KaliCore.Safety.releaseAndDecrementLiveRefsFiltered` and `KaliCore.Safety.releaseAndCollectLiveRefsFiltered` alongside the release-only `KaliCore.Safety.releaseRefLiveRefsFiltered` helper theorem.
-
-Completed follow-up:
-- updated `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, and `TODO.md` so the proof-backed boundary and progress notes name the decrement/collection live-reference filtering theorems explicitly alongside the release-only helper theorem
-- kept the claim narrow: this is a proof-summary / drift-guard naming sync for the published boundary, not a boundary widening beyond the current RC snapshot model
-
-## 2026-04-18 — Lowering value-preservation boundary sync
-
-I confirmed the proof-backed boundary and summary docs already name `KaliIR.Value` and `KaliIR.LoweringCorrectness.lower_preserves_value` explicitly, and the anti-drift guard in `crates/kali_cli/tests/schema_docs.rs` already pins the new lowering theorem name alongside `KaliIR.LoweringCorrectness.lower_preserves_step` and `KaliIR.LoweringCorrectness.lower_preserves_steps`.
-
-Completed follow-up:
-- kept the current proof-backed boundary wording aligned with the mechanised lowering slice
-- closed the stale planned-update note without widening the published boundary
 
 ## 2026-04-18 — Stage 4.2 decrement target-origin follow-up
 
@@ -450,17 +304,3 @@ Suggested follow-up:
 - update the verification summaries and maturity docs so the new theorem is named explicitly
 - keep the claim narrow: this is still a helper-level RC slice, not the fuller ownership/freeing target
 
-## 2026-04-18 — Stage 4.2 collection target-cell iff summary sync
-
-I tightened `specs/16-testing.md` so the proof-backed claims summary now names `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount` explicitly alongside the existing RC snapshot helper slice, matching the published proof-boundary wording already carried by `proofs/BOUNDARY.md`.
-
-Completed follow-up:
-- kept the change narrow: this is a summary-doc wording sync for the published boundary, not a boundary widening
-
-## 2026-04-18 — Stage 4.2 linear-memory shape note
-
-The proof-backed RC snapshot model now carries an explicit linear-memory payload alongside the ownership / heap / live-reference state. This is a model-shape refinement rather than a change to the published proof-backed claim boundary, and the boundary docs now name the helper-preservation corollaries explicitly.
-
-Completed follow-up:
-- added the linear-memory field and preserved it through the release-only, decrement, and collection helpers
-- synced the proof-boundary manifest and summary docs to name the new preservation corollaries explicitly

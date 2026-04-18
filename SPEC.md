@@ -951,7 +951,8 @@ Rules:
 
 Current repository note:
 - [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) is the single source of truth for the repository's current verification state
-- README summaries, release notes, and support tables should link to that manifest instead of paraphrasing formal-verification status from memory
+- README summaries, release notes, support tables, and top-level planning/spec summaries should link to that manifest instead of paraphrasing formal-verification status from memory
+- the current proof-backed reading remains intentionally narrower than the full Stage 4.2 aspiration: treat it as the currently published helper-level RC snapshot plus the currently published lowering-correctness slice named in `proofs/BOUNDARY.md`, not as a blanket claim that all later ownership/freeing or end-to-end semantic-preservation goals are already proof-backed
 
 ### Canonical browser-applicable mediated subset (schema v1)
 When a chapter says browser-targeted policy/effect reasoning uses the browser-applicable part of the **Kali-mediated capability subset**, it means:
