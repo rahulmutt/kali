@@ -23,7 +23,7 @@ Suggested follow-up:
 
 ## 2026-04-18 — Stage 4.2 decrement origin/positive-count anti-drift guard
 
-I tightened the proof-summary anti-drift guard so `crates/kali_cli/tests/schema_docs.rs` now also pins `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndPositiveCount` alongside the existing decrement-path provenance and allocation bridge lemmas, keeping the published boundary wording locked to the mechanised theorem inventory.
+I tightened the proof-summary anti-drift guard so `crates/kali_cli/tests/schema_docs.rs` now also pins `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndPositiveCount` alongside the existing decrement-path provenance and allocation bridge lemmas, keeping the published boundary wording locked to the mechanised theorem inventory and the verification summaries aligned with that published slice.
 
 Suggested follow-up:
 - keep the claim narrow: this is a test-guard sync for the published boundary, not a boundary widening
