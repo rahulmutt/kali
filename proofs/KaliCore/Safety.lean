@@ -451,7 +451,7 @@ theorem releaseAndCollectHeapCellsHavePositiveCount (snapshot : RcSnapshot) (ref
   have hdec : decide (cell.refCount > 0) = true := (List.mem_filter.mp hfilter).2
   exact of_decide_eq_true hdec
 
-private theorem releaseAndCollectTargetCellPresentIffPositiveCount (snapshot : RcSnapshot) (ref : String) :
+theorem releaseAndCollectTargetCellPresentIffPositiveCount (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ snapshot.heap → cell.name = ref →
       ({ cell with refCount := cell.refCount - 1 } ∈ (releaseAndCollect snapshot ref).heap ↔ cell.refCount > 1) := by
   intro cell hmem hname

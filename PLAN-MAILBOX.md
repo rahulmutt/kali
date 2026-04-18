@@ -687,3 +687,10 @@ Completed follow-up:
 - updated `PLAN-4.2-STATUS.md` so the top-level Stage 4.2 summary now names the decrement/collection live-reference filtering theorems explicitly
 - updated the proof-summary drift guard in `crates/kali_cli/tests/schema_docs.rs` so the theorem inventory check now includes the decrement/collection live-reference filtering theorem names
 - kept the change narrow: this is a plan/progress wording sync for the published boundary, not a boundary widening
+
+## 2026-04-18 — Stage 4.2 collection target-cell iff helper surfacing
+
+I promoted the local collection helper's target-cell survival/removal split to the public theorem `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount` and synced the Stage 4.2 plan/status trackers plus the proof-boundary summaries so the next memory-safety widening step stays explicit.
+
+Suggested follow-up:
+- keep the claim narrow: this is a proof-boundary / tracker sync for the published RC snapshot slice, not a widening of the broader ownership/freeing target

@@ -146,6 +146,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         "releaseAndCollectKeepsOtherHeapEntries",
         "releaseAndCollectPreservesOtherLiveRefs",
         "releaseAndCollectKeepsTargetCellWhenPositiveCount",
+        "releaseAndCollectTargetCellPresentIffPositiveCount",
         "releaseAndCollectPreservesWellFormed",
         "releaseAndCollectReleasedNotLiveRef",
         "releaseAndCollectHeapCellOrigin",
