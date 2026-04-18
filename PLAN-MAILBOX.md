@@ -619,6 +619,14 @@ Suggested follow-up:
 - update `PLAN-4.2-STATUS.md` so the progress note names `KaliCore.Safety.releaseAndDecrementKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndCollectKeepsOtherHeapEntries`, `KaliCore.Safety.releaseAndDecrementPreservesOtherLiveRefs`, and `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` explicitly alongside the rest of the RC snapshot inventory
 - keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
 
+## 2026-04-18 — Stage 3.3 plan inventory alignment
+
+I aligned the Stage 3.3 plan wording with the now-implemented package corpus breadth so `plan/phase-3/03-ecosystem-breadth.md` explicitly lists the representative browser and utility package-shape cases already covered in the corpus.
+
+Completed follow-up:
+- updated the Stage 3.3 package-corpus task in `plan/phase-3/03-ecosystem-breadth.md` to enumerate the browser/utility shapes now exercised by the corpus
+- kept the change narrow: this is a plan-text alignment for the existing corpus breadth, not a new support rung
+
 ## 2026-04-18 — Stage 3.3 internal dependency-chain corpus coverage
 
 I widened the Stage 3.3 package corpus with browser-field internal rewrite chains and module-entry internal dependency chains so the browser and utility corpus now exercise package-local dependency graphs in addition to the existing exports/browser/module shapes.

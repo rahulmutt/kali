@@ -250,6 +250,7 @@
 - ✅ Added module-only corpus coverage so the representative browser and utility package sets now exercise `package.json#module` fallback resolution as a standalone published shape.
 - ✅ Added browser internal-browser-rewrite corpus coverage so the representative browser package set now exercises browser-field rewrites across an internal dependency chain instead of only top-level entrypoint rewrites.
 - ✅ Added module-entry internal-dependency corpus coverage so the representative utility package set now exercises internal relative imports inside a module-only package instead of only a single-file module entrypoint.
+- ✅ `plan/phase-3/03-ecosystem-breadth.md` now explicitly enumerates the representative browser/utility package-shape cases already covered by the corpus, keeping the implementation playbook aligned with the Stage 3.3 evidence.
 - ✅ Added scoped-package corpus coverage so the representative package set now exercises `@scope/name` identities plus the scoped `@types/scope__name` fallback naming convention in both browser-targeted and standalone contexts.
 - ✅ Added typed-export-branch corpus coverage so the representative browser package set now exercises `exports` objects that carry `types` conditions alongside the runtime branches, keeping the corpus aligned with common modern package metadata.
 
