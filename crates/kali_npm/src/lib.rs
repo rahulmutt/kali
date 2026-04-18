@@ -2608,32 +2608,91 @@ fn resolve_package_exports(
     match exports {
         serde_json::Value::String(path) => resolve_package_file(package_dir, path),
         serde_json::Value::Object(map) => {
-            let key = if subpath.is_empty() {
+            let requested_key = if subpath.is_empty() {
                 ".".to_string()
             } else {
                 format!("./{}", subpath)
             };
-            let value = map.get(&key).or_else(|| map.get("."))?;
-            match value {
-                serde_json::Value::String(path) => resolve_package_file(package_dir, path),
-                serde_json::Value::Object(branches) => {
-                    for branch in ["deno", "browser", "import", "require", "default"] {
-                        if let Some(branch_value) = branches.get(branch) {
-                            if let Some(path) = branch_value
-                                .as_str()
-                                .and_then(|path| resolve_package_file(package_dir, path))
-                            {
-                                return Some(path);
-                            }
-                        }
-                    }
-                    None
+
+            if let Some(value) = map.get(&requested_key).or_else(|| map.get(".")) {
+                if let Some(path) = resolve_package_exports_target(package_dir, value, None) {
+                    return Some(path);
                 }
-                _ => None,
             }
+
+            let mut pattern_matches = map
+                .iter()
+                .filter_map(|(key, value)| {
+                    let capture = match_export_pattern(key, &requested_key)?;
+                    Some((key, capture, value))
+                })
+                .collect::<Vec<_>>();
+            pattern_matches.sort_by(|(left_key, left_capture, _), (right_key, right_capture, _)| {
+                right_key
+                    .len()
+                    .cmp(&left_key.len())
+                    .then_with(|| left_capture.len().cmp(&right_capture.len()))
+                    .then_with(|| left_key.cmp(right_key))
+            });
+
+            for (_, capture, value) in pattern_matches {
+                if let Some(path) = resolve_package_exports_target(package_dir, value, Some(capture))
+                {
+                    return Some(path);
+                }
+            }
+
+            None
         }
         _ => None,
     }
+}
+
+fn resolve_package_exports_target(
+    package_dir: &Path,
+    value: &serde_json::Value,
+    capture: Option<&str>,
+) -> Option<PathBuf> {
+    match value {
+        serde_json::Value::String(path) => {
+            let candidate = substitute_export_pattern(path, capture);
+            resolve_package_file(package_dir, &candidate)
+        }
+        serde_json::Value::Object(branches) => {
+            for branch in ["deno", "browser", "import", "require", "default"] {
+                if let Some(branch_value) = branches.get(branch) {
+                    if let Some(path) = branch_value
+                        .as_str()
+                        .map(|path| substitute_export_pattern(path, capture))
+                        .and_then(|path| resolve_package_file(package_dir, &path))
+                    {
+                        return Some(path);
+                    }
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+fn substitute_export_pattern(path: &str, capture: Option<&str>) -> String {
+    match capture {
+        Some(capture) => path.replace('*', capture),
+        None => path.to_string(),
+    }
+}
+
+fn match_export_pattern<'a>(pattern: &'a str, requested_key: &'a str) -> Option<&'a str> {
+    let (prefix, suffix) = pattern.split_once('*')?;
+    if requested_key.len() < prefix.len() + suffix.len() {
+        return None;
+    }
+    if !requested_key.starts_with(prefix) || !requested_key.ends_with(suffix) {
+        return None;
+    }
+
+    Some(&requested_key[prefix.len()..requested_key.len() - suffix.len()])
 }
 
 fn resolve_package_file(package_dir: &Path, candidate: &str) -> Option<PathBuf> {

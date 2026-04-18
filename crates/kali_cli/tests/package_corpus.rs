@@ -112,6 +112,37 @@ fn write_export_map_package(
         .expect("write package subpath");
 }
 
+fn write_pattern_exports_package(
+    root: &Path,
+    name: &str,
+    root_body: &str,
+    subpath: &str,
+    subpath_body: &str,
+) {
+    let package_dir = root.join("node_modules").join(name);
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        format!(
+            r#"{{
+  "name": "{}",
+  "main": "index.js",
+  "exports": {{
+    ".": "./index.js",
+    "./*": "./src/*.js"
+  }}
+}}"#,
+            name
+        ),
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), root_body).expect("write package root");
+    let subpath_dir = package_dir.join("src");
+    fs::create_dir_all(&subpath_dir).expect("create package subpath dir");
+    fs::write(subpath_dir.join(format!("{}.js", subpath)), subpath_body)
+        .expect("write package subpath");
+}
+
 fn write_typed_export_map_package(
     root: &Path,
     name: &str,
@@ -529,6 +560,67 @@ fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_thr
         assert!(
             build.status.success(),
             "browser package {package} with exports map should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
+fn browser_corpus_packages_with_pattern_exports_remain_checkable_and_deployable_through_host() {
+    for (package, subpath) in [("react", "jsx-runtime"), ("preact", "hooks"), ("vue", "runtime-dom")] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_pattern_exports_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:root'; }}\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "export default function subpath() {{ return '{package}:{subpath}'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser pattern-export package {package} should be checkable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser pattern-export package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&build.stdout),
             String::from_utf8_lossy(&build.stderr)
         );
@@ -1173,6 +1265,55 @@ fn utility_corpus_packages_with_exports_maps_remain_executable_on_the_default_st
         assert!(
             run.status.success(),
             "utility package {package} with exports map should stay executable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+    }
+}
+
+#[test]
+fn utility_corpus_packages_with_pattern_exports_remain_executable_on_the_default_standalone_surface() {
+    for (package, subpath) in [("ramda", "add"), ("rxjs", "operators"), ("uuid", "v4")] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), None);
+        write_pattern_exports_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:root'; }}\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "export default function subpath() {{ return '{package}:{subpath}'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write utility source");
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "utility pattern-export package {package} should be checkable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+        assert!(
+            run.status.success(),
+            "utility pattern-export package {package} should stay executable\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr)
         );

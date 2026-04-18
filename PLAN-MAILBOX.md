@@ -568,3 +568,12 @@ I added the direct pure release-helper theorem `KaliCore.Safety.releaseRefHeapCe
 Suggested follow-up:
 - update `PLAN-4.2-STATUS.md`, `TODO.md`, `plan/phase-4/02-formal-verification-depth.md`, and the proof-boundary summaries so the new theorem is named explicitly
 - keep the claim narrow: this is still a helper-level provenance theorem on the published boundary, not a broader ownership/freeing target
+
+## 2026-04-18 — Stage 3.3 pattern-exports corpus coverage
+
+I widened the Stage 3.3 package corpus with `./*` exports-pattern coverage so the browser and utility corpus now exercise nested subpath exports routed through a `src/` subtree.
+
+Completed follow-up:
+- added pattern-exports corpus coverage for browser and utility packages in `crates/kali_cli/tests/package_corpus.rs`
+- extended `crates/kali_npm/src/lib.rs` so `exports` pattern keys with a single `*` resolve deterministically before browser rewrites are applied
+- kept the change narrow: this is a package-corpus / resolver breadth step, not a new support rung
