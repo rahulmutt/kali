@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 collection target-cell iff summary sync
+
+I tightened the proof-backed boundary wording so `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount` is now named explicitly alongside the existing collection-helper target-cell retention and ownership/allocation corollaries.
+
+Completed follow-up:
+- updated `README.md` so the published verification summary now names the collection-helper iff theorem explicitly alongside the existing RC snapshot inventory
+- kept the change narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 lowering value-preservation summary sync
 
 I tightened the lowering-summary wording so the published boundary now names `KaliIR.Value`, `KaliIR.LoweringCorrectness.lower_preserves_value`, `KaliIR.LoweringCorrectness.lower_preserves_step`, and `KaliIR.LoweringCorrectness.lower_preserves_steps` explicitly alongside the widened HIR lowering-correctness slice.

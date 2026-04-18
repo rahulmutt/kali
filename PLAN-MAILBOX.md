@@ -768,3 +768,10 @@ I tightened the Stage 3.1 specialization planner so the MIR-aware layout signatu
 Completed follow-up:
 - updated `PLAN-3.1-STATUS.md` and `TODO.md` so the Stage 3.1 tracker now calls out the descriptor-fingerprint precision explicitly alongside the existing shared-layout reuse note
 - kept the change narrow: this is a Stage 3.1 optimizer precision improvement, not a new public surface
+
+## 2026-04-18 — Stage 4.2 collection target-cell iff summary sync
+
+I synced the proof-backed verification summary so `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount` is now named explicitly in `README.md`, and I recorded the same wording sync in `PLAN-4.2-STATUS.md` and `TODO.md` so the progress trackers stay aligned with the published boundary wording.
+
+Completed follow-up:
+- kept the claim narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening

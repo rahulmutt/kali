@@ -2,6 +2,10 @@
 
 ## Completed
 
+### Stage 4.2 - Collection target-cell iff summary sync
+- ✅ `README.md` now names `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount` explicitly alongside the existing proof-backed RC snapshot inventory.
+- ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
+
 ### Stage 4.2 - Lowering value-preservation summary sync
 - ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` now name `KaliIR.Value`, `KaliIR.LoweringCorrectness.lower_preserves_value`, `KaliIR.LoweringCorrectness.lower_preserves_step`, and `KaliIR.LoweringCorrectness.lower_preserves_steps` alongside the widened HIR lowering-correctness slice.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a widening of the HIR semantic-preservation target.

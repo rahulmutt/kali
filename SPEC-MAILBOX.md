@@ -445,3 +445,10 @@ I widened the proof model with a target-origin theorem for the release-and-decre
 Suggested follow-up:
 - update the verification summaries and maturity docs so the new theorem is named explicitly
 - keep the claim narrow: this is still a helper-level RC slice, not the fuller ownership/freeing target
+
+## 2026-04-18 — Stage 4.2 collection target-cell iff summary sync
+
+I tightened `specs/16-testing.md` so the proof-backed claims summary now names `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount` explicitly alongside the existing RC snapshot helper slice, matching the published proof-boundary wording already carried by `proofs/BOUNDARY.md`.
+
+Completed follow-up:
+- kept the change narrow: this is a summary-doc wording sync for the published boundary, not a boundary widening
