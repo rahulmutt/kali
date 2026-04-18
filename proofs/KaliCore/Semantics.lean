@@ -28,6 +28,22 @@ theorem Context.lookup_remove_head_other (Γ : Context) (x y : String) (ty : Ty)
     Context.lookup (Context.remove ((y, ty) :: Γ) x) y = some ty := by
   simp [Context.lookup, Context.remove, h]
 
+/-- Removing a binding from a context does not change lookups for other names. -/
+theorem Context.lookup_remove_ne (Γ : Context) (x y : String) (h : x ≠ y) :
+    Context.lookup (Context.remove Γ x) y = Context.lookup Γ y := by
+  induction Γ with
+  | nil =>
+      simp [Context.lookup, Context.remove]
+  | cons head Γ ih =>
+      rcases head with ⟨z, ty⟩
+      by_cases hxz : x = z
+      · have hyz : y ≠ z := by
+          intro hyz
+          apply h
+          simpa [hxz] using hyz.symm
+        simp [Context.lookup, Context.remove, hxz, hyz]
+      · simp [Context.lookup, Context.remove, hxz, ih]
+
 /-- Runtime value predicate for the small-step semantics. -/
 inductive Value : Expr → Prop where
   | lit : ∀ v, Value (Expr.ELit v)
