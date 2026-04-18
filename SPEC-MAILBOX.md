@@ -345,3 +345,15 @@ I added the direct pure release-helper theorem `KaliCore.Safety.releaseRefHeapCe
 Suggested follow-up:
 - update `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the new theorem is named explicitly
 - keep the claim narrow: this is still a helper-level provenance theorem on the published boundary, not a broader ownership/freeing target
+
+## 2026-04-18 — Stage 4.2 release-set preservation wording sync
+
+I widened the Stage 4.2 proof-summary wording and anti-drift coverage to name the release-set preservation theorems explicitly: `KaliCore.Safety.releaseRefPreservesReleasedRefs`, `KaliCore.Safety.releaseAndDecrementPreservesReleasedRefs`, and `KaliCore.Safety.releaseAndCollectPreservesReleasedRefs`.
+
+Completed follow-up:
+- updated `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the public proof-backed summaries now name the release-set preservation theorem slice explicitly alongside the existing RC inventory
+- widened `crates/kali_cli/tests/schema_docs.rs` so the proof-summary anti-drift guard now pins the release-set preservation theorem names alongside the existing RC snapshot inventory
+
+Suggested follow-up:
+- keep the Stage 4.2 RC inventory wording synchronized if the release-set story widens again
+- continue treating this as a wording / guard sync for the published boundary, not a boundary widening

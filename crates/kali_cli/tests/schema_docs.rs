@@ -102,6 +102,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
     let rc_theorem_names = [
         "releaseRefNoDanglingReference",
         "releaseRefReleasedRefsCons",
+        "releaseRefPreservesReleasedRefs",
         "releaseRefHeapCharacterisation",
         "releaseRefHeapCellOriginAndOwnership",
         "releaseAndDecrementNoDanglingReference",
@@ -114,6 +115,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         "releaseAndDecrementTargetCellAllocatedWhenPositiveCount",
         "releaseAndDecrementTargetCellOwnedAndAllocatedWhenPositiveCount",
         "releaseAndDecrementReleasedRefsCons",
+        "releaseAndDecrementPreservesReleasedRefs",
         "releaseAndCollectNoDanglingReference",
         "releaseAndCollectDropsZeroCountCells",
         "releaseAndCollectKeepsOtherPositiveCountCells",
@@ -128,6 +130,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         "releaseAndCollectTargetCellAllocatedWhenPositiveCount",
         "releaseAndCollectTargetCellOwnedAndAllocatedWhenPositiveCount",
         "releaseAndCollectReleasedRefsCons",
+        "releaseAndCollectPreservesReleasedRefs",
         "releaseAndDecrementHeapCharacterisation",
         "releaseAndCollectHeapCharacterisation",
     ];
