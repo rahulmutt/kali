@@ -552,3 +552,11 @@ I tightened the Stage 4.2 tracker so `TODO.md` now calls out `KaliCore.Safety.re
 Completed follow-up:
 - updated `TODO.md` so the Stage 4.2 progress tracker names the pure release heap-characterisation theorem explicitly
 - kept the change narrow: this is a wording / tracker sync for the published boundary, not a boundary widening
+
+## 2026-04-18 — Stage 4.2 progress-note inventory alignment
+
+I tightened the Stage 4.2 status summary so the proof-backed memory-safety slice now names the helper-level original-positive-count survivor theorems (`KaliCore.Safety.releaseAndCollectKeepsOtherPositiveCountCells`, `KaliCore.Safety.releaseAndCollectKeepsOriginalPositiveCountCells`) explicitly alongside the existing release/decrement/collection inventory, keeping the plan-facing summary closer to the published boundary wording.
+
+Completed follow-up:
+- updated `PLAN-4.2-STATUS.md` so the stage summary now mentions the helper-level positive-count survivors explicitly alongside the rest of the RC snapshot inventory
+- kept the change narrow: this is a progress-tracker wording sync, not a boundary widening
