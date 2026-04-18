@@ -1,7 +1,7 @@
 # Stage 3.3 Status Update
 
 **Date:** 2026-04-17  
-**Status:** 🟢 Package-audit preview plumbing landed, browser bundle output now emits deterministic chunk artifacts for literal dynamic import boundaries, tree-shaking now prunes unused bundle exports, and a curated Phase-3 package corpus now covers representative browser, utility, and Node-runner package classes plus exports-map/subpath, browser-conditional-export, browser replacement-map, browser string-entry, module-only, dual-package, and mixed-format entrypoints alongside the wrapper/source-map output for the registry-analysis / packaging breadth track
+**Status:** 🟢 Package-audit preview plumbing landed, browser bundle output now emits deterministic chunk artifacts for literal dynamic import boundaries, tree-shaking now prunes unused bundle exports, and a curated Phase-3 package corpus now covers representative browser, utility, and Node-runner package classes plus exports-map/subpath, browser-conditional-export, browser replacement-map, browser string-entry, browser false-blocking, module-only, dual-package, and mixed-format entrypoints alongside the wrapper/source-map output for the registry-analysis / packaging breadth track
 
 ## Summary
 
@@ -17,7 +17,7 @@ Stage 3.3 now has a concrete `package-audit --preview` path instead of an uncond
 - browser bundle builds now emit deterministic chunk artifacts for literal dynamic import boundaries ✅
 - browser bundle builds now tree-shake unused exports from the emitted JS glue and metadata ✅
 - Phase-3 cross-module inference smoke coverage now exercises a multi-file import chain with inferred public API types under the solver budget ✅
-- package corpus evidence now covers browser-safe packages (`react`, `preact`, `vue`, `svelte`, `lit`), utility packages (`ramda`, `rxjs`, `immer`, `uuid`, `typescript`, `esbuild`, `date-fns`, `lodash-es`), and Node-runner packages (`vitest`, `jest`, `mocha`) at their documented rungs, including exports-map/subpath, browser-conditional-export, browser replacement-map, browser string-entry, module-only, dual-package, and mixed-format coverage for the commonly imported package entrypoints ✅
+- package corpus evidence now covers browser-safe packages (`react`, `preact`, `vue`, `svelte`, `lit`), utility packages (`ramda`, `rxjs`, `immer`, `uuid`, `typescript`, `esbuild`, `date-fns`, `lodash-es`), and Node-runner packages (`vitest`, `jest`, `mocha`) at their documented rungs, including exports-map/subpath, browser-conditional-export, browser replacement-map, browser string-entry, browser false-blocking, module-only, dual-package, and mixed-format coverage for the commonly imported package entrypoints ✅
 - `cargo test --workspace` passes ✅
 
 ## Notable Deliverables

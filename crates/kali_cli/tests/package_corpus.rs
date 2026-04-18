@@ -329,6 +329,26 @@ fn write_browser_string_package(
         .expect("write package root browser");
 }
 
+fn write_browser_blocked_package(root: &Path, name: &str, body: &str) {
+    let package_dir = root.join("node_modules").join(name);
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        format!(
+            r#"{{
+  "name": "{}",
+  "main": "index.js",
+  "browser": {{
+    "./index.js": false
+  }}
+}}"#,
+            name
+        ),
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), body).expect("write package entry");
+}
+
 fn run_kali<I, S>(root: &Path, args: I) -> std::process::Output
 where
     I: IntoIterator<Item = S>,
@@ -800,6 +820,77 @@ fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_depl
             "browser string-entry package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&build.stdout),
             String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
+fn browser_corpus_packages_that_block_the_selected_path_are_rejected_in_browser_context() {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_blocked_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:node'; }}\n",
+                package = package
+            ),
+        );
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            !check.status.success(),
+            "browser-blocked package {package} should be rejected in browser context\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let stderr = String::from_utf8_lossy(&check.stderr);
+        assert!(
+            stderr.contains("error[E3000]"),
+            "browser-blocked package {package} should surface the import-resolution failure\nstderr: {}",
+            stderr
+        );
+        assert!(
+            stderr.contains("could not be resolved"),
+            "browser-blocked package {package} should not fall back to the non-browser entry\nstderr: {}",
+            stderr
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            !build.status.success(),
+            "browser-blocked package {package} should also be rejected during bundle emission\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+        let build_stderr = String::from_utf8_lossy(&build.stderr);
+        assert!(
+            build_stderr.contains("error[E3000]"),
+            "browser-blocked package {package} should surface the bundle-time import-resolution failure\nstderr: {}",
+            build_stderr
         );
     }
 }

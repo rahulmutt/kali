@@ -2863,7 +2863,11 @@ fn package_audit_rejects_preview_compatibility_shim() {
     stop.store(true, Ordering::SeqCst);
     handle.join().expect("join registry server");
 
-    assert_eq!(hits.load(Ordering::SeqCst), 0, "registry server should not be queried");
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "registry server should not be queried"
+    );
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5008"), "stderr: {stderr}");
