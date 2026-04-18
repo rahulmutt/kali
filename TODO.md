@@ -16,6 +16,10 @@
 ### Stage 4.2 - Heap-filter anti-drift guard
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now also pins `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter` explicitly, and the verification summaries now name the filter theorem alongside the rest of the RC snapshot inventory.
 
+### Stage 2.2 - Status-file backfill
+- ✅ Added `PLAN-2.2-STATUS.md` so the Phase 2 stage tracker set now includes a dedicated public effect-reporting status summary.
+- ✅ Kept the update narrow: this is a documentation backfill, not a new product surface.
+
 ### Stage 4.1 - Package-audit availability
 - ✅ `kali package-audit` now runs without requiring `--preview`; the removed `--preview` path is rejected with the canonical `E5008` invalid-usage diagnostic instead of acting as a compatibility shim.
 

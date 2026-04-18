@@ -481,3 +481,14 @@ Completed follow-up:
 Suggested follow-up:
 - keep the Stage 4.2 status note aligned if the pure release helper slice widens again
 - continue treating this as a wording / progress-tracker sync, not a boundary widening
+
+## 2026-04-18 — Stage 2.2 status-file backfill
+
+I noticed the plan tracker had complete Stage 2.2 implementation notes but no dedicated stage status file, so I added `PLAN-2.2-STATUS.md` to keep the Phase 2 stage set uniformly documented.
+
+Completed follow-up:
+- created `PLAN-2.2-STATUS.md` with the completed public effect-reporting summary, evidence, deliverables, and current limits
+- kept the update narrow: this is a plan-tracker/documentation backfill, not a new product surface
+
+Suggested follow-up:
+- if any future plan-stage tracker is added late, keep the per-stage status files in sync so the phase index stays complete
