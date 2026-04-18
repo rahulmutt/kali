@@ -1,3 +1,11 @@
+## 2026-04-18 — Stage 4.2 proof-summary tracker coverage
+
+I widened the proof-summary anti-drift guard so `crates/kali_cli/tests/schema_docs.rs` now also checks `TODO.md` for the current RC theorem inventory, keeping the progress tracker aligned with the already-published proof-boundary wording.
+
+Completed follow-up:
+- added `TODO.md` to the theorem-name drift guard so the progress tracker stays aligned with the published RC snapshot inventory
+- kept the change narrow: this is a tracker-coverage sync, not a boundary widening
+
 ## 2026-04-18 — Stage 4.2 decrement origin/positive-count progress-note sync
 
 Completed follow-up:

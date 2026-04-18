@@ -150,6 +150,18 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         }
     }
 
+    let theorem_only_docs = ["TODO.md"];
+
+    for relative in theorem_only_docs {
+        let text = fs::read_to_string(root.join(relative)).expect("read tracker doc");
+        for theorem in rc_theorem_names {
+            assert!(
+                text.contains(theorem),
+                "{relative} is missing proof-summary theorem name: {theorem}"
+            );
+        }
+    }
+
     let boundary = fs::read_to_string(root.join("proofs/BOUNDARY.md")).expect("read boundary");
     assert!(
         boundary.contains("Status: **proof-backed proof-boundary manifest**."),
