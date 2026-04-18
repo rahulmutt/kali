@@ -14,6 +14,10 @@
 - ✅ The pure release helper now also has an explicit heap-characterisation theorem, `KaliCore.Safety.releaseRefHeapCharacterisation`, so the RC helper slice states the unchanged-heap case directly alongside the decrement/collection heap characterisation theorems.
 - ✅ `PLAN-4.2-STATUS.md` and the Stage 4.2 progress note now call out the release-only heap-characterisation theorem explicitly, keeping the pure release helper slice aligned with the published boundary inventory.
 
+### Stage 4.2 - Pure release heap characterisation wording sync
+- ✅ `TODO.md` now calls out `KaliCore.Safety.releaseRefHeapCharacterisation` explicitly in the Stage 4.2 tracker, so the pure release-helper slice stays named alongside the release-only live-reference and disjointness corollaries.
+- ✅ The existing `PLAN-4.2-STATUS.md` progress note already reflects the same helper-level wording, keeping the proof-backed boundary inventory aligned with the current RC theorem set.
+
 ### Stage 4.2 - Proof-summary anti-drift guard widening
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now pins a broader current RC snapshot helper inventory, including the no-dangling-reference corollaries, released-reference cons-shape theorems, target-cell bookkeeping, zero-count collection/removal, and heap-characterisation corollaries.
 - ✅ The same drift guard now also checks `TODO.md` for the current RC theorem inventory, so the progress tracker stays aligned with the published boundary wording.

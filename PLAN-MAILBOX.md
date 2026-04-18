@@ -544,3 +544,11 @@ Completed follow-up:
 - updated `crates/kali_optimize/src/lib.rs` with the regression coverage for three matching struct-layout call sites
 - updated `PLAN-3.1-STATUS.md` and `TODO.md` so the stage tracker now names the expanded struct-layout regression explicitly alongside the existing closure-layout sharing note
 - kept the change narrow: this is another layout-sharing regression check, not the fuller generic-instantiation planner
+
+## 2026-04-18 — Stage 4.2 pure release heap characterisation wording sync
+
+I tightened the Stage 4.2 tracker so `TODO.md` now calls out `KaliCore.Safety.releaseRefHeapCharacterisation` explicitly alongside the release-only live-reference and disjointness corollaries, keeping the pure release-helper slice aligned with the published boundary inventory.
+
+Completed follow-up:
+- updated `TODO.md` so the Stage 4.2 progress tracker names the pure release heap-characterisation theorem explicitly
+- kept the change narrow: this is a wording / tracker sync for the published boundary, not a boundary widening
