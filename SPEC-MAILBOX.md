@@ -337,3 +337,11 @@ I found one remaining proof-summary drift point in the verification wording: the
 Suggested follow-up:
 - update the README and verification/maturity summaries so the heap/filter theorem is named explicitly alongside the current RC snapshot inventory
 - keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
+
+## 2026-04-18 — Stage 4.2 pure release helper origin/ownership follow-up
+
+I added the direct pure release-helper theorem `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, which packages origin and ownership preservation for `releaseRef` so the published boundary can name the release-only heap provenance story more explicitly alongside `releaseRefHeapCharacterisation`.
+
+Suggested follow-up:
+- update `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the new theorem is named explicitly
+- keep the claim narrow: this is still a helper-level provenance theorem on the published boundary, not a broader ownership/freeing target

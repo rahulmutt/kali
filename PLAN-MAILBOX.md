@@ -560,3 +560,11 @@ I tightened the Stage 4.2 status summary so the proof-backed memory-safety slice
 Completed follow-up:
 - updated `PLAN-4.2-STATUS.md` so the stage summary now mentions the helper-level positive-count survivors explicitly alongside the rest of the RC snapshot inventory
 - kept the change narrow: this is a progress-tracker wording sync, not a boundary widening
+
+## 2026-04-18 — Stage 4.2 pure release helper origin/ownership follow-up
+
+I added the direct pure release-helper theorem `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, which packages origin and ownership preservation for `releaseRef` so the plan/status notes can name the release-only heap provenance story more explicitly alongside `releaseRefHeapCharacterisation`.
+
+Suggested follow-up:
+- update `PLAN-4.2-STATUS.md`, `TODO.md`, `plan/phase-4/02-formal-verification-depth.md`, and the proof-boundary summaries so the new theorem is named explicitly
+- keep the claim narrow: this is still a helper-level provenance theorem on the published boundary, not a broader ownership/freeing target

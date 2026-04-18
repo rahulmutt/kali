@@ -103,6 +103,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         "releaseRefNoDanglingReference",
         "releaseRefReleasedRefsCons",
         "releaseRefHeapCharacterisation",
+        "releaseRefHeapCellOriginAndOwnership",
         "releaseAndDecrementNoDanglingReference",
         "releaseAndDecrementKeepsTargetCellWhenPositiveCount",
         "releaseAndDecrementKeepsOriginalPositiveCountCells",

@@ -689,6 +689,17 @@ theorem releaseRefHeapCharacterisation (snapshot : RcSnapshot) (ref : String) :
     (releaseRef snapshot ref).heap = snapshot.heap := by
   rfl
 
+/-- The release-only helper's surviving heap cells come from the original heap with the same name and ownership tag. -/
+theorem releaseRefHeapCellOriginAndOwnership (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ (releaseRef snapshot ref).heap →
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        cell = cell0 ∧
+        cell.name = cell0.name ∧
+        cell.owner = cell0.owner := by
+  intro cell hmem
+  refine ⟨cell, ?_, rfl, rfl, rfl⟩
+  simpa [releaseRefHeapCharacterisation] using hmem
+
 /-- A release-only step preserves the no-dangling-reference property on well-formed snapshots. -/
 theorem releaseRefNoDanglingReference (snapshot : RcSnapshot) (ref : String)
     (h : WellFormed snapshot) :

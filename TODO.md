@@ -11,7 +11,7 @@
 
 ### Stage 4.2 - Proof-boundary heap-characterisation inventory sync
 - ✅ `proofs/BOUNDARY.md` now names `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` and `KaliCore.Safety.releaseAndCollectHeapCharacterisation` explicitly in the claimed theorem inventory, keeping the manifest aligned with the proof-state summary and the summary docs.
-- ✅ The pure release helper now also has an explicit heap-characterisation theorem, `KaliCore.Safety.releaseRefHeapCharacterisation`, so the RC helper slice states the unchanged-heap case directly alongside the decrement/collection heap characterisation theorems.
+- ✅ The pure release helper now also has an explicit heap-characterisation theorem, `KaliCore.Safety.releaseRefHeapCharacterisation`, and a direct origin/ownership theorem, `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, so the RC helper slice states the unchanged-heap case and the release-only provenance story directly alongside the decrement/collection heap characterisation theorems.
 - ✅ `PLAN-4.2-STATUS.md` and the Stage 4.2 progress note now call out the release-only heap-characterisation theorem explicitly, keeping the pure release helper slice aligned with the published boundary inventory.
 
 ### Stage 4.2 - Pure release heap characterisation wording sync
@@ -228,7 +228,7 @@
 - ✅ `releaseAndCollectKeepsOtherHeapEntries` now keeps unrelated positive-count heap entries in the collected heap, making the helper-level unrelated-heap preservation story explicit.
 
 ### Stage 4.2 - Pure release-helper follow-up
-- ✅ `releaseRefLiveRefsAreOwnedAndAllocated` now keeps the pure release helper's surviving live references anchored in ownership and allocation.
+- ✅ `releaseRefLiveRefsAreOwnedAndAllocated` now keeps the pure release helper's surviving live references anchored in ownership and allocation, and `releaseRefHeapCellOriginAndOwnership` now makes the release-only provenance story explicit.
 - ✅ `releaseRefLiveRefsFiltered`, `releaseAndDecrementLiveRefsFiltered`, and `releaseAndCollectLiveRefsFiltered` now keep the live-reference list filtered to the released target across the release-only, decrement, and collection helpers.
 - ✅ `releaseRefReleasedNotLiveRef` now keeps released references disjoint from the live set after the pure release helper runs.
 - ✅ `releaseRecorded` still records the released reference in the released set after the pure release step.
