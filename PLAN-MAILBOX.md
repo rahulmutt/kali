@@ -284,3 +284,14 @@ Planned update:
 
 Completed:
 - `PLAN-4.2-STATUS.md` and `TODO.md` now call out `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` explicitly in the current Stage 4.2 progress wording, keeping the progress notes aligned with the theorem inventory in `proofs/BOUNDARY.md`.
+
+## 2026-04-19 — Stage 3.3 vue browser web-baseline corpus widening
+
+I widened the Stage 3.3 browser web-baseline interop corpus one step further by adding `vue` to the browser package coverage, keeping the representative app-framework breadth concrete without changing support-rung claims.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention `vue` alongside the existing browser web-baseline package breadth notes
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- the browser web-baseline interop corpus now also names `vue` explicitly in `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md`.

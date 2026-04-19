@@ -489,6 +489,7 @@ follow-up widening rather than unfinished baseline delivery:
 
 ### Stage 3.3 - Package corpus breadth expansion
 - ✅ Added browser, utility, and Node-runner corpus cases that resolve published exports maps and subpath entrypoints for `react`, `preact`, `vue`, `svelte`, `lit`, `ramda`, `rxjs`, `immer`, `uuid`, `typescript`, `esbuild`, `date-fns`, `lodash-es`, `vitest`, `jest`, and `mocha`, broadening the package-support corpus beyond the original single-entrypoint stubs.
+- ✅ Added `vue` to the browser web-baseline interop corpus so the representative browser package coverage now carries one more app-framework name through the browser command path without changing the documented support rungs.
 - ✅ Added `mocha` to the Node-runner exports-map and mixed-format corpus slices so the representative test-runner coverage now exercises one more package-shape variant without changing the documented support rungs.
 - ✅ Added `@mui/material` and `@floating-ui/react` to the scoped browser exports-map / browser-condition slices so the representative browser corpus now covers one more popular UI package shape without changing the documented support rungs.
 - ✅ Added scoped browser conditional-exports coverage so the browser corpus now exercises scoped packages whose `browser` branches win over import/require fallbacks without changing the documented support rungs.
