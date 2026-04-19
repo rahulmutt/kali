@@ -7,7 +7,7 @@ follow-up widening rather than unfinished baseline delivery:
 
 - widen specialization depth beyond the current MIR-aware layout-specialized path; the optimizer
   already now covers owner-scoped MIR binding layouts, quoted string- and template-literal
-  signatures, `null` / `undefined` / boolean / numeric / signed-zero / BigInt literal signatures,
+  signatures, `null` / `undefined` / boolean / numeric / signed-zero / BigInt / special-number literal signatures,
   array-layout widening, direct array-literal shape widening, nested MIR-bound bindings,
   object-literal property-order canonicalization, the nested-call regression
   `release_recursively_specializes_nested_mir_call_sites`, and the literal-shaped
@@ -85,6 +85,10 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 3.1 - Signed-zero specialization widening
 - ✅ Signed-zero numeric literals now preserve `-0` as a distinct specialization signature from `0`, so the optimizer keeps JavaScript's signed-zero edge case visible in the literal-signature path without changing the deterministic budget story.
 - ✅ Added regression coverage that proves repeated `-0` call sites still share one specialized clone while `0` and `-0` split to separate specialized functions.
+- ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
+
+### Stage 3.1 - Special-number specialization widening
+- ✅ `Infinity`, `-Infinity`, and `NaN` call-site arguments now carry distinct literal signatures, so the remaining special-number edge cases stay visible to the deterministic specialization path instead of collapsing onto the generic tagged fallback.
 - ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
 
 ### Stage 3.3 - Browser/runtime interop corpus widening

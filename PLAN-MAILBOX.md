@@ -1,3 +1,14 @@
+## 2026-04-19 — Stage 3.1 special-number literal-signature sync
+
+I synced the Stage 3.1 specialization-depth summary wording so `Infinity`, `-Infinity`, and `NaN` are called out explicitly alongside the other literal-signature cases in the top-level follow-up notes.
+
+Planned update:
+- sync `PLAN.md` and `TODO.md` so the Stage 3.1 top-level progress summary names the special-number literal signatures explicitly alongside the existing signed-zero / numeric-literal wording
+- keep the claim narrow: this is a summary-doc wording sync for the existing specialization model, not a new support-rung claim
+
+Completed:
+- the top-level Stage 3.1 follow-up notes now name the special-number literal-signature cases explicitly, keeping the summary aligned with the stage-level progress note.
+
 ## 2026-04-19 — Stage 3.3 @chakra-ui/react exports-map/browser-condition widening
 
 I widened the Stage 3.3 package corpus a little further by adding `@chakra-ui/react` to the scoped browser exports-map and browser-condition slices, keeping the representative UI-package breadth concrete without changing any support-rung claims.
