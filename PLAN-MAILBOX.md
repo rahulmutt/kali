@@ -335,3 +335,10 @@ Planned update:
 
 Completed:
 - the browser web-baseline interop corpus now also names `@jridgewell/sourcemap-codec` explicitly in `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md`.
+## 2026-04-19 — Stage 4.2 wellformedness / ownership / linear-memory corollary widening
+
+I widened the RC snapshot proof slice with combined wellformedness/ownership/linear-memory corollaries for the release-only, decrement, and collection helpers: `KaliCore.Safety.releaseRefPreservesWellFormedAndOwnershipAndLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesWellFormedAndOwnershipAndLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesWellFormedAndOwnershipAndLinearMemory`.
+
+Planned update:
+- sync the proof-boundary manifest and verification summaries so the new combined corollaries are named explicitly alongside the current RC helper inventory
+- keep the claim narrow: this is still helper-level RC proof widening, not the broader Stage 4.2 ownership/freeing target

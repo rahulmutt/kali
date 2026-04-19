@@ -407,3 +407,11 @@ I found that the published proof-boundary summary already mentioned `KaliCore.Sa
 Planned update:
 - keep the claimed-theorem inventory in `proofs/BOUNDARY.md` aligned with the prose summary by adding the target-cell origin/positive-count theorem bullets explicitly, and mirror the same wording in the Stage 4.2 progress trackers where they enumerate the published slice
 - keep the claim narrow: this is a theorem-inventory / anti-drift sync for the published boundary, not a boundary widening beyond the current RC slice
+
+## 2026-04-19 — Stage 4.2 wellformedness / ownership / linear-memory corollary widening
+
+I widened the RC snapshot proof slice with combined wellformedness/ownership/linear-memory corollaries for the release-only, decrement, and collection helpers: `KaliCore.Safety.releaseRefPreservesWellFormedAndOwnershipAndLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesWellFormedAndOwnershipAndLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesWellFormedAndOwnershipAndLinearMemory`.
+
+Planned update:
+- sync the verification summaries (`README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`) so the new combined corollaries are named explicitly alongside the current RC helper inventory
+- keep the claim narrow: this is still helper-level RC proof widening, not the broader Stage 4.2 ownership/freeing target

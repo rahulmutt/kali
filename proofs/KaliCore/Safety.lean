@@ -803,6 +803,45 @@ theorem releaseAndCollectPreservesWellFormedAndLinearMemory (snapshot : RcSnapsh
   · exact releaseAndCollectPreservesWellFormed snapshot ref h
   · exact releaseAndCollectPreservesLinearMemory snapshot ref
 
+/-- Release-only, decrement, and collection helpers preserve well-formedness together with the
+ownership environment and explicit linear-memory payload. -/
+theorem releaseRefPreservesWellFormedAndOwnershipAndLinearMemory (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    WellFormed (releaseRef snapshot ref) ∧
+    (releaseRef snapshot ref).ownership = snapshot.ownership ∧
+    (releaseRef snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releasePreservesWellFormed snapshot ref h
+  · constructor
+    · exact releaseRefPreservesOwnership snapshot ref
+    · exact releaseRefPreservesLinearMemory snapshot ref
+
+/-- The release-and-decrement helper preserves well-formedness together with the ownership
+environment and explicit linear-memory payload. -/
+theorem releaseAndDecrementPreservesWellFormedAndOwnershipAndLinearMemory (snapshot : RcSnapshot)
+    (ref : String) (h : WellFormed snapshot) :
+    WellFormed (releaseAndDecrement snapshot ref) ∧
+    (releaseAndDecrement snapshot ref).ownership = snapshot.ownership ∧
+    (releaseAndDecrement snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndDecrementPreservesWellFormed snapshot ref h
+  · constructor
+    · exact releaseAndDecrementPreservesOwnership snapshot ref
+    · exact releaseAndDecrementPreservesLinearMemory snapshot ref
+
+/-- The local release-and-collect helper preserves well-formedness together with the ownership
+environment and explicit linear-memory payload. -/
+theorem releaseAndCollectPreservesWellFormedAndOwnershipAndLinearMemory (snapshot : RcSnapshot)
+    (ref : String) (h : WellFormed snapshot) :
+    WellFormed (releaseAndCollect snapshot ref) ∧
+    (releaseAndCollect snapshot ref).ownership = snapshot.ownership ∧
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndCollectPreservesWellFormed snapshot ref h
+  · constructor
+    · exact releaseAndCollectPreservesOwnership snapshot ref
+    · exact releaseAndCollectPreservesLinearMemory snapshot ref
+
 /-- The release-and-collect helper keeps the surviving live references anchored in ownership and allocation. -/
 theorem releaseAndCollectLiveRefsAreOwnedAndAllocated (snapshot : RcSnapshot) (ref : String)
     (h : WellFormed snapshot) :

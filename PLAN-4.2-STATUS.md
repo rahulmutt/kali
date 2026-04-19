@@ -41,6 +41,9 @@ The current published boundary explicitly names the RC snapshot helper slice, in
 - `releaseRefPreservesWellFormedAndLinearMemory`
 - `releaseAndDecrementPreservesWellFormedAndLinearMemory`
 - `releaseAndCollectPreservesWellFormedAndLinearMemory`
+- `releaseRefPreservesWellFormedAndOwnershipAndLinearMemory`
+- `releaseAndDecrementPreservesWellFormedAndOwnershipAndLinearMemory`
+- `releaseAndCollectPreservesWellFormedAndOwnershipAndLinearMemory`
 - `releaseRefReleasedNotLiveRef`
 - `releaseAndDecrementNoDanglingReference`
 - `releaseAndDecrementKeepsTargetCellWhenPositiveCount`
