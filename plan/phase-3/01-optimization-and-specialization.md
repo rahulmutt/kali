@@ -61,6 +61,9 @@ types are statically known.
 - Nested MIR-bound bindings inside object-literal call sites now also participate in the MIR-aware
   specialization signature, so composite arguments can split into distinct clones when the same
   surface shape is fed by different scoped binding layouts.
+- Object-literal property order is now canonicalized in the specialization signature, so
+  semantically identical object shapes with reordered fields reuse one specialized clone instead
+  of splitting on insertion order.
 - Const-bound object property reads and constant-index array reads now fold before codegen, and
   optimized numeric hot paths are regression-tested to stay free of tag-check / untag boxing.
 - Incremental compilation now reuses `.kali-cache/incremental/` for unchanged modules, and the

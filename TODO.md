@@ -15,7 +15,8 @@ follow-up widening rather than unfinished baseline delivery:
   numeric literals from each other at call sites, distinguishes signed-zero `-0` from `0`,
   distinguishes BigInt literals from the old numeric fallback, distinguishes `null` and `undefined`
   from the old zero-valued fallback, lifts nested MIR-bound bindings inside object-literal call sites
-  into the same signature path, preserves array-valued MIR binding fingerprints during call-site
+  into the same signature path, canonicalizes object-literal property order so reordered shapes
+  reuse one specialized clone, preserves array-valued MIR binding fingerprints during call-site
   specialization so different array-layout widenings can split into separate clones, and keeps the
   nested-call regression `release_recursively_specializes_nested_mir_call_sites` layered inside a
   specialized clone so widening stays concrete without broadening the published benchmark claims,
@@ -127,6 +128,11 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 3.1 - Direct array-literal shape widening
 - ✅ Direct array-literal call-site arguments now carry explicit `Value:array:len=...` shape signatures, so inline arrays of different lengths split into separate specialized clones even when the callee only sees a tagged parameter.
 - ✅ Added regression coverage proving two direct array-literal call sites with different lengths produce distinct specialized clones while still respecting the deterministic specialization budget.
+- ✅ Kept the update narrow: this widens specialization depth inside the existing optimizer model; it does not change the published benchmark or support claims.
+
+### Stage 3.1 - Object-literal property-order canonicalization
+- ✅ Object-literal property order is now canonicalized in the specialization signature, so reordered but semantically identical object shapes reuse one specialized clone instead of splitting on insertion order.
+- ✅ Added regression coverage proving object literals with the same properties in a different order now share a specialized clone while still respecting the deterministic specialization budget.
 - ✅ Kept the update narrow: this widens specialization depth inside the existing optimizer model; it does not change the published benchmark or support claims.
 
 ### Stage 3.3 - Web Blob/File/FileReader baseline

@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 3.1 object-literal property-order canonicalization
+
+I widened the Stage 3.1 specialization path one step further so object-literal property order is now canonicalized during MIR-aware specialization, which lets semantically identical object shapes with reordered fields reuse the same clone instead of splitting on insertion order.
+
+Planned update:
+- sync `plan/phase-3/01-optimization-and-specialization.md`, `PLAN.md`, and `TODO.md` so the Stage 3.1 specialization-depth notes explicitly mention the object-literal property-order canonicalization alongside the existing MIR-backed layout and array-literal widening coverage
+- keep the claim narrow: this is another specialization-depth widening within the existing optimizer model, not a new support-rung claim
+
 ## 2026-04-19 — Stage 3.1 direct array-literal specialization widening
 
 I widened the Stage 3.1 specialization path one step further so direct array-literal call-site arguments now carry explicit array-shape signatures (`Value:array:len=...`) during MIR-aware specialization, which lets the optimizer split inline arrays with different lengths even when the callee only sees a tagged parameter.
