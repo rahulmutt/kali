@@ -100,6 +100,7 @@ impl Optimizer {
                 let plan = self.build_specialization_plan(program);
                 let mut tracker = SpecializationTracker::new(self.max_specializations);
                 let mut binding_env = BindingEnv::default();
+                let mut specialized_functions = BTreeMap::new();
                 self.specialize_layout_bindings(
                     program,
                     program.root,
@@ -117,6 +118,7 @@ impl Optimizer {
                     &mut tracker,
                     "<root>".to_string(),
                     allow_generic_specialization,
+                    &mut specialized_functions,
                 );
 
                 if matches!(self.level, OptimizationLevel::ReleaseAdvanced) {
@@ -134,6 +136,7 @@ impl Optimizer {
         tracker: &mut SpecializationTracker,
         owner: String,
         allow_generic_specialization: bool,
+        specialized_functions: &mut BTreeMap<String, LirNodeId>,
     ) {
         let snapshot = program.nodes[id.0 as usize].clone();
         let next_owner = match snapshot.kind {
@@ -154,6 +157,7 @@ impl Optimizer {
                 tracker,
                 next_owner.clone(),
                 allow_generic_specialization,
+                specialized_functions,
             );
         }
 
@@ -178,6 +182,7 @@ impl Optimizer {
             tracker,
             &owner,
             allow_generic_specialization,
+            specialized_functions,
         ) {
             self.optimize_node(
                 program,
@@ -186,6 +191,7 @@ impl Optimizer {
                 tracker,
                 owner,
                 allow_generic_specialization,
+                specialized_functions,
             );
         }
     }
@@ -753,6 +759,7 @@ impl Optimizer {
         tracker: &mut SpecializationTracker,
         owner: &str,
         allow_generic_specialization: bool,
+        specialized_functions: &mut BTreeMap<String, LirNodeId>,
     ) -> bool {
         let snapshot = program.nodes[id.0 as usize].clone();
         if snapshot.kind != LirNodeKind::Call {
@@ -828,17 +835,24 @@ impl Optimizer {
 
         let specialization_key =
             format!("specialize:{}:{}", callee_name, signature_parts.join("|"));
+        let specialized_name = self.specialized_function_name(callee_name, &signature_parts);
+        if specialized_functions.contains_key(&specialized_name) {
+            if let Some(callee) = program.nodes.get_mut(callee_id.0 as usize) {
+                callee.text = Some(specialized_name);
+            }
+            return true;
+        }
         if !tracker.allow(owner, specialization_key) {
             return false;
         }
 
-        let specialized_name = self.specialized_function_name(callee_name, &signature_parts);
         let new_id = self.clone_specialized_function(
             program,
             summary,
             specialized_name.clone(),
             &substitutions,
         );
+        specialized_functions.insert(specialized_name.clone(), new_id);
         program.nodes[program.root.0 as usize].children.push(new_id);
         self.specialize_layout_bindings(
             program,
@@ -856,6 +870,7 @@ impl Optimizer {
             tracker,
             specialized_name.clone(),
             allow_generic_specialization,
+            specialized_functions,
         );
 
         if let Some(callee) = program.nodes.get_mut(callee_id.0 as usize) {
@@ -917,6 +932,7 @@ impl Optimizer {
                 tracker,
                 recursive_owner.clone(),
                 false,
+                specialized_functions,
             );
             self.specialize_mir_call_sites(
                 program,
@@ -3364,6 +3380,104 @@ mod tests {
                 .count()
                 == 1,
             "specialized function should only be cloned once"
+        );
+    }
+
+    #[test]
+    fn release_specializes_identical_generic_call_sites_across_owners_once() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "merge_pair");
+        let param_left = builder.alloc_text(LirNodeKind::Value, "left");
+        let param_right = builder.alloc_text(LirNodeKind::Value, "right");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add8 = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let two = literal(&mut builder, "2");
+        let three = literal(&mut builder, "3");
+        let four = literal(&mut builder, "4");
+        let five = literal(&mut builder, "5");
+        let six = literal(&mut builder, "6");
+        let seven = literal(&mut builder, "7");
+        let eight = literal(&mut builder, "8");
+        builder.node_mut(add1).unwrap().children = vec![param_left, param_right];
+        builder.node_mut(add2).unwrap().children = vec![add1, one];
+        builder.node_mut(add3).unwrap().children = vec![add2, two];
+        builder.node_mut(add4).unwrap().children = vec![add3, three];
+        builder.node_mut(add5).unwrap().children = vec![add4, four];
+        builder.node_mut(add6).unwrap().children = vec![add5, five];
+        builder.node_mut(add7).unwrap().children = vec![add6, six];
+        builder.node_mut(add8).unwrap().children = vec![add7, seven];
+        builder.node_mut(ret).unwrap().children = vec![add8, eight];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_left, param_right, block];
+
+        let caller_one = builder.alloc_text(LirNodeKind::Instruction, "caller_one");
+        let caller_one_block = builder.alloc(LirNodeKind::Block);
+        let caller_one_call = builder.alloc(LirNodeKind::Call);
+        let caller_one_callee = builder.alloc_text(LirNodeKind::Value, "merge_pair");
+        let caller_one_left = literal(&mut builder, "2");
+        let caller_one_right = literal(&mut builder, "3");
+        builder.node_mut(caller_one_call).unwrap().children =
+            vec![caller_one_callee, caller_one_left, caller_one_right];
+        builder.node_mut(caller_one_block).unwrap().children = vec![caller_one_call];
+        builder.node_mut(caller_one).unwrap().children = vec![caller_one_block];
+
+        let caller_two = builder.alloc_text(LirNodeKind::Instruction, "caller_two");
+        let caller_two_block = builder.alloc(LirNodeKind::Block);
+        let caller_two_call = builder.alloc(LirNodeKind::Call);
+        let caller_two_callee = builder.alloc_text(LirNodeKind::Value, "merge_pair");
+        let caller_two_left = literal(&mut builder, "2");
+        let caller_two_right = literal(&mut builder, "3");
+        builder.node_mut(caller_two_call).unwrap().children =
+            vec![caller_two_callee, caller_two_left, caller_two_right];
+        builder.node_mut(caller_two_block).unwrap().children = vec![caller_two_call];
+        builder.node_mut(caller_two).unwrap().children = vec![caller_two_block];
+
+        builder.node_mut(root).unwrap().children = vec![function, caller_one, caller_two];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+        let specialized_name_one = program.nodes[caller_one_call.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for the first caller");
+        let specialized_name_two = program.nodes[caller_two_call.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for the second caller");
+
+        assert_eq!(specialized_name_one, specialized_name_two);
+        assert!(specialized_name_one.starts_with("merge_pair$spec$"));
+
+        let specialized_count = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_one)
+            })
+            .count();
+        assert_eq!(
+            specialized_count, 1,
+            "identical generic specializations should be reused across owners"
         );
     }
 

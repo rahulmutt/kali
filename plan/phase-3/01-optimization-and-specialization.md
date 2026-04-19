@@ -86,6 +86,9 @@ types are statically known.
 - The pure-LIR optimizer path now also performs a concrete-argument fallback specialization for
   literal-shaped call sites when MIR layout metadata is unavailable, so generic/function
   specialization can still clone deterministic helpers even before the MIR-aware pass runs.
+- Identical generic specializations are now reused across owners when the callee and argument
+  signatures already match, so the specialization path avoids cloning duplicate helpers just
+  because the same generic call appears in more than one function scope.
 - A representative benchmark suite now records compile time, WASM size, instruction count, and
   add-op deltas across `fast`, `release`, and `release-advanced`.
 

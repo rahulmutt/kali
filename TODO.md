@@ -135,6 +135,10 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Newly created MIR-specialized clones are now recursively revisited under their own owner key, so clone-specific optimization can expose deeper specializable call sites while keeping the specialization budget deterministic.
 - ✅ Kept the update narrow: this widens specialization depth within the existing optimization model; it does not change the published benchmark or support claims.
 
+### Stage 3.1 - Cross-owner generic specialization reuse
+- ✅ Identical generic specializations are now reused across owners when the callee and argument signatures already match, so duplicate helper clones are avoided when the same generic call appears in multiple function scopes.
+- ✅ Kept the update narrow: this is a specialization-dedup improvement inside the existing optimizer model; it does not change the published benchmark or support claims.
+
 ### Stage 3.1 - Nested MIR-specialization depth regression
 - ✅ `release_recursively_specializes_nested_mir_call_sites` now proves a specialized MIR clone can surface a second specializable call site inside its own body, so the deeper monomorphisation path stays regression-tested instead of stopping at the first clone.
 - ✅ Kept the update narrow: this widens specialization depth inside the existing MIR-aware optimizer model; it does not change the published benchmark or support claims.
