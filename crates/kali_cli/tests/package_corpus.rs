@@ -1185,6 +1185,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "@mui/material",
         "@radix-ui/react-dialog",
         "@tanstack/react-query",
+        "@tanstack/react-table",
         "@testing-library/dom",
         "@testing-library/user-event",
         "mobx",
@@ -1874,6 +1875,7 @@ fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the
         "nanostores",
         "pinia",
         "superjson",
+        "@tanstack/react-table",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);

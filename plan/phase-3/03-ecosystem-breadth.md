@@ -84,6 +84,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser and utility web-baseline interop corpus now also exercises `react-hook-form` and
   `classnames` as representative browser-form / lightweight package names, keeping the breadth
   widening concrete without changing the support-rung story.
+- The browser and utility web-baseline interop corpus now also exercises `@tanstack/react-table` as
+  another representative scoped table package name, keeping the breadth widening concrete without
+  changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `immer` as another representative
   utility package name, keeping the browser package corpus breadth concrete without changing the
   support-rung story.
