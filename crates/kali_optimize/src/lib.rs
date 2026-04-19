@@ -2069,6 +2069,179 @@ mod tests {
     }
 
     #[test]
+    fn release_recursively_specializes_nested_mir_call_sites() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let inner = builder.alloc_text(LirNodeKind::Instruction, "sum_pair");
+        let inner_left = builder.alloc_text(LirNodeKind::Value, "left");
+        let inner_right = builder.alloc_text(LirNodeKind::Value, "right");
+        let inner_block = builder.alloc(LirNodeKind::Block);
+        let inner_ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let inner_add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let inner_add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let inner_add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let inner_add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let inner_add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let inner_add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let inner_add7 = builder.alloc_text(LirNodeKind::Value, "+");
+        let inner_add8 = builder.alloc_text(LirNodeKind::Value, "+");
+        let inner_one = literal(&mut builder, "1");
+        let inner_two = literal(&mut builder, "2");
+        let inner_three = literal(&mut builder, "3");
+        let inner_four = literal(&mut builder, "4");
+        let inner_five = literal(&mut builder, "5");
+        let inner_six = literal(&mut builder, "6");
+        let inner_seven = literal(&mut builder, "7");
+        let inner_eight = literal(&mut builder, "8");
+        builder.node_mut(inner_add1).unwrap().children = vec![inner_left, inner_right];
+        builder.node_mut(inner_add2).unwrap().children = vec![inner_add1, inner_one];
+        builder.node_mut(inner_add3).unwrap().children = vec![inner_add2, inner_two];
+        builder.node_mut(inner_add4).unwrap().children = vec![inner_add3, inner_three];
+        builder.node_mut(inner_add5).unwrap().children = vec![inner_add4, inner_four];
+        builder.node_mut(inner_add6).unwrap().children = vec![inner_add5, inner_five];
+        builder.node_mut(inner_add7).unwrap().children = vec![inner_add6, inner_six];
+        builder.node_mut(inner_add8).unwrap().children = vec![inner_add7, inner_seven];
+        builder.node_mut(inner_ret).unwrap().children = vec![inner_add8, inner_eight];
+        builder.node_mut(inner_block).unwrap().children = vec![inner_ret];
+        builder.node_mut(inner).unwrap().children = vec![inner_left, inner_right, inner_block];
+
+        let outer = builder.alloc_text(LirNodeKind::Instruction, "use_sum_pair");
+        let outer_left = builder.alloc_text(LirNodeKind::Value, "left");
+        let outer_right = builder.alloc_text(LirNodeKind::Value, "right");
+        let outer_block = builder.alloc(LirNodeKind::Block);
+        let outer_ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let outer_add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let outer_add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let outer_add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let outer_add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let outer_add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let outer_add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let outer_add7 = builder.alloc_text(LirNodeKind::Value, "+");
+        let outer_add8 = builder.alloc_text(LirNodeKind::Value, "+");
+        let outer_one = literal(&mut builder, "9");
+        let outer_two = literal(&mut builder, "10");
+        let outer_three = literal(&mut builder, "11");
+        let outer_four = literal(&mut builder, "12");
+        let outer_five = literal(&mut builder, "13");
+        let outer_six = literal(&mut builder, "14");
+        let outer_seven = literal(&mut builder, "15");
+        let outer_eight = literal(&mut builder, "16");
+        let nested_call = builder.alloc(LirNodeKind::Call);
+        let nested_call_callee = builder.alloc_text(LirNodeKind::Value, "sum_pair");
+        builder.node_mut(nested_call).unwrap().children =
+            vec![nested_call_callee, outer_left, outer_right];
+        builder.node_mut(outer_add1).unwrap().children = vec![nested_call, outer_one];
+        builder.node_mut(outer_add2).unwrap().children = vec![outer_add1, outer_two];
+        builder.node_mut(outer_add3).unwrap().children = vec![outer_add2, outer_three];
+        builder.node_mut(outer_add4).unwrap().children = vec![outer_add3, outer_four];
+        builder.node_mut(outer_add5).unwrap().children = vec![outer_add4, outer_five];
+        builder.node_mut(outer_add6).unwrap().children = vec![outer_add5, outer_six];
+        builder.node_mut(outer_add7).unwrap().children = vec![outer_add6, outer_seven];
+        builder.node_mut(outer_add8).unwrap().children = vec![outer_add7, outer_eight];
+        builder.node_mut(outer_ret).unwrap().children = vec![outer_add8];
+        builder.node_mut(outer_block).unwrap().children = vec![outer_ret];
+        builder.node_mut(outer).unwrap().children = vec![outer_left, outer_right, outer_block];
+
+        let call = builder.alloc(LirNodeKind::Call);
+        let callee = builder.alloc_text(LirNodeKind::Value, "use_sum_pair");
+        let two = literal(&mut builder, "2");
+        let three = literal(&mut builder, "3");
+        builder.node_mut(call).unwrap().children = vec![callee, two, three];
+
+        builder.node_mut(root).unwrap().children = vec![inner, outer, call];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![
+                kali_mir::MirFunction {
+                    name: Some("sum_pair".to_string()),
+                    kind: kali_mir::MirFunctionKind::Function,
+                    bindings: vec![
+                        kali_mir::MirBinding {
+                            name: "left".to_string(),
+                            kind: MirBindingKind::Parameter,
+                            ownership: kali_mir::OwnershipClass::Borrowed,
+                            layout: LayoutDescriptor::TaggedVal,
+                            escapes: false,
+                            captured_by: Vec::new(),
+                        },
+                        kali_mir::MirBinding {
+                            name: "right".to_string(),
+                            kind: MirBindingKind::Parameter,
+                            ownership: kali_mir::OwnershipClass::Borrowed,
+                            layout: LayoutDescriptor::TaggedVal,
+                            escapes: false,
+                            captured_by: Vec::new(),
+                        },
+                    ],
+                },
+                kali_mir::MirFunction {
+                    name: Some("use_sum_pair".to_string()),
+                    kind: kali_mir::MirFunctionKind::Function,
+                    bindings: vec![
+                        kali_mir::MirBinding {
+                            name: "left".to_string(),
+                            kind: MirBindingKind::Parameter,
+                            ownership: kali_mir::OwnershipClass::Borrowed,
+                            layout: LayoutDescriptor::TaggedVal,
+                            escapes: false,
+                            captured_by: Vec::new(),
+                        },
+                        kali_mir::MirBinding {
+                            name: "right".to_string(),
+                            kind: MirBindingKind::Parameter,
+                            ownership: kali_mir::OwnershipClass::Borrowed,
+                            layout: LayoutDescriptor::TaggedVal,
+                            escapes: false,
+                            captured_by: Vec::new(),
+                        },
+                    ],
+                },
+            ],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let outer_specialized_name = program.nodes[call.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized outer call target should exist");
+        assert!(outer_specialized_name.starts_with("use_sum_pair$spec$"));
+
+        let inner_specialized_name = program
+            .nodes
+            .iter()
+            .find(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node
+                        .text
+                        .as_deref()
+                        .is_some_and(|text| text.starts_with("sum_pair$spec$"))
+            })
+            .and_then(|node| node.text.as_deref())
+            .expect("nested specialized inner call target should exist");
+        assert!(inner_specialized_name.starts_with("sum_pair$spec$"));
+
+        let inner_specialized_count = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(inner_specialized_name)
+            })
+            .count();
+        assert_eq!(inner_specialized_count, 1);
+    }
+
+    #[test]
     fn release_specializes_same_binding_name_in_distinct_function_scopes() {
         let mut builder = LirBuilder::new();
         let root = builder.alloc(LirNodeKind::Program);

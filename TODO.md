@@ -33,6 +33,10 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Newly created MIR-specialized clones are now recursively revisited under their own owner key, so clone-specific optimization can expose deeper specializable call sites while keeping the specialization budget deterministic.
 - ✅ Kept the update narrow: this widens specialization depth within the existing optimization model; it does not change the published benchmark or support claims.
 
+### Stage 3.1 - Nested MIR-specialization depth regression
+- ✅ `release_recursively_specializes_nested_mir_call_sites` now proves a specialized MIR clone can surface a second specializable call site inside its own body, so the deeper monomorphisation path stays regression-tested instead of stopping at the first clone.
+- ✅ Kept the update narrow: this widens specialization depth inside the existing MIR-aware optimizer model; it does not change the published benchmark or support claims.
+
 ### Stage 3.3 - Web Blob/File/FileReader baseline
 - ✅ `kali_api_web` now exposes in-memory `Blob` and `File` primitives for the Web baseline, and `kali_api_deno` reexports them so the browser/runtime support library can model common blob/file payloads without changing the public support-rung story.
 - ✅ `kali_api_web` now also exposes an in-memory `FileReader` baseline, and `kali_api_deno` reexports it so browser-style code can read shared blob/file payloads deterministically without changing the public support-rung story.

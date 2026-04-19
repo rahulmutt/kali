@@ -37,6 +37,9 @@ types are statically known.
 - Newly created MIR-specialized clones are recursively revisited under their own owner key, so
   clone-specific optimization can expose deeper specializable call sites without collapsing the
   parent function's deterministic budget accounting.
+- A nested-call regression now proves a specialized clone can surface a second specializable call
+  site inside its own body, so the current depth story reaches past the first cloned layer without
+  changing the deterministic budget model.
 - Tagged-parameter call sites now specialize when the actual arguments have a concrete literal or
   MIR-backed layout, so the monomorphisation path reaches one level deeper than the previous
   non-tagged-layout gate while still respecting the deterministic specialization budget.

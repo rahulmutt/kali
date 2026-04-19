@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 3.1 nested MIR-specialization depth regression
+
+I widened the Stage 3.1 specialization follow-up with a nested-call regression: `release_recursively_specializes_nested_mir_call_sites` now proves a specialized MIR clone can expose a second specializable call site inside its own body. That keeps the deeper monomorphisation path regression-tested while preserving the deterministic specialization budget story.
+
+Planned update:
+- sync `plan/phase-3/01-optimization-and-specialization.md` and `TODO.md` so the Stage 3.1 progress notes call out the nested specialization depth regression explicitly
+- keep the claim narrow: this is a specialization-depth widening inside the existing optimizer model, not a new support-rung claim
+
 ## 2026-04-19 — Stage 3.3 scoped browser typed-export representative widening
 
 I widened the Stage 3.3 browser typed-export-branch corpus with `@tanstack/react-query`, then synced `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` so the representative package corpus now names one more scoped browser package without changing the support-rung story.
