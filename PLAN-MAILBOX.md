@@ -406,3 +406,14 @@ Planned update:
 
 Completed:
 - `README.md` now names `KaliCore.Safety.releaseAndCollectTargetCellOriginAndPositiveCount` explicitly alongside the existing target-allocation and origin/ownership helpers, keeping the verification summary aligned with the published RC snapshot boundary.
+
+## 2026-04-19 — Stage 3.3 mobx corpus wording sync
+
+I noticed the Stage 3.3 package corpus already exercises `mobx`, but the top-level follow-up summary doesn't call it out yet.
+
+Planned update:
+- sync `PLAN.md` and `TODO.md` so the Stage 3.3 follow-up wording names `mobx` explicitly alongside the existing browser web-baseline package breadth notes
+- keep the claim narrow: this is a progress-summary wording sync for already-covered corpus evidence, not a new support-rung claim
+
+Completed:
+- the Stage 3.3 top-level follow-up notes now name `mobx` explicitly, keeping the summary aligned with the existing corpus evidence.
