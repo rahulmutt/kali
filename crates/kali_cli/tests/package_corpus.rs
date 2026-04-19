@@ -686,6 +686,7 @@ fn browser_corpus_packages_with_typed_export_branches_remain_checkable_and_deplo
     for (package, subpath) in [
         ("react", "jsx-runtime"),
         ("solid-js", "web"),
+        ("@apollo/client", "cache"),
         ("@emotion/react", "jsx-runtime"),
         ("@emotion/styled", "styled"),
         ("@floating-ui/react", "dom"),
@@ -1174,6 +1175,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "next",
         "hono",
         "@vueuse/core",
+        "@apollo/client",
         "@emotion/react",
         "@reduxjs/toolkit",
         "@floating-ui/react",
@@ -1309,6 +1311,7 @@ fn browser_corpus_packages_with_internal_browser_rewrites_remain_checkable_and_d
 fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deployable_through_host() {
     for (package, subpath) in [
         ("@emotion/react", "jsx-runtime"),
+        ("@apollo/client", "cache"),
         ("@floating-ui/react", "dom"),
         ("@headlessui/react", "dialog"),
         ("@heroicons/react", "solid"),
@@ -1378,6 +1381,7 @@ fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkabl
 ) {
     for (package, subpath) in [
         ("@emotion/react", "jsx-runtime"),
+        ("@apollo/client", "cache"),
         ("@floating-ui/react", "dom"),
         ("@headlessui/react", "dialog"),
         ("@heroicons/react", "solid"),

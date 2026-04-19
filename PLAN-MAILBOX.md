@@ -1,3 +1,14 @@
+## 2026-04-19 — Stage 3.3 @apollo/client browser corpus widening
+
+I widened the Stage 3.3 package corpus a little further by adding `@apollo/client` to the browser web-baseline interop, typed-export-branch, exports-map, and browser-condition slices, keeping the representative scoped browser breadth concrete without changing any support-rung claims.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention `@apollo/client` alongside the existing browser package breadth notes
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- the browser corpus and the related Stage 3.3 progress notes now also name `@apollo/client` explicitly, and the corpus-breadth wording stays aligned with that narrower slice coverage.
+
 ## 2026-04-19 — Stage 3.3 classnames corpus widening
 
 I widened the Stage 3.3 package corpus a little further by adding `classnames` to the browser web-baseline interop slice and the utility corpus, keeping the representative lightweight package breadth concrete without changing any support-rung claims.
