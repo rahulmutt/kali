@@ -1164,6 +1164,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "solid-js",
         "date-fns",
         "dayjs",
+        "luxon",
         "graphql",
         "lodash-es",
         "nanoid",
@@ -1576,6 +1577,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "esbuild",
         "date-fns",
         "dayjs",
+        "luxon",
         "axios",
         "graphql",
         "lodash",
@@ -1808,6 +1810,7 @@ fn utility_corpus_packages_with_module_entries_remain_executable_on_the_default_
         "immer",
         "typescript",
         "esbuild",
+        "luxon",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
@@ -1915,6 +1918,7 @@ fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the
         "uuid",
         "rxjs",
         "dayjs",
+        "luxon",
         "zod",
         "nanoid",
         "axios",

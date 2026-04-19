@@ -571,6 +571,12 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Added `@emotion/react`, `@emotion/styled`, `@heroicons/react`, and `react-dom` to the browser web-baseline interop slice so the browser/runtime interoperability widening now carries another browser package name through the browser command path without changing the documented support rungs.
 - ✅ Added exports-string corpus coverage so the representative browser and utility package sets now exercise top-level string `exports` roots alongside the existing map-based exports cases.
 - ✅ Added `dayjs` to the browser web-baseline, utility plain-package, and utility module-entry corpus slices so the breadth follow-up now carries one more common pure-JS utility package through the existing support-rung checks without changing the documented support rungs.
+
+### Stage 3.3 - luxon browser/utility corpus widening
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `luxon` in the browser web-baseline interop, utility plain-package, utility web-baseline interop, and utility module-entry slices, so the representative date-time utility breadth now stays concrete across the browser and standalone command paths without changing the documented support-rungs.
+- ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the `luxon` Stage 3.3 widening explicitly, keeping the corpus-breadth wording aligned with the current evidence set.
+- ✅ Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
+
 - ✅ Added `zustand` to the browser web-baseline and utility plain-package corpus slices so the representative package corpus now carries one more lightweight package name through the browser and standalone command paths without changing the documented support rungs.
 - ✅ Added `xstate` to the browser and utility web-baseline interop slices so the representative package corpus now carries one more state-management package name through the browser and standalone command paths without changing the documented support rungs.
 - ✅ Added `valtio` to the browser and utility web-baseline interop slices so the representative package corpus now carries one more state-management package name through the browser and standalone command paths without changing the documented support rungs.

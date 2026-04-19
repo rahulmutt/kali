@@ -564,3 +564,12 @@ I widened the Stage 3.3 package corpus one step further by adding `@radix-ui/rea
 Planned update:
 - sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new scoped-browser dialog coverage is named explicitly
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+## 2026-04-19 — Stage 3.3 luxon corpus widening
+
+I’m widening the Stage 3.3 package corpus one more step by adding `luxon` to the browser web-baseline interop, utility plain-package, utility web-baseline interop, and utility module-entry slices, so the representative date-time utility breadth stays concrete without changing any support-rung claims.
+
+Planned update:
+- add `luxon` to `crates/kali_cli/tests/package_corpus.rs` in the browser and utility corpus slices noted above
+- sync the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new `luxon` coverage is named explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
