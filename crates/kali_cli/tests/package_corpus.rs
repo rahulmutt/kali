@@ -1320,6 +1320,7 @@ fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deploya
         ("@floating-ui/react", "dom"),
         ("@headlessui/react", "dialog"),
         ("@heroicons/react", "solid"),
+        ("@storybook/react", "preview-api"),
         ("@mui/material", "styles"),
         ("@tanstack/react-query", "query-core"),
     ] {
@@ -1391,6 +1392,7 @@ fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkabl
         ("@floating-ui/react", "dom"),
         ("@headlessui/react", "dialog"),
         ("@heroicons/react", "solid"),
+        ("@storybook/react", "preview-api"),
         ("@mui/material", "styles"),
         ("@tanstack/react-query", "query-core"),
         ("react-dom", "client"),

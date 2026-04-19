@@ -354,6 +354,15 @@ Planned update:
 - add `framer-motion` to `crates/kali_cli/tests/package_corpus.rs`
 - sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention the new browser UI package
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+## 2026-04-19 — Stage 3.3 @storybook/react scoped-browser shape widening
+
+I found a small follow-up in the scoped-browser package-shape lane: `@storybook/react` is already covered in the browser web-baseline interop slice, and we can keep the corpus breadth growing by exercising its exports-map and browser-condition shapes too.
+
+Planned update:
+- add `@storybook/react` to the scoped browser exports-map and browser-condition corpus slices in `crates/kali_cli/tests/package_corpus.rs`
+- sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the progress notes call out the new scoped-browser slice coverage explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
 ## 2026-04-19 — Stage 4.2 target-origin theorem inventory sync
 
 I found a small Stage 4.2 follow-up for the current proof-backed boundary summary: the RC snapshot progress notes should keep the newly explicit target-cell origin/positive-count theorem bullets aligned with the canonical theorem inventory.
