@@ -321,3 +321,10 @@ I made the proof-boundary / verification summaries explicitly name the RC snapsh
 
 Suggested follow-up:
 - keep the plan and proof-boundary wording aligned if the RC snapshot predicate vocabulary widens again; this is a documentation sync, not a boundary widening
+
+## 2026-04-19 — Stage 4.2 RC predicate vocabulary anti-drift guard
+
+I tightened the Stage 4.2 schema-docs anti-drift guard so `crates/kali_cli/tests/schema_docs.rs` now also pins the explicit RC predicate vocabulary names (`hasOwnership`, `allocated`, and `liveAnnotated`) alongside the published theorem inventory.
+
+Suggested follow-up:
+- keep the proof-boundary and status summaries aligned if the RC predicate vocabulary widens again; this remains a wording / anti-drift sync, not a boundary widening

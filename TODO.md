@@ -219,6 +219,7 @@ follow-up widening rather than unfinished baseline delivery:
 
 ### Stage 4.2 - RC predicate vocabulary sync
 - ✅ The RC snapshot model now names the explicit `hasOwnership`, `allocated`, and `liveAnnotated` predicate vocabulary in the proof-boundary and progress-tracker summaries.
+- ✅ `crates/kali_cli/tests/schema_docs.rs` now pins the same `hasOwnership` / `allocated` / `liveAnnotated` RC vocabulary so the proof-summary drift guard catches model-vocabulary wording drift in the published boundary docs.
 - ✅ Kept the update narrow: this is a model-vocabulary wording sync, not a boundary widening.
 
 ## Recently Closed Work

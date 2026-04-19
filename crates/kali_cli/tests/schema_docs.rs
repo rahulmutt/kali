@@ -99,6 +99,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
     let summary =
         "Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.";
     let proof_backed_phrase = "proof-backed for the published boundary";
+    let rc_predicate_vocabulary = ["hasOwnership", "allocated", "liveAnnotated"];
     let rc_theorem_names = [
         "releaseRefNoDanglingReference",
         // Keep the release-only helper and the decrement/collection live-reference filtering corollaries pinned together.
@@ -195,6 +196,12 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
                 "{relative} is missing proof-summary theorem name: {theorem}"
             );
         }
+        for term in rc_predicate_vocabulary {
+            assert!(
+                text.contains(term),
+                "{relative} is missing RC predicate vocabulary term: {term}"
+            );
+        }
     }
 
     let lowering_theorem_names = [
@@ -228,6 +235,12 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
             assert!(
                 text.contains(theorem),
                 "{relative} is missing proof-summary theorem name: {theorem}"
+            );
+        }
+        for term in rc_predicate_vocabulary {
+            assert!(
+                text.contains(term),
+                "{relative} is missing RC predicate vocabulary term: {term}"
             );
         }
     }
