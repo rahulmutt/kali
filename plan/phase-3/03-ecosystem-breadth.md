@@ -63,7 +63,7 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   reexports those names so browser-style code can exercise the ambient surface without changing the
   documented support rungs.
 - The package corpus now also exercises `AbortController`, `EventTarget`, `CustomEvent`,
-  `BroadcastChannel`, `URLSearchParams`, `FormData`, `structuredClone`, and `FileReader` in representative browser and
+  `BroadcastChannel`, `URLSearchParams`, `FormData`, `fetch`, `Headers`, `Request`, `Response`, `structuredClone`, and `FileReader` in representative browser and
   utility package cases, widening the browser/runtime interoperability slice without changing the
   documented support rungs.
 - The browser and utility corpus now also drive the deterministic `BroadcastChannel`, `WebSocket`, `Worker`, and
