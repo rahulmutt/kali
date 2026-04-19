@@ -555,6 +555,7 @@ fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_thr
         ("solid-js", "store"),
         ("vue-router", "history"),
         ("react-router", "dom"),
+        ("jotai", "store"),
         ("react-dom", "client"),
     ] {
         let dir = tempdir().expect("tempdir");
@@ -835,6 +836,7 @@ fn browser_corpus_packages_with_browser_exports_remain_checkable_and_deployable_
         ("react", "jsx-runtime"),
         ("preact", "hooks"),
         ("vue", "runtime-dom"),
+        ("jotai", "store"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));

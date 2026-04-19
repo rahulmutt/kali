@@ -573,3 +573,15 @@ Planned update:
 - add `luxon` to `crates/kali_cli/tests/package_corpus.rs` in the browser and utility corpus slices noted above
 - sync the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new `luxon` coverage is named explicitly
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+## 2026-04-19 — Stage 3.3 jotai browser exports-map/browser-condition widening
+
+I widened the Stage 3.3 browser package-shape corpus one step further by adding `jotai` to the browser exports-map and browser-condition slices, keeping the representative browser state-management breadth concrete without changing any support-rung claims.
+
+Planned update:
+- add `jotai` to `crates/kali_cli/tests/package_corpus.rs` in the browser exports-map and browser-condition slices
+- sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new `jotai` shape coverage is named explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- the browser exports-map and browser-condition corpus now also exercises `jotai`, and the corresponding progress notes now call out that narrower shape coverage explicitly.
