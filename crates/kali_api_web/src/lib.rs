@@ -3,6 +3,7 @@
 use serde_json::Value;
 use std::{
     collections::BTreeMap,
+    fmt,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex, OnceLock,
@@ -433,6 +434,143 @@ pub fn parse_url(input: &str) -> Result<Url, url::ParseError> {
 /// Resolve a URL against a base URL string.
 pub fn resolve_url(base: &str, input: &str) -> Result<Url, url::ParseError> {
     Url::parse(base)?.join(input)
+}
+
+/// A deterministic in-memory Web `URL` baseline.
+#[derive(Clone, Debug)]
+#[allow(clippy::upper_case_acronyms)]
+pub struct URL {
+    url: Url,
+}
+
+impl PartialEq for URL {
+    fn eq(&self, other: &Self) -> bool {
+        self.url.as_str() == other.url.as_str()
+    }
+}
+
+impl Eq for URL {}
+
+impl fmt::Display for URL {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl URL {
+    /// Create a new URL from an absolute or base-resolved URL string.
+    pub fn new(input: impl AsRef<str>) -> Result<Self, url::ParseError> {
+        Self::parse(input)
+    }
+
+    /// Parse a URL string into the deterministic baseline wrapper.
+    pub fn parse(input: impl AsRef<str>) -> Result<Self, url::ParseError> {
+        Url::parse(input.as_ref()).map(Self::from_url)
+    }
+
+    /// Resolve a relative URL against a base URL string.
+    pub fn resolve(
+        base: impl AsRef<str>,
+        input: impl AsRef<str>,
+    ) -> Result<Self, url::ParseError> {
+        Url::parse(base.as_ref())?
+            .join(input.as_ref())
+            .map(Self::from_url)
+    }
+
+    /// Wrap an existing parsed URL value.
+    pub fn from_url(url: Url) -> Self {
+        Self { url }
+    }
+
+    /// Unwrap the inner parsed URL value.
+    pub fn into_inner(self) -> Url {
+        self.url
+    }
+
+    /// Return the underlying parsed URL.
+    pub fn as_url(&self) -> &Url {
+        &self.url
+    }
+
+    /// Return the serialized URL string.
+    pub fn as_str(&self) -> &str {
+        self.url.as_str()
+    }
+
+    /// Return the canonical URL href string.
+    pub fn href(&self) -> &str {
+        self.as_str()
+    }
+
+    /// Return the current protocol with the trailing `:` suffix.
+    pub fn protocol(&self) -> String {
+        format!("{}:", self.url.scheme())
+    }
+
+    /// Update the protocol/scheme component.
+    pub fn set_protocol(&mut self, protocol: impl AsRef<str>) -> Result<(), ()> {
+        let protocol = protocol.as_ref().trim_end_matches(':');
+        self.url.set_scheme(protocol)
+    }
+
+    /// Return the current pathname component.
+    pub fn pathname(&self) -> &str {
+        self.url.path()
+    }
+
+    /// Update the pathname component.
+    pub fn set_pathname(&mut self, pathname: impl AsRef<str>) {
+        self.url.set_path(pathname.as_ref());
+    }
+
+    /// Return the current query string with the leading `?`, if present.
+    pub fn search(&self) -> String {
+        self.url
+            .query()
+            .map(|query| format!("?{}", query))
+            .unwrap_or_default()
+    }
+
+    /// Update the query string.
+    pub fn set_search(&mut self, search: impl AsRef<str>) {
+        let search = search.as_ref().strip_prefix('?').unwrap_or(search.as_ref());
+        self.url.set_query((!search.is_empty()).then_some(search));
+    }
+
+    /// Return the current fragment with the leading `#`, if present.
+    pub fn hash(&self) -> String {
+        self.url
+            .fragment()
+            .map(|fragment| format!("#{}", fragment))
+            .unwrap_or_default()
+    }
+
+    /// Update the fragment component.
+    pub fn set_hash(&mut self, hash: impl AsRef<str>) {
+        let hash = hash.as_ref().strip_prefix('#').unwrap_or(hash.as_ref());
+        self.url.set_fragment((!hash.is_empty()).then_some(hash));
+    }
+
+    /// Return the current host component, if any.
+    pub fn host(&self) -> Option<&str> {
+        self.url.host_str()
+    }
+
+    /// Update the host component.
+    pub fn set_host(&mut self, host: impl AsRef<str>) -> Result<(), ()> {
+        self.url.set_host(Some(host.as_ref())).map_err(|_| ())
+    }
+
+    /// Return the current port component, if any.
+    pub fn port(&self) -> Option<u16> {
+        self.url.port()
+    }
+
+    /// Update the port component.
+    pub fn set_port(&mut self, port: Option<u16>) -> Result<(), ()> {
+        self.url.set_port(port)
+    }
 }
 
 fn normalize_header_name(name: &str) -> String {
@@ -1650,6 +1788,33 @@ mod tests {
 
         let resolved = resolve_url("https://example.com/base/", "../child").expect("resolved");
         assert_eq!(resolved.as_str(), "https://example.com/child");
+    }
+
+    #[test]
+    fn url_object_round_trips_components() {
+        let mut url = URL::new("https://example.com/base?alpha=1#fragment").expect("url");
+        assert_eq!(url.as_str(), "https://example.com/base?alpha=1#fragment");
+        assert_eq!(url.href(), "https://example.com/base?alpha=1#fragment");
+        assert_eq!(url.protocol(), "https:");
+        assert_eq!(url.pathname(), "/base");
+        assert_eq!(url.search(), "?alpha=1");
+        assert_eq!(url.hash(), "#fragment");
+        assert_eq!(url.host(), Some("example.com"));
+
+        url.set_pathname("/child");
+        url.set_search("?beta=2");
+        url.set_hash("section");
+        assert_eq!(url.as_str(), "https://example.com/child?beta=2#section");
+        assert_eq!(url.port(), None);
+        assert_eq!(url.set_protocol("http:"), Ok(()));
+        assert_eq!(url.as_str(), "http://example.com/child?beta=2#section");
+        assert_eq!(url.set_host("example.org"), Ok(()));
+        assert_eq!(url.set_port(Some(8080)), Ok(()));
+        assert_eq!(url.as_str(), "http://example.org:8080/child?beta=2#section");
+
+        let resolved = URL::resolve("https://example.com/base/", "../child").expect("resolved");
+        assert_eq!(resolved.as_str(), "https://example.com/child");
+        assert_eq!(resolved.clone().into_inner().as_str(), "https://example.com/child");
     }
 
     #[test]

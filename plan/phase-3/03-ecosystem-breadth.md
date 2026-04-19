@@ -148,6 +148,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser and utility web-baseline interop corpus now also exercises `atob` / `btoa` in the
   shared helper source, keeping the browser/runtime interoperability slice concrete without
   changing the support-rung story.
+- The shared browser/runtime support library now also exposes a deterministic `URL` baseline, the
+  browser and utility web-baseline interop corpus now also exercises `new URL(...)` in the shared
+  helper source, and the Deno compatibility surface reexports the wrapper so browser-style code can
+  model parsed URL state without changing the documented support rungs.
 - The package corpus now also exercises `AbortController`, `EventTarget`, `CustomEvent`,
   `BroadcastChannel`, `URLSearchParams`, `FormData`, `fetch`, `Headers`, `Request`, `Response`, `structuredClone`, and `FileReader` in representative browser and
   utility package cases, widening the browser/runtime interoperability slice without changing the

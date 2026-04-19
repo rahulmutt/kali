@@ -9,7 +9,7 @@ pub use kali_api_web::{
     session_storage, structured_clone, text_decode, text_encode, AbortController, AbortSignal,
     Base64Error, Blob, BroadcastChannel, CustomEvent, Event, EventTarget, File, FileReader,
     FileReaderState, FormData, FormDataEntry, FormDataValue, Headers, IndexedDb, Request, Response,
-    Storage, URLSearchParams, WebSocket, WebSocketReadyState, Worker,
+    Storage, URL, URLSearchParams, WebSocket, WebSocketReadyState, Worker,
 };
 
 use std::{
@@ -554,6 +554,20 @@ mod tests {
             form.get("file").expect("file entry").value(),
             &FormDataValue::File(file)
         );
+    }
+
+    #[test]
+    fn browser_url_is_reexported_through_the_deno_surface() {
+        let mut url = URL::new("https://example.com/deno?alpha=1#fragment").expect("url");
+        assert_eq!(url.as_str(), "https://example.com/deno?alpha=1#fragment");
+        assert_eq!(url.pathname(), "/deno");
+        assert_eq!(url.search(), "?alpha=1");
+        assert_eq!(url.hash(), "#fragment");
+
+        url.set_pathname("/bridge");
+        url.set_search("?beta=2");
+        url.set_hash("section");
+        assert_eq!(url.as_str(), "https://example.com/bridge?beta=2#section");
     }
 
     #[test]
