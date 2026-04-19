@@ -21,6 +21,7 @@ follow-up widening rather than unfinished baseline delivery:
 
 ### Stage 3.3 - Browser/runtime interop corpus widening
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now exercises the web-baseline interop slice with representative browser and utility package cases that create `AbortController`, `EventTarget`, `Blob`, `File`, and `structuredClone` payloads alongside package imports.
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `solid-js` in the browser web-baseline interop slice and `rxjs` in the utility web-baseline interop slice, so the browser/runtime interoperability widening now covers a little more representative package breadth without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `solid-js` in the browser exports-map corpus alongside the existing browser representatives, so the browser/runtime interoperability widening now covers one more representative package shape without changing the documented support rungs.
 - ✅ Kept the update narrow: this widens the package corpus and browser/runtime interoperability checks without changing the documented support rungs.
 

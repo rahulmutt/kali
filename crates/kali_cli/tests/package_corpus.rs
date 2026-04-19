@@ -1128,7 +1128,7 @@ fn browser_corpus_packages_with_string_exports_remain_checkable_and_deployable_t
 #[test]
 fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_deployable_through_host(
 ) {
-    for package in ["react", "preact"] {
+    for package in ["react", "preact", "solid-js"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
         write_stub_package(
@@ -1750,7 +1750,7 @@ fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_def
 #[test]
 fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the_default_standalone_surface(
 ) {
-    for package in ["ramda", "uuid"] {
+    for package in ["ramda", "uuid", "rxjs"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_stub_package(
