@@ -400,3 +400,10 @@ I found a small proof-summary drift gap: the published boundary already names `K
 Planned update:
 - sync the verification-facing summaries in `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the base no-dangling theorem is named alongside the helper-level corollaries
 - keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
+## 2026-04-19 — Stage 4.2 target-origin theorem inventory sync
+
+I found that the published proof-boundary summary already mentioned `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` in prose, but the canonical theorem inventory needed a matching explicit bullet so the boundary manifest's claimed-theorem list stays aligned with the current RC snapshot slice.
+
+Planned update:
+- keep the claimed-theorem inventory in `proofs/BOUNDARY.md` aligned with the prose summary by adding the target-cell origin/positive-count theorem bullets explicitly, and mirror the same wording in the Stage 4.2 progress trackers where they enumerate the published slice
+- keep the claim narrow: this is a theorem-inventory / anti-drift sync for the published boundary, not a boundary widening beyond the current RC slice

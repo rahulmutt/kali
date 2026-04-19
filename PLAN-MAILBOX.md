@@ -253,3 +253,10 @@ Planned update:
 - add `framer-motion` to `crates/kali_cli/tests/package_corpus.rs`
 - sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention the new browser UI package
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+## 2026-04-19 — Stage 4.2 target-origin theorem inventory sync
+
+I found a small Stage 4.2 follow-up for the current proof-backed boundary summary: the RC snapshot progress notes should keep the newly explicit target-cell origin/positive-count theorem bullets aligned with the canonical theorem inventory.
+
+Planned update:
+- sync `PLAN-4.2-STATUS.md` and `TODO.md` so the target-cell origin/positive-count theorem is called out explicitly in the current Stage 4.2 progress wording, matching the theorem inventory added to `proofs/BOUNDARY.md`
+- keep the claim narrow: this is a documentation / anti-drift sync for the published boundary, not a boundary widening

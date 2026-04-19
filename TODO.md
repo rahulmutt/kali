@@ -22,7 +22,8 @@ follow-up widening rather than unfinished baseline delivery:
   `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory`, the
   decrement-path companion theorem
   `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCountAndLinearMemory`, the
-  decrement-path iff bridge `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff`, the
+  decrement-path target origin/positive-count theorem
+  `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount`, the decrement-path iff bridge `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff`, the
   collection target iff bridge `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`,
   the collection helper's heap-filter-and-linear-memory corollary
   `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilterAndLinearMemory`, the heap-characterisation companions
