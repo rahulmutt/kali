@@ -5,21 +5,14 @@
 The repository has closed the stage-plan milestones reflected in `PLAN.md`; the remaining work is
 follow-up widening rather than unfinished baseline delivery:
 
-- widen specialization depth beyond the current MIR-aware layout-specialized path — including the
-  array-layout widening that preserves array-valued MIR binding fingerprints during call-site
-  specialization — and the newer direct array-literal shape widening that keeps inline arrays with
-  different lengths split apart via explicit `Value:array:len=...` signatures — while keeping the
-  specialization budget and benchmark evidence honest; the current optimizer now also splits quoted
-  string-literal and no-substitution template literal call-site arguments into distinct
-  specialization signatures, preserves boolean literal `true` / `false` identity, distinguishes
-  numeric literals from each other at call sites, distinguishes signed-zero `-0` from `0`,
-  distinguishes BigInt literals from the old numeric fallback, distinguishes `null` and `undefined`
-  from the old zero-valued fallback, lifts nested MIR-bound bindings inside object-literal call sites
-  into the same signature path, canonicalizes object-literal property order so reordered shapes
-  reuse one specialized clone, preserves array-valued MIR binding fingerprints during call-site
-  specialization so different array-layout widenings can split into separate clones, and keeps the
-  nested-call regression `release_recursively_specializes_nested_mir_call_sites` layered inside a
-  specialized clone so widening stays concrete without broadening the published benchmark claims,
+- widen specialization depth beyond the current MIR-aware layout-specialized path; the optimizer
+  already now covers owner-scoped MIR binding layouts, quoted string- and template-literal
+  signatures, `null` / `undefined` / boolean / numeric / signed-zero / BigInt literal signatures,
+  array-layout widening, direct array-literal shape widening, nested MIR-bound bindings,
+  object-literal property-order canonicalization, and the nested-call regression
+  `release_recursively_specializes_nested_mir_call_sites`, so the remaining work is the fuller
+  generic-instantiation planner and cross-module specialization model while keeping the
+  specialization budget and benchmark evidence honest,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic event primitives for
   `AbortController`, `EventTarget`, and `CustomEvent`, plus stub surfaces for `BroadcastChannel`, `WebSocket`, `Worker`, and `IndexedDB` in addition to the shared `Blob` / `File` / `FormData` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those surfaces alongside `fetch`, `Headers`, `Request`, `Response`, `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `next`, `hono`, `@vueuse/core`, `@emotion/react`, `@emotion/styled`, `@heroicons/react`, `react-dom`, `@floating-ui/react`, `@headlessui/react`, `@chakra-ui/react`, `@mui/material`, `@radix-ui/react-dialog`, `@tanstack/react-query`, `@testing-library/dom`, `URLSearchParams`, `TextEncoder`, `TextDecoder`, and the existing browser representatives,

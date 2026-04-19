@@ -9,6 +9,17 @@ Planned update:
 Completed:
 - the companion theorem is now named explicitly in `PLAN.md`, `PLAN-4.2-STATUS.md`, and the current boundary summaries, so the pure-release provenance slice now matches the decrement and collection helper wording.
 
+## 2026-04-19 — Stage 4.2 decrement linear-memory companion widening
+
+I widened the RC snapshot proof slice so the decrement helper now names `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` explicitly alongside the release-only and collection companions.
+
+Planned update:
+- sync `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, `TODO.md`, and the proof-summary anti-drift test so the new theorem is named explicitly
+- keep the claim narrow: this is another helper-level RC widening on top of the current published boundary, not the full Stage 4.2 ownership/freeing target
+
+Completed:
+- the companion theorem is now explicitly named in `PLAN.md`, `PLAN-4.2-STATUS.md`, `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `plan/phase-4/02-formal-verification-depth.md`, `TODO.md`, and the schema-docs anti-drift guard.
+
 ## 2026-04-19 — Stage 3.1 object-literal property-order canonicalization
 
 I widened the Stage 3.1 specialization path one step further so object-literal property order is now canonicalized during MIR-aware specialization, which lets semantically identical object shapes with reordered fields reuse the same clone instead of splitting on insertion order.
