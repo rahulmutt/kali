@@ -1,3 +1,14 @@
+## 2026-04-19 — Stage 3.3 classnames corpus widening
+
+I widened the Stage 3.3 package corpus a little further by adding `classnames` to the browser web-baseline interop slice and the utility corpus, keeping the representative lightweight package breadth concrete without changing any support-rung claims.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention `classnames` alongside the existing browser/utility package breadth notes
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- the browser web-baseline interop corpus and utility corpus now also name `classnames` explicitly, and the related Stage 3.3 progress notes stay aligned with that narrower slice coverage.
+
 ## 2026-04-19 — Stage 3.1 concrete-argument specialization fallback
 
 I finished the in-progress generic/function specialization fallback so literal-shaped call sites can clone deterministic helpers even when MIR layout metadata is unavailable.
