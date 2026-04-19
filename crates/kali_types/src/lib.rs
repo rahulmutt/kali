@@ -1070,6 +1070,7 @@ impl TypeChecker {
     }
 
     pub fn typecheck(&mut self, _program_root: NodeId) -> Vec<Diagnostic> {
+        self.diagnostics.extend(self.context.drain_diagnostics());
         self.diagnostics.clone()
     }
 }
@@ -1366,6 +1367,18 @@ mod tests {
         assert!(diagnostics
             .iter()
             .any(|diag| diag.code == Some(e3::UNDEFINED_IDENTIFIER as u32)));
+    }
+
+    #[test]
+    fn test_type_checker_typecheck_drains_pending_context_diagnostics() {
+        let mut checker = TypeChecker::new();
+        checker.context.resolve_type_annotation_text("Missing | string");
+
+        let diagnostics = checker.typecheck(NodeId::new(0));
+        assert!(diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e3::UNDEFINED_IDENTIFIER as u32)));
+        assert!(checker.context.diagnostics().is_empty());
     }
 
     #[test]

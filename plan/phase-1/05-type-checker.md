@@ -3,7 +3,7 @@
 **Phase:** 1 — Core Compiler & Toolchain MVP  
 **Spec refs:** [`specs/04-type-system.md`](../../specs/04-type-system.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
 **Depends on:** [1.4 — Name Resolution](04-name-resolution.md)  
-**Status:** ✅ Complete - annotation diagnostics wired and 4/4 stage tests pass
+**Status:** ✅ Complete - annotation diagnostics wired, pending context diagnostics are preserved through `typecheck`, and 4/4 stage tests pass
 
 ---
 
@@ -12,6 +12,7 @@
 - ✅ Basic type-checking infrastructure and annotation diagnostics plumbing
 - ✅ Type context management for scope tracking
 - ✅ Type checking entry points now collect diagnostics from annotation resolution
+- ✅ `TypeChecker::typecheck` drains any pending context diagnostics before returning, so annotation-resolution errors survive the facade boundary
 - ✅ First-class JavaScript/TypeScript type checking foundation
 
 ### Test Coverage

@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 1.5 type-checker diagnostics sync
+
+I updated the lightweight type-checker facade so `TypeChecker::typecheck` drains any pending annotation-resolution diagnostics from the shared context before returning. That keeps the Stage 1.5 error story explicit at the facade boundary instead of leaving the method as a pure no-op clone.
+
+Planned update:
+- sync `plan/phase-1/05-type-checker.md` and `TODO.md` so the Stage 1.5 progress notes name the pending-diagnostics drain explicitly
+- keep the claim narrow: this is a diagnostics-plumbing sync for the existing Stage 1.5 contract, not a phase-level availability change
+
 ## 2026-04-18 — Stage 3.1 tagged-parameter specialization widening
 
 I widened the MIR-aware specialization path so `kali_optimize` can now specialize tagged parameters when the actual call arguments have a concrete, stable layout or literal shape. That lets the optimizer revisit a deeper monomorphisation slice instead of stopping at the existing non-tagged-layout path.
