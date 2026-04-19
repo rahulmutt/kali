@@ -125,6 +125,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         "releaseRefReleasedRefsCons",
         "releaseRefPreservesReleasedRefs",
         "releaseRefHeapCharacterisation",
+        "releaseRefHeapCharacterisationAndLinearMemory",
         "releaseRefHeapCellOrigin",
         "releaseRefHeapCellOriginAndOwnership",
         "releaseRefHeapCellOriginOwnershipAndPositiveCount",
@@ -194,7 +195,9 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         "releaseAndCollectReleasedRefsCons",
         "releaseAndCollectPreservesReleasedRefs",
         "releaseAndDecrementHeapCharacterisation",
+        "releaseAndDecrementHeapCharacterisationAndLinearMemory",
         "releaseAndCollectHeapCharacterisation",
+        "releaseAndCollectHeapCharacterisationAndLinearMemory",
     ];
     let summary_docs = [
         ("README.md", summary),

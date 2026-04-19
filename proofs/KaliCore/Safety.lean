@@ -429,6 +429,17 @@ theorem releaseAndDecrementHeapCharacterisation (snapshot : RcSnapshot) (ref : S
       exact List.mem_map.mpr ⟨cell0, hmem0, by simpa [releaseAndDecrement] using hcell.symm⟩
     · exact List.mem_map.mpr ⟨cell0, hmem0, by simp [hname, hcell]⟩
 
+/-- The release-and-decrement helper's heap-characterisation theorem stays paired with the linear-memory payload. -/
+theorem releaseAndDecrementHeapCharacterisationAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (∀ cell, cell ∈ (releaseAndDecrement snapshot ref).heap ↔
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        ((cell0.name = ref ∧ cell = { cell0 with refCount := cell0.refCount - 1 }) ∨
+         (cell0.name ≠ ref ∧ cell = cell0))) ∧
+    (releaseAndDecrement snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndDecrementHeapCharacterisation snapshot ref
+  · exact releaseAndDecrementPreservesLinearMemory snapshot ref
+
 /-- A release-and-decrement step zeroes the target cell when the released reference was the last live count. -/
 theorem releaseAndDecrementZeroesLastTargetCell (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ snapshot.heap → cell.name = ref → cell.refCount = 1 →
@@ -677,6 +688,18 @@ theorem releaseAndCollectHeapCharacterisation (snapshot : RcSnapshot) (ref : Str
     have hdecr : cell ∈ (releaseAndDecrement snapshot ref).heap :=
       (releaseAndDecrementHeapCharacterisation snapshot ref cell).mpr ⟨cell0, hmem0, hcase⟩
     exact List.mem_filter.mpr ⟨hdecr, by simpa using hpos⟩
+
+/-- The release-and-collect helper's heap-characterisation theorem stays paired with the linear-memory payload. -/
+theorem releaseAndCollectHeapCharacterisationAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap ↔
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        ((cell0.name = ref ∧ cell = { cell0 with refCount := cell0.refCount - 1 }) ∨
+         (cell0.name ≠ ref ∧ cell = cell0)) ∧
+        cell.refCount > 0) ∧
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndCollectHeapCharacterisation snapshot ref
+  · exact releaseAndCollectPreservesLinearMemory snapshot ref
 
 /-- A release-and-collect step keeps every surviving heap cell both positively counted and traceable to the original heap. -/
 theorem releaseAndCollectHeapCellOriginAndPositiveCount (snapshot : RcSnapshot) (ref : String) :
@@ -945,6 +968,14 @@ theorem releaseRefReleasedRefsCons (snapshot : RcSnapshot) (ref : String) :
 theorem releaseRefHeapCharacterisation (snapshot : RcSnapshot) (ref : String) :
     (releaseRef snapshot ref).heap = snapshot.heap := by
   rfl
+
+/-- The release-only helper's heap-characterisation theorem stays paired with the linear-memory payload. -/
+theorem releaseRefHeapCharacterisationAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (releaseRef snapshot ref).heap = snapshot.heap ∧
+    (releaseRef snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseRefHeapCharacterisation snapshot ref
+  · exact releaseRefPreservesLinearMemory snapshot ref
 
 /-- The release-only helper's surviving heap cells come from the original heap unchanged. -/
 theorem releaseRefHeapCellOrigin (snapshot : RcSnapshot) (ref : String) :

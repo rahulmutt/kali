@@ -158,3 +158,14 @@ Planned update:
 - add `redux` to the Stage 3.3 utility corpus coverage in `crates/kali_cli/tests/package_corpus.rs`
 - sync the corresponding Stage 3.3 progress note in `plan/phase-3/03-ecosystem-breadth.md` and the matching `TODO.md` tracker so the corpus breadth note names the new package explicitly
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+## 2026-04-19 — Stage 4.2 heap-characterisation + linear-memory companion widening
+
+I widened the proof-backed RC snapshot slice with explicit heap-characterisation companions for all three helper families: `KaliCore.Safety.releaseRefHeapCharacterisationAndLinearMemory`, `KaliCore.Safety.releaseAndDecrementHeapCharacterisationAndLinearMemory`, and `KaliCore.Safety.releaseAndCollectHeapCharacterisationAndLinearMemory`.
+
+Planned update:
+- sync the proof-boundary manifest, verification summaries, Stage 4.2 tracker, TODO notes, and the proof-summary anti-drift guard so the new companion theorem names are spelled out everywhere the published boundary inventory is repeated
+- keep the claim narrow: this is another helper-level RC proof widening, not the broader Stage 4.2 ownership/freeing target
+
+Completed:
+- the companion theorems now exist in `proofs/KaliCore/Safety.lean` and are named explicitly in the published boundary summaries and proof-summary guard.
