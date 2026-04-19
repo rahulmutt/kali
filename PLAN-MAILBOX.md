@@ -508,3 +508,11 @@ I widened the shared Web/Deno browser support library with an in-memory `FormDat
 Planned update:
 - sync `plan/phase-3/03-ecosystem-breadth.md` so the browser-interoperability progress note names `FormData` explicitly alongside the existing Blob/File/FileReader/storage and stub-surface widening
 - keep the claim narrow: this is support-library baseline widening, not a public support-rung change
+
+## 2026-04-19 — Stage 4.2 soundness-helper naming sync
+
+I widened the published proof-boundary notes to explicitly name the closed-substitution helper `KaliCore.Soundness.subst_closed` alongside the widened closed-fragment soundness claims. This keeps the proof inventory a little more complete without changing the current support-rung story.
+
+Planned update:
+- keep `proofs/BOUNDARY.md` and the Stage 4.2 progress note aligned if additional soundness helpers are surfaced later
+- keep the claim narrow: this is a proof-summary / helper-theorem naming sync, not a new support claim
