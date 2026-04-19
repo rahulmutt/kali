@@ -39,9 +39,12 @@ follow-up widening rather than unfinished baseline delivery:
   allocation corollaries `KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount`
   and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`.
 
-- the current RC snapshot helper slice now also names `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory` explicitly, matching the existing origin/ownership companion style.
 
 ## Completed
+
+### Stage 4.2 - Collection-helper provenance/linear-memory wording sync
+- ✅ `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory` is now called out explicitly in the proof-summary / tracker docs, matching the existing origin/ownership companion style.
+- ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
 
 ### Codegen optimization-placeholder cleanup
 - ✅ Removed the stale `kali_codegen` no-op optimization placeholder; codegen now assumes the upstream optimizer has already run, and the target config no longer carries a dead `optimize` flag.

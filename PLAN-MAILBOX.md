@@ -1,5 +1,17 @@
 Subject: Stage 3.1 specialization tracker sync
 
+## 2026-04-19 — Stage 4.2 collection-helper provenance/linear-memory wording sync
+
+I tightened the Stage 4.2 verification-depth follow-up wording so the collection helper's owned-payload bridge is spelled out more explicitly in the top-level plan note.
+
+Planned update:
+- sync `PLAN.md` so the Stage 4.2 follow-up note explicitly names the decrement and collection ownership/linear-memory companions alongside the release-only bridge
+- keep the claim narrow: this is a progress-note wording sync for the published boundary, not a boundary widening
+
+Completed:
+- the top-level Stage 4.2 follow-up note now names the decrement and collection ownership/linear-memory companions explicitly, and the stale remaining-work note in `TODO.md` has been cleaned up to match the already-published boundary wording
+
+
 ## 2026-04-19 — Stage 3.3 @tanstack/router browser/utility corpus widening
 
 I widened the Stage 3.3 package corpus a little further by adding `@tanstack/router` to the browser and utility web-baseline interop slices, keeping the representative scoped routing-package breadth concrete without changing any support-rung claims.
