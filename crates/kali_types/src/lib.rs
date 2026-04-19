@@ -1178,6 +1178,8 @@ fn builtin_globals() -> &'static [&'static str] {
         "Array",
         "Blob",
         "Boolean",
+        "atob",
+        "btoa",
         "BroadcastChannel",
         "clearInterval",
         "clearTimeout",

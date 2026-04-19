@@ -139,6 +139,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The shared browser/runtime support library now also exposes deterministic `atob` / `btoa`
   helpers, and the Deno compatibility surface reexports them so browser-style code can round-trip
   binary strings without changing the documented support rungs.
+- The browser and utility web-baseline interop corpus now also exercises `atob` / `btoa` in the
+  shared helper source, keeping the browser/runtime interoperability slice concrete without
+  changing the support-rung story.
 - The package corpus now also exercises `AbortController`, `EventTarget`, `CustomEvent`,
   `BroadcastChannel`, `URLSearchParams`, `FormData`, `fetch`, `Headers`, `Request`, `Response`, `structuredClone`, and `FileReader` in representative browser and
   utility package cases, widening the browser/runtime interoperability slice without changing the
