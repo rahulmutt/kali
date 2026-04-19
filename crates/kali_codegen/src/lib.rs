@@ -28,8 +28,6 @@ impl CodegenCtx {
 /// Target configuration for code generation.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TargetConfig {
-    /// Whether to enable optimization passes.
-    pub optimize: bool,
     /// Upper bound on specialization fan-out.
     pub max_specializations: usize,
     /// Whether compatibility eval source stubs were pre-resolved earlier in the pipeline.
@@ -39,7 +37,6 @@ pub struct TargetConfig {
 impl Default for TargetConfig {
     fn default() -> Self {
         Self {
-            optimize: false,
             max_specializations: 16,
             compat_eval: false,
         }
@@ -490,7 +487,7 @@ impl<'a> FunctionEmitter<'a> {
 }
 
 /// Generate WASM from LIR.
-pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
+pub fn lower_lir_to_wasm(_ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
     let mut diagnostics = Vec::new();
     let function_plans = collect_functions(lir);
     let mut function_name_to_index = BTreeMap::new();
@@ -603,10 +600,6 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             wasm_bytes: Vec::new(),
             diagnostics,
         };
-    }
-
-    if ctx.target.optimize {
-        // Phase 1 keeps the optimization pipeline as a stable no-op placeholder.
     }
 
     CodegenResult {
@@ -810,7 +803,6 @@ mod tests {
     fn generates_valid_wasm_for_simple_programs() {
         let program = sample_program();
         let mut ctx = CodegenCtx::new(TargetConfig {
-            optimize: false,
             max_specializations: 16,
             compat_eval: false,
         });
@@ -850,7 +842,6 @@ mod tests {
     fn boolean_branches_use_the_layout_fast_path() {
         let program = parse_and_lower_lir("if (1 == 1) { 7; } else { 9; }");
         let mut ctx = CodegenCtx::new(TargetConfig {
-            optimize: false,
             max_specializations: 16,
             compat_eval: false,
         });
@@ -941,7 +932,6 @@ mod tests {
 
     fn compile_and_measure(program: &LirProgram) -> (Vec<u8>, usize) {
         let mut ctx = CodegenCtx::new(TargetConfig {
-            optimize: false,
             max_specializations: 16,
             compat_eval: false,
         });

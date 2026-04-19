@@ -38,6 +38,9 @@ follow-up widening rather than unfinished baseline delivery:
 
 ## Completed
 
+### Codegen optimization-placeholder cleanup
+- ✅ Removed the stale `kali_codegen` no-op optimization placeholder; codegen now assumes the upstream optimizer has already run, and the target config no longer carries a dead `optimize` flag.
+
 ### Stage 3.1 - Tagged-parameter specialization widening
 - ✅ `kali_optimize` can now specialize tagged parameters when the concrete call arguments have a stable literal or MIR-backed layout, so the MIR-aware monomorphisation path no longer stops at the existing non-tagged-layout gate.
 - ✅ Tagged-parameter call sites that are too large to inline but still within the deterministic budget now also specialize, so the deeper monomorphisation path no longer depends on the old size cutoff.

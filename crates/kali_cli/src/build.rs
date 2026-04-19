@@ -207,7 +207,6 @@ fn compile_source_file_uncached(
         .optimize_program_with_mir(&mut lir, &mir);
 
     let mut ctx = CodegenCtx::new(TargetConfig {
-        optimize: !matches!(mode, BuildMode::Fast),
         max_specializations,
         compat_eval,
     });
