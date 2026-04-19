@@ -1013,10 +1013,12 @@ impl CustomEvent {
 
 type EventListenerId = usize;
 type EventListener = Box<dyn FnMut(&Event) + Send + 'static>;
+type SharedEventListener = Arc<Mutex<EventListener>>;
 
 struct RegisteredEventListener {
     id: EventListenerId,
-    listener: EventListener,
+    active: Arc<AtomicBool>,
+    listener: SharedEventListener,
 }
 
 type ListenerMap = BTreeMap<String, Vec<RegisteredEventListener>>;
@@ -1281,7 +1283,8 @@ impl EventTarget {
             .or_default()
             .push(RegisteredEventListener {
                 id,
-                listener: Box::new(listener),
+                active: Arc::new(AtomicBool::new(true)),
+                listener: Arc::new(Mutex::new(Box::new(listener))),
             });
         id
     }
@@ -1294,25 +1297,60 @@ impl EventTarget {
         let Some(event_listeners) = listeners.get_mut(event_type) else {
             return false;
         };
-        let original_len = event_listeners.len();
-        event_listeners.retain(|listener| listener.id != listener_id);
-        event_listeners.len() != original_len
+        let mut removed = false;
+        event_listeners.retain(|listener| {
+            if listener.id == listener_id {
+                listener.active.store(false, Ordering::SeqCst);
+                removed = true;
+                return false;
+            }
+
+            listener.active.load(Ordering::SeqCst)
+        });
+        removed
     }
 
     pub fn dispatch_event(&self, event: &Event) -> usize {
+        let snapshot = {
+            let listeners = self
+                .listeners
+                .lock()
+                .expect("event listener mutex poisoned");
+            listeners
+                .get(event.event_type())
+                .map(|event_listeners| {
+                    event_listeners
+                        .iter()
+                        .map(|listener| {
+                            (Arc::clone(&listener.active), Arc::clone(&listener.listener))
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        };
+
+        let mut invoked = 0;
+        for (active, listener) in snapshot {
+            if !active.load(Ordering::SeqCst) {
+                continue;
+            }
+
+            invoked += 1;
+            let mut callback = listener
+                .lock()
+                .expect("event listener callback mutex poisoned");
+            (callback)(event);
+        }
+
         let mut listeners = self
             .listeners
             .lock()
             .expect("event listener mutex poisoned");
-        let Some(event_listeners) = listeners.get_mut(event.event_type()) else {
-            return 0;
-        };
-
-        for listener in event_listeners.iter_mut() {
-            (listener.listener)(event);
+        if let Some(event_listeners) = listeners.get_mut(event.event_type()) {
+            event_listeners.retain(|listener| listener.active.load(Ordering::SeqCst));
         }
 
-        event_listeners.len()
+        invoked
     }
 }
 
@@ -1633,6 +1671,36 @@ mod tests {
         assert!(!target.remove_event_listener("hello", listener_id));
         assert_eq!(target.dispatch_event(&event), 0);
         assert_eq!(invocations.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn event_target_can_remove_listeners_during_dispatch_without_deadlocking() {
+        let target = EventTarget::new();
+        let first_invocations = Arc::new(AtomicUsize::new(0));
+        let second_invocations = Arc::new(AtomicUsize::new(0));
+        let second_listener_id = Arc::new(AtomicUsize::new(usize::MAX));
+        let target_for_first = target.clone();
+
+        let first_invocations_clone = Arc::clone(&first_invocations);
+        let second_listener_id_clone = Arc::clone(&second_listener_id);
+        target.add_event_listener("hello", move |_| {
+            first_invocations_clone.fetch_add(1, Ordering::SeqCst);
+            let removed = target_for_first
+                .remove_event_listener("hello", second_listener_id_clone.load(Ordering::SeqCst));
+            assert!(removed, "listener removal should succeed during dispatch");
+        });
+
+        let second_invocations_clone = Arc::clone(&second_invocations);
+        let second_id = target.add_event_listener("hello", move |_| {
+            second_invocations_clone.fetch_add(1, Ordering::SeqCst);
+        });
+        second_listener_id.store(second_id, Ordering::SeqCst);
+
+        let event = Event::new("hello");
+        assert_eq!(target.dispatch_event(&event), 1);
+        assert_eq!(first_invocations.load(Ordering::SeqCst), 1);
+        assert_eq!(second_invocations.load(Ordering::SeqCst), 0);
+        assert!(!target.remove_event_listener("hello", second_id));
     }
 
     #[test]
