@@ -48,6 +48,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser web-baseline interop corpus now also exercises `mobx` as another representative
   browser state-management package name, keeping the browser package corpus breadth concrete without
   changing the support-rung story.
+- The browser and utility web-baseline interop corpus now also exercises `recoil` as another
+  representative browser state-management package name, keeping the breadth widening concrete
+  without changing the support-rung story.
 - The browser and utility web-baseline interop corpus now also exercises `mitt` as another
   representative lightweight package name, keeping the browser and utility package breadth concrete
   without changing the support-rung story.

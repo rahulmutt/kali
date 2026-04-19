@@ -1178,6 +1178,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "@tanstack/react-query",
         "@testing-library/dom",
         "mobx",
+        "recoil",
         "mitt",
         "swr",
     ] {
@@ -1522,6 +1523,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "lodash-es",
         "commander",
         "redux",
+        "recoil",
         "clsx",
         "zustand",
         "mitt",
