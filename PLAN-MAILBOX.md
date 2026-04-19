@@ -519,3 +519,14 @@ Planned update:
 
 Completed:
 - the collection-target ownership theorem now has an explicit linear-memory companion in the proof-backed boundary, and the summary docs and anti-drift guard now name it explicitly.
+
+## 2026-04-19 — Stage 3.3 utility corpus widening
+
+I widened the Stage 3.3 package corpus one more step by adding `superjson` and `@jridgewell/sourcemap-codec` to the utility plain-package corpus on the default standalone surface, so the representative pure-JS utility breadth keeps growing without changing any support-rung claims.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `plan/phase-1/sum.md` so the Stage 3.3 progress notes explicitly mention the new utility corpus coverage
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- the utility plain-package corpus now also exercises `superjson` and `@jridgewell/sourcemap-codec` on the default standalone surface, and the Stage 3.3 progress notes now call that coverage out explicitly.

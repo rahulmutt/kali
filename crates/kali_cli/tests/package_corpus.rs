@@ -1585,6 +1585,8 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "valtio",
         "react-hook-form",
         "msw",
+        "superjson",
+        "@jridgewell/sourcemap-codec",
         "@mantine/core",
         "vite",
         "@tanstack/router",
