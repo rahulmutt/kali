@@ -443,3 +443,14 @@ Completed:
 ## 2026-04-19
 - Requested follow-up: widen the Stage 3.3 package-corpus evidence with `vite` and sync the progress notes accordingly.
 - Suggested concrete change: add `vite` to the utility corpus plain-package and web-baseline coverage in `crates/kali_cli/tests/package_corpus.rs`, then update the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and the matching tracker entries in `TODO.md` so the docs reflect the new evidence slice.
+
+## 2026-04-19 — Stage 3.3 @tanstack/table-core corpus widening
+
+I found one more small Stage 3.3 package-corpus widening that fits the current breadth follow-up lane: add `@tanstack/table-core` to the browser corpus so the representative scoped table-package coverage keeps widening without changing any support-rung claims.
+
+Planned update:
+- add `@tanstack/table-core` to the browser web-baseline interop slice and the scoped browser exports-map / browser-condition slices in `crates/kali_cli/tests/package_corpus.rs`
+- sync the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the corpus-breadth note names the new package explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed: `crates/kali_cli/tests/package_corpus.rs` now exercises `@tanstack/table-core` in the browser web-baseline interop slice and the scoped browser exports-map / browser-condition slices, and the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name it explicitly alongside the existing package-corpus widening notes.

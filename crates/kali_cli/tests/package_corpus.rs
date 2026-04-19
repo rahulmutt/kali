@@ -1190,6 +1190,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "@radix-ui/react-dialog",
         "@tanstack/react-query",
         "@tanstack/react-table",
+        "@tanstack/table-core",
         "@testing-library/dom",
         "@testing-library/user-event",
         "mobx",
@@ -1323,6 +1324,7 @@ fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deploya
         ("@storybook/react", "preview-api"),
         ("@mui/material", "styles"),
         ("@tanstack/react-query", "query-core"),
+        ("@tanstack/table-core", "table"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
@@ -1395,6 +1397,7 @@ fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkabl
         ("@storybook/react", "preview-api"),
         ("@mui/material", "styles"),
         ("@tanstack/react-query", "query-core"),
+        ("@tanstack/table-core", "table"),
         ("react-dom", "client"),
     ] {
         let dir = tempdir().expect("tempdir");
