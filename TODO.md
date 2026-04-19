@@ -20,19 +20,21 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
 
 ### Stage 3.3 - Browser/runtime interop corpus widening
-- ✅ `crates/kali_cli/tests/package_corpus.rs` now exercises the web-baseline interop slice with representative browser and utility package cases that create `AbortController`, `EventTarget`, `Blob`, `File`, and `structuredClone` payloads alongside package imports.
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now exercises the web-baseline interop slice with representative browser and utility package cases that create `AbortController`, `EventTarget`, `Blob`, `File`, `FileReader`, and `structuredClone` payloads alongside package imports.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `solid-js` in the browser web-baseline interop slice and `rxjs` in the utility web-baseline interop slice, so the browser/runtime interoperability widening now covers a little more representative package breadth without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `solid-js` in the browser exports-map corpus alongside the existing browser representatives, so the browser/runtime interoperability widening now covers one more representative package shape without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `solid-js` in the browser pattern-exports corpus, `@reduxjs/toolkit` in the browser typed-export-branch corpus, and `immer`, `typescript`, and `esbuild` in the utility module-entry and mixed-format slices, so the representative package corpus now spans a few more browser/tooling package shapes without changing the documented support rungs.
+- ✅ The shared browser/runtime support library now also exposes an in-memory `FileReader` baseline, and `kali_api_deno` reexports it so browser-style code can read shared blob/file payloads deterministically without changing the public support-rung story.
 - ✅ Kept the update narrow: this widens the package corpus and browser/runtime interoperability checks without changing the documented support rungs.
 
 ### Stage 3.1 - Recursive MIR-specialization revisit
 - ✅ Newly created MIR-specialized clones are now recursively revisited under their own owner key, so clone-specific optimization can expose deeper specializable call sites while keeping the specialization budget deterministic.
 - ✅ Kept the update narrow: this widens specialization depth within the existing optimization model; it does not change the published benchmark or support claims.
 
-### Stage 3.3 - Web Blob/File baseline
+### Stage 3.3 - Web Blob/File/FileReader baseline
 - ✅ `kali_api_web` now exposes in-memory `Blob` and `File` primitives for the Web baseline, and `kali_api_deno` reexports them so the browser/runtime support library can model common blob/file payloads without changing the public support-rung story.
-- ✅ `crates/kali_types` now recognizes `Blob` and `File` as builtin globals, keeping the ambient typing surface aligned with the support-library additions.
+- ✅ `kali_api_web` now also exposes an in-memory `FileReader` baseline, and `kali_api_deno` reexports it so browser-style code can read shared blob/file payloads deterministically without changing the public support-rung story.
+- ✅ `crates/kali_types` now recognizes `Blob`, `File`, and `FileReader` as builtin globals, keeping the ambient typing surface aligned with the support-library additions.
 
 ### Stage 3.3 - In-memory browser storage baseline
 - ✅ `kali_api_web` now exposes deterministic in-memory `localStorage` and `sessionStorage` buckets, so the browser interoperability slice has a deterministic shared-state baseline for browser-style code that expects storage APIs.

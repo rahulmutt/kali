@@ -7,7 +7,7 @@
 pub use kali_api_web::{
     fill_random_values, local_storage, parse_url, performance_now, resolve_url, session_storage,
     structured_clone, text_decode, text_encode, AbortController, AbortSignal, Blob, CustomEvent,
-    Event, EventTarget, File, Storage,
+    Event, EventTarget, File, FileReader, FileReaderState, Storage,
 };
 
 use std::{
@@ -511,5 +511,19 @@ mod tests {
         deno_api_init();
         assert!(performance_now() >= 0.0);
         assert_eq!(text_encode("deno"), b"deno");
+    }
+
+    #[test]
+    fn web_file_reader_is_reexported_through_the_deno_surface() {
+        let blob = Blob::new(["deno payload".as_bytes()], None);
+        let mut reader = FileReader::new();
+
+        assert_eq!(reader.ready_state(), FileReaderState::Empty);
+        assert_eq!(
+            reader.read_as_text(&blob).expect("blob text"),
+            "deno payload"
+        );
+        assert_eq!(reader.ready_state(), FileReaderState::Done);
+        assert_eq!(reader.result_bytes(), Some(b"deno payload".as_slice()));
     }
 }

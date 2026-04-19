@@ -49,7 +49,7 @@ fn write_web_baseline_interop_source(path: &Path, package: &str) {
     fs::write(
         path,
         format!(
-            "import describe from '{package}';\nconst controller = new AbortController();\nconst target = new EventTarget();\nlet count = 0;\ntarget.addEventListener('tick', () => {{\n  count += 1;\n  controller.abort();\n}});\ntarget.dispatchEvent(new Event('tick'));\nconst blob = structuredClone(new Blob(['browser corpus']));\nconst file = structuredClone(new File(['browser corpus'], 'browser.txt'));\nstructuredClone(blob);\nstructuredClone(file);\nconsole.log(describe(count));\n",
+            "import describe from '{package}';\nconst controller = new AbortController();\nconst target = new EventTarget();\nlet count = 0;\ntarget.addEventListener('tick', () => {{\n  count += 1;\n  controller.abort();\n}});\ntarget.dispatchEvent(new Event('tick'));\nconst blob = structuredClone(new Blob(['browser corpus']));\nconst file = structuredClone(new File(['browser corpus'], 'browser.txt'));\nconst reader = new FileReader();\nreader.readAsText(blob);\nreader.readAsText(file);\nstructuredClone(blob);\nstructuredClone(file);\nconsole.log(describe(count));\n",
             package = package
         ),
     )
@@ -1711,7 +1711,14 @@ fn utility_corpus_packages_with_module_entries_remain_executable_on_the_default_
 #[test]
 fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_default_standalone_surface(
 ) {
-    for package in ["ramda", "uuid", "commander", "immer", "typescript", "esbuild"] {
+    for package in [
+        "ramda",
+        "uuid",
+        "commander",
+        "immer",
+        "typescript",
+        "esbuild",
+    ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_module_only_package(

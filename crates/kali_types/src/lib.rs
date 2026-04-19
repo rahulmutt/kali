@@ -1191,6 +1191,7 @@ fn builtin_globals() -> &'static [&'static str] {
         "Error",
         "eval",
         "File",
+        "FileReader",
         "Event",
         "EventTarget",
         "fetch",
@@ -1372,7 +1373,9 @@ mod tests {
     #[test]
     fn test_type_checker_typecheck_drains_pending_context_diagnostics() {
         let mut checker = TypeChecker::new();
-        checker.context.resolve_type_annotation_text("Missing | string");
+        checker
+            .context
+            .resolve_type_annotation_text("Missing | string");
 
         let diagnostics = checker.typecheck(NodeId::new(0));
         assert!(diagnostics
@@ -1453,6 +1456,21 @@ mod tests {
         assert_eq!(
             result.diagnostics[0].code,
             Some(e3::IMPORT_NOT_FOUND as u32)
+        );
+    }
+
+    #[test]
+    fn test_resolution_allows_browser_file_reader_global() {
+        let mut ctx = TypeContext::new();
+        let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("FileReader".to_string())),
+        })];
+
+        let result = ctx.resolve_statements(&statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
         );
     }
 

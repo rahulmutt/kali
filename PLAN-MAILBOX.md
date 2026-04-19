@@ -351,3 +351,10 @@ I widened the Stage 3.3 package-corpus evidence slightly by adding `@mui/materia
 
 Suggested follow-up:
 - keep the Stage 3.3 progress notes and TODO tracker aligned if the representative browser package corpus widens again; this remains a corpus-widening slice, not a support-rung change
+
+## 2026-04-19 — Stage 3.3 FileReader browser-baseline follow-up
+
+I added an in-memory `FileReader` baseline to `kali_api_web`, reexported it through `kali_api_deno`, taught the browser corpus source to instantiate it, and updated the Stage 3.3 progress notes / TODO tracker so the browser interop widening now names the new primitive explicitly.
+
+Suggested follow-up:
+- keep the Stage 3.3 corpus and progress notes aligned if the browser baseline widens again; this remains a browser-interoperability slice, not a support-rung change

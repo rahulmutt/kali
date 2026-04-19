@@ -137,6 +137,81 @@ impl File {
     }
 }
 
+/// Readable state for the in-memory Web `FileReader`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FileReaderState {
+    Empty,
+    Loading,
+    Done,
+}
+
+/// An in-memory Web `FileReader` baseline.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FileReader {
+    ready_state: FileReaderState,
+    result: Option<Vec<u8>>,
+}
+
+impl Default for FileReader {
+    fn default() -> Self {
+        Self {
+            ready_state: FileReaderState::Empty,
+            result: None,
+        }
+    }
+}
+
+impl FileReader {
+    /// Create a new file reader.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Return the reader's current ready state.
+    pub fn ready_state(&self) -> FileReaderState {
+        self.ready_state
+    }
+
+    /// Return the last read bytes, if any.
+    pub fn result_bytes(&self) -> Option<&[u8]> {
+        self.result.as_deref()
+    }
+
+    /// Reset the reader back to the empty state.
+    pub fn clear(&mut self) {
+        self.ready_state = FileReaderState::Empty;
+        self.result = None;
+    }
+
+    /// Read a blob as raw bytes.
+    pub fn read_as_bytes(&mut self, blob: &Blob) -> Vec<u8> {
+        self.ready_state = FileReaderState::Loading;
+        let bytes = blob.bytes().to_vec();
+        self.result = Some(bytes.clone());
+        self.ready_state = FileReaderState::Done;
+        bytes
+    }
+
+    /// Read a blob as UTF-8 text.
+    pub fn read_as_text(&mut self, blob: &Blob) -> Result<String, std::string::FromUtf8Error> {
+        self.ready_state = FileReaderState::Loading;
+        let bytes = blob.bytes().to_vec();
+        self.result = Some(bytes.clone());
+        self.ready_state = FileReaderState::Done;
+        String::from_utf8(bytes)
+    }
+
+    /// Read a file as raw bytes.
+    pub fn read_file_as_bytes(&mut self, file: &File) -> Vec<u8> {
+        self.read_as_bytes(file.blob())
+    }
+
+    /// Read a file as UTF-8 text.
+    pub fn read_file_as_text(&mut self, file: &File) -> Result<String, std::string::FromUtf8Error> {
+        self.read_as_text(file.blob())
+    }
+}
+
 /// A lightweight in-memory Web Storage implementation.
 #[derive(Clone, Debug, Default)]
 pub struct Storage {
@@ -181,10 +256,7 @@ impl Storage {
 
     /// Remove all entries from the storage bucket.
     pub fn clear(&self) {
-        self.values
-            .lock()
-            .expect("storage mutex poisoned")
-            .clear();
+        self.values.lock().expect("storage mutex poisoned").clear();
     }
 
     /// Return the key at the requested insertion index.
@@ -199,10 +271,7 @@ impl Storage {
 
     /// Return a deterministic snapshot of the current entries.
     pub fn snapshot(&self) -> BTreeMap<String, String> {
-        self.values
-            .lock()
-            .expect("storage mutex poisoned")
-            .clone()
+        self.values.lock().expect("storage mutex poisoned").clone()
     }
 }
 
@@ -449,6 +518,36 @@ mod tests {
         assert_eq!(file.bytes(), b"hello world");
         assert_eq!(file.blob().mime_type(), Some("text/plain"));
         assert_eq!(file.text().expect("file text"), "hello world");
+    }
+
+    #[test]
+    fn file_reader_reads_blob_and_file_payloads() {
+        let blob = Blob::new(
+            ["reader payload".as_bytes()],
+            Some("text/plain".to_string()),
+        );
+        let file = File::new("reader.txt", ["reader payload".as_bytes()], None, 7);
+
+        let mut reader = FileReader::new();
+        assert_eq!(reader.ready_state(), FileReaderState::Empty);
+
+        assert_eq!(
+            reader.read_as_text(&blob).expect("blob text"),
+            "reader payload"
+        );
+        assert_eq!(reader.ready_state(), FileReaderState::Done);
+        assert_eq!(reader.result_bytes(), Some(b"reader payload".as_slice()));
+
+        reader.clear();
+        assert_eq!(reader.ready_state(), FileReaderState::Empty);
+        assert!(reader.result_bytes().is_none());
+
+        assert_eq!(reader.read_file_as_bytes(&file), b"reader payload");
+        assert_eq!(reader.ready_state(), FileReaderState::Done);
+        assert_eq!(
+            reader.read_file_as_text(&file).expect("file text"),
+            "reader payload"
+        );
     }
 
     #[test]

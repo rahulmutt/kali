@@ -40,9 +40,12 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   and `sessionStorage` buckets, and the Deno compatibility surface reexports those storage helpers,
   giving the browser interoperability slice another browser-state baseline without changing the
   package-support rungs claimed for the corpus.
-- The package corpus now also exercises `AbortController`, `EventTarget`, and `structuredClone` in
-  representative browser and utility package cases, widening the browser/runtime interoperability
-  slice without changing the documented support rungs.
+- The shared browser/runtime support library now also exposes an in-memory `FileReader` baseline,
+  and the Deno compatibility surface reexports it so browser-style code can read the shared blob /
+  file payloads deterministically without changing the documented support rungs.
+- The package corpus now also exercises `AbortController`, `EventTarget`, `structuredClone`, and
+  `FileReader` in representative browser and utility package cases, widening the browser/runtime
+  interoperability slice without changing the documented support rungs.
 - The browser corpus now additionally exercises `solid-js` in the web-baseline interop slice alongside
   the existing browser representatives in the exports-map slice, keeping the interoperability
   widening concrete without changing the support-rung story.
@@ -136,7 +139,7 @@ Stage 3.3 is complete. The remaining work in this area is breadth/depth follow-u
 unfinished Stage-3.3 implementation:
 
 - keep widening the representative package corpus without overclaiming support rungs,
-- deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice and the current in-memory Blob/File/storage baseline,
+- deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice and the current in-memory Blob/File/FileReader/storage baseline,
 - widen cross-module inference carefully within the published solver/specialization budgets.
 
 ## Historical Out of Scope for Stage 3.3
