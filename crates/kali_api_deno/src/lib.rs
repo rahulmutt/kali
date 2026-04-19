@@ -8,7 +8,7 @@ pub use kali_api_web::{
     fill_random_values, local_storage, parse_url, performance_now, resolve_url, session_storage,
     structured_clone, text_decode, text_encode, AbortController, AbortSignal, Blob, CustomEvent,
     Event, EventTarget, File, FileReader, FileReaderState, FormData, FormDataEntry, FormDataValue,
-    IndexedDb, Storage, WebSocket, WebSocketReadyState, Worker,
+    IndexedDb, Storage, URLSearchParams, WebSocket, WebSocketReadyState, Worker,
 };
 
 use std::{
@@ -565,6 +565,10 @@ mod tests {
             worker.script_url().as_str(),
             "https://example.com/worker.js"
         );
+
+        let params = URLSearchParams::from_query("alpha=1&beta=two+words");
+        assert_eq!(params.get("alpha").as_deref(), Some("1"));
+        assert_eq!(params.get_all("beta"), vec!["two words".to_string()]);
 
         let db = IndexedDb::open("browser-cache");
         db.put("objects", "item", serde_json::json!({"ok": true}));

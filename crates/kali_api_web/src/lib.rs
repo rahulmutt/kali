@@ -9,7 +9,7 @@ use std::{
     },
     time::Instant,
 };
-use url::Url;
+use url::{form_urlencoded, Url};
 
 static TIME_ORIGIN: OnceLock<Instant> = OnceLock::new();
 static LOCAL_STORAGE: OnceLock<Storage> = OnceLock::new();
@@ -433,6 +433,106 @@ pub fn parse_url(input: &str) -> Result<Url, url::ParseError> {
 /// Resolve a URL against a base URL string.
 pub fn resolve_url(base: &str, input: &str) -> Result<Url, url::ParseError> {
     Url::parse(base)?.join(input)
+}
+
+/// A deterministic in-memory Web `URLSearchParams` baseline.
+#[derive(Clone, Debug, Default)]
+pub struct URLSearchParams {
+    entries: Arc<Mutex<Vec<(String, String)>>>,
+}
+
+impl URLSearchParams {
+    /// Create an empty parameter bag.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a parameter bag from a query string.
+    pub fn from_query(query: impl AsRef<str>) -> Self {
+        let params = Self::new();
+        for (name, value) in form_urlencoded::parse(query.as_ref().as_bytes()) {
+            params.append(name.into_owned(), value.into_owned());
+        }
+        params
+    }
+
+    /// Append a parameter while preserving insertion order.
+    pub fn append(&self, name: impl Into<String>, value: impl Into<String>) {
+        self.entries
+            .lock()
+            .expect("urlsearchparams mutex poisoned")
+            .push((name.into(), value.into()));
+    }
+
+    /// Replace all matching parameters with a single value.
+    pub fn set(&self, name: impl Into<String>, value: impl Into<String>) {
+        let name = name.into();
+        self.delete(&name);
+        self.entries
+            .lock()
+            .expect("urlsearchparams mutex poisoned")
+            .push((name, value.into()));
+    }
+
+    /// Return whether a matching parameter exists.
+    pub fn has(&self, name: &str) -> bool {
+        self.entries
+            .lock()
+            .expect("urlsearchparams mutex poisoned")
+            .iter()
+            .any(|(entry_name, _)| entry_name == name)
+    }
+
+    /// Return the first matching value, if present.
+    pub fn get(&self, name: &str) -> Option<String> {
+        self.entries
+            .lock()
+            .expect("urlsearchparams mutex poisoned")
+            .iter()
+            .find(|(entry_name, _)| entry_name == name)
+            .map(|(_, value)| value.clone())
+    }
+
+    /// Return all matching values in insertion order.
+    pub fn get_all(&self, name: &str) -> Vec<String> {
+        self.entries
+            .lock()
+            .expect("urlsearchparams mutex poisoned")
+            .iter()
+            .filter(|(entry_name, _)| entry_name == name)
+            .map(|(_, value)| value.clone())
+            .collect()
+    }
+
+    /// Remove all matching parameters.
+    pub fn delete(&self, name: &str) {
+        self.entries
+            .lock()
+            .expect("urlsearchparams mutex poisoned")
+            .retain(|(entry_name, _)| entry_name != name);
+    }
+
+    /// Return a deterministic snapshot of the current entries.
+    pub fn entries(&self) -> Vec<(String, String)> {
+        self.entries
+            .lock()
+            .expect("urlsearchparams mutex poisoned")
+            .clone()
+    }
+
+    /// Serialize the parameters to a standard query string.
+    pub fn to_string(&self) -> String {
+        let mut serializer = form_urlencoded::Serializer::new(String::new());
+        for (name, value) in self
+            .entries
+            .lock()
+            .expect("urlsearchparams mutex poisoned")
+            .iter()
+        {
+            serializer.append_pair(name, value);
+        }
+        serializer.finish()
+    }
 }
 
 /// Return a monotonic millisecond timestamp for `performance.now()`-style calls.
@@ -906,6 +1006,38 @@ mod tests {
         form.delete("alpha");
         assert!(!form.has("alpha"));
         assert_eq!(form.entries().len(), 1);
+    }
+
+    #[test]
+    fn url_search_params_round_trips_values_and_serializes_deterministically() {
+        let params = URLSearchParams::new();
+        params.append("alpha", "1");
+        params.append("beta", "two words");
+        params.append("beta", "3");
+
+        assert!(params.has("alpha"));
+        assert_eq!(params.get("alpha").as_deref(), Some("1"));
+        assert_eq!(
+            params.get_all("beta"),
+            vec!["two words".to_string(), "3".to_string()]
+        );
+
+        params.set("beta", "replacement");
+        assert_eq!(params.get_all("beta"), vec!["replacement".to_string()]);
+        params.delete("alpha");
+        assert!(!params.has("alpha"));
+        assert_eq!(
+            params.entries(),
+            vec![("beta".to_string(), "replacement".to_string())]
+        );
+        assert_eq!(params.to_string(), "beta=replacement");
+
+        let parsed = URLSearchParams::from_query("alpha=1&beta=two+words&beta=3");
+        assert_eq!(parsed.get("alpha").as_deref(), Some("1"));
+        assert_eq!(
+            parsed.get_all("beta"),
+            vec!["two words".to_string(), "3".to_string()]
+        );
     }
 
     #[test]

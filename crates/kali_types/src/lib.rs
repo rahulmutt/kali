@@ -1486,6 +1486,9 @@ mod tests {
                 expression: Box::new(Expression::Identifier("FormData".to_string())),
             }),
             Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::Identifier("URLSearchParams".to_string())),
+            }),
+            Statement::ExpressionStatement(ExpressionStatement {
                 expression: Box::new(Expression::Identifier("WebSocket".to_string())),
             }),
             Statement::ExpressionStatement(ExpressionStatement {

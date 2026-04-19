@@ -1,3 +1,10 @@
+## 2026-04-19 — Stage 3.3 URLSearchParams browser-baseline follow-up
+
+I widened the shared browser/runtime support surface with a deterministic in-memory `URLSearchParams` baseline, reexported it through `kali_api_deno`, taught the browser corpus source to exercise it, and updated the Stage 3.3 progress notes / TODO tracker so the browser interop widening now names the new primitive explicitly.
+
+Planned update:
+- keep `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` aligned if the browser baseline widens again; this remains a browser-interoperability slice, not a support-rung change
+
 ## 2026-04-19 — Stage 3.3 browser web-baseline corpus widening sync
 
 I widened the Stage 3.3 browser web-baseline interop corpus with `@emotion/react`, so the representative package set now carries one more scoped browser package name without changing the support-rung story.
