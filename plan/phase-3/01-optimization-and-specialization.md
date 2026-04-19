@@ -34,9 +34,9 @@ types are statically known.
 - Array-valued MIR bindings now preserve their element/length fingerprints through call-site
   specialization, so the array-layout widening can split into separate clones while same-shaped
   callers still share one clone instead of collapsing onto a single shared body.
-- Direct array-literal call-site arguments now also carry explicit array-length signatures, so
-  inline arrays with different lengths can split into separate clones even when the callee only
-  sees a tagged parameter.
+- Direct array-literal call-site arguments now also carry explicit `Value:array:len=...` shape
+  signatures, so the direct array-literal shape widening can split inline arrays with different
+  lengths into separate clones even when the callee only sees a tagged parameter.
 - Quoted string-literal call-site arguments now carry distinct specialization signatures, so
   different string literals can split into separate clones instead of collapsing onto the generic
   tagged fallback while still respecting the deterministic specialization budget.

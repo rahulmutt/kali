@@ -8,17 +8,17 @@ follow-up widening rather than unfinished baseline delivery:
 - widen specialization depth beyond the current MIR-aware layout-specialized path — including the
   array-layout widening that preserves array-valued MIR binding fingerprints during call-site
   specialization — and the newer direct array-literal shape widening that keeps inline arrays with
-  different lengths split apart — while keeping the specialization budget and benchmark evidence
-  honest; the current optimizer now also splits quoted string-literal and no-substitution template
-  literal call-site arguments into distinct specialization signatures, preserves boolean literal `true` /
-  `false` identity, distinguishes numeric literals from each other at call sites, distinguishes
-  signed-zero `-0` from `0`, distinguishes BigInt literals from the old numeric fallback,
-  distinguishes `null` and `undefined` from the old zero-valued fallback, lifts nested MIR-bound
-  bindings inside object-literal call sites into the same signature path, preserves array-valued
-  MIR binding fingerprints during call-site specialization so different array-layout widenings can
-  split into separate clones, and keeps the nested-call regression `release_recursively_specializes_nested_mir_call_sites` layered
-  inside a specialized clone so widening stays concrete without broadening the published benchmark
-  claims,
+  different lengths split apart via explicit `Value:array:len=...` signatures — while keeping the
+  specialization budget and benchmark evidence honest; the current optimizer now also splits quoted
+  string-literal and no-substitution template literal call-site arguments into distinct
+  specialization signatures, preserves boolean literal `true` / `false` identity, distinguishes
+  numeric literals from each other at call sites, distinguishes signed-zero `-0` from `0`,
+  distinguishes BigInt literals from the old numeric fallback, distinguishes `null` and `undefined`
+  from the old zero-valued fallback, lifts nested MIR-bound bindings inside object-literal call sites
+  into the same signature path, preserves array-valued MIR binding fingerprints during call-site
+  specialization so different array-layout widenings can split into separate clones, and keeps the
+  nested-call regression `release_recursively_specializes_nested_mir_call_sites` layered inside a
+  specialized clone so widening stays concrete without broadening the published benchmark claims,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic event primitives for
   `AbortController`, `EventTarget`, and `CustomEvent`, plus stub surfaces for `BroadcastChannel`, `WebSocket`, `Worker`, and `IndexedDB` in addition to the shared `Blob` / `File` / `FormData` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those surfaces alongside `fetch`, `Headers`, `Request`, `Response`, `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `next`, `hono`, `@vueuse/core`, `@emotion/react`, `@floating-ui/react`, `@headlessui/react`, `@chakra-ui/react`, `@mui/material`, `@radix-ui/react-dialog`, `@tanstack/react-query`, `@testing-library/dom`, `URLSearchParams`, `TextEncoder`, `TextDecoder`, and the existing browser representatives,
@@ -125,7 +125,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Kept the update narrow: this widens specialization depth inside the existing optimizer model; it does not change the published benchmark or support claims.
 
 ### Stage 3.1 - Direct array-literal shape widening
-- ✅ Direct array-literal call-site arguments now carry explicit `Value:array:len=...` specialization signatures, so inline arrays of different lengths split into separate specialized clones even when the callee only sees a tagged parameter.
+- ✅ Direct array-literal call-site arguments now carry explicit `Value:array:len=...` shape signatures, so inline arrays of different lengths split into separate specialized clones even when the callee only sees a tagged parameter.
 - ✅ Added regression coverage proving two direct array-literal call sites with different lengths produce distinct specialized clones while still respecting the deterministic specialization budget.
 - ✅ Kept the update narrow: this widens specialization depth inside the existing optimizer model; it does not change the published benchmark or support claims.
 
