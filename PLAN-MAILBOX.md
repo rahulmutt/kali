@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 3.3 browser text-codec baseline widening
+
+I widened the Stage 3.3 browser web-baseline interop corpus with deterministic `TextEncoder` / `TextDecoder` coverage, keeping the browser/runtime widening concrete without changing the support-rung story.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md` so the Stage 3.3 progress notes and remaining-work summary name the text-codec baseline explicitly
+- keep the claim narrow: this is another browser-baseline widening slice, not a support-rung change
+
 ## 2026-04-19 — Stage 3.3 browser web-baseline corpus widening (hono)
 
 I plan to widen the Stage 3.3 browser web-baseline interop corpus with `hono` as one more representative browser/web-framework package name. This keeps the breadth work concrete without changing any published support-rung claim.

@@ -45,9 +45,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser web-baseline interop corpus now also exercises `@testing-library/react` and
   `@testing-library/dom` as more representative scoped testing-library package names, keeping the
   browser package corpus breadth concrete without changing the support-rung story.
-- The browser web-baseline interop corpus now also exercises `hono` and `@vueuse/core` as more
-  representative browser/web-framework and browser utility package names, keeping the browser
-  package corpus breadth concrete without changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `hono`, `@vueuse/core`, `TextEncoder`, and
+  `TextDecoder` as more representative browser/web-framework, browser utility, and text-codec
+  primitives, keeping the browser package corpus breadth concrete without changing the support-rung
+  story.
 - Scoped browser conditional-exports coverage now exercises packages whose browser branch wins over
   import/require fallbacks, tightening the browser/runtime interoperability slice without changing
   the package-support rungs claimed for the corpus.
