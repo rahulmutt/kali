@@ -260,3 +260,6 @@ I found a small Stage 4.2 follow-up for the current proof-backed boundary summar
 Planned update:
 - sync `PLAN-4.2-STATUS.md` and `TODO.md` so the target-cell origin/positive-count theorem is called out explicitly in the current Stage 4.2 progress wording, matching the theorem inventory added to `proofs/BOUNDARY.md`
 - keep the claim narrow: this is a documentation / anti-drift sync for the published boundary, not a boundary widening
+
+Completed:
+- `PLAN-4.2-STATUS.md` and `TODO.md` now call out `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` explicitly in the current Stage 4.2 progress wording, keeping the progress notes aligned with the theorem inventory in `proofs/BOUNDARY.md`.
