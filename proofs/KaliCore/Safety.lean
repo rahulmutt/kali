@@ -512,6 +512,15 @@ theorem releaseAndCollectHeapIsPositiveCountFilter (snapshot : RcSnapshot) (ref 
       (releaseAndDecrement snapshot ref).heap.filter (fun cell => cell.refCount > 0) := by
   simp [releaseAndCollect]
 
+/-- The local release-and-collect helper's heap-filter characterization and linear-memory payload both stay explicit. -/
+theorem releaseAndCollectHeapIsPositiveCountFilterAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (releaseAndCollect snapshot ref).heap =
+      (releaseAndDecrement snapshot ref).heap.filter (fun cell => cell.refCount > 0) ∧
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndCollectHeapIsPositiveCountFilter snapshot ref
+  · exact releaseAndCollectPreservesLinearMemory snapshot ref
+
 /-- The release-and-collect helper's final heap contains only positive-count cells. -/
 theorem releaseAndCollectHeapCellsHavePositiveCount (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap → cell.refCount > 0 := by

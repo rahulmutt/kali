@@ -6,7 +6,7 @@
 
 The repository is already proof-backed for the published boundary. The remaining Stage 4.2 work is
 not “make the boundary exist” but “widen the boundary without overclaiming”. Keep this tracker,
-[`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md), [`plan/phase-4/02-formal-verification-depth.md`](./plan/phase-4/02-formal-verification-depth.md), and [`TODO.md`](./TODO.md) synchronized. The RC snapshot model itself is phrased through the explicit `hasOwnership` / `allocated` / `liveAnnotated` predicate vocabulary, and the schema-docs anti-drift guard now pins those names too, so the summary stays aligned with the model shape as well as the theorem inventory; the published boundary also already includes the explicit linear-memory payload preservation corollaries and the target-cell iff bridges `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff` and `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`, plus the target-cell allocation corollaries `KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount` and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`, so the remaining widening work sits beyond those payload and allocation bridges.
+[`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md), [`plan/phase-4/02-formal-verification-depth.md`](./plan/phase-4/02-formal-verification-depth.md), and [`TODO.md`](./TODO.md) synchronized. The RC snapshot model itself is phrased through the explicit `hasOwnership` / `allocated` / `liveAnnotated` predicate vocabulary, and the schema-docs anti-drift guard now pins those names too, so the summary stays aligned with the model shape as well as the theorem inventory; the published boundary also already includes the explicit linear-memory payload preservation corollaries and the target-cell iff bridges `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff` and `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`, plus the target-cell allocation corollaries `KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount` and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`, so the remaining widening work sits beyond those payload and allocation bridges, while the local collection helper's heap-filter-and-linear-memory corollary `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilterAndLinearMemory` keeps that payload explicitly paired with the heap-filter story.
 
 ## Published RC snapshot theorem inventory
 
@@ -35,6 +35,7 @@ The current published boundary explicitly names the RC snapshot helper slice, in
 - `releaseRefPreservesLinearMemory`
 - `releaseRefPreservesOwnershipAndLinearMemory`
 - `releaseAndCollectPreservesLinearMemory`
+- `releaseAndCollectHeapIsPositiveCountFilterAndLinearMemory`
 - `releaseAndCollectPreservesOwnershipAndLinearMemory`
 - `releaseRefReleasedNotLiveRef`
 - `releaseAndDecrementNoDanglingReference`
