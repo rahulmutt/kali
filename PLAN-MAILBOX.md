@@ -45,3 +45,11 @@ I synchronized the RC snapshot provenance wording so `KaliCore.Safety.releaseAnd
 Planned update:
 - keep the companion theorem named directly in `README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, and `plan/phase-4/02-formal-verification-depth.md` whenever the RC snapshot wording changes again
 - keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
+
+## 2026-04-19 — Stage 4.2 decrement linear-memory companion widening
+
+I plan to widen the RC snapshot proof slice with a decrement-path linear-memory companion theorem, `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCountAndLinearMemory`, so the decrement helper's origin/ownership/positivity story is paired with the same explicit linear-memory payload wording already used by the collection helper.
+
+Suggested follow-up:
+- sync `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, `TODO.md`, and the proof-summary anti-drift test so the new theorem is named explicitly
+- keep the claim narrow: this is another helper-level RC widening on top of the current published boundary, not the full Stage 4.2 ownership/freeing target
