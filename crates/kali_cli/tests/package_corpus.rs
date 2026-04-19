@@ -669,6 +669,7 @@ fn browser_corpus_packages_with_typed_export_branches_remain_checkable_and_deplo
         ("solid-js", "web"),
         ("@emotion/react", "jsx-runtime"),
         ("@reduxjs/toolkit", "query"),
+        ("@tanstack/react-query", "query-core"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));

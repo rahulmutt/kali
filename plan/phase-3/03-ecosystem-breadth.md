@@ -57,6 +57,8 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   browser package-shape coverage without changing the documented support rungs.
 - The browser typed-export-branch corpus now also exercises `@reduxjs/toolkit`, broadening the
   representative scoped browser package coverage without changing the documented support rungs.
+- The browser typed-export-branch corpus now also exercises `@tanstack/react-query`, broadening the
+  representative scoped browser package coverage without changing the documented support rungs.
 - The utility corpus now additionally exercises `rxjs` in the web-baseline interop slice alongside
   the existing utility representatives, widening the plain-package breadth without changing the
   documented support rungs.

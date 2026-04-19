@@ -351,6 +351,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `plan/phase-3/03-ecosystem-breadth.md` now explicitly enumerates the representative browser/utility package-shape cases already covered by the corpus, keeping the implementation playbook aligned with the Stage 3.3 evidence.
 - ✅ Added scoped-package corpus coverage so the representative package set now exercises `@scope/name` identities plus the scoped `@types/scope__name` fallback naming convention in both browser-targeted and standalone contexts.
 - ✅ Added typed-export-branch corpus coverage so the representative browser package set now exercises `exports` objects that carry `types` conditions alongside the runtime branches, keeping the corpus aligned with common modern package metadata.
+- ✅ Added `@tanstack/react-query` to the browser typed-export-branch corpus so the representative browser package set now covers one more scoped query-library shape without changing the documented support rungs.
 - ✅ Added exports-string corpus coverage so the representative browser and utility package sets now exercise top-level string `exports` roots alongside the existing map-based exports cases.
 
 ### Stage 4.2 - Proof-boundary anti-drift test

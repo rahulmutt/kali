@@ -1,3 +1,10 @@
+## 2026-04-19 — Stage 3.3 scoped browser typed-export representative widening
+
+I widened the Stage 3.3 browser typed-export-branch corpus with `@tanstack/react-query`, then synced `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` so the representative package corpus now names one more scoped browser package without changing the support-rung story.
+
+Suggested follow-up:
+- keep the Stage 3.3 progress note and TODO tracker aligned if the representative browser corpus widens again; this remains a corpus-widening slice, not a support-rung change
+
 ## 2026-04-19 — Stage 4.2 decrement target positive-count iff bridge
 
 I widened the RC snapshot proof slice with `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff`, a helper theorem that makes the decrement target's positive-count status after `releaseAndDecrement` explicit as an iff bridge against the original count.
