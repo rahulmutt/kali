@@ -369,3 +369,11 @@ Planned update:
 
 Completed:
 - the utility corpus and Stage 3.3 progress notes now also name `lodash` explicitly in the relevant package-breadth slices.
+
+## 2026-04-19 — Stage 4.2 collection target origin/positivity wording sync
+
+I added the new proof-backed RC helper theorem `KaliCore.Safety.releaseAndCollectTargetCellOriginAndPositiveCount` and synced the Stage 4.2 progress notes / plan summaries so the collection-target provenance and positive-count bridge is named explicitly alongside the existing target-allocation and origin/ownership helpers.
+
+Planned update:
+- keep the Stage 4.2 proof-summary inventory and plan tracker wording aligned if the collection-target helper widens again
+- treat this as another proof-summary / anti-drift sync for the published boundary, not a broader ownership/freeing widening

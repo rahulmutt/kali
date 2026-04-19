@@ -752,6 +752,21 @@ theorem releaseAndCollectTargetCellOrigin (snapshot : RcSnapshot) (ref : String)
       simpa [hcell] using hname
     exact False.elim (hname0 hname')
 
+/-- A release-and-collect step keeps the released target traceable to the original heap with positive count when it survives the collected heap. -/
+theorem releaseAndCollectTargetCellOriginAndPositiveCount (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap →
+      cell.name = ref →
+      cell.refCount > 0 →
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        cell = { cell0 with refCount := cell0.refCount - 1 } ∧
+        cell0.refCount > 1 := by
+  intro cell hmem hname hpos
+  rcases releaseAndCollectTargetCellOrigin snapshot ref cell hmem hname with ⟨cell0, hmem0, hcell⟩
+  refine ⟨cell0, hmem0, hcell, ?_⟩
+  have hgt : 0 < cell0.refCount - 1 := by
+    simpa [hcell] using hpos
+  exact Nat.sub_pos_iff_lt.mp hgt
+
 /-- A release-and-collect step keeps the released target traceable to the original heap with its original name, ownership tag, and positive count when it survives the collected heap. -/
 theorem releaseAndCollectTargetCellOriginOwnershipAndPositiveCount (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap →

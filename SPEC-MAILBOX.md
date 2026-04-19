@@ -415,3 +415,11 @@ I widened the RC snapshot proof slice with combined wellformedness/ownership/lin
 Planned update:
 - sync the verification summaries (`README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`) so the new combined corollaries are named explicitly alongside the current RC helper inventory
 - keep the claim narrow: this is still helper-level RC proof widening, not the broader Stage 4.2 ownership/freeing target
+
+## 2026-04-19 — Stage 4.2 collection target origin/positivity summary sync
+
+The proof-backed boundary summaries now also name `KaliCore.Safety.releaseAndCollectTargetCellOriginAndPositiveCount` explicitly alongside the existing collection target-allocation and origin/ownership helpers, keeping the published boundary wording honest about the current RC slice.
+
+Planned update:
+- keep the summary docs aligned with `proofs/BOUNDARY.md` if the collection-target helper widens again
+- this is a wording sync for the published boundary, not a claim-surface widening
