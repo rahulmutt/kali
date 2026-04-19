@@ -516,6 +516,10 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ The proof-summary guard now explicitly pins the heap-characterisation theorem names `releaseAndDecrementHeapCharacterisation` and `releaseAndCollectHeapCharacterisation` as well, so the summary docs stay aligned with the published RC snapshot inventory.
 - ✅ The proof-summary guard now also pins `releaseAndCollectHeapCellsHavePositiveCount` explicitly, so the local collection helper's final-heap positivity story stays aligned with the published boundary inventory.
 
+### Stage 4.2 - No-dangling-reference summary sync
+- ✅ Synced `PLAN-4.2-STATUS.md` so the current Stage 4.2 status tracker now names `KaliCore.Safety.noDanglingReference` explicitly alongside the existing RC snapshot theorem inventory.
+- ✅ Kept the update narrow: this is a proof-summary / anti-drift sync for the published boundary, not a boundary widening.
+
 ### Stage 4.2 - Lowering value-preservation helper
 - ✅ Added the HIR value fragment plus `KaliIR.LoweringCorrectness.lower_preserves_value`, which records that the current core-lifted HIR value forms lower back to core values in the proof model.
 

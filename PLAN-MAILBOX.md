@@ -1,3 +1,14 @@
+## 2026-04-19 — Stage 4.2 no-dangling-reference summary sync
+
+I synced the Stage 4.2 proof-summary wording so `KaliCore.Safety.noDanglingReference` is named explicitly in the status tracker alongside the rest of the published RC snapshot inventory.
+
+Planned update:
+- sync `PLAN-4.2-STATUS.md` so the current Stage 4.2 status note names `KaliCore.Safety.noDanglingReference` explicitly alongside the existing RC snapshot theorem inventory
+- keep the claim narrow: this is a proof-summary / anti-drift sync for the published boundary, not a boundary widening
+
+Completed:
+- the Stage 4.2 status tracker now names `KaliCore.Safety.noDanglingReference` explicitly alongside the existing RC snapshot theorem inventory.
+
 ## 2026-04-19 — Stage 3.3 valtio corpus widening
 
 I widened the Stage 3.3 package corpus one step further by adding `valtio` to the browser and utility web-baseline interop slices, keeping the representative state-management breadth concrete without changing support-rung claims.
