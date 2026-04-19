@@ -97,6 +97,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `next` in the browser web-baseline interop slice, so the representative browser package corpus now covers one more app-framework package without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@testing-library/react` in the browser web-baseline interop slice, so the scoped browser corpus now carries one more representative testing-library package name through the browser command path without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@testing-library/dom` alongside `@testing-library/react` in the browser web-baseline interop slice, so the scoped browser corpus now carries both the React-oriented and DOM-oriented testing-library package names through the browser command path without changing the documented support rungs.
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `hono` in the browser web-baseline interop slice, so the browser/runtime interoperability widening now carries one more representative browser/web-framework package name through the browser command path without changing the documented support rungs.
 - ✅ Kept the update narrow: this widens the package corpus and browser/runtime interoperability checks without changing the documented support rungs.
 
 ### Stage 3.3 - Scoped browser representative widening

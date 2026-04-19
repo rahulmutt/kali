@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 3.3 browser web-baseline corpus widening (hono)
+
+I plan to widen the Stage 3.3 browser web-baseline interop corpus with `hono` as one more representative browser/web-framework package name. This keeps the breadth work concrete without changing any published support-rung claim.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md` so the Stage 3.3 progress notes name `hono` explicitly
+- keep the claim narrow: this is another corpus-widening slice, not a support-rung change
+
 ## 2026-04-19 — Stage 4.2 proof-summary wording sync
 
 I synchronized the top-level plan/status summaries with the newly explicit combined wellformedness/linear-memory corollaries for the RC helpers, so the remaining Stage 4.2 follow-up lane now points at the broader ownership / RC widening instead of the already-published payload bridge.
