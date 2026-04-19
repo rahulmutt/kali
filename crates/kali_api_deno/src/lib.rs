@@ -6,9 +6,10 @@
 
 pub use kali_api_web::{
     fill_random_values, local_storage, parse_url, performance_now, resolve_url, session_storage,
-    structured_clone, text_decode, text_encode, AbortController, AbortSignal, Blob, CustomEvent,
-    Event, EventTarget, File, FileReader, FileReaderState, FormData, FormDataEntry, FormDataValue,
-    IndexedDb, Storage, URLSearchParams, WebSocket, WebSocketReadyState, Worker,
+    structured_clone, text_decode, text_encode, AbortController, AbortSignal, Blob,
+    BroadcastChannel, CustomEvent, Event, EventTarget, File, FileReader, FileReaderState, FormData,
+    FormDataEntry, FormDataValue, IndexedDb, Storage, URLSearchParams, WebSocket,
+    WebSocketReadyState, Worker,
 };
 
 use std::{
@@ -564,6 +565,14 @@ mod tests {
         assert_eq!(
             worker.script_url().as_str(),
             "https://example.com/worker.js"
+        );
+
+        let channel = BroadcastChannel::new("browser-cache");
+        assert_eq!(channel.name(), "browser-cache");
+        channel.post_message(serde_json::json!({"ok": true}));
+        assert_eq!(
+            channel.posted_messages(),
+            vec![serde_json::json!({"ok": true})]
         );
 
         let params = URLSearchParams::from_query("alpha=1&beta=two+words");

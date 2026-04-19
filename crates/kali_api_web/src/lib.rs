@@ -768,6 +768,59 @@ impl Worker {
     }
 }
 
+/// A deterministic broadcast channel stub used by the browser baseline.
+#[derive(Clone, Debug)]
+pub struct BroadcastChannel {
+    name: String,
+    posted_messages: Arc<Mutex<Vec<Value>>>,
+    closed: Arc<AtomicBool>,
+}
+
+impl BroadcastChannel {
+    /// Create a new broadcast channel stub with a stable name.
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            posted_messages: Arc::new(Mutex::new(Vec::new())),
+            closed: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    /// Return the channel name.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Record a posted message in the deterministic stub buffer.
+    pub fn post_message(&self, message: Value) {
+        if self.closed.load(Ordering::SeqCst) {
+            return;
+        }
+        self.posted_messages
+            .lock()
+            .expect("broadcast channel mutex poisoned")
+            .push(message);
+    }
+
+    /// Return the buffered messages.
+    pub fn posted_messages(&self) -> Vec<Value> {
+        self.posted_messages
+            .lock()
+            .expect("broadcast channel mutex poisoned")
+            .clone()
+    }
+
+    /// Transition the stub channel into the closed state.
+    pub fn close(&self) {
+        self.closed.store(true, Ordering::SeqCst);
+    }
+
+    /// Return whether the stub channel has been closed.
+    pub fn is_closed(&self) -> bool {
+        self.closed.load(Ordering::SeqCst)
+    }
+}
+
 /// A deterministic in-memory IndexedDB stub.
 #[derive(Clone, Debug, Default)]
 pub struct IndexedDb {
@@ -1149,6 +1202,27 @@ mod tests {
         worker.post_message(Value::String("ignored".to_string()));
         assert_eq!(
             worker.posted_messages(),
+            vec![Value::String("ping".to_string())]
+        );
+    }
+
+    #[test]
+    fn broadcast_channel_stub_records_posted_messages() {
+        let channel = BroadcastChannel::new("browser-corpus");
+        assert_eq!(channel.name(), "browser-corpus");
+        assert!(!channel.is_closed());
+
+        channel.post_message(Value::String("ping".to_string()));
+        assert_eq!(
+            channel.posted_messages(),
+            vec![Value::String("ping".to_string())]
+        );
+
+        channel.close();
+        assert!(channel.is_closed());
+        channel.post_message(Value::String("ignored".to_string()));
+        assert_eq!(
+            channel.posted_messages(),
             vec![Value::String("ping".to_string())]
         );
     }

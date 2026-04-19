@@ -1178,6 +1178,7 @@ fn builtin_globals() -> &'static [&'static str] {
         "Array",
         "Blob",
         "Boolean",
+        "BroadcastChannel",
         "clearInterval",
         "clearTimeout",
         "console",
@@ -1493,6 +1494,9 @@ mod tests {
             }),
             Statement::ExpressionStatement(ExpressionStatement {
                 expression: Box::new(Expression::Identifier("Worker".to_string())),
+            }),
+            Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::Identifier("BroadcastChannel".to_string())),
             }),
             Statement::ExpressionStatement(ExpressionStatement {
                 expression: Box::new(Expression::Identifier("indexedDB".to_string())),
