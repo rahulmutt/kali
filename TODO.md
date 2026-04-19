@@ -7,9 +7,10 @@ follow-up widening rather than unfinished baseline delivery:
 
 - widen specialization depth beyond the current MIR-aware layout-specialized path — including the
   array-layout widening that preserves array-valued MIR binding fingerprints during call-site
-  specialization — while keeping the specialization budget and benchmark evidence honest; the
-  current optimizer now also splits quoted string-literal and no-substitution template literal
-  call-site arguments into distinct specialization signatures, preserves boolean literal `true` /
+  specialization — and the newer direct array-literal shape widening that keeps inline arrays with
+  different lengths split apart — while keeping the specialization budget and benchmark evidence
+  honest; the current optimizer now also splits quoted string-literal and no-substitution template
+  literal call-site arguments into distinct specialization signatures, preserves boolean literal `true` /
   `false` identity, distinguishes numeric literals from each other at call sites, distinguishes
   signed-zero `-0` from `0`, distinguishes BigInt literals from the old numeric fallback,
   distinguishes `null` and `undefined` from the old zero-valued fallback, lifts nested MIR-bound
@@ -121,6 +122,11 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 3.1 - Array-layout specialization widening
 - ✅ MIR-backed array bindings now preserve their element/length fingerprints during call-site specialization, so different array layouts can split into separate clones instead of collapsing onto a single shared body.
 - ✅ Added regression coverage proving two callers with different array layouts now produce distinct specialized clones while still respecting the deterministic specialization budget.
+- ✅ Kept the update narrow: this widens specialization depth inside the existing optimizer model; it does not change the published benchmark or support claims.
+
+### Stage 3.1 - Direct array-literal shape widening
+- ✅ Direct array-literal call-site arguments now carry explicit `Value:array:len=...` specialization signatures, so inline arrays of different lengths split into separate specialized clones even when the callee only sees a tagged parameter.
+- ✅ Added regression coverage proving two direct array-literal call sites with different lengths produce distinct specialized clones while still respecting the deterministic specialization budget.
 - ✅ Kept the update narrow: this widens specialization depth inside the existing optimizer model; it does not change the published benchmark or support claims.
 
 ### Stage 3.3 - Web Blob/File/FileReader baseline

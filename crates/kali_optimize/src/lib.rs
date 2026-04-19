@@ -1095,10 +1095,20 @@ impl Optimizer {
                 },
                 _ => format!("{:?}:{:?}", node.kind, node.text),
             },
+            LirNodeKind::Value if self.is_object_literal(program, id) => {
+                self.object_literal_signature(program, id, mir_plan, scope)
+            }
+            LirNodeKind::Value if self.is_array_literal(program, id) => {
+                self.array_literal_signature(program, id, mir_plan, scope)
+            }
             _ => format!("{:?}:{:?}", node.kind, node.text),
         };
 
-        if !node.children.is_empty() {
+        if !node.children.is_empty() && !matches!(node.kind, LirNodeKind::Value)
+            || (matches!(node.kind, LirNodeKind::Value)
+                && !self.is_object_literal(program, id)
+                && !self.is_array_literal(program, id))
+        {
             signature.push('(');
             for child in &node.children {
                 signature.push_str(
@@ -1110,6 +1120,81 @@ impl Optimizer {
         }
 
         signature
+    }
+
+    fn object_literal_signature(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+        mir_plan: &MirSpecializationPlan,
+        scope: &str,
+    ) -> String {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return "<missing>".to_string();
+        };
+
+        let mut signature = format!("Value:object:len={}", node.children.len());
+        signature.push('(');
+        for child in &node.children {
+            signature.push_str(&self.object_property_signature(program, *child, mir_plan, scope));
+            signature.push(',');
+        }
+        signature.push(')');
+        signature
+    }
+
+    fn array_literal_signature(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+        mir_plan: &MirSpecializationPlan,
+        scope: &str,
+    ) -> String {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return "<missing>".to_string();
+        };
+
+        let mut signature = format!("Value:array:len={}", node.children.len());
+        signature.push('(');
+        for child in &node.children {
+            signature.push_str(
+                &self.specialization_signature_with_mir(program, *child, mir_plan, scope),
+            );
+            signature.push(',');
+        }
+        signature.push(')');
+        signature
+    }
+
+    fn object_property_signature(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+        mir_plan: &MirSpecializationPlan,
+        scope: &str,
+    ) -> String {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return "<missing>".to_string();
+        };
+
+        if node.kind == LirNodeKind::Value
+            && matches!(
+                node.text.as_deref(),
+                Some("init") | Some("get") | Some("set")
+            )
+            && node.children.len() == 2
+        {
+            let key = program
+                .nodes
+                .get(node.children[0].0 as usize)
+                .and_then(|key| key.text.as_deref())
+                .unwrap_or("<key>");
+            let value =
+                self.specialization_signature_with_mir(program, node.children[1], mir_plan, scope);
+            return format!("{key}:{value}");
+        }
+
+        self.specialization_signature_with_mir(program, id, mir_plan, scope)
     }
 
     fn build_specialization_plan(&self, program: &LirProgram) -> SpecializationPlan {
@@ -2159,6 +2244,146 @@ mod tests {
         let node = &program.nodes[access.0 as usize];
         assert_eq!(node.kind, LirNodeKind::Literal);
         assert_eq!(node.text.as_deref(), Some("20"));
+    }
+
+    #[test]
+    fn release_specializes_array_literal_arguments_by_shape() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "consume_array");
+        let param_items = builder.alloc_text(LirNodeKind::Value, "items");
+        let param_value = builder.alloc_text(LirNodeKind::Value, "value");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add8 = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let two = literal(&mut builder, "2");
+        let three = literal(&mut builder, "3");
+        let four = literal(&mut builder, "4");
+        let five = literal(&mut builder, "5");
+        let six = literal(&mut builder, "6");
+        let seven = literal(&mut builder, "7");
+        let eight = literal(&mut builder, "8");
+        builder.node_mut(add1).unwrap().children = vec![param_value, one];
+        builder.node_mut(add2).unwrap().children = vec![add1, two];
+        builder.node_mut(add3).unwrap().children = vec![add2, three];
+        builder.node_mut(add4).unwrap().children = vec![add3, four];
+        builder.node_mut(add5).unwrap().children = vec![add4, five];
+        builder.node_mut(add6).unwrap().children = vec![add5, six];
+        builder.node_mut(add7).unwrap().children = vec![add6, seven];
+        builder.node_mut(add8).unwrap().children = vec![add7, eight];
+        builder.node_mut(ret).unwrap().children = vec![add8];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_items, param_value, block];
+
+        let call_a = builder.alloc(LirNodeKind::Call);
+        let callee_a = builder.alloc_text(LirNodeKind::Value, "consume_array");
+        let array_a = builder.alloc(LirNodeKind::Value);
+        let array_a_first = literal(&mut builder, "1");
+        let array_a_second = literal(&mut builder, "2");
+        builder.node_mut(array_a).unwrap().children = vec![array_a_first, array_a_second];
+        let value_a = literal(&mut builder, "1");
+        builder.node_mut(call_a).unwrap().children = vec![callee_a, array_a, value_a];
+
+        let call_b = builder.alloc(LirNodeKind::Call);
+        let callee_b = builder.alloc_text(LirNodeKind::Value, "consume_array");
+        let array_b = builder.alloc(LirNodeKind::Value);
+        let array_b_first = literal(&mut builder, "1");
+        let array_b_second = literal(&mut builder, "2");
+        let array_b_third = literal(&mut builder, "3");
+        builder.node_mut(array_b).unwrap().children =
+            vec![array_b_first, array_b_second, array_b_third];
+        let value_b = literal(&mut builder, "1");
+        builder.node_mut(call_b).unwrap().children = vec![callee_b, array_b, value_b];
+
+        builder.node_mut(root).unwrap().children = vec![function, call_a, call_b];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![
+                kali_mir::MirFunction {
+                    name: None,
+                    kind: kali_mir::MirFunctionKind::Module,
+                    bindings: Vec::new(),
+                },
+                kali_mir::MirFunction {
+                    name: Some("consume_array".to_string()),
+                    kind: kali_mir::MirFunctionKind::Function,
+                    bindings: vec![
+                        kali_mir::MirBinding {
+                            name: "items".to_string(),
+                            kind: MirBindingKind::Parameter,
+                            ownership: kali_mir::OwnershipClass::Borrowed,
+                            layout: LayoutDescriptor::TaggedVal,
+                            escapes: false,
+                            captured_by: Vec::new(),
+                        },
+                        kali_mir::MirBinding {
+                            name: "value".to_string(),
+                            kind: MirBindingKind::Parameter,
+                            ownership: kali_mir::OwnershipClass::Borrowed,
+                            layout: LayoutDescriptor::TaggedVal,
+                            escapes: false,
+                            captured_by: Vec::new(),
+                        },
+                    ],
+                },
+            ],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let call_a_node = &program.nodes[call_a.0 as usize];
+        let call_b_node = &program.nodes[call_b.0 as usize];
+        let specialized_name_a = call_a_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for call_a");
+        let specialized_name_b = call_b_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for call_b");
+
+        assert_ne!(specialized_name_a, specialized_name_b);
+        assert!(specialized_name_a.starts_with("consume_array$spec$"));
+        assert!(specialized_name_b.starts_with("consume_array$spec$"));
+
+        let specialized_count_a = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_a)
+            })
+            .count();
+        let specialized_count_b = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_b)
+            })
+            .count();
+
+        assert_eq!(specialized_count_a, 1);
+        assert_eq!(specialized_count_b, 1);
     }
 
     #[test]
