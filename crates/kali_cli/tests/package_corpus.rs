@@ -1177,6 +1177,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "@tanstack/react-query",
         "@testing-library/dom",
         "mobx",
+        "mitt",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
@@ -1521,6 +1522,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "redux",
         "clsx",
         "zustand",
+        "mitt",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
@@ -1823,7 +1825,7 @@ fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_def
 #[test]
 fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the_default_standalone_surface(
 ) {
-    for package in ["ramda", "uuid", "rxjs", "dayjs", "zod", "nanoid", "axios", "redux"] {
+    for package in ["ramda", "uuid", "rxjs", "dayjs", "zod", "nanoid", "axios", "redux", "mitt"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_stub_package(
