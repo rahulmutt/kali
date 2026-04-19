@@ -25,10 +25,11 @@ follow-up widening rather than unfinished baseline delivery:
   `AbortController`, `EventTarget`, and `CustomEvent`, plus stub surfaces for `BroadcastChannel`, `WebSocket`, `Worker`, and `IndexedDB` in addition to the shared `Blob` / `File` / `FormData` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those surfaces alongside `fetch`, `Headers`, `Request`, `Response`, `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `next`, `hono`, `@vueuse/core`, `@emotion/react`, `@emotion/styled`, `@heroicons/react`, `react-dom`, `@floating-ui/react`, `@headlessui/react`, `@chakra-ui/react`, `@mui/material`, `@radix-ui/react-dialog`, `@tanstack/react-query`, `@testing-library/dom`, `URLSearchParams`, `TextEncoder`, `TextDecoder`, and the existing browser representatives,
 - widen the proof-backed boundary beyond the current published RC snapshot + lowering slice while
   keeping `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and summary docs synchronized; the current RC
-  helper slice is already named explicitly through the decrement-path iff bridge
-  `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff`, the collection target iff
-  bridge `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`, the collection
-  helper's heap-filter-and-linear-memory corollary
+  helper slice is already named explicitly through the release-only companion theorem
+  `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory`, the
+  decrement-path iff bridge `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff`, the
+  collection target iff bridge `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`,
+  the collection helper's heap-filter-and-linear-memory corollary
   `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilterAndLinearMemory`, the combined
   wellformedness/linear-memory corollaries
   `KaliCore.Safety.releaseRefPreservesWellFormedAndLinearMemory`,
@@ -459,6 +460,7 @@ follow-up widening rather than unfinished baseline delivery:
 
 ### Stage 4.2 - Pure release-helper follow-up
 - ✅ `releaseRefLiveRefsAreOwnedAndAllocated`, `releaseRefLiveRefsAreLiveAnnotated`, `releaseAndDecrementLiveRefsAreLiveAnnotated`, `releaseAndCollectLiveRefsAreLiveAnnotated` now keeps the pure release helper's surviving live references anchored in ownership and allocation, and `releaseRefHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` now makes the release-only provenance story explicit.
+- ✅ `releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` now names the release-only linear-memory companion theorem directly, so the pure-release provenance slice stays aligned with the decrement and collection helper wording.
 - ✅ `PLAN-4.2-STATUS.md` now also names `KaliCore.Safety.releaseRefHeapCharacterisation`, `KaliCore.Safety.releaseRefHeapCellOrigin` and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` in the top-level memory-safety summary, so the plan tracker stays as explicit as the published boundary.
 - ✅ `releaseRefLiveRefsFiltered`, `releaseAndDecrementLiveRefsFiltered`, and `releaseAndCollectLiveRefsFiltered` now keep the live-reference list filtered to the released target across the release-only, decrement, and collection helpers.
 - ✅ `releaseRefReleasedNotLiveRef` now keeps released references disjoint from the live set after the pure release helper runs.
