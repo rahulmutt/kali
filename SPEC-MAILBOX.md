@@ -377,3 +377,11 @@ Planned update:
 
 Completed:
 - the proof-backed boundary summary, stage plan, and anti-drift guard now also name `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory` explicitly.
+
+## 2026-04-19 — Stage 4.2 final-heap positive-count wording sync
+
+I found one remaining proof-summary drift point in the RC snapshot slice: the local collection helper's final-heap positivity theorem `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` is mechanized already, but some summary prose still describes it generically.
+
+Planned update:
+- sync the verification summary docs (`README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`) so the theorem is named explicitly wherever the proof-backed boundary inventory is repeated
+- keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening

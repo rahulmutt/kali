@@ -548,6 +548,7 @@ fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_thr
         ("solid-js", "store"),
         ("vue-router", "history"),
         ("react-router", "dom"),
+        ("react-dom", "client"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
@@ -1368,6 +1369,7 @@ fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkabl
         ("@heroicons/react", "solid"),
         ("@mui/material", "styles"),
         ("@tanstack/react-query", "query-core"),
+        ("react-dom", "client"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));

@@ -34,6 +34,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The scoped browser corpus now also exercises `@headlessui/react` across the web-baseline interop,
   exports-map, and browser-condition slices, adding one more representative UI package shape to the
   evidence set without changing the documented support rungs.
+- The browser corpus now also exercises `react-dom` across the exports-map and browser-condition
+  slices, keeping the browser package-shape breadth concrete without changing the support-rung
+  story.
 - The browser web-baseline interop corpus now also exercises `@chakra-ui/react`, `@emotion/styled`,
   `@heroicons/react`, and `react-dom` as more representative browser package names, keeping the
   browser package corpus breadth concrete without changing the support-rung story.

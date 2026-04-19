@@ -189,3 +189,20 @@ Planned update:
 
 Completed:
 - the companion theorems now exist in `proofs/KaliCore/Safety.lean` and are named explicitly in the published boundary summaries and proof-summary guard.
+
+## 2026-04-19 — Stage 4.2 final-heap positive-count wording sync
+
+I found one remaining proof-summary drift point in the RC snapshot slice: the local collection helper's final-heap positivity theorem `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` is mechanized already, but some of the summary/progress prose still describes it generically.
+
+Planned update:
+- sync `README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and the Stage 4.2 plan/status notes so the theorem is named explicitly wherever the proof-backed boundary inventory is repeated
+- keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
+
+## 2026-04-19 — Stage 3.3 react-dom browser corpus widening
+
+I found a small but concrete Stage 3.3 follow-up in the package-corpus breadth lane: `react-dom` is already covered in the browser web-baseline interop slice, but it still has room to exercise another representative browser package shape in the exports-map / browser-condition corpus.
+
+Planned update:
+- add `react-dom` to the browser exports-map and browser-condition corpus slices in `crates/kali_cli/tests/package_corpus.rs`
+- sync the corresponding Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` so the browser representative-package breadth note names the new slice coverage explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change

@@ -116,6 +116,7 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 3.3 - Scoped browser representative widening
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@radix-ui/react-dialog` in the browser web-baseline interop slice, so the browser package corpus now carries one more scoped browser package name through the browser command path without changing the documented support-rung story.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@heroicons/react` in the browser scoped exports-map and browser-condition slices, so the scoped browser corpus now carries one more representative UI package name through the browser command path without changing the documented support-rung story.
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `react-dom` across the browser exports-map and browser-condition slices, so the browser corpus now covers one more representative app-framework package shape without changing the documented support-rung story.
 - ✅ `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` now name `@radix-ui/react-dialog` explicitly in the Stage 3.3 widening notes.
 - ✅ `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` now name `@heroicons/react` explicitly in the Stage 3.3 widening notes.
 - ✅ Kept the update narrow: this is another corpus-widening slice, not a support-rung change.
