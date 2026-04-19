@@ -41,8 +41,8 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   `@heroicons/react`, and `react-dom` as more representative browser package names, keeping the
   browser package corpus breadth concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `next` as one more browser
-  app-framework package, keeping the browser package corpus breadth concrete without changing the
-  support-rung story.
+  app-framework package, and `framer-motion` as one more representative browser UI package,
+  keeping the browser package corpus breadth concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@testing-library/react`,
   `@testing-library/dom`, and `@testing-library/user-event` as more representative scoped
   testing-library package names, keeping the browser package corpus breadth concrete without
