@@ -1069,7 +1069,11 @@ impl Optimizer {
                 Some(ConstantValue::Boolean(value)) => {
                     format!("Literal:boolean:{value}")
                 }
-                Some(ConstantValue::String(value)) => format!("Literal:string:{value}"),
+                Some(ConstantValue::String(_)) => node
+                    .text
+                    .as_deref()
+                    .and_then(|text| string_literal_signature("Literal", text))
+                    .unwrap_or_else(|| format!("Literal:string:<missing>")),
                 Some(ConstantValue::Null) => "Literal:null".to_string(),
                 Some(ConstantValue::Undefined) => "Literal:undefined".to_string(),
                 Some(ConstantValue::NegativeZero) => "Literal:number:-0".to_string(),
@@ -1087,7 +1091,8 @@ impl Optimizer {
                             .map_or_else(|| value.to_string(), str::to_owned)
                     ),
                     Some(ConstantValue::BigInt(value)) => format!("Value:bigint:{value}"),
-                    Some(ConstantValue::String(value)) => format!("Value:string:{value}"),
+                    Some(ConstantValue::String(_)) => string_literal_signature("Value", text)
+                        .unwrap_or_else(|| "Value:string:<missing>".to_string()),
                     Some(ConstantValue::Null) => "Value:null".to_string(),
                     Some(ConstantValue::Undefined) => "Value:undefined".to_string(),
                     Some(ConstantValue::NegativeZero) => "Value:number:-0".to_string(),
@@ -1485,7 +1490,11 @@ impl Optimizer {
                 Some(ConstantValue::Boolean(value)) => {
                     format!("Literal:boolean:{value}")
                 }
-                Some(ConstantValue::String(value)) => format!("Literal:string:{value}"),
+                Some(ConstantValue::String(_)) => node
+                    .text
+                    .as_deref()
+                    .and_then(|text| string_literal_signature("Literal", text))
+                    .unwrap_or_else(|| format!("Literal:string:<missing>")),
                 Some(ConstantValue::Null) => "Literal:null".to_string(),
                 Some(ConstantValue::Undefined) => "Literal:undefined".to_string(),
                 Some(ConstantValue::NegativeZero) => "Literal:number:-0".to_string(),
@@ -1503,7 +1512,8 @@ impl Optimizer {
                             .map_or_else(|| value.to_string(), str::to_owned)
                     ),
                     Some(ConstantValue::BigInt(value)) => format!("Value:bigint:{value}"),
-                    Some(ConstantValue::String(value)) => format!("Value:string:{value}"),
+                    Some(ConstantValue::String(_)) => string_literal_signature("Value", text)
+                        .unwrap_or_else(|| "Value:string:<missing>".to_string()),
                     Some(ConstantValue::Null) => "Value:null".to_string(),
                     Some(ConstantValue::Undefined) => "Value:undefined".to_string(),
                     Some(ConstantValue::NegativeZero) => "Value:number:-0".to_string(),
@@ -1812,6 +1822,16 @@ fn parse_literal_text(text: Option<&str>) -> Option<ConstantValue> {
                 }
             }),
     }
+}
+
+fn string_literal_signature(prefix: &str, text: &str) -> Option<String> {
+    let value = parse_string_literal(text)?;
+    let literal_kind = if text.starts_with('`') {
+        "template"
+    } else {
+        "quoted"
+    };
+    Some(format!("{prefix}:string:{literal_kind}:{value}"))
 }
 
 fn fold_unary(op: &str, value: ConstantValue) -> Option<ConstantValue> {
@@ -3290,11 +3310,11 @@ mod tests {
     }
 
     #[test]
-    fn release_specializes_template_literal_arguments() {
+    fn release_specializes_quoted_string_and_template_literal_arguments_distinctly() {
         let mut builder = LirBuilder::new();
         let root = builder.alloc(LirNodeKind::Program);
 
-        let function = builder.alloc_text(LirNodeKind::Instruction, "echo_template");
+        let function = builder.alloc_text(LirNodeKind::Instruction, "echo_text_variant");
         let param_text = builder.alloc_text(LirNodeKind::Value, "text");
         let block = builder.alloc(LirNodeKind::Block);
         let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
@@ -3320,17 +3340,23 @@ mod tests {
         builder.node_mut(block).unwrap().children = vec![ret];
         builder.node_mut(function).unwrap().children = vec![param_text, block];
 
-        let call_a = builder.alloc(LirNodeKind::Call);
-        let call_a_callee = builder.alloc_text(LirNodeKind::Value, "echo_template");
-        let arg_a = literal(&mut builder, "`alpha`");
-        builder.node_mut(call_a).unwrap().children = vec![call_a_callee, arg_a];
+        let call_quoted = builder.alloc(LirNodeKind::Call);
+        let call_quoted_callee = builder.alloc_text(LirNodeKind::Value, "echo_text_variant");
+        let quoted = literal(&mut builder, "\"alpha\"");
+        builder.node_mut(call_quoted).unwrap().children = vec![call_quoted_callee, quoted];
 
-        let call_b = builder.alloc(LirNodeKind::Call);
-        let call_b_callee = builder.alloc_text(LirNodeKind::Value, "echo_template");
-        let arg_b = literal(&mut builder, "`beta`");
-        builder.node_mut(call_b).unwrap().children = vec![call_b_callee, arg_b];
+        let call_template = builder.alloc(LirNodeKind::Call);
+        let call_template_callee = builder.alloc_text(LirNodeKind::Value, "echo_text_variant");
+        let template = literal(&mut builder, "`alpha`");
+        builder.node_mut(call_template).unwrap().children = vec![call_template_callee, template];
 
-        builder.node_mut(root).unwrap().children = vec![function, call_a, call_b];
+        let call_quoted_b = builder.alloc(LirNodeKind::Call);
+        let call_quoted_b_callee = builder.alloc_text(LirNodeKind::Value, "echo_text_variant");
+        let quoted_b = literal(&mut builder, "\"alpha\"");
+        builder.node_mut(call_quoted_b).unwrap().children = vec![call_quoted_b_callee, quoted_b];
+
+        builder.node_mut(root).unwrap().children =
+            vec![function, call_quoted, call_template, call_quoted_b];
         let mut program = LirProgram {
             root,
             nodes: builder.into_nodes(),
@@ -3340,7 +3366,7 @@ mod tests {
             root: kali_mir::MirNodeId::new(0),
             nodes: Vec::new(),
             functions: vec![kali_mir::MirFunction {
-                name: Some("echo_template".to_string()),
+                name: Some("echo_text_variant".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
                 bindings: vec![kali_mir::MirBinding {
                     name: "text".to_string(),
@@ -3355,22 +3381,29 @@ mod tests {
 
         Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
 
-        let specialized_name_a = program.nodes[call_a.0 as usize]
+        let quoted_name = program.nodes[call_quoted.0 as usize]
             .children
             .first()
             .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
             .and_then(|callee| callee.text.as_deref())
-            .expect("specialized call target should exist for template literal A");
-        let specialized_name_b = program.nodes[call_b.0 as usize]
+            .expect("specialized call target should exist for quoted string literal");
+        let template_name = program.nodes[call_template.0 as usize]
             .children
             .first()
             .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
             .and_then(|callee| callee.text.as_deref())
-            .expect("specialized call target should exist for template literal B");
+            .expect("specialized call target should exist for template literal");
+        let quoted_name_b = program.nodes[call_quoted_b.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for repeated quoted string literal");
 
-        assert_ne!(specialized_name_a, specialized_name_b);
-        assert!(specialized_name_a.starts_with("echo_template$spec$"));
-        assert!(specialized_name_b.starts_with("echo_template$spec$"));
+        assert_eq!(quoted_name, quoted_name_b);
+        assert_ne!(quoted_name, template_name);
+        assert!(quoted_name.starts_with("echo_text_variant$spec$"));
+        assert!(template_name.starts_with("echo_text_variant$spec$"));
     }
 
     #[test]
