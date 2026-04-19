@@ -1,3 +1,10 @@
+## 2026-04-19 — Stage 3.3 next browser web-baseline widening
+
+I widened the Stage 3.3 browser web-baseline interop corpus with `next`, so the representative browser package set now carries one more app-framework package without changing the support-rung story.
+
+Planned update:
+- keep `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md` aligned if the browser corpus widens again; this remains a browser-interoperability slice, not a support-rung change
+
 ## 2026-04-19 — Stage 3.1 closure-capture identity widening
 
 I widened the Stage 3.1 specialization path so closure-valued MIR bindings now fingerprint their capture identity list instead of only capture arity. That lets the optimizer keep same-capture higher-order call sites shared while splitting distinct closure shapes into separate specializations, which is a deeper layout-sensitive specialization slice than the old arity-only collapse.
