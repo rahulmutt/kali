@@ -1567,6 +1567,7 @@ fn utility_corpus_packages_with_exports_maps_remain_executable_on_the_default_st
         ("rxjs", "operators"),
         ("uuid", "v4"),
         ("commander", "command"),
+        ("redux", "createStore"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
@@ -1617,7 +1618,7 @@ fn utility_corpus_packages_with_exports_maps_remain_executable_on_the_default_st
 #[test]
 fn utility_corpus_packages_with_string_exports_remain_executable_on_the_default_standalone_surface()
 {
-    for package in ["ramda", "rxjs", "uuid", "commander"] {
+    for package in ["ramda", "rxjs", "uuid", "commander", "redux"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_string_exports_package(
@@ -1665,6 +1666,7 @@ fn utility_corpus_packages_with_pattern_exports_remain_executable_on_the_default
         ("rxjs", "operators"),
         ("uuid", "v4"),
         ("commander", "command"),
+        ("redux", "createStore"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);

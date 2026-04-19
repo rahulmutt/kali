@@ -51,6 +51,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser and utility web-baseline interop corpus now also exercises `mitt` as another
   representative lightweight package name, keeping the browser and utility package breadth concrete
   without changing the support-rung story.
+- The utility corpus now also exercises `redux` across the exports-map, string-exports, and
+  pattern-exports slices, keeping the state-management package breadth concrete without changing the
+  documented support-rungs.
 - The browser web-baseline interop corpus now also exercises `hono`, `@vueuse/core`, `TextEncoder`, and
   `TextDecoder` as more representative browser/web-framework, browser utility, and text-codec
   primitives, keeping the browser package corpus breadth concrete without changing the support-rung

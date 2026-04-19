@@ -1,3 +1,11 @@
+
+## 2026-04-19 — Stage 3.3 redux utility-shape widening
+
+I widened the Stage 3.3 utility corpus a bit further by adding `redux` to the utility exports-map, string-exports, and pattern-exports slices, keeping the package-corpus breadth note concrete without changing any support-rung claims.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention the new utility-shape coverage
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
 ## 2026-04-19 — Stage 3.3 mitt browser/utility corpus widening
 
 I widened the Stage 3.3 package corpus one step further by adding `mitt` to the browser and utility web-baseline interop slices, keeping the package-corpus breadth note concrete without changing support-rung claims.
