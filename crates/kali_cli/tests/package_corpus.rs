@@ -478,7 +478,7 @@ where
 
 #[test]
 fn browser_corpus_packages_remain_checkable_and_deployable_through_host() {
-    for package in ["react", "preact", "vue", "clsx", "vue-router"] {
+    for package in ["react", "preact", "vue", "clsx", "vue-router", "@testing-library/react"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
         write_stub_package(

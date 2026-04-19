@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 3.3 testing-library browser corpus widening
+
+I widened the Stage 3.3 browser corpus with `@testing-library/react`, so the representative browser package set now carries one more scoped testing-library package name without changing the documented support-rung story.
+
+Planned update:
+- sync `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` so the Stage 3.3 progress notes call out the new browser corpus representative explicitly
+- keep the claim narrow: this is another corpus-widening slice, not a support-rung change
+
 ## 2026-04-19 — Stage 4.2 wellformedness / linear-memory corollary widening
 
 I widened the proof-backed boundary with combined wellformedness/linear-memory corollaries for the release-only, decrement, and collection helpers: `KaliCore.Safety.releaseRefPreservesWellFormedAndLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesWellFormedAndLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesWellFormedAndLinearMemory`.
