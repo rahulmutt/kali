@@ -342,3 +342,6 @@ I widened the RC snapshot proof slice with combined wellformedness/ownership/lin
 Planned update:
 - sync the proof-boundary manifest and verification summaries so the new combined corollaries are named explicitly alongside the current RC helper inventory
 - keep the claim narrow: this is still helper-level RC proof widening, not the broader Stage 4.2 ownership/freeing target
+
+Completed:
+- the proof-boundary manifest, verification summaries, Stage 4.2 tracker, TODO notes, `PLAN.md`, and proof-summary guard now name the combined wellformedness/ownership/linear-memory corollaries explicitly alongside the current RC helper inventory.
