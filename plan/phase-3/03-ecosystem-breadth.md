@@ -54,6 +54,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   keeping the browser package corpus breadth concrete without changing the support-rung story.
 - The utility corpus now also exercises `vite` in the plain-package and web-baseline interop slices,
   keeping one more modern build-tool package name covered without changing the support-rung story.
+- The utility corpus now also exercises `react` and `preact` in the plain-package slice on the
+  default standalone surface, keeping the representative React/Preact package breadth concrete
+  without changing the support-rung story.
 - The browser and utility web-baseline interop corpus now also exercises `@tanstack/router` as another
   representative scoped routing package name, keeping the browser/utility package breadth concrete
   without changing the support-rung story.

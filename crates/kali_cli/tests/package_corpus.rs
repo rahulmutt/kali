@@ -1550,6 +1550,8 @@ fn browser_corpus_packages_that_block_the_selected_path_are_rejected_in_browser_
 #[test]
 fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface() {
     for package in [
+        "react",
+        "preact",
         "ramda",
         "rxjs",
         "immer",
