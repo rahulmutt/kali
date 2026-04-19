@@ -91,6 +91,11 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `Infinity`, `-Infinity`, and `NaN` call-site arguments now carry distinct literal signatures, so the remaining special-number edge cases stay visible to the deterministic specialization path instead of collapsing onto the generic tagged fallback.
 - ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
 
+### Stage 3.1 - Boolean-literal specialization widening
+- ✅ `true` and `false` call-site arguments now preserve their distinct identities in the specialization signature, so the tagged-parameter and MIR-backed hot paths do not collapse distinct control-flow constants onto one shared clone.
+- ✅ Added regression coverage that proves repeated `true` calls still share a clone while `true` and `false` split to separate specialized functions.
+- ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
+
 ### Stage 3.3 - Browser/runtime interop corpus widening
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now exercises the web-baseline interop slice with representative browser and utility package cases that create `AbortController`, `EventTarget`, `Blob`, `File`, `FileReader`, and `structuredClone` payloads alongside package imports.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `solid-js` in the browser web-baseline interop slice and `rxjs` in the utility web-baseline interop slice, so the browser/runtime interoperability widening now covers a little more representative package breadth without changing the documented support rungs.

@@ -1,3 +1,5 @@
+Subject: Stage 3.1 specialization tracker sync
+
 ## 2026-04-19 — Stage 3.3 @tanstack/router browser/utility corpus widening
 
 I widened the Stage 3.3 package corpus a little further by adding `@tanstack/router` to the browser and utility web-baseline interop slices, keeping the representative scoped routing-package breadth concrete without changing any support-rung claims.
