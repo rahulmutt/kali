@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 4.2 wellformedness / linear-memory corollary widening
+
+I widened the RC snapshot proof slice with combined wellformedness/linear-memory corollaries for the release-only, decrement, and collection helpers: `KaliCore.Safety.releaseRefPreservesWellFormedAndLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesWellFormedAndLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesWellFormedAndLinearMemory`.
+
+Planned update:
+- sync the proof-boundary manifest and the verification summaries so the new combined corollaries are named explicitly alongside the current RC helper inventory
+- keep the claim narrow: this is still a helper-level RC proof sync, not the broader Stage 4.2 ownership/freeing target
+
 ## 2026-04-19 — Stage 4.2 decrement target positive-count iff bridge
 
 I widened the RC snapshot proof slice with a small helper theorem that states the decrement target's positive-count status after `releaseAndDecrement` is equivalent to the original count being greater than one: `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff`.

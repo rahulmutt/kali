@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 4.2 wellformedness / linear-memory corollary widening
+
+I widened the proof-backed boundary with combined wellformedness/linear-memory corollaries for the release-only, decrement, and collection helpers: `KaliCore.Safety.releaseRefPreservesWellFormedAndLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesWellFormedAndLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesWellFormedAndLinearMemory`.
+
+Planned update:
+- keep `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, `TODO.md`, and the verification-summary docs synchronized with the theorem inventory and the current proof-backed summary
+- keep the claim narrow: this is still the published boundary for the current modelled slice, not the broader Stage 4.2 target
+
 ## 2026-04-19 — Stage 3.1 BigInt-literal specialization widening
 
 I widened the Stage 3.1 specialization path so BigInt literal call-site arguments now carry

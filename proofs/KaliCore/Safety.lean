@@ -204,6 +204,15 @@ theorem releasePreservesWellFormed (snapshot : RcSnapshot) (ref : String)
     · exact hannotated.2.1
     · simpa [hneq] using hannotated.2.2
 
+/-- The release-only helper preserves both well-formedness and the linear-memory payload. -/
+theorem releaseRefPreservesWellFormedAndLinearMemory (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    WellFormed (releaseRef snapshot ref) ∧
+    (releaseRef snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releasePreservesWellFormed snapshot ref h
+  · exact releaseRefPreservesLinearMemory snapshot ref
+
 /-- A release-and-decrement step preserves the well-formedness of the remaining
 live set because only the released reference's heap cell is updated. -/
 theorem releaseAndDecrementPreservesWellFormed (snapshot : RcSnapshot) (ref : String)
@@ -222,6 +231,15 @@ theorem releaseAndDecrementPreservesWellFormed (snapshot : RcSnapshot) (ref : St
         simp [hname, hneq]
       exact List.mem_map.mpr ⟨cell, hmem, hcell⟩
     · simpa [hneq] using hannotated.2.2
+
+/-- The release-and-decrement helper preserves both well-formedness and the linear-memory payload. -/
+theorem releaseAndDecrementPreservesWellFormedAndLinearMemory (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    WellFormed (releaseAndDecrement snapshot ref) ∧
+    (releaseAndDecrement snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndDecrementPreservesWellFormed snapshot ref h
+  · exact releaseAndDecrementPreservesLinearMemory snapshot ref
 
 /-- The release-and-decrement helper keeps the surviving live references anchored in ownership and allocation. -/
 theorem releaseAndDecrementLiveRefsAreOwnedAndAllocated (snapshot : RcSnapshot) (ref : String)
@@ -678,6 +696,15 @@ theorem releaseAndCollectPreservesWellFormed (snapshot : RcSnapshot) (ref : Stri
         List.mem_map.mpr ⟨cell, hmem, hcell⟩
       exact List.mem_filter.mpr ⟨hmem', by simpa using hpos⟩
     · simpa [releaseAndCollect, releaseAndDecrement, hneq] using hannotated.2.2
+
+/-- The local release-and-collect helper preserves both well-formedness and the linear-memory payload. -/
+theorem releaseAndCollectPreservesWellFormedAndLinearMemory (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    WellFormed (releaseAndCollect snapshot ref) ∧
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndCollectPreservesWellFormed snapshot ref h
+  · exact releaseAndCollectPreservesLinearMemory snapshot ref
 
 /-- The release-and-collect helper keeps the surviving live references anchored in ownership and allocation. -/
 theorem releaseAndCollectLiveRefsAreOwnedAndAllocated (snapshot : RcSnapshot) (ref : String)
