@@ -1172,6 +1172,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "@radix-ui/react-dialog",
         "@tanstack/react-query",
         "@testing-library/dom",
+        "mobx",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));

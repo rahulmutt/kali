@@ -45,6 +45,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser web-baseline interop corpus now also exercises `@testing-library/react` and
   `@testing-library/dom` as more representative scoped testing-library package names, keeping the
   browser package corpus breadth concrete without changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `mobx` as another representative
+  browser state-management package name, keeping the browser package corpus breadth concrete without
+  changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `hono`, `@vueuse/core`, `TextEncoder`, and
   `TextDecoder` as more representative browser/web-framework, browser utility, and text-codec
   primitives, keeping the browser package corpus breadth concrete without changing the support-rung
