@@ -284,12 +284,15 @@ Planned update:
 
 ## 2026-04-19 — Stage 4.2 no-dangling-reference summary sync
 
-I found a small Stage 4.2 proof-summary drift gap: the published boundary already names `KaliCore.Safety.noDanglingReference`, but the current anti-drift guard and several summary docs do not pin it explicitly yet.
+I found a small Stage 4.2 proof-summary drift gap: the published boundary already names `KaliCore.Safety.noDanglingReference`, but the current anti-drift guard and several summary docs did not pin it explicitly yet.
 
 Planned update:
 - add `KaliCore.Safety.noDanglingReference` to the RC snapshot theorem inventory in `crates/kali_cli/tests/schema_docs.rs`
 - sync the summary/progress docs (`README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md`) so the base no-dangling theorem is named alongside the helper-level corollaries
 - keep the claim narrow: this is a proof-summary / anti-drift sync for the published boundary, not a boundary widening
+
+Completed:
+- The task is closed because `crates/kali_cli/tests/schema_docs.rs` already pins `KaliCore.Safety.noDanglingReference` alongside the rest of the RC snapshot theorem inventory, and the summary/progress docs already name it explicitly as well, so the base no-dangling theorem stays aligned with the helper-level corollaries.
 
 ## 2026-04-19 — Stage 3.3 framer-motion browser corpus widening
 
