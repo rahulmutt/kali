@@ -33,6 +33,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The scoped browser corpus now also exercises `@mui/material` and `@floating-ui/react` in the exports-map and browser-
   condition slices, adding two more representative UI package shapes to the evidence set without
   changing the documented support rungs.
+- The scoped browser corpus now also exercises `@headlessui/react` across the web-baseline interop,
+  exports-map, and browser-condition slices, adding one more representative UI package shape to the
+  evidence set without changing the documented support rungs.
 - Scoped browser conditional-exports coverage now exercises packages whose browser branch wins over
   import/require fallbacks, tightening the browser/runtime interoperability slice without changing
   the package-support rungs claimed for the corpus.

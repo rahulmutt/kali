@@ -452,3 +452,14 @@ I widened the Stage 3.3 browser typed-export-branch corpus with `@floating-ui/re
 Planned update:
 - sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md` so the browser corpus notes name `@floating-ui/react` explicitly
 - keep the claim narrow: this is a corpus-widening slice, not a support-rung change
+
+## 2026-04-19 — Stage 3.3 headlessui browser-corpus widening
+
+I widened the Stage 3.3 browser corpus with `@headlessui/react` across the web-baseline interop,
+exports-map, and browser-condition slices, so the scoped browser package set now carries one more
+representative UI package without changing the documented support rungs.
+
+Planned update:
+- keep `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` aligned with the new scoped browser
+  corpus representative if the browser package set widens again
+- keep the claim narrow: this is another corpus-widening slice, not a support-rung change

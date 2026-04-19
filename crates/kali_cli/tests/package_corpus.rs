@@ -1153,6 +1153,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "svelte",
         "lit",
         "@floating-ui/react",
+        "@headlessui/react",
         "@mui/material",
         "@tanstack/react-query",
     ] {
@@ -1264,6 +1265,7 @@ fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deploya
     for (package, subpath) in [
         ("@emotion/react", "jsx-runtime"),
         ("@floating-ui/react", "dom"),
+        ("@headlessui/react", "dialog"),
         ("@mui/material", "styles"),
         ("@tanstack/react-query", "query-core"),
     ] {
@@ -1331,6 +1333,7 @@ fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkabl
     for (package, subpath) in [
         ("@emotion/react", "jsx-runtime"),
         ("@floating-ui/react", "dom"),
+        ("@headlessui/react", "dialog"),
         ("@mui/material", "styles"),
         ("@tanstack/react-query", "query-core"),
     ] {
