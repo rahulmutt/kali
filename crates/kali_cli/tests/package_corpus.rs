@@ -1143,6 +1143,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "date-fns",
         "dayjs",
         "lodash-es",
+        "nanoid",
         "ramda",
         "uuid",
         "clsx",
@@ -1794,7 +1795,7 @@ fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_def
 #[test]
 fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the_default_standalone_surface(
 ) {
-    for package in ["ramda", "uuid", "rxjs", "dayjs", "zod"] {
+    for package in ["ramda", "uuid", "rxjs", "dayjs", "zod", "nanoid"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_stub_package(

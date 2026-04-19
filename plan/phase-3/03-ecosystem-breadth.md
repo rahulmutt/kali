@@ -60,8 +60,8 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser corpus now additionally exercises `solid-js` in the web-baseline interop slice alongside
   the existing browser representatives in the exports-map slice, keeping the interoperability
   widening concrete without changing the support-rung story.
-- The browser web-baseline interop corpus now also exercises `date-fns`, `lodash-es`, `ramda`, and
-  `uuid` alongside the existing browser representatives, keeping four more utility-package names
+- The browser web-baseline interop corpus now also exercises `date-fns`, `lodash-es`, `nanoid`, `ramda`, and
+  `uuid` alongside the existing browser representatives, keeping five more utility-package names
   covered by the browser command path without changing the support-rung story.
 - The browser and utility web-baseline interop corpus now also exercises `zod` as one more
   representative package name, keeping the breadth widening concrete without changing the documented
@@ -78,7 +78,7 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   representative scoped browser package coverage without changing the documented support rungs.
 - The browser typed-export-branch corpus now also exercises `@floating-ui/react` and `@tanstack/react-query`, broadening the
   representative scoped browser package coverage without changing the documented support rungs.
-- The utility corpus now additionally exercises `rxjs` in the web-baseline interop slice alongside
+- The utility corpus now additionally exercises `nanoid` and `rxjs` in the web-baseline interop slice alongside
   the existing utility representatives, widening the plain-package breadth without changing the
   documented support rungs.
 - The utility corpus also now includes `dayjs` in the web-baseline, plain-package, and module-entry
