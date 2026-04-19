@@ -51,6 +51,8 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   app-framework package, `framer-motion` as one more representative browser UI package, and
   `@storybook/react` as one more representative scoped browser package, keeping the browser package
   corpus breadth concrete without changing the support-rung story.
+- The utility corpus now also exercises `vite` in the plain-package and web-baseline interop slices,
+  keeping one more modern build-tool package name covered without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@testing-library/react`,
   `@testing-library/dom`, and `@testing-library/user-event` as more representative scoped
   testing-library package names, keeping the browser package corpus breadth concrete without

@@ -417,3 +417,7 @@ Planned update:
 
 Completed:
 - the Stage 3.3 top-level follow-up notes now name `mobx` explicitly, keeping the summary aligned with the existing corpus evidence.
+
+## 2026-04-19
+- Requested follow-up: widen the Stage 3.3 package-corpus evidence with `vite` and sync the progress notes accordingly.
+- Suggested concrete change: add `vite` to the utility corpus plain-package and web-baseline coverage in `crates/kali_cli/tests/package_corpus.rs`, then update the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and the matching tracker entries in `TODO.md` so the docs reflect the new evidence slice.
