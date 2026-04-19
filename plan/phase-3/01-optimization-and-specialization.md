@@ -57,6 +57,9 @@ types are statically known.
 - BigInt-literal call-site arguments now carry distinct `1n` / `2n` signatures as well, so the
   specialization path keeps BigInt constants separate from the old numeric fallback without
   changing the deterministic budget story.
+- `Infinity`, `-Infinity`, and `NaN` call-site arguments now also carry distinct literal
+  signatures, so the remaining special-number edge cases stay visible to the deterministic
+  specialization path instead of collapsing onto the generic tagged fallback.
 - Nested MIR-bound bindings inside object-literal call sites now also participate in the MIR-aware
   specialization signature, so composite arguments can split into distinct clones when the same
   surface shape is fed by different scoped binding layouts.

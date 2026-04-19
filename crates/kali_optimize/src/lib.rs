@@ -1058,48 +1058,12 @@ impl Optimizer {
         }
 
         let mut signature = match node.kind {
-            LirNodeKind::Literal => match parse_literal_text(node.text.as_deref()) {
-                Some(ConstantValue::Number(value)) => format!(
-                    "Literal:number:{}",
-                    node.text
-                        .as_deref()
-                        .map_or_else(|| value.to_string(), str::to_owned)
-                ),
-                Some(ConstantValue::BigInt(value)) => format!("Literal:bigint:{value}"),
-                Some(ConstantValue::Boolean(value)) => {
-                    format!("Literal:boolean:{value}")
-                }
-                Some(ConstantValue::String(_)) => node
-                    .text
-                    .as_deref()
-                    .and_then(|text| string_literal_signature("Literal", text))
-                    .unwrap_or_else(|| format!("Literal:string:<missing>")),
-                Some(ConstantValue::Null) => "Literal:null".to_string(),
-                Some(ConstantValue::Undefined) => "Literal:undefined".to_string(),
-                Some(ConstantValue::NegativeZero) => "Literal:number:-0".to_string(),
-                None => format!("{:?}:{:?}", node.kind, node.text),
-            },
-            LirNodeKind::Value if node.children.is_empty() => match node.text.as_deref() {
-                Some(text) => match parse_literal_text(Some(text)) {
-                    Some(ConstantValue::Boolean(value)) => {
-                        format!("Value:boolean:{value}")
-                    }
-                    Some(ConstantValue::Number(value)) => format!(
-                        "Value:number:{}",
-                        node.text
-                            .as_deref()
-                            .map_or_else(|| value.to_string(), str::to_owned)
-                    ),
-                    Some(ConstantValue::BigInt(value)) => format!("Value:bigint:{value}"),
-                    Some(ConstantValue::String(_)) => string_literal_signature("Value", text)
-                        .unwrap_or_else(|| "Value:string:<missing>".to_string()),
-                    Some(ConstantValue::Null) => "Value:null".to_string(),
-                    Some(ConstantValue::Undefined) => "Value:undefined".to_string(),
-                    Some(ConstantValue::NegativeZero) => "Value:number:-0".to_string(),
-                    None => format!("{:?}:{:?}", node.kind, node.text),
-                },
-                _ => format!("{:?}:{:?}", node.kind, node.text),
-            },
+            LirNodeKind::Literal => {
+                literal_signature("Literal", node.kind.clone(), node.text.as_deref())
+            }
+            LirNodeKind::Value if node.children.is_empty() => {
+                literal_signature("Value", node.kind.clone(), node.text.as_deref())
+            }
             LirNodeKind::Value if self.is_object_literal(program, id) => {
                 self.object_literal_signature(program, id, mir_plan, scope)
             }
@@ -1479,48 +1443,12 @@ impl Optimizer {
         };
 
         let mut signature = match node.kind {
-            LirNodeKind::Literal => match parse_literal_text(node.text.as_deref()) {
-                Some(ConstantValue::Number(value)) => format!(
-                    "Literal:number:{}",
-                    node.text
-                        .as_deref()
-                        .map_or_else(|| value.to_string(), str::to_owned)
-                ),
-                Some(ConstantValue::BigInt(value)) => format!("Literal:bigint:{value}"),
-                Some(ConstantValue::Boolean(value)) => {
-                    format!("Literal:boolean:{value}")
-                }
-                Some(ConstantValue::String(_)) => node
-                    .text
-                    .as_deref()
-                    .and_then(|text| string_literal_signature("Literal", text))
-                    .unwrap_or_else(|| format!("Literal:string:<missing>")),
-                Some(ConstantValue::Null) => "Literal:null".to_string(),
-                Some(ConstantValue::Undefined) => "Literal:undefined".to_string(),
-                Some(ConstantValue::NegativeZero) => "Literal:number:-0".to_string(),
-                None => format!("{:?}:{:?}", node.kind, node.text),
-            },
-            LirNodeKind::Value if node.children.is_empty() => match node.text.as_deref() {
-                Some(text) => match parse_literal_text(Some(text)) {
-                    Some(ConstantValue::Boolean(value)) => {
-                        format!("Value:boolean:{value}")
-                    }
-                    Some(ConstantValue::Number(value)) => format!(
-                        "Value:number:{}",
-                        node.text
-                            .as_deref()
-                            .map_or_else(|| value.to_string(), str::to_owned)
-                    ),
-                    Some(ConstantValue::BigInt(value)) => format!("Value:bigint:{value}"),
-                    Some(ConstantValue::String(_)) => string_literal_signature("Value", text)
-                        .unwrap_or_else(|| "Value:string:<missing>".to_string()),
-                    Some(ConstantValue::Null) => "Value:null".to_string(),
-                    Some(ConstantValue::Undefined) => "Value:undefined".to_string(),
-                    Some(ConstantValue::NegativeZero) => "Value:number:-0".to_string(),
-                    None => format!("{:?}:{:?}", node.kind, node.text),
-                },
-                _ => format!("{:?}:{:?}", node.kind, node.text),
-            },
+            LirNodeKind::Literal => {
+                literal_signature("Literal", node.kind.clone(), node.text.as_deref())
+            }
+            LirNodeKind::Value if node.children.is_empty() => {
+                literal_signature("Value", node.kind.clone(), node.text.as_deref())
+            }
             _ => format!("{:?}:{:?}", node.kind, node.text),
         };
 
@@ -1721,6 +1649,9 @@ enum ConstantValue {
     Null,
     Undefined,
     NegativeZero,
+    Infinity,
+    NegativeInfinity,
+    NaN,
 }
 
 #[derive(Debug)]
@@ -1759,7 +1690,11 @@ impl ConstantValue {
             ConstantValue::Number(value) | ConstantValue::BigInt(value) => value != 0,
             ConstantValue::Boolean(value) => value,
             ConstantValue::String(value) => !value.is_empty(),
-            ConstantValue::Null | ConstantValue::Undefined | ConstantValue::NegativeZero => false,
+            ConstantValue::Null
+            | ConstantValue::Undefined
+            | ConstantValue::NegativeZero
+            | ConstantValue::NaN => false,
+            ConstantValue::Infinity | ConstantValue::NegativeInfinity => true,
         }
     }
 }
@@ -1812,6 +1747,9 @@ fn parse_literal_text(text: Option<&str>) -> Option<ConstantValue> {
         "null" => Some(ConstantValue::Null),
         "undefined" => Some(ConstantValue::Undefined),
         "-0" => Some(ConstantValue::NegativeZero),
+        "Infinity" => Some(ConstantValue::Infinity),
+        "-Infinity" => Some(ConstantValue::NegativeInfinity),
+        "NaN" => Some(ConstantValue::NaN),
         _ => parse_string_literal(text)
             .map(ConstantValue::String)
             .or_else(|| {
@@ -1821,6 +1759,29 @@ fn parse_literal_text(text: Option<&str>) -> Option<ConstantValue> {
                     parse_number_literal(text).map(ConstantValue::Number)
                 }
             }),
+    }
+}
+
+fn literal_signature(prefix: &str, kind: LirNodeKind, text: Option<&str>) -> String {
+    match parse_literal_text(text) {
+        Some(ConstantValue::Number(value)) => format!(
+            "{prefix}:number:{}",
+            text.map_or_else(|| value.to_string(), str::to_owned)
+        ),
+        Some(ConstantValue::BigInt(value)) => format!("{prefix}:bigint:{value}"),
+        Some(ConstantValue::Boolean(value)) => {
+            format!("{prefix}:boolean:{value}")
+        }
+        Some(ConstantValue::String(_)) => text
+            .and_then(|text| string_literal_signature(prefix, text))
+            .unwrap_or_else(|| format!("{prefix}:string:<missing>")),
+        Some(ConstantValue::Null) => format!("{prefix}:null"),
+        Some(ConstantValue::Undefined) => format!("{prefix}:undefined"),
+        Some(ConstantValue::NegativeZero) => format!("{prefix}:number:-0"),
+        Some(ConstantValue::Infinity) => format!("{prefix}:number:Infinity"),
+        Some(ConstantValue::NegativeInfinity) => format!("{prefix}:number:-Infinity"),
+        Some(ConstantValue::NaN) => format!("{prefix}:number:NaN"),
+        None => format!("{:?}:{:?}", kind, text),
     }
 }
 
@@ -1840,6 +1801,9 @@ fn fold_unary(op: &str, value: ConstantValue) -> Option<ConstantValue> {
         ("-", ConstantValue::NegativeZero) => Some(ConstantValue::Number(0)),
         ("-", ConstantValue::Number(value)) => value.checked_neg().map(ConstantValue::Number),
         ("-", ConstantValue::BigInt(value)) => value.checked_neg().map(ConstantValue::BigInt),
+        ("-", ConstantValue::Infinity) => Some(ConstantValue::NegativeInfinity),
+        ("-", ConstantValue::NegativeInfinity) => Some(ConstantValue::Infinity),
+        ("-", ConstantValue::NaN) => Some(ConstantValue::NaN),
         ("!", value) => Some(ConstantValue::Boolean(!value.truthy())),
         _ => None,
     }
@@ -1936,6 +1900,9 @@ fn literal_text(value: ConstantValue) -> String {
         ConstantValue::Null => "null".to_string(),
         ConstantValue::Undefined => "undefined".to_string(),
         ConstantValue::NegativeZero => "-0".to_string(),
+        ConstantValue::Infinity => "Infinity".to_string(),
+        ConstantValue::NegativeInfinity => "-Infinity".to_string(),
+        ConstantValue::NaN => "NaN".to_string(),
     }
 }
 
@@ -3536,6 +3503,168 @@ mod tests {
             .count();
         assert_eq!(specialized_count_null, 1);
         assert_eq!(specialized_count_undefined, 1);
+    }
+
+    #[test]
+    fn release_specializes_infinity_and_nan_literal_arguments() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "consume_special_number");
+        let param_value = builder.alloc_text(LirNodeKind::Value, "value");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add8 = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let two = literal(&mut builder, "2");
+        let three = literal(&mut builder, "3");
+        let four = literal(&mut builder, "4");
+        let five = literal(&mut builder, "5");
+        let six = literal(&mut builder, "6");
+        let seven = literal(&mut builder, "7");
+        let eight = literal(&mut builder, "8");
+        builder.node_mut(add1).unwrap().children = vec![param_value, one];
+        builder.node_mut(add2).unwrap().children = vec![add1, two];
+        builder.node_mut(add3).unwrap().children = vec![add2, three];
+        builder.node_mut(add4).unwrap().children = vec![add3, four];
+        builder.node_mut(add5).unwrap().children = vec![add4, five];
+        builder.node_mut(add6).unwrap().children = vec![add5, six];
+        builder.node_mut(add7).unwrap().children = vec![add6, seven];
+        builder.node_mut(add8).unwrap().children = vec![add7, eight];
+        builder.node_mut(ret).unwrap().children = vec![add8];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_value, block];
+
+        let call_infinity_a = builder.alloc(LirNodeKind::Call);
+        let callee_infinity_a = builder.alloc_text(LirNodeKind::Value, "consume_special_number");
+        let infinity_a = literal(&mut builder, "Infinity");
+        builder.node_mut(call_infinity_a).unwrap().children = vec![callee_infinity_a, infinity_a];
+
+        let call_nan = builder.alloc(LirNodeKind::Call);
+        let callee_nan = builder.alloc_text(LirNodeKind::Value, "consume_special_number");
+        let nan = literal(&mut builder, "NaN");
+        builder.node_mut(call_nan).unwrap().children = vec![callee_nan, nan];
+
+        let call_negative_infinity = builder.alloc(LirNodeKind::Call);
+        let callee_negative_infinity =
+            builder.alloc_text(LirNodeKind::Value, "consume_special_number");
+        let negative_infinity = literal(&mut builder, "-Infinity");
+        builder.node_mut(call_negative_infinity).unwrap().children =
+            vec![callee_negative_infinity, negative_infinity];
+
+        let call_infinity_b = builder.alloc(LirNodeKind::Call);
+        let callee_infinity_b = builder.alloc_text(LirNodeKind::Value, "consume_special_number");
+        let infinity_b = literal(&mut builder, "Infinity");
+        builder.node_mut(call_infinity_b).unwrap().children = vec![callee_infinity_b, infinity_b];
+
+        builder.node_mut(root).unwrap().children = vec![
+            function,
+            call_infinity_a,
+            call_nan,
+            call_negative_infinity,
+            call_infinity_b,
+        ];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![
+                kali_mir::MirFunction {
+                    name: None,
+                    kind: kali_mir::MirFunctionKind::Module,
+                    bindings: Vec::new(),
+                },
+                kali_mir::MirFunction {
+                    name: Some("consume_special_number".to_string()),
+                    kind: kali_mir::MirFunctionKind::Function,
+                    bindings: vec![kali_mir::MirBinding {
+                        name: "value".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::TaggedVal,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    }],
+                },
+            ],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let specialized_name_infinity_a = program.nodes[call_infinity_a.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for infinity_a");
+        let specialized_name_nan = program.nodes[call_nan.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for nan");
+        let specialized_name_negative_infinity = program.nodes[call_negative_infinity.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for negative_infinity");
+        let specialized_name_infinity_b = program.nodes[call_infinity_b.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for infinity_b");
+
+        assert_eq!(specialized_name_infinity_a, specialized_name_infinity_b);
+        assert_ne!(specialized_name_infinity_a, specialized_name_nan);
+        assert_ne!(
+            specialized_name_infinity_a,
+            specialized_name_negative_infinity
+        );
+        assert_ne!(specialized_name_nan, specialized_name_negative_infinity);
+        assert!(specialized_name_infinity_a.starts_with("consume_special_number$spec$"));
+        assert!(specialized_name_nan.starts_with("consume_special_number$spec$"));
+        assert!(specialized_name_negative_infinity.starts_with("consume_special_number$spec$"));
+
+        let specialized_count_infinity = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_infinity_a)
+            })
+            .count();
+        let specialized_count_nan = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_nan)
+            })
+            .count();
+        let specialized_count_negative_infinity = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_negative_infinity)
+            })
+            .count();
+        assert_eq!(specialized_count_infinity, 1);
+        assert_eq!(specialized_count_nan, 1);
+        assert_eq!(specialized_count_negative_infinity, 1);
     }
 
     #[test]
