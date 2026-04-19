@@ -37,6 +37,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser corpus now also exercises `react-dom` across the exports-map and browser-condition
   slices, keeping the browser package-shape breadth concrete without changing the support-rung
   story.
+- The scoped browser corpus now also exercises `@chakra-ui/react` across the exports-map and
+  browser-condition slices, keeping one more representative UI package shape covered without
+  changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `vue` as another representative
   app-framework package name, keeping the browser package corpus breadth concrete without changing
   the support-rung story.

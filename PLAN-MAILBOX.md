@@ -1,3 +1,14 @@
+## 2026-04-19 — Stage 3.3 @chakra-ui/react exports-map/browser-condition widening
+
+I widened the Stage 3.3 package corpus a little further by adding `@chakra-ui/react` to the scoped browser exports-map and browser-condition slices, keeping the representative UI-package breadth concrete without changing any support-rung claims.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention `@chakra-ui/react` alongside the existing browser package breadth notes
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- the scoped browser exports-map and browser-condition corpus now also name `@chakra-ui/react` explicitly, and the related Stage 3.3 progress notes stay aligned with that narrower slice coverage.
+
 ## 2026-04-19 — Stage 3.3 @apollo/client browser corpus widening
 
 I widened the Stage 3.3 package corpus a little further by adding `@apollo/client` to the browser web-baseline interop, typed-export-branch, exports-map, and browser-condition slices, keeping the representative scoped browser breadth concrete without changing any support-rung claims.

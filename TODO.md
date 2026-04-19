@@ -553,6 +553,11 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name `@apollo/client` explicitly in the Stage 3.3 progress notes, keeping the corpus-breadth wording aligned with the current evidence set.
 - ✅ Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
 
+### Stage 3.3 - @chakra-ui/react exports-map/browser-condition widening
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@chakra-ui/react` in the scoped browser exports-map and browser-condition slices, so the representative UI package breadth now carries one more browser package shape through those package-resolution paths without changing the documented support rungs.
+- ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name `@chakra-ui/react` explicitly in the Stage 3.3 progress notes, keeping the corpus-breadth wording aligned with the current evidence set.
+- ✅ Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
+
 ### Stage 4.2 - Proof-boundary anti-drift test
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now asserts that the `proofs/BOUNDARY.md` covered-path inventory matches the actual `proofs/*.lean` source set, now checks the published theorem inventory against the concrete Lean theorem and lemma names, and now also verifies the canonical proof-summary docs keep the current RC theorem names and proof-backed summary string in sync, so deleting or adding a proof file or drifting summary prose without updating the manifest or docs fails `cargo test`; the progress tracker now calls out that theorem-name inventory and summary-doc inventory check alongside the path-level anti-drift guard.
 - ✅ The proof-summary guard now explicitly pins the heap-characterisation theorem names `releaseAndDecrementHeapCharacterisation` and `releaseAndCollectHeapCharacterisation` as well, so the summary docs stay aligned with the published RC snapshot inventory.

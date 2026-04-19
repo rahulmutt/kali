@@ -1314,6 +1314,7 @@ fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deploya
     for (package, subpath) in [
         ("@emotion/react", "jsx-runtime"),
         ("@apollo/client", "cache"),
+        ("@chakra-ui/react", "system"),
         ("@floating-ui/react", "dom"),
         ("@headlessui/react", "dialog"),
         ("@heroicons/react", "solid"),
@@ -1384,6 +1385,7 @@ fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkabl
     for (package, subpath) in [
         ("@emotion/react", "jsx-runtime"),
         ("@apollo/client", "cache"),
+        ("@chakra-ui/react", "system"),
         ("@floating-ui/react", "dom"),
         ("@headlessui/react", "dialog"),
         ("@heroicons/react", "solid"),
