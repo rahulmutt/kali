@@ -9,7 +9,7 @@ follow-up widening rather than unfinished baseline delivery:
   specialization budget and benchmark evidence honest,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic stub surfaces for
-  `WebSocket`, `Worker`, and `IndexedDB` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers,
+  `WebSocket`, `Worker`, and `IndexedDB` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises `date-fns` and `lodash-es` alongside the existing browser representatives,
 - widen the proof-backed boundary beyond the current published RC snapshot + lowering slice while
   keeping `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and summary docs synchronized.
 
@@ -24,6 +24,7 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 3.3 - Browser/runtime interop corpus widening
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now exercises the web-baseline interop slice with representative browser and utility package cases that create `AbortController`, `EventTarget`, `Blob`, `File`, `FileReader`, and `structuredClone` payloads alongside package imports.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `solid-js` in the browser web-baseline interop slice and `rxjs` in the utility web-baseline interop slice, so the browser/runtime interoperability widening now covers a little more representative package breadth without changing the documented support rungs.
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `date-fns` and `lodash-es` in the browser web-baseline interop slice, so the browser/runtime interoperability widening now carries two more representative utility-package names through the browser command path without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `solid-js` in the browser exports-map corpus alongside the existing browser representatives, so the browser/runtime interoperability widening now covers one more representative package shape without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `solid-js` in the browser pattern-exports corpus, `@reduxjs/toolkit` in the browser typed-export-branch corpus, and `immer`, `typescript`, and `esbuild` in the utility module-entry and mixed-format slices, so the representative package corpus now spans a few more browser/tooling package shapes without changing the documented support rungs.
 - ✅ The shared browser/runtime support library now also exposes an in-memory `FileReader` baseline, and `kali_api_deno` reexports it so browser-style code can read shared blob/file payloads deterministically without changing the public support-rung story.

@@ -389,3 +389,11 @@ I updated the progress tracker notes so the Stage 4.2 proof-summary inventory no
 Planned update:
 - keep `TODO.md` and the Stage 4.2 status/progress docs aligned with the published boundary wording whenever the RC snapshot slice widens again
 - keep the claim narrow: this is a helper-level proof-summary sync, not a boundary widening
+
+## 2026-04-19 — Stage 3.3 browser web-baseline package widening
+
+I widened the Stage 3.3 browser web-baseline interop corpus with `date-fns` and `lodash-es`, so the browser command path now covers two more representative utility-package names in addition to the existing browser/runtime baseline.
+
+Planned update:
+- sync `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` so the browser-runtime interop progress notes name the new browser corpus packages explicitly
+- keep the claim narrow: this is a corpus-widening slice, not a support-rung change

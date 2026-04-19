@@ -1131,7 +1131,7 @@ fn browser_corpus_packages_with_string_exports_remain_checkable_and_deployable_t
 #[test]
 fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_deployable_through_host(
 ) {
-    for package in ["react", "preact", "solid-js"] {
+    for package in ["react", "preact", "solid-js", "date-fns", "lodash-es"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
         write_stub_package(
