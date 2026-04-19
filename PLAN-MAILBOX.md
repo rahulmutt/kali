@@ -328,3 +328,10 @@ I tightened the Stage 4.2 schema-docs anti-drift guard so `crates/kali_cli/tests
 
 Suggested follow-up:
 - keep the proof-boundary and status summaries aligned if the RC predicate vocabulary widens again; this remains a wording / anti-drift sync, not a boundary widening
+
+## 2026-04-19 — Stage 3.3 scoped UI package widening
+
+I widened the Stage 3.3 package-corpus evidence slightly by adding `@mui/material` to the scoped browser exports-map / browser-condition slices, so the representative browser corpus now covers one more popular UI package shape without changing the documented support rungs.
+
+Suggested follow-up:
+- keep the Stage 3.3 progress notes and TODO tracker aligned if the representative browser package corpus widens again; this remains a corpus-widening slice, not a support-rung change
