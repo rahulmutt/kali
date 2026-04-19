@@ -586,3 +586,11 @@ I widened the Stage 3.1 specialization path so nested MIR-bound bindings inside 
 Planned update:
 - sync `plan/phase-3/01-optimization-and-specialization.md` and `TODO.md` so the Stage 3.1 progress notes call out nested MIR-bound binding specialization explicitly
 - keep the claim narrow: this is a specialization-depth widening within the existing optimizer model, not a new support-rung claim
+
+## 2026-04-19 — Stage 3.1 template-literal specialization widening
+
+I widened the Stage 3.1 specialization path so no-substitution template literals reuse the same literal-signature path as quoted strings. That keeps backtick-delimited constants from collapsing onto the generic tagged fallback, while preserving the deterministic specialization budget story and staying within the existing Stage 3.1 widening lane.
+
+Planned update:
+- sync `plan/phase-3/01-optimization-and-specialization.md`, `PLAN.md`, and `TODO.md` so the Stage 3.1 progress notes name template-literal specialization explicitly alongside the existing string/numeric/nullish/Boolean widening notes
+- keep the claim narrow: this is another specialization-depth widening within the existing optimizer model, not a support-rung change

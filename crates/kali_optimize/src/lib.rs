@@ -1804,19 +1804,28 @@ fn parse_number_literal(text: &str) -> Option<i64> {
 }
 
 fn parse_string_literal(text: &str) -> Option<String> {
-    let inner = text
+    let (inner, is_template) = text
         .strip_prefix('"')
         .and_then(|value| value.strip_suffix('"'))
+        .map(|inner| (inner, false))
         .or_else(|| {
             text.strip_prefix('\'')
                 .and_then(|value| value.strip_suffix('\''))
+                .map(|inner| (inner, false))
+        })
+        .or_else(|| {
+            text.strip_prefix('`')
+                .and_then(|value| value.strip_suffix('`'))
+                .map(|inner| (inner, true))
         })?;
-    Some(
-        inner
-            .replace("\\\\", "\\")
-            .replace("\\\"", "\"")
-            .replace("\\'", "'"),
-    )
+    let mut value = inner
+        .replace("\\\\", "\\")
+        .replace("\\\"", "\"")
+        .replace("\\'", "'");
+    if is_template {
+        value = value.replace("\\`", "`");
+    }
+    Some(value)
 }
 
 #[cfg(test)]
@@ -2878,6 +2887,90 @@ mod tests {
             .count();
         assert_eq!(specialized_count_a, 1);
         assert_eq!(specialized_count_b, 1);
+    }
+
+    #[test]
+    fn release_specializes_template_literal_arguments() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "echo_template");
+        let param_text = builder.alloc_text(LirNodeKind::Value, "text");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let two = literal(&mut builder, "2");
+        let three = literal(&mut builder, "3");
+        let four = literal(&mut builder, "4");
+        let five = literal(&mut builder, "5");
+        let six = literal(&mut builder, "6");
+        builder.node_mut(add1).unwrap().children = vec![param_text, one];
+        builder.node_mut(add2).unwrap().children = vec![add1, two];
+        builder.node_mut(add3).unwrap().children = vec![add2, three];
+        builder.node_mut(add4).unwrap().children = vec![add3, four];
+        builder.node_mut(add5).unwrap().children = vec![add4, five];
+        builder.node_mut(add6).unwrap().children = vec![add5, six];
+        builder.node_mut(ret).unwrap().children = vec![add6];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_text, block];
+
+        let call_a = builder.alloc(LirNodeKind::Call);
+        let call_a_callee = builder.alloc_text(LirNodeKind::Value, "echo_template");
+        let arg_a = literal(&mut builder, "`alpha`");
+        builder.node_mut(call_a).unwrap().children = vec![call_a_callee, arg_a];
+
+        let call_b = builder.alloc(LirNodeKind::Call);
+        let call_b_callee = builder.alloc_text(LirNodeKind::Value, "echo_template");
+        let arg_b = literal(&mut builder, "`beta`");
+        builder.node_mut(call_b).unwrap().children = vec![call_b_callee, arg_b];
+
+        builder.node_mut(root).unwrap().children = vec![function, call_a, call_b];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![kali_mir::MirFunction {
+                name: Some("echo_template".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![kali_mir::MirBinding {
+                    name: "text".to_string(),
+                    kind: MirBindingKind::Parameter,
+                    ownership: kali_mir::OwnershipClass::Borrowed,
+                    layout: LayoutDescriptor::TaggedVal,
+                    escapes: false,
+                    captured_by: Vec::new(),
+                }],
+            }],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let specialized_name_a = program.nodes[call_a.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for template literal A");
+        let specialized_name_b = program.nodes[call_b.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for template literal B");
+
+        assert_ne!(specialized_name_a, specialized_name_b);
+        assert!(specialized_name_a.starts_with("echo_template$spec$"));
+        assert!(specialized_name_b.starts_with("echo_template$spec$"));
     }
 
     #[test]

@@ -7,11 +7,12 @@ follow-up widening rather than unfinished baseline delivery:
 
 - widen specialization depth beyond the current MIR-aware layout-specialized path while keeping the
   specialization budget and benchmark evidence honest; the current optimizer now also splits
-  quoted string-literal call-site arguments into distinct specialization signatures, distinguishes
-  numeric literals from each other at call sites, distinguishes BigInt literals from the old
-  numeric fallback, distinguishes `null` and `undefined` from the old zero-valued fallback, and
-  lifts nested MIR-bound bindings inside object-literal call sites into the same signature path so
-  that widening stays concrete without broadening the published benchmark claims,
+  quoted string-literal and no-substitution template literal call-site arguments into distinct
+  specialization signatures, distinguishes numeric literals from each other at call sites,
+  distinguishes BigInt literals from the old numeric fallback, distinguishes `null` and
+  `undefined` from the old zero-valued fallback, and lifts nested MIR-bound bindings inside
+  object-literal call sites into the same signature path so that widening stays concrete without
+  broadening the published benchmark claims,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic event primitives for
   `AbortController`, `EventTarget`, and `CustomEvent`, plus stub surfaces for `BroadcastChannel`, `WebSocket`, `Worker`, and `IndexedDB` in addition to the shared `Blob` / `File` / `FormData` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those surfaces alongside `fetch`, `Headers`, `Request`, `Response`, `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `next`, `@emotion/react`, `@floating-ui/react`, `@headlessui/react`, `@chakra-ui/react`, `@mui/material`, `@radix-ui/react-dialog`, `@tanstack/react-query`, `@testing-library/dom`, `URLSearchParams`, and the existing browser representatives,
@@ -40,6 +41,11 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 3.1 - String-literal call-site specialization widening
 - ✅ Quoted string-literal call-site arguments now carry distinct specialization signatures, so different string literals can split into separate clones instead of collapsing onto the generic tagged fallback.
 - ✅ Added a regression test that proves distinct quoted string-literal call sites produce different specialized clones while still respecting the deterministic specialization budget.
+- ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
+
+### Stage 3.1 - Template-literal call-site specialization widening
+- ✅ No-substitution template-literal call-site arguments now reuse the same literal-signature path as quoted strings, so backtick-delimited string literals can split into distinct specialized clones instead of collapsing onto the generic tagged fallback.
+- ✅ Added regression coverage that proves distinct template-literal call sites produce different specialized clones while still respecting the deterministic specialization budget.
 - ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
 
 ### Stage 3.1 - Nullish-literal specialization widening

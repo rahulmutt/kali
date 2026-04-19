@@ -34,6 +34,10 @@ types are statically known.
 - Quoted string-literal call-site arguments now carry distinct specialization signatures, so
   different string literals can split into separate clones instead of collapsing onto the generic
   tagged fallback while still respecting the deterministic specialization budget.
+- No-substitution template-literal call-site arguments now reuse the same literal-signature path as
+  quoted strings, so backtick-delimited string literals can split into separate clones instead of
+  collapsing onto the generic tagged fallback while still respecting the deterministic
+  specialization budget.
 - `null` and `undefined` call-site arguments now also carry distinct literal signatures instead of
   collapsing onto the old zero-valued fallback, so the specialization path stays honest about
   nullish arguments when the MIR plan can see them as constants.
