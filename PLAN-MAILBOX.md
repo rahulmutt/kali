@@ -388,3 +388,6 @@ I added the new proof-backed RC helper theorem `KaliCore.Safety.releaseAndCollec
 Planned update:
 - keep the Stage 4.2 proof-summary inventory and plan tracker wording aligned if the collection-target helper widens again
 - treat this as another proof-summary / anti-drift sync for the published boundary, not a broader ownership/freeing widening
+
+Completed:
+- `README.md` now names `KaliCore.Safety.releaseAndCollectTargetCellOriginAndPositiveCount` explicitly alongside the existing target-allocation and origin/ownership helpers, keeping the verification summary aligned with the published RC snapshot boundary.
