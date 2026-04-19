@@ -55,10 +55,11 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   names, keeping the browser package corpus breadth concrete without changing the support-rung
   story.
 - The browser web-baseline interop corpus now also exercises `next` as one more browser
-  app-framework package, `framer-motion` as one more representative browser UI package, and
-  `@storybook/react` as one more representative scoped browser package; the scoped browser corpus
-  now also exercises `@storybook/react` across the exports-map and browser-condition slices,
-  keeping the browser package corpus breadth concrete without changing the support-rung story.
+  app-framework package, `framer-motion` as one more representative browser UI package,
+  `chart.js` as one more browser charting package, and `@storybook/react` as one more
+  representative scoped browser package; the scoped browser corpus now also exercises
+  `@storybook/react` across the exports-map and browser-condition slices, keeping the browser
+  package corpus breadth concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@playwright/test` as one more representative browser test-runner package, keeping the browser package corpus breadth concrete without changing the support-rung story.
 - The utility corpus now also exercises `vite` in the plain-package and web-baseline interop slices,
   keeping one more modern build-tool package name covered without changing the support-rung story.

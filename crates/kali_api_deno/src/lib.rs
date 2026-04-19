@@ -9,8 +9,7 @@ pub use kali_api_web::{
     resolve_url, session_storage, structured_clone, text_decode, text_encode, AbortController,
     AbortSignal, Base64Error, Blob, BroadcastChannel, CustomEvent, Event, EventTarget, File,
     FileReader, FileReaderState, FormData, FormDataEntry, FormDataValue, Headers, IndexedDb,
-    Navigator, Request, Response, Storage, URLSearchParams, WebSocket, WebSocketReadyState,
-    Worker,
+    Navigator, Request, Response, Storage, URLSearchParams, WebSocket, WebSocketReadyState, Worker,
     URL,
 };
 

@@ -483,6 +483,7 @@ fn browser_corpus_packages_remain_checkable_and_deployable_through_host() {
         "preact",
         "vue",
         "react-dom",
+        "chart.js",
         "framer-motion",
         "clsx",
         "classnames",
@@ -1330,6 +1331,7 @@ fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deploya
         ("@tanstack/react-query", "query-core"),
         ("@tanstack/table-core", "table"),
         ("react-dom", "client"),
+        ("chart.js", "auto"),
         ("zustand", "vanilla"),
     ] {
         let dir = tempdir().expect("tempdir");

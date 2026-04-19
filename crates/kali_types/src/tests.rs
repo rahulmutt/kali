@@ -1,4 +1,3 @@
-
 use super::*;
 use kali_ast::{
     BinaryExpression, LiteralValue, ParenthesizedExpression, TypeAliasDeclaration,
