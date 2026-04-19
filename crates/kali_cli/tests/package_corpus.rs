@@ -1140,6 +1140,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "preact",
         "solid-js",
         "date-fns",
+        "dayjs",
         "lodash-es",
         "clsx",
         "react-router",
@@ -1479,6 +1480,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "typescript",
         "esbuild",
         "date-fns",
+        "dayjs",
         "lodash-es",
         "commander",
         "clsx",
@@ -1732,6 +1734,7 @@ fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_def
         "immer",
         "typescript",
         "esbuild",
+        "dayjs",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
@@ -1783,7 +1786,7 @@ fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_def
 #[test]
 fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the_default_standalone_surface(
 ) {
-    for package in ["ramda", "uuid", "rxjs"] {
+    for package in ["ramda", "uuid", "rxjs", "dayjs"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_stub_package(

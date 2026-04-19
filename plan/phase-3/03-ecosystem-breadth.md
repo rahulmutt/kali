@@ -77,6 +77,8 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The utility corpus now additionally exercises `rxjs` in the web-baseline interop slice alongside
   the existing utility representatives, widening the plain-package breadth without changing the
   documented support rungs.
+- The utility corpus also now includes `dayjs` in the web-baseline, plain-package, and module-entry
+  slices, broadening the representative utility set without changing the documented support rungs.
 - The utility corpus also now includes `commander` alongside the existing utility representatives,
   widening the plain-package breadth without changing the documented support rungs.
 - The browser and utility corpus now also exercise `clsx` as another representative lightweight
