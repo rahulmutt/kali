@@ -5,6 +5,17 @@ I found a small proof-boundary follow-up for the RC snapshot tracker: the decrem
 Planned update:
 - add `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` to the current published theorem inventory, then sync `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, `TODO.md`, and the verification summaries so the new theorem is named explicitly
 - keep the claim narrow: this is still helper-level RC widening, not the broader Stage 4.2 ownership/freeing target
+
+## 2026-04-19 — Stage 4.2 final-heap positive-count wording sync
+
+I tightened the Stage 4.2 progress wording so the local collection helper's final-heap positivity theorem stays named explicitly alongside its origin/positive-count companion.
+
+Planned update:
+- sync `PLAN.md` and `plan/phase-4/02-formal-verification-depth.md` so `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` is named explicitly in the current boundary progress wording
+- keep the claim narrow: this is a proof-summary / anti-drift sync for the published boundary, not a boundary widening
+
+Completed:
+- the Stage 4.2 top-level and stage-specific plan notes now name `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` explicitly alongside the current RC snapshot companion inventory.
 ## 2026-04-19 — Stage 4.2 no-dangling-reference summary sync
 
 I synced the Stage 4.2 proof-summary wording so `KaliCore.Safety.noDanglingReference` is named explicitly in the status tracker alongside the rest of the published RC snapshot inventory.
