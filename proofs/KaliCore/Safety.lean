@@ -252,6 +252,27 @@ theorem releaseAndDecrementLiveRefsAreOwnedAndAllocated (snapshot : RcSnapshot) 
     releaseAndDecrementPreservesWellFormed snapshot ref h
   exact liveRefsAreOwnedAndAllocated (releaseAndDecrement snapshot ref) hwf r hr
 
+/-- The surviving release-and-decrement live references are still live-annotated. -/
+theorem releaseAndDecrementLiveRefsAreLiveAnnotated (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    ∀ r, r ∈ (releaseAndDecrement snapshot ref).liveRefs →
+      liveAnnotated (releaseAndDecrement snapshot ref) r := by
+  intro r hr
+  have hfiltered : r ∈ snapshot.liveRefs ∧ r ≠ ref := by
+    simpa [releaseAndDecrement] using hr
+  have hannotated : liveAnnotated snapshot r := h r hfiltered.1
+  constructor
+  · exact hannotated.1
+  · constructor
+    · rcases hannotated.2.1 with ⟨cell, hmem, hname, hpos⟩
+      refine ⟨cell, ?_, hname, hpos⟩
+      exact List.mem_map.mpr ⟨cell, hmem, by simp [hname, hfiltered.2]⟩
+    · intro hrReleased
+      simp [releaseAndDecrement] at hrReleased
+      rcases hrReleased with hrReleased | hrReleased
+      · exact hfiltered.2 hrReleased
+      · exact hannotated.2.2 hrReleased
+
 /-- A release-and-decrement step still records the released reference. -/
 theorem releaseAndDecrementRecorded (snapshot : RcSnapshot) (ref : String) :
     ref ∈ (releaseAndDecrement snapshot ref).releasedRefs := by
@@ -717,6 +738,29 @@ theorem releaseAndCollectLiveRefsAreOwnedAndAllocated (snapshot : RcSnapshot) (r
     releaseAndCollectPreservesWellFormed snapshot ref h
   exact liveRefsAreOwnedAndAllocated (releaseAndCollect snapshot ref) hwf r hr
 
+/-- The surviving release-and-collect live references are still live-annotated. -/
+theorem releaseAndCollectLiveRefsAreLiveAnnotated (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    ∀ r, r ∈ (releaseAndCollect snapshot ref).liveRefs →
+      liveAnnotated (releaseAndCollect snapshot ref) r := by
+  intro r hr
+  have hfiltered : r ∈ snapshot.liveRefs ∧ r ≠ ref := by
+    simpa [releaseAndCollect, releaseAndDecrement] using hr
+  have hannotated : liveAnnotated snapshot r := h r hfiltered.1
+  constructor
+  · exact hannotated.1
+  · constructor
+    · rcases hannotated.2.1 with ⟨cell, hmem, hname, hpos⟩
+      have hcellname : cell.name ≠ ref := by
+        simpa [hname] using hfiltered.2
+      refine ⟨cell, ?_, hname, hpos⟩
+      exact (releaseAndCollectKeepsOtherPositiveCountCells snapshot ref cell hmem hcellname hpos).1
+    · intro hrReleased
+      simp [releaseAndCollect, releaseAndDecrement] at hrReleased
+      rcases hrReleased with hrReleased | hrReleased
+      · exact hfiltered.2 hrReleased
+      · exact hannotated.2.2 hrReleased
+
 /-- A release-and-collect step still records the released reference. -/
 theorem releaseAndCollectRecorded (snapshot : RcSnapshot) (ref : String) :
     ref ∈ (releaseAndCollect snapshot ref).releasedRefs := by
@@ -818,6 +862,27 @@ theorem releaseRefLiveRefsAreOwnedAndAllocated (snapshot : RcSnapshot) (ref : St
   have hwf : WellFormed (releaseRef snapshot ref) :=
     releasePreservesWellFormed snapshot ref h
   exact liveRefsAreOwnedAndAllocated (releaseRef snapshot ref) hwf r hr
+
+/-- The surviving release-only live references are still live-annotated. -/
+theorem releaseRefLiveRefsAreLiveAnnotated (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    ∀ r, r ∈ (releaseRef snapshot ref).liveRefs →
+      liveAnnotated (releaseRef snapshot ref) r := by
+  intro r hr
+  have hfiltered : r ∈ snapshot.liveRefs ∧ r ≠ ref := by
+    simpa [releaseRef] using hr
+  have hannotated : liveAnnotated snapshot r := h r hfiltered.1
+  constructor
+  · exact hannotated.1
+  · constructor
+    · rcases hannotated.2.1 with ⟨cell, hmem, hname, hpos⟩
+      refine ⟨cell, ?_, hname, hpos⟩
+      simpa [releaseRef, hfiltered.2] using hmem
+    · intro hrReleased
+      simp [releaseRef] at hrReleased
+      rcases hrReleased with hrReleased | hrReleased
+      · exact hfiltered.2 hrReleased
+      · exact hannotated.2.2 hrReleased
 
 /-- Released references stay disjoint from the live set after a release-only step. -/
 theorem releaseRefReleasedNotLiveRef (snapshot : RcSnapshot) (ref : String)
