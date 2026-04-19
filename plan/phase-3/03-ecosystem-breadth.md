@@ -134,6 +134,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   browser package-shape coverage without changing the documented support rungs.
 - The browser typed-export-branch corpus now also exercises `@reduxjs/toolkit`, broadening the
   representative scoped browser package coverage without changing the documented support rungs.
+- The browser typed-export-branch corpus now also exercises `@emotion/styled` alongside the existing
+  scoped browser representatives, adding one more typed-export branch shape to the evidence set
+  without changing the documented support rungs.
 - The browser typed-export-branch corpus now also exercises `@floating-ui/react` and `@tanstack/react-query`, broadening the
   representative scoped browser package coverage without changing the documented support rungs.
 - The utility corpus now additionally exercises `nanoid` and `rxjs` in the web-baseline interop slice alongside

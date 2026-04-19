@@ -684,6 +684,7 @@ fn browser_corpus_packages_with_typed_export_branches_remain_checkable_and_deplo
         ("react", "jsx-runtime"),
         ("solid-js", "web"),
         ("@emotion/react", "jsx-runtime"),
+        ("@emotion/styled", "styled"),
         ("@floating-ui/react", "dom"),
         ("@reduxjs/toolkit", "query"),
         ("@tanstack/react-query", "query-core"),
