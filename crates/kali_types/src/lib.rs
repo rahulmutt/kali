@@ -1215,6 +1215,7 @@ fn builtin_globals() -> &'static [&'static str] {
         "Math",
         "NaN",
         "Object",
+        "navigator",
         "parseFloat",
         "parseInt",
         "performance",

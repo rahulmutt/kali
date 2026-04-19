@@ -15,6 +15,7 @@ use url::{form_urlencoded, Url};
 static TIME_ORIGIN: OnceLock<Instant> = OnceLock::new();
 static LOCAL_STORAGE: OnceLock<Storage> = OnceLock::new();
 static SESSION_STORAGE: OnceLock<Storage> = OnceLock::new();
+static NAVIGATOR: OnceLock<Navigator> = OnceLock::new();
 
 /// Initialize the Web API compatibility surface.
 pub fn web_api_init() {}
@@ -426,6 +427,11 @@ pub fn session_storage() -> Storage {
     SESSION_STORAGE.get_or_init(Storage::new).clone()
 }
 
+/// Return the shared in-memory `navigator` baseline.
+pub fn navigator() -> Navigator {
+    NAVIGATOR.get_or_init(Navigator::default).clone()
+}
+
 /// Parse a URL string using the shared support library's URL parser.
 pub fn parse_url(input: &str) -> Result<Url, url::ParseError> {
     Url::parse(input)
@@ -434,6 +440,48 @@ pub fn parse_url(input: &str) -> Result<Url, url::ParseError> {
 /// Resolve a URL against a base URL string.
 pub fn resolve_url(base: &str, input: &str) -> Result<Url, url::ParseError> {
     Url::parse(base)?.join(input)
+}
+
+/// A deterministic in-memory Web `navigator` baseline.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Navigator {
+    user_agent: String,
+    language: String,
+    languages: Vec<String>,
+    online: bool,
+}
+
+impl Default for Navigator {
+    fn default() -> Self {
+        Self {
+            user_agent: "Kali/1.0 (Web)".to_string(),
+            language: "en-US".to_string(),
+            languages: vec!["en-US".to_string()],
+            online: true,
+        }
+    }
+}
+
+impl Navigator {
+    /// Return the user-agent string.
+    pub fn user_agent(&self) -> &str {
+        &self.user_agent
+    }
+
+    /// Return the preferred primary language.
+    pub fn language(&self) -> &str {
+        &self.language
+    }
+
+    /// Return the preferred language list.
+    pub fn languages(&self) -> &[String] {
+        &self.languages
+    }
+
+    /// Return whether the browser baseline considers the host online.
+    pub fn on_line(&self) -> bool {
+        self.online
+    }
 }
 
 /// A deterministic in-memory Web `URL` baseline.

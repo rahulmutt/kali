@@ -31,6 +31,13 @@ fn args_view_round_trips_host_arguments() {
 }
 
 #[test]
+fn navigator_baseline_is_reexported() {
+    let navigator = navigator();
+    assert_eq!(navigator.user_agent(), "Kali/1.0 (Web)");
+    assert!(navigator.on_line());
+}
+
+#[test]
 fn permissions_query_reports_granted_and_denied() {
     let permissions = DenoPermissions::new(true, false, true, false);
     assert_eq!(

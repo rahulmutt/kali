@@ -264,6 +264,15 @@ fn shared_browser_storage_buckets_remain_isolated() {
 }
 
 #[test]
+fn navigator_baseline_exposes_stable_metadata() {
+    let navigator = navigator();
+    assert_eq!(navigator.user_agent(), "Kali/1.0 (Web)");
+    assert_eq!(navigator.language(), "en-US");
+    assert_eq!(navigator.languages(), &[String::from("en-US")]);
+    assert!(navigator.on_line());
+}
+
+#[test]
 fn url_parser_can_parse_and_resolve() {
     let parsed = parse_url("https://example.com/path").expect("url");
     assert_eq!(parsed.as_str(), "https://example.com/path");

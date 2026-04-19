@@ -210,6 +210,9 @@ fn test_resolution_allows_browser_stub_globals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::Identifier("indexedDB".to_string())),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("navigator".to_string())),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);

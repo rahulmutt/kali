@@ -21,6 +21,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - Browser bundle output now emits deterministic source-map companions, supports both ESM and CJS
   wrappers, emits deterministic chunk artifacts for literal dynamic-import boundaries, and
   tree-shakes unused exports from the emitted bundle surface.
+- The shared browser/runtime support library now also exposes a deterministic `navigator`
+  metadata baseline, and the web-baseline corpus now exercises `navigator.userAgent`,
+  `navigator.language`, and `navigator.onLine` so the ambient browser metadata slice stays
+  deterministic without changing the support-rung story.
 - The curated package corpus now covers browser, utility, Node-runner, and scoped-package classes
   across representative real-world package shapes: exports-string roots, exports-map / subpath and
   `./*` pattern entries, browser-conditional exports, browser replacement maps, browser string
