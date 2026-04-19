@@ -414,6 +414,8 @@ follow-up widening rather than unfinished baseline delivery:
   - Layout specialization now also folds const-bound array element reads when the index is statically known or bound to a constant numeric value, extending the object-layout fast path.
 - [x] Stage 3.1 concrete-argument specialization fallback
   - `kali_optimize` now clones deterministic generic/function specializations for literal-shaped call sites even when MIR layout metadata is unavailable, so the pure-LIR release path can still monomorphize concrete-argument helpers without waiting for the MIR-aware specialization pass.
+- [x] Stage 3.1 MIR-aware concrete-argument fallback
+  - MIR-aware call-site specialization now also clones literal-shaped concrete-argument call sites when the MIR plan has no parameter layout metadata, so the MIR pass can keep deterministic monomorphized helpers alive instead of dropping back to a generic no-specialization result.
 - [x] Stage 3.1 MIR-driven specialization follow-up
   - MIR-aware call-site specialization now clones larger functions whose parameter layouts are stable enough to justify partial substitution, then reoptimizes the specialized body so literal-heavy hot paths can fold further before codegen.
 

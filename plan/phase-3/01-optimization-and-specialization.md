@@ -86,6 +86,9 @@ types are statically known.
 - The pure-LIR optimizer path now also performs a concrete-argument fallback specialization for
   literal-shaped call sites when MIR layout metadata is unavailable, so generic/function
   specialization can still clone deterministic helpers even before the MIR-aware pass runs.
+- The MIR-aware specialization path now also clones literal-shaped concrete-argument calls when the
+  MIR plan has no parameter layout metadata, so the MIR pass can keep deterministic monomorphized
+  helpers alive instead of dropping back to a generic no-specialization result.
 - Identical generic specializations are now reused across owners when the callee and argument
   signatures already match, so the specialization path avoids cloning duplicate helpers just
   because the same generic call appears in more than one function scope.
