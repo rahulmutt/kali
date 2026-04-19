@@ -63,6 +63,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser web-baseline interop corpus now also exercises `@tanstack/table-core`, and the scoped
   browser corpus now also exercises it across the exports-map and browser-condition slices, keeping
   one more representative scoped table package name covered without changing the support-rung story.
+- The scoped browser corpus now also exercises `zustand` across the exports-map and browser-condition
+  slices, keeping one more representative state-management package name covered without changing
+  the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@testing-library/react`,
   `@testing-library/dom`, and `@testing-library/user-event` as more representative scoped
   testing-library package names, keeping the browser package corpus breadth concrete without

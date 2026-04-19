@@ -568,6 +568,11 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name `classnames` explicitly in the Stage 3.3 progress notes, keeping the corpus-breadth wording aligned with the current evidence set.
 - ✅ Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
 
+### Stage 3.3 - zustand scoped-browser corpus widening
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `zustand` across the scoped browser exports-map and browser-condition slices, so the representative state-management package breadth now carries one more package name through the browser command path without changing the documented support rungs.
+- ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the scoped-browser `zustand` slices explicitly in the Stage 3.3 progress notes, keeping the corpus-breadth wording aligned with the current evidence set.
+- ✅ Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
+
 ### Stage 3.3 - @tanstack/react-table browser/utility corpus widening
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@tanstack/react-table` in the browser and utility web-baseline interop slices, so the representative table-package breadth now carries one more scoped package name through both command paths without changing the documented support rungs.
 - ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name `@tanstack/react-table` explicitly in the Stage 3.3 progress notes, keeping the corpus-breadth wording aligned with the current evidence set.
