@@ -1183,6 +1183,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "swr",
         "formik",
         "jotai",
+        "pinia",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
@@ -1847,6 +1848,7 @@ fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the
         "mitt",
         "swr",
         "nanostores",
+        "pinia",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
