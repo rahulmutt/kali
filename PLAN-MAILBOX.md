@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 3.3 browser router corpus widening sync
+
+I synced the Stage 3.3 progress notes so the browser corpus breadth tracker now names the router representatives (`vue-router` and `react-router`) explicitly as one browser-router widening slice.
+
+Planned update:
+- keep `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` aligned if the browser router corpus widens again
+- keep the claim narrow: this is still corpus / interoperability breadth work, not a support-rung change
+
 ## 2026-04-19 — Stage 3.3 browser router corpus widening
 
 I widened the Stage 3.3 browser corpus with `vue-router` in the exports-map and pattern-exports slices, so the representative package set now carries one more browser-oriented package shape without changing the support-rung story.

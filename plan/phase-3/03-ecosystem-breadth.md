@@ -62,12 +62,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser web-baseline interop corpus now also exercises `date-fns` and `lodash-es` alongside the
   existing browser representatives, keeping two more utility-package names covered by the browser
   command path without changing the support-rung story.
-- The browser corpus now also exercises `vue-router` in the exports-map and pattern-exports slices,
-  adding one more representative browser package shape without changing the documented support
-  rungs.
-- The browser corpus now also exercises `react-router` in the web-baseline interop, exports-map,
-  and pattern-exports slices, adding one more browser-router representative without changing the
-  documented support rungs.
+- The browser router corpus now also exercises `vue-router` and `react-router` across the
+  web-baseline interop, exports-map, and pattern-exports slices, adding two more representative
+  browser package shapes without changing the documented support rungs.
 - The browser pattern-exports corpus now also exercises `solid-js`, broadening the representative
   browser package-shape coverage without changing the documented support rungs.
 - The browser typed-export-branch corpus now also exercises `@reduxjs/toolkit`, broadening the
