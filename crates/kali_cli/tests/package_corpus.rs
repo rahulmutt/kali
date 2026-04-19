@@ -1206,6 +1206,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "msw",
         "react-hook-form",
         "@tanstack/react-form",
+        "@tanstack/router",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
@@ -1568,6 +1569,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "react-hook-form",
         "@mantine/core",
         "vite",
+        "@tanstack/router",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
