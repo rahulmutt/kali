@@ -478,7 +478,7 @@ where
 
 #[test]
 fn browser_corpus_packages_remain_checkable_and_deployable_through_host() {
-    for package in ["react", "preact", "vue"] {
+    for package in ["react", "preact", "vue", "clsx"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
         write_stub_package(
@@ -1131,7 +1131,7 @@ fn browser_corpus_packages_with_string_exports_remain_checkable_and_deployable_t
 #[test]
 fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_deployable_through_host(
 ) {
-    for package in ["react", "preact", "solid-js", "date-fns", "lodash-es"] {
+    for package in ["react", "preact", "solid-js", "date-fns", "lodash-es", "clsx"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
         write_stub_package(
@@ -1469,6 +1469,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "date-fns",
         "lodash-es",
         "commander",
+        "clsx",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);

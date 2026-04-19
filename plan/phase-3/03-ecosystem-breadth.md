@@ -70,6 +70,8 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   documented support rungs.
 - The utility corpus also now includes `commander` alongside the existing utility representatives,
   widening the plain-package breadth without changing the documented support rungs.
+- The browser and utility corpus now also exercise `clsx` as another representative lightweight
+  package name, keeping the breadth widening concrete without changing the support-rung story.
 - The utility module-entry and mixed-format slices now also exercise `immer`, `typescript`, and
   `esbuild`, so the representative package corpus now spans a few more tooling-style package names
   across the stable shape tests without changing the support-rung story.
