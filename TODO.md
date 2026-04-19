@@ -229,6 +229,10 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and `plan/phase-4/02-formal-verification-depth.md` now name `KaliCore.Safety.releaseAndDecrementTargetCellOrigin` explicitly alongside the rest of the RC snapshot inventory.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
 
+### Stage 4.2 - Decrement target positive-count iff bridge
+- ✅ `README.md`, `specs/16-testing.md`, and `specs/17-verification.md` now name `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff` explicitly alongside the rest of the RC snapshot inventory.
+- ✅ Kept the update narrow: this is a helper-level proof-summary sync for the published boundary, not a boundary widening.
+
 ### Stage 4.2 - RC predicate vocabulary sync
 - ✅ The RC snapshot model now names the explicit `hasOwnership`, `allocated`, and `liveAnnotated` predicate vocabulary in the proof-boundary and progress-tracker summaries.
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now pins the same `hasOwnership` / `allocated` / `liveAnnotated` RC vocabulary so the proof-summary drift guard catches model-vocabulary wording drift in the published boundary docs.

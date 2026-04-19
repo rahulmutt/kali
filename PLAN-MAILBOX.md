@@ -381,3 +381,11 @@ I added an in-memory `FileReader` baseline to `kali_api_web`, reexported it thro
 
 Suggested follow-up:
 - keep the Stage 3.3 corpus and progress notes aligned if the browser baseline widens again; this remains a browser-interoperability slice, not a support-rung change
+
+## 2026-04-19 — Stage 4.2 decrement target positive-count iff bridge
+
+I updated the progress tracker notes so the Stage 4.2 proof-summary inventory now calls out `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff` explicitly.
+
+Planned update:
+- keep `TODO.md` and the Stage 4.2 status/progress docs aligned with the published boundary wording whenever the RC snapshot slice widens again
+- keep the claim narrow: this is a helper-level proof-summary sync, not a boundary widening

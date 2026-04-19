@@ -319,3 +319,11 @@ I made the proof-boundary and verification summaries explicitly name the RC snap
 
 Suggested follow-up:
 - keep this as a wording-only sync; it does not widen the published proof boundary
+
+## 2026-04-19 — Stage 4.2 decrement target positive-count iff bridge
+
+I synced the proof-summary docs so they now name `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff` explicitly alongside the current RC snapshot inventory.
+
+Planned update:
+- keep `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` aligned with the published boundary wording whenever the RC snapshot slice widens again
+- keep the claim narrow: this is a proof-summary / anti-drift sync for the published boundary, not a boundary widening
