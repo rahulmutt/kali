@@ -47,11 +47,14 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The scoped browser corpus now also exercises `@mantine/core` across the exports-map and
   browser-condition slices, keeping one more representative UI package shape covered without
   changing the support-rung story.
+- The scoped browser corpus now also exercises `@radix-ui/react-dialog` across the exports-map and
+  browser-condition slices, keeping one more representative dialog package shape covered without
+  changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `vue` as another representative
   app-framework package name, keeping the browser package corpus breadth concrete without changing
   the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@chakra-ui/react`, `@mantine/core`,
-  `@emotion/styled`, `@heroicons/react`, and `react-dom` as more representative browser package
+  `@emotion/styled`, `@heroicons/react`, `@radix-ui/react-dialog`, and `react-dom` as more representative browser package
   names, keeping the browser package corpus breadth concrete without changing the support-rung
   story.
 - The browser web-baseline interop corpus now also exercises `next` as one more browser

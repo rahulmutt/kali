@@ -159,7 +159,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Kept the update narrow: this widens the package corpus within the existing support-rung model; it does not change the documented support rungs.
 
 ### Stage 3.3 - Scoped browser representative widening
-- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@radix-ui/react-dialog` in the browser web-baseline interop slice, so the browser package corpus now carries one more scoped browser package name through the browser command path without changing the documented support-rung story.
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@radix-ui/react-dialog` in the browser web-baseline interop slice and the scoped browser exports-map / browser-condition slices, so the browser package corpus now carries one more dialog package name through both the browser command path and the scoped browser shape coverage without changing the documented support-rung story.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@heroicons/react` in the browser scoped exports-map and browser-condition slices, so the scoped browser corpus now carries one more representative UI package name through the browser command path without changing the documented support-rung story.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `react-dom` across the browser exports-map and browser-condition slices, so the browser corpus now covers one more representative app-framework package shape without changing the documented support-rung story.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `react-dom` in the scoped browser exports-map slice in addition to browser-condition, so the browser shape coverage now exercises both resolution paths for the same representative app-framework package without changing the documented support-rung story.
@@ -631,6 +631,10 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 3.3 - path-to-regexp browser/utility corpus widening
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `path-to-regexp` in the browser corpus and the utility plain-package and web-baseline interop slices, so one more routing package shape stays concrete across the browser and standalone command paths without changing the documented support rungs.
 - ✅ `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` now name the `path-to-regexp` browser/utility widening explicitly, keeping the corpus-breadth wording aligned with the current evidence set.
+
+### Stage 3.3 - @radix-ui/react-dialog scoped-browser shape widening
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@radix-ui/react-dialog` in the browser web-baseline interop slice and the scoped browser exports-map / browser-condition slices, so the representative dialog package breadth now stays concrete across both the browser command path and the scoped browser shape coverage without changing the documented support rungs.
+- ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the scoped-browser `@radix-ui/react-dialog` widening explicitly, keeping the corpus-breadth wording aligned with the current evidence set.
 - ✅ Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
 
 ### Stage 4.2 - Proof-boundary anti-drift test

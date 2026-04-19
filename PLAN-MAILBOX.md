@@ -556,3 +556,11 @@ Planned update:
 
 Completed:
 - the utility plain-package corpus now also exercises `superjson` and `@jridgewell/sourcemap-codec` on the default standalone surface, and the Stage 3.3 progress notes now call that coverage out explicitly.
+
+## 2026-04-19 — Stage 3.3 @radix-ui/react-dialog scoped-browser shape widening
+
+I widened the Stage 3.3 package corpus one step further by adding `@radix-ui/react-dialog` to the scoped browser exports-map and browser-condition slices, so the representative dialog package breadth now stays concrete across both the browser command path and the scoped browser shape coverage.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new scoped-browser dialog coverage is named explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
