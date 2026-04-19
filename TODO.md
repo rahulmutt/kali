@@ -9,7 +9,7 @@ follow-up widening rather than unfinished baseline delivery:
   specialization budget and benchmark evidence honest,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic stub surfaces for
-  `WebSocket`, `Worker`, `IndexedDB`, and `CustomEvent` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those stub surfaces alongside `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, and the existing browser representatives,
+  `WebSocket`, `Worker`, `IndexedDB`, and `CustomEvent` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those stub surfaces alongside `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `@floating-ui/react`, and the existing browser representatives,
 - widen the proof-backed boundary beyond the current published RC snapshot + lowering slice while
   keeping `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and summary docs synchronized; the current RC
   helper slice is already named explicitly through the decrement-path iff bridge
@@ -365,7 +365,7 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 3.3 - Package corpus breadth expansion
 - ✅ Added browser, utility, and Node-runner corpus cases that resolve published exports maps and subpath entrypoints for `react`, `preact`, `vue`, `svelte`, `lit`, `ramda`, `rxjs`, `immer`, `uuid`, `typescript`, `esbuild`, `date-fns`, `lodash-es`, `vitest`, `jest`, and `mocha`, broadening the package-support corpus beyond the original single-entrypoint stubs.
 - ✅ Added `mocha` to the Node-runner exports-map and mixed-format corpus slices so the representative test-runner coverage now exercises one more package-shape variant without changing the documented support rungs.
-- ✅ Added `@mui/material` to the scoped browser exports-map / browser-condition slices so the representative browser corpus now covers one more popular UI package shape without changing the documented support rungs.
+- ✅ Added `@mui/material` and `@floating-ui/react` to the scoped browser exports-map / browser-condition slices so the representative browser corpus now covers one more popular UI package shape without changing the documented support rungs.
 - ✅ Added scoped browser conditional-exports coverage so the browser corpus now exercises scoped packages whose `browser` branches win over import/require fallbacks without changing the documented support rungs.
 - ✅ Added `commander` to the utility corpus breadth so the plain-package coverage now includes one more common CLI library shape without changing the documented support rungs.
 - ✅ Added `./*` exports-pattern corpus coverage so the representative browser and utility package sets now exercise wildcard subpath exports routed through nested `src/` subtrees.
@@ -377,6 +377,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `plan/phase-3/03-ecosystem-breadth.md` now explicitly enumerates the representative browser/utility package-shape cases already covered by the corpus, keeping the implementation playbook aligned with the Stage 3.3 evidence.
 - ✅ Added scoped-package corpus coverage so the representative package set now exercises `@scope/name` identities plus the scoped `@types/scope__name` fallback naming convention in both browser-targeted and standalone contexts.
 - ✅ Added typed-export-branch corpus coverage so the representative browser package set now exercises `exports` objects that carry `types` conditions alongside the runtime branches, keeping the corpus aligned with common modern package metadata.
+- ✅ Added `@floating-ui/react` to the browser typed-export-branch corpus so the representative browser package set now covers one more scoped UI package shape without changing the documented support rungs.
 - ✅ Added `@tanstack/react-query` to the browser typed-export-branch corpus so the representative browser package set now covers one more scoped query-library shape without changing the documented support rungs.
 - ✅ Added `vue-router` and `react-router` to the browser router corpus slices so the representative browser package set now covers two more router package shapes without changing the documented support rungs.
 - ✅ Added exports-string corpus coverage so the representative browser and utility package sets now exercise top-level string `exports` roots alongside the existing map-based exports cases.

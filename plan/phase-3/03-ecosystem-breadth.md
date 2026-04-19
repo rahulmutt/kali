@@ -30,8 +30,8 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The Node-runner corpus now also exercises `mocha` in the exports-map and mixed-format slices,
   so the test-runner breadth now covers one more representative package shape without changing the
   documented support rungs.
-- The scoped browser corpus now also exercises `@mui/material` in the exports-map and browser-
-  condition slices, adding one more representative UI package shape to the evidence set without
+- The scoped browser corpus now also exercises `@mui/material` and `@floating-ui/react` in the exports-map and browser-
+  condition slices, adding two more representative UI package shapes to the evidence set without
   changing the documented support rungs.
 - Scoped browser conditional-exports coverage now exercises packages whose browser branch wins over
   import/require fallbacks, tightening the browser/runtime interoperability slice without changing
@@ -76,7 +76,7 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   browser package-shape coverage without changing the documented support rungs.
 - The browser typed-export-branch corpus now also exercises `@reduxjs/toolkit`, broadening the
   representative scoped browser package coverage without changing the documented support rungs.
-- The browser typed-export-branch corpus now also exercises `@tanstack/react-query`, broadening the
+- The browser typed-export-branch corpus now also exercises `@floating-ui/react` and `@tanstack/react-query`, broadening the
   representative scoped browser package coverage without changing the documented support rungs.
 - The utility corpus now additionally exercises `rxjs` in the web-baseline interop slice alongside
   the existing utility representatives, widening the plain-package breadth without changing the

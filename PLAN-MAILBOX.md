@@ -444,3 +444,11 @@ I widened the Stage 3.3 browser web-baseline interop corpus with `date-fns` and 
 Planned update:
 - sync `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` so the browser-runtime interop progress notes name the new browser corpus packages explicitly
 - keep the claim narrow: this is a corpus-widening slice, not a support-rung change
+
+## 2026-04-19 — Stage 3.3 typed-export-branch browser corpus widening
+
+I widened the Stage 3.3 browser typed-export-branch corpus with `@floating-ui/react`, so the representative scoped browser package set now carries one more modern UI package shape through the existing browser exports/type-branch checks without changing the documented support rungs.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md` so the browser corpus notes name `@floating-ui/react` explicitly
+- keep the claim narrow: this is a corpus-widening slice, not a support-rung change
