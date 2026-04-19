@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::{
     collections::BTreeMap,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex, OnceLock,
     },
     time::Instant,
@@ -1011,13 +1011,21 @@ impl CustomEvent {
     }
 }
 
+type EventListenerId = usize;
 type EventListener = Box<dyn FnMut(&Event) + Send + 'static>;
-type ListenerMap = BTreeMap<String, Vec<EventListener>>;
+
+struct RegisteredEventListener {
+    id: EventListenerId,
+    listener: EventListener,
+}
+
+type ListenerMap = BTreeMap<String, Vec<RegisteredEventListener>>;
 
 /// A minimal event target used by the support library.
 #[derive(Default, Clone)]
 pub struct EventTarget {
     listeners: Arc<Mutex<ListenerMap>>,
+    next_listener_id: Arc<AtomicUsize>,
 }
 
 /// A stub WebSocket implementation that keeps the browser baseline deterministic.
@@ -1259,7 +1267,7 @@ impl EventTarget {
         Self::default()
     }
 
-    pub fn add_event_listener<F>(&self, event_type: impl Into<String>, listener: F)
+    pub fn add_event_listener<F>(&self, event_type: impl Into<String>, listener: F) -> usize
     where
         F: FnMut(&Event) + Send + 'static,
     {
@@ -1267,10 +1275,28 @@ impl EventTarget {
             .listeners
             .lock()
             .expect("event listener mutex poisoned");
+        let id = self.next_listener_id.fetch_add(1, Ordering::SeqCst);
         listeners
             .entry(event_type.into())
             .or_default()
-            .push(Box::new(listener));
+            .push(RegisteredEventListener {
+                id,
+                listener: Box::new(listener),
+            });
+        id
+    }
+
+    pub fn remove_event_listener(&self, event_type: &str, listener_id: usize) -> bool {
+        let mut listeners = self
+            .listeners
+            .lock()
+            .expect("event listener mutex poisoned");
+        let Some(event_listeners) = listeners.get_mut(event_type) else {
+            return false;
+        };
+        let original_len = event_listeners.len();
+        event_listeners.retain(|listener| listener.id != listener_id);
+        event_listeners.len() != original_len
     }
 
     pub fn dispatch_event(&self, event: &Event) -> usize {
@@ -1283,7 +1309,7 @@ impl EventTarget {
         };
 
         for listener in event_listeners.iter_mut() {
-            listener(event);
+            (listener.listener)(event);
         }
 
         event_listeners.len()
@@ -1293,6 +1319,7 @@ impl EventTarget {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::AtomicUsize;
 
     #[test]
     fn performance_now_is_monotonic_and_non_negative() {
@@ -1587,6 +1614,25 @@ mod tests {
         let event = Event::new("hello");
         assert_eq!(target.dispatch_event(&event), 1);
         assert!(seen.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn event_target_can_remove_registered_listeners() {
+        let target = EventTarget::new();
+        let invocations = Arc::new(AtomicUsize::new(0));
+        let invocations_clone = Arc::clone(&invocations);
+
+        let listener_id = target.add_event_listener("hello", move |_| {
+            invocations_clone.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let event = Event::new("hello");
+        assert_eq!(target.dispatch_event(&event), 1);
+        assert_eq!(invocations.load(Ordering::SeqCst), 1);
+        assert!(target.remove_event_listener("hello", listener_id));
+        assert!(!target.remove_event_listener("hello", listener_id));
+        assert_eq!(target.dispatch_event(&event), 0);
+        assert_eq!(invocations.load(Ordering::SeqCst), 1);
     }
 
     #[test]

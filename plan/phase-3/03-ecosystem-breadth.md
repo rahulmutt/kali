@@ -105,6 +105,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   `BroadcastChannel`, `URLSearchParams`, `FormData`, `fetch`, `Headers`, `Request`, `Response`, `structuredClone`, and `FileReader` in representative browser and
   utility package cases, widening the browser/runtime interoperability slice without changing the
   documented support rungs.
+- The shared browser/runtime support library now also supports deterministic `EventTarget` listener
+  removal, giving the browser interop slice a more faithful listener lifecycle baseline without
+  changing the documented support rungs.
 - The browser and utility corpus now also drive the deterministic `BroadcastChannel`, `WebSocket`, `Worker`, and
   `IndexedDB` browser-runtime stubs through the existing web-baseline interop slice, keeping the
   interop widening concrete without changing the support-rung story.
