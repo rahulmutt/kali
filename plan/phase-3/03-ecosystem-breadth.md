@@ -60,9 +60,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser corpus now additionally exercises `solid-js` in the web-baseline interop slice alongside
   the existing browser representatives in the exports-map slice, keeping the interoperability
   widening concrete without changing the support-rung story.
-- The browser web-baseline interop corpus now also exercises `date-fns` and `lodash-es` alongside the
-  existing browser representatives, keeping two more utility-package names covered by the browser
-  command path without changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `date-fns`, `lodash-es`, `ramda`, and
+  `uuid` alongside the existing browser representatives, keeping four more utility-package names
+  covered by the browser command path without changing the support-rung story.
 - The browser and utility web-baseline interop corpus now also exercises `zod` as one more
   representative package name, keeping the breadth widening concrete without changing the documented
   support rungs.
