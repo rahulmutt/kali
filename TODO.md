@@ -13,8 +13,10 @@ follow-up widening rather than unfinished baseline delivery:
 - widen the proof-backed boundary beyond the current published RC snapshot + lowering slice while
   keeping `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and summary docs synchronized; the current RC
   helper slice is already named explicitly through the decrement-path iff bridge
-  `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff` and the collection target iff
-  bridge `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`.
+  `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff`, the collection target iff
+  bridge `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`, and the target-cell
+  allocation corollaries `KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount`
+  and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`.
 
 ## Completed
 
@@ -232,6 +234,10 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndOwnership` now makes the decrement helper's surviving heap provenance explicit alongside its original ownership tag, `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndPositiveCount` packages the surviving-cell provenance/positivity split, and `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCount` keeps the ownership tag explicit.
 
 - ✅ `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` and `KaliCore.Safety.releaseAndCollectHeapCharacterisation` now give exact heap-membership characterisations for the decrement and collection helpers.
+
+### Stage 4.2 - Target-allocation wording sync
+- ✅ `PLAN-4.2-STATUS.md` and the TODO current-remaining-work note now name `KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount` and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount` explicitly alongside the existing RC snapshot inventory, keeping the target-allocation bridge visible in the published boundary.
+- ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
 
 ### Stage 4.2 - Decrement target-origin wording sync
 - ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and `plan/phase-4/02-formal-verification-depth.md` now name `KaliCore.Safety.releaseAndDecrementTargetCellOrigin` explicitly alongside the rest of the RC snapshot inventory.
