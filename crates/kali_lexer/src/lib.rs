@@ -495,76 +495,9 @@ impl Lexer {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_lexer_eof() {
-        let lexer = Lexer::new(FileId::new(0), String::new());
-        let result = lexer.lex_all();
-        assert_eq!(result.tokens.len(), 1);
-        assert_eq!(result.tokens[0].kind, TokenType::Eof);
-    }
-
-    #[test]
-    fn test_lexer_function() {
-        let mut lexer = Lexer::new(FileId::new(0), "function".to_string());
-        let token = lexer.next_token().unwrap();
-        assert_eq!(token.kind, TokenType::Function);
-    }
-
-    #[test]
-    fn test_lexer_identifier() {
-        let mut lexer = Lexer::new(FileId::new(0), "x".to_string());
-        let token = lexer.next_token().unwrap();
-        assert_eq!(token.kind, TokenType::Identifier);
-    }
-
-    #[test]
-    fn test_lexer_number() {
-        let mut lexer = Lexer::new(FileId::new(0), "42".to_string());
-        let token = lexer.next_token().unwrap();
-        assert_eq!(token.kind, TokenType::NumericLiteral);
-    }
-
-    #[test]
-    fn test_lexer_string() {
-        let mut lexer = Lexer::new(FileId::new(0), "\"hello\"".to_string());
-        let token = lexer.next_token().unwrap();
-        assert_eq!(token.kind, TokenType::StringLiteral);
-    }
-
-    #[test]
-    fn test_lexer_plus() {
-        let mut lexer = Lexer::new(FileId::new(0), "+".to_string());
-        let token = lexer.next_token().unwrap();
-        assert_eq!(token.kind, TokenType::Plus);
-    }
-
-    #[test]
-    fn test_lexer_unterminated_string() {
-        let lexer = Lexer::new(FileId::new(0), "\"hello".to_string());
-        let result = lexer.lex_all();
-        assert!(result
-            .diagnostics
-            .iter()
-            .any(|d| d.code == Some(e1::UNTERMINATED_STRING as u32)));
-    }
-}
+#[path = "tests.rs"]
+mod tests;
 
 #[cfg(test)]
-mod test_and_and {
-    use super::*;
-    #[test]
-    fn test_peek_and_and() {
-        let lexer = Lexer::new(FileId::new(0), "x && y;".to_string());
-        let result = lexer.lex_all();
-        let tokens: Vec<_> = result
-            .tokens
-            .into_iter()
-            .filter(|t| t.kind != TokenType::Eof)
-            .collect();
-        assert_eq!(tokens.len(), 4);
-        assert_eq!(tokens[1].kind, TokenType::AndAnd);
-    }
-}
+#[path = "test_and_and.rs"]
+mod test_and_and;

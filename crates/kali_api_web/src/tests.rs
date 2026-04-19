@@ -1,0 +1,484 @@
+use super::*;
+use std::sync::atomic::AtomicUsize;
+
+#[test]
+fn performance_now_is_monotonic_and_non_negative() {
+    let first = performance_now();
+    std::thread::sleep(std::time::Duration::from_millis(1));
+    let second = performance_now();
+
+    assert!(first >= 0.0, "first timestamp: {first}");
+    assert!(
+        second >= first,
+        "timestamps should not go backwards: {first} -> {second}"
+    );
+}
+
+#[test]
+fn random_fill_populates_the_requested_buffer() {
+    let mut buffer = [0u8; 16];
+    fill_random_values(&mut buffer).expect("random fill");
+    assert_eq!(buffer.len(), 16);
+}
+
+#[test]
+fn text_codec_round_trips_unicode() {
+    let input = "héllo 🌍";
+    let encoded = text_encode(input);
+    assert_eq!(encoded, input.as_bytes());
+    let decoded = text_decode(&encoded).expect("valid utf-8");
+    assert_eq!(decoded, input);
+}
+
+#[test]
+fn base64_helpers_round_trip_binary_strings() {
+    assert_eq!(btoa("hello").expect("encode"), "aGVsbG8=");
+    assert_eq!(atob("aGVs bG8=").expect("decode"), "hello");
+    assert_eq!(atob("aGVsbG8").expect("unpadded decode"), "hello");
+}
+
+#[test]
+fn base64_helpers_reject_out_of_range_input() {
+    assert!(btoa("€").is_err());
+}
+
+#[test]
+fn structured_clone_copies_values() {
+    let original = vec![1, 2, 3];
+    let cloned = structured_clone(&original);
+    assert_eq!(cloned, original);
+}
+
+#[test]
+fn blob_collects_bytes_and_text() {
+    let blob = Blob::new(
+        ["hello ".as_bytes(), "world".as_bytes()],
+        Some("text/plain".to_string()),
+    );
+    assert_eq!(blob.size(), 11);
+    assert_eq!(blob.mime_type(), Some("text/plain"));
+    assert_eq!(blob.bytes(), b"hello world");
+    assert_eq!(blob.text().expect("blob text"), "hello world");
+}
+
+#[test]
+fn file_wraps_blob_metadata() {
+    let file = File::new(
+        "report.txt",
+        ["hello ".as_bytes(), "world".as_bytes()],
+        Some("text/plain".to_string()),
+        42,
+    );
+    assert_eq!(file.name(), "report.txt");
+    assert_eq!(file.last_modified(), 42);
+    assert_eq!(file.size(), 11);
+    assert_eq!(file.bytes(), b"hello world");
+    assert_eq!(file.blob().mime_type(), Some("text/plain"));
+    assert_eq!(file.text().expect("file text"), "hello world");
+}
+
+#[test]
+fn file_reader_reads_blob_and_file_payloads() {
+    let blob = Blob::new(
+        ["reader payload".as_bytes()],
+        Some("text/plain".to_string()),
+    );
+    let file = File::new("reader.txt", ["reader payload".as_bytes()], None, 7);
+
+    let mut reader = FileReader::new();
+    assert_eq!(reader.ready_state(), FileReaderState::Empty);
+
+    assert_eq!(
+        reader.read_as_text(&blob).expect("blob text"),
+        "reader payload"
+    );
+    assert_eq!(reader.ready_state(), FileReaderState::Done);
+    assert_eq!(reader.result_bytes(), Some(b"reader payload".as_slice()));
+
+    reader.clear();
+    assert_eq!(reader.ready_state(), FileReaderState::Empty);
+    assert!(reader.result_bytes().is_none());
+
+    assert_eq!(reader.read_file_as_bytes(&file), b"reader payload");
+    assert_eq!(reader.ready_state(), FileReaderState::Done);
+    assert_eq!(
+        reader.read_file_as_text(&file).expect("file text"),
+        "reader payload"
+    );
+}
+
+#[test]
+fn form_data_records_entries_and_preserves_order() {
+    let blob = Blob::new(["form payload".as_bytes()], Some("text/plain".to_string()));
+    let file = File::new("form.txt", ["file payload".as_bytes()], None, 13);
+    let form = FormData::new();
+
+    form.append("alpha", "1");
+    form.append("beta", blob.clone());
+    form.append("beta", file.clone());
+
+    assert!(form.has("alpha"));
+    assert_eq!(
+        form.get("alpha").expect("alpha entry").value(),
+        &FormDataValue::Text("1".to_string())
+    );
+    assert_eq!(form.get_all("beta").len(), 2);
+    assert_eq!(
+        form.get_all("beta")[0].value(),
+        &FormDataValue::Blob(blob.clone())
+    );
+    assert_eq!(
+        form.get_all("beta")[1].value(),
+        &FormDataValue::File(file.clone())
+    );
+
+    form.set("beta", "replacement");
+    assert_eq!(form.get_all("beta").len(), 1);
+    assert_eq!(
+        form.get("beta").expect("beta entry").value(),
+        &FormDataValue::Text("replacement".to_string())
+    );
+
+    form.delete("alpha");
+    assert!(!form.has("alpha"));
+    assert_eq!(form.entries().len(), 1);
+}
+
+#[test]
+fn url_search_params_round_trips_values_and_serializes_deterministically() {
+    let params = URLSearchParams::new();
+    params.append("alpha", "1");
+    params.append("beta", "two words");
+    params.append("beta", "3");
+
+    assert!(params.has("alpha"));
+    assert_eq!(params.get("alpha").as_deref(), Some("1"));
+    assert_eq!(
+        params.get_all("beta"),
+        vec!["two words".to_string(), "3".to_string()]
+    );
+
+    params.set("beta", "replacement");
+    assert_eq!(params.get_all("beta"), vec!["replacement".to_string()]);
+    params.delete("alpha");
+    assert!(!params.has("alpha"));
+    assert_eq!(
+        params.entries(),
+        vec![("beta".to_string(), "replacement".to_string())]
+    );
+    assert_eq!(params.to_string(), "beta=replacement");
+
+    let parsed = URLSearchParams::from_query("alpha=1&beta=two+words&beta=3");
+    assert_eq!(parsed.get("alpha").as_deref(), Some("1"));
+    assert_eq!(
+        parsed.get_all("beta"),
+        vec!["two words".to_string(), "3".to_string()]
+    );
+}
+
+#[test]
+fn headers_request_and_response_round_trip_deterministically() {
+    let headers = Headers::new();
+    headers.append("Content-Type", "text/plain");
+    headers.append("x-request-id", "alpha");
+    headers.append("X-Request-Id", "beta");
+    headers.set("Accept", "application/json");
+
+    assert!(headers.has("content-type"));
+    assert_eq!(headers.get("CONTENT-TYPE").as_deref(), Some("text/plain"));
+    assert_eq!(headers.get("x-request-id").as_deref(), Some("alpha"));
+    assert_eq!(
+        headers.entries(),
+        vec![
+            ("content-type".to_string(), "text/plain".to_string()),
+            ("x-request-id".to_string(), "alpha".to_string()),
+            ("x-request-id".to_string(), "beta".to_string()),
+            ("accept".to_string(), "application/json".to_string()),
+        ]
+    );
+
+    let request = Request::with_parts(
+        "https://example.com/api",
+        "post",
+        headers.clone(),
+        "payload",
+    )
+    .expect("request");
+    assert_eq!(request.method(), "POST");
+    assert_eq!(request.url().as_str(), "https://example.com/api");
+    assert_eq!(request.text().expect("request text"), "payload");
+    assert_eq!(
+        request.headers().get("accept").as_deref(),
+        Some("application/json")
+    );
+
+    let response = Response::from_request(&request);
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.status_text(), "OK");
+    assert!(response.ok());
+    assert_eq!(response.url().as_str(), "https://example.com/api");
+    assert_eq!(response.text().expect("response text"), "payload");
+    assert_eq!(
+        response.headers().get("x-request-id").as_deref(),
+        Some("alpha")
+    );
+
+    let echoed = fetch(&request);
+    assert_eq!(echoed.text().expect("echo text"), "payload");
+    assert_eq!(echoed.status(), 200);
+}
+
+#[test]
+fn storage_round_trips_values_and_stays_ordered() {
+    let storage = Storage::new();
+    storage.set_item("alpha", "1");
+    storage.set_item("beta", "2");
+
+    assert_eq!(storage.length(), 2);
+    assert_eq!(storage.get_item("alpha").as_deref(), Some("1"));
+    assert_eq!(storage.key(0).as_deref(), Some("alpha"));
+    assert_eq!(storage.key(1).as_deref(), Some("beta"));
+    assert_eq!(storage.remove_item("alpha").as_deref(), Some("1"));
+    assert_eq!(storage.length(), 1);
+    storage.clear();
+    assert_eq!(storage.length(), 0);
+    assert!(storage.snapshot().is_empty());
+}
+
+#[test]
+fn shared_browser_storage_buckets_remain_isolated() {
+    let local = local_storage();
+    let session = session_storage();
+    local.clear();
+    session.clear();
+
+    local.set_item("mode", "local");
+    session.set_item("mode", "session");
+
+    assert_eq!(local.get_item("mode").as_deref(), Some("local"));
+    assert_eq!(session.get_item("mode").as_deref(), Some("session"));
+    assert_ne!(local.snapshot(), session.snapshot());
+
+    local.clear();
+    session.clear();
+}
+
+#[test]
+fn url_parser_can_parse_and_resolve() {
+    let parsed = parse_url("https://example.com/path").expect("url");
+    assert_eq!(parsed.as_str(), "https://example.com/path");
+
+    let resolved = resolve_url("https://example.com/base/", "../child").expect("resolved");
+    assert_eq!(resolved.as_str(), "https://example.com/child");
+}
+
+#[test]
+fn url_object_round_trips_components() {
+    let mut url = URL::new("https://example.com/base?alpha=1#fragment").expect("url");
+    assert_eq!(url.as_str(), "https://example.com/base?alpha=1#fragment");
+    assert_eq!(url.href(), "https://example.com/base?alpha=1#fragment");
+    assert_eq!(url.protocol(), "https:");
+    assert_eq!(url.pathname(), "/base");
+    assert_eq!(url.search(), "?alpha=1");
+    assert_eq!(url.hash(), "#fragment");
+    assert_eq!(url.host(), Some("example.com"));
+
+    url.set_pathname("/child");
+    url.set_search("?beta=2");
+    url.set_hash("section");
+    assert_eq!(url.as_str(), "https://example.com/child?beta=2#section");
+    assert_eq!(url.port(), None);
+    assert_eq!(url.set_protocol("http:"), Ok(()));
+    assert_eq!(url.as_str(), "http://example.com/child?beta=2#section");
+    assert_eq!(url.set_host("example.org"), Ok(()));
+    assert_eq!(url.set_port(Some(8080)), Ok(()));
+    assert_eq!(url.as_str(), "http://example.org:8080/child?beta=2#section");
+
+    let resolved = URL::resolve("https://example.com/base/", "../child").expect("resolved");
+    assert_eq!(resolved.as_str(), "https://example.com/child");
+    assert_eq!(
+        resolved.clone().into_inner().as_str(),
+        "https://example.com/child"
+    );
+}
+
+#[test]
+fn abort_controller_flips_the_signal() {
+    let controller = AbortController::new();
+    let signal = controller.signal();
+    assert!(!signal.aborted());
+    controller.abort();
+    assert!(signal.aborted());
+}
+
+#[test]
+fn abort_signal_dispatches_abort_events_once() {
+    let controller = AbortController::new();
+    let signal = controller.signal();
+    let invocations = Arc::new(AtomicUsize::new(0));
+    let invocations_clone = Arc::clone(&invocations);
+
+    signal.add_event_listener("abort", move |event| {
+        assert_eq!(event.event_type(), "abort");
+        invocations_clone.fetch_add(1, Ordering::SeqCst);
+    });
+
+    controller.abort();
+    controller.abort();
+
+    assert!(signal.aborted());
+    assert_eq!(invocations.load(Ordering::SeqCst), 1);
+    assert_eq!(signal.dispatch_event(&Event::new("abort")), 1);
+}
+
+#[test]
+fn event_target_dispatches_registered_listeners() {
+    let target = EventTarget::new();
+    let seen = Arc::new(AtomicBool::new(false));
+    let seen_clone = Arc::clone(&seen);
+
+    target.add_event_listener("hello", move |event| {
+        seen_clone.store(event.event_type() == "hello", Ordering::SeqCst);
+    });
+
+    let event = Event::new("hello");
+    assert_eq!(target.dispatch_event(&event), 1);
+    assert!(seen.load(Ordering::SeqCst));
+}
+
+#[test]
+fn event_target_can_remove_registered_listeners() {
+    let target = EventTarget::new();
+    let invocations = Arc::new(AtomicUsize::new(0));
+    let invocations_clone = Arc::clone(&invocations);
+
+    let listener_id = target.add_event_listener("hello", move |_| {
+        invocations_clone.fetch_add(1, Ordering::SeqCst);
+    });
+
+    let event = Event::new("hello");
+    assert_eq!(target.dispatch_event(&event), 1);
+    assert_eq!(invocations.load(Ordering::SeqCst), 1);
+    assert!(target.remove_event_listener("hello", listener_id));
+    assert!(!target.remove_event_listener("hello", listener_id));
+    assert_eq!(target.dispatch_event(&event), 0);
+    assert_eq!(invocations.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn event_target_can_remove_listeners_during_dispatch_without_deadlocking() {
+    let target = EventTarget::new();
+    let first_invocations = Arc::new(AtomicUsize::new(0));
+    let second_invocations = Arc::new(AtomicUsize::new(0));
+    let second_listener_id = Arc::new(AtomicUsize::new(usize::MAX));
+    let target_for_first = target.clone();
+
+    let first_invocations_clone = Arc::clone(&first_invocations);
+    let second_listener_id_clone = Arc::clone(&second_listener_id);
+    target.add_event_listener("hello", move |_| {
+        first_invocations_clone.fetch_add(1, Ordering::SeqCst);
+        let removed = target_for_first
+            .remove_event_listener("hello", second_listener_id_clone.load(Ordering::SeqCst));
+        assert!(removed, "listener removal should succeed during dispatch");
+    });
+
+    let second_invocations_clone = Arc::clone(&second_invocations);
+    let second_id = target.add_event_listener("hello", move |_| {
+        second_invocations_clone.fetch_add(1, Ordering::SeqCst);
+    });
+    second_listener_id.store(second_id, Ordering::SeqCst);
+
+    let event = Event::new("hello");
+    assert_eq!(target.dispatch_event(&event), 1);
+    assert_eq!(first_invocations.load(Ordering::SeqCst), 1);
+    assert_eq!(second_invocations.load(Ordering::SeqCst), 0);
+    assert!(!target.remove_event_listener("hello", second_id));
+}
+
+#[test]
+fn custom_event_carries_detail_payload() {
+    let event = CustomEvent::new("payload", Value::String("detail".to_string()));
+    assert_eq!(event.event().event_type(), "payload");
+    assert_eq!(event.detail(), &Value::String("detail".to_string()));
+}
+
+#[test]
+fn websocket_stub_tracks_sent_messages() {
+    let mut socket = WebSocket::new("https://example.com/socket").expect("websocket url");
+    assert_eq!(socket.ready_state(), WebSocketReadyState::Open);
+    assert_eq!(socket.url().as_str(), "https://example.com/socket");
+
+    socket.send_text("hello");
+    socket.send_text("world");
+    assert_eq!(socket.sent_text_messages(), vec!["hello", "world"]);
+
+    socket.close();
+    assert_eq!(socket.ready_state(), WebSocketReadyState::Closed);
+}
+
+#[test]
+fn worker_stub_records_posted_messages() {
+    let worker = Worker::new("https://example.com/worker.js").expect("worker url");
+    assert_eq!(
+        worker.script_url().as_str(),
+        "https://example.com/worker.js"
+    );
+    assert!(!worker.is_terminated());
+
+    worker.post_message(Value::String("ping".to_string()));
+    assert_eq!(
+        worker.posted_messages(),
+        vec![Value::String("ping".to_string())]
+    );
+
+    worker.terminate();
+    assert!(worker.is_terminated());
+    worker.post_message(Value::String("ignored".to_string()));
+    assert_eq!(
+        worker.posted_messages(),
+        vec![Value::String("ping".to_string())]
+    );
+}
+
+#[test]
+fn broadcast_channel_stub_records_posted_messages() {
+    let channel = BroadcastChannel::new("browser-corpus");
+    assert_eq!(channel.name(), "browser-corpus");
+    assert!(!channel.is_closed());
+
+    channel.post_message(Value::String("ping".to_string()));
+    assert_eq!(
+        channel.posted_messages(),
+        vec![Value::String("ping".to_string())]
+    );
+
+    channel.close();
+    assert!(channel.is_closed());
+    channel.post_message(Value::String("ignored".to_string()));
+    assert_eq!(
+        channel.posted_messages(),
+        vec![Value::String("ping".to_string())]
+    );
+}
+
+#[test]
+fn indexed_db_stub_persists_values() {
+    let db = IndexedDb::open("browser-cache");
+    assert_eq!(db.name(), "browser-cache");
+
+    db.put("sessions", "alpha", Value::String("1".to_string()));
+    db.put("sessions", "beta", Value::String("2".to_string()));
+    assert_eq!(db.store_names(), vec!["sessions".to_string()]);
+    assert_eq!(
+        db.get("sessions", "alpha"),
+        Some(Value::String("1".to_string()))
+    );
+    assert_eq!(
+        db.delete("sessions", "alpha"),
+        Some(Value::String("1".to_string()))
+    );
+    assert_eq!(db.get("sessions", "alpha"), None);
+
+    db.clear_store("sessions");
+    assert!(db.store_names().is_empty());
+}
