@@ -63,6 +63,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser corpus now additionally exercises `solid-js` in the web-baseline interop slice alongside
   the existing browser representatives in the exports-map slice, keeping the interoperability
   widening concrete without changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `@radix-ui/react-dialog` as one more
+  representative scoped browser package name, keeping the browser package corpus breadth concrete
+  without changing the documented support rungs.
 - The browser web-baseline interop corpus now also exercises `date-fns`, `lodash-es`, `nanoid`, `ramda`, and
   `uuid` alongside the existing browser representatives, keeping five more utility-package names
   covered by the browser command path without changing the support-rung story.
@@ -72,9 +75,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser web-baseline interop corpus now also exercises `svelte` and `lit` alongside the
   existing browser representatives, keeping two more browser-oriented package names covered by the
   browser command path without changing the support-rung story.
-- The browser web-baseline interop corpus now also exercises `@floating-ui/react`, `@mui/material`, and
-  `@tanstack/react-query` alongside the existing browser representatives, keeping three more scoped
-  browser package names covered by the browser command path without changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `@floating-ui/react`, `@mui/material`,
+  `@radix-ui/react-dialog`, and `@tanstack/react-query` alongside the existing browser
+  representatives, keeping four more scoped browser package names covered by the browser command
+  path without changing the support-rung story.
 - The browser router corpus now also exercises `vue-router` and `react-router` across the
   web-baseline interop, exports-map, and pattern-exports slices, adding two more representative
   browser package shapes without changing the documented support rungs.

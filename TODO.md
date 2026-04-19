@@ -9,7 +9,7 @@ follow-up widening rather than unfinished baseline delivery:
   specialization budget and benchmark evidence honest,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic stub surfaces for
-  `WebSocket`, `Worker`, `IndexedDB`, and `CustomEvent` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those stub surfaces alongside `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `@floating-ui/react`, `@headlessui/react`, `@mui/material`, `@tanstack/react-query`, and the existing browser representatives,
+  `WebSocket`, `Worker`, `IndexedDB`, and `CustomEvent` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those stub surfaces alongside `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `@floating-ui/react`, `@headlessui/react`, `@mui/material`, `@radix-ui/react-dialog`, `@tanstack/react-query`, and the existing browser representatives,
 - widen the proof-backed boundary beyond the current published RC snapshot + lowering slice while
   keeping `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and summary docs synchronized; the current RC
   helper slice is already named explicitly through the decrement-path iff bridge
@@ -41,8 +41,13 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@headlessui/react` across the browser web-baseline interop, exports-map, and browser-condition slices, so the scoped browser package corpus now covers one more representative UI package without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `svelte` and `lit` in the browser web-baseline interop slice, so the representative package corpus now carries two more browser-oriented package names through the browser command path without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `ramda` and `uuid` in the browser web-baseline interop slice, so the representative package corpus now carries two more utility-package names through the browser command path without changing the documented support rungs.
-- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@floating-ui/react`, `@mui/material`, and `@tanstack/react-query` in the browser web-baseline interop slice, so the representative package corpus now carries three more scoped browser package names through the browser command path without changing the documented support rungs.
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@floating-ui/react`, `@mui/material`, `@radix-ui/react-dialog`, and `@tanstack/react-query` in the browser web-baseline interop slice, so the representative package corpus now carries four more scoped browser package names through the browser command path without changing the documented support rungs.
 - ✅ Kept the update narrow: this widens the package corpus and browser/runtime interoperability checks without changing the documented support rungs.
+
+### Stage 3.3 - Scoped browser representative widening
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@radix-ui/react-dialog` in the browser web-baseline interop slice, so the browser package corpus now carries one more scoped browser package name through the browser command path without changing the documented support-rung story.
+- ✅ `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` now name `@radix-ui/react-dialog` explicitly in the Stage 3.3 widening notes.
+- ✅ Kept the update narrow: this is another corpus-widening slice, not a support-rung change.
 
 ### Stage 3.1 - Recursive MIR-specialization revisit
 - ✅ Newly created MIR-specialized clones are now recursively revisited under their own owner key, so clone-specific optimization can expose deeper specializable call sites while keeping the specialization budget deterministic.
