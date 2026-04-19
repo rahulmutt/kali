@@ -216,6 +216,10 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and `plan/phase-4/02-formal-verification-depth.md` now name `KaliCore.Safety.releaseAndDecrementTargetCellOrigin` explicitly alongside the rest of the RC snapshot inventory.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
 
+### Stage 4.2 - RC predicate vocabulary sync
+- ✅ The RC snapshot model now names the explicit `hasOwnership`, `allocated`, and `liveAnnotated` predicate vocabulary in the proof-boundary and progress-tracker summaries.
+- ✅ Kept the update narrow: this is a model-vocabulary wording sync, not a boundary widening.
+
 ## Recently Closed Work
 - [x] Stage 4.2 pure release-origin helper sync closed
   - Confirmed `KaliCore.Safety.releaseRefHeapCellOrigin` is already present in the proof-backed boundary and that the summary / tracker docs are already aligned with the published RC snapshot wording for the pure release helper slice.

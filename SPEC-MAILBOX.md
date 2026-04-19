@@ -304,3 +304,10 @@ Suggested follow-up:
 - update the verification summaries and maturity docs so the new theorem is named explicitly
 - keep the claim narrow: this is still a helper-level RC slice, not the fuller ownership/freeing target
 
+
+## 2026-04-19 — Stage 4.2 RC predicate vocabulary sync
+
+I made the proof-boundary and verification summaries explicitly name the RC snapshot predicate vocabulary (`hasOwnership`, `allocated`, and `liveAnnotated`) so the model-shape wording stays as concrete as the theorem inventory.
+
+Suggested follow-up:
+- keep this as a wording-only sync; it does not widen the published proof boundary

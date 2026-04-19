@@ -306,3 +306,10 @@ I widened the Stage 1.5 type-checker foundation slightly: `TypeChecker` now drai
 Suggested follow-up:
 - keep the Stage 1.5 summary honest if the checker grows beyond annotation diagnostics into flow-sensitive or inference-heavy passes
 - treat this as a small plan/status sync, not a phase-level availability change
+
+## 2026-04-19 — Stage 4.2 RC predicate vocabulary sync
+
+I made the proof-boundary / verification summaries explicitly name the RC snapshot predicate vocabulary (`hasOwnership`, `allocated`, and `liveAnnotated`) so the plan/status wording stays aligned with the current model shape.
+
+Suggested follow-up:
+- keep the plan and proof-boundary wording aligned if the RC snapshot predicate vocabulary widens again; this is a documentation sync, not a boundary widening

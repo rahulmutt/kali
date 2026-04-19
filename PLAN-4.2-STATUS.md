@@ -6,7 +6,7 @@
 
 The repository is already proof-backed for the published boundary. The remaining Stage 4.2 work is
 not “make the boundary exist” but “widen the boundary without overclaiming”. Keep this tracker,
-[`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md), [`plan/phase-4/02-formal-verification-depth.md`](./plan/phase-4/02-formal-verification-depth.md), and [`TODO.md`](./TODO.md) synchronized.
+[`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md), [`plan/phase-4/02-formal-verification-depth.md`](./plan/phase-4/02-formal-verification-depth.md), and [`TODO.md`](./TODO.md) synchronized. The RC snapshot model itself is phrased through the explicit `hasOwnership` / `allocated` / `liveAnnotated` predicate vocabulary, so the summary stays aligned with the model shape as well as the theorem inventory.
 
 ## Published RC snapshot theorem inventory
 
