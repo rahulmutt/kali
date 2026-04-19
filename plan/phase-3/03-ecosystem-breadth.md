@@ -174,6 +174,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The utility corpus now also exercises `redux` as another representative state-management package
   name across the plain-package and web-baseline interop slices, keeping the breadth widening
   concrete without changing the support-rung story.
+- The utility corpus now also exercises `lodash` across the plain-package, exports-map,
+  string-exports, pattern-exports, and web-baseline slices, keeping one more common CJS utility
+  package covered without changing the support-rung story.
 - The browser web-baseline corpus and the utility plain-package corpus now also exercise `zustand` as
   another representative lightweight package name, keeping the breadth widening concrete without
   changing the support-rung story.

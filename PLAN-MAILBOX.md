@@ -347,3 +347,14 @@ Planned update:
 
 Completed:
 - the proof-boundary manifest, verification summaries, Stage 4.2 tracker, TODO notes, `PLAN.md`, and proof-summary guard now name the combined wellformedness/ownership/linear-memory corollaries explicitly alongside the current RC helper inventory.
+
+## 2026-04-19 — Stage 3.3 lodash corpus widening
+
+I widened the Stage 3.3 package corpus one more step by adding `lodash` to the utility plain-package, exports-map, string-exports, pattern-exports, and web-baseline slices, keeping the representative common CJS utility breadth concrete without changing any support-rung claims.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention `lodash` alongside the existing utility package breadth notes
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- the utility corpus and Stage 3.3 progress notes now also name `lodash` explicitly in the relevant package-breadth slices.

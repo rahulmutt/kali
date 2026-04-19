@@ -1543,6 +1543,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "esbuild",
         "date-fns",
         "dayjs",
+        "lodash",
         "lodash-es",
         "commander",
         "redux",
@@ -1602,6 +1603,7 @@ fn utility_corpus_packages_with_exports_maps_remain_executable_on_the_default_st
         ("uuid", "v4"),
         ("commander", "command"),
         ("redux", "createStore"),
+        ("lodash", "get"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
@@ -1652,7 +1654,7 @@ fn utility_corpus_packages_with_exports_maps_remain_executable_on_the_default_st
 #[test]
 fn utility_corpus_packages_with_string_exports_remain_executable_on_the_default_standalone_surface()
 {
-    for package in ["ramda", "rxjs", "uuid", "commander", "redux"] {
+    for package in ["ramda", "rxjs", "uuid", "commander", "redux", "lodash"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_string_exports_package(
@@ -1876,6 +1878,7 @@ fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the
         "pinia",
         "superjson",
         "@tanstack/react-table",
+        "lodash",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
