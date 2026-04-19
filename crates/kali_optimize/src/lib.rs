@@ -591,11 +591,11 @@ impl Optimizer {
                 if !tracker.allow(owner, key) {
                     return false;
                 }
-                if literal_value(program, *left) == Some(ConstantValue::Number(0)) {
+                if is_zero_constant(literal_value(program, *left)) {
                     program.nodes[id.0 as usize] = program.nodes[right.0 as usize].clone();
                     return true;
                 }
-                if literal_value(program, *right) == Some(ConstantValue::Number(0)) {
+                if is_zero_constant(literal_value(program, *right)) {
                     program.nodes[id.0 as usize] = program.nodes[left.0 as usize].clone();
                     return true;
                 }
@@ -625,17 +625,17 @@ impl Optimizer {
                 if !tracker.allow(owner, key) {
                     return false;
                 }
-                if literal_value(program, *left) == Some(ConstantValue::Number(0))
-                    || literal_value(program, *right) == Some(ConstantValue::Number(0))
+                if is_zero_constant(literal_value(program, *left))
+                    || is_zero_constant(literal_value(program, *right))
                 {
                     program.nodes[id.0 as usize] = LirNode::with_text(LirNodeKind::Literal, "0");
                     return true;
                 }
-                if literal_value(program, *left) == Some(ConstantValue::Number(1)) {
+                if is_one_constant(literal_value(program, *left)) {
                     program.nodes[id.0 as usize] = program.nodes[right.0 as usize].clone();
                     return true;
                 }
-                if literal_value(program, *right) == Some(ConstantValue::Number(1)) {
+                if is_one_constant(literal_value(program, *right)) {
                     program.nodes[id.0 as usize] = program.nodes[left.0 as usize].clone();
                     return true;
                 }
@@ -1065,6 +1065,7 @@ impl Optimizer {
                         .as_deref()
                         .map_or_else(|| value.to_string(), str::to_owned)
                 ),
+                Some(ConstantValue::BigInt(value)) => format!("Literal:bigint:{value}"),
                 Some(ConstantValue::Boolean(_)) => "Literal:boolean".to_string(),
                 Some(ConstantValue::String(value)) => format!("Literal:string:{value}"),
                 Some(ConstantValue::Null) => "Literal:null".to_string(),
@@ -1080,6 +1081,7 @@ impl Optimizer {
                             .as_deref()
                             .map_or_else(|| value.to_string(), str::to_owned)
                     ),
+                    Some(ConstantValue::BigInt(value)) => format!("Value:bigint:{value}"),
                     Some(ConstantValue::String(value)) => format!("Value:string:{value}"),
                     Some(ConstantValue::Null) => "Value:null".to_string(),
                     Some(ConstantValue::Undefined) => "Value:undefined".to_string(),
@@ -1381,6 +1383,7 @@ impl Optimizer {
                         .as_deref()
                         .map_or_else(|| value.to_string(), str::to_owned)
                 ),
+                Some(ConstantValue::BigInt(value)) => format!("Literal:bigint:{value}"),
                 Some(ConstantValue::Boolean(_)) => "Literal:boolean".to_string(),
                 Some(ConstantValue::String(value)) => format!("Literal:string:{value}"),
                 Some(ConstantValue::Null) => "Literal:null".to_string(),
@@ -1396,6 +1399,7 @@ impl Optimizer {
                             .as_deref()
                             .map_or_else(|| value.to_string(), str::to_owned)
                     ),
+                    Some(ConstantValue::BigInt(value)) => format!("Value:bigint:{value}"),
                     Some(ConstantValue::String(value)) => format!("Value:string:{value}"),
                     Some(ConstantValue::Null) => "Value:null".to_string(),
                     Some(ConstantValue::Undefined) => "Value:undefined".to_string(),
@@ -1597,6 +1601,7 @@ struct FunctionSummary {
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum ConstantValue {
     Number(i64),
+    BigInt(i64),
     Boolean(bool),
     String(String),
     Null,
@@ -1636,12 +1641,26 @@ impl SpecializationTracker {
 impl ConstantValue {
     fn truthy(self) -> bool {
         match self {
-            ConstantValue::Number(value) => value != 0,
+            ConstantValue::Number(value) | ConstantValue::BigInt(value) => value != 0,
             ConstantValue::Boolean(value) => value,
             ConstantValue::String(value) => !value.is_empty(),
             ConstantValue::Null | ConstantValue::Undefined => false,
         }
     }
+}
+
+fn is_zero_constant(value: Option<ConstantValue>) -> bool {
+    matches!(
+        value,
+        Some(ConstantValue::Number(0) | ConstantValue::BigInt(0))
+    )
+}
+
+fn is_one_constant(value: Option<ConstantValue>) -> bool {
+    matches!(
+        value,
+        Some(ConstantValue::Number(1) | ConstantValue::BigInt(1))
+    )
 }
 
 fn literal_value(program: &LirProgram, id: LirNodeId) -> Option<ConstantValue> {
@@ -1679,13 +1698,20 @@ fn parse_literal_text(text: Option<&str>) -> Option<ConstantValue> {
         "undefined" => Some(ConstantValue::Undefined),
         _ => parse_string_literal(text)
             .map(ConstantValue::String)
-            .or_else(|| parse_number_literal(text).map(ConstantValue::Number)),
+            .or_else(|| {
+                if let Some(stripped) = text.strip_suffix('n') {
+                    stripped.parse::<i64>().ok().map(ConstantValue::BigInt)
+                } else {
+                    parse_number_literal(text).map(ConstantValue::Number)
+                }
+            }),
     }
 }
 
 fn fold_unary(op: &str, value: ConstantValue) -> Option<ConstantValue> {
     match (op, value) {
         ("-", ConstantValue::Number(value)) => value.checked_neg().map(ConstantValue::Number),
+        ("-", ConstantValue::BigInt(value)) => value.checked_neg().map(ConstantValue::BigInt),
         ("!", value) => Some(ConstantValue::Boolean(!value.truthy())),
         _ => None,
     }
@@ -1696,11 +1722,20 @@ fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<Co
         ("+", ConstantValue::Number(left), ConstantValue::Number(right)) => {
             left.checked_add(right).map(ConstantValue::Number)
         }
+        ("+", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
+            left.checked_add(right).map(ConstantValue::BigInt)
+        }
         ("-", ConstantValue::Number(left), ConstantValue::Number(right)) => {
             left.checked_sub(right).map(ConstantValue::Number)
         }
+        ("-", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
+            left.checked_sub(right).map(ConstantValue::BigInt)
+        }
         ("*", ConstantValue::Number(left), ConstantValue::Number(right)) => {
             left.checked_mul(right).map(ConstantValue::Number)
+        }
+        ("*", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
+            left.checked_mul(right).map(ConstantValue::BigInt)
         }
         ("/", ConstantValue::Number(left), ConstantValue::Number(right)) => {
             if right == 0 {
@@ -1709,7 +1744,17 @@ fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<Co
                 Some(ConstantValue::Number(left / right))
             }
         }
+        ("/", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
+            if right == 0 {
+                None
+            } else {
+                Some(ConstantValue::BigInt(left / right))
+            }
+        }
         ("==", ConstantValue::Number(left), ConstantValue::Number(right)) => {
+            Some(ConstantValue::Boolean(left == right))
+        }
+        ("==", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
             Some(ConstantValue::Boolean(left == right))
         }
         ("==", ConstantValue::Boolean(left), ConstantValue::Boolean(right)) => {
@@ -1733,6 +1778,7 @@ fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<Co
 fn literal_text(value: ConstantValue) -> String {
     match value {
         ConstantValue::Number(value) => value.to_string(),
+        ConstantValue::BigInt(value) => format!("{value}n"),
         ConstantValue::Boolean(value) => value.to_string(),
         ConstantValue::String(value) => {
             format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
@@ -3058,6 +3104,127 @@ mod tests {
         assert_ne!(specialized_name_one_a, specialized_name_two);
         assert!(specialized_name_one_a.starts_with("consume_number$spec$"));
         assert!(specialized_name_two.starts_with("consume_number$spec$"));
+
+        let specialized_count_one = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_one_a)
+            })
+            .count();
+        let specialized_count_two = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_two)
+            })
+            .count();
+        assert_eq!(specialized_count_one, 1);
+        assert_eq!(specialized_count_two, 1);
+    }
+
+    #[test]
+    fn release_specializes_bigint_literal_arguments() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "consume_bigint");
+        let param_value = builder.alloc_text(LirNodeKind::Value, "value");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add8 = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1n");
+        let two = literal(&mut builder, "2n");
+        let three = literal(&mut builder, "3n");
+        let four = literal(&mut builder, "4n");
+        let five = literal(&mut builder, "5n");
+        let six = literal(&mut builder, "6n");
+        let seven = literal(&mut builder, "7n");
+        let eight = literal(&mut builder, "8n");
+        builder.node_mut(add1).unwrap().children = vec![param_value, one];
+        builder.node_mut(add2).unwrap().children = vec![add1, two];
+        builder.node_mut(add3).unwrap().children = vec![add2, three];
+        builder.node_mut(add4).unwrap().children = vec![add3, four];
+        builder.node_mut(add5).unwrap().children = vec![add4, five];
+        builder.node_mut(add6).unwrap().children = vec![add5, six];
+        builder.node_mut(add7).unwrap().children = vec![add6, seven];
+        builder.node_mut(add8).unwrap().children = vec![add7, eight];
+        builder.node_mut(ret).unwrap().children = vec![add8];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_value, block];
+
+        let call_one_a = builder.alloc(LirNodeKind::Call);
+        let call_one_a_callee = builder.alloc_text(LirNodeKind::Value, "consume_bigint");
+        let arg_one_a = literal(&mut builder, "1n");
+        builder.node_mut(call_one_a).unwrap().children = vec![call_one_a_callee, arg_one_a];
+
+        let call_two = builder.alloc(LirNodeKind::Call);
+        let call_two_callee = builder.alloc_text(LirNodeKind::Value, "consume_bigint");
+        let arg_two = literal(&mut builder, "2n");
+        builder.node_mut(call_two).unwrap().children = vec![call_two_callee, arg_two];
+
+        let call_one_b = builder.alloc(LirNodeKind::Call);
+        let call_one_b_callee = builder.alloc_text(LirNodeKind::Value, "consume_bigint");
+        let arg_one_b = literal(&mut builder, "1n");
+        builder.node_mut(call_one_b).unwrap().children = vec![call_one_b_callee, arg_one_b];
+
+        builder.node_mut(root).unwrap().children = vec![function, call_one_a, call_two, call_one_b];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![kali_mir::MirFunction {
+                name: Some("consume_bigint".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![kali_mir::MirBinding {
+                    name: "value".to_string(),
+                    kind: MirBindingKind::Parameter,
+                    ownership: kali_mir::OwnershipClass::Borrowed,
+                    layout: LayoutDescriptor::TaggedVal,
+                    escapes: false,
+                    captured_by: Vec::new(),
+                }],
+            }],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let specialized_name_one_a = program.nodes[call_one_a.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for one_a");
+        let specialized_name_two = program.nodes[call_two.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for two");
+        let specialized_name_one_b = program.nodes[call_one_b.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for one_b");
+
+        assert_eq!(specialized_name_one_a, specialized_name_one_b);
+        assert_ne!(specialized_name_one_a, specialized_name_two);
+        assert!(specialized_name_one_a.starts_with("consume_bigint$spec$"));
+        assert!(specialized_name_two.starts_with("consume_bigint$spec$"));
 
         let specialized_count_one = program
             .nodes

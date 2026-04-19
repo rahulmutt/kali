@@ -39,6 +39,9 @@ types are statically known.
   nullish arguments when the MIR plan can see them as constants.
 - Numeric-literal call-site arguments now also carry value-specific signatures, so repeated `1`
   calls still share a clone while `1` and `2` no longer collapse onto the same specialized body.
+- BigInt-literal call-site arguments now carry distinct `1n` / `2n` signatures as well, so the
+  specialization path keeps BigInt constants separate from the old numeric fallback without
+  changing the deterministic budget story.
 - Nested MIR-bound bindings inside object-literal call sites now also participate in the MIR-aware
   specialization signature, so composite arguments can split into distinct clones when the same
   surface shape is fed by different scoped binding layouts.
