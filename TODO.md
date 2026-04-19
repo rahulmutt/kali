@@ -162,7 +162,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Kept the update narrow: this is helper groundwork for future proof work, not a new published boundary claim.
 
 ### Stage 4.2 - Pure release-helper positive-count wording sync
-- ✅ `proofs/BOUNDARY.md` now explicitly says `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` preserves the release-only cells' positive count in addition to their original ownership tag.
+- ✅ `proofs/BOUNDARY.md` now explicitly says `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` preserves the release-only cells' positive count in addition to their original ownership tag.
 - ✅ Kept the update narrow: this is wording sync for the published boundary, not a new proof target.
 
 ### Stage 4.2 - Pure release helper origin/ownership follow-up closed
@@ -170,7 +170,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Kept the stale follow-up closed without widening the published boundary.
 
 ### Stage 4.2 - Pure release-origin helper sync
-- ✅ `KaliCore.Safety.releaseRefHeapCellOrigin` is still explicitly named in `proofs/BOUNDARY.md`, `plan/phase-4/02-formal-verification-depth.md`, and `PLAN-4.2-STATUS.md` alongside `KaliCore.Safety.releaseRefHeapCharacterisation`, `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, and `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount`.
+- ✅ `KaliCore.Safety.releaseRefHeapCellOrigin` is still explicitly named in `proofs/BOUNDARY.md`, `plan/phase-4/02-formal-verification-depth.md`, and `PLAN-4.2-STATUS.md` alongside `KaliCore.Safety.releaseRefHeapCharacterisation`, `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, and `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory`.
 - ✅ Kept the update narrow: this is a wording sync for the published boundary, not a boundary widening.
 
 ### Stage 4.2 - Live-reference filtering theorem naming sync
@@ -201,11 +201,11 @@ follow-up widening rather than unfinished baseline delivery:
 
 ### Stage 4.2 - Proof-boundary heap-characterisation inventory sync
 - ✅ `proofs/BOUNDARY.md` now names `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` and `KaliCore.Safety.releaseAndCollectHeapCharacterisation` explicitly in the claimed theorem inventory, keeping the manifest aligned with the proof-state summary and the summary docs.
-- ✅ The pure release helper now also has an explicit heap-characterisation theorem, `KaliCore.Safety.releaseRefHeapCharacterisation`, a plain origin theorem, `KaliCore.Safety.releaseRefHeapCellOrigin`, and a direct origin/ownership theorem, `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount`, so the RC helper slice states the unchanged-heap case and the release-only provenance story directly alongside the decrement/collection heap characterisation theorems.
+- ✅ The pure release helper now also has an explicit heap-characterisation theorem, `KaliCore.Safety.releaseRefHeapCharacterisation`, a plain origin theorem, `KaliCore.Safety.releaseRefHeapCellOrigin`, and a direct origin/ownership theorem, `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory`, so the RC helper slice states the unchanged-heap case and the release-only provenance story directly alongside the decrement/collection heap characterisation theorems.
 - ✅ `PLAN-4.2-STATUS.md` and the Stage 4.2 progress note now call out the release-only heap-characterisation theorem explicitly, keeping the pure release helper slice aligned with the published boundary inventory.
 
 ### Stage 4.2 - Pure release heap characterisation wording sync
-- ✅ `TODO.md` now calls out `KaliCore.Safety.releaseRefHeapCharacterisation`, `KaliCore.Safety.releaseRefHeapCellOrigin` explicitly in the Stage 4.2 tracker, and the proof-boundary theorem inventory now also names `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` explicitly, so the pure release-helper slice stays named alongside the release-only live-reference and disjointness corollaries.
+- ✅ `TODO.md` now calls out `KaliCore.Safety.releaseRefHeapCharacterisation`, `KaliCore.Safety.releaseRefHeapCellOrigin` explicitly in the Stage 4.2 tracker, and the proof-boundary theorem inventory now also names `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` explicitly, so the pure release-helper slice stays named alongside the release-only live-reference and disjointness corollaries.
 - ✅ The existing `PLAN-4.2-STATUS.md` progress note already reflects the same helper-level wording, keeping the proof-backed boundary inventory aligned with the current RC theorem set.
 
 ### Stage 4.2 - Proof-summary anti-drift guard widening
@@ -457,8 +457,8 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `releaseAndCollectKeepsOtherHeapEntries` now keeps unrelated positive-count heap entries in the collected heap, making the helper-level unrelated-heap preservation story explicit.
 
 ### Stage 4.2 - Pure release-helper follow-up
-- ✅ `releaseRefLiveRefsAreOwnedAndAllocated`, `releaseRefLiveRefsAreLiveAnnotated`, `releaseAndDecrementLiveRefsAreLiveAnnotated`, `releaseAndCollectLiveRefsAreLiveAnnotated` now keeps the pure release helper's surviving live references anchored in ownership and allocation, and `releaseRefHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` now makes the release-only provenance story explicit.
-- ✅ `PLAN-4.2-STATUS.md` now also names `KaliCore.Safety.releaseRefHeapCharacterisation`, `KaliCore.Safety.releaseRefHeapCellOrigin` and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` in the top-level memory-safety summary, so the plan tracker stays as explicit as the published boundary.
+- ✅ `releaseRefLiveRefsAreOwnedAndAllocated`, `releaseRefLiveRefsAreLiveAnnotated`, `releaseAndDecrementLiveRefsAreLiveAnnotated`, `releaseAndCollectLiveRefsAreLiveAnnotated` now keeps the pure release helper's surviving live references anchored in ownership and allocation, and `releaseRefHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` now makes the release-only provenance story explicit.
+- ✅ `PLAN-4.2-STATUS.md` now also names `KaliCore.Safety.releaseRefHeapCharacterisation`, `KaliCore.Safety.releaseRefHeapCellOrigin` and `KaliCore.Safety.releaseRefHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` in the top-level memory-safety summary, so the plan tracker stays as explicit as the published boundary.
 - ✅ `releaseRefLiveRefsFiltered`, `releaseAndDecrementLiveRefsFiltered`, and `releaseAndCollectLiveRefsFiltered` now keep the live-reference list filtered to the released target across the release-only, decrement, and collection helpers.
 - ✅ `releaseRefReleasedNotLiveRef` now keeps released references disjoint from the live set after the pure release helper runs.
 - ✅ `releaseRecorded` still records the released reference in the released set after the pure release step.

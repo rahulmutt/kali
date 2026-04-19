@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 4.2 release-only linear-memory companion widening
+
+I found a small Stage 4.2 follow-up for the RC snapshot proof slice: the release-only helper could use the same combined origin / ownership / positive-count + linear-memory companion wording already used by the decrement and collection helpers.
+
+Planned update:
+- add `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` to the proof-backed RC snapshot inventory, then sync `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and the related summary docs so the companion theorem is named explicitly
+- keep the claim narrow: this is a helper-level RC widening, not the broader Stage 4.2 ownership/freeing target
+
 ## 2026-04-19 — Stage 3.1 object-literal property-order canonicalization
 
 I widened the Stage 3.1 specialization path one step further so object-literal property order is now canonicalized during MIR-aware specialization, which lets semantically identical object shapes with reordered fields reuse the same clone instead of splitting on insertion order.

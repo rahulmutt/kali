@@ -972,6 +972,21 @@ theorem releaseRefHeapCellOriginOwnershipAndPositiveCount (snapshot : RcSnapshot
   rcases releaseRefHeapCellOriginAndOwnership snapshot ref cell hmem with ⟨cell0, hmem0, hcell, hname, howner⟩
   exact ⟨cell0, hmem0, hcell, hname, howner, hpos⟩
 
+/-- The release-only helper's surviving heap cells preserve their original name, ownership tag, positive count, and linear-memory payload. -/
+theorem releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (∀ cell, cell ∈ (releaseRef snapshot ref).heap →
+      cell.refCount > 0 →
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        cell = cell0 ∧
+        cell.name = cell0.name ∧
+        cell.owner = cell0.owner ∧
+        cell.refCount > 0) ∧
+    (releaseRef snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · intro cell hmem hpos
+    exact releaseRefHeapCellOriginOwnershipAndPositiveCount snapshot ref cell hmem hpos
+  · exact releaseRefPreservesLinearMemory snapshot ref
+
 /-- A release-only step preserves the no-dangling-reference property on well-formed snapshots. -/
 theorem releaseRefNoDanglingReference (snapshot : RcSnapshot) (ref : String)
     (h : WellFormed snapshot) :

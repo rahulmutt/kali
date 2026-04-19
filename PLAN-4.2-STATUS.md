@@ -30,7 +30,7 @@ The current published boundary explicitly names the RC snapshot helper slice, in
 - `releaseRefHeapCharacterisation`
 - `releaseRefHeapCellOrigin`
 - `releaseRefHeapCellOriginAndOwnership`
-- `releaseRefHeapCellOriginOwnershipAndPositiveCount`
+- `releaseRefHeapCellOriginOwnershipAndPositiveCount` plus its linear-memory companion `releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory`
 - `releaseRefPreservesOwnership`
 - `releaseRefPreservesLinearMemory`
 - `releaseRefPreservesOwnershipAndLinearMemory`
