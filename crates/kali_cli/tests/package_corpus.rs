@@ -478,7 +478,15 @@ where
 
 #[test]
 fn browser_corpus_packages_remain_checkable_and_deployable_through_host() {
-    for package in ["react", "preact", "vue", "clsx", "vue-router", "@testing-library/react"] {
+    for package in [
+        "react",
+        "preact",
+        "vue",
+        "clsx",
+        "vue-router",
+        "@testing-library/react",
+        "@testing-library/dom",
+    ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
         write_stub_package(
@@ -1161,6 +1169,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "@mui/material",
         "@radix-ui/react-dialog",
         "@tanstack/react-query",
+        "@testing-library/dom",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));

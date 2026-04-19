@@ -1,4 +1,13 @@
-## 2026-04-19 — Stage 3.3 testing-library browser corpus widening
+## 2026-04-19 — Stage 3.3 testing-library browser corpus widening (dom)
+
+I widened the Stage 3.3 browser corpus a little further by adding `@testing-library/dom` alongside the existing `@testing-library/react` coverage, so the representative testing-library slice now carries both the React-oriented and DOM-oriented package names through the browser command path without changing the support-rung story.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md` so the Stage 3.3 progress notes name `@testing-library/dom` explicitly alongside `@testing-library/react`
+- keep the claim narrow: this is another corpus-widening slice, not a support-rung change
+
+
+## 2026-04-19 — Stage 3.3 testing-library browser corpus widening (react)
 
 I widened the Stage 3.3 browser corpus with `@testing-library/react`, so the representative browser package set now carries one more scoped testing-library package name without changing the documented support-rung story.
 
