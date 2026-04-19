@@ -488,3 +488,14 @@ Planned update:
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
 
 Completed: `crates/kali_cli/tests/package_corpus.rs` now exercises `@tanstack/table-core` in the browser web-baseline interop slice and the scoped browser exports-map / browser-condition slices, and the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name it explicitly alongside the existing package-corpus widening notes.
+
+## 2026-04-19 — Stage 3.3 @mantine/core scoped-browser shape widening
+
+I found a small Stage 3.3 follow-up in the browser package-shape lane: `@mantine/core` is already covered in the browser web-baseline interop slice and the utility plain-package corpus, and we can keep the corpus breadth growing by exercising its exports-map and browser-condition shapes too.
+
+Planned update:
+- add `@mantine/core` to the scoped browser exports-map and browser-condition corpus slices in `crates/kali_cli/tests/package_corpus.rs`
+- sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the progress notes call out the new scoped-browser slice coverage explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+Completed:
+- the scoped browser exports-map and browser-condition corpus now also names `@mantine/core` explicitly in `crates/kali_cli/tests/package_corpus.rs`, and the related Stage 3.3 progress notes now call out that narrower slice coverage alongside the existing browser package breadth notes.
