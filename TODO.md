@@ -30,7 +30,10 @@ follow-up widening rather than unfinished baseline delivery:
   wellformedness/linear-memory corollaries
   `KaliCore.Safety.releaseRefPreservesWellFormedAndLinearMemory`,
   `KaliCore.Safety.releaseAndDecrementPreservesWellFormedAndLinearMemory`, and
-  `KaliCore.Safety.releaseAndCollectPreservesWellFormedAndLinearMemory`, and the target-cell
+  `KaliCore.Safety.releaseAndCollectPreservesWellFormedAndLinearMemory`, the mechanized
+  `KaliCore.Safety.noDanglingReference` theorem plus the helper-level corollaries
+  `KaliCore.Safety.releaseRefNoDanglingReference`, `KaliCore.Safety.releaseAndDecrementNoDanglingReference`,
+  `KaliCore.Safety.releaseAndCollectNoDanglingReference`, `releasedNotLive`, and `releasedNotLiveRef`, and the target-cell
   allocation corollaries `KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount`
   and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`.
 
