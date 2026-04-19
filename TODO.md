@@ -241,7 +241,7 @@ follow-up widening rather than unfinished baseline delivery:
 
 ### Stage 1.5 - Type Annotation Resolution
 - ✅ Type annotation strings now resolve identifier references against the current scope and global bindings, so undefined type references surface through the existing name-resolution diagnostic path.
-- ✅ `TypeChecker::typecheck` now drains any pending annotation-resolution diagnostics from the shared context before returning, so the facade preserves the error set instead of acting like a pure no-op.
+- ✅ `TypeChecker::typecheck` now drains any pending annotation-resolution diagnostics from the shared context before returning, so the facade preserves the error set instead of acting like a pure no-op and keeps the stage 1.5 error story explicit at the facade boundary.
 
 ### Stage 1.6 - HIR/LIR Lowering
 - ✅ Deterministic AST/statement → HIR lowering implemented

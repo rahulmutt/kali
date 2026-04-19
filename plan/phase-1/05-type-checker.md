@@ -12,7 +12,7 @@
 - ✅ Basic type-checking infrastructure and annotation diagnostics plumbing
 - ✅ Type context management for scope tracking
 - ✅ Type checking entry points now collect diagnostics from annotation resolution
-- ✅ `TypeChecker::typecheck` drains any pending context diagnostics before returning, so annotation-resolution errors survive the facade boundary
+- ✅ `TypeChecker::typecheck` drains any pending annotation-resolution diagnostics from the shared context before returning, so the facade preserves the error set instead of acting like a pure no-op
 - ✅ First-class JavaScript/TypeScript type checking foundation
 
 ### Test Coverage
