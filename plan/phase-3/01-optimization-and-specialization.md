@@ -37,6 +37,8 @@ types are statically known.
 - `null` and `undefined` call-site arguments now also carry distinct literal signatures instead of
   collapsing onto the old zero-valued fallback, so the specialization path stays honest about
   nullish arguments when the MIR plan can see them as constants.
+- Numeric-literal call-site arguments now also carry value-specific signatures, so repeated `1`
+  calls still share a clone while `1` and `2` no longer collapse onto the same specialized body.
 - Nested MIR-bound bindings inside object-literal call sites now also participate in the MIR-aware
   specialization signature, so composite arguments can split into distinct clones when the same
   surface shape is fed by different scoped binding layouts.

@@ -8,9 +8,10 @@ follow-up widening rather than unfinished baseline delivery:
 - widen specialization depth beyond the current MIR-aware layout-specialized path while keeping the
   specialization budget and benchmark evidence honest; the current optimizer now also splits
   quoted string-literal call-site arguments into distinct specialization signatures, distinguishes
-  `null` and `undefined` from the old zero-valued fallback, and lifts nested MIR-bound bindings
-  inside object-literal call sites into the same signature path so that widening stays concrete
-  without broadening the published benchmark claims,
+  numeric literals from each other at call sites, distinguishes `null` and `undefined` from the old
+  zero-valued fallback, and lifts nested MIR-bound bindings inside object-literal call sites into
+  the same signature path so that widening stays concrete without broadening the published benchmark
+  claims,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic event primitives for
   `AbortController`, `EventTarget`, and `CustomEvent`, plus stub surfaces for `BroadcastChannel`, `WebSocket`, `Worker`, and `IndexedDB` in addition to the shared `Blob` / `File` / `FormData` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those surfaces alongside `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `next`, `@emotion/react`, `@floating-ui/react`, `@headlessui/react`, `@chakra-ui/react`, `@mui/material`, `@radix-ui/react-dialog`, `@tanstack/react-query`, `URLSearchParams`, and the existing browser representatives,
@@ -45,6 +46,11 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 3.1 - Nested MIR-bound binding specialization widening
 - ✅ Nested MIR-bound bindings inside object-literal call sites now contribute MIR layout signatures during call-site specialization, so same-shaped composite arguments can still split when their scoped binding layouts differ.
 - ✅ Added regression coverage that drives identical object-literal call sites through different scoped binding layouts and proves the optimizer emits distinct specializations instead of one shared clone.
+- ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
+
+### Stage 3.1 - Numeric-literal specialization widening
+- ✅ Numeric-literal call-site arguments now carry value-specific specialization signatures, so `1` and `2` no longer collapse onto the same specialized clone when the MIR plan can see them as constants.
+- ✅ Added regression coverage that proves repeated numeric literals still share one specialized clone while distinct numeric call-site values split to separate specialized functions.
 - ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
 
 ### Stage 3.3 - Browser/runtime interop corpus widening

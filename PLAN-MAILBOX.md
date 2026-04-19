@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 3.1 numeric-literal specialization widening
+
+I widened the Stage 3.1 specialization path so numeric literal call-site arguments now carry value-specific signatures instead of collapsing onto the same numeric fallback. That keeps the MIR-aware call-site specialization path honest about distinct constant values while preserving the existing deterministic budget story.
+
+Planned update:
+- sync `plan/phase-3/01-optimization-and-specialization.md` and `TODO.md` so the Stage 3.1 progress notes call out the numeric-literal specialization widening explicitly
+- keep the claim narrow: this is a specialization-depth widening within the existing optimizer model, not a new support-rung claim
+
 ## 2026-04-19 — Stage 3.1 nullish-literal specialization widening
 
 I widened the Stage 3.1 specialization path so `null` and `undefined` now carry distinct constant signatures instead of collapsing onto the old zero-valued fallback. That keeps the MIR-aware call-site specialization path honest about nullish call arguments while preserving the existing deterministic budget story.
