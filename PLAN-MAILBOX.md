@@ -79,6 +79,8 @@ Planned update:
 - sync the corresponding Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the corpus breadth note names the new package explicitly
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
 
+Completed:
+- the browser and utility web-baseline interop corpus now also names `xstate` explicitly in `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md`, and the related Stage 3.3 progress notes stay aligned with that narrower slice coverage.
 
 ## 2026-04-19 — Stage 3.3 pinia browser/utility corpus widening
 
