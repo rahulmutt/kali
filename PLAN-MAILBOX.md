@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 4.2 decrement target positive-count iff bridge
+
+I widened the RC snapshot proof slice with `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff`, a helper theorem that makes the decrement target's positive-count status after `releaseAndDecrement` explicit as an iff bridge against the original count.
+
+Planned update:
+- sync the proof-boundary manifest, status tracker, and verification summary docs so the new decrement-path iff theorem is named explicitly alongside the current RC helper inventory
+- keep the claim narrow: this is a helper-level proof widening on top of the existing RC snapshot slice, not the full Stage 4.2 ownership/freeing target
+
 ## 2026-04-19 — Stage 3.3 browser storage baseline widening
 
 I widened the browser support library with an in-memory `localStorage` / `sessionStorage` simulation and reexported the storage helpers through the Deno compatibility surface. That gives the Stage 3.3 browser-interoperability follow-up one more concrete baseline primitive without changing the support-rung story.

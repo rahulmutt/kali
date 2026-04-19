@@ -291,6 +291,10 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `releaseAndDecrementKeepsTargetCellWhenPositiveCount` now proves the decrement helper keeps the target cell in the heap when the decremented count stays positive.
 - ✅ `releaseAndDecrementZeroesLastTargetCell` now proves the decrement helper zeros the target cell when the released reference was the last live count.
 
+### Stage 4.2 - Decrement target positive-count iff bridge
+- ✅ `releaseAndDecrementTargetCellPositiveCountIff` now makes the decrement target's post-update positive-count status explicit as an iff bridge against the original count.
+- ✅ Synced `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and the verification summaries so the new decrement-path iff theorem is named explicitly alongside the current RC helper inventory.
+
 ### Stage 4.2 - Release-set monotonicity follow-up
 - ✅ `releaseRefPreservesReleasedRefs`, `releaseAndDecrementPreservesReleasedRefs`, and `releaseAndCollectPreservesReleasedRefs` keep already-released references preserved across the release-only, decrement, and collection helpers.
 

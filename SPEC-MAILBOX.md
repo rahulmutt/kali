@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 4.2 decrement target positive-count iff bridge
+
+I widened the RC snapshot proof slice with a small helper theorem that states the decrement target's positive-count status after `releaseAndDecrement` is equivalent to the original count being greater than one: `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff`.
+
+Planned update:
+- sync the proof-boundary manifest and the verification summaries so the new decrement-path iff bridge is named explicitly alongside the current RC helper inventory
+- keep the claim narrow: this is still a helper-level RC proof sync, not the broader Stage 4.2 ownership/freeing target
+
 ## 2026-04-18 — Stage 4.2 pure release-origin helper widening
 
 I found a small gap in the published RC snapshot wording: the pure release helper had a heap-characterisation theorem and an origin/ownership theorem, but the proof boundary did not name the plain origin theorem `KaliCore.Safety.releaseRefHeapCellOrigin` explicitly.

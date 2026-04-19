@@ -39,6 +39,7 @@ The current published boundary explicitly names the RC snapshot helper slice, in
 - `releaseRefReleasedNotLiveRef`
 - `releaseAndDecrementNoDanglingReference`
 - `releaseAndDecrementKeepsTargetCellWhenPositiveCount`
+- `releaseAndDecrementTargetCellPositiveCountIff`
 - `releaseAndDecrementTargetCellOrigin`
 - `releaseAndDecrementKeepsOriginalPositiveCountCells`
 - `releaseAndDecrementKeepsOtherHeapEntries`

@@ -386,6 +386,19 @@ theorem releaseAndDecrementZeroesLastTargetCell (snapshot : RcSnapshot) (ref : S
   · exact List.mem_map.mpr ⟨cell, hmem, by simp [hname]⟩
   · simp [hcount]
 
+/-- The release-and-decrement helper's target cell has positive count after decrement exactly when the original count exceeded one. -/
+theorem releaseAndDecrementTargetCellPositiveCountIff (snapshot : RcSnapshot) (ref : String) :
+    ∀ cell, cell ∈ snapshot.heap → cell.name = ref →
+      ({ cell with refCount := cell.refCount - 1 }.refCount > 0 ↔ cell.refCount > 1) := by
+  intro cell hmem hname
+  constructor
+  · intro hpos
+    have hsub : 0 < cell.refCount - 1 := by
+      simpa [hname] using hpos
+    exact Nat.sub_pos_iff_lt.mp hsub
+  · intro hgt1
+    simpa [hname] using Nat.sub_pos_of_lt hgt1
+
 /-- A release-and-collect step removes zero-count cells after the decrement pass. -/
 theorem releaseAndCollectRemovesZeroCountCells (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ snapshot.heap → cell.name = ref → cell.refCount = 1 →
