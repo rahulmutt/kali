@@ -343,3 +343,11 @@ I synced the proof-summary docs so they now name `KaliCore.Safety.releaseAndDecr
 Planned update:
 - keep `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` aligned with the published boundary wording whenever the RC snapshot slice widens again
 - keep the claim narrow: this is a proof-summary / anti-drift sync for the published boundary, not a boundary widening
+
+## 2026-04-19 — Stage 4.2 ownership provenance wording sync
+
+I synchronized the RC snapshot provenance wording so `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` is spelled out directly alongside `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCount` in the summary docs and Stage 4.2 progress trackers.
+
+Planned update:
+- keep the companion theorem named directly in `README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, and `plan/phase-4/02-formal-verification-depth.md` whenever the RC snapshot wording changes again
+- keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening

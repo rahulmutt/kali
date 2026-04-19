@@ -29,3 +29,11 @@ I widened the Stage 3.3 browser web-baseline interop corpus one step further by 
 Planned update:
 - sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention `react-dom` alongside the existing browser web-baseline package breadth notes
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+## 2026-04-19 — Stage 4.2 ownership provenance wording sync
+
+I synchronized the RC snapshot provenance wording so `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` is spelled out directly alongside `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCount` in the summary docs and Stage 4.2 progress trackers.
+
+Planned update:
+- keep the companion theorem named directly in `README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, and `plan/phase-4/02-formal-verification-depth.md` whenever the RC snapshot wording changes again
+- keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
