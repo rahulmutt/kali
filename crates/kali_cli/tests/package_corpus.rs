@@ -1571,6 +1571,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "esbuild",
         "date-fns",
         "dayjs",
+        "axios",
         "graphql",
         "lodash",
         "lodash-es",

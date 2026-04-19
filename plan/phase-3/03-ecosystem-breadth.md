@@ -223,6 +223,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   documented support rungs.
 - The utility corpus also now includes `dayjs` in the web-baseline, plain-package, and module-entry
   slices, broadening the representative utility set without changing the documented support rungs.
+- The utility corpus also now includes `axios` in the plain-package slice on the default standalone
+  surface, keeping one more common pure-JS package covered without changing the documented support
+  rungs.
 - The utility corpus also now includes `commander` alongside the existing utility representatives,
   widening the plain-package breadth without changing the documented support rungs.
 - The utility corpus now also exercises `redux` as another representative state-management package

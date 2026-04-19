@@ -355,6 +355,9 @@ Planned update:
 - sync the corresponding Stage 3.3 progress note in `plan/phase-3/03-ecosystem-breadth.md` and the matching `TODO.md` tracker so the corpus breadth note names the new package explicitly
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
 
+Completed:
+- the utility plain-package corpus now also exercises `axios` on the default standalone surface, and the Stage 3.3 progress notes now call that narrower coverage out explicitly.
+
 ## 2026-04-19 — Stage 4.2 heap-characterisation + linear-memory companion widening
 
 I widened the proof-backed RC snapshot slice with explicit heap-characterisation companions for all three helper families: `KaliCore.Safety.releaseRefHeapCharacterisationAndLinearMemory`, `KaliCore.Safety.releaseAndDecrementHeapCharacterisationAndLinearMemory`, and `KaliCore.Safety.releaseAndCollectHeapCharacterisationAndLinearMemory`.
