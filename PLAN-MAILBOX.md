@@ -20,6 +20,9 @@ Planned update:
 - sync the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new standalone `chart.js` coverage is named explicitly
 - keep the claim narrow: this is still a corpus/evidence widening within the existing package-support model, not a support-rung change
 
+Completed:
+- the utility plain-package corpus now also exercises `chart.js` on the default standalone surface, and the Stage 3.3 progress notes now call that coverage out explicitly.
+
 ## 2026-04-19 — Stage 3.3 @playwright/test browser corpus widening
 
 I’m widening the Stage 3.3 package corpus one step further by adding `@playwright/test` to the browser web-baseline interop slice, so the representative browser test-runner breadth keeps growing without changing any support-rung claims.
