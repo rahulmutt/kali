@@ -163,6 +163,11 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Identical generic specializations are now reused across owners when the callee and argument signatures already match, so duplicate helper clones are avoided when the same generic call appears in multiple function scopes.
 - ✅ Kept the update narrow: this is a specialization-dedup improvement inside the existing optimizer model; it does not change the published benchmark or support claims.
 
+### Stage 3.1 - Budget-exhausted MIR specialization reuse
+- ✅ MIR-aware call-site reuse now checks the specialization cache before it spends the current owner's remaining budget, so once a clone already exists the optimizer can still retarget later duplicate call sites to it even after the owner has used every remaining specialization slot.
+- ✅ Added a regression test that builds a budgeted MIR specialization with repeated call sites and proves the later duplicate call still reuses the earlier clone after the budget is exhausted.
+- ✅ Kept the update narrow: this refines specialization-budget accounting inside the existing optimizer model; it does not change the published benchmark or support claims.
+
 ### Stage 3.1 - Nested MIR-specialization depth regression
 - ✅ `release_recursively_specializes_nested_mir_call_sites` now proves a specialized MIR clone can surface a second specializable call site inside its own body, so the deeper monomorphisation path stays regression-tested instead of stopping at the first clone.
 - ✅ Kept the update narrow: this widens specialization depth inside the existing MIR-aware optimizer model; it does not change the published benchmark or support claims.

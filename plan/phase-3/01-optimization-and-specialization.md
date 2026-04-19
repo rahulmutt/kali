@@ -92,6 +92,9 @@ types are statically known.
 - Identical generic specializations are now reused across owners when the callee and argument
   signatures already match, so the specialization path avoids cloning duplicate helpers just
   because the same generic call appears in more than one function scope.
+- MIR-aware specialization now checks the specialization cache before spending the current
+  owner's remaining budget, so an already-materialized clone can still be reused even after that
+  owner has exhausted its specialization slots.
 - A representative benchmark suite now records compile time, WASM size, instruction count, and
   add-op deltas across `fast`, `release`, and `release-advanced`.
 
