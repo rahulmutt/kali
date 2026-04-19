@@ -62,6 +62,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser web-baseline interop corpus now also exercises `date-fns` and `lodash-es` alongside the
   existing browser representatives, keeping two more utility-package names covered by the browser
   command path without changing the support-rung story.
+- The browser and utility web-baseline interop corpus now also exercises `zod` as one more
+  representative package name, keeping the breadth widening concrete without changing the documented
+  support rungs.
 - The browser router corpus now also exercises `vue-router` and `react-router` across the
   web-baseline interop, exports-map, and pattern-exports slices, adding two more representative
   browser package shapes without changing the documented support rungs.

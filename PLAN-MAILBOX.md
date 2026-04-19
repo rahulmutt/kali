@@ -24,10 +24,10 @@ Planned update:
 
 ## 2026-04-19 — Stage 3.3 representative package corpus widening
 
-I plan to widen the Stage 3.3 package-corpus follow-up with a small additional representative package name across the existing browser and utility corpus slices, so the ongoing breadth note keeps reflecting incremental corpus growth without changing the documented support rungs.
+I widened the Stage 3.3 package-corpus follow-up with `zod` as one more representative package name across the browser and utility web-baseline interop slices, so the ongoing breadth note keeps reflecting incremental corpus growth without changing the documented support rungs.
 
 Planned update:
-- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md` so the corpus notes name the new representative package explicitly
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md` so the corpus notes name `zod` explicitly
 - keep the claim narrow: this is another corpus-widening slice, not a support-rung change
 ## 2026-04-19 — Stage 3.1 nested MIR-specialization depth regression
 
