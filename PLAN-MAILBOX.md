@@ -1,4 +1,13 @@
-Subject: Stage 3.1 specialization tracker sync
+Subject: Stage 3.3 chart.js standalone corpus widening
+
+## 2026-04-19 — Stage 3.3 chart.js standalone corpus widening
+
+I’m widening the Stage 3.3 package corpus one more step by adding `chart.js` to the utility plain-package and web-baseline interop slices, so the browser charting package breadth is now explicit on the default standalone surface too.
+
+Planned update:
+- add `chart.js` to `crates/kali_cli/tests/package_corpus.rs` in the utility plain-package and web-baseline interop corpus slices
+- sync the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new standalone `chart.js` coverage is named explicitly
+- keep the claim narrow: this is still a corpus/evidence widening within the existing package-support model, not a support-rung change
 
 ## 2026-04-19 — Stage 3.3 @playwright/test browser corpus widening
 

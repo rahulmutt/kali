@@ -102,7 +102,8 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   `valtio` as additional representative Vue/state-management browser/utility package names,
   keeping the breadth widening concrete without changing the support-rung story.
 - The browser and utility web-baseline interop corpus now also exercises `superjson` as another
-  representative lightweight utility package name, keeping the breadth widening concrete without
+  representative lightweight utility package name, and the utility corpus now also carries
+  `chart.js` on the default standalone surface, keeping the breadth widening concrete without
   changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@jridgewell/sourcemap-codec` as another
   representative utility/source-map package name, keeping the browser package corpus breadth
@@ -315,7 +316,7 @@ While `kali package-audit` remains **Later compatibility**, use this stage to:
 Stage 3.3 is complete. The remaining work in this area is breadth/depth follow-up rather than
 unfinished Stage-3.3 implementation:
 
-- keep widening the representative package corpus without overclaiming support rungs; the current corpus now also carries `superjson` and `@jridgewell/sourcemap-codec` through the default standalone surface alongside the existing browser/utility breadth,
+- keep widening the representative package corpus without overclaiming support rungs; the current corpus now also carries `superjson`, `chart.js`, and `@jridgewell/sourcemap-codec` through the default standalone surface alongside the existing browser/utility breadth,
 - deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice and the current in-memory Blob/File/FileReader/storage baseline plus the stub WebSocket/Worker/IndexedDB surface,
 - widen cross-module inference carefully within the published solver/specialization budgets.
 
