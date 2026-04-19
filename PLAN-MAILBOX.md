@@ -1,3 +1,12 @@
+## 2026-04-19 — Stage 3.3 xstate corpus widening
+
+I found a small Stage 3.3 follow-up that fits the current package-corpus breadth lane: add one more representative state-management package name to the browser and utility web-baseline interop corpora so the evidence set keeps widening without changing any support-rung claims.
+
+Planned update:
+- add `xstate` to the browser and utility package-corpus coverage in `crates/kali_cli/tests/package_corpus.rs`
+- sync the corresponding Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the corpus breadth note names the new package explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
 
 ## 2026-04-19 — Stage 3.3 pinia browser/utility corpus widening
 
