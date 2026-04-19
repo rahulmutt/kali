@@ -1205,6 +1205,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "superjson",
         "@jridgewell/sourcemap-codec",
         "msw",
+        "yaml",
         "react-hook-form",
         "@tanstack/react-form",
         "@tanstack/router",
@@ -1573,6 +1574,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "mitt",
         "formik",
         "jotai",
+        "yaml",
         "xstate",
         "valtio",
         "react-hook-form",
@@ -1902,6 +1904,7 @@ fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the
         "@tanstack/react-table",
         "lodash",
         "vite",
+        "yaml",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
