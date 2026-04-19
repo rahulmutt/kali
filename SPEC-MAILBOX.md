@@ -1,3 +1,10 @@
+## 2026-04-19 — Stage 4.2 decrement target origin/positive-count widening
+
+I found a small proof-summary widening worth tracking in the current published RC snapshot boundary: add a decrement-path target theorem that states the released target cell remains traceable to the original heap with a positive count when it survives `releaseAndDecrement`.
+
+Planned update:
+- add `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` to the proof-backed RC snapshot inventory, then sync `proofs/BOUNDARY.md` and the summary docs that enumerate the published theorem set
+- keep the claim narrow: this is a helper-level RC widening, not the full Stage 4.2 ownership/freeing target
 ## 2026-04-19 — Stage 4.2 release-only linear-memory companion widening
 
 Completed: the published proof boundary and summary docs now name `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` explicitly alongside the other helper companions, so the release-only provenance slice is already aligned and no SPEC.md changes were required for this follow-up.

@@ -1,3 +1,10 @@
+## 2026-04-19 — Stage 4.2 decrement target origin/positive-count widening
+
+I found a small proof-boundary follow-up for the RC snapshot tracker: the decrement helper can expose a target-specific origin/positive-count theorem alongside the existing target-allocation and heap-characterisation lemmas.
+
+Planned update:
+- add `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` to the current published theorem inventory, then sync `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, `TODO.md`, and the verification summaries so the new theorem is named explicitly
+- keep the claim narrow: this is still helper-level RC widening, not the broader Stage 4.2 ownership/freeing target
 ## 2026-04-19 — Stage 4.2 no-dangling-reference summary sync
 
 I synced the Stage 4.2 proof-summary wording so `KaliCore.Safety.noDanglingReference` is named explicitly in the status tracker alongside the rest of the published RC snapshot inventory.

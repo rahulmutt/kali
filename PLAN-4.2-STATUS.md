@@ -46,6 +46,7 @@ The current published boundary explicitly names the RC snapshot helper slice, in
 - `releaseAndDecrementKeepsTargetCellWhenPositiveCount`
 - `releaseAndDecrementTargetCellPositiveCountIff`
 - `releaseAndDecrementTargetCellOrigin`
+- `releaseAndDecrementTargetCellOriginAndPositiveCount`
 - `releaseAndDecrementKeepsOtherPositiveCountCells`
 - `releaseAndDecrementKeepsOriginalPositiveCountCells`
 - `releaseAndDecrementKeepsOtherHeapEntries`

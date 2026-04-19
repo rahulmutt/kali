@@ -347,7 +347,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
 
 ### Stage 4.2 - Decrement target-origin wording sync
-- ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and `plan/phase-4/02-formal-verification-depth.md` now name `KaliCore.Safety.releaseAndDecrementTargetCellOrigin` explicitly alongside the rest of the RC snapshot inventory.
+- ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and `plan/phase-4/02-formal-verification-depth.md` now name `KaliCore.Safety.releaseAndDecrementTargetCellOrigin` and the target-cell origin/positive-count theorem `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` explicitly alongside the rest of the RC snapshot inventory.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
 
 ### Stage 4.2 - Decrement target positive-count iff bridge
