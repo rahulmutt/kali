@@ -537,6 +537,7 @@ fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_thr
         ("lit", "decorators"),
         ("solid-js", "store"),
         ("vue-router", "history"),
+        ("react-router", "dom"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
@@ -604,6 +605,7 @@ fn browser_corpus_packages_with_pattern_exports_remain_checkable_and_deployable_
         ("vue", "runtime-dom"),
         ("solid-js", "web"),
         ("vue-router", "matcher"),
+        ("react-router", "routes"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
@@ -1133,7 +1135,15 @@ fn browser_corpus_packages_with_string_exports_remain_checkable_and_deployable_t
 #[test]
 fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_deployable_through_host(
 ) {
-    for package in ["react", "preact", "solid-js", "date-fns", "lodash-es", "clsx"] {
+    for package in [
+        "react",
+        "preact",
+        "solid-js",
+        "date-fns",
+        "lodash-es",
+        "clsx",
+        "react-router",
+    ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
         write_stub_package(
