@@ -601,6 +601,7 @@ fn browser_corpus_packages_with_pattern_exports_remain_checkable_and_deployable_
         ("react", "jsx-runtime"),
         ("preact", "hooks"),
         ("vue", "runtime-dom"),
+        ("solid-js", "web"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
@@ -1656,7 +1657,15 @@ fn utility_corpus_packages_with_pattern_exports_remain_executable_on_the_default
 #[test]
 fn utility_corpus_packages_with_module_entries_remain_executable_on_the_default_standalone_surface()
 {
-    for package in ["ramda", "rxjs", "uuid", "commander"] {
+    for package in [
+        "ramda",
+        "rxjs",
+        "uuid",
+        "commander",
+        "immer",
+        "typescript",
+        "esbuild",
+    ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_module_only_package(
@@ -1699,7 +1708,7 @@ fn utility_corpus_packages_with_module_entries_remain_executable_on_the_default_
 #[test]
 fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_default_standalone_surface(
 ) {
-    for package in ["ramda", "uuid", "commander"] {
+    for package in ["ramda", "uuid", "commander", "immer", "typescript", "esbuild"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
         write_module_only_package(
@@ -1788,6 +1797,9 @@ fn utility_corpus_packages_with_mixed_format_entries_remain_executable_on_the_de
         ("rxjs", "operators"),
         ("uuid", "v4"),
         ("commander", "command"),
+        ("immer", "produce"),
+        ("typescript", "tsc"),
+        ("esbuild", "build"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);

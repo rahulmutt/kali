@@ -39,11 +39,16 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser corpus now additionally exercises `solid-js` in the web-baseline interop slice alongside
   the existing browser representatives in the exports-map slice, keeping the interoperability
   widening concrete without changing the support-rung story.
+- The browser pattern-exports corpus now also exercises `solid-js`, broadening the representative
+  browser package-shape coverage without changing the documented support rungs.
 - The utility corpus now additionally exercises `rxjs` in the web-baseline interop slice alongside
   the existing utility representatives, widening the plain-package breadth without changing the
   documented support rungs.
 - The utility corpus also now includes `commander` alongside the existing utility representatives,
   widening the plain-package breadth without changing the documented support rungs.
+- The utility module-entry and mixed-format slices now also exercise `immer`, `typescript`, and
+  `esbuild`, so the representative package corpus now spans a few more tooling-style package names
+  across the stable shape tests without changing the support-rung story.
 - Phase-3 cross-module inference smoke coverage now exercises a multi-file import chain with
   inferred public API types within the solver budget.
 - Historical note: this stage originally introduced `kali package-audit` as a Phase-3 preview.
