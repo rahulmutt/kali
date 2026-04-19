@@ -163,6 +163,7 @@ follow-up widening rather than unfinished baseline delivery:
 
 ### Stage 4.2 - Pure release-helper positive-count wording sync
 - ✅ `proofs/BOUNDARY.md` now explicitly says `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` preserves the release-only cells' positive count in addition to their original ownership tag.
+- ✅ `PLAN.md`, `PLAN-4.2-STATUS.md`, and the current proof-boundary summaries now also keep the release-only linear-memory companion theorem named explicitly alongside the decrement and collection helper companions.
 - ✅ Kept the update narrow: this is wording sync for the published boundary, not a new proof target.
 
 ### Stage 4.2 - Pure release helper origin/ownership follow-up closed
