@@ -9,7 +9,7 @@ follow-up widening rather than unfinished baseline delivery:
   specialization budget and benchmark evidence honest,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic stub surfaces for
-  `WebSocket`, `Worker`, and `IndexedDB` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises `date-fns`, `lodash-es`, `clsx`, and `vue-router` alongside the existing browser representatives,
+  `WebSocket`, `Worker`, and `IndexedDB` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those stub surfaces alongside `date-fns`, `lodash-es`, `clsx`, and `vue-router` and the existing browser representatives,
 - widen the proof-backed boundary beyond the current published RC snapshot + lowering slice while
   keeping `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and summary docs synchronized.
 
@@ -30,6 +30,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `solid-js` in the browser pattern-exports corpus, `vue-router` in the browser exports-map / pattern-exports slices, `@reduxjs/toolkit` in the browser typed-export-branch corpus, and `immer`, `typescript`, and `esbuild` in the utility module-entry and mixed-format slices, so the representative package corpus now spans a few more browser/tooling package shapes without changing the documented support rungs.
 - ✅ The shared browser/runtime support library now also exposes an in-memory `FileReader` baseline, and `kali_api_deno` reexports it so browser-style code can read shared blob/file payloads deterministically without changing the public support-rung story.
 - ✅ The shared browser/runtime support library now also exposes deterministic stub baselines for `WebSocket`, `Worker`, and `IndexedDB`, and `kali_api_deno` reexports those names so browser-style code can exercise the ambient surface without changing the public support-rung story.
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also drives the deterministic `WebSocket`, `Worker`, and `IndexedDB` browser-runtime stubs through the existing web-baseline interop slice, so the package corpus now carries the ambient browser stub surface through the browser and utility command paths without changing the documented support rungs.
 - ✅ Kept the update narrow: this widens the package corpus and browser/runtime interoperability checks without changing the documented support rungs.
 
 ### Stage 3.1 - Recursive MIR-specialization revisit

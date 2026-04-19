@@ -53,6 +53,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The package corpus now also exercises `AbortController`, `EventTarget`, `structuredClone`, and
   `FileReader` in representative browser and utility package cases, widening the browser/runtime
   interoperability slice without changing the documented support rungs.
+- The browser and utility corpus now also drive the deterministic `WebSocket`, `Worker`, and
+  `IndexedDB` browser-runtime stubs through the existing web-baseline interop slice, keeping the
+  interop widening concrete without changing the support-rung story.
 - The browser corpus now additionally exercises `solid-js` in the web-baseline interop slice alongside
   the existing browser representatives in the exports-map slice, keeping the interoperability
   widening concrete without changing the support-rung story.
