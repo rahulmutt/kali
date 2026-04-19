@@ -1178,6 +1178,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "@floating-ui/react",
         "@headlessui/react",
         "@chakra-ui/react",
+        "@mantine/core",
         "@emotion/styled",
         "@heroicons/react",
         "@mui/material",
@@ -1552,6 +1553,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "xstate",
         "valtio",
         "react-hook-form",
+        "@mantine/core",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);

@@ -40,9 +40,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser web-baseline interop corpus now also exercises `vue` as another representative
   app-framework package name, keeping the browser package corpus breadth concrete without changing
   the support-rung story.
-- The browser web-baseline interop corpus now also exercises `@chakra-ui/react`, `@emotion/styled`,
-  `@heroicons/react`, and `react-dom` as more representative browser package names, keeping the
-  browser package corpus breadth concrete without changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `@chakra-ui/react`, `@mantine/core`,
+  `@emotion/styled`, `@heroicons/react`, and `react-dom` as more representative browser package
+  names, keeping the browser package corpus breadth concrete without changing the support-rung
+  story.
 - The browser web-baseline interop corpus now also exercises `next` as one more browser
   app-framework package, and `framer-motion` as one more representative browser UI package,
   keeping the browser package corpus breadth concrete without changing the support-rung story.
