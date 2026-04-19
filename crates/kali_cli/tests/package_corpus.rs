@@ -1189,6 +1189,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "pinia",
         "xstate",
         "valtio",
+        "superjson",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
@@ -1859,6 +1860,7 @@ fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the
         "swr",
         "nanostores",
         "pinia",
+        "superjson",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
