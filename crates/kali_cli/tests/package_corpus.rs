@@ -1191,6 +1191,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "xstate",
         "valtio",
         "superjson",
+        "react-hook-form",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
@@ -1544,6 +1545,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "jotai",
         "xstate",
         "valtio",
+        "react-hook-form",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
