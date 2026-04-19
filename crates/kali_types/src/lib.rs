@@ -1201,6 +1201,8 @@ fn builtin_globals() -> &'static [&'static str] {
         "WebSocket",
         "Worker",
         "indexedDB",
+        "localStorage",
+        "sessionStorage",
         "fetch",
         "Function",
         "globalThis",

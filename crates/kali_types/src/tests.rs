@@ -211,6 +211,12 @@ fn test_resolution_allows_browser_stub_globals() {
             expression: Box::new(Expression::Identifier("indexedDB".to_string())),
         }),
         Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("localStorage".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("sessionStorage".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::Identifier("navigator".to_string())),
         }),
     ];
