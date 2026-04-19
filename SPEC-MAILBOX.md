@@ -362,11 +362,14 @@ Planned update:
 
 ## 2026-04-19 — Stage 4.2 decrement linear-memory companion widening
 
-I found a small remaining gap in the RC snapshot proof slice: the decrement helper already has the origin/ownership/positive-count theorem, but the summary docs do not yet name a matching linear-memory companion explicitly.
+I found a small remaining gap in the RC snapshot proof slice: the decrement helper already has the origin/ownership/positive-count theorem, and the summary docs now name the matching linear-memory companion explicitly as well.
 
 Planned update:
 - add `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` to the proof-backed RC slice, then sync the proof boundary, verification summaries, and anti-drift test so the new companion theorem is named explicitly alongside the current decrement helper inventory
 - keep the claim narrow: this is still a helper-level RC proof sync, not the broader Stage 4.2 ownership/freeing target
+
+Completed:
+- the proof-backed boundary summary, stage plan, and anti-drift guard now also name `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` explicitly.
 
 ## 2026-04-19 — Stage 4.2 release-and-collect origin/positive-count linear-memory companion widening
 
