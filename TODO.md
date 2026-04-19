@@ -9,7 +9,7 @@ follow-up widening rather than unfinished baseline delivery:
   specialization budget and benchmark evidence honest,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic stub surfaces for
-  `WebSocket`, `Worker`, `IndexedDB`, and `CustomEvent` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those stub surfaces alongside `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `@floating-ui/react`, and the existing browser representatives,
+  `WebSocket`, `Worker`, `IndexedDB`, and `CustomEvent` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those stub surfaces alongside `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `@floating-ui/react`, `@mui/material`, `@tanstack/react-query`, and the existing browser representatives,
 - widen the proof-backed boundary beyond the current published RC snapshot + lowering slice while
   keeping `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and summary docs synchronized; the current RC
   helper slice is already named explicitly through the decrement-path iff bridge
@@ -40,6 +40,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `zod` in the browser and utility web-baseline interop slices, so the representative package corpus now carries one more package name through both command paths without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `svelte` and `lit` in the browser web-baseline interop slice, so the representative package corpus now carries two more browser-oriented package names through the browser command path without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `ramda` and `uuid` in the browser web-baseline interop slice, so the representative package corpus now carries two more utility-package names through the browser command path without changing the documented support rungs.
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@floating-ui/react`, `@mui/material`, and `@tanstack/react-query` in the browser web-baseline interop slice, so the representative package corpus now carries three more scoped browser package names through the browser command path without changing the documented support rungs.
 - ✅ Kept the update narrow: this widens the package corpus and browser/runtime interoperability checks without changing the documented support rungs.
 
 ### Stage 3.1 - Recursive MIR-specialization revisit
@@ -380,6 +381,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Added `@floating-ui/react` to the browser typed-export-branch corpus so the representative browser package set now covers one more scoped UI package shape without changing the documented support rungs.
 - ✅ Added `@tanstack/react-query` to the browser typed-export-branch corpus so the representative browser package set now covers one more scoped query-library shape without changing the documented support rungs.
 - ✅ Added `vue-router` and `react-router` to the browser router corpus slices so the representative browser package set now covers two more router package shapes without changing the documented support rungs.
+- ✅ Added `@floating-ui/react`, `@mui/material`, and `@tanstack/react-query` to the browser web-baseline interop slice so the browser/runtime interoperability widening now carries three more scoped browser package names through the browser command path without changing the documented support rungs.
 - ✅ Added exports-string corpus coverage so the representative browser and utility package sets now exercise top-level string `exports` roots alongside the existing map-based exports cases.
 - ✅ Added `dayjs` to the browser web-baseline, utility plain-package, and utility module-entry corpus slices so the breadth follow-up now carries one more common pure-JS utility package through the existing support-rung checks without changing the documented support rungs.
 - ✅ Added `zustand` to the browser web-baseline and utility plain-package corpus slices so the representative package corpus now carries one more lightweight package name through the browser and standalone command paths without changing the documented support rungs.
