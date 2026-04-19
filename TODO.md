@@ -35,7 +35,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `crates/kali_types` now recognizes `Blob` and `File` as builtin globals, keeping the ambient typing surface aligned with the support-library additions.
 
 ### Stage 3.3 - In-memory browser storage baseline
-- ✅ `kali_api_web` now exposes deterministic in-memory `localStorage` and `sessionStorage` buckets, so the browser interoperability slice has a simple shared-state baseline for browser-style code that expects storage APIs.
+- ✅ `kali_api_web` now exposes deterministic in-memory `localStorage` and `sessionStorage` buckets, so the browser interoperability slice has a deterministic shared-state baseline for browser-style code that expects storage APIs.
 - ✅ `kali_api_deno` reexports the shared storage helpers alongside the other Web-baseline primitives, keeping the compatibility layer aligned with the browser support surface without changing any support-rung claims.
 
 ### Stage 4.2 - Collection target-cell iff summary sync

@@ -36,9 +36,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The shared browser/runtime support library now also carries in-memory `Blob` and `File` primitives,
   which gives the browser interoperability slice a more realistic payload baseline without changing
   the package-support rungs claimed for the corpus.
-- The shared browser/runtime support library now also carries in-memory `localStorage` and
-  `sessionStorage` buckets, giving the browser interoperability slice another deterministic browser-
-  state baseline without changing the package-support rungs claimed for the corpus.
+- The shared browser/runtime support library now also carries deterministic in-memory `localStorage`
+  and `sessionStorage` buckets, and the Deno compatibility surface reexports those storage helpers,
+  giving the browser interoperability slice another browser-state baseline without changing the
+  package-support rungs claimed for the corpus.
 - The package corpus now also exercises `AbortController`, `EventTarget`, and `structuredClone` in
   representative browser and utility package cases, widening the browser/runtime interoperability
   slice without changing the documented support rungs.
@@ -135,7 +136,7 @@ Stage 3.3 is complete. The remaining work in this area is breadth/depth follow-u
 unfinished Stage-3.3 implementation:
 
 - keep widening the representative package corpus without overclaiming support rungs,
-- deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice and the current in-memory Blob/File baseline,
+- deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice and the current in-memory Blob/File/storage baseline,
 - widen cross-module inference carefully within the published solver/specialization budgets.
 
 ## Historical Out of Scope for Stage 3.3
