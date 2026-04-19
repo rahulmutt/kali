@@ -688,6 +688,17 @@ theorem releaseAndCollectHeapCellOriginAndPositiveCount (snapshot : RcSnapshot) 
   rcases releaseAndCollectHeapCellOrigin snapshot ref cell hmem with ⟨cell0, hmem0, hshape⟩
   exact ⟨cell0, hmem0, hshape, releaseAndCollectHeapCellsHavePositiveCount snapshot ref cell hmem⟩
 
+/-- The release-and-collect helper keeps the origin/positive-count slice together with the linear-memory payload. -/
+theorem releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap →
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        (cell = { cell0 with refCount := cell0.refCount - 1 } ∨ cell = cell0) ∧
+        cell.refCount > 0) ∧
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndCollectHeapCellOriginAndPositiveCount snapshot ref
+  · exact releaseAndCollectPreservesLinearMemory snapshot ref
+
 /-- A release-and-collect step keeps the released target traceable to the original heap when it survives the positive-count filter. -/
 theorem releaseAndCollectTargetCellOrigin (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap →

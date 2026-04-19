@@ -33,6 +33,8 @@ follow-up widening rather than unfinished baseline delivery:
   allocation corollaries `KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount`
   and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`.
 
+- the current RC snapshot helper slice now also names `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory` explicitly, matching the existing origin/ownership companion style.
+
 ## Completed
 
 ### Stage 3.1 - Tagged-parameter specialization widening

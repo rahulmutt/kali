@@ -84,6 +84,7 @@ Release rule:
 - `KaliCore.Safety.releaseAndCollectHeapCellOriginAndOwnership` — mechanised theorem that every surviving release-and-collect heap cell preserves its original name and ownership tag
 - `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCount` — mechanised theorem that every surviving release-and-collect heap cell preserves its original name, ownership tag, and positive count
 - `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCount` — mechanised theorem that every surviving release-and-collect heap cell is both traceable to the original heap and positive-count
+- `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory` — mechanised theorem that the local release-and-collect helper keeps the origin-plus-positive-count slice explicit together with the linear-memory payload
 - `KaliCore.Safety.releaseAndDecrementHeapCharacterisation` — mechanised theorem that the decrement helper's heap is characterised by the original heap with the released target decremented and the positive-count survivors retained
 - `KaliCore.Safety.releaseAndCollectHeapCharacterisation` — mechanised theorem that the local release-and-collect helper's final heap is characterised by the original heap with the released target decremented and only the positive-count survivors retained
 - `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` — mechanised theorem that the local release-and-collect helper's final heap contains only positive-count cells

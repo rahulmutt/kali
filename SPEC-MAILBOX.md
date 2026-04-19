@@ -367,3 +367,14 @@ I found a small remaining gap in the RC snapshot proof slice: the decrement help
 Planned update:
 - add `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` to the proof-backed RC slice, then sync the proof boundary, verification summaries, and anti-drift test so the new companion theorem is named explicitly alongside the current decrement helper inventory
 - keep the claim narrow: this is still a helper-level RC proof sync, not the broader Stage 4.2 ownership/freeing target
+
+## 2026-04-19 — Stage 4.2 release-and-collect origin/positive-count linear-memory companion widening
+
+I found a small RC-slice widening that fits the current proof-backed boundary pattern: the local `releaseAndCollect` helper can name the combined origin / positive-count + linear-memory companion explicitly, mirroring the existing release-only and decrement helper companion style.
+
+Planned update:
+- add `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory` to `proofs/KaliCore/Safety.lean`, then sync `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, `TODO.md`, and `crates/kali_cli/tests/schema_docs.rs` so the new companion theorem is named explicitly in the published boundary and drift guard
+- keep the claim narrow: this is a helper-level proof-summary widening for the published boundary, not the broader Stage 4.2 ownership/freeing target
+
+Completed:
+- the proof-backed boundary summary, stage plan, and anti-drift guard now also name `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory` explicitly.

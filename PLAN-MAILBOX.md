@@ -75,3 +75,14 @@ I plan to widen the RC snapshot proof slice with a decrement-path linear-memory 
 Suggested follow-up:
 - sync `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, `TODO.md`, and the proof-summary anti-drift test so the new theorem is named explicitly
 - keep the claim narrow: this is another helper-level RC widening on top of the current published boundary, not the full Stage 4.2 ownership/freeing target
+
+## 2026-04-19 — Stage 4.2 release-and-collect origin/positive-count linear-memory companion widening
+
+I found a small Stage 4.2 follow-up for the RC snapshot proof slice: the local `releaseAndCollect` helper can use the same combined origin / positive-count + linear-memory companion wording already used by the release-only and decrement helpers.
+
+Planned update:
+- add `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory` to the proof-backed RC snapshot slice, then sync `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and the related summary docs so the companion theorem is named explicitly
+- keep the claim narrow: this is a helper-level RC widening, not the broader Stage 4.2 ownership/freeing target
+
+Completed:
+- the proof-backed RC slice now also names `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory` explicitly in the plan/status trackers and summary docs.
