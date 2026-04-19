@@ -205,6 +205,8 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 4.2 - Proof-summary anti-drift guard widening
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now pins a broader current RC snapshot helper inventory, including the no-dangling-reference corollaries, released-reference cons-shape theorems, target-cell bookkeeping, zero-count collection/removal, and heap-characterisation corollaries.
 - ✅ The same drift guard now also checks `TODO.md` for the current RC theorem inventory, so the progress tracker stays aligned with the published boundary wording.
+- ✅ The drift guard now also pins the live-reference ownership/allocation projection theorem, the ownership-preservation corollaries, the surviving-live-reference corollary on the collection path, the released-not-live theorems, and the decrement-path positive-count guard so those proof-summary claims stay explicitly tracked.
+- ✅ The same guard now also names `KaliCore.Safety.liveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseAndCollectLiveRefsAreOwnedAndAllocated`, `KaliCore.Safety.releaseAndDecrementPreservesOwnership`, `KaliCore.Safety.releaseAndCollectPreservesOwnership`, `releasedNotLive`, and `releasedNotLiveRef` explicitly.
 
 ### Stage 4.2 - Heap-filter anti-drift guard
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now also pins `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilter` explicitly, and the verification summaries now name the filter theorem alongside the rest of the RC snapshot inventory.
