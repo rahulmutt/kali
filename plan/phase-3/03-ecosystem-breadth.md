@@ -82,6 +82,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser web-baseline interop corpus now also exercises `msw` as another representative
   browser networking package name, keeping the browser package corpus breadth concrete without
   changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `@tanstack/react-form` as another
+  representative scoped browser form package name, keeping the browser package corpus breadth
+  concrete without changing the support-rung story.
 - The browser and utility web-baseline interop corpus now also exercises `react-hook-form` and
   `classnames` as representative browser-form / lightweight package names, keeping the breadth
   widening concrete without changing the support-rung story.
