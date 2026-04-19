@@ -12,9 +12,10 @@ follow-up widening rather than unfinished baseline delivery:
   numeric literals from each other at call sites, distinguishes signed-zero `-0` from `0`,
   distinguishes BigInt literals from the old numeric fallback, distinguishes `null` and `undefined`
   from the old zero-valued fallback, lifts nested MIR-bound bindings inside object-literal call
-  sites into the same signature path, and keeps the nested-call regression
-  `release_recursively_specializes_nested_mir_call_sites` layered inside a specialized clone so
-  widening stays concrete without broadening the published benchmark claims,
+  sites into the same signature path, preserves array-valued MIR binding fingerprints during
+  call-site specialization so different array layouts can split into separate clones, and keeps the
+  nested-call regression `release_recursively_specializes_nested_mir_call_sites` layered inside a
+  specialized clone so widening stays concrete without broadening the published benchmark claims,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic event primitives for
   `AbortController`, `EventTarget`, and `CustomEvent`, plus stub surfaces for `BroadcastChannel`, `WebSocket`, `Worker`, and `IndexedDB` in addition to the shared `Blob` / `File` / `FormData` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those surfaces alongside `fetch`, `Headers`, `Request`, `Response`, `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `next`, `hono`, `@vueuse/core`, `@emotion/react`, `@floating-ui/react`, `@headlessui/react`, `@chakra-ui/react`, `@mui/material`, `@radix-ui/react-dialog`, `@tanstack/react-query`, `@testing-library/dom`, `URLSearchParams`, `TextEncoder`, `TextDecoder`, and the existing browser representatives,
@@ -114,6 +115,11 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 3.1 - Nested MIR-specialization depth regression
 - ✅ `release_recursively_specializes_nested_mir_call_sites` now proves a specialized MIR clone can surface a second specializable call site inside its own body, so the deeper monomorphisation path stays regression-tested instead of stopping at the first clone.
 - ✅ Kept the update narrow: this widens specialization depth inside the existing MIR-aware optimizer model; it does not change the published benchmark or support claims.
+
+### Stage 3.1 - Array-layout specialization widening
+- ✅ MIR-backed array bindings now preserve their element/length fingerprints during call-site specialization, so different array layouts can split into separate clones instead of collapsing onto a single shared body.
+- ✅ Added regression coverage proving two callers with different array layouts now produce distinct specialized clones while still respecting the deterministic specialization budget.
+- ✅ Kept the update narrow: this widens specialization depth inside the existing optimizer model; it does not change the published benchmark or support claims.
 
 ### Stage 3.3 - Web Blob/File/FileReader baseline
 - ✅ `kali_api_web` now exposes in-memory `Blob` and `File` primitives for the Web baseline, and `kali_api_deno` reexports them so the browser/runtime support library can model common blob/file payloads without changing the public support-rung story.

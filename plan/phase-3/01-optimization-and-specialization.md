@@ -31,6 +31,9 @@ types are statically known.
   closure capture identities in the layout signature, so identical higher-order call-site layouts
   reuse one specialized clone while distinct closure capture sets no longer collapse onto the same
   specialization.
+- Array-valued MIR bindings now preserve their element/length fingerprints through call-site
+  specialization, so same-shaped callers can still share one clone while different array layouts
+  split into separate specializations instead of collapsing onto a single shared body.
 - Quoted string-literal call-site arguments now carry distinct specialization signatures, so
   different string literals can split into separate clones instead of collapsing onto the generic
   tagged fallback while still respecting the deterministic specialization budget.
