@@ -482,6 +482,7 @@ fn browser_corpus_packages_remain_checkable_and_deployable_through_host() {
         "react",
         "preact",
         "vue",
+        "react-dom",
         "clsx",
         "vue-router",
         "@testing-library/react",
