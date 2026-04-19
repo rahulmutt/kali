@@ -629,6 +629,19 @@ theorem releaseAndCollectHeapCellOriginOwnershipAndPositiveCount (snapshot : RcS
   rcases releaseAndCollectHeapCellOriginAndOwnership snapshot ref cell hmem with ⟨cell0, hmem0, hshape, hname, howner⟩
   exact ⟨cell0, hmem0, hshape, hname, howner, releaseAndCollectHeapCellsHavePositiveCount snapshot ref cell hmem⟩
 
+/-- The release-and-collect helper keeps every surviving heap cell traceable to the original heap, with its original name, ownership tag, and positive count, while preserving the linear-memory payload. -/
+theorem releaseAndCollectHeapCellOriginOwnershipAndPositiveCountAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap →
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        (cell = { cell0 with refCount := cell0.refCount - 1 } ∨ cell = cell0) ∧
+        cell.name = cell0.name ∧
+        cell.owner = cell0.owner ∧
+        cell.refCount > 0) ∧
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndCollectHeapCellOriginOwnershipAndPositiveCount snapshot ref
+  · exact releaseAndCollectPreservesLinearMemory snapshot ref
+
 /-- The release-and-collect helper's heap is exactly the original heap with the released target decremented, all other cells unchanged, and only positive-count survivors retained. -/
 theorem releaseAndCollectHeapCharacterisation (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap ↔

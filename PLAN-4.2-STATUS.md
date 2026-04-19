@@ -74,7 +74,7 @@ The current published boundary explicitly names the RC snapshot helper slice, in
 - `releaseAndCollectReleasedNotLiveRef`
 - `releaseAndCollectHeapCellOrigin`
 - `releaseAndCollectHeapCellOriginAndOwnership`
-- `releaseAndCollectHeapCellOriginOwnershipAndPositiveCount`
+- `releaseAndCollectHeapCellOriginOwnershipAndPositiveCount and the linear-memory companion releaseAndCollectHeapCellOriginOwnershipAndPositiveCountAndLinearMemory`
 - `releaseAndCollectHeapCellOriginAndPositiveCount`
 - `releaseAndCollectHeapIsPositiveCountFilter`
 - `releaseAndCollectHeapCellsHavePositiveCount`
