@@ -74,7 +74,7 @@ The current published boundary explicitly names the RC snapshot helper slice, in
 - `releaseAndCollectReleasedNotLiveRef`
 - `releaseAndCollectHeapCellOrigin`
 - `releaseAndCollectHeapCellOriginAndOwnership`
-- `releaseAndCollectHeapCellOriginOwnershipAndPositiveCount and the linear-memory companion releaseAndCollectHeapCellOriginOwnershipAndPositiveCountAndLinearMemory`
+- `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCount`, plus its linear-memory companion `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCountAndLinearMemory`
 - `releaseAndCollectHeapCellOriginAndPositiveCount`
 - `releaseAndCollectHeapIsPositiveCountFilter`
 - `releaseAndCollectHeapCellsHavePositiveCount`

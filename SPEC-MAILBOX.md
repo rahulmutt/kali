@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 4.2 ownership provenance wording sync
+
+I found a remaining proof-summary drift point in the RC snapshot ownership/provenance slice: the summary docs should name `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCount` and its linear-memory companion explicitly and consistently instead of using the old concatenated wording in a few places.
+
+Planned update:
+- sync `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md` so the theorem names are spelled out cleanly
+- keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
+
 ## 2026-04-19 — Stage 4.2 wellformedness / linear-memory corollary widening
 
 I widened the RC snapshot proof slice with combined wellformedness/linear-memory corollaries for the release-only, decrement, and collection helpers: `KaliCore.Safety.releaseRefPreservesWellFormedAndLinearMemory`, `KaliCore.Safety.releaseAndDecrementPreservesWellFormedAndLinearMemory`, and `KaliCore.Safety.releaseAndCollectPreservesWellFormedAndLinearMemory`.

@@ -299,7 +299,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `KaliCore.Safety.releaseRefPreservesOwnership`, `KaliCore.Safety.releaseAndDecrementPreservesOwnership`, and `KaliCore.Safety.releaseAndCollectPreservesOwnership` now keep the ownership environment unchanged across the release-only, decrement, and collection helpers.
 
 ### Stage 4.2 - Ownership provenance follow-up
-- ✅ `KaliCore.Safety.releaseAndCollectHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCount and the linear-memory companion releaseAndCollectHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` now makes the surviving release-and-collect heap cells' original ownership tag explicit alongside their provenance and name preservation.
+- ✅ `KaliCore.Safety.releaseAndCollectHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCount`, plus its linear-memory companion `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` now makes the surviving release-and-collect heap cells' original ownership tag explicit alongside their provenance and name preservation.
 
 ### Stage 4.2 - Release-and-decrement ownership follow-up
 - ✅ `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndOwnership` now makes the decrement helper's surviving heap provenance explicit alongside its original ownership tag, `KaliCore.Safety.releaseAndDecrementHeapCellOriginAndPositiveCount` packages the surviving-cell provenance/positivity split, and `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCount` keeps the ownership tag explicit.
