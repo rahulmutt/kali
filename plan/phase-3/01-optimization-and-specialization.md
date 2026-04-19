@@ -46,6 +46,9 @@ types are statically known.
   control-flow constants onto one shared clone.
 - Numeric-literal call-site arguments now also carry value-specific signatures, so repeated `1`
   calls still share a clone while `1` and `2` no longer collapse onto the same specialized body.
+- Signed-zero numeric literals now preserve `-0` as a distinct specialization signature from `0`,
+  so the literal-signature path stays honest about the JavaScript signed-zero edge case without
+  changing the deterministic budget story.
 - BigInt-literal call-site arguments now carry distinct `1n` / `2n` signatures as well, so the
   specialization path keeps BigInt constants separate from the old numeric fallback without
   changing the deterministic budget story.

@@ -610,7 +610,7 @@ impl Optimizer {
                 if !tracker.allow(owner, key) {
                     return false;
                 }
-                if literal_value(program, *right) == Some(ConstantValue::Number(0)) {
+                if is_zero_constant(literal_value(program, *right)) {
                     program.nodes[id.0 as usize] = program.nodes[left.0 as usize].clone();
                     return true;
                 }
@@ -1072,6 +1072,7 @@ impl Optimizer {
                 Some(ConstantValue::String(value)) => format!("Literal:string:{value}"),
                 Some(ConstantValue::Null) => "Literal:null".to_string(),
                 Some(ConstantValue::Undefined) => "Literal:undefined".to_string(),
+                Some(ConstantValue::NegativeZero) => "Literal:number:-0".to_string(),
                 None => format!("{:?}:{:?}", node.kind, node.text),
             },
             LirNodeKind::Value if node.children.is_empty() => match node.text.as_deref() {
@@ -1089,6 +1090,7 @@ impl Optimizer {
                     Some(ConstantValue::String(value)) => format!("Value:string:{value}"),
                     Some(ConstantValue::Null) => "Value:null".to_string(),
                     Some(ConstantValue::Undefined) => "Value:undefined".to_string(),
+                    Some(ConstantValue::NegativeZero) => "Value:number:-0".to_string(),
                     None => format!("{:?}:{:?}", node.kind, node.text),
                 },
                 _ => format!("{:?}:{:?}", node.kind, node.text),
@@ -1394,6 +1396,7 @@ impl Optimizer {
                 Some(ConstantValue::String(value)) => format!("Literal:string:{value}"),
                 Some(ConstantValue::Null) => "Literal:null".to_string(),
                 Some(ConstantValue::Undefined) => "Literal:undefined".to_string(),
+                Some(ConstantValue::NegativeZero) => "Literal:number:-0".to_string(),
                 None => format!("{:?}:{:?}", node.kind, node.text),
             },
             LirNodeKind::Value if node.children.is_empty() => match node.text.as_deref() {
@@ -1411,6 +1414,7 @@ impl Optimizer {
                     Some(ConstantValue::String(value)) => format!("Value:string:{value}"),
                     Some(ConstantValue::Null) => "Value:null".to_string(),
                     Some(ConstantValue::Undefined) => "Value:undefined".to_string(),
+                    Some(ConstantValue::NegativeZero) => "Value:number:-0".to_string(),
                     None => format!("{:?}:{:?}", node.kind, node.text),
                 },
                 _ => format!("{:?}:{:?}", node.kind, node.text),
@@ -1614,6 +1618,7 @@ enum ConstantValue {
     String(String),
     Null,
     Undefined,
+    NegativeZero,
 }
 
 #[derive(Debug)]
@@ -1652,7 +1657,7 @@ impl ConstantValue {
             ConstantValue::Number(value) | ConstantValue::BigInt(value) => value != 0,
             ConstantValue::Boolean(value) => value,
             ConstantValue::String(value) => !value.is_empty(),
-            ConstantValue::Null | ConstantValue::Undefined => false,
+            ConstantValue::Null | ConstantValue::Undefined | ConstantValue::NegativeZero => false,
         }
     }
 }
@@ -1660,7 +1665,7 @@ impl ConstantValue {
 fn is_zero_constant(value: Option<ConstantValue>) -> bool {
     matches!(
         value,
-        Some(ConstantValue::Number(0) | ConstantValue::BigInt(0))
+        Some(ConstantValue::Number(0) | ConstantValue::BigInt(0) | ConstantValue::NegativeZero)
     )
 }
 
@@ -1704,6 +1709,7 @@ fn parse_literal_text(text: Option<&str>) -> Option<ConstantValue> {
         "false" => Some(ConstantValue::Boolean(false)),
         "null" => Some(ConstantValue::Null),
         "undefined" => Some(ConstantValue::Undefined),
+        "-0" => Some(ConstantValue::NegativeZero),
         _ => parse_string_literal(text)
             .map(ConstantValue::String)
             .or_else(|| {
@@ -1718,6 +1724,8 @@ fn parse_literal_text(text: Option<&str>) -> Option<ConstantValue> {
 
 fn fold_unary(op: &str, value: ConstantValue) -> Option<ConstantValue> {
     match (op, value) {
+        ("-", ConstantValue::Number(0)) => Some(ConstantValue::NegativeZero),
+        ("-", ConstantValue::NegativeZero) => Some(ConstantValue::Number(0)),
         ("-", ConstantValue::Number(value)) => value.checked_neg().map(ConstantValue::Number),
         ("-", ConstantValue::BigInt(value)) => value.checked_neg().map(ConstantValue::BigInt),
         ("!", value) => Some(ConstantValue::Boolean(!value.truthy())),
@@ -1726,31 +1734,23 @@ fn fold_unary(op: &str, value: ConstantValue) -> Option<ConstantValue> {
 }
 
 fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<ConstantValue> {
-    match (op, left, right) {
-        ("+", ConstantValue::Number(left), ConstantValue::Number(right)) => {
-            left.checked_add(right).map(ConstantValue::Number)
+    fn as_number(value: ConstantValue) -> Option<i64> {
+        match value {
+            ConstantValue::Number(value) => Some(value),
+            ConstantValue::NegativeZero => Some(0),
+            _ => None,
         }
+    }
+
+    match (op, left, right) {
         ("+", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
             left.checked_add(right).map(ConstantValue::BigInt)
-        }
-        ("-", ConstantValue::Number(left), ConstantValue::Number(right)) => {
-            left.checked_sub(right).map(ConstantValue::Number)
         }
         ("-", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
             left.checked_sub(right).map(ConstantValue::BigInt)
         }
-        ("*", ConstantValue::Number(left), ConstantValue::Number(right)) => {
-            left.checked_mul(right).map(ConstantValue::Number)
-        }
         ("*", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
             left.checked_mul(right).map(ConstantValue::BigInt)
-        }
-        ("/", ConstantValue::Number(left), ConstantValue::Number(right)) => {
-            if right == 0 {
-                None
-            } else {
-                Some(ConstantValue::Number(left / right))
-            }
         }
         ("/", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
             if right == 0 {
@@ -1759,24 +1759,54 @@ fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<Co
                 Some(ConstantValue::BigInt(left / right))
             }
         }
-        ("==", ConstantValue::Number(left), ConstantValue::Number(right)) => {
-            Some(ConstantValue::Boolean(left == right))
-        }
         ("==", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
             Some(ConstantValue::Boolean(left == right))
         }
-        ("==", ConstantValue::Boolean(left), ConstantValue::Boolean(right)) => {
-            Some(ConstantValue::Boolean(left == right))
-        }
-        ("==", ConstantValue::String(left), ConstantValue::String(right)) => {
-            Some(ConstantValue::Boolean(left == right))
-        }
-        ("==", ConstantValue::Null, ConstantValue::Null)
-        | ("==", ConstantValue::Undefined, ConstantValue::Undefined)
-        | ("==", ConstantValue::Null, ConstantValue::Undefined)
-        | ("==", ConstantValue::Undefined, ConstantValue::Null) => {
-            Some(ConstantValue::Boolean(true))
-        }
+        ("+", left, right) => match (as_number(left), as_number(right)) {
+            (Some(left), Some(right)) => left.checked_add(right).map(ConstantValue::Number),
+            _ => None,
+        },
+        ("-", left, right) => match (as_number(left), as_number(right)) {
+            (Some(left), Some(right)) => left.checked_sub(right).map(ConstantValue::Number),
+            _ => None,
+        },
+        ("*", left, right) => match (as_number(left), as_number(right)) {
+            (Some(left), Some(right)) => left.checked_mul(right).map(ConstantValue::Number),
+            _ => None,
+        },
+        ("/", left, right) => match (as_number(left), as_number(right)) {
+            (Some(left), Some(right)) => {
+                if right == 0 {
+                    None
+                } else {
+                    Some(ConstantValue::Number(left / right))
+                }
+            }
+            _ => None,
+        },
+        ("==", left, right) => match (left, right) {
+            (ConstantValue::Number(left), ConstantValue::Number(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::Number(left), ConstantValue::NegativeZero)
+            | (ConstantValue::NegativeZero, ConstantValue::Number(left)) => {
+                Some(ConstantValue::Boolean(left == 0))
+            }
+            (ConstantValue::NegativeZero, ConstantValue::NegativeZero) => {
+                Some(ConstantValue::Boolean(true))
+            }
+            (ConstantValue::Boolean(left), ConstantValue::Boolean(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::String(left), ConstantValue::String(right)) => {
+                Some(ConstantValue::Boolean(left == right))
+            }
+            (ConstantValue::Null, ConstantValue::Null)
+            | (ConstantValue::Undefined, ConstantValue::Undefined)
+            | (ConstantValue::Null, ConstantValue::Undefined)
+            | (ConstantValue::Undefined, ConstantValue::Null) => Some(ConstantValue::Boolean(true)),
+            _ => None,
+        },
         ("&&", left, right) => Some(ConstantValue::Boolean(left.truthy() && right.truthy())),
         ("||", left, right) => Some(ConstantValue::Boolean(left.truthy() || right.truthy())),
         _ => None,
@@ -1793,6 +1823,7 @@ fn literal_text(value: ConstantValue) -> String {
         }
         ConstantValue::Null => "null".to_string(),
         ConstantValue::Undefined => "undefined".to_string(),
+        ConstantValue::NegativeZero => "-0".to_string(),
     }
 }
 
@@ -3356,6 +3387,129 @@ mod tests {
             .count();
         assert_eq!(specialized_count_one, 1);
         assert_eq!(specialized_count_two, 1);
+    }
+
+    #[test]
+    fn release_specializes_negative_zero_literal_arguments() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "consume_zero");
+        let param_value = builder.alloc_text(LirNodeKind::Value, "value");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add8 = builder.alloc_text(LirNodeKind::Value, "+");
+        let zero = literal(&mut builder, "0");
+        let neg_zero_a = literal(&mut builder, "-0");
+        let neg_zero_b = literal(&mut builder, "-0");
+        let neg_zero_c = literal(&mut builder, "-0");
+        let neg_zero_d = literal(&mut builder, "-0");
+        let neg_zero_e = literal(&mut builder, "-0");
+        let neg_zero_f = literal(&mut builder, "-0");
+        let neg_zero_g = literal(&mut builder, "-0");
+        builder.node_mut(add1).unwrap().children = vec![param_value, zero];
+        builder.node_mut(add2).unwrap().children = vec![add1, neg_zero_a];
+        builder.node_mut(add3).unwrap().children = vec![add2, neg_zero_b];
+        builder.node_mut(add4).unwrap().children = vec![add3, neg_zero_c];
+        builder.node_mut(add5).unwrap().children = vec![add4, neg_zero_d];
+        builder.node_mut(add6).unwrap().children = vec![add5, neg_zero_e];
+        builder.node_mut(add7).unwrap().children = vec![add6, neg_zero_f];
+        builder.node_mut(add8).unwrap().children = vec![add7, neg_zero_g];
+        builder.node_mut(ret).unwrap().children = vec![add8];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_value, block];
+
+        let call_zero_a = builder.alloc(LirNodeKind::Call);
+        let call_zero_a_callee = builder.alloc_text(LirNodeKind::Value, "consume_zero");
+        let arg_zero_a = literal(&mut builder, "0");
+        builder.node_mut(call_zero_a).unwrap().children = vec![call_zero_a_callee, arg_zero_a];
+
+        let call_neg_zero = builder.alloc(LirNodeKind::Call);
+        let call_neg_zero_callee = builder.alloc_text(LirNodeKind::Value, "consume_zero");
+        let arg_neg_zero = literal(&mut builder, "-0");
+        builder.node_mut(call_neg_zero).unwrap().children =
+            vec![call_neg_zero_callee, arg_neg_zero];
+
+        let call_zero_b = builder.alloc(LirNodeKind::Call);
+        let call_zero_b_callee = builder.alloc_text(LirNodeKind::Value, "consume_zero");
+        let arg_zero_b = literal(&mut builder, "0");
+        builder.node_mut(call_zero_b).unwrap().children = vec![call_zero_b_callee, arg_zero_b];
+
+        builder.node_mut(root).unwrap().children =
+            vec![function, call_zero_a, call_neg_zero, call_zero_b];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![kali_mir::MirFunction {
+                name: Some("consume_zero".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![kali_mir::MirBinding {
+                    name: "value".to_string(),
+                    kind: MirBindingKind::Parameter,
+                    ownership: kali_mir::OwnershipClass::Borrowed,
+                    layout: LayoutDescriptor::TaggedVal,
+                    escapes: false,
+                    captured_by: Vec::new(),
+                }],
+            }],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let specialized_name_zero_a = program.nodes[call_zero_a.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for zero_a");
+        let specialized_name_neg_zero = program.nodes[call_neg_zero.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for neg_zero");
+        let specialized_name_zero_b = program.nodes[call_zero_b.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for zero_b");
+
+        assert_eq!(specialized_name_zero_a, specialized_name_zero_b);
+        assert_ne!(specialized_name_zero_a, specialized_name_neg_zero);
+        assert!(specialized_name_zero_a.starts_with("consume_zero$spec$"));
+        assert!(specialized_name_neg_zero.starts_with("consume_zero$spec$"));
+
+        let specialized_count_zero = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_zero_a)
+            })
+            .count();
+        let specialized_count_neg_zero = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_neg_zero)
+            })
+            .count();
+        assert_eq!(specialized_count_zero, 1);
+        assert_eq!(specialized_count_neg_zero, 1);
     }
 
     #[test]
