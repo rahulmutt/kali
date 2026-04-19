@@ -1,10 +1,6 @@
 ## 2026-04-19 — Stage 4.2 release-only linear-memory companion widening
 
-I found a small RC-slice gap in the published proof boundary: the release-only helper already has the heap-origin / ownership / positive-count theorem and the standalone linear-memory theorem, but the boundary does not yet name the combined linear-memory companion explicitly.
-
-Planned update:
-- add `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` to the proof-backed RC snapshot slice, then sync `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, `TODO.md`, and the proof-summary anti-drift guard so the new companion theorem is spelled out explicitly
-- keep the claim narrow: this is another helper-level RC proof widening, not the broader Stage 4.2 ownership/freeing target
+Completed: the published proof boundary and summary docs now name `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` explicitly alongside the other helper companions, so the release-only provenance slice is already aligned and no SPEC.md changes were required for this follow-up.
 
 ## 2026-04-19 — Stage 4.2 ownership provenance wording sync
 
