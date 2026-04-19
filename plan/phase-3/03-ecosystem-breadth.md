@@ -50,9 +50,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   `WebSocket`, `Worker`, and `IndexedDB`, and the Deno compatibility surface reexports those names
   so browser-style code can exercise the ambient surface without changing the documented support
   rungs.
-- The package corpus now also exercises `AbortController`, `EventTarget`, `structuredClone`, and
-  `FileReader` in representative browser and utility package cases, widening the browser/runtime
-  interoperability slice without changing the documented support rungs.
+- The package corpus now also exercises `AbortController`, `EventTarget`, `CustomEvent`,
+  `structuredClone`, and `FileReader` in representative browser and utility package cases,
+  widening the browser/runtime interoperability slice without changing the documented support
+  rungs.
 - The browser and utility corpus now also drive the deterministic `WebSocket`, `Worker`, and
   `IndexedDB` browser-runtime stubs through the existing web-baseline interop slice, keeping the
   interop widening concrete without changing the support-rung story.

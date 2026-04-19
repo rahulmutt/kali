@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 3.3 CustomEvent corpus/progress sync
+
+I found a small Stage 3.3 documentation drift: the browser/web-baseline corpus and TODO note already treat `CustomEvent` as part of the widening slice, but the Stage 3.3 progress note in `plan/phase-3/03-ecosystem-breadth.md` still omits it from the representative browser-interop line.
+
+Planned update:
+- sync `plan/phase-3/03-ecosystem-breadth.md` so the browser package-corpus progress note names `CustomEvent` explicitly alongside `AbortController`, `EventTarget`, `structuredClone`, and `FileReader`
+- keep the claim narrow: this is a progress-note / corpus-coverage wording sync, not a support-rung change
+
 ## 2026-04-19 — Stage 3.3 browser router corpus widening sync
 
 I synced the Stage 3.3 progress notes so the browser corpus breadth tracker now names the router representatives (`vue-router` and `react-router`) explicitly as one browser-router widening slice.
