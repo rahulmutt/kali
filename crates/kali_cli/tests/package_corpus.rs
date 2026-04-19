@@ -2047,7 +2047,7 @@ fn utility_corpus_scoped_packages_remain_executable_on_the_default_standalone_su
 
 #[test]
 fn node_runner_corpus_packages_require_the_node_context_but_remain_executable_there() {
-    for package in ["vitest", "jest", "mocha"] {
+    for package in ["vitest", "jest", "mocha", "ava"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
         write_stub_package(
@@ -2092,6 +2092,7 @@ fn node_runner_corpus_packages_with_exports_maps_require_the_node_context_but_re
         ("vitest", "config"),
         ("jest", "globals"),
         ("mocha", "reporter"),
+        ("ava", "config"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
@@ -2145,6 +2146,7 @@ fn node_runner_corpus_packages_with_mixed_format_entries_require_the_node_contex
         ("vitest", "config"),
         ("jest", "globals"),
         ("mocha", "reporter"),
+        ("ava", "config"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
