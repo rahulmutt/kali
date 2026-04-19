@@ -1066,7 +1066,9 @@ impl Optimizer {
                         .map_or_else(|| value.to_string(), str::to_owned)
                 ),
                 Some(ConstantValue::BigInt(value)) => format!("Literal:bigint:{value}"),
-                Some(ConstantValue::Boolean(_)) => "Literal:boolean".to_string(),
+                Some(ConstantValue::Boolean(value)) => {
+                    format!("Literal:boolean:{value}")
+                }
                 Some(ConstantValue::String(value)) => format!("Literal:string:{value}"),
                 Some(ConstantValue::Null) => "Literal:null".to_string(),
                 Some(ConstantValue::Undefined) => "Literal:undefined".to_string(),
@@ -1074,7 +1076,9 @@ impl Optimizer {
             },
             LirNodeKind::Value if node.children.is_empty() => match node.text.as_deref() {
                 Some(text) => match parse_literal_text(Some(text)) {
-                    Some(ConstantValue::Boolean(_)) => "Value:boolean".to_string(),
+                    Some(ConstantValue::Boolean(value)) => {
+                        format!("Value:boolean:{value}")
+                    }
                     Some(ConstantValue::Number(value)) => format!(
                         "Value:number:{}",
                         node.text
@@ -1384,7 +1388,9 @@ impl Optimizer {
                         .map_or_else(|| value.to_string(), str::to_owned)
                 ),
                 Some(ConstantValue::BigInt(value)) => format!("Literal:bigint:{value}"),
-                Some(ConstantValue::Boolean(_)) => "Literal:boolean".to_string(),
+                Some(ConstantValue::Boolean(value)) => {
+                    format!("Literal:boolean:{value}")
+                }
                 Some(ConstantValue::String(value)) => format!("Literal:string:{value}"),
                 Some(ConstantValue::Null) => "Literal:null".to_string(),
                 Some(ConstantValue::Undefined) => "Literal:undefined".to_string(),
@@ -1392,7 +1398,9 @@ impl Optimizer {
             },
             LirNodeKind::Value if node.children.is_empty() => match node.text.as_deref() {
                 Some(text) => match parse_literal_text(Some(text)) {
-                    Some(ConstantValue::Boolean(_)) => "Value:boolean".to_string(),
+                    Some(ConstantValue::Boolean(value)) => {
+                        format!("Value:boolean:{value}")
+                    }
                     Some(ConstantValue::Number(value)) => format!(
                         "Value:number:{}",
                         node.text
@@ -3002,6 +3010,138 @@ mod tests {
             .count();
         assert_eq!(specialized_count_null, 1);
         assert_eq!(specialized_count_undefined, 1);
+    }
+
+    #[test]
+    fn release_specializes_boolean_literal_arguments() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "consume_flag");
+        let param_value = builder.alloc_text(LirNodeKind::Value, "value");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add8 = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let two = literal(&mut builder, "2");
+        let three = literal(&mut builder, "3");
+        let four = literal(&mut builder, "4");
+        let five = literal(&mut builder, "5");
+        let six = literal(&mut builder, "6");
+        let seven = literal(&mut builder, "7");
+        let eight = literal(&mut builder, "8");
+        builder.node_mut(add1).unwrap().children = vec![param_value, one];
+        builder.node_mut(add2).unwrap().children = vec![add1, two];
+        builder.node_mut(add3).unwrap().children = vec![add2, three];
+        builder.node_mut(add4).unwrap().children = vec![add3, four];
+        builder.node_mut(add5).unwrap().children = vec![add4, five];
+        builder.node_mut(add6).unwrap().children = vec![add5, six];
+        builder.node_mut(add7).unwrap().children = vec![add6, seven];
+        builder.node_mut(add8).unwrap().children = vec![add7, eight];
+        builder.node_mut(ret).unwrap().children = vec![add8];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_value, block];
+
+        let call_true_a = builder.alloc(LirNodeKind::Call);
+        let callee_true_a = builder.alloc_text(LirNodeKind::Value, "consume_flag");
+        let true_a = literal(&mut builder, "true");
+        builder.node_mut(call_true_a).unwrap().children = vec![callee_true_a, true_a];
+
+        let call_false = builder.alloc(LirNodeKind::Call);
+        let callee_false = builder.alloc_text(LirNodeKind::Value, "consume_flag");
+        let false_lit = literal(&mut builder, "false");
+        builder.node_mut(call_false).unwrap().children = vec![callee_false, false_lit];
+
+        let call_true_b = builder.alloc(LirNodeKind::Call);
+        let callee_true_b = builder.alloc_text(LirNodeKind::Value, "consume_flag");
+        let true_b = literal(&mut builder, "true");
+        builder.node_mut(call_true_b).unwrap().children = vec![callee_true_b, true_b];
+
+        builder.node_mut(root).unwrap().children =
+            vec![function, call_true_a, call_false, call_true_b];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![
+                kali_mir::MirFunction {
+                    name: None,
+                    kind: kali_mir::MirFunctionKind::Module,
+                    bindings: Vec::new(),
+                },
+                kali_mir::MirFunction {
+                    name: Some("consume_flag".to_string()),
+                    kind: kali_mir::MirFunctionKind::Function,
+                    bindings: vec![kali_mir::MirBinding {
+                        name: "value".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::TaggedVal,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    }],
+                },
+            ],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let call_true_a_node = &program.nodes[call_true_a.0 as usize];
+        let call_false_node = &program.nodes[call_false.0 as usize];
+        let call_true_b_node = &program.nodes[call_true_b.0 as usize];
+        let specialized_name_true_a = call_true_a_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for true_a");
+        let specialized_name_false = call_false_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for false");
+        let specialized_name_true_b = call_true_b_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for true_b");
+
+        assert_eq!(specialized_name_true_a, specialized_name_true_b);
+        assert_ne!(specialized_name_true_a, specialized_name_false);
+        assert!(specialized_name_true_a.starts_with("consume_flag$spec$"));
+        assert!(specialized_name_false.starts_with("consume_flag$spec$"));
+
+        let specialized_count_true = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_true_a)
+            })
+            .count();
+        let specialized_count_false = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_false)
+            })
+            .count();
+        assert_eq!(specialized_count_true, 1);
+        assert_eq!(specialized_count_false, 1);
     }
 
     #[test]

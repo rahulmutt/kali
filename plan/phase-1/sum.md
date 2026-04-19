@@ -44,7 +44,7 @@ Phase-1 plan is follow-up maintenance and broader post-Phase-1 depth:
      documentation/status surfaces required by tests are present.
 
 2. **Post-Phase-1 breadth/depth follow-up lanes**
-   - Continue widening specialization depth beyond the current stable MIR-aware clone path.
+   - Continue widening specialization depth beyond the current stable MIR-aware clone path, including the remaining literal-signature distinctions that keep `true` / `false` and similar constants from collapsing together.
    - Continue widening the representative package corpus without overclaiming support rungs.
    - Continue widening the proof-backed boundary beyond the current published RC snapshot +
      lowering slice.

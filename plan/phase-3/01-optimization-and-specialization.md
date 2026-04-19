@@ -37,6 +37,9 @@ types are statically known.
 - `null` and `undefined` call-site arguments now also carry distinct literal signatures instead of
   collapsing onto the old zero-valued fallback, so the specialization path stays honest about
   nullish arguments when the MIR plan can see them as constants.
+- Boolean call-site arguments now likewise preserve their `true` / `false` identity in the
+  specialization signature, so tagged-parameter and MIR-backed hot paths do not collapse distinct
+  control-flow constants onto one shared clone.
 - Numeric-literal call-site arguments now also carry value-specific signatures, so repeated `1`
   calls still share a clone while `1` and `2` no longer collapse onto the same specialized body.
 - BigInt-literal call-site arguments now carry distinct `1n` / `2n` signatures as well, so the
