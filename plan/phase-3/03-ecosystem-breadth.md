@@ -79,6 +79,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The utility corpus now also exercises `react` and `preact` in the plain-package slice on the
   default standalone surface, keeping the representative React/Preact package breadth concrete
   without changing the support-rung story.
+- The browser web-baseline interop corpus, utility plain-package corpus, and utility module-entry
+  corpus now also exercise `rambda` as another representative functional-utility package name,
+  keeping the breadth widening concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `yaml`, and the utility plain-package / web-baseline interop corpus now also carries it on the standalone surface, keeping the representative pure-JS data-format package breadth concrete without changing the support-rung story.
 - The browser and utility web-baseline interop corpus now also exercises `@tanstack/router` as another
   representative scoped routing package name, keeping the browser/utility package breadth concrete

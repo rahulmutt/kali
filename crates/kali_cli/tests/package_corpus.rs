@@ -1572,6 +1572,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "react",
         "preact",
         "ramda",
+        "rambda",
         "rxjs",
         "immer",
         "uuid",
@@ -1806,6 +1807,7 @@ fn utility_corpus_packages_with_module_entries_remain_executable_on_the_default_
 {
     for package in [
         "ramda",
+        "rambda",
         "rxjs",
         "uuid",
         "commander",
