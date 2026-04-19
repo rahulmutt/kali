@@ -100,6 +100,7 @@ Phase 1 evidence hardening (stage 1.14) requires:
 - **Phase-1 browser-targeted smoke tests** for browser-targeted command set
 - Determinism checks for all CLI outputs and generated artifacts
 - Proof-ready CI pipeline
+- Rust unit tests should live in dedicated sibling files named `*tests.rs` rather than inline `#[cfg(test)]` modules inside implementation files
 
 ### Evidence Discipline
 - A stage completing implementation work **does not** automatically promote a feature's maturity level
