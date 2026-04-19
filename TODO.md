@@ -358,6 +358,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `releaseAndCollectHeapIsPositiveCountFilter` records the local collection helper's heap as exactly the positive-count filter of the decrement pass.
 - ✅ `releaseAndCollectHeapCellsHavePositiveCount` now states the local collection helper's final heap contains only positive-count cells.
 - ✅ `releaseAndCollectHeapCellOrigin` proves every surviving collected heap cell still comes from the original heap, with only the released target decremented.
+- ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` now name `KaliCore.Safety.releaseAndCollectHeapCellOrigin` explicitly, so the published verification summaries stay aligned with the helper-level provenance theorem.
 - ✅ `releaseAndCollectHeapCellOriginAndOwnership`, `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCount` now makes the surviving collected heap cells' original name and ownership tag explicit.
 - ✅ `releaseAndCollectKeepsOtherHeapEntries` now keeps unrelated positive-count heap entries in the collected heap.
 - ✅ `releaseRefPreservesOwnership`, `releaseAndDecrementPreservesOwnership`, and `releaseAndCollectPreservesOwnership` keep the ownership environment unchanged across the release-only, decrement, and collection helpers.
