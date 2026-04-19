@@ -36,6 +36,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The shared browser/runtime support library now also carries in-memory `Blob` and `File` primitives,
   which gives the browser interoperability slice a more realistic payload baseline without changing
   the package-support rungs claimed for the corpus.
+- The shared browser/runtime support library now also carries in-memory `localStorage` and
+  `sessionStorage` buckets, giving the browser interoperability slice another deterministic browser-
+  state baseline without changing the package-support rungs claimed for the corpus.
 - The package corpus now also exercises `AbortController`, `EventTarget`, and `structuredClone` in
   representative browser and utility package cases, widening the browser/runtime interoperability
   slice without changing the documented support rungs.

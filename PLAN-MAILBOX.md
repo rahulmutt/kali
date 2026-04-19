@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 3.3 browser storage baseline widening
+
+I widened the browser support library with an in-memory `localStorage` / `sessionStorage` simulation and reexported the storage helpers through the Deno compatibility surface. That gives the Stage 3.3 browser-interoperability follow-up one more concrete baseline primitive without changing the support-rung story.
+
+Planned update:
+- sync `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` so the Stage 3.3 progress notes name the new in-memory storage baseline explicitly
+- keep the claim narrow: this is a browser-interop helper widening, not a new browser-runtime availability claim
+
 ## 2026-04-19 — Stage 4.2 linear-memory payload follow-up sync
 
 I updated the top-level follow-up lane and the Stage 4.2 status tracker so they now call out the explicit linear-memory payload preservation corollaries as already included in the published proof-backed boundary. That keeps the remaining Stage 4.2 widening language focused on the work that still sits beyond the payload bridge.

@@ -5,8 +5,9 @@
 //! views without inventing a browser/runtime shim or a mutable process model.
 
 pub use kali_api_web::{
-    fill_random_values, parse_url, performance_now, resolve_url, structured_clone, text_decode,
-    text_encode, AbortController, AbortSignal, Blob, CustomEvent, Event, EventTarget, File,
+    fill_random_values, local_storage, parse_url, performance_now, resolve_url, session_storage,
+    structured_clone, text_decode, text_encode, AbortController, AbortSignal, Blob, CustomEvent,
+    Event, EventTarget, File, Storage,
 };
 
 use std::{

@@ -34,6 +34,10 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `kali_api_web` now exposes in-memory `Blob` and `File` primitives for the Web baseline, and `kali_api_deno` reexports them so the browser/runtime support library can model common blob/file payloads without changing the public support-rung story.
 - ✅ `crates/kali_types` now recognizes `Blob` and `File` as builtin globals, keeping the ambient typing surface aligned with the support-library additions.
 
+### Stage 3.3 - In-memory browser storage baseline
+- ✅ `kali_api_web` now exposes deterministic in-memory `localStorage` and `sessionStorage` buckets, so the browser interoperability slice has a simple shared-state baseline for browser-style code that expects storage APIs.
+- ✅ `kali_api_deno` reexports the shared storage helpers alongside the other Web-baseline primitives, keeping the compatibility layer aligned with the browser support surface without changing any support-rung claims.
+
 ### Stage 4.2 - Collection target-cell iff summary sync
 - ✅ `README.md` now names `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount` explicitly alongside the existing proof-backed RC snapshot inventory.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
