@@ -1062,6 +1062,8 @@ impl Optimizer {
                 Some(ConstantValue::Number(_)) => "Literal:number".to_string(),
                 Some(ConstantValue::Boolean(_)) => "Literal:boolean".to_string(),
                 Some(ConstantValue::String(value)) => format!("Literal:string:{value}"),
+                Some(ConstantValue::Null) => "Literal:null".to_string(),
+                Some(ConstantValue::Undefined) => "Literal:undefined".to_string(),
                 None => format!("{:?}:{:?}", node.kind, node.text),
             },
             LirNodeKind::Value if node.children.is_empty() => match node.text.as_deref() {
@@ -1069,6 +1071,8 @@ impl Optimizer {
                     Some(ConstantValue::Boolean(_)) => "Value:boolean".to_string(),
                     Some(ConstantValue::Number(_)) => "Value:number".to_string(),
                     Some(ConstantValue::String(value)) => format!("Value:string:{value}"),
+                    Some(ConstantValue::Null) => "Value:null".to_string(),
+                    Some(ConstantValue::Undefined) => "Value:undefined".to_string(),
                     None => format!("{:?}:{:?}", node.kind, node.text),
                 },
                 _ => format!("{:?}:{:?}", node.kind, node.text),
@@ -1079,12 +1083,9 @@ impl Optimizer {
         if !node.children.is_empty() {
             signature.push('(');
             for child in &node.children {
-                signature.push_str(&self.specialization_signature_with_mir(
-                    program,
-                    *child,
-                    mir_plan,
-                    scope,
-                ));
+                signature.push_str(
+                    &self.specialization_signature_with_mir(program, *child, mir_plan, scope),
+                );
                 signature.push(',');
             }
             signature.push(')');
@@ -1367,6 +1368,8 @@ impl Optimizer {
                 Some(ConstantValue::Number(_)) => "Literal:number".to_string(),
                 Some(ConstantValue::Boolean(_)) => "Literal:boolean".to_string(),
                 Some(ConstantValue::String(value)) => format!("Literal:string:{value}"),
+                Some(ConstantValue::Null) => "Literal:null".to_string(),
+                Some(ConstantValue::Undefined) => "Literal:undefined".to_string(),
                 None => format!("{:?}:{:?}", node.kind, node.text),
             },
             LirNodeKind::Value if node.children.is_empty() => match node.text.as_deref() {
@@ -1374,6 +1377,8 @@ impl Optimizer {
                     Some(ConstantValue::Boolean(_)) => "Value:boolean".to_string(),
                     Some(ConstantValue::Number(_)) => "Value:number".to_string(),
                     Some(ConstantValue::String(value)) => format!("Value:string:{value}"),
+                    Some(ConstantValue::Null) => "Value:null".to_string(),
+                    Some(ConstantValue::Undefined) => "Value:undefined".to_string(),
                     None => format!("{:?}:{:?}", node.kind, node.text),
                 },
                 _ => format!("{:?}:{:?}", node.kind, node.text),
@@ -1574,6 +1579,8 @@ enum ConstantValue {
     Number(i64),
     Boolean(bool),
     String(String),
+    Null,
+    Undefined,
 }
 
 #[derive(Debug)]
@@ -1612,6 +1619,7 @@ impl ConstantValue {
             ConstantValue::Number(value) => value != 0,
             ConstantValue::Boolean(value) => value,
             ConstantValue::String(value) => !value.is_empty(),
+            ConstantValue::Null | ConstantValue::Undefined => false,
         }
     }
 }
@@ -1647,7 +1655,8 @@ fn parse_literal_text(text: Option<&str>) -> Option<ConstantValue> {
     match text {
         "true" => Some(ConstantValue::Boolean(true)),
         "false" => Some(ConstantValue::Boolean(false)),
-        "null" | "undefined" => Some(ConstantValue::Number(0)),
+        "null" => Some(ConstantValue::Null),
+        "undefined" => Some(ConstantValue::Undefined),
         _ => parse_string_literal(text)
             .map(ConstantValue::String)
             .or_else(|| parse_number_literal(text).map(ConstantValue::Number)),
@@ -1689,6 +1698,12 @@ fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<Co
         ("==", ConstantValue::String(left), ConstantValue::String(right)) => {
             Some(ConstantValue::Boolean(left == right))
         }
+        ("==", ConstantValue::Null, ConstantValue::Null)
+        | ("==", ConstantValue::Undefined, ConstantValue::Undefined)
+        | ("==", ConstantValue::Null, ConstantValue::Undefined)
+        | ("==", ConstantValue::Undefined, ConstantValue::Null) => {
+            Some(ConstantValue::Boolean(true))
+        }
         ("&&", left, right) => Some(ConstantValue::Boolean(left.truthy() && right.truthy())),
         ("||", left, right) => Some(ConstantValue::Boolean(left.truthy() || right.truthy())),
         _ => None,
@@ -1702,6 +1717,8 @@ fn literal_text(value: ConstantValue) -> String {
         ConstantValue::String(value) => {
             format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
         }
+        ConstantValue::Null => "null".to_string(),
+        ConstantValue::Undefined => "undefined".to_string(),
     }
 }
 
@@ -2790,6 +2807,138 @@ mod tests {
     }
 
     #[test]
+    fn release_specializes_nullish_literal_arguments() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "consume_value");
+        let param_value = builder.alloc_text(LirNodeKind::Value, "value");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add8 = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let two = literal(&mut builder, "2");
+        let three = literal(&mut builder, "3");
+        let four = literal(&mut builder, "4");
+        let five = literal(&mut builder, "5");
+        let six = literal(&mut builder, "6");
+        let seven = literal(&mut builder, "7");
+        let eight = literal(&mut builder, "8");
+        builder.node_mut(add1).unwrap().children = vec![param_value, one];
+        builder.node_mut(add2).unwrap().children = vec![add1, two];
+        builder.node_mut(add3).unwrap().children = vec![add2, three];
+        builder.node_mut(add4).unwrap().children = vec![add3, four];
+        builder.node_mut(add5).unwrap().children = vec![add4, five];
+        builder.node_mut(add6).unwrap().children = vec![add5, six];
+        builder.node_mut(add7).unwrap().children = vec![add6, seven];
+        builder.node_mut(add8).unwrap().children = vec![add7, eight];
+        builder.node_mut(ret).unwrap().children = vec![add8];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_value, block];
+
+        let call_null_a = builder.alloc(LirNodeKind::Call);
+        let callee_null_a = builder.alloc_text(LirNodeKind::Value, "consume_value");
+        let null_a = literal(&mut builder, "null");
+        builder.node_mut(call_null_a).unwrap().children = vec![callee_null_a, null_a];
+
+        let call_undefined = builder.alloc(LirNodeKind::Call);
+        let callee_undefined = builder.alloc_text(LirNodeKind::Value, "consume_value");
+        let undefined = literal(&mut builder, "undefined");
+        builder.node_mut(call_undefined).unwrap().children = vec![callee_undefined, undefined];
+
+        let call_null_b = builder.alloc(LirNodeKind::Call);
+        let callee_null_b = builder.alloc_text(LirNodeKind::Value, "consume_value");
+        let null_b = literal(&mut builder, "null");
+        builder.node_mut(call_null_b).unwrap().children = vec![callee_null_b, null_b];
+
+        builder.node_mut(root).unwrap().children =
+            vec![function, call_null_a, call_undefined, call_null_b];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![
+                kali_mir::MirFunction {
+                    name: None,
+                    kind: kali_mir::MirFunctionKind::Module,
+                    bindings: Vec::new(),
+                },
+                kali_mir::MirFunction {
+                    name: Some("consume_value".to_string()),
+                    kind: kali_mir::MirFunctionKind::Function,
+                    bindings: vec![kali_mir::MirBinding {
+                        name: "value".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::TaggedVal,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    }],
+                },
+            ],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let call_null_a_node = &program.nodes[call_null_a.0 as usize];
+        let call_undefined_node = &program.nodes[call_undefined.0 as usize];
+        let call_null_b_node = &program.nodes[call_null_b.0 as usize];
+        let specialized_name_null_a = call_null_a_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for null_a");
+        let specialized_name_undefined = call_undefined_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for undefined");
+        let specialized_name_null_b = call_null_b_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for null_b");
+
+        assert_eq!(specialized_name_null_a, specialized_name_null_b);
+        assert_ne!(specialized_name_null_a, specialized_name_undefined);
+        assert!(specialized_name_null_a.starts_with("consume_value$spec$"));
+        assert!(specialized_name_undefined.starts_with("consume_value$spec$"));
+
+        let specialized_count_null = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_null_a)
+            })
+            .count();
+        let specialized_count_undefined = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_undefined)
+            })
+            .count();
+        assert_eq!(specialized_count_null, 1);
+        assert_eq!(specialized_count_undefined, 1);
+    }
+
+    #[test]
     fn release_specializes_shared_closure_layout_bindings() {
         let mut builder = LirBuilder::new();
         let root = builder.alloc(LirNodeKind::Program);
@@ -3193,16 +3342,14 @@ mod tests {
                 kali_mir::MirFunction {
                     name: Some("consume_point".to_string()),
                     kind: kali_mir::MirFunctionKind::Function,
-                    bindings: vec![
-                        kali_mir::MirBinding {
-                            name: "point".to_string(),
-                            kind: MirBindingKind::Parameter,
-                            ownership: kali_mir::OwnershipClass::Borrowed,
-                            layout: point_layout,
-                            escapes: false,
-                            captured_by: Vec::new(),
-                        },
-                    ],
+                    bindings: vec![kali_mir::MirBinding {
+                        name: "point".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: point_layout,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    }],
                 },
                 kali_mir::MirFunction {
                     name: Some("use_a".to_string()),
@@ -3248,11 +3395,9 @@ mod tests {
             2,
             "nested MIR-bound bindings inside object literals should drive distinct specializations"
         );
-        assert!(
-            specialized_names
-                .iter()
-                .all(|name| name.starts_with("consume_point$spec$"))
-        );
+        assert!(specialized_names
+            .iter()
+            .all(|name| name.starts_with("consume_point$spec$")));
     }
 
     #[test]
