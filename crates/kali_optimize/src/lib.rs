@@ -55,40 +55,12 @@ impl Optimizer {
 
     /// Optimize a program in place.
     pub fn optimize_program(&self, program: &mut LirProgram) {
-        match self.level {
-            OptimizationLevel::Fast | OptimizationLevel::Default => {}
-            OptimizationLevel::Release | OptimizationLevel::ReleaseAdvanced => {
-                let plan = self.build_specialization_plan(program);
-                let mut tracker = SpecializationTracker::new(self.max_specializations);
-                let mut binding_env = BindingEnv::default();
-                self.specialize_layout_bindings(
-                    program,
-                    program.root,
-                    &mut tracker,
-                    "<root>",
-                    "<root>",
-                    &plan,
-                    &mut binding_env,
-                );
-
-                self.optimize_node(
-                    program,
-                    program.root,
-                    &plan,
-                    &mut tracker,
-                    "<root>".to_string(),
-                );
-
-                if matches!(self.level, OptimizationLevel::ReleaseAdvanced) {
-                    self.prune_dead_top_level_functions(program);
-                }
-            }
-        }
+        self.optimize_program_internal(program, true);
     }
 
     /// Optimize a program using MIR layout metadata to drive additional call-site specialization.
     pub fn optimize_program_with_mir(&self, program: &mut LirProgram, mir: &MirAnalysisProgram) {
-        self.optimize_program(program);
+        self.optimize_program_internal(program, false);
 
         if matches!(
             self.level,
@@ -117,6 +89,43 @@ impl Optimizer {
         }
     }
 
+    fn optimize_program_internal(
+        &self,
+        program: &mut LirProgram,
+        allow_generic_specialization: bool,
+    ) {
+        match self.level {
+            OptimizationLevel::Fast | OptimizationLevel::Default => {}
+            OptimizationLevel::Release | OptimizationLevel::ReleaseAdvanced => {
+                let plan = self.build_specialization_plan(program);
+                let mut tracker = SpecializationTracker::new(self.max_specializations);
+                let mut binding_env = BindingEnv::default();
+                self.specialize_layout_bindings(
+                    program,
+                    program.root,
+                    &mut tracker,
+                    "<root>",
+                    "<root>",
+                    &plan,
+                    &mut binding_env,
+                );
+
+                self.optimize_node(
+                    program,
+                    program.root,
+                    &plan,
+                    &mut tracker,
+                    "<root>".to_string(),
+                    allow_generic_specialization,
+                );
+
+                if matches!(self.level, OptimizationLevel::ReleaseAdvanced) {
+                    self.prune_dead_top_level_functions(program);
+                }
+            }
+        }
+    }
+
     fn optimize_node(
         &self,
         program: &mut LirProgram,
@@ -124,6 +133,7 @@ impl Optimizer {
         plan: &SpecializationPlan,
         tracker: &mut SpecializationTracker,
         owner: String,
+        allow_generic_specialization: bool,
     ) {
         let snapshot = program.nodes[id.0 as usize].clone();
         let next_owner = match snapshot.kind {
@@ -137,7 +147,14 @@ impl Optimizer {
         };
 
         for child in snapshot.children.iter().copied() {
-            self.optimize_node(program, child, plan, tracker, next_owner.clone());
+            self.optimize_node(
+                program,
+                child,
+                plan,
+                tracker,
+                next_owner.clone(),
+                allow_generic_specialization,
+            );
         }
 
         if matches!(snapshot.kind, LirNodeKind::Program | LirNodeKind::Block) {
@@ -154,8 +171,22 @@ impl Optimizer {
             return;
         }
 
-        if self.optimize_call_site(program, id, plan, tracker, &owner) {
-            self.optimize_node(program, id, plan, tracker, owner);
+        if self.optimize_call_site(
+            program,
+            id,
+            plan,
+            tracker,
+            &owner,
+            allow_generic_specialization,
+        ) {
+            self.optimize_node(
+                program,
+                id,
+                plan,
+                tracker,
+                owner,
+                allow_generic_specialization,
+            );
         }
     }
 
@@ -721,6 +752,7 @@ impl Optimizer {
         plan: &SpecializationPlan,
         tracker: &mut SpecializationTracker,
         owner: &str,
+        allow_generic_specialization: bool,
     ) -> bool {
         let snapshot = program.nodes[id.0 as usize].clone();
         if snapshot.kind != LirNodeKind::Call {
@@ -739,36 +771,97 @@ impl Optimizer {
         let Some(summary) = plan.functions.get(callee_name) else {
             return false;
         };
-        let Some(inline_body) = summary.inline_body else {
-            return false;
-        };
-
-        let inline_threshold = match self.level {
-            OptimizationLevel::Release => 12,
-            OptimizationLevel::ReleaseAdvanced => 24,
-            _ => 0,
-        };
-        if summary.node_count > inline_threshold || summary.recursive {
-            return false;
-        }
-
         let args: Vec<LirNodeId> = snapshot.children.iter().skip(1).copied().collect();
         if args.len() != summary.params.len() {
             return false;
         }
 
-        let key = format!(
-            "inline:{}:{}",
-            callee_name,
-            self.call_signature(program, &snapshot)
-        );
-        if !tracker.allow(owner, key) {
+        if let Some(inline_body) = summary.inline_body {
+            let inline_threshold = match self.level {
+                OptimizationLevel::Release => 12,
+                OptimizationLevel::ReleaseAdvanced => 24,
+                _ => 0,
+            };
+            if summary.node_count <= inline_threshold && !summary.recursive {
+                let key = format!(
+                    "inline:{}:{}",
+                    callee_name,
+                    self.call_signature(program, &snapshot)
+                );
+                if tracker.allow(owner, key) {
+                    let cloned_root =
+                        self.inline_call_site(program, inline_body, &summary.params, &args);
+                    let replacement = program.nodes[cloned_root.0 as usize].clone();
+                    program.nodes[id.0 as usize] = replacement;
+                    return true;
+                }
+            }
+        }
+
+        if !allow_generic_specialization {
             return false;
         }
 
-        let cloned_root = self.inline_call_site(program, inline_body, &summary.params, &args);
-        let replacement = program.nodes[cloned_root.0 as usize].clone();
-        program.nodes[id.0 as usize] = replacement;
+        let mut substitutions = BTreeMap::new();
+        let mut signature_parts = Vec::new();
+        let mut saw_concrete_argument = false;
+        for (param, arg) in summary.params.iter().zip(args.iter()) {
+            let arg_signature = self.specialization_signature(program, *arg);
+            if self.argument_has_concrete_shape(program, *arg) {
+                signature_parts.push(format!("generic:{}", arg_signature));
+                let cloned_arg = self.clone_subtree_with_substitution(
+                    program,
+                    *arg,
+                    &BTreeMap::new(),
+                    &mut HashMap::new(),
+                );
+                substitutions.insert(param.clone(), cloned_arg);
+                saw_concrete_argument = true;
+            } else {
+                signature_parts.push(arg_signature);
+            }
+        }
+
+        if !saw_concrete_argument {
+            return false;
+        }
+
+        let specialization_key =
+            format!("specialize:{}:{}", callee_name, signature_parts.join("|"));
+        if !tracker.allow(owner, specialization_key) {
+            return false;
+        }
+
+        let specialized_name = self.specialized_function_name(callee_name, &signature_parts);
+        let new_id = self.clone_specialized_function(
+            program,
+            summary,
+            specialized_name.clone(),
+            &substitutions,
+        );
+        program.nodes[program.root.0 as usize].children.push(new_id);
+        self.specialize_layout_bindings(
+            program,
+            new_id,
+            tracker,
+            &specialized_name,
+            callee_name,
+            plan,
+            &mut BindingEnv::default(),
+        );
+        self.optimize_node(
+            program,
+            new_id,
+            plan,
+            tracker,
+            specialized_name.clone(),
+            allow_generic_specialization,
+        );
+
+        if let Some(callee) = program.nodes.get_mut(callee_id.0 as usize) {
+            callee.text = Some(specialized_name);
+        }
+
         true
     }
 
@@ -823,6 +916,7 @@ impl Optimizer {
                 plan,
                 tracker,
                 recursive_owner.clone(),
+                false,
             );
             self.specialize_mir_call_sites(
                 program,
@@ -1015,18 +1109,34 @@ impl Optimizer {
             return false;
         };
 
+        if self.argument_has_concrete_shape(program, id) {
+            return true;
+        }
+
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            if let Some(text) = node.text.as_deref() {
+                if let Some(layout) = mir_plan.binding_layout(scope, text) {
+                    return layout.kind != MirLayoutClass::TaggedVal;
+                }
+            }
+            return false;
+        }
+
+        false
+    }
+
+    fn argument_has_concrete_shape(&self, program: &LirProgram, id: LirNodeId) -> bool {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return false;
+        };
+
         if matches!(node.kind, LirNodeKind::Literal) {
             return true;
         }
 
         if node.kind == LirNodeKind::Value && node.children.is_empty() {
             if let Some(text) = node.text.as_deref() {
-                if parse_literal_text(Some(text)).is_some() {
-                    return true;
-                }
-                if let Some(layout) = mir_plan.binding_layout(scope, text) {
-                    return layout.kind != MirLayoutClass::TaggedVal;
-                }
+                return parse_literal_text(Some(text)).is_some();
             }
             return false;
         }
@@ -3171,6 +3281,90 @@ mod tests {
             "non-inlined tagged-parameter specialization should still expose the folded literal result"
         );
         assert_eq!(specialized_function.kind, LirNodeKind::Instruction);
+    }
+
+    #[test]
+    fn release_specializes_concrete_arguments_without_mir_layouts() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "merge_pair");
+        let param_left = builder.alloc_text(LirNodeKind::Value, "left");
+        let param_right = builder.alloc_text(LirNodeKind::Value, "right");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add8 = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let two = literal(&mut builder, "2");
+        let three = literal(&mut builder, "3");
+        let four = literal(&mut builder, "4");
+        let five = literal(&mut builder, "5");
+        let six = literal(&mut builder, "6");
+        let seven = literal(&mut builder, "7");
+        let eight = literal(&mut builder, "8");
+        builder.node_mut(add1).unwrap().children = vec![param_left, param_right];
+        builder.node_mut(add2).unwrap().children = vec![add1, one];
+        builder.node_mut(add3).unwrap().children = vec![add2, two];
+        builder.node_mut(add4).unwrap().children = vec![add3, three];
+        builder.node_mut(add5).unwrap().children = vec![add4, four];
+        builder.node_mut(add6).unwrap().children = vec![add5, five];
+        builder.node_mut(add7).unwrap().children = vec![add6, six];
+        builder.node_mut(add8).unwrap().children = vec![add7, seven];
+        builder.node_mut(ret).unwrap().children = vec![add8, eight];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_left, param_right, block];
+
+        let call = builder.alloc(LirNodeKind::Call);
+        let callee = builder.alloc_text(LirNodeKind::Value, "merge_pair");
+        let left = literal(&mut builder, "2");
+        let right = literal(&mut builder, "3");
+        builder.node_mut(call).unwrap().children = vec![callee, left, right];
+
+        builder.node_mut(root).unwrap().children = vec![function, call];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+        let call_node = &program.nodes[call.0 as usize];
+        let specialized_name = call_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist without MIR layouts");
+        assert!(specialized_name.starts_with("merge_pair$spec$"));
+
+        let specialized_function = program
+            .nodes
+            .iter()
+            .find(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name)
+            })
+            .expect("specialized function should be inserted without MIR layouts");
+        assert_eq!(specialized_function.kind, LirNodeKind::Instruction);
+        assert!(
+            program
+                .nodes
+                .iter()
+                .filter(|node| {
+                    node.kind == LirNodeKind::Instruction
+                        && node.text.as_deref() == Some(specialized_name)
+                })
+                .count()
+                == 1,
+            "specialized function should only be cloned once"
+        );
     }
 
     #[test]

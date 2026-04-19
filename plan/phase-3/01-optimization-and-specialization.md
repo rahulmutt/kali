@@ -83,6 +83,9 @@ types are statically known.
 - MIR-backed binding layout lookups are now scoped by function owner, so identically named bindings
   in different functions can specialize independently instead of collapsing to one shared fallback
   layout.
+- The pure-LIR optimizer path now also performs a concrete-argument fallback specialization for
+  literal-shaped call sites when MIR layout metadata is unavailable, so generic/function
+  specialization can still clone deterministic helpers even before the MIR-aware pass runs.
 - A representative benchmark suite now records compile time, WASM size, instruction count, and
   add-op deltas across `fast`, `release`, and `release-advanced`.
 

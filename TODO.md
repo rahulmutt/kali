@@ -9,10 +9,11 @@ follow-up widening rather than unfinished baseline delivery:
   already now covers owner-scoped MIR binding layouts, quoted string- and template-literal
   signatures, `null` / `undefined` / boolean / numeric / signed-zero / BigInt literal signatures,
   array-layout widening, direct array-literal shape widening, nested MIR-bound bindings,
-  object-literal property-order canonicalization, and the nested-call regression
-  `release_recursively_specializes_nested_mir_call_sites`, so the remaining work is the fuller
-  generic-instantiation planner and cross-module specialization model while keeping the
-  specialization budget and benchmark evidence honest,
+  object-literal property-order canonicalization, the nested-call regression
+  `release_recursively_specializes_nested_mir_call_sites`, and the literal-shaped
+  concrete-argument fallback that can clone deterministic specializations even without MIR layout
+  metadata, so the remaining work is the fuller generic-instantiation planner and cross-module
+  specialization model while keeping the specialization budget and benchmark evidence honest,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic event primitives for
   `AbortController`, `EventTarget`, and `CustomEvent`, plus stub surfaces for `BroadcastChannel`, `WebSocket`, `Worker`, and `IndexedDB` in addition to the shared `Blob` / `File` / `FormData` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those surfaces alongside `fetch`, `Headers`, `Request`, `Response`, `date-fns`, `lodash-es`, `ramda`, `uuid`, `recoil`, `mitt`, `swr`, `formik`, `jotai`, `nanostores`, `pinia`, `xstate`, `valtio`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `next`, `hono`, `@vueuse/core`, `@emotion/react`, `@emotion/styled`, `@heroicons/react`, `react-dom`, `framer-motion`, `@floating-ui/react`, `@headlessui/react`, `@chakra-ui/react`, `@mantine/core`, `@mui/material`, `@radix-ui/react-dialog`, `@tanstack/react-query`, `@testing-library/dom`, `@testing-library/user-event`, `URLSearchParams`, `TextEncoder`, `TextDecoder`, `superjson`, `msw`, and the existing browser representatives; the browser exports-map and pattern-exports corpus also now exercises `hono` explicitly, so the package-shape notes stay aligned with the narrower slice coverage,
@@ -398,6 +399,8 @@ follow-up widening rather than unfinished baseline delivery:
 - [x] Stage 3.1 optimization scaffolding
   - `kali_optimize` now performs release constant folding, constant-branch elimination, and release-advanced algebraic identities, the CLI build path wires those passes into WASM generation, and `--max-specializations` now overrides the deterministic specialization budget used by the optimizer/cache path.
   - Layout specialization now also folds const-bound array element reads when the index is statically known or bound to a constant numeric value, extending the object-layout fast path.
+- [x] Stage 3.1 concrete-argument specialization fallback
+  - `kali_optimize` now clones deterministic generic/function specializations for literal-shaped call sites even when MIR layout metadata is unavailable, so the pure-LIR release path can still monomorphize concrete-argument helpers without waiting for the MIR-aware specialization pass.
 - [x] Stage 3.1 MIR-driven specialization follow-up
   - MIR-aware call-site specialization now clones larger functions whose parameter layouts are stable enough to justify partial substitution, then reoptimizes the specialized body so literal-heavy hot paths can fold further before codegen.
 
