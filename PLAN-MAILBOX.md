@@ -1,3 +1,14 @@
+## 2026-04-19 — Stage 3.3 valtio corpus widening
+
+I widened the Stage 3.3 package corpus one step further by adding `valtio` to the browser and utility web-baseline interop slices, keeping the representative state-management breadth concrete without changing support-rung claims.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention `valtio` alongside the existing browser/utility package breadth notes
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- the browser and utility web-baseline interop corpus now also names `valtio` explicitly in `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md`.
+
 ## 2026-04-19 — Stage 3.3 xstate corpus widening
 
 I found a small Stage 3.3 follow-up that fits the current package-corpus breadth lane: add one more representative state-management package name to the browser and utility web-baseline interop corpora so the evidence set keeps widening without changing any support-rung claims.

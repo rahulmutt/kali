@@ -65,9 +65,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser and utility web-baseline interop corpus now also exercises `nanostores` as another
   representative browser/utility package name, keeping the breadth widening concrete without
   changing the support-rung story.
-- The browser and utility web-baseline interop corpus now also exercises `pinia` and `xstate` as
-  additional representative Vue/state-management browser/utility package names, keeping the breadth
-  widening concrete without changing the support-rung story.
+- The browser and utility web-baseline interop corpus now also exercises `pinia`, `xstate`, and
+  `valtio` as additional representative Vue/state-management browser/utility package names,
+  keeping the breadth widening concrete without changing the support-rung story.
 - The utility corpus now also exercises `redux` across the exports-map, string-exports, and
   pattern-exports slices, keeping the state-management package breadth concrete without changing the
   documented support-rungs.
