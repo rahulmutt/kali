@@ -114,6 +114,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   slices, broadening the representative utility set without changing the documented support rungs.
 - The utility corpus also now includes `commander` alongside the existing utility representatives,
   widening the plain-package breadth without changing the documented support rungs.
+- The utility corpus now also exercises `redux` as another representative state-management package
+  name across the plain-package and web-baseline interop slices, keeping the breadth widening
+  concrete without changing the support-rung story.
 - The browser web-baseline corpus and the utility plain-package corpus now also exercise `zustand` as
   another representative lightweight package name, keeping the breadth widening concrete without
   changing the support-rung story.

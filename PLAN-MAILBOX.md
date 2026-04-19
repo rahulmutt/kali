@@ -86,3 +86,12 @@ Planned update:
 
 Completed:
 - the proof-backed RC slice now also names `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory` explicitly in the plan/status trackers and summary docs.
+
+## 2026-04-19 — Stage 3.3 utility-corpus breadth widening
+
+I found a small Stage 3.3 follow-up that fits the current package-corpus breadth lane: add one more representative utility/browser package name to the corpus so the evidence set keeps widening without changing any support-rung claims.
+
+Planned update:
+- add `redux` to the Stage 3.3 utility corpus coverage in `crates/kali_cli/tests/package_corpus.rs`
+- sync the corresponding Stage 3.3 progress note in `plan/phase-3/03-ecosystem-breadth.md` and the matching `TODO.md` tracker so the corpus breadth note names the new package explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
