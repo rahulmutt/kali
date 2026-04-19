@@ -1,3 +1,14 @@
+## 2026-04-19 — Stage 3.1 concrete-argument specialization fallback
+
+I finished the in-progress generic/function specialization fallback so literal-shaped call sites can clone deterministic helpers even when MIR layout metadata is unavailable.
+
+Planned update:
+- sync `plan/phase-3/01-optimization-and-specialization.md`, `PLAN.md`, and `TODO.md` so the current Stage 3.1 progress note names the pure-LIR fallback explicitly
+- keep the claim narrow: this is still a specialization-depth widening within the existing optimizer model, not a new support-rung claim
+
+Completed:
+- the pure-LIR release path now clones deterministic generic/function helpers from literal-shaped call sites without MIR layout metadata, and the Stage 3.1 progress notes now call out that fallback explicitly.
+
 ## 2026-04-19 — Stage 3.3 hono exports-map/pattern widening
 
 I found a small Stage 3.3 follow-up that fits the current package-corpus breadth lane: add `hono` to the browser exports-map and pattern-exports corpora so the representative browser package-shape coverage keeps widening without changing any support-rung claims.
