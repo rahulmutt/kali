@@ -8,11 +8,13 @@ follow-up widening rather than unfinished baseline delivery:
 - widen specialization depth beyond the current MIR-aware layout-specialized path while keeping the
   specialization budget and benchmark evidence honest; the current optimizer now also splits
   quoted string-literal and no-substitution template literal call-site arguments into distinct
-  specialization signatures, distinguishes numeric literals from each other at call sites,
-  distinguishes BigInt literals from the old numeric fallback, distinguishes `null` and
-  `undefined` from the old zero-valued fallback, and lifts nested MIR-bound bindings inside
-  object-literal call sites into the same signature path so that widening stays concrete without
-  broadening the published benchmark claims,
+  specialization signatures, preserves boolean literal `true` / `false` identity, distinguishes
+  numeric literals from each other at call sites, distinguishes BigInt literals from the old
+  numeric fallback, distinguishes `null` and `undefined` from the old zero-valued fallback,
+  lifts nested MIR-bound bindings inside object-literal call sites into the same signature path,
+  and keeps the nested-call regression `release_recursively_specializes_nested_mir_call_sites`
+  layered inside a specialized clone so widening stays concrete without broadening the published
+  benchmark claims,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic event primitives for
   `AbortController`, `EventTarget`, and `CustomEvent`, plus stub surfaces for `BroadcastChannel`, `WebSocket`, `Worker`, and `IndexedDB` in addition to the shared `Blob` / `File` / `FormData` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those surfaces alongside `fetch`, `Headers`, `Request`, `Response`, `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `next`, `@emotion/react`, `@floating-ui/react`, `@headlessui/react`, `@chakra-ui/react`, `@mui/material`, `@radix-ui/react-dialog`, `@tanstack/react-query`, `@testing-library/dom`, `URLSearchParams`, and the existing browser representatives,

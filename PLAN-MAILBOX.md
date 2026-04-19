@@ -594,3 +594,14 @@ I widened the Stage 3.1 specialization path so no-substitution template literals
 Planned update:
 - sync `plan/phase-3/01-optimization-and-specialization.md`, `PLAN.md`, and `TODO.md` so the Stage 3.1 progress notes name template-literal specialization explicitly alongside the existing string/numeric/nullish/Boolean widening notes
 - keep the claim narrow: this is another specialization-depth widening within the existing optimizer model, not a support-rung change
+
+## 2026-04-19 — Stage 3.1 specialization-summary refresh
+
+I synced the top-level `TODO.md` current-remaining-work note so the Stage 3.1 specialization
+overview now names the boolean-literal identity split and the nested-call regression explicitly
+alongside the quoted string, template literal, numeric, BigInt, and nullish literal
+specialization slices.
+
+Planned update:
+- keep the specialization summary honest as the MIR-aware widening lane advances; this remains a
+  documentation refresh for the existing optimization slice, not a support-rung change
