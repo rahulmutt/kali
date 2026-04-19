@@ -6,7 +6,7 @@
 
 The repository is already proof-backed for the published boundary. The remaining Stage 4.2 work is
 not “make the boundary exist” but “widen the boundary without overclaiming”. Keep this tracker,
-[`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md), [`plan/phase-4/02-formal-verification-depth.md`](./plan/phase-4/02-formal-verification-depth.md), and [`TODO.md`](./TODO.md) synchronized. The RC snapshot model itself is phrased through the explicit `hasOwnership` / `allocated` / `liveAnnotated` predicate vocabulary, and the schema-docs anti-drift guard now pins those names too, so the summary stays aligned with the model shape as well as the theorem inventory.
+[`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md), [`plan/phase-4/02-formal-verification-depth.md`](./plan/phase-4/02-formal-verification-depth.md), and [`TODO.md`](./TODO.md) synchronized. The RC snapshot model itself is phrased through the explicit `hasOwnership` / `allocated` / `liveAnnotated` predicate vocabulary, and the schema-docs anti-drift guard now pins those names too, so the summary stays aligned with the model shape as well as the theorem inventory; the published boundary also already includes the explicit linear-memory payload preservation corollaries, so the remaining widening work sits beyond that payload bridge.
 
 ## Published RC snapshot theorem inventory
 

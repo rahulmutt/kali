@@ -360,7 +360,7 @@ All four phase groups are implemented in the current repository state, but compl
 
 - **Stage 3.1 specialization depth** — continue broadening MIR-aware specialization from the current layout-stable clone path toward the fuller generic-instantiation planner and cross-module specialization model, while preserving deterministic specialization-budget enforcement and the existing benchmark/evidence suite.
 - **Stage 3.3 ecosystem breadth** — continue widening the representative package corpus where real-world browser/utility/Node package shapes are still missing, without changing package-audit availability or package-support rung claims until the evidence matrix says otherwise.
-- **Stage 4.2 verification depth** — continue widening the proof model beyond the current published proof-backed boundary toward the fuller ownership / RC decrement-and-freeing story and the wider HIR → LIR semantic-preservation target, while keeping `proofs/BOUNDARY.md` and the proof-summary anti-drift guard honest about the narrower proof-backed slice that exists today.
+- **Stage 4.2 verification depth** — continue widening the proof model beyond the current published proof-backed boundary toward the fuller ownership / RC decrement-and-freeing story and the wider HIR → LIR semantic-preservation target, while keeping `proofs/BOUNDARY.md` and the proof-summary anti-drift guard honest about the narrower proof-backed slice that exists today; the published slice already includes the explicit linear-memory payload preservation corollaries, so the remaining work now sits beyond that owned-payload bridge.
 
 Reading rule:
 - use completed phase gates to answer whether a phase contract has been met,

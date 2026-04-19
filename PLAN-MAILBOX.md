@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 4.2 linear-memory payload follow-up sync
+
+I updated the top-level follow-up lane and the Stage 4.2 status tracker so they now call out the explicit linear-memory payload preservation corollaries as already included in the published proof-backed boundary. That keeps the remaining Stage 4.2 widening language focused on the work that still sits beyond the payload bridge.
+
+Planned update:
+- keep `PLAN.md` and `PLAN-4.2-STATUS.md` aligned with the proof-backed boundary wording whenever the RC snapshot slice widens again
+- keep the claim narrow: this is a summary-doc sync for the existing published boundary, not a boundary widening
+
 ## 2026-04-19 — Stage 1.5 type-checker diagnostics sync
 
 I updated the lightweight type-checker facade so `TypeChecker::typecheck` drains any pending annotation-resolution diagnostics from the shared context before returning. That keeps the Stage 1.5 error story explicit at the facade boundary instead of leaving the method as a pure no-op clone.
