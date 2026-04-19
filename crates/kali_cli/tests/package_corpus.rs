@@ -1643,6 +1643,7 @@ fn utility_corpus_packages_with_exports_maps_remain_executable_on_the_default_st
         ("uuid", "v4"),
         ("commander", "command"),
         ("redux", "createStore"),
+        ("reselect", "selectors"),
         ("lodash", "get"),
     ] {
         let dir = tempdir().expect("tempdir");
@@ -1743,6 +1744,7 @@ fn utility_corpus_packages_with_pattern_exports_remain_executable_on_the_default
         ("uuid", "v4"),
         ("commander", "command"),
         ("redux", "createStore"),
+        ("reselect", "selectors"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);

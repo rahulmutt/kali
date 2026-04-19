@@ -1,3 +1,14 @@
+Subject: Stage 3.3 reselect utility exports-map/pattern-exports widening
+
+## 2026-04-19 — Stage 3.3 reselect utility exports-map/pattern-exports widening
+
+I widened the Stage 3.3 package corpus one more step by adding `reselect` to the utility exports-map and pattern-exports slices, so the representative state-management package breadth now has a shape-focused standalone corpus case too.
+
+Completed:
+- `crates/kali_cli/tests/package_corpus.rs` now exercises `reselect` in the utility exports-map and pattern-exports slices.
+- `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the `reselect` utility exports-map/pattern-exports widening explicitly.
+- Kept the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
+
 Subject: Stage 3.3 chart.js standalone corpus widening
 
 ## 2026-04-19 — Stage 3.3 chart.js standalone corpus widening
