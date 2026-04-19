@@ -553,3 +553,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` now packages the decrement helper's surviving-cell provenance, ownership tag, positive-count fact, and linear-memory payload together.
 - ✅ `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and the proof-summary anti-drift guard now name the companion theorem explicitly.
 - ✅ Kept the update narrow: this is another helper-level proof-summary sync for the published boundary, not a broader ownership/freeing widening.
+
+### Stage 4.2 - Decrement target origin/positive-count wording sync
+- ✅ `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` is now spelled out explicitly in the published boundary, summary docs, and proof-summary guard, so the decrement-path provenance/positivity slice stays aligned with the RC snapshot inventory.
+- ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
