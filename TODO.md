@@ -307,7 +307,13 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 3.1 - Closure/struct-layout specialization follow-up
 - ✅ Shared closure-valued MIR bindings now collapse to one specialization when multiple higher-order call sites share the same layout signature.
 - ✅ Shared struct-valued MIR bindings now also collapse to one specialization when multiple higher-order call sites share the same layout signature, and the regression now covers three matching call sites so the reuse shape stays pinned down.
-- ✅ The MIR-aware layout signature path now fingerprints struct/array descriptors more precisely while still normalizing closure capture arity, so distinct struct shapes stay distinct without breaking the shared higher-order reuse path.
+- ✅ The MIR-aware layout signature path now fingerprints struct/array descriptors more precisely and includes closure capture identities, so distinct struct shapes and distinct closure shapes stay distinct without breaking the shared higher-order reuse path.
+
+### Stage 3.1 - Closure-capture identity widening
+- ✅ Closure-valued MIR bindings now specialize by their capture identity list instead of only capture arity, so same-capture higher-order call sites can still share a clone while distinct closure shapes no longer collapse onto the same specialization.
+- ✅ Added regression coverage for distinct closure capture bindings so the split specialization behavior stays pinned down.
+- ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
+
 - [x] Stage 3.2 Node API layer scaffold
   - Added `kali_api_node` helpers for process/path/crypto/events/buffer/util plus fs/url/os scaffolding and unit tests; the Node-targeted command path is now wired through check/build/run/test and node-only import resolution in the analysis context.
   - Expanded the helper layer with Node-style assertion helpers and a synchronous `util.promisify` bridge so the documented Node helper surface is closer to the planned phase-3 subset.

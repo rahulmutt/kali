@@ -27,9 +27,10 @@ types are statically known.
 - The current optimizer performs constant folding, branch elimination, small-function inlining,
   aggressive dead top-level-function pruning, and MIR-aware call-site specialization for
   layout-stable callees.
-- Layout-aware specialization now fingerprints struct and array descriptors precisely while still
-  normalizing closure capture arity, so identical higher-order call-site layouts reuse one
-  specialized clone without conflating distinct shapes.
+- Layout-aware specialization now fingerprints struct and array descriptors precisely and keeps
+  closure capture identities in the layout signature, so identical higher-order call-site layouts
+  reuse one specialized clone while distinct closure capture sets no longer collapse onto the same
+  specialization.
 - Const-bound object property reads and constant-index array reads now fold before codegen, and
   optimized numeric hot paths are regression-tested to stay free of tag-check / untag boxing.
 - Incremental compilation now reuses `.kali-cache/incremental/` for unchanged modules, and the

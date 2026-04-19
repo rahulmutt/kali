@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 3.1 closure-capture identity widening
+
+I widened the Stage 3.1 specialization path so closure-valued MIR bindings now fingerprint their capture identity list instead of only capture arity. That lets the optimizer keep same-capture higher-order call sites shared while splitting distinct closure shapes into separate specializations, which is a deeper layout-sensitive specialization slice than the old arity-only collapse.
+
+Planned update:
+- sync `plan/phase-3/01-optimization-and-specialization.md` and `TODO.md` so the Stage 3.1 progress notes call out closure-capture identity specialization explicitly
+- keep the claim narrow: this is a specialization-depth widening within the existing optimizer model, not a new support-rung claim
+
 ## 2026-04-19 — Stage 3.3 URLSearchParams browser-baseline follow-up
 
 I widened the shared browser/runtime support surface with a deterministic in-memory `URLSearchParams` baseline, reexported it through `kali_api_deno`, taught the browser corpus source to exercise it, and updated the Stage 3.3 progress notes / TODO tracker so the browser interop widening now names the new primitive explicitly.
