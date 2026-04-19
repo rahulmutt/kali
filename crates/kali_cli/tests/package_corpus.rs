@@ -490,6 +490,7 @@ fn browser_corpus_packages_remain_checkable_and_deployable_through_host() {
         "@testing-library/react",
         "@testing-library/dom",
         "nanostores",
+        "@storybook/react",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
