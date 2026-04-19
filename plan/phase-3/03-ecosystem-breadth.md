@@ -94,9 +94,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser web-baseline interop corpus now also exercises `svelte` and `lit` alongside the
   existing browser representatives, keeping two more browser-oriented package names covered by the
   browser command path without changing the support-rung story.
-- The browser web-baseline interop corpus now also exercises `@emotion/react`, `@floating-ui/react`, `@mui/material`,
+- The browser web-baseline interop corpus now also exercises `@emotion/react`, `@reduxjs/toolkit`, `@floating-ui/react`, `@mui/material`,
   `@radix-ui/react-dialog`, and `@tanstack/react-query` alongside the existing browser
-  representatives, keeping five more scoped browser package names covered by the browser command
+  representatives, keeping six more scoped browser package names covered by the browser command
   path without changing the support-rung story.
 - The browser router corpus now also exercises `vue-router` and `react-router` across the
   web-baseline interop, exports-map, and pattern-exports slices, adding two more representative
