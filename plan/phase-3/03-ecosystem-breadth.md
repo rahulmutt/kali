@@ -63,6 +63,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser web-baseline interop corpus now also exercises `@playwright/test` as one more representative browser test-runner package, keeping the browser package corpus breadth concrete without changing the support-rung story.
 - The utility corpus now also exercises `vite` in the plain-package and web-baseline interop slices,
   keeping one more modern build-tool package name covered without changing the support-rung story.
+- The browser corpus now also exercises `path-to-regexp`, and the utility corpus now also carries
+  `path-to-regexp` in the plain-package and web-baseline interop slices, keeping one more routing
+  package name concrete across the browser and standalone package paths without changing the
+  support-rung story.
 - The utility corpus now also exercises `react` and `preact` in the plain-package slice on the
   default standalone surface, keeping the representative React/Preact package breadth concrete
   without changing the support-rung story.
