@@ -20,6 +20,8 @@ follow-up widening rather than unfinished baseline delivery:
   keeping `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and summary docs synchronized; the current RC
   helper slice is already named explicitly through the release-only companion theorem
   `KaliCore.Safety.releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory`, the
+  decrement-path companion theorem
+  `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCountAndLinearMemory`, the
   decrement-path iff bridge `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff`, the
   collection target iff bridge `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`,
   the collection helper's heap-filter-and-linear-memory corollary
