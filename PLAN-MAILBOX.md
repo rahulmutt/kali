@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 3.3 browser router corpus widening
+
+I widened the Stage 3.3 browser corpus with `vue-router` in the exports-map and pattern-exports slices, so the representative package set now carries one more browser-oriented package shape without changing the support-rung story.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md` so the corpus notes name `vue-router` explicitly
+- keep the claim narrow: this is another corpus-widening slice, not a support-rung change
+
 ## 2026-04-19 — Stage 3.3 representative package corpus widening
 
 I plan to widen the Stage 3.3 package-corpus follow-up with a small additional representative package name across the existing browser and utility corpus slices, so the ongoing breadth note keeps reflecting incremental corpus growth without changing the documented support rungs.
