@@ -27,6 +27,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   overrides, browser false-blocking, browser internal-browser-rewrite chains, module-only and
   module-entry internal-dependency chains, dual-package and mixed-format entrypoints, and typed
   export branches.
+- The Node-runner corpus now also exercises `mocha` in the exports-map and mixed-format slices,
+  so the test-runner breadth now covers one more representative package shape without changing the
+  documented support rungs.
 - The scoped browser corpus now also exercises `@mui/material` in the exports-map and browser-
   condition slices, adding one more representative UI package shape to the evidence set without
   changing the documented support rungs.

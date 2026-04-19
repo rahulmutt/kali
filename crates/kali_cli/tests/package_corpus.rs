@@ -1956,7 +1956,11 @@ export default assert;
 #[test]
 fn node_runner_corpus_packages_with_exports_maps_require_the_node_context_but_remain_executable_there(
 ) {
-    for (package, subpath) in [("vitest", "config"), ("jest", "globals")] {
+    for (package, subpath) in [
+        ("vitest", "config"),
+        ("jest", "globals"),
+        ("mocha", "reporter"),
+    ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
         write_export_map_package(
@@ -2005,7 +2009,11 @@ fn node_runner_corpus_packages_with_exports_maps_require_the_node_context_but_re
 #[test]
 fn node_runner_corpus_packages_with_mixed_format_entries_require_the_node_context_but_remain_executable_there(
 ) {
-    for (package, subpath) in [("vitest", "config"), ("jest", "globals")] {
+    for (package, subpath) in [
+        ("vitest", "config"),
+        ("jest", "globals"),
+        ("mocha", "reporter"),
+    ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
         write_mixed_format_package(
