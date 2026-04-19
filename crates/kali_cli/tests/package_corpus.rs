@@ -1195,6 +1195,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "xstate",
         "valtio",
         "superjson",
+        "msw",
         "react-hook-form",
     ] {
         let dir = tempdir().expect("tempdir");
