@@ -32,8 +32,8 @@ types are statically known.
   reuse one specialized clone while distinct closure capture sets no longer collapse onto the same
   specialization.
 - Array-valued MIR bindings now preserve their element/length fingerprints through call-site
-  specialization, so same-shaped callers can still share one clone while different array layouts
-  split into separate specializations instead of collapsing onto a single shared body.
+  specialization, so same-shaped callers can still share one clone while different array-layout
+  widenings split into separate specializations instead of collapsing onto a single shared body.
 - Quoted string-literal call-site arguments now carry distinct specialization signatures, so
   different string literals can split into separate clones instead of collapsing onto the generic
   tagged fallback while still respecting the deterministic specialization budget.
