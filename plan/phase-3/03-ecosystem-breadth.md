@@ -36,6 +36,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The scoped browser corpus now also exercises `@headlessui/react` across the web-baseline interop,
   exports-map, and browser-condition slices, adding one more representative UI package shape to the
   evidence set without changing the documented support rungs.
+- The browser web-baseline interop corpus now also exercises `@chakra-ui/react` as one more
+  representative scoped UI package name, keeping the browser package corpus breadth concrete without
+  changing the support-rung story.
 - Scoped browser conditional-exports coverage now exercises packages whose browser branch wins over
   import/require fallbacks, tightening the browser/runtime interoperability slice without changing
   the package-support rungs claimed for the corpus.
