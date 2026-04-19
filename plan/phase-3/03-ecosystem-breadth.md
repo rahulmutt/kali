@@ -74,6 +74,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser and utility web-baseline interop corpus now also exercises `superjson` as another
   representative lightweight utility package name, keeping the breadth widening concrete without
   changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `@jridgewell/sourcemap-codec` as another
+  representative utility/source-map package name, keeping the browser package corpus breadth
+  concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `msw` as another representative
   browser networking package name, keeping the browser package corpus breadth concrete without
   changing the support-rung story.

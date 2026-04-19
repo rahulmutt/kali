@@ -295,3 +295,12 @@ Planned update:
 
 Completed:
 - the browser web-baseline interop corpus now also names `vue` explicitly in `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md`.
+
+## 2026-04-19 — Stage 3.3 @jridgewell/sourcemap-codec corpus widening
+
+I found another small Stage 3.3 follow-up that fits the current package-corpus breadth lane: add `@jridgewell/sourcemap-codec` to the browser web-baseline interop corpus so the representative utility/package-shape coverage keeps widening without changing any support-rung claims.
+
+Planned update:
+- add `@jridgewell/sourcemap-codec` to the browser web-baseline interop coverage in `crates/kali_cli/tests/package_corpus.rs`
+- sync the corresponding Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the corpus breadth note names the new package-shape coverage explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
