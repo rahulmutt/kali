@@ -438,6 +438,13 @@ I tightened the Stage 4.2 schema-docs anti-drift guard so `crates/kali_cli/tests
 Suggested follow-up:
 - keep the proof-boundary and status summaries aligned if the RC predicate vocabulary widens again; this remains a wording / anti-drift sync, not a boundary widening
 
+## 2026-04-19 — Stage 3.1 string-literal specialization widening
+
+I widened the `kali_optimize` specialization path so quoted string-literal call-site arguments now participate in distinct specialization signatures, which lets different string arguments split into separate clones instead of collapsing onto the generic tagged fallback.
+
+Suggested follow-up:
+- keep the Stage 3.1 plan note and TODO tracker aligned if the specialization signature widens again; this remains a specialization-depth widening, not a benchmark-claim change
+
 ## 2026-04-19 — Stage 3.3 scoped UI package widening
 
 I widened the Stage 3.3 package-corpus evidence slightly by adding `@mui/material` to the scoped browser exports-map / browser-condition slices, so the representative browser corpus now covers one more popular UI package shape without changing the documented support rungs.

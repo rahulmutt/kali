@@ -1333,19 +1333,16 @@ impl Optimizer {
             LirNodeKind::Literal => match parse_literal_text(node.text.as_deref()) {
                 Some(ConstantValue::Number(_)) => "Literal:number".to_string(),
                 Some(ConstantValue::Boolean(_)) => "Literal:boolean".to_string(),
+                Some(ConstantValue::String(value)) => format!("Literal:string:{value}"),
                 None => format!("{:?}:{:?}", node.kind, node.text),
             },
             LirNodeKind::Value if node.children.is_empty() => match node.text.as_deref() {
-                Some(text) if parse_literal_text(Some(text)).is_some() => {
-                    if matches!(
-                        parse_literal_text(Some(text)),
-                        Some(ConstantValue::Boolean(_))
-                    ) {
-                        "Value:boolean".to_string()
-                    } else {
-                        "Value:number".to_string()
-                    }
-                }
+                Some(text) => match parse_literal_text(Some(text)) {
+                    Some(ConstantValue::Boolean(_)) => "Value:boolean".to_string(),
+                    Some(ConstantValue::Number(_)) => "Value:number".to_string(),
+                    Some(ConstantValue::String(value)) => format!("Value:string:{value}"),
+                    None => format!("{:?}:{:?}", node.kind, node.text),
+                },
                 _ => format!("{:?}:{:?}", node.kind, node.text),
             },
             _ => format!("{:?}:{:?}", node.kind, node.text),
@@ -1539,10 +1536,11 @@ struct FunctionSummary {
     recursive: bool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum ConstantValue {
     Number(i64),
     Boolean(bool),
+    String(String),
 }
 
 #[derive(Debug)]
@@ -1580,6 +1578,7 @@ impl ConstantValue {
         match self {
             ConstantValue::Number(value) => value != 0,
             ConstantValue::Boolean(value) => value,
+            ConstantValue::String(value) => !value.is_empty(),
         }
     }
 }
@@ -1616,7 +1615,9 @@ fn parse_literal_text(text: Option<&str>) -> Option<ConstantValue> {
         "true" => Some(ConstantValue::Boolean(true)),
         "false" => Some(ConstantValue::Boolean(false)),
         "null" | "undefined" => Some(ConstantValue::Number(0)),
-        _ => parse_number_literal(text).map(ConstantValue::Number),
+        _ => parse_string_literal(text)
+            .map(ConstantValue::String)
+            .or_else(|| parse_number_literal(text).map(ConstantValue::Number)),
     }
 }
 
@@ -1646,11 +1647,15 @@ fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<Co
                 Some(ConstantValue::Number(left / right))
             }
         }
-        ("==", left, right) => Some(ConstantValue::Boolean(match (left, right) {
-            (ConstantValue::Number(left), ConstantValue::Number(right)) => left == right,
-            (ConstantValue::Boolean(left), ConstantValue::Boolean(right)) => left == right,
-            _ => left.truthy() == right.truthy(),
-        })),
+        ("==", ConstantValue::Number(left), ConstantValue::Number(right)) => {
+            Some(ConstantValue::Boolean(left == right))
+        }
+        ("==", ConstantValue::Boolean(left), ConstantValue::Boolean(right)) => {
+            Some(ConstantValue::Boolean(left == right))
+        }
+        ("==", ConstantValue::String(left), ConstantValue::String(right)) => {
+            Some(ConstantValue::Boolean(left == right))
+        }
         ("&&", left, right) => Some(ConstantValue::Boolean(left.truthy() && right.truthy())),
         ("||", left, right) => Some(ConstantValue::Boolean(left.truthy() || right.truthy())),
         _ => None,
@@ -1661,6 +1666,9 @@ fn literal_text(value: ConstantValue) -> String {
     match value {
         ConstantValue::Number(value) => value.to_string(),
         ConstantValue::Boolean(value) => value.to_string(),
+        ConstantValue::String(value) => {
+            format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
+        }
     }
 }
 
@@ -1669,6 +1677,22 @@ fn parse_number_literal(text: &str) -> Option<i64> {
         return stripped.parse::<i64>().ok();
     }
     text.parse::<i64>().ok()
+}
+
+fn parse_string_literal(text: &str) -> Option<String> {
+    let inner = text
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+        .or_else(|| {
+            text.strip_prefix('\'')
+                .and_then(|value| value.strip_suffix('\''))
+        })?;
+    Some(
+        inner
+            .replace("\\\\", "\\")
+            .replace("\\\"", "\"")
+            .replace("\\'", "'"),
+    )
 }
 
 #[cfg(test)]
@@ -2627,6 +2651,109 @@ mod tests {
             "non-inlined tagged-parameter specialization should still expose the folded literal result"
         );
         assert_eq!(specialized_function.kind, LirNodeKind::Instruction);
+    }
+
+    #[test]
+    fn release_specializes_string_literal_arguments() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "echo_text");
+        let param_text = builder.alloc_text(LirNodeKind::Value, "text");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let two = literal(&mut builder, "2");
+        let three = literal(&mut builder, "3");
+        let four = literal(&mut builder, "4");
+        let five = literal(&mut builder, "5");
+        let six = literal(&mut builder, "6");
+        builder.node_mut(add1).unwrap().children = vec![param_text, one];
+        builder.node_mut(add2).unwrap().children = vec![add1, two];
+        builder.node_mut(add3).unwrap().children = vec![add2, three];
+        builder.node_mut(add4).unwrap().children = vec![add3, four];
+        builder.node_mut(add5).unwrap().children = vec![add4, five];
+        builder.node_mut(add6).unwrap().children = vec![add5, six];
+        builder.node_mut(ret).unwrap().children = vec![add6];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_text, block];
+
+        let call_a = builder.alloc(LirNodeKind::Call);
+        let call_a_callee = builder.alloc_text(LirNodeKind::Value, "echo_text");
+        let arg_a = literal(&mut builder, "\"alpha\"");
+        builder.node_mut(call_a).unwrap().children = vec![call_a_callee, arg_a];
+
+        let call_b = builder.alloc(LirNodeKind::Call);
+        let call_b_callee = builder.alloc_text(LirNodeKind::Value, "echo_text");
+        let arg_b = literal(&mut builder, "\"beta\"");
+        builder.node_mut(call_b).unwrap().children = vec![call_b_callee, arg_b];
+
+        builder.node_mut(root).unwrap().children = vec![function, call_a, call_b];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![kali_mir::MirFunction {
+                name: Some("echo_text".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![kali_mir::MirBinding {
+                    name: "text".to_string(),
+                    kind: MirBindingKind::Parameter,
+                    ownership: kali_mir::OwnershipClass::Borrowed,
+                    layout: LayoutDescriptor::TaggedVal,
+                    escapes: false,
+                    captured_by: Vec::new(),
+                }],
+            }],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let specialized_name_a = program.nodes[call_a.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for string literal A");
+        let specialized_name_b = program.nodes[call_b.0 as usize]
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for string literal B");
+
+        assert_ne!(specialized_name_a, specialized_name_b);
+        assert!(specialized_name_a.starts_with("echo_text$spec$"));
+        assert!(specialized_name_b.starts_with("echo_text$spec$"));
+
+        let specialized_count_a = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_a)
+            })
+            .count();
+        let specialized_count_b = program
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name_b)
+            })
+            .count();
+        assert_eq!(specialized_count_a, 1);
+        assert_eq!(specialized_count_b, 1);
     }
 
     #[test]

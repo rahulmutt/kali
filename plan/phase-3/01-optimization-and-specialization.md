@@ -31,6 +31,9 @@ types are statically known.
   closure capture identities in the layout signature, so identical higher-order call-site layouts
   reuse one specialized clone while distinct closure capture sets no longer collapse onto the same
   specialization.
+- Quoted string-literal call-site arguments now carry distinct specialization signatures, so
+  different string literals can split into separate clones instead of collapsing onto the generic
+  tagged fallback while still respecting the deterministic specialization budget.
 - Const-bound object property reads and constant-index array reads now fold before codegen, and
   optimized numeric hot paths are regression-tested to stay free of tag-check / untag boxing.
 - Incremental compilation now reuses `.kali-cache/incremental/` for unchanged modules, and the
