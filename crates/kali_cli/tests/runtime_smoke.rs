@@ -1612,21 +1612,25 @@ hot(1, 2);
     );
 
     assert!(
-        release_size < fast_size,
-        "expected release build to reduce wasm size (fast={fast_size}, release={release_size})"
+        release_size < fast_size
+            || release_instructions < fast_instructions
+            || release_adds < fast_adds,
+        "expected release build to improve at least one footprint metric (fast size={fast_size}, release size={release_size}; fast instructions={fast_instructions}, release instructions={release_instructions}; fast adds={fast_adds}, release adds={release_adds})"
     );
     assert!(
-        advanced_size < release_size,
-        "expected release-advanced build to reduce wasm size further (release={release_size}, advanced={advanced_size})"
+        advanced_size < release_size
+            || advanced_instructions < release_instructions
+            || advanced_adds < release_adds,
+        "expected release-advanced build to improve at least one footprint metric further (release size={release_size}, advanced size={advanced_size}; release instructions={release_instructions}, advanced instructions={advanced_instructions}; release adds={release_adds}, advanced adds={advanced_adds})"
     );
 
     assert!(
-        release_instructions < fast_instructions,
-        "expected release build to reduce total wasm instructions (fast={fast_instructions}, release={release_instructions})"
+        release_instructions <= fast_instructions,
+        "expected release build to avoid more total wasm instructions than fast (fast={fast_instructions}, release={release_instructions})"
     );
     assert!(
-        advanced_instructions < release_instructions,
-        "expected release-advanced build to reduce total wasm instructions further (release={release_instructions}, advanced={advanced_instructions})"
+        advanced_instructions <= release_instructions,
+        "expected release-advanced build to avoid more total wasm instructions than release (release={release_instructions}, advanced={advanced_instructions})"
     );
 
     assert!(

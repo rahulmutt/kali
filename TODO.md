@@ -17,7 +17,8 @@ follow-up widening rather than unfinished baseline delivery:
 
 ### Stage 3.1 - Tagged-parameter specialization widening
 - ✅ `kali_optimize` can now specialize tagged parameters when the concrete call arguments have a stable literal or MIR-backed layout, so the MIR-aware monomorphisation path no longer stops at the existing non-tagged-layout gate.
-- ✅ Added a regression test that proves the new tagged-parameter path can still fold a concrete `add_pair(2, 3)` call down to a literal result after specialization.
+- ✅ Tagged-parameter call sites that are too large to inline but still within the deterministic budget now also specialize, so the deeper monomorphisation path no longer depends on the old size cutoff.
+- ✅ Added regression tests that prove the tagged-parameter path can still fold concrete calls down to literal results after specialization, including the non-inlined small-function case.
 - ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
 
 ### Stage 3.3 - Browser/runtime interop corpus widening

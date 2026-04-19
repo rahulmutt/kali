@@ -41,8 +41,9 @@ types are statically known.
   site inside its own body, so the current depth story reaches past the first cloned layer without
   changing the deterministic budget model.
 - Tagged-parameter call sites now specialize when the actual arguments have a concrete literal or
-  MIR-backed layout, so the monomorphisation path reaches one level deeper than the previous
-  non-tagged-layout gate while still respecting the deterministic specialization budget.
+  MIR-backed layout, even when the callee is too large to inline but still small enough to stay
+  within the deterministic specialization budget, so the monomorphisation path reaches one level
+  deeper than the previous non-tagged-layout gate.
 - MIR-backed binding layout lookups are now scoped by function owner, so identically named bindings
   in different functions can specialize independently instead of collapsing to one shared fallback
   layout.

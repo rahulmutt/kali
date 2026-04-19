@@ -898,9 +898,7 @@ impl Optimizer {
             let arg_signature =
                 self.specialization_signature_with_mir(program, *arg, mir_plan, scope);
             if layout.kind == MirLayoutClass::TaggedVal {
-                if summary.node_count <= 16
-                    || !self.argument_has_concrete_layout(program, *arg, mir_plan, scope)
-                {
+                if !self.argument_has_concrete_layout(program, *arg, mir_plan, scope) {
                     signature_parts.push(arg_signature);
                 } else {
                     signature_parts.push(format!("tagged:{}", arg_signature));
@@ -2523,6 +2521,106 @@ mod tests {
         assert!(
             literal_thirty_three,
             "tagged-parameter specialization should still expose the folded literal result"
+        );
+        assert_eq!(specialized_function.kind, LirNodeKind::Instruction);
+    }
+
+    #[test]
+    fn release_specializes_tagged_parameters_for_non_inlined_functions() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "sum_chain");
+        let param_left = builder.alloc_text(LirNodeKind::Value, "left");
+        let param_right = builder.alloc_text(LirNodeKind::Value, "right");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let two = literal(&mut builder, "2");
+        let three = literal(&mut builder, "3");
+        let four = literal(&mut builder, "4");
+        let five = literal(&mut builder, "5");
+        builder.node_mut(add1).unwrap().children = vec![param_left, param_right];
+        builder.node_mut(add2).unwrap().children = vec![add1, one];
+        builder.node_mut(add3).unwrap().children = vec![add2, two];
+        builder.node_mut(add4).unwrap().children = vec![add3, three];
+        builder.node_mut(add5).unwrap().children = vec![add4, four];
+        builder.node_mut(add6).unwrap().children = vec![add5, five];
+        builder.node_mut(ret).unwrap().children = vec![add6];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_left, param_right, block];
+
+        let call = builder.alloc(LirNodeKind::Call);
+        let callee = builder.alloc_text(LirNodeKind::Value, "sum_chain");
+        let left = literal(&mut builder, "2");
+        let right = literal(&mut builder, "3");
+        builder.node_mut(call).unwrap().children = vec![callee, left, right];
+
+        builder.node_mut(root).unwrap().children = vec![function, call];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![kali_mir::MirFunction {
+                name: Some("sum_chain".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![
+                    kali_mir::MirBinding {
+                        name: "left".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::TaggedVal,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                    kali_mir::MirBinding {
+                        name: "right".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::TaggedVal,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                ],
+            }],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let call_node = &program.nodes[call.0 as usize];
+        let specialized_name = call_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("specialized call target should exist for non-inlined tagged parameters");
+        assert!(specialized_name.starts_with("sum_chain$spec$"));
+
+        let specialized_function = program
+            .nodes
+            .iter()
+            .find(|node| {
+                node.kind == LirNodeKind::Instruction
+                    && node.text.as_deref() == Some(specialized_name)
+            })
+            .expect("specialized function should be inserted for non-inlined tagged parameters");
+        let literal_twenty = program
+            .nodes
+            .iter()
+            .any(|node| node.kind == LirNodeKind::Literal && node.text.as_deref() == Some("20"));
+        assert!(
+            literal_twenty,
+            "non-inlined tagged-parameter specialization should still expose the folded literal result"
         );
         assert_eq!(specialized_function.kind, LirNodeKind::Instruction);
     }
