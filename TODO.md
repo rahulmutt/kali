@@ -9,7 +9,7 @@ follow-up widening rather than unfinished baseline delivery:
   specialization budget and benchmark evidence honest,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic stub surfaces for
-  `WebSocket`, `Worker`, `IndexedDB`, and `CustomEvent` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those stub surfaces alongside `date-fns`, `lodash-es`, `clsx`, `vue-router`, `react-router`, `zod`, and the existing browser representatives,
+  `WebSocket`, `Worker`, `IndexedDB`, and `CustomEvent` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those stub surfaces alongside `date-fns`, `lodash-es`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, and the existing browser representatives,
 - widen the proof-backed boundary beyond the current published RC snapshot + lowering slice while
   keeping `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and summary docs synchronized; the current RC
   helper slice is already named explicitly through the decrement-path iff bridge
@@ -38,6 +38,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also drives the deterministic `WebSocket`, `Worker`, and `IndexedDB` browser-runtime stubs through the existing web-baseline interop slice, so the package corpus now carries the ambient browser stub surface through the browser and utility command paths without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `CustomEvent` in the browser web-baseline interop slice, so the browser/runtime interoperability widening now covers one more browser event primitive without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `zod` in the browser and utility web-baseline interop slices, so the representative package corpus now carries one more package name through both command paths without changing the documented support rungs.
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `svelte` and `lit` in the browser web-baseline interop slice, so the representative package corpus now carries two more browser-oriented package names through the browser command path without changing the documented support rungs.
 - ✅ Kept the update narrow: this widens the package corpus and browser/runtime interoperability checks without changing the documented support rungs.
 
 ### Stage 3.1 - Recursive MIR-specialization revisit

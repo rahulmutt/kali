@@ -1146,6 +1146,8 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "react-router",
         "zustand",
         "zod",
+        "svelte",
+        "lit",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));

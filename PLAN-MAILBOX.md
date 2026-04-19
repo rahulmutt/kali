@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 3.3 browser web-baseline corpus widening sync
+
+I widened the Stage 3.3 browser web-baseline interop corpus with `svelte` and `lit`, so the representative package set now carries two more browser-oriented package names without changing the support-rung story.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md` so the browser web-baseline corpus notes name `svelte` and `lit` explicitly
+- keep the claim narrow: this is another corpus-widening slice, not a support-rung change
+
 ## 2026-04-19 — Stage 3.3 CustomEvent corpus/progress sync
 
 I found a small Stage 3.3 documentation drift: the browser/web-baseline corpus and TODO note already treat `CustomEvent` as part of the widening slice, but the Stage 3.3 progress note in `plan/phase-3/03-ecosystem-breadth.md` still omits it from the representative browser-interop line.
