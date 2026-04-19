@@ -1145,6 +1145,7 @@ dependencies = [
  "kali_api_web",
  "kali_common",
  "kali_error",
+ "serde_json",
  "tempfile",
 ]
 

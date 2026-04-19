@@ -416,6 +416,187 @@ pub struct EventTarget {
     listeners: Arc<Mutex<ListenerMap>>,
 }
 
+/// A stub WebSocket implementation that keeps the browser baseline deterministic.
+#[derive(Clone, Debug)]
+pub struct WebSocket {
+    url: Url,
+    ready_state: WebSocketReadyState,
+    sent_text_messages: Arc<Mutex<Vec<String>>>,
+}
+
+/// Ready-state values for the stub WebSocket baseline.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WebSocketReadyState {
+    Connecting,
+    Open,
+    Closing,
+    Closed,
+}
+
+impl WebSocket {
+    /// Create a stub WebSocket bound to a parsed URL.
+    pub fn new(url: impl AsRef<str>) -> Result<Self, url::ParseError> {
+        Ok(Self {
+            url: Url::parse(url.as_ref())?,
+            ready_state: WebSocketReadyState::Open,
+            sent_text_messages: Arc::new(Mutex::new(Vec::new())),
+        })
+    }
+
+    /// Return the socket URL.
+    pub fn url(&self) -> &Url {
+        &self.url
+    }
+
+    /// Return the current ready state.
+    pub fn ready_state(&self) -> WebSocketReadyState {
+        self.ready_state
+    }
+
+    /// Record a text payload in the deterministic stub buffer.
+    pub fn send_text(&self, payload: impl Into<String>) {
+        self.sent_text_messages
+            .lock()
+            .expect("websocket mutex poisoned")
+            .push(payload.into());
+    }
+
+    /// Return the buffered text payloads.
+    pub fn sent_text_messages(&self) -> Vec<String> {
+        self.sent_text_messages
+            .lock()
+            .expect("websocket mutex poisoned")
+            .clone()
+    }
+
+    /// Transition the socket to the closed state.
+    pub fn close(&mut self) {
+        self.ready_state = WebSocketReadyState::Closed;
+    }
+}
+
+/// A deterministic worker stub used by the browser baseline.
+#[derive(Clone, Debug)]
+pub struct Worker {
+    script_url: Url,
+    posted_messages: Arc<Mutex<Vec<Value>>>,
+    terminated: Arc<AtomicBool>,
+}
+
+impl Worker {
+    /// Create a new worker stub from a parsed script URL.
+    pub fn new(url: impl AsRef<str>) -> Result<Self, url::ParseError> {
+        Ok(Self {
+            script_url: Url::parse(url.as_ref())?,
+            posted_messages: Arc::new(Mutex::new(Vec::new())),
+            terminated: Arc::new(AtomicBool::new(false)),
+        })
+    }
+
+    /// Return the worker script URL.
+    pub fn script_url(&self) -> &Url {
+        &self.script_url
+    }
+
+    /// Record a posted message in the deterministic stub buffer.
+    pub fn post_message(&self, message: Value) {
+        if self.terminated.load(Ordering::SeqCst) {
+            return;
+        }
+        self.posted_messages
+            .lock()
+            .expect("worker mutex poisoned")
+            .push(message);
+    }
+
+    /// Return the buffered messages.
+    pub fn posted_messages(&self) -> Vec<Value> {
+        self.posted_messages
+            .lock()
+            .expect("worker mutex poisoned")
+            .clone()
+    }
+
+    /// Transition the stub worker into the terminated state.
+    pub fn terminate(&self) {
+        self.terminated.store(true, Ordering::SeqCst);
+    }
+
+    /// Return whether the stub worker has been terminated.
+    pub fn is_terminated(&self) -> bool {
+        self.terminated.load(Ordering::SeqCst)
+    }
+}
+
+/// A deterministic in-memory IndexedDB stub.
+#[derive(Clone, Debug, Default)]
+pub struct IndexedDb {
+    name: String,
+    stores: Arc<Mutex<BTreeMap<String, BTreeMap<String, Value>>>>,
+}
+
+impl IndexedDb {
+    /// Create a database stub with a stable name.
+    pub fn open(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            stores: Arc::new(Mutex::new(BTreeMap::new())),
+        }
+    }
+
+    /// Return the database name.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Store a JSON value in an object store.
+    pub fn put(&self, store: impl Into<String>, key: impl Into<String>, value: Value) {
+        self.stores
+            .lock()
+            .expect("indexeddb mutex poisoned")
+            .entry(store.into())
+            .or_default()
+            .insert(key.into(), value);
+    }
+
+    /// Retrieve a JSON value from an object store.
+    pub fn get(&self, store: &str, key: &str) -> Option<Value> {
+        self.stores
+            .lock()
+            .expect("indexeddb mutex poisoned")
+            .get(store)
+            .and_then(|entries| entries.get(key))
+            .cloned()
+    }
+
+    /// Delete a key from an object store.
+    pub fn delete(&self, store: &str, key: &str) -> Option<Value> {
+        self.stores
+            .lock()
+            .expect("indexeddb mutex poisoned")
+            .get_mut(store)
+            .and_then(|entries| entries.remove(key))
+    }
+
+    /// Remove all entries from one object store.
+    pub fn clear_store(&self, store: &str) {
+        self.stores
+            .lock()
+            .expect("indexeddb mutex poisoned")
+            .remove(store);
+    }
+
+    /// Return the current object-store names.
+    pub fn store_names(&self) -> Vec<String> {
+        self.stores
+            .lock()
+            .expect("indexeddb mutex poisoned")
+            .keys()
+            .cloned()
+            .collect()
+    }
+}
+
 impl EventTarget {
     pub fn new() -> Self {
         Self::default()
@@ -616,5 +797,72 @@ mod tests {
         let event = Event::new("hello");
         assert_eq!(target.dispatch_event(&event), 1);
         assert!(seen.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn custom_event_carries_detail_payload() {
+        let event = CustomEvent::new("payload", Value::String("detail".to_string()));
+        assert_eq!(event.event().event_type(), "payload");
+        assert_eq!(event.detail(), &Value::String("detail".to_string()));
+    }
+
+    #[test]
+    fn websocket_stub_tracks_sent_messages() {
+        let mut socket = WebSocket::new("https://example.com/socket").expect("websocket url");
+        assert_eq!(socket.ready_state(), WebSocketReadyState::Open);
+        assert_eq!(socket.url().as_str(), "https://example.com/socket");
+
+        socket.send_text("hello");
+        socket.send_text("world");
+        assert_eq!(socket.sent_text_messages(), vec!["hello", "world"]);
+
+        socket.close();
+        assert_eq!(socket.ready_state(), WebSocketReadyState::Closed);
+    }
+
+    #[test]
+    fn worker_stub_records_posted_messages() {
+        let worker = Worker::new("https://example.com/worker.js").expect("worker url");
+        assert_eq!(
+            worker.script_url().as_str(),
+            "https://example.com/worker.js"
+        );
+        assert!(!worker.is_terminated());
+
+        worker.post_message(Value::String("ping".to_string()));
+        assert_eq!(
+            worker.posted_messages(),
+            vec![Value::String("ping".to_string())]
+        );
+
+        worker.terminate();
+        assert!(worker.is_terminated());
+        worker.post_message(Value::String("ignored".to_string()));
+        assert_eq!(
+            worker.posted_messages(),
+            vec![Value::String("ping".to_string())]
+        );
+    }
+
+    #[test]
+    fn indexed_db_stub_persists_values() {
+        let db = IndexedDb::open("browser-cache");
+        assert_eq!(db.name(), "browser-cache");
+
+        db.put("sessions", "alpha", Value::String("1".to_string()));
+        db.put("sessions", "beta", Value::String("2".to_string()));
+        assert_eq!(db.store_names(), vec!["sessions".to_string()]);
+        assert_eq!(
+            db.get("sessions", "alpha"),
+            Some(Value::String("1".to_string()))
+        );
+        assert_eq!(
+            db.delete("sessions", "alpha"),
+            Some(Value::String("1".to_string()))
+        );
+        assert_eq!(db.get("sessions", "alpha"), None);
+
+        db.clear_store("sessions");
+        assert!(db.store_names().is_empty());
     }
 }

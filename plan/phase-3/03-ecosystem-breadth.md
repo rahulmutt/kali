@@ -43,6 +43,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The shared browser/runtime support library now also exposes an in-memory `FileReader` baseline,
   and the Deno compatibility surface reexports it so browser-style code can read the shared blob /
   file payloads deterministically without changing the documented support rungs.
+- The shared browser/runtime support library now also exposes deterministic stub baselines for
+  `WebSocket`, `Worker`, and `IndexedDB`, and the Deno compatibility surface reexports those names
+  so browser-style code can exercise the ambient surface without changing the documented support
+  rungs.
 - The package corpus now also exercises `AbortController`, `EventTarget`, `structuredClone`, and
   `FileReader` in representative browser and utility package cases, widening the browser/runtime
   interoperability slice without changing the documented support rungs.
@@ -139,7 +143,7 @@ Stage 3.3 is complete. The remaining work in this area is breadth/depth follow-u
 unfinished Stage-3.3 implementation:
 
 - keep widening the representative package corpus without overclaiming support rungs,
-- deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice and the current in-memory Blob/File/FileReader/storage baseline,
+- deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice and the current in-memory Blob/File/FileReader/storage baseline plus the stub WebSocket/Worker/IndexedDB surface,
 - widen cross-module inference carefully within the published solver/specialization budgets.
 
 ## Historical Out of Scope for Stage 3.3

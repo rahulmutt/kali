@@ -7,7 +7,8 @@
 pub use kali_api_web::{
     fill_random_values, local_storage, parse_url, performance_now, resolve_url, session_storage,
     structured_clone, text_decode, text_encode, AbortController, AbortSignal, Blob, CustomEvent,
-    Event, EventTarget, File, FileReader, FileReaderState, Storage,
+    Event, EventTarget, File, FileReader, FileReaderState, IndexedDb, Storage, WebSocket,
+    WebSocketReadyState, Worker,
 };
 
 use std::{
@@ -525,5 +526,24 @@ mod tests {
         );
         assert_eq!(reader.ready_state(), FileReaderState::Done);
         assert_eq!(reader.result_bytes(), Some(b"deno payload".as_slice()));
+    }
+
+    #[test]
+    fn browser_stubs_are_reexported_through_the_deno_surface() {
+        let socket = WebSocket::new("https://example.com/socket").expect("websocket url");
+        assert_eq!(socket.ready_state(), WebSocketReadyState::Open);
+
+        let worker = Worker::new("https://example.com/worker.js").expect("worker url");
+        assert_eq!(
+            worker.script_url().as_str(),
+            "https://example.com/worker.js"
+        );
+
+        let db = IndexedDb::open("browser-cache");
+        db.put("objects", "item", serde_json::json!({"ok": true}));
+        assert_eq!(
+            db.get("objects", "item"),
+            Some(serde_json::json!({"ok": true}))
+        );
     }
 }

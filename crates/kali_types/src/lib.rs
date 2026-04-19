@@ -1194,6 +1194,9 @@ fn builtin_globals() -> &'static [&'static str] {
         "FileReader",
         "Event",
         "EventTarget",
+        "WebSocket",
+        "Worker",
+        "indexedDB",
         "fetch",
         "Function",
         "globalThis",
@@ -1465,6 +1468,29 @@ mod tests {
         let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::Identifier("FileReader".to_string())),
         })];
+
+        let result = ctx.resolve_statements(&statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn test_resolution_allows_browser_stub_globals() {
+        let mut ctx = TypeContext::new();
+        let statements = vec![
+            Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::Identifier("WebSocket".to_string())),
+            }),
+            Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::Identifier("Worker".to_string())),
+            }),
+            Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::Identifier("indexedDB".to_string())),
+            }),
+        ];
 
         let result = ctx.resolve_statements(&statements);
         assert!(
