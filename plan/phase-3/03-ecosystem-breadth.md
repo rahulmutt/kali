@@ -136,6 +136,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser router corpus now also exercises `vue-router` and `react-router` across the
   web-baseline interop, exports-map, and pattern-exports slices, adding two more representative
   browser package shapes without changing the documented support rungs.
+- The browser exports-map and pattern-exports corpora now also exercise `hono`, widening the
+  representative browser shape coverage by one more framework package without changing the
+  documented support rungs.
 - The browser pattern-exports corpus now also exercises `solid-js`, broadening the representative
   browser package-shape coverage without changing the documented support rungs.
 - The browser typed-export-branch corpus now also exercises `@reduxjs/toolkit`, broadening the

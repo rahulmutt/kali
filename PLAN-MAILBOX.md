@@ -1,4 +1,11 @@
-## 2026-04-19 — Stage 4.2 decrement target origin/positive-count widening
+## 2026-04-19 — Stage 3.3 hono exports-map/pattern widening
+
+I found a small Stage 3.3 follow-up that fits the current package-corpus breadth lane: add `hono` to the browser exports-map and pattern-exports corpora so the representative browser package-shape coverage keeps widening without changing any support-rung claims.
+
+Planned update:
+- add `hono` to the browser exports-map and pattern-exports coverage in `crates/kali_cli/tests/package_corpus.rs`
+- sync the corresponding Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the corpus breadth note names the new package-shape coverage explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
 
 I found a small proof-boundary follow-up for the RC snapshot tracker: the decrement helper can expose a target-specific origin/positive-count theorem alongside the existing target-allocation and heap-characterisation lemmas.
 
