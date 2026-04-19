@@ -1,4 +1,15 @@
 
+## 2026-04-19 — Stage 3.3 formik browser/utility corpus widening
+
+I widened the Stage 3.3 package corpus one step further by adding `formik` to the browser and utility web-baseline interop slices, keeping the representative package breadth concrete without changing support-rung claims.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention `formik` alongside the existing browser/utility package breadth notes
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- the browser and utility web-baseline interop corpus now also names `formik` explicitly in `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md`.
+
 ## 2026-04-19 — Stage 3.3 browser-baseline atob/btoa widening
 
 I widened the shared browser/runtime baseline one step further by adding deterministic `atob` / `btoa` helpers to `kali_api_web` and reexporting them through the Deno compatibility surface, then mirrored that progress note in the Stage 3.3 ecosystem-breadth tracker.

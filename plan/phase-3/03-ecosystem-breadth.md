@@ -57,6 +57,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser and utility web-baseline interop corpus now also exercises `swr` as another
   representative browser/utility package name, keeping the breadth widening concrete without
   changing the support-rung story.
+- The browser and utility web-baseline interop corpus now also exercises `formik` as another
+  representative browser form package name, keeping the browser and utility package breadth concrete
+  without changing the support-rung story.
 - The browser and utility web-baseline interop corpus now also exercises `nanostores` as another
   representative browser/utility package name, keeping the breadth widening concrete without
   changing the support-rung story.
