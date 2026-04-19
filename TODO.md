@@ -510,6 +510,7 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 4.2 - Proof-boundary anti-drift test
 - ✅ `crates/kali_cli/tests/schema_docs.rs` now asserts that the `proofs/BOUNDARY.md` covered-path inventory matches the actual `proofs/*.lean` source set, now checks the published theorem inventory against the concrete Lean theorem and lemma names, and now also verifies the canonical proof-summary docs keep the current RC theorem names and proof-backed summary string in sync, so deleting or adding a proof file or drifting summary prose without updating the manifest or docs fails `cargo test`; the progress tracker now calls out that theorem-name inventory and summary-doc inventory check alongside the path-level anti-drift guard.
 - ✅ The proof-summary guard now explicitly pins the heap-characterisation theorem names `releaseAndDecrementHeapCharacterisation` and `releaseAndCollectHeapCharacterisation` as well, so the summary docs stay aligned with the published RC snapshot inventory.
+- ✅ The proof-summary guard now also pins `releaseAndCollectHeapCellsHavePositiveCount` explicitly, so the local collection helper's final-heap positivity story stays aligned with the published boundary inventory.
 
 ### Stage 4.2 - Lowering value-preservation helper
 - ✅ Added the HIR value fragment plus `KaliIR.LoweringCorrectness.lower_preserves_value`, which records that the current core-lifted HIR value forms lower back to core values in the proof model.
