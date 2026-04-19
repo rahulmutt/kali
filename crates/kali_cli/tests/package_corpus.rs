@@ -1193,6 +1193,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "@tanstack/table-core",
         "@testing-library/dom",
         "@testing-library/user-event",
+        "@playwright/test",
         "mobx",
         "recoil",
         "mitt",

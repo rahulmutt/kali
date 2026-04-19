@@ -59,6 +59,7 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   `@storybook/react` as one more representative scoped browser package; the scoped browser corpus
   now also exercises `@storybook/react` across the exports-map and browser-condition slices,
   keeping the browser package corpus breadth concrete without changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `@playwright/test` as one more representative browser test-runner package, keeping the browser package corpus breadth concrete without changing the support-rung story.
 - The utility corpus now also exercises `vite` in the plain-package and web-baseline interop slices,
   keeping one more modern build-tool package name covered without changing the support-rung story.
 - The utility corpus now also exercises `react` and `preact` in the plain-package slice on the
