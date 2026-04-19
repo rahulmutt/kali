@@ -1057,7 +1057,40 @@ impl Optimizer {
             }
         }
 
-        self.specialization_signature(program, id)
+        let mut signature = match node.kind {
+            LirNodeKind::Literal => match parse_literal_text(node.text.as_deref()) {
+                Some(ConstantValue::Number(_)) => "Literal:number".to_string(),
+                Some(ConstantValue::Boolean(_)) => "Literal:boolean".to_string(),
+                Some(ConstantValue::String(value)) => format!("Literal:string:{value}"),
+                None => format!("{:?}:{:?}", node.kind, node.text),
+            },
+            LirNodeKind::Value if node.children.is_empty() => match node.text.as_deref() {
+                Some(text) => match parse_literal_text(Some(text)) {
+                    Some(ConstantValue::Boolean(_)) => "Value:boolean".to_string(),
+                    Some(ConstantValue::Number(_)) => "Value:number".to_string(),
+                    Some(ConstantValue::String(value)) => format!("Value:string:{value}"),
+                    None => format!("{:?}:{:?}", node.kind, node.text),
+                },
+                _ => format!("{:?}:{:?}", node.kind, node.text),
+            },
+            _ => format!("{:?}:{:?}", node.kind, node.text),
+        };
+
+        if !node.children.is_empty() {
+            signature.push('(');
+            for child in &node.children {
+                signature.push_str(&self.specialization_signature_with_mir(
+                    program,
+                    *child,
+                    mir_plan,
+                    scope,
+                ));
+                signature.push(',');
+            }
+            signature.push(')');
+        }
+
+        signature
     }
 
     fn build_specialization_plan(&self, program: &LirProgram) -> SpecializationPlan {
@@ -3053,6 +3086,173 @@ mod tests {
             .count();
         assert_eq!(specialized_count_a, 1);
         assert_eq!(specialized_count_b, 1);
+    }
+
+    #[test]
+    fn release_specializes_nested_mir_bound_bindings_inside_object_literals() {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let function = builder.alloc_text(LirNodeKind::Instruction, "consume_point");
+        let param_point = builder.alloc_text(LirNodeKind::Value, "point");
+        let block = builder.alloc(LirNodeKind::Block);
+        let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+        let add8 = builder.alloc_text(LirNodeKind::Value, "+");
+        let one = literal(&mut builder, "1");
+        let two = literal(&mut builder, "2");
+        let three = literal(&mut builder, "3");
+        let four = literal(&mut builder, "4");
+        let five = literal(&mut builder, "5");
+        let six = literal(&mut builder, "6");
+        let seven = literal(&mut builder, "7");
+        let eight = literal(&mut builder, "8");
+        builder.node_mut(add1).unwrap().children = vec![param_point, one];
+        builder.node_mut(add2).unwrap().children = vec![add1, two];
+        builder.node_mut(add3).unwrap().children = vec![add2, three];
+        builder.node_mut(add4).unwrap().children = vec![add3, four];
+        builder.node_mut(add5).unwrap().children = vec![add4, five];
+        builder.node_mut(add6).unwrap().children = vec![add5, six];
+        builder.node_mut(add7).unwrap().children = vec![add6, seven];
+        builder.node_mut(add8).unwrap().children = vec![add7, eight];
+        builder.node_mut(ret).unwrap().children = vec![add8];
+        builder.node_mut(block).unwrap().children = vec![ret];
+        builder.node_mut(function).unwrap().children = vec![param_point, block];
+
+        let use_a = builder.alloc_text(LirNodeKind::Instruction, "use_a");
+        let shared_a = builder.alloc_text(LirNodeKind::Value, "shared");
+        let block_a = builder.alloc(LirNodeKind::Block);
+        let ret_a = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let call_a = builder.alloc(LirNodeKind::Call);
+        let callee_a = builder.alloc_text(LirNodeKind::Value, "consume_point");
+        let object_a = builder.alloc(LirNodeKind::Value);
+        let init_a = builder.alloc_text(LirNodeKind::Value, "init");
+        let key_a = literal(&mut builder, "x");
+        builder.node_mut(init_a).unwrap().children = vec![key_a, shared_a];
+        builder.node_mut(object_a).unwrap().children = vec![init_a];
+        builder.node_mut(call_a).unwrap().children = vec![callee_a, object_a];
+        builder.node_mut(ret_a).unwrap().children = vec![call_a];
+        builder.node_mut(block_a).unwrap().children = vec![ret_a];
+        builder.node_mut(use_a).unwrap().children = vec![shared_a, block_a];
+
+        let use_b = builder.alloc_text(LirNodeKind::Instruction, "use_b");
+        let shared_b = builder.alloc_text(LirNodeKind::Value, "shared");
+        let block_b = builder.alloc(LirNodeKind::Block);
+        let ret_b = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let call_b = builder.alloc(LirNodeKind::Call);
+        let callee_b = builder.alloc_text(LirNodeKind::Value, "consume_point");
+        let object_b = builder.alloc(LirNodeKind::Value);
+        let init_b = builder.alloc_text(LirNodeKind::Value, "init");
+        let key_b = literal(&mut builder, "x");
+        builder.node_mut(init_b).unwrap().children = vec![key_b, shared_b];
+        builder.node_mut(object_b).unwrap().children = vec![init_b];
+        builder.node_mut(call_b).unwrap().children = vec![callee_b, object_b];
+        builder.node_mut(ret_b).unwrap().children = vec![call_b];
+        builder.node_mut(block_b).unwrap().children = vec![ret_b];
+        builder.node_mut(use_b).unwrap().children = vec![shared_b, block_b];
+
+        builder.node_mut(root).unwrap().children = vec![function, use_a, use_b];
+        let mut program = LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        };
+
+        let shared_a_layout = LayoutDescriptor::Struct {
+            fields: vec![(
+                "left".to_string(),
+                Box::new(LayoutDescriptor::Scalar("number".to_string())),
+            )],
+        };
+        let shared_b_layout = LayoutDescriptor::Struct {
+            fields: vec![(
+                "right".to_string(),
+                Box::new(LayoutDescriptor::Scalar("number".to_string())),
+            )],
+        };
+        let point_layout = LayoutDescriptor::Struct {
+            fields: vec![(
+                "x".to_string(),
+                Box::new(LayoutDescriptor::Scalar("number".to_string())),
+            )],
+        };
+        let mir = MirAnalysisProgram {
+            root: kali_mir::MirNodeId::new(0),
+            nodes: Vec::new(),
+            functions: vec![
+                kali_mir::MirFunction {
+                    name: None,
+                    kind: kali_mir::MirFunctionKind::Module,
+                    bindings: Vec::new(),
+                },
+                kali_mir::MirFunction {
+                    name: Some("consume_point".to_string()),
+                    kind: kali_mir::MirFunctionKind::Function,
+                    bindings: vec![
+                        kali_mir::MirBinding {
+                            name: "point".to_string(),
+                            kind: MirBindingKind::Parameter,
+                            ownership: kali_mir::OwnershipClass::Borrowed,
+                            layout: point_layout,
+                            escapes: false,
+                            captured_by: Vec::new(),
+                        },
+                    ],
+                },
+                kali_mir::MirFunction {
+                    name: Some("use_a".to_string()),
+                    kind: kali_mir::MirFunctionKind::Function,
+                    bindings: vec![kali_mir::MirBinding {
+                        name: "shared".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: shared_a_layout,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    }],
+                },
+                kali_mir::MirFunction {
+                    name: Some("use_b".to_string()),
+                    kind: kali_mir::MirFunctionKind::Function,
+                    bindings: vec![kali_mir::MirBinding {
+                        name: "shared".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: shared_b_layout,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    }],
+                },
+            ],
+        };
+
+        Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+        let specialized_names: BTreeSet<_> = program
+            .nodes
+            .iter()
+            .filter_map(|node| {
+                (node.kind == LirNodeKind::Instruction)
+                    .then_some(node.text.as_deref())
+                    .flatten()
+            })
+            .filter(|name| name.starts_with("consume_point$spec$"))
+            .collect();
+        assert_eq!(
+            specialized_names.len(),
+            2,
+            "nested MIR-bound bindings inside object literals should drive distinct specializations"
+        );
+        assert!(
+            specialized_names
+                .iter()
+                .all(|name| name.starts_with("consume_point$spec$"))
+        );
     }
 
     #[test]

@@ -34,6 +34,9 @@ types are statically known.
 - Quoted string-literal call-site arguments now carry distinct specialization signatures, so
   different string literals can split into separate clones instead of collapsing onto the generic
   tagged fallback while still respecting the deterministic specialization budget.
+- Nested MIR-bound bindings inside object-literal call sites now also participate in the MIR-aware
+  specialization signature, so composite arguments can split into distinct clones when the same
+  surface shape is fed by different scoped binding layouts.
 - Const-bound object property reads and constant-index array reads now fold before codegen, and
   optimized numeric hot paths are regression-tested to stay free of tag-check / untag boxing.
 - Incremental compilation now reuses `.kali-cache/incremental/` for unchanged modules, and the

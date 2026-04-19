@@ -516,3 +516,11 @@ I widened the published proof-boundary notes to explicitly name the closed-subst
 Planned update:
 - keep `proofs/BOUNDARY.md` and the Stage 4.2 progress note aligned if additional soundness helpers are surfaced later
 - keep the claim narrow: this is a proof-summary / helper-theorem naming sync, not a new support claim
+
+## 2026-04-19 — Stage 3.1 nested MIR-bound binding specialization widening
+
+I widened the Stage 3.1 specialization path so nested MIR-bound bindings inside object-literal call sites now contribute MIR layout signatures during call-site specialization. That lets the optimizer keep same-shaped composite arguments shared while splitting identical object-literal call sites whose scoped binding layouts differ, which is a deeper layout-sensitive specialization slice than the previous leaf-only MIR binding handling.
+
+Planned update:
+- sync `plan/phase-3/01-optimization-and-specialization.md` and `TODO.md` so the Stage 3.1 progress notes call out nested MIR-bound binding specialization explicitly
+- keep the claim narrow: this is a specialization-depth widening within the existing optimizer model, not a new support-rung claim
