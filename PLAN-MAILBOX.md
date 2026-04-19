@@ -1,3 +1,11 @@
+## 2026-04-19 — Stage 4.2 proof-summary wording sync
+
+I synchronized the top-level plan/status summaries with the newly explicit combined wellformedness/linear-memory corollaries for the RC helpers, so the remaining Stage 4.2 follow-up lane now points at the broader ownership / RC widening instead of the already-published payload bridge.
+
+Planned update:
+- keep `PLAN.md`, `PLAN-4.2-STATUS.md`, and `TODO.md` aligned with the proof-backed boundary wording as the RC slice widens
+- keep the claim narrow: this is a summary/roadmap sync, not a boundary widening
+
 ## 2026-04-19 — Stage 3.3 testing-library browser corpus widening (dom)
 
 I widened the Stage 3.3 browser corpus a little further by adding `@testing-library/dom` alongside the existing `@testing-library/react` coverage, so the representative testing-library slice now carries both the React-oriented and DOM-oriented package names through the browser command path without changing the support-rung story.

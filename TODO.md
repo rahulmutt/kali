@@ -21,7 +21,11 @@ follow-up widening rather than unfinished baseline delivery:
   `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff`, the collection target iff
   bridge `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`, the collection
   helper's heap-filter-and-linear-memory corollary
-  `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilterAndLinearMemory`, and the target-cell
+  `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilterAndLinearMemory`, the combined
+  wellformedness/linear-memory corollaries
+  `KaliCore.Safety.releaseRefPreservesWellFormedAndLinearMemory`,
+  `KaliCore.Safety.releaseAndDecrementPreservesWellFormedAndLinearMemory`, and
+  `KaliCore.Safety.releaseAndCollectPreservesWellFormedAndLinearMemory`, and the target-cell
   allocation corollaries `KaliCore.Safety.releaseAndDecrementTargetCellAllocatedWhenPositiveCount`
   and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`.
 
