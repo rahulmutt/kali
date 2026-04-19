@@ -137,6 +137,146 @@ impl File {
     }
 }
 
+/// Value stored inside the in-memory Web `FormData` baseline.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FormDataValue {
+    Text(String),
+    Blob(Blob),
+    File(File),
+}
+
+impl From<&str> for FormDataValue {
+    fn from(value: &str) -> Self {
+        Self::Text(value.to_string())
+    }
+}
+
+impl From<String> for FormDataValue {
+    fn from(value: String) -> Self {
+        Self::Text(value)
+    }
+}
+
+impl From<Blob> for FormDataValue {
+    fn from(value: Blob) -> Self {
+        Self::Blob(value)
+    }
+}
+
+impl From<File> for FormDataValue {
+    fn from(value: File) -> Self {
+        Self::File(value)
+    }
+}
+
+/// A single deterministic `FormData` entry.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FormDataEntry {
+    name: String,
+    value: FormDataValue,
+}
+
+impl FormDataEntry {
+    /// Create a new entry.
+    pub fn new(name: impl Into<String>, value: impl Into<FormDataValue>) -> Self {
+        Self {
+            name: name.into(),
+            value: value.into(),
+        }
+    }
+
+    /// Return the entry name.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Return the entry value.
+    pub fn value(&self) -> &FormDataValue {
+        &self.value
+    }
+}
+
+/// A deterministic in-memory Web `FormData` baseline.
+#[derive(Clone, Debug, Default)]
+pub struct FormData {
+    entries: Arc<Mutex<Vec<FormDataEntry>>>,
+}
+
+impl FormData {
+    /// Create an empty form-data bucket.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn remove_matching(&self, name: &str) {
+        self.entries
+            .lock()
+            .expect("formdata mutex poisoned")
+            .retain(|entry| entry.name != name);
+    }
+
+    /// Append a new entry while preserving insertion order.
+    pub fn append(&self, name: impl Into<String>, value: impl Into<FormDataValue>) {
+        self.entries
+            .lock()
+            .expect("formdata mutex poisoned")
+            .push(FormDataEntry::new(name, value));
+    }
+
+    /// Replace all matching entries with a single value.
+    pub fn set(&self, name: impl Into<String>, value: impl Into<FormDataValue>) {
+        let name = name.into();
+        self.remove_matching(&name);
+        self.entries
+            .lock()
+            .expect("formdata mutex poisoned")
+            .push(FormDataEntry::new(name, value));
+    }
+
+    /// Return whether any entry with the requested name exists.
+    pub fn has(&self, name: &str) -> bool {
+        self.entries
+            .lock()
+            .expect("formdata mutex poisoned")
+            .iter()
+            .any(|entry| entry.name == name)
+    }
+
+    /// Return the first matching entry, if present.
+    pub fn get(&self, name: &str) -> Option<FormDataEntry> {
+        self.entries
+            .lock()
+            .expect("formdata mutex poisoned")
+            .iter()
+            .find(|entry| entry.name == name)
+            .cloned()
+    }
+
+    /// Return all entries that match the requested name in insertion order.
+    pub fn get_all(&self, name: &str) -> Vec<FormDataEntry> {
+        self.entries
+            .lock()
+            .expect("formdata mutex poisoned")
+            .iter()
+            .filter(|entry| entry.name == name)
+            .cloned()
+            .collect()
+    }
+
+    /// Remove all entries that match the requested name.
+    pub fn delete(&self, name: &str) {
+        self.remove_matching(name);
+    }
+
+    /// Return a deterministic snapshot of the entries.
+    pub fn entries(&self) -> Vec<FormDataEntry> {
+        self.entries
+            .lock()
+            .expect("formdata mutex poisoned")
+            .clone()
+    }
+}
+
 /// Readable state for the in-memory Web `FileReader`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FileReaderState {
@@ -729,6 +869,43 @@ mod tests {
             reader.read_file_as_text(&file).expect("file text"),
             "reader payload"
         );
+    }
+
+    #[test]
+    fn form_data_records_entries_and_preserves_order() {
+        let blob = Blob::new(["form payload".as_bytes()], Some("text/plain".to_string()));
+        let file = File::new("form.txt", ["file payload".as_bytes()], None, 13);
+        let form = FormData::new();
+
+        form.append("alpha", "1");
+        form.append("beta", blob.clone());
+        form.append("beta", file.clone());
+
+        assert!(form.has("alpha"));
+        assert_eq!(
+            form.get("alpha").expect("alpha entry").value(),
+            &FormDataValue::Text("1".to_string())
+        );
+        assert_eq!(form.get_all("beta").len(), 2);
+        assert_eq!(
+            form.get_all("beta")[0].value(),
+            &FormDataValue::Blob(blob.clone())
+        );
+        assert_eq!(
+            form.get_all("beta")[1].value(),
+            &FormDataValue::File(file.clone())
+        );
+
+        form.set("beta", "replacement");
+        assert_eq!(form.get_all("beta").len(), 1);
+        assert_eq!(
+            form.get("beta").expect("beta entry").value(),
+            &FormDataValue::Text("replacement".to_string())
+        );
+
+        form.delete("alpha");
+        assert!(!form.has("alpha"));
+        assert_eq!(form.entries().len(), 1);
     }
 
     #[test]

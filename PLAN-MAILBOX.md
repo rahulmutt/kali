@@ -463,3 +463,11 @@ Planned update:
 - keep `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` aligned with the new scoped browser
   corpus representative if the browser package set widens again
 - keep the claim narrow: this is another corpus-widening slice, not a support-rung change
+
+## 2026-04-19 — Stage 3.3 FormData browser-baseline follow-up
+
+I widened the shared Web/Deno browser support library with an in-memory `FormData` baseline and reexported it through the Deno compatibility surface, so the Stage 3.3 browser-interop follow-up now has one more deterministic browser-form primitive without changing the support-rung story.
+
+Planned update:
+- sync `plan/phase-3/03-ecosystem-breadth.md` so the browser-interoperability progress note names `FormData` explicitly alongside the existing Blob/File/FileReader/storage and stub-surface widening
+- keep the claim narrow: this is support-library baseline widening, not a public support-rung change

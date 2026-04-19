@@ -7,8 +7,8 @@
 pub use kali_api_web::{
     fill_random_values, local_storage, parse_url, performance_now, resolve_url, session_storage,
     structured_clone, text_decode, text_encode, AbortController, AbortSignal, Blob, CustomEvent,
-    Event, EventTarget, File, FileReader, FileReaderState, IndexedDb, Storage, WebSocket,
-    WebSocketReadyState, Worker,
+    Event, EventTarget, File, FileReader, FileReaderState, FormData, FormDataEntry, FormDataValue,
+    IndexedDb, Storage, WebSocket, WebSocketReadyState, Worker,
 };
 
 use std::{
@@ -526,6 +526,33 @@ mod tests {
         );
         assert_eq!(reader.ready_state(), FileReaderState::Done);
         assert_eq!(reader.result_bytes(), Some(b"deno payload".as_slice()));
+    }
+
+    #[test]
+    fn form_data_is_reexported_through_the_deno_surface() {
+        let blob = Blob::new(
+            ["deno form payload".as_bytes()],
+            Some("text/plain".to_string()),
+        );
+        let file = File::new("deno-form.txt", ["file payload".as_bytes()], None, 17);
+        let form = FormData::new();
+
+        form.append("blob", blob.clone());
+        form.append("file", file.clone());
+        form.set("text", "value");
+
+        assert_eq!(
+            form.get("text").expect("text entry").value(),
+            &FormDataValue::Text("value".to_string())
+        );
+        assert_eq!(
+            form.get("blob").expect("blob entry").value(),
+            &FormDataValue::Blob(blob)
+        );
+        assert_eq!(
+            form.get("file").expect("file entry").value(),
+            &FormDataValue::File(file)
+        );
     }
 
     #[test]

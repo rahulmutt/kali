@@ -9,7 +9,7 @@ follow-up widening rather than unfinished baseline delivery:
   specialization budget and benchmark evidence honest,
 - widen the representative package corpus and browser/runtime interoperability without overclaiming
   support rungs; the current browser/runtime baseline now includes deterministic stub surfaces for
-  `WebSocket`, `Worker`, `IndexedDB`, and `CustomEvent` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those stub surfaces alongside `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `@floating-ui/react`, `@headlessui/react`, `@mui/material`, `@radix-ui/react-dialog`, `@tanstack/react-query`, and the existing browser representatives,
+  `WebSocket`, `Worker`, `IndexedDB`, and `CustomEvent` in addition to the shared `Blob` / `File` / `FormData` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those stub surfaces alongside `date-fns`, `lodash-es`, `ramda`, `uuid`, `clsx`, `vue-router`, `react-router`, `zod`, `svelte`, `lit`, `@floating-ui/react`, `@headlessui/react`, `@mui/material`, `@radix-ui/react-dialog`, `@tanstack/react-query`, and the existing browser representatives,
 - widen the proof-backed boundary beyond the current published RC snapshot + lowering slice while
   keeping `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and summary docs synchronized; the current RC
   helper slice is already named explicitly through the decrement-path iff bridge
@@ -62,6 +62,9 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `kali_api_web` now exposes in-memory `Blob` and `File` primitives for the Web baseline, and `kali_api_deno` reexports them so the browser/runtime support library can model common blob/file payloads without changing the public support-rung story.
 - ✅ `kali_api_web` now also exposes an in-memory `FileReader` baseline, and `kali_api_deno` reexports it so browser-style code can read shared blob/file payloads deterministically without changing the public support-rung story.
 - ✅ `crates/kali_types` now recognizes `Blob`, `File`, and `FileReader` as builtin globals, keeping the ambient typing surface aligned with the support-library additions.
+
+### Stage 3.3 - Web FormData baseline
+- ✅ `kali_api_web` now also exposes an in-memory `FormData` baseline, `kali_api_deno` reexports it, and `crates/kali_types` recognizes `FormData` as a builtin global, so the browser/runtime support library can model deterministic multipart payloads without changing the public support-rung story.
 
 ### Stage 3.3 - In-memory browser storage baseline
 - ✅ `kali_api_web` now exposes deterministic in-memory `localStorage` and `sessionStorage` buckets, so the browser interoperability slice has a deterministic shared-state baseline for browser-style code that expects storage APIs.

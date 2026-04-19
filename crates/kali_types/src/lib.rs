@@ -1192,6 +1192,7 @@ fn builtin_globals() -> &'static [&'static str] {
         "eval",
         "File",
         "FileReader",
+        "FormData",
         "Event",
         "EventTarget",
         "WebSocket",
@@ -1481,6 +1482,9 @@ mod tests {
     fn test_resolution_allows_browser_stub_globals() {
         let mut ctx = TypeContext::new();
         let statements = vec![
+            Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::Identifier("FormData".to_string())),
+            }),
             Statement::ExpressionStatement(ExpressionStatement {
                 expression: Box::new(Expression::Identifier("WebSocket".to_string())),
             }),

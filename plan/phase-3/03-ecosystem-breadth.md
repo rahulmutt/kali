@@ -49,14 +49,17 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The shared browser/runtime support library now also exposes an in-memory `FileReader` baseline,
   and the Deno compatibility surface reexports it so browser-style code can read the shared blob /
   file payloads deterministically without changing the documented support rungs.
+- The shared browser/runtime support library now also exposes an in-memory `FormData` baseline,
+  and the Deno compatibility surface reexports it so browser-style code can model deterministic
+  multipart payloads without changing the documented support rungs.
 - The shared browser/runtime support library now also exposes deterministic stub baselines for
   `WebSocket`, `Worker`, and `IndexedDB`, and the Deno compatibility surface reexports those names
   so browser-style code can exercise the ambient surface without changing the documented support
   rungs.
 - The package corpus now also exercises `AbortController`, `EventTarget`, `CustomEvent`,
-  `structuredClone`, and `FileReader` in representative browser and utility package cases,
-  widening the browser/runtime interoperability slice without changing the documented support
-  rungs.
+  `FormData`, `structuredClone`, and `FileReader` in representative browser and utility package
+  cases, widening the browser/runtime interoperability slice without changing the documented
+  support rungs.
 - The browser and utility corpus now also drive the deterministic `WebSocket`, `Worker`, and
   `IndexedDB` browser-runtime stubs through the existing web-baseline interop slice, keeping the
   interop widening concrete without changing the support-rung story.
