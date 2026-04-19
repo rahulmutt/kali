@@ -917,11 +917,28 @@ pub fn fill_random_values(buffer: &mut [u8]) -> Result<(), getrandom::Error> {
 #[derive(Clone, Default)]
 pub struct AbortSignal {
     aborted: Arc<AtomicBool>,
+    event_target: EventTarget,
 }
 
 impl AbortSignal {
     pub fn aborted(&self) -> bool {
         self.aborted.load(Ordering::SeqCst)
+    }
+
+    pub fn add_event_listener<F>(&self, event_type: impl Into<String>, listener: F) -> usize
+    where
+        F: FnMut(&Event) + Send + 'static,
+    {
+        self.event_target.add_event_listener(event_type, listener)
+    }
+
+    pub fn remove_event_listener(&self, event_type: &str, listener_id: usize) -> bool {
+        self.event_target
+            .remove_event_listener(event_type, listener_id)
+    }
+
+    pub fn dispatch_event(&self, event: &Event) -> usize {
+        self.event_target.dispatch_event(event)
     }
 }
 
@@ -941,7 +958,12 @@ impl AbortController {
     }
 
     pub fn abort(&self) {
-        self.signal.aborted.store(true, Ordering::SeqCst);
+        if self.signal.aborted.swap(true, Ordering::SeqCst) {
+            return;
+        }
+
+        let event = Event::new("abort");
+        let _ = self.signal.dispatch_event(&event);
     }
 }
 
@@ -1637,6 +1659,26 @@ mod tests {
         assert!(!signal.aborted());
         controller.abort();
         assert!(signal.aborted());
+    }
+
+    #[test]
+    fn abort_signal_dispatches_abort_events_once() {
+        let controller = AbortController::new();
+        let signal = controller.signal();
+        let invocations = Arc::new(AtomicUsize::new(0));
+        let invocations_clone = Arc::clone(&invocations);
+
+        signal.add_event_listener("abort", move |event| {
+            assert_eq!(event.event_type(), "abort");
+            invocations_clone.fetch_add(1, Ordering::SeqCst);
+        });
+
+        controller.abort();
+        controller.abort();
+
+        assert!(signal.aborted());
+        assert_eq!(invocations.load(Ordering::SeqCst), 1);
+        assert_eq!(signal.dispatch_event(&Event::new("abort")), 1);
     }
 
     #[test]
