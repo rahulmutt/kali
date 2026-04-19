@@ -1326,6 +1326,7 @@ fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deploya
         ("@mui/material", "styles"),
         ("@tanstack/react-query", "query-core"),
         ("@tanstack/table-core", "table"),
+        ("react-dom", "client"),
         ("zustand", "vanilla"),
     ] {
         let dir = tempdir().expect("tempdir");
