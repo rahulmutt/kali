@@ -7,6 +7,9 @@ Planned update:
 - sync the corresponding Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the corpus breadth note names the new package-shape coverage explicitly
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
 
+Completed:
+- the browser exports-map and pattern-exports corpus now also names `hono` explicitly, and the related Stage 3.3 progress notes stay aligned with that narrower slice coverage.
+
 I found a small proof-boundary follow-up for the RC snapshot tracker: the decrement helper can expose a target-specific origin/positive-count theorem alongside the existing target-allocation and heap-characterisation lemmas.
 
 Planned update:
