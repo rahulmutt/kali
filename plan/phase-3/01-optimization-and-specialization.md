@@ -40,6 +40,9 @@ types are statically known.
 - Tagged-parameter call sites now specialize when the actual arguments have a concrete literal or
   MIR-backed layout, so the monomorphisation path reaches one level deeper than the previous
   non-tagged-layout gate while still respecting the deterministic specialization budget.
+- MIR-backed binding layout lookups are now scoped by function owner, so identically named bindings
+  in different functions can specialize independently instead of collapsing to one shared fallback
+  layout.
 - A representative benchmark suite now records compile time, WASM size, instruction count, and
   add-op deltas across `fast`, `release`, and `release-advanced`.
 
