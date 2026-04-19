@@ -11,7 +11,10 @@ follow-up widening rather than unfinished baseline delivery:
   support rungs; the current browser/runtime baseline now includes deterministic stub surfaces for
   `WebSocket`, `Worker`, `IndexedDB`, and `CustomEvent` in addition to the shared `Blob` / `File` / storage / `FileReader` helpers, and the browser web-baseline interop corpus now also exercises those stub surfaces alongside `date-fns`, `lodash-es`, `clsx`, and `vue-router` and the existing browser representatives,
 - widen the proof-backed boundary beyond the current published RC snapshot + lowering slice while
-  keeping `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and summary docs synchronized.
+  keeping `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and summary docs synchronized; the current RC
+  helper slice is already named explicitly through the decrement-path iff bridge
+  `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff` and the collection target iff
+  bridge `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`.
 
 ## Completed
 
