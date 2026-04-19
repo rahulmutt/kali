@@ -799,6 +799,20 @@ theorem releaseAndCollectTargetCellOriginOwnershipAndPositiveCount (snapshot : R
       simpa [hcell] using hname
     exact False.elim (hname0 hname')
 
+/-- The release-and-collect helper keeps the target origin/ownership/positive-count slice together with the linear-memory payload. -/
+theorem releaseAndCollectTargetCellOriginOwnershipAndPositiveCountAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap →
+      cell.name = ref →
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        cell = { cell0 with refCount := cell0.refCount - 1 } ∧
+        cell.name = cell0.name ∧
+        cell.owner = cell0.owner ∧
+        cell.refCount > 0) ∧
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndCollectTargetCellOriginOwnershipAndPositiveCount snapshot ref
+  · exact releaseAndCollectPreservesLinearMemory snapshot ref
+
 /-- A release-and-collect step preserves the well-formedness of the remaining
 live set because zero-count cells are collected after the decrement pass. -/
 theorem releaseAndCollectPreservesWellFormed (snapshot : RcSnapshot) (ref : String)

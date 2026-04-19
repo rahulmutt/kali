@@ -508,3 +508,14 @@ Planned update:
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
 Completed:
 - the scoped browser exports-map and browser-condition corpus now also names `@mantine/core` explicitly in `crates/kali_cli/tests/package_corpus.rs`, and the related Stage 3.3 progress notes now call out that narrower slice coverage alongside the existing browser package breadth notes.
+
+## 2026-04-19 — Stage 4.2 collection target ownership/linear-memory companion widening
+
+I widened the Stage 4.2 proof-backed RC snapshot slice one step further by adding the collection-target ownership theorem's linear-memory companion `KaliCore.Safety.releaseAndCollectTargetCellOriginOwnershipAndPositiveCountAndLinearMemory`, keeping the collection-path provenance story explicit without changing the broader ownership/freeing target.
+
+Planned update:
+- sync `proofs/KaliCore/Safety.lean`, `proofs/BOUNDARY.md`, `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, `TODO.md`, and the proof-summary drift guard so the new collection-target companion theorem is named explicitly
+- keep the claim narrow: this is still a companion-theorem widening on the published RC snapshot slice, not the full Stage 4.2 ownership/freeing target
+
+Completed:
+- the collection-target ownership theorem now has an explicit linear-memory companion in the proof-backed boundary, and the summary docs and anti-drift guard now name it explicitly.

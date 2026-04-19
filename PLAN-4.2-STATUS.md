@@ -50,7 +50,7 @@ The current published boundary explicitly names the RC snapshot helper slice, in
 - `releaseAndDecrementTargetCellPositiveCountIff`
 - `releaseAndDecrementTargetCellOrigin`
 - `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCountAndLinearMemory`
-- `releaseAndCollectTargetCellOriginAndPositiveCount`, `releaseAndCollectTargetCellOriginOwnershipAndPositiveCount`
+- `releaseAndCollectTargetCellOriginAndPositiveCount`, `releaseAndCollectTargetCellOriginOwnershipAndPositiveCount`, `KaliCore.Safety.releaseAndCollectTargetCellOriginOwnershipAndPositiveCountAndLinearMemory`
 - `releaseAndDecrementKeepsOtherPositiveCountCells`
 - `releaseAndDecrementKeepsOriginalPositiveCountCells`
 - `releaseAndDecrementKeepsOtherHeapEntries`
@@ -88,7 +88,7 @@ The current published boundary explicitly names the RC snapshot helper slice, in
 - `releaseAndCollectHeapCellsHavePositiveCount`
 - `releaseAndCollectTargetCellAllocatedWhenPositiveCount`
 - `releaseAndCollectTargetCellOrigin`
-- `releaseAndCollectTargetCellOriginAndPositiveCount`, `releaseAndCollectTargetCellOriginOwnershipAndPositiveCount`
+- `releaseAndCollectTargetCellOriginAndPositiveCount`, `releaseAndCollectTargetCellOriginOwnershipAndPositiveCount`, `KaliCore.Safety.releaseAndCollectTargetCellOriginOwnershipAndPositiveCountAndLinearMemory`
 - `releaseAndCollectTargetCellOwnedAndAllocatedWhenPositiveCount`
 - `releaseAndCollectPreservesLinearMemory`
 - `releaseAndCollectPreservesOwnershipAndLinearMemory`
