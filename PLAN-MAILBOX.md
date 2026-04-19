@@ -270,6 +270,9 @@ Planned update:
 - sync `README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, and the Stage 4.2 plan/status notes so the theorem is named explicitly wherever the proof-backed boundary inventory is repeated
 - keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
 
+Completed:
+- the current proof-backed boundary summaries and Stage 4.2 progress notes now name `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` explicitly, so the final-heap positivity story stays direct rather than implied.
+
 ## 2026-04-19 — Stage 3.3 react-dom browser corpus widening
 
 I found a small but concrete Stage 3.3 follow-up in the package-corpus breadth lane: `react-dom` is already covered in the browser web-baseline interop slice, but it still has room to exercise another representative browser package shape in the exports-map / browser-condition corpus.

@@ -565,3 +565,7 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 4.2 - Decrement target origin/positive-count wording sync
 - ✅ `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` is now spelled out explicitly in the published boundary, summary docs, and proof-summary guard, so the decrement-path provenance/positivity slice stays aligned with the RC snapshot inventory.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
+
+### Stage 4.2 - Final-heap positive-count wording sync
+- ✅ `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` is now spelled out explicitly in the published boundary, summary docs, and Stage 4.2 progress notes, so the local collection helper's final-heap positivity story stays direct rather than implied.
+- ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
