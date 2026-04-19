@@ -21,3 +21,11 @@ I widened the Stage 3.3 browser web-baseline interop corpus one step further by 
 Planned update:
 - sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention `@emotion/styled` alongside the existing browser web-baseline package breadth notes
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+## 2026-04-19 — Stage 3.3 heroicons browser-corpus widening
+
+I widened the Stage 3.3 browser web-baseline interop corpus one step further by adding `@heroicons/react` as another scoped browser representative package in the package corpus.
+
+Planned update:
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention `@heroicons/react` alongside the existing browser web-baseline package breadth notes
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
