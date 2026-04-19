@@ -1163,6 +1163,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "axios",
         "next",
         "hono",
+        "@vueuse/core",
         "@emotion/react",
         "@floating-ui/react",
         "@headlessui/react",
