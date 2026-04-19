@@ -206,3 +206,12 @@ Planned update:
 - add `react-dom` to the browser exports-map and browser-condition corpus slices in `crates/kali_cli/tests/package_corpus.rs`
 - sync the corresponding Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` so the browser representative-package breadth note names the new slice coverage explicitly
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+## 2026-04-19 — Stage 4.2 no-dangling-reference summary sync
+
+I found a small Stage 4.2 proof-summary drift gap: the published boundary already names `KaliCore.Safety.noDanglingReference`, but the current anti-drift guard and several summary docs do not pin it explicitly yet.
+
+Planned update:
+- add `KaliCore.Safety.noDanglingReference` to the RC snapshot theorem inventory in `crates/kali_cli/tests/schema_docs.rs`
+- sync the summary/progress docs (`README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `PLAN-4.2-STATUS.md`, `plan/phase-4/02-formal-verification-depth.md`, and `TODO.md`) so the base no-dangling theorem is named alongside the helper-level corollaries
+- keep the claim narrow: this is a proof-summary / anti-drift sync for the published boundary, not a boundary widening

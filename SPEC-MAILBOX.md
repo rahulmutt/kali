@@ -385,3 +385,11 @@ I found one remaining proof-summary drift point in the RC snapshot slice: the lo
 Planned update:
 - sync the verification summary docs (`README.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`) so the theorem is named explicitly wherever the proof-backed boundary inventory is repeated
 - keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening
+
+## 2026-04-19 — Stage 4.2 no-dangling-reference summary sync
+
+I found a small proof-summary drift gap: the published boundary already names `KaliCore.Safety.noDanglingReference`, but the summary docs tracked by the proof-summary anti-drift guard do not mention it explicitly yet.
+
+Planned update:
+- sync the verification-facing summaries in `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, and `specs/19-feature-maturity.md` so the base no-dangling theorem is named alongside the helper-level corollaries
+- keep the claim narrow: this is a wording / anti-drift sync for the published boundary, not a boundary widening

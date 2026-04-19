@@ -102,6 +102,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
     let rc_predicate_vocabulary = ["hasOwnership", "allocated", "liveAnnotated"];
     let rc_theorem_names = [
         "releaseRefNoDanglingReference",
+        "KaliCore.Safety.noDanglingReference",
         // Keep the release-only helper and the decrement/collection live-reference filtering corollaries pinned together.
         "releaseRefLiveRefsAreOwnedAndAllocated",
         "releaseRefLiveRefsAreLiveAnnotated",
