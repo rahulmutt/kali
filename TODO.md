@@ -42,6 +42,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `svelte` and `lit` in the browser web-baseline interop slice, so the representative package corpus now carries two more browser-oriented package names through the browser command path without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `ramda` and `uuid` in the browser web-baseline interop slice, so the representative package corpus now carries two more utility-package names through the browser command path without changing the documented support rungs.
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@floating-ui/react`, `@mui/material`, `@radix-ui/react-dialog`, and `@tanstack/react-query` in the browser web-baseline interop slice, so the representative package corpus now carries four more scoped browser package names through the browser command path without changing the documented support rungs.
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `axios` in the browser and utility web-baseline interop slices, so the representative package corpus now carries one more common pure-JS package through both command paths without changing the documented support rungs.
 - ✅ Kept the update narrow: this widens the package corpus and browser/runtime interoperability checks without changing the documented support rungs.
 
 ### Stage 3.3 - Scoped browser representative widening
