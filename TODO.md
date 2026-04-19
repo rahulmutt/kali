@@ -24,7 +24,7 @@ follow-up widening rather than unfinished baseline delivery:
   decrement-path companion theorem
   `KaliCore.Safety.releaseAndDecrementHeapCellOriginOwnershipAndPositiveCountAndLinearMemory`, the
   decrement-path target origin/positive-count theorem
-  `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount`, which the current Stage 4.2 progress wording now keeps explicit, the decrement-path iff bridge `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff`, the
+  `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCountAndLinearMemory`, which the current Stage 4.2 progress wording now keeps explicit, the decrement-path iff bridge `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIff`, the
   collection target iff bridge `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`,
   the collection helper's heap-filter-and-linear-memory corollary
   `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilterAndLinearMemory`, the heap-characterisation companions
@@ -365,7 +365,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
 
 ### Stage 4.2 - Decrement target-origin wording sync
-- ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and `plan/phase-4/02-formal-verification-depth.md` now name `KaliCore.Safety.releaseAndDecrementTargetCellOrigin` and the target-cell origin/positive-count theorem `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` explicitly alongside the rest of the RC snapshot inventory.
+- ✅ `README.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and `plan/phase-4/02-formal-verification-depth.md` now name `KaliCore.Safety.releaseAndDecrementTargetCellOrigin` and the target-cell origin/positive-count theorem `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCountAndLinearMemory` explicitly alongside the rest of the RC snapshot inventory.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
 
 ### Stage 4.2 - Decrement target positive-count iff bridge
@@ -595,7 +595,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Kept the update narrow: this is another helper-level proof-summary sync for the published boundary, not a broader ownership/freeing widening.
 
 ### Stage 4.2 - Decrement target origin/positive-count wording sync
-- ✅ `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` is now spelled out explicitly in the published boundary, summary docs, and proof-summary guard, so the decrement-path provenance/positivity slice stays aligned with the RC snapshot inventory.
+- ✅ `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCountAndLinearMemory` is now spelled out explicitly in the published boundary, summary docs, and proof-summary guard, so the decrement-path provenance/positivity slice stays aligned with the RC snapshot inventory.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
 
 ### Stage 4.2 - Final-heap positive-count wording sync

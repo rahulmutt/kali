@@ -366,6 +366,19 @@ theorem releaseAndDecrementTargetCellOriginAndPositiveCount (snapshot : RcSnapsh
     simpa [hcell] using hpos
   exact Nat.sub_pos_iff_lt.mp hgt
 
+/-- The release-and-decrement helper keeps the target traceable to the original heap with a positive count and preserves the linear-memory payload. -/
+theorem releaseAndDecrementTargetCellOriginAndPositiveCountAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (∀ cell, cell ∈ (releaseAndDecrement snapshot ref).heap →
+      cell.name = ref →
+      cell.refCount > 0 →
+      ∃ cell0, cell0 ∈ snapshot.heap ∧
+        cell = { cell0 with refCount := cell0.refCount - 1 } ∧
+        cell0.refCount > 1) ∧
+    (releaseAndDecrement snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndDecrementTargetCellOriginAndPositiveCount snapshot ref
+  · exact releaseAndDecrementPreservesLinearMemory snapshot ref
+
 /-- Every release-and-decrement heap cell also preserves its original name and ownership tag. -/
 theorem releaseAndDecrementHeapCellOriginAndOwnership (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ (releaseAndDecrement snapshot ref).heap →

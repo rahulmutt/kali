@@ -1,3 +1,7 @@
+## 2026-04-19 — Stage 4.2 decrement target origin/positive-count linear-memory companion sync
+
+Completed: the decrement-path target theorem `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` now has an explicit matching linear-memory companion in the proof-backed boundary, and the stage/plan summaries now name it alongside the existing RC snapshot inventory.
+
 ## 2026-04-19 — Stage 3.1 special-number literal-signature sync
 
 I synced the Stage 3.1 specialization-depth summary wording so `Infinity`, `-Infinity`, and `NaN` are called out explicitly alongside the other literal-signature cases in the top-level follow-up notes.
