@@ -641,6 +641,11 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Added `dotenv` to the node-assuming corpus on the Node context so the representative Node-only package breadth now carries one more common package shape through the Node command path without changing the documented support rungs.
 - ✅ Added `@tanstack/react-query` to the browser typed-export-branch corpus so the representative browser package set now covers one more scoped query-library shape without changing the documented support rungs.
 - ✅ Added `vue-router` and `react-router` to the browser router corpus slices so the representative browser package set now covers two more router package shapes without changing the documented support rungs.
+
+### Stage 3.3 - react-router-dom browser exports-map widening
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `react-router-dom` in the browser exports-map slice, so the representative router package breadth now carries one more browser package shape through the browser command path without changing the documented support rungs.
+- ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the `react-router-dom` widening explicitly, keeping the corpus-breadth wording aligned with the current evidence set.
+- ✅ Kept the update narrow: this widens the corpus within the existing support-rung model; it does not change the documented support rungs.
 - ✅ Added `@emotion/react`, `@floating-ui/react`, `@mui/material`, and `@tanstack/react-query` to the browser web-baseline interop slice so the browser/runtime interoperability widening now carries four more scoped browser package names through the browser command path without changing the documented support rungs.
 - ✅ Added `@reduxjs/toolkit` to the browser web-baseline interop slice so the browser/runtime interoperability widening now carries one more scoped browser package name through the browser command path without changing the documented support rungs.
 - ✅ Added `@emotion/react`, `@emotion/styled`, `@heroicons/react`, and `react-dom` to the browser web-baseline interop slice so the browser/runtime interoperability widening now carries another browser package name through the browser command path without changing the documented support rungs.

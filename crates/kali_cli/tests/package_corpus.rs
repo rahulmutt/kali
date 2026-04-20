@@ -558,6 +558,7 @@ fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_thr
         ("solid-js", "store"),
         ("vue-router", "history"),
         ("react-router", "dom"),
+        ("react-router-dom", "dom"),
         ("jotai", "store"),
         ("@remix-run/react", "links"),
         ("react-dom", "client"),

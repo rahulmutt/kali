@@ -788,3 +788,14 @@ Completed:
 - `PLAN.md` now names `KaliCore.Safety.noDanglingReference` explicitly in the Stage 4.2 verification-depth follow-up lane alongside the helper-level no-dangling-reference corollaries.
 - `TODO.md` now records the plan-lane sync alongside the earlier status-tracker sync.
 - No spec update was needed; this was a plan-summary anti-drift sync only.
+
+Subject: Stage 3.3 react-router-dom browser exports-map widening
+
+## 2026-04-20 — Stage 3.3 react-router-dom browser exports-map widening
+
+I widened the Stage 3.3 package corpus one more step by adding `react-router-dom` to the browser exports-map slice, so the browser router corpus now has one more representative package shape without changing any support-rung claims.
+
+Planned update:
+- add `react-router-dom` to `crates/kali_cli/tests/package_corpus.rs` in the browser exports-map router slice
+- sync the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new `react-router-dom` coverage is named explicitly
+- keep the claim narrow: this is still a corpus/evidence widening within the existing package-support model, not a support-rung change
