@@ -500,7 +500,7 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Synced `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and the verification summaries so the new decrement-path iff theorem is named explicitly alongside the current RC helper inventory.
 
 ### Stage 4.2 - Soundness-helper naming sync
-- ✅ `proofs/BOUNDARY.md` and `PLAN-4.2-STATUS.md` now explicitly name `KaliCore.Soundness.subst_closed` alongside the widened closed-fragment soundness claims.
+- ✅ `proofs/BOUNDARY.md` and `PLAN-4.2-STATUS.md` now explicitly name `KaliCore.Soundness.subst_closed` and the literal-to-type helper `KaliCore.litTy` alongside the widened closed-fragment soundness claims.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a support-rung change.
 
 ### Stage 4.2 - Release-set monotonicity follow-up

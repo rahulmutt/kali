@@ -1,3 +1,13 @@
+Subject: Stage 4.2 soundness-helper naming sync
+
+## 2026-04-20 — Stage 4.2 soundness-helper naming sync
+
+I found one remaining proof-tree helper that the proof summary docs should name explicitly alongside `KaliCore.Soundness.subst_closed`: the literal-to-type helper `KaliCore.litTy` from `proofs/KaliCore/Types.lean`.
+
+Completed:
+- `proofs/BOUNDARY.md`, `README.md`, `specs/17-verification.md`, `plan/phase-4/02-formal-verification-depth.md`, `PLAN-4.2-STATUS.md`, and `TODO.md` now name `KaliCore.litTy` alongside `KaliCore.Soundness.subst_closed` in the proof-summary / tracker prose.
+- Kept the claim narrow: this is a proof-summary wording sync for the published boundary, not a widening of the proof-backed claim surface.
+
 Subject: Stage 3.3 reselect utility exports-map/pattern-exports widening
 
 ## 2026-04-19 — Stage 3.3 reselect utility exports-map/pattern-exports widening
