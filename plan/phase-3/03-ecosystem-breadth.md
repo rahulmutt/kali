@@ -77,6 +77,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   representative browser app-framework package name, and the scoped browser corpus now also
   exercises it across the exports-map and browser-condition slices, keeping the browser package
   breadth concrete without changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `react-helmet-async` as another
+  representative browser head-management package name, keeping one more browser package shape
+  concrete through the browser command path without changing the support-rung story.
 - The scoped browser exports-map slice now also exercises `@remix-run/react`, so that app-framework
   package is now covered through the exports-map resolution path in addition to the existing
   browser-condition slice.

@@ -654,3 +654,12 @@ Completed:
 - `crates/kali_cli/tests/package_corpus.rs` now exercises `@emotion/react` in the utility plain-package corpus on the default standalone surface.
 - `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `TODO.md`, and `plan/phase-1/sum.md` now name the new utility corpus coverage explicitly.
 - Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model; it does not change the documented support rungs.
+
+## 2026-04-20 — Stage 3.3 react-helmet-async browser web-baseline widening
+
+I widened the Stage 3.3 package corpus one more step by adding `react-helmet-async` to the browser web-baseline interop slice, keeping the representative head-management package breadth concrete without changing any support-rung claims.
+
+Completed:
+- `crates/kali_cli/tests/package_corpus.rs` now exercises `react-helmet-async` in the browser web-baseline interop slice.
+- `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the widening explicitly.
+- Kept the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
