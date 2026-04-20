@@ -252,6 +252,11 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `plan/phase-3/01-optimization-and-specialization.md`, `PLAN.md`, `plan/phase-1/sum.md`, `TODO.md`, and `PLAN-MAILBOX.md` now name the new re-export-chain widening explicitly, keeping the specialization-depth notes aligned with the current evidence set.
 - ✅ Kept the update narrow: this widens evidence for the existing optimizer model; it does not change the published support or benchmark claims.
 
+### Stage 3.1 - Release-advanced re-export-chain partial specialization
+- ✅ `crates/kali_optimize/src/tests.rs` now also exercises the same `public` / `bridge` / helper re-export chain in `release-advanced`, proving the longer cross-module call flow still behaves deterministically even though the first public branch folds to a literal while the later public wrapper still specializes once.
+- ✅ `plan/phase-3/01-optimization-and-specialization.md`, `PLAN.md`, and `plan/phase-1/sum.md` now name the release-advanced re-export-chain widening explicitly, keeping the specialization-depth notes aligned with the current evidence set.
+- ✅ Kept the update narrow: this widens evidence for the existing optimizer model; it does not change the published support or benchmark claims.
+
 ### Stage 3.1 - Budget-exhausted MIR specialization reuse
 - ✅ MIR-aware call-site reuse now checks the specialization cache before it spends the current owner's remaining budget, so once a clone already exists the optimizer can still retarget later duplicate call sites to it even after the owner has used every remaining specialization slot.
 - ✅ Added a regression test that builds a budgeted MIR specialization with repeated call sites and proves the later duplicate call still reuses the earlier clone after the budget is exhausted.

@@ -2468,6 +2468,352 @@ fn release_reuses_generic_specializations_across_reexport_chain() {
 }
 
 #[test]
+fn release_advanced_partially_specializes_reexport_chain() {
+    fn append_literal_chain(
+        builder: &mut LirBuilder,
+        mut current: LirNodeId,
+        start: u32,
+        end: u32,
+    ) -> LirNodeId {
+        for value in start..=end {
+            let next = builder.alloc_text(LirNodeKind::Value, "+");
+            let literal_node = literal(builder, &value.to_string());
+            builder.node_mut(next).unwrap().children = vec![current, literal_node];
+            current = next;
+        }
+        current
+    }
+
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+
+    let math_add = builder.alloc_text(LirNodeKind::Instruction, "math_add");
+    let math_left = builder.alloc_text(LirNodeKind::Value, "left");
+    let math_right = builder.alloc_text(LirNodeKind::Value, "right");
+    let math_block = builder.alloc(LirNodeKind::Block);
+    let math_ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+    let math_head = builder.alloc_text(LirNodeKind::Value, "+");
+    builder.node_mut(math_head).unwrap().children = vec![math_left, math_right];
+    let math_result = append_literal_chain(&mut builder, math_head, 1, 8);
+    builder.node_mut(math_ret).unwrap().children = vec![math_result];
+    builder.node_mut(math_block).unwrap().children = vec![math_ret];
+    builder.node_mut(math_add).unwrap().children = vec![math_left, math_right, math_block];
+
+    let module_helper = builder.alloc_text(LirNodeKind::Instruction, "module_helper");
+    let helper_left = builder.alloc_text(LirNodeKind::Value, "left");
+    let helper_right = builder.alloc_text(LirNodeKind::Value, "right");
+    let helper_block = builder.alloc(LirNodeKind::Block);
+    let helper_call = builder.alloc(LirNodeKind::Call);
+    let helper_callee = builder.alloc_text(LirNodeKind::Value, "math_add");
+    builder.node_mut(helper_call).unwrap().children =
+        vec![helper_callee, helper_left, helper_right];
+    let helper_ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+    let helper_result = append_literal_chain(&mut builder, helper_call, 1, 8);
+    builder.node_mut(helper_ret).unwrap().children = vec![helper_result];
+    builder.node_mut(helper_block).unwrap().children = vec![helper_ret];
+    builder.node_mut(module_helper).unwrap().children =
+        vec![helper_left, helper_right, helper_block];
+
+    let bridge = builder.alloc_text(LirNodeKind::Instruction, "bridge");
+    let bridge_left = builder.alloc_text(LirNodeKind::Value, "left");
+    let bridge_right = builder.alloc_text(LirNodeKind::Value, "right");
+    let bridge_block = builder.alloc(LirNodeKind::Block);
+    let bridge_call = builder.alloc(LirNodeKind::Call);
+    let bridge_callee = builder.alloc_text(LirNodeKind::Value, "module_helper");
+    builder.node_mut(bridge_call).unwrap().children =
+        vec![bridge_callee, bridge_left, bridge_right];
+    let bridge_ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+    let bridge_result = append_literal_chain(&mut builder, bridge_call, 1, 8);
+    builder.node_mut(bridge_ret).unwrap().children = vec![bridge_result];
+    builder.node_mut(bridge_block).unwrap().children = vec![bridge_ret];
+    builder.node_mut(bridge).unwrap().children = vec![bridge_left, bridge_right, bridge_block];
+
+    let public_a = builder.alloc_text(LirNodeKind::Instruction, "public_a");
+    let public_a_left = builder.alloc_text(LirNodeKind::Value, "left");
+    let public_a_right = builder.alloc_text(LirNodeKind::Value, "right");
+    let public_a_block = builder.alloc(LirNodeKind::Block);
+    let public_a_call = builder.alloc(LirNodeKind::Call);
+    let public_a_callee = builder.alloc_text(LirNodeKind::Value, "bridge");
+    builder.node_mut(public_a_call).unwrap().children =
+        vec![public_a_callee, public_a_left, public_a_right];
+    let public_a_ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+    let public_a_result = append_literal_chain(&mut builder, public_a_call, 1, 8);
+    builder.node_mut(public_a_ret).unwrap().children = vec![public_a_result];
+    builder.node_mut(public_a_block).unwrap().children = vec![public_a_ret];
+    builder.node_mut(public_a).unwrap().children =
+        vec![public_a_left, public_a_right, public_a_block];
+
+    let public_b = builder.alloc_text(LirNodeKind::Instruction, "public_b");
+    let public_b_left = builder.alloc_text(LirNodeKind::Value, "left");
+    let public_b_right = builder.alloc_text(LirNodeKind::Value, "right");
+    let public_b_block = builder.alloc(LirNodeKind::Block);
+    let public_b_call = builder.alloc(LirNodeKind::Call);
+    let public_b_callee = builder.alloc_text(LirNodeKind::Value, "bridge");
+    builder.node_mut(public_b_call).unwrap().children =
+        vec![public_b_callee, public_b_left, public_b_right];
+    let public_b_ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+    let public_b_result = append_literal_chain(&mut builder, public_b_call, 1, 8);
+    builder.node_mut(public_b_ret).unwrap().children = vec![public_b_result];
+    builder.node_mut(public_b_block).unwrap().children = vec![public_b_ret];
+    builder.node_mut(public_b).unwrap().children =
+        vec![public_b_left, public_b_right, public_b_block];
+
+    let root_call_a = builder.alloc(LirNodeKind::Call);
+    let root_call_a_callee = builder.alloc_text(LirNodeKind::Value, "public_a");
+    let root_call_a_left = literal(&mut builder, "2");
+    let root_call_a_right = literal(&mut builder, "3");
+    builder.node_mut(root_call_a).unwrap().children =
+        vec![root_call_a_callee, root_call_a_left, root_call_a_right];
+
+    let root_call_b = builder.alloc(LirNodeKind::Call);
+    let root_call_b_callee = builder.alloc_text(LirNodeKind::Value, "public_b");
+    let root_call_b_left = literal(&mut builder, "2");
+    let root_call_b_right = literal(&mut builder, "3");
+    builder.node_mut(root_call_b).unwrap().children =
+        vec![root_call_b_callee, root_call_b_left, root_call_b_right];
+
+    builder.node_mut(root).unwrap().children = vec![
+        math_add,
+        module_helper,
+        bridge,
+        public_a,
+        public_b,
+        root_call_a,
+        root_call_b,
+    ];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    let mir = MirAnalysisProgram {
+        root: kali_mir::MirNodeId::new(0),
+        nodes: Vec::new(),
+        functions: vec![
+            kali_mir::MirFunction {
+                name: Some("module_helper".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![
+                    kali_mir::MirBinding {
+                        name: "left".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::TaggedVal,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                    kali_mir::MirBinding {
+                        name: "right".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::TaggedVal,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                ],
+            },
+            kali_mir::MirFunction {
+                name: Some("bridge".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![
+                    kali_mir::MirBinding {
+                        name: "left".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::TaggedVal,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                    kali_mir::MirBinding {
+                        name: "right".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::TaggedVal,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                ],
+            },
+            kali_mir::MirFunction {
+                name: Some("public_a".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![
+                    kali_mir::MirBinding {
+                        name: "left".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::Struct {
+                            fields: vec![
+                                (
+                                    "x".to_string(),
+                                    Box::new(LayoutDescriptor::Scalar("number".to_string())),
+                                ),
+                                (
+                                    "y".to_string(),
+                                    Box::new(LayoutDescriptor::Scalar("number".to_string())),
+                                ),
+                            ],
+                        },
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                    kali_mir::MirBinding {
+                        name: "right".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::Struct {
+                            fields: vec![
+                                (
+                                    "x".to_string(),
+                                    Box::new(LayoutDescriptor::Scalar("number".to_string())),
+                                ),
+                                (
+                                    "z".to_string(),
+                                    Box::new(LayoutDescriptor::Scalar("number".to_string())),
+                                ),
+                            ],
+                        },
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                ],
+            },
+            kali_mir::MirFunction {
+                name: Some("public_b".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![
+                    kali_mir::MirBinding {
+                        name: "left".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::Struct {
+                            fields: vec![
+                                (
+                                    "x".to_string(),
+                                    Box::new(LayoutDescriptor::Scalar("number".to_string())),
+                                ),
+                                (
+                                    "z".to_string(),
+                                    Box::new(LayoutDescriptor::Scalar("number".to_string())),
+                                ),
+                            ],
+                        },
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                    kali_mir::MirBinding {
+                        name: "right".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::Struct {
+                            fields: vec![
+                                (
+                                    "x".to_string(),
+                                    Box::new(LayoutDescriptor::Scalar("number".to_string())),
+                                ),
+                                (
+                                    "w".to_string(),
+                                    Box::new(LayoutDescriptor::Scalar("number".to_string())),
+                                ),
+                            ],
+                        },
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                ],
+            },
+        ],
+    };
+
+    Optimizer::new(OptimizationLevel::ReleaseAdvanced)
+        .optimize_program_with_mir(&mut program, &mir);
+
+    let public_a_specialized_name = program.nodes[root_call_a.0 as usize]
+        .children
+        .first()
+        .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+        .and_then(|callee| callee.text.as_deref())
+        .expect("specialized public_a call target should exist");
+    let public_b_specialized_name = program.nodes[root_call_b.0 as usize]
+        .children
+        .first()
+        .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+        .and_then(|callee| callee.text.as_deref())
+        .expect("specialized public_b call target should exist");
+
+    assert_eq!(public_a_specialized_name, "+");
+    assert!(public_b_specialized_name.starts_with("public_b$spec$"));
+    assert_ne!(
+        public_a_specialized_name, public_b_specialized_name,
+        "the advanced chain should still distinguish the folded and specialized branches"
+    );
+
+    let public_b_specialized_count = program
+        .nodes
+        .iter()
+        .filter(|node| {
+            node.kind == LirNodeKind::Instruction
+                && node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| text.starts_with("public_b$spec$"))
+        })
+        .count();
+    assert_eq!(
+        public_b_specialized_count, 1,
+        "release-advanced should still materialize the specialized public_b wrapper once"
+    );
+
+    let bridge_specialized_count = program
+        .nodes
+        .iter()
+        .filter(|node| {
+            node.kind == LirNodeKind::Instruction
+                && node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| text.starts_with("bridge$spec$"))
+        })
+        .count();
+    assert_eq!(
+        bridge_specialized_count, 0,
+        "bridge should stay folded in this advanced chain"
+    );
+
+    let helper_specialized_count = program
+        .nodes
+        .iter()
+        .filter(|node| {
+            node.kind == LirNodeKind::Instruction
+                && node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| text.starts_with("module_helper$spec$"))
+        })
+        .count();
+    assert_eq!(
+        helper_specialized_count, 0,
+        "module_helper should stay folded in this advanced chain"
+    );
+
+    let math_specialized_count = program
+        .nodes
+        .iter()
+        .filter(|node| {
+            node.kind == LirNodeKind::Instruction
+                && node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| text.starts_with("math_add$spec$"))
+        })
+        .count();
+    assert_eq!(
+        math_specialized_count, 0,
+        "math_add should stay folded in this advanced chain"
+    );
+}
+
+#[test]
 fn release_reuses_existing_mir_specializations_after_an_owner_spends_its_budget() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);

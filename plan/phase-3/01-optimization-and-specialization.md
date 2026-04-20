@@ -119,7 +119,9 @@ types are statically known.
 - The new re-export-chain regression now also proves the same generic helper clone is reused once
   when the call flow runs through an explicit `public` / `bridge` / helper chain in release mode,
   and the bridge wrapper itself still specializes once, so the cross-module-style reuse story stays
-  concrete without changing the deterministic budget model.
+  concrete without changing the deterministic budget model; `release-advanced` now keeps the same
+  chain deterministic by folding the first public branch to a literal while still specializing the
+  later public wrapper once.
 
 ## Tasks
 
