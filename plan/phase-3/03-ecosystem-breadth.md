@@ -419,7 +419,7 @@ unfinished Stage-3.3 implementation:
 
 - keep widening the representative package corpus without overclaiming support rungs; the current corpus now also carries `superjson`, `chart.js`, `recharts`, `@jridgewell/sourcemap-codec`, and `@emotion/react` through the default standalone surface alongside the existing browser/utility breadth, and the utility plain-package corpus now also carries `tailwindcss` on the default standalone surface as another build-tool package name, and the shared web-baseline helper source now also exercises `performance.now()` and `queueMicrotask` so the browser/runtime timing and microtask baseline stays concrete,
 - deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice and the current in-memory Blob/File/FileReader/storage baseline plus the stub WebSocket/Worker/IndexedDB surface,
-- widen cross-module inference carefully within the published solver/specialization budgets.
+- widen cross-module inference carefully within the published solver/specialization budgets, including higher-order helper chains that return function values across the re-export path.
 
 ## Historical Out of Scope for Stage 3.3
 
