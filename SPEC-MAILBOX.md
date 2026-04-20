@@ -7,6 +7,11 @@ Planned update:
 - extend `crates/kali_cli/tests/schema_docs.rs` so the anti-drift guard pins those soundness-helper names in the same summary-doc set
 - keep the claim narrow: this is a summary-doc and guard sync for the published boundary, not a boundary widening
 
+Completed:
+- `specs/16-testing.md` and `specs/19-feature-maturity.md` now name `KaliCore.Soundness.subst_closed` and `KaliCore.litTy` explicitly alongside the current RC snapshot / lowering inventories.
+- `crates/kali_cli/tests/schema_docs.rs` now pins those soundness-helper names in the verification-summary anti-drift guard, keeping the summary-doc set aligned with the published boundary.
+- Kept the update narrow: this is a summary-doc / guard sync for the published boundary, not a boundary widening.
+
 ## 2026-04-19 — Stage 4.2 decrement target origin/positive-count linear-memory companion widening
 
 Completed: the decrement-path target theorem `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCount` is already published, and the summary docs now name its matching linear-memory companion `KaliCore.Safety.releaseAndDecrementTargetCellOriginAndPositiveCountAndLinearMemory` explicitly too, so the RC snapshot progress wording now stays aligned with the theorem inventory.

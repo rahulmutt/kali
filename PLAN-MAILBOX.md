@@ -717,3 +717,8 @@ Planned update:
 - add `@stripe/react-stripe-js` to the scoped browser exports-map and browser-condition coverage in `crates/kali_cli/tests/package_corpus.rs`
 - sync the corresponding Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the corpus-breadth note names the new package-shape coverage explicitly
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- `crates/kali_cli/tests/package_corpus.rs` now exercises `@stripe/react-stripe-js` in the browser web-baseline interop slice and the scoped browser exports-map/browser-condition slices.
+- `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `TODO.md`, and `plan/phase-1/sum.md` now name the `@stripe/react-stripe-js` widening explicitly.
+- Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
