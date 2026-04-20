@@ -199,8 +199,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   surface, keeping one more browser-networking package name covered without changing the support-
   rung story.
 - The browser and utility web-baseline interop corpus now also exercises `@tanstack/react-table` as
-  another representative scoped table package name, keeping the breadth widening concrete without
-  changing the support-rung story.
+  another representative scoped table package name, and now also exercises `@tanstack/react-virtual`
+  as another representative scoped browser virtualization package name, keeping the breadth
+  widening concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@apollo/client` across the web-baseline,
   typed-export-branch, exports-map, and browser-condition slices, keeping the representative scoped
   browser package breadth concrete without changing the support-rung story.

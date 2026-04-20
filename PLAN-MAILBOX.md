@@ -873,3 +873,12 @@ Planned update:
 - add `cheerio` to the utility plain-package corpus in `crates/kali_cli/tests/package_corpus.rs`
 - sync the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new utility corpus coverage is named explicitly
 - keep the claim narrow: this is still a corpus/evidence widening within the existing package-support model, not a support-rung change
+
+## 2026-04-20 — Stage 3.3 @tanstack/react-virtual browser/web-baseline widening
+
+I found a small Stage 3.3 follow-up in the browser web-baseline interop lane: add `@tanstack/react-virtual` to the representative package corpus so the browser-facing virtualization package coverage keeps widening without changing any support-rung claims.
+
+Planned update:
+- add `@tanstack/react-virtual` to the browser web-baseline interop corpus in `crates/kali_cli/tests/package_corpus.rs`
+- sync the corresponding Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` so the new package coverage is named explicitly
+- keep the claim narrow: this is still a corpus/evidence widening within the existing package-support model, not a support-rung change

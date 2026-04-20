@@ -1214,6 +1214,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "@tanstack/react-query",
         "@tanstack/react-table",
         "@tanstack/table-core",
+        "@tanstack/react-virtual",
         "@testing-library/dom",
         "@testing-library/user-event",
         "@playwright/test",
