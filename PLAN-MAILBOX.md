@@ -675,3 +675,5 @@ Completed:
 - `crates/kali_cli/tests/package_corpus.rs` now exercises `react-helmet-async` in the browser web-baseline interop slice.
 - `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the widening explicitly.
 - Kept the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
+
+MIR specialization follow-up: allow generic specialization inside MIR-specialized clones so layout-specialized functions can still clone and fold large generic callees after the MIR pass narrows the arguments.

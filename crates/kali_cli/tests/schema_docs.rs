@@ -211,10 +211,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         "releaseAndCollectHeapCharacterisationAndLinearMemory",
         "releaseAndCollectHeapCellsHavePositiveCount",
     ];
-    let soundness_theorem_names = [
-        "KaliCore.Soundness.subst_closed",
-        "KaliCore.litTy",
-    ];
+    let soundness_theorem_names = ["KaliCore.Soundness.subst_closed", "KaliCore.litTy"];
 
     let summary_docs = [
         ("README.md", summary),

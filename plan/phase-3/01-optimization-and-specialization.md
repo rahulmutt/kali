@@ -102,6 +102,9 @@ types are statically known.
   owner has exhausted its specialization slots.
 - A representative benchmark suite now records compile time, WASM size, instruction count, and
   add-op deltas across `fast`, `release`, and `release-advanced`.
+- The release-advanced MIR-specialized clone path now keeps the generic-instantiation path available
+  inside its specialized bodies, so a layout-specialized function can still clone and fold a large
+  generic callee after the MIR pass narrows the arguments.
 
 ## Tasks
 
