@@ -32,6 +32,11 @@ Planned update:
 - sync the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md`
 - keep the claim narrow: this is a corpus/evidence widening within the existing package-support model, not a support-rung change
 
+Completed:
+- `crates/kali_cli/tests/package_corpus.rs` now exercises `@playwright/test` in the browser web-baseline interop slice.
+- `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the `@playwright/test` browser corpus widening explicitly.
+- Kept the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
+
 ## 2026-04-19 — Stage 3.3 msw utility corpus widening
 
 I widened the Stage 3.3 package corpus one more step by adding `msw` to the utility plain-package corpus on the default standalone surface, so the representative browser/networking breadth is now explicit on both the browser and standalone paths.
