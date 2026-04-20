@@ -6,7 +6,7 @@ The repository has closed the stage-plan milestones reflected in `PLAN.md`; the 
 follow-up widening rather than unfinished baseline delivery:
 
 - widen specialization depth beyond the current MIR-aware layout-specialized path; the optimizer
-  already now covers owner-scoped MIR binding layouts, quoted string- and template-literal
+  already now covers owner-scoped MIR binding layouts, quoted string-, template-literal, and RegExp-literal
   signatures, `null` / `undefined` / boolean / numeric / signed-zero / BigInt / special-number literal signatures,
   array-layout widening, direct array-literal shape widening, nested MIR-bound bindings,
   object-literal property-order canonicalization, the nested-call regression
@@ -69,6 +69,11 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 3.1 - Template-literal call-site specialization widening
 - ✅ No-substitution template-literal call-site arguments now reuse the same literal-signature path as quoted strings, so backtick-delimited string literals can split into distinct specialized clones instead of collapsing onto the generic tagged fallback.
 - ✅ Added regression coverage that proves distinct template-literal call sites produce different specialized clones while still respecting the deterministic specialization budget.
+- ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
+
+### Stage 3.1 - RegExp-literal call-site specialization widening
+- ✅ RegExp-literal call-site arguments now carry canonical specialization signatures, so `/foo/i` and `/bar/i` stay separate in the specialization path instead of collapsing onto the generic tagged fallback.
+- ✅ Added regression coverage that proves distinct RegExp-literal call sites produce different specialized clones while still respecting the deterministic specialization budget.
 - ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published benchmark or support claims.
 
 ### Stage 3.1 - Nullish-literal specialization widening

@@ -43,6 +43,9 @@ types are statically known.
 - No-substitution template-literal call-site arguments now keep a template-specific signature, so
   backtick-delimited string literals stay distinct from quoted strings instead of collapsing onto
   the generic tagged fallback while still respecting the deterministic specialization budget.
+- RegExp-literal call-site arguments now carry distinct canonical signatures, so `/foo/i` and
+  `/bar/i` stay separate in the specialization path instead of collapsing onto the generic tagged
+  fallback while still respecting the deterministic specialization budget.
 - `null` and `undefined` call-site arguments now also carry distinct literal signatures instead of
   collapsing onto the old zero-valued fallback, so the specialization path stays honest about
   nullish arguments when the MIR plan can see them as constants.

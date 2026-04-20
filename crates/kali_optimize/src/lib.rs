@@ -1785,6 +1785,7 @@ enum ConstantValue {
     BigInt(i64),
     Boolean(bool),
     String(String),
+    RegExp { pattern: String, flags: String },
     Null,
     Undefined,
     NegativeZero,
@@ -1829,6 +1830,7 @@ impl ConstantValue {
             ConstantValue::Number(value) | ConstantValue::BigInt(value) => value != 0,
             ConstantValue::Boolean(value) => value,
             ConstantValue::String(value) => !value.is_empty(),
+            ConstantValue::RegExp { .. } => true,
             ConstantValue::Null
             | ConstantValue::Undefined
             | ConstantValue::NegativeZero
@@ -1889,8 +1891,9 @@ fn parse_literal_text(text: Option<&str>) -> Option<ConstantValue> {
         "Infinity" => Some(ConstantValue::Infinity),
         "-Infinity" => Some(ConstantValue::NegativeInfinity),
         "NaN" => Some(ConstantValue::NaN),
-        _ => parse_string_literal(text)
-            .map(ConstantValue::String)
+        _ => parse_regex_literal(text)
+            .map(|(pattern, flags)| ConstantValue::RegExp { pattern, flags })
+            .or_else(|| parse_string_literal(text).map(ConstantValue::String))
             .or_else(|| {
                 if let Some(stripped) = text.strip_suffix('n') {
                     stripped.parse::<i64>().ok().map(ConstantValue::BigInt)
@@ -1914,6 +1917,9 @@ fn literal_signature(prefix: &str, kind: LirNodeKind, text: Option<&str>) -> Str
         Some(ConstantValue::String(_)) => text
             .and_then(|text| string_literal_signature(prefix, text))
             .unwrap_or_else(|| format!("{prefix}:string:<missing>")),
+        Some(ConstantValue::RegExp { pattern, flags }) => {
+            format!("{prefix}:regexp:pattern={pattern}:flags={flags}")
+        }
         Some(ConstantValue::Null) => format!("{prefix}:null"),
         Some(ConstantValue::Undefined) => format!("{prefix}:undefined"),
         Some(ConstantValue::NegativeZero) => format!("{prefix}:number:-0"),
@@ -2036,6 +2042,7 @@ fn literal_text(value: ConstantValue) -> String {
         ConstantValue::String(value) => {
             format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
         }
+        ConstantValue::RegExp { pattern, flags } => format!("/{pattern}/{flags}"),
         ConstantValue::Null => "null".to_string(),
         ConstantValue::Undefined => "undefined".to_string(),
         ConstantValue::NegativeZero => "-0".to_string(),
@@ -2075,6 +2082,43 @@ fn parse_string_literal(text: &str) -> Option<String> {
         value = value.replace("\\`", "`");
     }
     Some(value)
+}
+
+fn parse_regex_literal(text: &str) -> Option<(String, String)> {
+    if !text.starts_with('/') {
+        return None;
+    }
+
+    let mut escaped = false;
+    let mut closing = None;
+    for (idx, ch) in text.char_indices().skip(1) {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+
+        match ch {
+            '\\' => escaped = true,
+            '/' => {
+                closing = Some(idx);
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    let closing = closing?;
+    if closing == 0 || closing + 1 > text.len() {
+        return None;
+    }
+
+    let pattern = text[1..closing].to_string();
+    let flags = text[closing + 1..].to_string();
+    if !flags.chars().all(|ch| ch.is_ascii_alphabetic()) {
+        return None;
+    }
+
+    Some((pattern, flags))
 }
 
 #[cfg(test)]
