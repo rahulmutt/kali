@@ -799,3 +799,14 @@ Planned update:
 - add `react-router-dom` to `crates/kali_cli/tests/package_corpus.rs` in the browser exports-map router slice
 - sync the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new `react-router-dom` coverage is named explicitly
 - keep the claim narrow: this is still a corpus/evidence widening within the existing package-support model, not a support-rung change
+
+Subject: Stage 3.3 xstate exports-map/pattern-exports widening
+
+## 2026-04-20 — Stage 3.3 xstate exports-map/pattern-exports widening
+
+I found a small Stage 3.3 follow-up that fits the current package-corpus breadth lane: add `xstate` to the browser and utility exports-map and pattern-exports slices so the representative state-management package-shape coverage stays concrete in the shape-based corpora as well as the web-baseline interop slices.
+
+Planned update:
+- add `xstate` to the browser and utility exports-map / pattern-exports coverage in `crates/kali_cli/tests/package_corpus.rs`
+- sync the corresponding Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` so the new xstate shape coverage is named explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change

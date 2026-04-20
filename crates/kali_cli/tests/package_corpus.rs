@@ -560,6 +560,7 @@ fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_thr
         ("react-router", "dom"),
         ("react-router-dom", "dom"),
         ("jotai", "store"),
+        ("xstate", "react"),
         ("@remix-run/react", "links"),
         ("react-dom", "client"),
     ] {
@@ -631,6 +632,7 @@ fn browser_corpus_packages_with_pattern_exports_remain_checkable_and_deployable_
         ("solid-js", "web"),
         ("vue-router", "matcher"),
         ("react-router", "routes"),
+        ("xstate", "react"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
@@ -1692,6 +1694,7 @@ fn utility_corpus_packages_with_exports_maps_remain_executable_on_the_default_st
         ("commander", "command"),
         ("redux", "createStore"),
         ("reselect", "selectors"),
+        ("xstate", "react"),
         ("lodash", "get"),
     ] {
         let dir = tempdir().expect("tempdir");
@@ -1793,6 +1796,7 @@ fn utility_corpus_packages_with_pattern_exports_remain_executable_on_the_default
         ("commander", "command"),
         ("redux", "createStore"),
         ("reselect", "selectors"),
+        ("xstate", "react"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);

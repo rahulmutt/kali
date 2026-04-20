@@ -158,6 +158,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser and utility web-baseline interop corpus now also exercises `pinia`, `xstate`, and
   `valtio` as additional representative Vue/state-management browser/utility package names,
   keeping the breadth widening concrete without changing the support-rung story.
+- The browser and utility exports-map and pattern-exports corpus now also exercises `xstate` as
+  another representative state-management package shape, keeping the shape coverage concrete
+  without changing the support-rung story.
 - The browser and utility web-baseline interop corpus now also exercises `superjson` as another
   representative lightweight utility package name, and the utility corpus now also carries
   `chart.js`, `recharts`, `@emotion/react`, and `@emotion/styled` on the default standalone surface, keeping the breadth widening

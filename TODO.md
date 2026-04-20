@@ -661,6 +661,12 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Added `zustand` to the browser web-baseline and utility plain-package corpus slices so the representative package corpus now carries one more lightweight package name through the browser and standalone command paths without changing the documented support rungs.
 - ✅ Added `xstate` to the browser and utility web-baseline interop slices so the representative package corpus now carries one more state-management package name through the browser and standalone command paths without changing the documented support rungs.
 - ✅ Added `valtio` to the browser and utility web-baseline interop slices so the representative package corpus now carries one more state-management package name through the browser and standalone command paths without changing the documented support rungs.
+
+### Stage 3.3 - xstate exports-map/pattern-exports widening
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `xstate` in the browser and utility exports-map and pattern-exports slices, so the representative state-management package shape now stays concrete in the shape-based corpus as well as the web-baseline interop slices without changing the documented support rungs.
+- ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` now name the `xstate` exports-map / pattern-exports widening explicitly, keeping the corpus-breadth wording aligned with the current evidence set.
+- ✅ Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
+
 - ✅ Added `superjson` to the browser and utility web-baseline interop slices so the representative package corpus now carries one more lightweight utility package name through the browser and standalone command paths without changing the documented support rungs.
 - ✅ Added `chart.js` to the utility plain-package and web-baseline interop corpus slices so the representative browser charting package breadth now stays concrete on the default standalone surface too without changing the documented support rungs.
 - ✅ Added `recharts` to the utility plain-package and web-baseline interop corpus slices so the representative browser charting package breadth now stays concrete on the default standalone surface too without changing the documented support rungs.
