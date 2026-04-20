@@ -35,6 +35,21 @@ fn random_uuid_has_the_expected_shape() {
 }
 
 #[test]
+fn crypto_facade_reuses_the_shared_randomness_helpers() {
+    let crypto = crypto();
+    let mut buffer = [0u8; 8];
+
+    crypto
+        .get_random_values(&mut buffer)
+        .expect("crypto.getRandomValues");
+    assert_eq!(buffer.len(), 8);
+
+    let uuid = crypto.random_uuid().expect("crypto.randomUUID");
+    assert_eq!(uuid.len(), 36);
+    assert_eq!(uuid.chars().nth(14), Some('4'));
+}
+
+#[test]
 fn text_codec_round_trips_unicode() {
     let input = "héllo 🌍";
     let encoded = text_encode(input);

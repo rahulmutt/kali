@@ -51,6 +51,21 @@ fn random_uuid_is_reexported() {
 }
 
 #[test]
+fn crypto_facade_is_reexported() {
+    let crypto = crypto();
+    let mut buffer = [0u8; 8];
+
+    crypto
+        .get_random_values(&mut buffer)
+        .expect("crypto.getRandomValues");
+    assert_eq!(buffer.len(), 8);
+
+    let uuid = crypto.random_uuid().expect("crypto.randomUUID");
+    assert_eq!(uuid.len(), 36);
+    assert_eq!(uuid.chars().nth(14), Some('4'));
+}
+
+#[test]
 fn permissions_query_reports_granted_and_denied() {
     let permissions = DenoPermissions::new(true, false, true, false);
     assert_eq!(

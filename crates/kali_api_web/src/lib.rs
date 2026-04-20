@@ -1114,6 +1114,27 @@ pub fn random_uuid() -> Result<String, getrandom::Error> {
     Ok(uuid)
 }
 
+/// Deterministic Web Crypto facade for the shared randomness subset.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Crypto;
+
+impl Crypto {
+    /// Fill the provided buffer with randomness for `crypto.getRandomValues()`.
+    pub fn get_random_values(&self, buffer: &mut [u8]) -> Result<(), getrandom::Error> {
+        fill_random_values(buffer)
+    }
+
+    /// Generate a v4 UUID string for `crypto.randomUUID()`-style calls.
+    pub fn random_uuid(&self) -> Result<String, getrandom::Error> {
+        random_uuid()
+    }
+}
+
+/// Return the shared deterministic Web Crypto facade.
+pub fn crypto() -> Crypto {
+    Crypto
+}
+
 /// A minimal abort signal used by the Web baseline support library.
 #[derive(Clone, Default)]
 pub struct AbortSignal {
