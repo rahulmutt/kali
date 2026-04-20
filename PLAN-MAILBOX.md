@@ -736,3 +736,12 @@ Completed:
 - `crates/kali_cli/tests/package_corpus.rs` already carries `@babel/runtime` and `@npmcli/package-json` in the utility scoped-package slice on the default standalone surface.
 - `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` now name that scoped utility corpus widening explicitly.
 - Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
+
+## 2026-04-20 — Stage 3.3 deepmerge utility corpus widening
+
+I found a small Stage 3.3 follow-up in the utility plain-package breadth lane: add `deepmerge` to the default standalone package corpus so the representative pure-JS package coverage keeps widening without changing any support-rung claims.
+
+Planned update:
+- add `deepmerge` to the utility plain-package coverage in `crates/kali_cli/tests/package_corpus.rs`
+- sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` so the new plain-package corpus breadth is named explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change

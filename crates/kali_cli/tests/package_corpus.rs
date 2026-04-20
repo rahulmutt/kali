@@ -1604,6 +1604,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "dayjs",
         "luxon",
         "axios",
+        "deepmerge",
         "graphql",
         "lodash",
         "lodash-es",
