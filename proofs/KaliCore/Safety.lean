@@ -204,6 +204,15 @@ theorem releasePreservesWellFormed (snapshot : RcSnapshot) (ref : String)
     · exact hannotated.2.1
     · simpa [hneq] using hannotated.2.2
 
+/-- The release-only helper preserves both well-formedness and the ownership environment. -/
+theorem releaseRefPreservesWellFormedAndOwnership (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    WellFormed (releaseRef snapshot ref) ∧
+    (releaseRef snapshot ref).ownership = snapshot.ownership := by
+  constructor
+  · exact releasePreservesWellFormed snapshot ref h
+  · exact releaseRefPreservesOwnership snapshot ref
+
 /-- The release-only helper preserves both well-formedness and the linear-memory payload. -/
 theorem releaseRefPreservesWellFormedAndLinearMemory (snapshot : RcSnapshot) (ref : String)
     (h : WellFormed snapshot) :
@@ -231,6 +240,15 @@ theorem releaseAndDecrementPreservesWellFormed (snapshot : RcSnapshot) (ref : St
         simp [hname, hneq]
       exact List.mem_map.mpr ⟨cell, hmem, hcell⟩
     · simpa [hneq] using hannotated.2.2
+
+/-- The release-and-decrement helper preserves both well-formedness and the ownership environment. -/
+theorem releaseAndDecrementPreservesWellFormedAndOwnership (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    WellFormed (releaseAndDecrement snapshot ref) ∧
+    (releaseAndDecrement snapshot ref).ownership = snapshot.ownership := by
+  constructor
+  · exact releaseAndDecrementPreservesWellFormed snapshot ref h
+  · exact releaseAndDecrementPreservesOwnership snapshot ref
 
 /-- The release-and-decrement helper preserves both well-formedness and the linear-memory payload. -/
 theorem releaseAndDecrementPreservesWellFormedAndLinearMemory (snapshot : RcSnapshot) (ref : String)
@@ -835,6 +853,15 @@ theorem releaseAndCollectPreservesWellFormed (snapshot : RcSnapshot) (ref : Stri
         List.mem_map.mpr ⟨cell, hmem, hcell⟩
       exact List.mem_filter.mpr ⟨hmem', by simpa using hpos⟩
     · simpa [releaseAndCollect, releaseAndDecrement, hneq] using hannotated.2.2
+
+/-- The local release-and-collect helper preserves both well-formedness and the ownership environment. -/
+theorem releaseAndCollectPreservesWellFormedAndOwnership (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    WellFormed (releaseAndCollect snapshot ref) ∧
+    (releaseAndCollect snapshot ref).ownership = snapshot.ownership := by
+  constructor
+  · exact releaseAndCollectPreservesWellFormed snapshot ref h
+  · exact releaseAndCollectPreservesOwnership snapshot ref
 
 /-- The local release-and-collect helper preserves both well-formedness and the linear-memory payload. -/
 theorem releaseAndCollectPreservesWellFormedAndLinearMemory (snapshot : RcSnapshot) (ref : String)
