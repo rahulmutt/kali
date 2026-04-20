@@ -703,3 +703,5 @@ Planned update:
 - add `ajv` to `crates/kali_cli/tests/package_corpus.rs` in the browser web-baseline interop and utility plain-package corpus slices
 - sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` so the Stage 3.3 progress notes name the new `ajv` coverage explicitly
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+[2026-04-20] Follow-up widening note: add a new browser web-baseline interop package-corpus case for @stripe/react-stripe-js and mirror the evidence in the Stage 3.3 progress notes / TODO tracker. Support rungs stay unchanged; this is corpus breadth only.

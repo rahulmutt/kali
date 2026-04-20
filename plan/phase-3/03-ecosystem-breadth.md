@@ -80,6 +80,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser web-baseline interop corpus now also exercises `react-helmet-async` as another
   representative browser head-management package name, keeping one more browser package shape
   concrete through the browser command path without changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `@stripe/react-stripe-js` as another
+  representative browser payment/UI package name, keeping one more browser package shape concrete
+  through the browser command path without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `ajv` as another representative
   validation package name, and the utility plain-package corpus now also carries it on the default
   standalone surface, keeping one more common pure-JS package covered without changing the
