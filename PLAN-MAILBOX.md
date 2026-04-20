@@ -779,3 +779,12 @@ Planned update:
 Completed:
 - `crates/kali_cli/tests/package_corpus.rs` now also exercises `@tanstack/query-core` in the browser web-baseline interop and utility plain-package slices, and the tracker docs now call the new coverage out explicitly.
 - Kept the update narrow: this widens the package corpus within the existing support-rung model; it does not change the documented support rungs.
+
+## 2026-04-20 — Stage 4.2 no-dangling-reference plan sync
+
+I completed the remaining no-dangling-reference wording sync on the plan side by naming `KaliCore.Safety.noDanglingReference` explicitly in the Stage 4.2 verification-depth follow-up lane in `PLAN.md`, keeping the top-level plan aligned with the published boundary inventory and the existing status tracker / TODO notes.
+
+Completed:
+- `PLAN.md` now names `KaliCore.Safety.noDanglingReference` explicitly in the Stage 4.2 verification-depth follow-up lane alongside the helper-level no-dangling-reference corollaries.
+- `TODO.md` now records the plan-lane sync alongside the earlier status-tracker sync.
+- No spec update was needed; this was a plan-summary anti-drift sync only.
