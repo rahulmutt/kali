@@ -931,7 +931,7 @@ impl Optimizer {
                 plan,
                 tracker,
                 recursive_owner.clone(),
-                matches!(self.level, OptimizationLevel::ReleaseAdvanced),
+                true,
                 specialized_functions,
             );
             self.specialize_mir_call_sites(

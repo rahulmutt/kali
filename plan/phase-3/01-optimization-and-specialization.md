@@ -105,6 +105,9 @@ types are statically known.
 - The release-advanced MIR-specialized clone path now keeps the generic-instantiation path available
   inside its specialized bodies, so a layout-specialized function can still clone and fold a large
   generic callee after the MIR pass narrows the arguments.
+- MIR-specialized clones now keep generic specialization enabled inside their bodies in `release`
+  too, so a layout-specialized wrapper can still clone and fold a large generic callee after the
+  MIR pass narrows its arguments.
 
 ## Tasks
 

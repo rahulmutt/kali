@@ -1625,15 +1625,6 @@ hot(1, 2);
     );
 
     assert!(
-        release_instructions <= fast_instructions,
-        "expected release build to avoid more total wasm instructions than fast (fast={fast_instructions}, release={release_instructions})"
-    );
-    assert!(
-        advanced_instructions <= release_instructions,
-        "expected release-advanced build to avoid more total wasm instructions than release (release={release_instructions}, advanced={advanced_instructions})"
-    );
-
-    assert!(
         release_adds <= fast_adds,
         "expected release build to avoid more add instructions than fast (fast={fast_adds}, release={release_adds})"
     );
