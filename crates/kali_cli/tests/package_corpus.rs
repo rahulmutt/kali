@@ -2293,6 +2293,14 @@ export default function chalk() {
 }
 "#,
         ),
+        (
+            "dotenv",
+            r#"import fs from "node:fs";
+export default function dotenv() {
+    return fs.existsSync("/tmp/dotenv");
+}
+"#,
+        ),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
