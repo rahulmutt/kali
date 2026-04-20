@@ -844,3 +844,7 @@ Completed:
 - `crates/kali_optimize/src/tests.rs` now exercises an explicit `public` / `bridge` / helper chain and asserts that `bridge`, `module_helper`, and `math_add` each specialize once while the two public wrappers still reuse the same underlying clones.
 - The Stage 3.1 progress notes already call out the re-export-chain widening; I will keep them aligned with the new explicit bridge wrapper wording where needed.
 - No spec update was needed; this is a specialization-depth evidence widening within the existing optimizer model.
+
+### Stage 3.3 - @reduxjs/toolkit scoped utility corpus widening
+- Noted that `crates/kali_cli/tests/package_corpus.rs` now also exercises `@reduxjs/toolkit` in the utility scoped-package corpus on the default standalone surface, so the representative scoped utility package breadth stays concrete without changing the documented support-rung story.
+- Kept the progress wording aligned in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md`.

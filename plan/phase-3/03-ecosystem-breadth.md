@@ -210,9 +210,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The utility corpus now also exercises `reselect` across the exports-map and pattern-exports
   slices as another representative state-management package name, keeping the breadth widening
   concrete without changing the documented support-rungs.
-- The utility scoped-package corpus now also exercises `@babel/runtime` and `@npmcli/package-json`
-  on the default standalone surface, keeping one more representative scoped utility package shape
-  covered without changing the support-rung story.
+- The utility scoped-package corpus now also exercises `@babel/runtime`, `@npmcli/package-json`,
+  and `@reduxjs/toolkit` on the default standalone surface, keeping one more representative scoped
+  utility package shape covered without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `hono`, `@vueuse/core`, `TextEncoder`, and
   `TextDecoder` as more representative browser/web-framework, browser utility, and text-codec
   primitives, keeping the browser package corpus breadth concrete without changing the support-rung

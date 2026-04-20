@@ -2089,6 +2089,7 @@ fn utility_corpus_scoped_packages_remain_executable_on_the_default_standalone_su
         "@babel/runtime",
         "@npmcli/package-json",
         "@jridgewell/sourcemap-codec",
+        "@reduxjs/toolkit",
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), None);
