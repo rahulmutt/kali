@@ -1617,6 +1617,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "luxon",
         "axios",
         "deepmerge",
+        "cheerio",
         "graphql",
         "lodash",
         "lodash-es",

@@ -862,3 +862,14 @@ Completed:
 - `crates/kali_cli/tests/package_corpus.rs` now exercises `react-router-dom` in the browser exports-map and pattern-exports slices.
 - `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the `react-router-dom` widening explicitly.
 - Kept the update narrow: this is still a corpus/evidence widening within the existing package-support model; it does not change the documented support rungs.
+
+Subject: Stage 3.3 cheerio utility corpus widening
+
+## 2026-04-20 — Stage 3.3 cheerio utility corpus widening
+
+I widened the Stage 3.3 package corpus one more step by adding `cheerio` to the utility plain-package corpus on the default standalone surface, so the representative utility breadth now stays concrete with another common JS package name.
+
+Planned update:
+- add `cheerio` to the utility plain-package corpus in `crates/kali_cli/tests/package_corpus.rs`
+- sync the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new utility corpus coverage is named explicitly
+- keep the claim narrow: this is still a corpus/evidence widening within the existing package-support model, not a support-rung change

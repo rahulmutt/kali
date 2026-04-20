@@ -802,6 +802,11 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` now name the `deepmerge` widening explicitly, keeping the corpus-breadth wording aligned with the current evidence set.
 - ✅ Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
 
+### Stage 3.3 - cheerio utility corpus widening
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `cheerio` in the utility plain-package corpus on the default standalone surface, so one more common DOM-parsing package stays concrete through the standalone command path without changing the documented support rungs.
+- ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the `cheerio` widening explicitly, keeping the corpus-breadth wording aligned with the current evidence set.
+- ✅ Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
+
 ### Stage 3.3 - d3 browser/utility corpus widening
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `d3` in the browser web-baseline interop slice and the utility plain-package corpus on the default standalone surface, so one more representative browser charting package stays concrete through both the browser and standalone command paths without changing the documented support rungs.
 - ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the `d3` widening explicitly, keeping the corpus-breadth wording aligned with the current evidence set.
