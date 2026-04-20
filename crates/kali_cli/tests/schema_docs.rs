@@ -282,6 +282,12 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
                 "{relative} is missing proof-summary theorem name: {theorem}"
             );
         }
+        for theorem in soundness_theorem_names {
+            assert!(
+                text.contains(theorem),
+                "{relative} is missing soundness proof-summary theorem name: {theorem}"
+            );
+        }
         for term in rc_predicate_vocabulary {
             assert!(
                 text.contains(term),

@@ -530,7 +530,7 @@ follow-up widening rather than unfinished baseline delivery:
 
 ### Stage 4.2 - Soundness-helper naming sync
 - ✅ `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, `specs/16-testing.md`, and `specs/19-feature-maturity.md` now explicitly name `KaliCore.Soundness.subst_closed` and the literal-to-type helper `KaliCore.litTy` alongside the widened closed-fragment soundness claims.
-- ✅ `crates/kali_cli/tests/schema_docs.rs` now also pins those soundness-helper names in the verification-summary anti-drift guard so the summary docs and proof boundary stay aligned.
+- ✅ `crates/kali_cli/tests/schema_docs.rs` now also pins those soundness-helper names in the verification-summary anti-drift guard, including the tracker doc `TODO.md`, so the summary docs and proof boundary stay aligned.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a support-rung change.
 
 ### Stage 4.2 - Release-set monotonicity follow-up
