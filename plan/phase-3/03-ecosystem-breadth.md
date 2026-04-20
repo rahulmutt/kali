@@ -131,6 +131,7 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   representative utility/source-map package name, keeping the browser package corpus breadth
   concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `query-string`, and the utility plain-package corpus now also carries it on the default standalone surface, so one more query-string package name stays concrete without changing the support-rung story.
+- The browser web-baseline interop corpus, utility plain-package corpus, and utility web-baseline interop corpus now also exercise `yup` as another representative validation-library package name, keeping one more common JS package name concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `graphql`, and the utility plain-package corpus now also carries it on the default standalone surface, keeping one more common JS package name covered without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `msw` as another representative
   browser networking package name, keeping the browser package corpus breadth concrete without
