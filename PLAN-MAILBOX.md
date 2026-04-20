@@ -819,3 +819,12 @@ Planned update:
 - add a release-mode optimizer regression in `crates/kali_optimize/src/tests.rs` that exercises a `public` / `bridge` / helper re-export chain and asserts the same generic helper specialization is reused once across the chain
 - sync the Stage 3.1 progress notes in `plan/phase-3/01-optimization-and-specialization.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` so the re-export-chain specialization coverage is named explicitly
 - keep the claim narrow: this is still a specialization-depth evidence widening within the existing optimizer model, not a new support-rung or phase claim
+
+## 2026-04-20 — Stage 3.1 explicit public/bridge/helper re-export-chain widening
+
+I completed the pending Stage 3.1 cross-module-style re-export follow-up by turning the optimizer regression into an explicit `public` → `bridge` → helper chain, so the release-mode specialization cache now has a concrete bridge wrapper in the path it reuses.
+
+Completed:
+- `crates/kali_optimize/src/tests.rs` now exercises an explicit `public` / `bridge` / helper chain and asserts that `bridge`, `module_helper`, and `math_add` each specialize once while the two public wrappers still reuse the same underlying clones.
+- The Stage 3.1 progress notes already call out the re-export-chain widening; I will keep them aligned with the new explicit bridge wrapper wording where needed.
+- No spec update was needed; this is a specialization-depth evidence widening within the existing optimizer model.

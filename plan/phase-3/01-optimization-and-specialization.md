@@ -115,9 +115,9 @@ types are statically known.
   identical imported helpers stay deduplicated even when different caller shapes force separate
   wrapper clones.
 - The new re-export-chain regression now also proves the same generic helper clone is reused once
-  when the call flow runs through a longer `public` / `bridge` / helper chain in release mode,
-  so the cross-module-style reuse story stays concrete without changing the deterministic budget
-  model.
+  when the call flow runs through an explicit `public` / `bridge` / helper chain in release mode,
+  and the bridge wrapper itself still specializes once, so the cross-module-style reuse story stays
+  concrete without changing the deterministic budget model.
 
 ## Tasks
 

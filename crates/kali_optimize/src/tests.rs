@@ -2089,12 +2089,26 @@ fn release_reuses_generic_specializations_across_reexport_chain() {
     builder.node_mut(module_helper).unwrap().children =
         vec![helper_left, helper_right, helper_block];
 
+    let bridge = builder.alloc_text(LirNodeKind::Instruction, "bridge");
+    let bridge_left = builder.alloc_text(LirNodeKind::Value, "left");
+    let bridge_right = builder.alloc_text(LirNodeKind::Value, "right");
+    let bridge_block = builder.alloc(LirNodeKind::Block);
+    let bridge_call = builder.alloc(LirNodeKind::Call);
+    let bridge_callee = builder.alloc_text(LirNodeKind::Value, "module_helper");
+    builder.node_mut(bridge_call).unwrap().children =
+        vec![bridge_callee, bridge_left, bridge_right];
+    let bridge_ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+    let bridge_result = append_literal_chain(&mut builder, bridge_call, 1, 8);
+    builder.node_mut(bridge_ret).unwrap().children = vec![bridge_result];
+    builder.node_mut(bridge_block).unwrap().children = vec![bridge_ret];
+    builder.node_mut(bridge).unwrap().children = vec![bridge_left, bridge_right, bridge_block];
+
     let public_a = builder.alloc_text(LirNodeKind::Instruction, "public_a");
     let public_a_left = builder.alloc_text(LirNodeKind::Value, "left");
     let public_a_right = builder.alloc_text(LirNodeKind::Value, "right");
     let public_a_block = builder.alloc(LirNodeKind::Block);
     let public_a_call = builder.alloc(LirNodeKind::Call);
-    let public_a_callee = builder.alloc_text(LirNodeKind::Value, "module_helper");
+    let public_a_callee = builder.alloc_text(LirNodeKind::Value, "bridge");
     builder.node_mut(public_a_call).unwrap().children =
         vec![public_a_callee, public_a_left, public_a_right];
     let public_a_ret = builder.alloc_text(LirNodeKind::Instruction, "return");
@@ -2109,7 +2123,7 @@ fn release_reuses_generic_specializations_across_reexport_chain() {
     let public_b_right = builder.alloc_text(LirNodeKind::Value, "right");
     let public_b_block = builder.alloc(LirNodeKind::Block);
     let public_b_call = builder.alloc(LirNodeKind::Call);
-    let public_b_callee = builder.alloc_text(LirNodeKind::Value, "module_helper");
+    let public_b_callee = builder.alloc_text(LirNodeKind::Value, "bridge");
     builder.node_mut(public_b_call).unwrap().children =
         vec![public_b_callee, public_b_left, public_b_right];
     let public_b_ret = builder.alloc_text(LirNodeKind::Instruction, "return");
@@ -2134,7 +2148,7 @@ fn release_reuses_generic_specializations_across_reexport_chain() {
         vec![root_call_b_callee, root_call_b_left, root_call_b_right];
 
     builder.node_mut(root).unwrap().children =
-        vec![math_add, module_helper, public_a, public_b, root_call_a, root_call_b];
+        vec![math_add, module_helper, bridge, public_a, public_b, root_call_a, root_call_b];
     let mut program = LirProgram {
         root,
         nodes: builder.into_nodes(),
@@ -2165,11 +2179,27 @@ fn release_reuses_generic_specializations_across_reexport_chain() {
                 && node
                     .text
                     .as_deref()
-                    .is_some_and(|text| text.starts_with("module_helper$spec$"))
+                    .is_some_and(|text| text.starts_with("bridge$spec$"))
         })
         .count();
     assert_eq!(
         bridge_specialized_count, 1,
+        "re-export chain wrappers should still reuse the same bridge specialization"
+    );
+
+    let helper_specialized_count = program
+        .nodes
+        .iter()
+        .filter(|node| {
+            node.kind == LirNodeKind::Instruction
+                && node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| text.starts_with("module_helper$spec$"))
+        })
+        .count();
+    assert_eq!(
+        helper_specialized_count, 1,
         "re-export chain wrappers should still reuse the same helper specialization"
     );
 
