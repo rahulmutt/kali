@@ -1579,6 +1579,133 @@ fn release_allows_generic_specialization_inside_mir_specialized_clones() {
 }
 
 #[test]
+fn release_advanced_allows_generic_specialization_inside_mir_specialized_clones() {
+    fn append_literal_chain(
+        builder: &mut LirBuilder,
+        mut current: LirNodeId,
+        start: u32,
+        end: u32,
+    ) -> LirNodeId {
+        for value in start..=end {
+            let next = builder.alloc_text(LirNodeKind::Value, "+");
+            let literal_node = literal(builder, &value.to_string());
+            builder.node_mut(next).unwrap().children = vec![current, literal_node];
+            current = next;
+        }
+        current
+    }
+
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+
+    let inner = builder.alloc_text(LirNodeKind::Instruction, "merge_pair");
+    let inner_param_left = builder.alloc_text(LirNodeKind::Value, "left");
+    let inner_param_right = builder.alloc_text(LirNodeKind::Value, "right");
+    let inner_block = builder.alloc(LirNodeKind::Block);
+    let inner_ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+    let inner_head = builder.alloc_text(LirNodeKind::Value, "+");
+    builder.node_mut(inner_head).unwrap().children = vec![inner_param_left, inner_param_right];
+    let inner_result = append_literal_chain(&mut builder, inner_head, 1, 15);
+    builder.node_mut(inner_ret).unwrap().children = vec![inner_result];
+    builder.node_mut(inner_block).unwrap().children = vec![inner_ret];
+    builder.node_mut(inner).unwrap().children =
+        vec![inner_param_left, inner_param_right, inner_block];
+
+    let outer = builder.alloc_text(LirNodeKind::Instruction, "wrap_sum");
+    let outer_param_left = builder.alloc_text(LirNodeKind::Value, "left");
+    let outer_param_right = builder.alloc_text(LirNodeKind::Value, "right");
+    let outer_block = builder.alloc(LirNodeKind::Block);
+    let outer_call = builder.alloc(LirNodeKind::Call);
+    let outer_callee = builder.alloc_text(LirNodeKind::Value, "merge_pair");
+    builder.node_mut(outer_call).unwrap().children =
+        vec![outer_callee, outer_param_left, outer_param_right];
+    let outer_result = append_literal_chain(&mut builder, outer_call, 1, 15);
+    builder.node_mut(outer_block).unwrap().children = vec![outer_result];
+    builder.node_mut(outer).unwrap().children =
+        vec![outer_param_left, outer_param_right, outer_block];
+
+    let root_call = builder.alloc(LirNodeKind::Call);
+    let root_callee = builder.alloc_text(LirNodeKind::Value, "wrap_sum");
+    let root_left = literal(&mut builder, "2");
+    let root_right = literal(&mut builder, "3");
+    builder.node_mut(root_call).unwrap().children = vec![root_callee, root_left, root_right];
+
+    builder.node_mut(root).unwrap().children = vec![inner, outer, root_call];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    let mir = MirAnalysisProgram {
+        root: kali_mir::MirNodeId::new(0),
+        nodes: Vec::new(),
+        functions: vec![kali_mir::MirFunction {
+            name: Some("wrap_sum".to_string()),
+            kind: kali_mir::MirFunctionKind::Function,
+            bindings: vec![
+                kali_mir::MirBinding {
+                    name: "left".to_string(),
+                    kind: MirBindingKind::Parameter,
+                    ownership: kali_mir::OwnershipClass::Borrowed,
+                    layout: LayoutDescriptor::TaggedVal,
+                    escapes: false,
+                    captured_by: Vec::new(),
+                },
+                kali_mir::MirBinding {
+                    name: "right".to_string(),
+                    kind: MirBindingKind::Parameter,
+                    ownership: kali_mir::OwnershipClass::Borrowed,
+                    layout: LayoutDescriptor::TaggedVal,
+                    escapes: false,
+                    captured_by: Vec::new(),
+                },
+            ],
+        }],
+    };
+
+    Optimizer::new(OptimizationLevel::ReleaseAdvanced)
+        .optimize_program_with_mir(&mut program, &mir);
+
+    let root_call_node = &program.nodes[root_call.0 as usize];
+    let outer_specialized_name = root_call_node
+        .children
+        .first()
+        .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+        .and_then(|callee| callee.text.as_deref())
+        .expect("specialized wrap_sum call target should exist");
+    assert!(outer_specialized_name.starts_with("wrap_sum$spec$"));
+
+    let nested_specialized_count = program
+        .nodes
+        .iter()
+        .filter(|node| {
+            node.kind == LirNodeKind::Instruction
+                && node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| text.starts_with("merge_pair$spec$"))
+        })
+        .count();
+    assert_eq!(nested_specialized_count, 1);
+
+    let expected_total = 2 + 3 + (1..=15).sum::<u32>();
+    let expected_literal = expected_total.to_string();
+    let literal_values: Vec<_> = program
+        .nodes
+        .iter()
+        .filter(|node| node.kind == LirNodeKind::Literal)
+        .map(|node| node.text.clone())
+        .collect();
+    let literal_total = literal_values
+        .iter()
+        .any(|node| node.as_deref() == Some(expected_literal.as_str()));
+    assert!(
+        literal_total,
+        "release-advanced layout-specialized clones should still allow nested generic specialization to fold the inner call; literals={literal_values:?}"
+    );
+}
+
+#[test]
 fn release_specializes_identical_generic_call_sites_across_owners_once() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);

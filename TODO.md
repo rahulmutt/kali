@@ -49,6 +49,11 @@ follow-up widening rather than unfinished baseline delivery:
 
 ## Completed
 
+### Stage 3.1 - Release-advanced nested generic-instantiation widening
+- ✅ `crates/kali_optimize/src/tests.rs` now proves `release-advanced` still materializes a nested generic clone inside a layout-specialized wrapper for a large callee, so the deeper monomorphisation path stays regression-tested in the advanced mode too.
+- ✅ `plan/phase-3/01-optimization-and-specialization.md` and `TODO.md` now name the `release_advanced` nested generic-instantiation widening explicitly, keeping the remaining specialization notes aligned with the current evidence set.
+- ✅ Kept the update narrow: this widens evidence for the existing specialization model; it does not change the published support or benchmark claims.
+
 ### Stage 3.1 - MIR-aware RegExp-literal widening
 - ✅ `crates/kali_optimize/src/tests.rs` now exercises RegExp-literal specialization through the MIR-aware path as well as the pure-LIR path, so the regex-literal split stays covered even when layout metadata is unavailable.
 - ✅ `plan/phase-3/01-optimization-and-specialization.md`, `PLAN.md`, and `TODO.md` now name the MIR-aware regex-literal widening explicitly, keeping the specialization-depth notes aligned with the current evidence set.

@@ -108,6 +108,9 @@ types are statically known.
 - MIR-specialized clones now keep generic specialization enabled inside their bodies in `release`
   too, so a layout-specialized wrapper can still clone and fold a large generic callee after the
   MIR pass narrows its arguments.
+- `release_advanced` now has a regression that proves the same layout-specialized wrapper path still
+  materializes a nested generic clone for a large callee, so the deeper monomorphisation path
+  remains covered in the advanced mode as well.
 
 ## Tasks
 
