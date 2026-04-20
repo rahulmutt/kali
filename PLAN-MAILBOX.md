@@ -593,3 +593,15 @@ Planned update:
 
 Completed:
 - the browser exports-map and browser-condition corpus now also exercises `jotai`, and the corresponding progress notes now call out that narrower shape coverage explicitly.
+
+## 2026-04-20 — Stage 3.3 recharts browser web-baseline widening
+
+I widened the Stage 3.3 package corpus one more step by adding `recharts` to the browser web-baseline interop slice, keeping the representative browser charting package breadth concrete without changing any support-rung claims.
+
+Planned update:
+- add `recharts` to `crates/kali_cli/tests/package_corpus.rs` in the browser web-baseline interop slice
+- sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new `recharts` coverage is named explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- the browser web-baseline interop corpus now also exercises `recharts`, and the related Stage 3.3 progress notes now call out that narrower charting-package coverage explicitly.
