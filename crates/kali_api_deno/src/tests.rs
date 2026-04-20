@@ -38,6 +38,19 @@ fn navigator_baseline_is_reexported() {
 }
 
 #[test]
+fn random_uuid_is_reexported() {
+    let uuid = random_uuid().expect("random uuid");
+
+    assert_eq!(uuid.len(), 36);
+    assert_eq!(uuid.chars().nth(8), Some('-'));
+    assert_eq!(uuid.chars().nth(13), Some('-'));
+    assert_eq!(uuid.chars().nth(18), Some('-'));
+    assert_eq!(uuid.chars().nth(23), Some('-'));
+    assert_eq!(uuid.chars().nth(14), Some('4'));
+    assert!(matches!(uuid.chars().nth(19), Some('8' | '9' | 'a' | 'b')));
+}
+
+#[test]
 fn permissions_query_reports_granted_and_denied() {
     let permissions = DenoPermissions::new(true, false, true, false);
     assert_eq!(

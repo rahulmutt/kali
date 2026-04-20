@@ -25,6 +25,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   metadata baseline, and the web-baseline corpus now exercises `navigator.userAgent`,
   `navigator.language`, and `navigator.onLine` so the ambient browser metadata slice stays
   deterministic without changing the support-rung story.
+- The shared browser/runtime support library now also exposes a `random_uuid` helper for
+  `crypto.randomUUID()`-style calls, `kali_runtime` wires the matching `crypto_random_uuid` /
+  `cryptoRandomUUID` host imports through that helper, and the web-baseline corpus now exercises
+  that path so the browser UUID slice stays covered without changing the support-rung story.
 - The same web-baseline corpus now also exercises `performance.now()` and `queueMicrotask`
   through the shared helper source so the timing and microtask primitives stay covered without
   changing the support-rung story.

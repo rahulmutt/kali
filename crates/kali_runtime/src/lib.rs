@@ -4,7 +4,7 @@ use kali_api_node::{
     NodeAssert, NodeBuffer, NodeChildProcess, NodeCrypto, NodePath, NodeRuntimeProjection, NodeUrl,
     NodeUtil,
 };
-use kali_api_web::{fill_random_values, performance_now};
+use kali_api_web::{fill_random_values, performance_now, random_uuid};
 use kali_error::{_error_codes::e4, Diagnostic};
 use kali_sandbox::{HostOperation, SandboxPolicy};
 use reqwest::blocking;
@@ -424,6 +424,40 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
             },
         )
         .map_err(|error| host_import_error("cryptoGetRandomValues", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "crypto_random_uuid",
+            |mut caller: Caller<'_, KaliHostState>,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                enforce_operation(caller.data_mut(), HostOperation::Random)?;
+                let uuid = random_uuid().map_err(|error| {
+                    wasmtime::Error::msg(format!("failed to generate random UUID: {}", error))
+                })?;
+                write_guest_string(&mut caller, out_ptr, out_cap, uuid)
+            },
+        )
+        .map_err(|error| host_import_error("crypto_random_uuid", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "cryptoRandomUUID",
+            |mut caller: Caller<'_, KaliHostState>,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                enforce_operation(caller.data_mut(), HostOperation::Random)?;
+                let uuid = random_uuid().map_err(|error| {
+                    wasmtime::Error::msg(format!("failed to generate random UUID: {}", error))
+                })?;
+                write_guest_string(&mut caller, out_ptr, out_cap, uuid)
+            },
+        )
+        .map_err(|error| host_import_error("cryptoRandomUUID", error))?;
 
     linker
         .func_wrap(

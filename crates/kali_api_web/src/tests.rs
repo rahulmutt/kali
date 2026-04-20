@@ -22,6 +22,19 @@ fn random_fill_populates_the_requested_buffer() {
 }
 
 #[test]
+fn random_uuid_has_the_expected_shape() {
+    let uuid = random_uuid().expect("random uuid");
+
+    assert_eq!(uuid.len(), 36);
+    assert_eq!(uuid.chars().nth(8), Some('-'));
+    assert_eq!(uuid.chars().nth(13), Some('-'));
+    assert_eq!(uuid.chars().nth(18), Some('-'));
+    assert_eq!(uuid.chars().nth(23), Some('-'));
+    assert_eq!(uuid.chars().nth(14), Some('4'));
+    assert!(matches!(uuid.chars().nth(19), Some('8' | '9' | 'a' | 'b')));
+}
+
+#[test]
 fn text_codec_round_trips_unicode() {
     let input = "héllo 🌍";
     let encoded = text_encode(input);

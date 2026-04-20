@@ -1130,6 +1130,32 @@ fn runtime_fills_random_values() {
 }
 
 #[test]
+fn runtime_exposes_crypto_random_uuid() {
+    let runtime =
+        RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "cryptoRandomUUID" (func $uuid (param i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 36
+                    call $uuid
+                    i32.const 36
+                    i32.eq
+                    if
+                    else
+                        unreachable
+                    end))
+            "#,
+    );
+
+    let outcome = runtime.execute(&wasm).expect("runtime outcome");
+    assert_eq!(outcome.exit_code, 0);
+}
+
+#[test]
 fn runtime_rejects_console_calls_when_policy_denies_them() {
     let policy = SandboxPolicy {
         schema_version: 1,

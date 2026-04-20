@@ -3,7 +3,7 @@
 use serde_json::Value;
 use std::{
     collections::BTreeMap,
-    fmt,
+    fmt::{self, Write as _},
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex, OnceLock,
@@ -1094,6 +1094,24 @@ pub fn performance_now() -> f64 {
 /// Fill the provided buffer with OS randomness for `crypto.getRandomValues()`.
 pub fn fill_random_values(buffer: &mut [u8]) -> Result<(), getrandom::Error> {
     getrandom::fill(buffer)
+}
+
+/// Generate a v4 UUID string for `crypto.randomUUID()`-style calls.
+pub fn random_uuid() -> Result<String, getrandom::Error> {
+    let mut bytes = [0u8; 16];
+    fill_random_values(&mut bytes)?;
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+    let mut uuid = String::with_capacity(36);
+    for (index, byte) in bytes.iter().enumerate() {
+        if matches!(index, 4 | 6 | 8 | 10) {
+            uuid.push('-');
+        }
+        write!(&mut uuid, "{:02x}", byte).expect("writing to a String cannot fail");
+    }
+
+    Ok(uuid)
 }
 
 /// A minimal abort signal used by the Web baseline support library.
