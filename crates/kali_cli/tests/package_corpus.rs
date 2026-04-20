@@ -1346,6 +1346,7 @@ fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deploya
         ("@tanstack/react-query", "query-core"),
         ("@tanstack/table-core", "table"),
         ("@tanstack/router", "router"),
+        ("@remix-run/react", "links"),
         ("react-dom", "client"),
         ("chart.js", "auto"),
         ("zustand", "vanilla"),

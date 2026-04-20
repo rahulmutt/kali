@@ -679,6 +679,7 @@ follow-up widening rather than unfinished baseline delivery:
 
 ### Stage 3.3 - @remix-run/react browser corpus widening
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@remix-run/react` in the browser web-baseline interop slice plus the scoped browser exports-map and browser-condition slices, so one more representative browser app-framework package stays concrete across the browser command path and the scoped browser shape coverage without changing the documented support rungs.
+- ✅ The scoped browser exports-map slice now also carries `@remix-run/react`, so the exports-map coverage now matches the browser-condition coverage for that app-framework package in the current corpus.
 - ✅ `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` now name the `@remix-run/react` widening explicitly, keeping the corpus-breadth wording aligned with the current evidence set.
 - ✅ Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
 

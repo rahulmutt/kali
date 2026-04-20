@@ -77,6 +77,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   representative browser app-framework package name, and the scoped browser corpus now also
   exercises it across the exports-map and browser-condition slices, keeping the browser package
   breadth concrete without changing the support-rung story.
+- The scoped browser exports-map slice now also exercises `@remix-run/react`, so that app-framework
+  package is now covered through the exports-map resolution path in addition to the existing
+  browser-condition slice.
 - The browser corpus now also exercises `rxjs`, and the browser web-baseline interop corpus now also
   exercises it too as another representative utility package name, keeping one more browser/utility
   package name covered without changing the support-rung story.
