@@ -45,7 +45,7 @@ Phase-1 plan is follow-up maintenance and broader post-Phase-1 depth:
 
 2. **Post-Phase-1 breadth/depth follow-up lanes**
    - Continue widening specialization depth beyond the current stable MIR-aware clone path, including the remaining literal-signature distinctions that keep `true` / `false` and similar constants from collapsing together; current progress now also distinguishes `Infinity`, `-Infinity`, and `NaN` call-site arguments, plus RegExp-literal arguments, in the specialization path.
-   - Continue widening the representative package corpus without overclaiming support rungs; current progress now also carries `superjson` and `@jridgewell/sourcemap-codec` through the default standalone surface, and `chart.js` through the browser-facing surfaces, alongside the existing browser/utility breadth, and now also carries `reselect` as another representative state-management package name.
+   - Continue widening the representative package corpus without overclaiming support rungs; current progress now also carries `superjson`, `@jridgewell/sourcemap-codec`, and `@emotion/react` through the default standalone surface, and `chart.js` through the browser-facing surfaces, alongside the existing browser/utility breadth, and now also carries `reselect` as another representative state-management package name.
    - Continue widening the proof-backed boundary beyond the current published RC snapshot +
      lowering slice.
 

@@ -1616,6 +1616,7 @@ fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface()
         "superjson",
         "chart.js",
         "@jridgewell/sourcemap-codec",
+        "@emotion/react",
         "@mantine/core",
         "vite",
         "@tanstack/router",

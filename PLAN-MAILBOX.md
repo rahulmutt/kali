@@ -645,3 +645,12 @@ Completed:
 - `crates/kali_cli/tests/package_corpus.rs` now exercises `performance.now()` and `queueMicrotask` in the shared web-baseline interop source.
 - `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` now name the same helper widening explicitly.
 - Kept the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
+
+## 2026-04-20 — Stage 3.3 @emotion/react utility plain-package widening
+
+I widened the Stage 3.3 package corpus one more step by adding `@emotion/react` to the utility plain-package corpus on the default standalone surface, so one more scoped UI package stays concrete through the standalone command path without changing any support-rung claims.
+
+Completed:
+- `crates/kali_cli/tests/package_corpus.rs` now exercises `@emotion/react` in the utility plain-package corpus on the default standalone surface.
+- `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `TODO.md`, and `plan/phase-1/sum.md` now name the new utility corpus coverage explicitly.
+- Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model; it does not change the documented support rungs.
