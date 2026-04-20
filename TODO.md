@@ -48,7 +48,8 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Kept the update narrow: this widens browser/runtime interoperability within the existing web-baseline model; it does not change the documented support rungs.
 
 ### Stage 4.2 - Collection-helper provenance/linear-memory wording sync
-- ✅ `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory` is now called out explicitly in the proof-summary / tracker docs, matching the existing origin/ownership companion style.
+- ✅ `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCount` plus its linear-memory companion `KaliCore.Safety.releaseAndCollectHeapCellOriginOwnershipAndPositiveCountAndLinearMemory` are now called out explicitly in the proof-boundary inventory and README summary, matching the existing origin/ownership companion style.
+- ✅ `KaliCore.Safety.releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory` remains called out explicitly in the proof-summary / tracker docs, keeping the origin-plus-positive-count slice paired with the linear-memory payload.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
 
 ### Codegen optimization-placeholder cleanup
