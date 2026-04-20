@@ -2071,6 +2071,96 @@ console.log(quadruple(21));
 }
 
 #[test]
+fn node_cross_module_inference_with_an_explicit_specialization_cap_stays_within_the_phase_3_budget() {
+    let dir = tempdir().expect("tempdir");
+    let math_path = dir.path().join("math.ts");
+    let helper_path = dir.path().join("helper.ts");
+    let bridge_path = dir.path().join("bridge.ts");
+    let public_path = dir.path().join("public.ts");
+    let source_path = dir.path().join("main.ts");
+
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "maxSpecializations": 1
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    fs::write(
+        &math_path,
+        r#"export function makePair(value) {
+    return { left: value, right: value + value };
+}
+"#,
+    )
+    .expect("write math module");
+    fs::write(
+        &helper_path,
+        r#"import { makePair } from './math.ts';
+
+export function projectLeft(value) {
+    return makePair(value).left;
+}
+"#,
+    )
+    .expect("write helper module");
+    fs::write(
+        &bridge_path,
+        r#"export { projectLeft } from './helper.ts';
+"#,
+    )
+    .expect("write bridge module");
+    fs::write(
+        &public_path,
+        r#"export { projectLeft } from './bridge.ts';
+"#,
+    )
+    .expect("write public module");
+    fs::write(
+        &source_path,
+        r#"import { projectLeft } from './public.ts';
+
+console.log(projectLeft(21));
+"#,
+    )
+    .expect("write source");
+
+    let check = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali check");
+
+    assert!(
+        check.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali build");
+
+    assert!(
+        build.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    assert!(source_path.with_file_name("main.wasm").exists());
+}
+
+#[test]
 fn build_rejects_explicit_browser_library_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("lib.ts");

@@ -53,6 +53,11 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ The same smoke path still passes both `check` and `build`, keeping the multi-module inference case anchored in the existing solver budget.
 - ✅ Kept the update narrow: this widens cross-module inference evidence within the current bounded inference contract; it does not change the documented support-rung story.
 
+### Stage 3.3 - cross-module object-return smoke widening
+- ✅ `crates/kali_cli/tests/runtime_smoke.rs` now also exercises an inferred object-returning helper chain under an explicit `compilerOptions.maxSpecializations = 1` cap, so the public API inference story stays concrete even when the module flow crosses a re-export chain.
+- ✅ The same smoke path still passes both `check` and `build`, keeping the tighter-budget case anchored in the existing solver budget.
+- ✅ Kept the update narrow: this widens cross-module inference evidence within the current bounded inference contract; it does not change the documented support-rung story.
+
 ## Completed
 
 ### Stage 3.3 - tailwindcss utility corpus widening

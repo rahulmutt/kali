@@ -338,7 +338,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   `esbuild`, so the representative package corpus now spans a few more tooling-style package names
   across the stable shape tests without changing the support-rung story.
 - Phase-3 cross-module inference smoke coverage now exercises a multi-file import chain with
-  inferred public API types within the solver budget.
+  inferred public API types within the solver budget, and the latest smoke also keeps that chain
+  honest under an explicit `compilerOptions.maxSpecializations = 1` cap while flowing through an
+  object-returning helper so the public-type inference story stays concrete.
 - Historical note: this stage originally introduced `kali package-audit` as a Phase-3 preview.
   The current repository has since advanced beyond that: Stage 4.1 made `kali package-audit`
   publicly available, so the preview-only note below is now a historical stage constraint rather
