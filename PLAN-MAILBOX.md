@@ -605,3 +605,15 @@ Planned update:
 
 Completed:
 - the browser web-baseline interop corpus now also exercises `recharts`, and the related Stage 3.3 progress notes now call out that narrower charting-package coverage explicitly.
+
+## 2026-04-20 — Stage 3.3 rxjs browser/utility corpus widening
+
+I widened the Stage 3.3 package corpus one more step by adding `rxjs` to the browser corpus and browser web-baseline interop slice, while the utility plain-package coverage already existed, keeping the representative observable/stream package breadth concrete without changing any support-rung claims.
+
+Planned update:
+- add `rxjs` to `crates/kali_cli/tests/package_corpus.rs` in the browser corpus and browser web-baseline interop slices
+- sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new `rxjs` coverage is named explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- the browser corpus now also exercises `rxjs`, the browser web-baseline interop corpus now also exercises `rxjs`, and the related Stage 3.3 progress notes now call out that narrower coverage explicitly.
