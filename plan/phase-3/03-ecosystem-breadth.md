@@ -296,8 +296,8 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   changing the support-rung story.
 - The browser router corpus now also exercises `vue-router` and `react-router` across the
   web-baseline interop, exports-map, and pattern-exports slices, and now also exercises
-  `react-router-dom` across the browser exports-map slice, adding three more representative
-  browser package shapes without changing the documented support rungs.
+  `react-router-dom` across the browser exports-map and pattern-exports slices, adding three more
+  representative browser package shapes without changing the documented support rungs.
 - The browser exports-map and pattern-exports corpora now also exercise `hono`, widening the
   representative browser shape coverage by one more framework package without changing the
   documented support rungs.

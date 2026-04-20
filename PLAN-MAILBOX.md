@@ -854,3 +854,11 @@ Completed:
 - Noted that `crates/kali_cli/tests/package_corpus.rs` now also exercises `@reduxjs/toolkit` in the utility scoped-package corpus on the default standalone surface, so the representative scoped utility package breadth stays concrete without changing the documented support-rung story.
 - Kept the progress wording aligned in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md`.
 - Completed the note by keeping the scoped utility corpus wording aligned with the existing corpus evidence; no support-rung claim changed.
+## 2026-04-20 — Stage 3.3 react-router-dom browser pattern-exports widening
+
+I widened the Stage 3.3 router corpus one step further by adding `react-router-dom` to the browser pattern-exports slice as a follow-up to the existing browser exports-map coverage, so the representative browser router breadth now exercises one more shape without changing any support-rung claims.
+
+Completed:
+- `crates/kali_cli/tests/package_corpus.rs` now exercises `react-router-dom` in the browser exports-map and pattern-exports slices.
+- `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the `react-router-dom` widening explicitly.
+- Kept the update narrow: this is still a corpus/evidence widening within the existing package-support model; it does not change the documented support rungs.

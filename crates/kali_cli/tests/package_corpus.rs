@@ -632,6 +632,7 @@ fn browser_corpus_packages_with_pattern_exports_remain_checkable_and_deployable_
         ("solid-js", "web"),
         ("vue-router", "matcher"),
         ("react-router", "routes"),
+        ("react-router-dom", "dom"),
         ("xstate", "react"),
     ] {
         let dir = tempdir().expect("tempdir");
