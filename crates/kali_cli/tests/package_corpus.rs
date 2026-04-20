@@ -1224,6 +1224,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "valtio",
         "superjson",
         "@jridgewell/sourcemap-codec",
+        "@babel/runtime",
         "query-string",
         "yup",
         "msw",
