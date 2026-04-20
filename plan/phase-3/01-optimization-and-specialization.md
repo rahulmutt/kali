@@ -111,6 +111,9 @@ types are statically known.
 - `release_advanced` now has a regression that proves the same layout-specialized wrapper path still
   materializes a nested generic clone for a large callee, so the deeper monomorphisation path
   remains covered in the advanced mode as well.
+- Nested generic specializations are now also reused across layout-specialized wrapper owners, so
+  identical imported helpers stay deduplicated even when different caller shapes force separate
+  wrapper clones.
 
 ## Tasks
 

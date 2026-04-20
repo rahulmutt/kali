@@ -512,6 +512,11 @@ follow-up widening rather than unfinished baseline delivery:
 - [x] Stage 3.1 MIR-driven specialization follow-up
   - MIR-aware call-site specialization now clones larger functions whose parameter layouts are stable enough to justify partial substitution, then reoptimizes the specialized body so literal-heavy hot paths can fold further before codegen.
 
+### Stage 3.1 - Layout-specialized nested generic reuse
+- ✅ `crates/kali_optimize/src/tests.rs` now proves nested generic specializations are reused across layout-specialized wrapper owners, so identical imported helpers stay deduplicated even when different caller shapes force separate wrapper clones.
+- ✅ `plan/phase-3/01-optimization-and-specialization.md` now names the nested-generic reuse regression explicitly alongside the existing specialization-depth notes.
+- ✅ Kept the update narrow: this widens specialization evidence within the existing optimizer model; it does not change the published benchmark or support claims.
+
 ### Stage 3.1 - Closure/struct-layout specialization follow-up
 - ✅ Shared closure-valued MIR bindings now collapse to one specialization when multiple higher-order call sites share the same layout signature.
 - ✅ Shared struct-valued MIR bindings now also collapse to one specialization when multiple higher-order call sites share the same layout signature, and the regression now covers three matching call sites so the reuse shape stays pinned down.
