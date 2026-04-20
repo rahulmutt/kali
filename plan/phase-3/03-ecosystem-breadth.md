@@ -25,6 +25,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   metadata baseline, and the web-baseline corpus now exercises `navigator.userAgent`,
   `navigator.language`, and `navigator.onLine` so the ambient browser metadata slice stays
   deterministic without changing the support-rung story.
+- The same web-baseline corpus now also exercises `performance.now()` and `queueMicrotask`
+  through the shared helper source so the timing and microtask primitives stay covered without
+  changing the support-rung story.
 - The curated package corpus now covers browser, utility, Node-runner, and scoped-package classes
   across representative real-world package shapes: exports-string roots, exports-map / subpath and
   `./*` pattern entries, browser-conditional exports, browser replacement maps, browser string
@@ -348,7 +351,7 @@ While `kali package-audit` remains **Later compatibility**, use this stage to:
 Stage 3.3 is complete. The remaining work in this area is breadth/depth follow-up rather than
 unfinished Stage-3.3 implementation:
 
-- keep widening the representative package corpus without overclaiming support rungs; the current corpus now also carries `superjson`, `chart.js`, and `@jridgewell/sourcemap-codec` through the default standalone surface alongside the existing browser/utility breadth,
+- keep widening the representative package corpus without overclaiming support rungs; the current corpus now also carries `superjson`, `chart.js`, and `@jridgewell/sourcemap-codec` through the default standalone surface alongside the existing browser/utility breadth, and the shared web-baseline helper source now also exercises `performance.now()` and `queueMicrotask` so the browser/runtime timing and microtask baseline stays concrete,
 - deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice and the current in-memory Blob/File/FileReader/storage baseline plus the stub WebSocket/Worker/IndexedDB surface,
 - widen cross-module inference carefully within the published solver/specialization budgets.
 

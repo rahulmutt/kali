@@ -626,3 +626,12 @@ Planned update:
 - add `@tanstack/router` to `crates/kali_cli/tests/package_corpus.rs` in the scoped browser exports-map and browser-condition slices
 - sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new scoped-browser routing coverage is named explicitly
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+## 2026-04-20 — Stage 3.3 timing/microtask web-baseline widening
+
+I widened the Stage 3.3 package corpus one more step by adding `performance.now()` and `queueMicrotask` to the shared web-baseline interop source, so the deterministic browser/runtime timing and microtask baseline is now explicitly covered in the package-corpus tests.
+
+Completed:
+- `crates/kali_cli/tests/package_corpus.rs` now exercises `performance.now()` and `queueMicrotask` in the shared web-baseline interop source.
+- `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` now name the same helper widening explicitly.
+- Kept the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
