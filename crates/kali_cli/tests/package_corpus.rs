@@ -1202,6 +1202,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "@testing-library/user-event",
         "@playwright/test",
         "mobx",
+        "redux",
         "recoil",
         "mitt",
         "swr",

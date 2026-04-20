@@ -253,13 +253,16 @@ Planned update:
 Completed:
 - the browser and utility web-baseline interop corpus now also names `swr` explicitly in `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md`.
 
-## 2026-04-19 — Stage 3.3 redux utility-shape widening
+## 2026-04-19 — Stage 3.3 redux utility/browser corpus widening
 
-I widened the Stage 3.3 utility corpus a bit further by adding `redux` to the utility exports-map, string-exports, and pattern-exports slices, keeping the package-corpus breadth note concrete without changing any support-rung claims.
+I widened the Stage 3.3 package corpus a bit further by adding `redux` to the utility exports-map, string-exports, and pattern-exports slices, and now also to the browser web-baseline interop slice, keeping the package-corpus breadth note concrete without changing any support-rung claims.
 
 Planned update:
-- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention the new utility-shape coverage
+- sync `crates/kali_cli/tests/package_corpus.rs`, `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the Stage 3.3 progress notes explicitly mention the new utility-shape coverage and the browser web-baseline interop slice
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- the browser web-baseline interop corpus now also exercises `redux`, and the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now call that browser state-management coverage out explicitly alongside the existing utility `redux` shape coverage.
 ## 2026-04-19 — Stage 3.3 mitt browser/utility corpus widening
 
 I widened the Stage 3.3 package corpus one step further by adding `mitt` to the browser and utility web-baseline interop slices, keeping the package-corpus breadth note concrete without changing support-rung claims.
