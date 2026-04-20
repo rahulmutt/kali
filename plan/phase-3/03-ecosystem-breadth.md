@@ -165,9 +165,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser web-baseline interop corpus now also exercises `@jridgewell/sourcemap-codec` as another
   representative utility/source-map package name, keeping the browser package corpus breadth
   concrete without changing the support-rung story.
-- The browser web-baseline interop corpus now also exercises `@babel/runtime` as another
-  representative scoped utility package name, keeping one more browser-facing utility package shape
-  concrete without changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `@babel/runtime` and
+  `@npmcli/package-json` as another representative scoped utility package name pair, keeping one
+  more browser-facing utility package shape concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@tanstack/query-core` alongside the
   utility plain-package slice, keeping one more representative scoped query package name concrete
   without changing the support-rung story.
