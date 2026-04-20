@@ -145,11 +145,12 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   keeping the breadth widening concrete without changing the support-rung story.
 - The browser and utility web-baseline interop corpus now also exercises `superjson` as another
   representative lightweight utility package name, and the utility corpus now also carries
-  `chart.js` and `@emotion/react` on the default standalone surface, keeping the breadth widening
+  `chart.js`, `recharts`, and `@emotion/react` on the default standalone surface, keeping the breadth widening
   concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@jridgewell/sourcemap-codec` as another
   representative utility/source-map package name, keeping the browser package corpus breadth
   concrete without changing the support-rung story.
+- The utility web-baseline interop corpus now also exercises `recharts` as another representative browser charting package name, keeping the browser-style charting surface concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `query-string`, and the utility plain-package corpus now also carries it on the default standalone surface, so one more query-string package name stays concrete without changing the support-rung story.
 - The browser web-baseline interop corpus, utility plain-package corpus, and utility web-baseline interop corpus now also exercise `yup` as another representative validation-library package name, keeping one more common JS package name concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `graphql`, and the utility plain-package corpus now also carries it on the default standalone surface, keeping one more common JS package name covered without changing the support-rung story.
@@ -365,7 +366,7 @@ While `kali package-audit` remains **Later compatibility**, use this stage to:
 Stage 3.3 is complete. The remaining work in this area is breadth/depth follow-up rather than
 unfinished Stage-3.3 implementation:
 
-- keep widening the representative package corpus without overclaiming support rungs; the current corpus now also carries `superjson`, `chart.js`, `@jridgewell/sourcemap-codec`, and `@emotion/react` through the default standalone surface alongside the existing browser/utility breadth, and the shared web-baseline helper source now also exercises `performance.now()` and `queueMicrotask` so the browser/runtime timing and microtask baseline stays concrete,
+- keep widening the representative package corpus without overclaiming support rungs; the current corpus now also carries `superjson`, `chart.js`, `recharts`, `@jridgewell/sourcemap-codec`, and `@emotion/react` through the default standalone surface alongside the existing browser/utility breadth, and the shared web-baseline helper source now also exercises `performance.now()` and `queueMicrotask` so the browser/runtime timing and microtask baseline stays concrete,
 - deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice and the current in-memory Blob/File/FileReader/storage baseline plus the stub WebSocket/Worker/IndexedDB surface,
 - widen cross-module inference carefully within the published solver/specialization budgets.
 
