@@ -745,3 +745,16 @@ Planned update:
 - add `deepmerge` to the utility plain-package coverage in `crates/kali_cli/tests/package_corpus.rs`
 - sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` so the new plain-package corpus breadth is named explicitly
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+## 2026-04-20 — Stage 3.3 @tanstack/query-core corpus widening
+
+I widened the Stage 3.3 package corpus one more step by adding `@tanstack/query-core` to the browser web-baseline interop and utility plain-package slices, so the representative scoped query-package breadth now stays concrete on both the browser and default standalone surfaces without changing any support-rung claims.
+
+Planned update:
+- add `@tanstack/query-core` to `crates/kali_cli/tests/package_corpus.rs` in the browser web-baseline interop and utility plain-package corpus slices
+- sync the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` so the new `@tanstack/query-core` coverage is named explicitly
+- keep the claim narrow: this is still a corpus/evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- `crates/kali_cli/tests/package_corpus.rs` now also exercises `@tanstack/query-core` in the browser web-baseline interop and utility plain-package slices, and the tracker docs now call the new coverage out explicitly.
+- Kept the update narrow: this widens the package corpus within the existing support-rung model; it does not change the documented support rungs.
