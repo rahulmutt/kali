@@ -7,7 +7,8 @@ follow-up widening rather than unfinished baseline delivery:
 
 - widen specialization depth beyond the current MIR-aware layout-specialized path; the optimizer
   already now covers owner-scoped MIR binding layouts, quoted string-, template-literal, and RegExp-literal
-  signatures, `null` / `undefined` / boolean / numeric / signed-zero / BigInt / special-number literal signatures,
+  signatures, and the MIR-aware specialization path now preserves that same regex split when it has
+  to run without layout metadata, `null` / `undefined` / boolean / numeric / signed-zero / BigInt / special-number literal signatures,
   array-layout widening, direct array-literal shape widening, nested MIR-bound bindings,
   object-literal property-order canonicalization, the nested-call regression
   `release_recursively_specializes_nested_mir_call_sites`, and the literal-shaped
@@ -41,6 +42,11 @@ follow-up widening rather than unfinished baseline delivery:
 
 
 ## Completed
+
+### Stage 3.1 - MIR-aware RegExp-literal widening
+- ✅ `crates/kali_optimize/src/tests.rs` now exercises RegExp-literal specialization through the MIR-aware path as well as the pure-LIR path, so the regex-literal split stays covered even when layout metadata is unavailable.
+- ✅ `plan/phase-3/01-optimization-and-specialization.md`, `PLAN.md`, and `TODO.md` now name the MIR-aware regex-literal widening explicitly, keeping the specialization-depth notes aligned with the current evidence set.
+- ✅ Kept the update narrow: this widens specialization depth within the existing optimizer model; it does not change the published support or benchmark claims.
 
 ### Stage 3.3 - crypto.randomUUID browser UUID widening
 - ✅ `kali_api_web` now exposes a `random_uuid` helper for `crypto.randomUUID()`-style calls, `kali_api_deno` reexports it, and `kali_runtime` now wires both `crypto_random_uuid` and `cryptoRandomUUID` host imports through the same helper, so the browser UUID slice stays covered without changing the documented support rungs.

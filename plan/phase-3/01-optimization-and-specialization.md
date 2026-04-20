@@ -45,7 +45,9 @@ types are statically known.
   the generic tagged fallback while still respecting the deterministic specialization budget.
 - RegExp-literal call-site arguments now carry distinct canonical signatures, so `/foo/i` and
   `/bar/i` stay separate in the specialization path instead of collapsing onto the generic tagged
-  fallback while still respecting the deterministic specialization budget.
+  fallback while still respecting the deterministic specialization budget, and the MIR-aware
+  specialization path preserves that same regex-literal split when it has to run without layout
+  metadata.
 - `null` and `undefined` call-site arguments now also carry distinct literal signatures instead of
   collapsing onto the old zero-valued fallback, so the specialization path stays honest about
   nullish arguments when the MIR plan can see them as constants.

@@ -1985,6 +1985,110 @@ fn release_specializes_regex_literal_arguments() {
 }
 
 #[test]
+fn release_specializes_regex_literal_arguments_with_mir_layouts() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+
+    let function = builder.alloc_text(LirNodeKind::Instruction, "consume_pattern");
+    let param_value = builder.alloc_text(LirNodeKind::Value, "value");
+    let block = builder.alloc(LirNodeKind::Block);
+    let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+    let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add8 = builder.alloc_text(LirNodeKind::Value, "+");
+    let one = literal(&mut builder, "1");
+    let two = literal(&mut builder, "2");
+    let three = literal(&mut builder, "3");
+    let four = literal(&mut builder, "4");
+    let five = literal(&mut builder, "5");
+    let six = literal(&mut builder, "6");
+    let seven = literal(&mut builder, "7");
+    let eight = literal(&mut builder, "8");
+    builder.node_mut(add1).unwrap().children = vec![param_value, one];
+    builder.node_mut(add2).unwrap().children = vec![add1, two];
+    builder.node_mut(add3).unwrap().children = vec![add2, three];
+    builder.node_mut(add4).unwrap().children = vec![add3, four];
+    builder.node_mut(add5).unwrap().children = vec![add4, five];
+    builder.node_mut(add6).unwrap().children = vec![add5, six];
+    builder.node_mut(add7).unwrap().children = vec![add6, seven];
+    builder.node_mut(add8).unwrap().children = vec![add7, eight];
+    builder.node_mut(ret).unwrap().children = vec![add8];
+    builder.node_mut(block).unwrap().children = vec![ret];
+    builder.node_mut(function).unwrap().children = vec![param_value, block];
+
+    let call_regex_a = builder.alloc(LirNodeKind::Call);
+    let callee_regex_a = builder.alloc_text(LirNodeKind::Value, "consume_pattern");
+    let regex_a = literal(&mut builder, "/foo/i");
+    builder.node_mut(call_regex_a).unwrap().children = vec![callee_regex_a, regex_a];
+
+    let call_regex_b = builder.alloc(LirNodeKind::Call);
+    let callee_regex_b = builder.alloc_text(LirNodeKind::Value, "consume_pattern");
+    let regex_b = literal(&mut builder, "/bar/i");
+    builder.node_mut(call_regex_b).unwrap().children = vec![callee_regex_b, regex_b];
+
+    let call_regex_a_repeat = builder.alloc(LirNodeKind::Call);
+    let callee_regex_a_repeat = builder.alloc_text(LirNodeKind::Value, "consume_pattern");
+    let regex_a_repeat = literal(&mut builder, "/foo/i");
+    builder.node_mut(call_regex_a_repeat).unwrap().children =
+        vec![callee_regex_a_repeat, regex_a_repeat];
+
+    builder.node_mut(root).unwrap().children =
+        vec![function, call_regex_a, call_regex_b, call_regex_a_repeat];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    let mir = MirAnalysisProgram {
+        root: kali_mir::MirNodeId::new(0),
+        nodes: Vec::new(),
+        functions: vec![kali_mir::MirFunction {
+            name: Some("consume_pattern".to_string()),
+            kind: kali_mir::MirFunctionKind::Function,
+            bindings: vec![kali_mir::MirBinding {
+                name: "value".to_string(),
+                kind: MirBindingKind::Parameter,
+                ownership: kali_mir::OwnershipClass::Borrowed,
+                layout: LayoutDescriptor::TaggedVal,
+                escapes: false,
+                captured_by: Vec::new(),
+            }],
+        }],
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program_with_mir(&mut program, &mir);
+
+    let specialized_name_a = program.nodes[call_regex_a.0 as usize]
+        .children
+        .first()
+        .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+        .and_then(|callee| callee.text.as_deref())
+        .expect("specialized call target should exist for regex literal A");
+    let specialized_name_b = program.nodes[call_regex_b.0 as usize]
+        .children
+        .first()
+        .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+        .and_then(|callee| callee.text.as_deref())
+        .expect("specialized call target should exist for regex literal B");
+    let specialized_name_a_repeat = program.nodes[call_regex_a_repeat.0 as usize]
+        .children
+        .first()
+        .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+        .and_then(|callee| callee.text.as_deref())
+        .expect("specialized call target should exist for repeated regex literal A");
+
+    assert_eq!(specialized_name_a, specialized_name_a_repeat);
+    assert_ne!(specialized_name_a, specialized_name_b);
+    assert!(specialized_name_a.starts_with("consume_pattern$spec$"));
+    assert!(specialized_name_b.starts_with("consume_pattern$spec$"));
+}
+
+#[test]
 fn release_specializes_nullish_literal_arguments() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
