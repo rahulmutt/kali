@@ -1945,6 +1945,246 @@ fn release_reuses_generic_specializations_across_layout_specialized_owners() {
 }
 
 #[test]
+fn release_advanced_reuses_generic_specializations_across_layout_specialized_owners() {
+    fn append_literal_chain(
+        builder: &mut LirBuilder,
+        mut current: LirNodeId,
+        start: u32,
+        end: u32,
+    ) -> LirNodeId {
+        for value in start..=end {
+            let next = builder.alloc_text(LirNodeKind::Value, "+");
+            let literal_node = literal(builder, &value.to_string());
+            builder.node_mut(next).unwrap().children = vec![current, literal_node];
+            current = next;
+        }
+        current
+    }
+
+    fn build_object(builder: &mut LirBuilder, first_key: &str, second_key: &str) -> LirNodeId {
+        let object = builder.alloc(LirNodeKind::Value);
+        let init_a = builder.alloc_text(LirNodeKind::Value, "init");
+        let key_a = literal(builder, first_key);
+        let value_a = literal(builder, "1");
+        builder.node_mut(init_a).unwrap().children = vec![key_a, value_a];
+
+        let init_b = builder.alloc_text(LirNodeKind::Value, "init");
+        let key_b = literal(builder, second_key);
+        let value_b = literal(builder, "2");
+        builder.node_mut(init_b).unwrap().children = vec![key_b, value_b];
+
+        builder.node_mut(object).unwrap().children = vec![init_a, init_b];
+        object
+    }
+
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+
+    let merge_pair = builder.alloc_text(LirNodeKind::Instruction, "merge_pair");
+    let merge_left = builder.alloc_text(LirNodeKind::Value, "left");
+    let merge_right = builder.alloc_text(LirNodeKind::Value, "right");
+    let merge_block = builder.alloc(LirNodeKind::Block);
+    let merge_ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+    let merge_head = builder.alloc_text(LirNodeKind::Value, "+");
+    builder.node_mut(merge_head).unwrap().children = vec![merge_left, merge_right];
+    let merge_result = append_literal_chain(&mut builder, merge_head, 1, 15);
+    builder.node_mut(merge_ret).unwrap().children = vec![merge_result];
+    builder.node_mut(merge_block).unwrap().children = vec![merge_ret];
+    builder.node_mut(merge_pair).unwrap().children = vec![merge_left, merge_right, merge_block];
+
+    let wrapper_a = builder.alloc_text(LirNodeKind::Instruction, "wrapper_a");
+    let wrapper_a_param = builder.alloc_text(LirNodeKind::Value, "payload");
+    let wrapper_a_block = builder.alloc(LirNodeKind::Block);
+    let wrapper_a_call = builder.alloc(LirNodeKind::Call);
+    let wrapper_a_callee = builder.alloc_text(LirNodeKind::Value, "merge_pair");
+    let wrapper_a_left = literal(&mut builder, "2");
+    let wrapper_a_right = literal(&mut builder, "3");
+    builder.node_mut(wrapper_a_call).unwrap().children =
+        vec![wrapper_a_callee, wrapper_a_left, wrapper_a_right];
+    let wrapper_a_result = append_literal_chain(&mut builder, wrapper_a_call, 1, 15);
+    builder.node_mut(wrapper_a_block).unwrap().children = vec![wrapper_a_result];
+    builder.node_mut(wrapper_a).unwrap().children = vec![wrapper_a_param, wrapper_a_block];
+
+    let wrapper_b = builder.alloc_text(LirNodeKind::Instruction, "wrapper_b");
+    let wrapper_b_param = builder.alloc_text(LirNodeKind::Value, "payload");
+    let wrapper_b_block = builder.alloc(LirNodeKind::Block);
+    let wrapper_b_call = builder.alloc(LirNodeKind::Call);
+    let wrapper_b_callee = builder.alloc_text(LirNodeKind::Value, "merge_pair");
+    let wrapper_b_left = literal(&mut builder, "2");
+    let wrapper_b_right = literal(&mut builder, "3");
+    builder.node_mut(wrapper_b_call).unwrap().children =
+        vec![wrapper_b_callee, wrapper_b_left, wrapper_b_right];
+    let wrapper_b_result = append_literal_chain(&mut builder, wrapper_b_call, 1, 15);
+    builder.node_mut(wrapper_b_block).unwrap().children = vec![wrapper_b_result];
+    builder.node_mut(wrapper_b).unwrap().children = vec![wrapper_b_param, wrapper_b_block];
+
+    let root_call_a = builder.alloc(LirNodeKind::Call);
+    let root_call_a_callee = builder.alloc_text(LirNodeKind::Value, "wrapper_a");
+    let root_call_a_arg = build_object(&mut builder, "x", "y");
+    builder.node_mut(root_call_a).unwrap().children = vec![root_call_a_callee, root_call_a_arg];
+
+    let root_call_b = builder.alloc(LirNodeKind::Call);
+    let root_call_b_callee = builder.alloc_text(LirNodeKind::Value, "wrapper_b");
+    let root_call_b_arg = build_object(&mut builder, "x", "z");
+    builder.node_mut(root_call_b).unwrap().children = vec![root_call_b_callee, root_call_b_arg];
+
+    builder.node_mut(root).unwrap().children =
+        vec![merge_pair, wrapper_a, wrapper_b, root_call_a, root_call_b];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    let wrapper_a_layout = LayoutDescriptor::Struct {
+        fields: vec![
+            (
+                "x".to_string(),
+                Box::new(LayoutDescriptor::Scalar("number".to_string())),
+            ),
+            (
+                "y".to_string(),
+                Box::new(LayoutDescriptor::Scalar("number".to_string())),
+            ),
+        ],
+    };
+    let wrapper_b_layout = LayoutDescriptor::Struct {
+        fields: vec![
+            (
+                "x".to_string(),
+                Box::new(LayoutDescriptor::Scalar("number".to_string())),
+            ),
+            (
+                "z".to_string(),
+                Box::new(LayoutDescriptor::Scalar("number".to_string())),
+            ),
+        ],
+    };
+    let mir = MirAnalysisProgram {
+        root: kali_mir::MirNodeId::new(0),
+        nodes: Vec::new(),
+        functions: vec![
+            kali_mir::MirFunction {
+                name: Some("merge_pair".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![
+                    kali_mir::MirBinding {
+                        name: "left".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::TaggedVal,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                    kali_mir::MirBinding {
+                        name: "right".to_string(),
+                        kind: MirBindingKind::Parameter,
+                        ownership: kali_mir::OwnershipClass::Borrowed,
+                        layout: LayoutDescriptor::TaggedVal,
+                        escapes: false,
+                        captured_by: Vec::new(),
+                    },
+                ],
+            },
+            kali_mir::MirFunction {
+                name: Some("wrapper_a".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![kali_mir::MirBinding {
+                    name: "payload".to_string(),
+                    kind: MirBindingKind::Parameter,
+                    ownership: kali_mir::OwnershipClass::Borrowed,
+                    layout: wrapper_a_layout,
+                    escapes: false,
+                    captured_by: Vec::new(),
+                }],
+            },
+            kali_mir::MirFunction {
+                name: Some("wrapper_b".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![kali_mir::MirBinding {
+                    name: "payload".to_string(),
+                    kind: MirBindingKind::Parameter,
+                    ownership: kali_mir::OwnershipClass::Borrowed,
+                    layout: wrapper_b_layout,
+                    escapes: false,
+                    captured_by: Vec::new(),
+                }],
+            },
+        ],
+    };
+
+    Optimizer::new(OptimizationLevel::ReleaseAdvanced)
+        .optimize_program_with_mir(&mut program, &mir);
+
+    let wrapper_a_specialized_name = program.nodes[root_call_a.0 as usize]
+        .children
+        .first()
+        .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+        .and_then(|callee| callee.text.as_deref())
+        .expect("specialized wrapper_a call target should exist");
+    let wrapper_b_specialized_name = program.nodes[root_call_b.0 as usize]
+        .children
+        .first()
+        .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+        .and_then(|callee| callee.text.as_deref())
+        .expect("specialized wrapper_b call target should exist");
+
+    assert!(wrapper_a_specialized_name.starts_with("wrapper_a$spec$"));
+    assert!(wrapper_b_specialized_name.starts_with("wrapper_b$spec$"));
+    assert_ne!(
+        wrapper_a_specialized_name, wrapper_b_specialized_name,
+        "distinct module-like owners should still produce distinct layout-specialized wrappers"
+    );
+
+    let merge_pair_specialized_name = program
+        .nodes
+        .iter()
+        .filter(|node| {
+            node.kind == LirNodeKind::Instruction
+                && node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| text.starts_with("merge_pair$spec$"))
+        })
+        .map(|node| {
+            node.text
+                .clone()
+                .expect("specialized merge_pair should have a name")
+        })
+        .next()
+        .expect("nested generic specialization should be created exactly once");
+
+    let merge_pair_specialized_count = program
+        .nodes
+        .iter()
+        .filter(|node| {
+            node.kind == LirNodeKind::Instruction
+                && node.text.as_deref() == Some(merge_pair_specialized_name.as_str())
+        })
+        .count();
+    assert_eq!(
+        merge_pair_specialized_count, 1,
+        "identical generic specializations should be reused across layout-specialized owners"
+    );
+
+    let merge_pair_call_count = program
+        .nodes
+        .iter()
+        .filter(|node| node.kind == LirNodeKind::Call)
+        .filter(|node| {
+            node.children
+                .first()
+                .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+                .and_then(|callee| callee.text.as_deref())
+                == Some(merge_pair_specialized_name.as_str())
+        })
+        .count();
+    assert!(
+        merge_pair_call_count >= 2,
+        "layout-specialized wrappers should both retarget to the same nested generic specialization"
+    );
+}
+
+#[test]
 fn release_specializes_identical_generic_call_sites_across_owners_once() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
@@ -2147,8 +2387,15 @@ fn release_reuses_generic_specializations_across_reexport_chain() {
     builder.node_mut(root_call_b).unwrap().children =
         vec![root_call_b_callee, root_call_b_left, root_call_b_right];
 
-    builder.node_mut(root).unwrap().children =
-        vec![math_add, module_helper, bridge, public_a, public_b, root_call_a, root_call_b];
+    builder.node_mut(root).unwrap().children = vec![
+        math_add,
+        module_helper,
+        bridge,
+        public_a,
+        public_b,
+        root_call_a,
+        root_call_b,
+    ];
     let mut program = LirProgram {
         root,
         nodes: builder.into_nodes(),

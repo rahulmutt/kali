@@ -1,3 +1,19 @@
+Subject: Stage 3.1 release-advanced cross-owner reuse widening
+
+## 2026-04-20 — Stage 3.1 release-advanced cross-owner reuse widening
+
+I widened the Stage 3.1 specialization evidence one step further by adding a `release-advanced` regression that proves identical generic specializations are still reused across layout-specialized owners, matching the existing release-mode cross-owner reuse shape while keeping the budget story deterministic.
+
+Planned update:
+- add a `release-advanced` counterpart to the existing cross-owner generic-reuse regression in `crates/kali_optimize/src/tests.rs`
+- sync the Stage 3.1 progress notes in `plan/phase-3/01-optimization-and-specialization.md`, `PLAN.md`, and `TODO.md` so the new advanced-mode reuse coverage is named explicitly
+- keep the claim narrow: this is still a specialization-depth widening within the existing optimizer model, not a new support-rung claim
+
+Completed:
+- `crates/kali_optimize/src/tests.rs` now also exercises the `release-advanced` cross-owner generic-reuse path across layout-specialized wrappers.
+- The Stage 3.1 progress notes now name the new advanced-mode reuse coverage explicitly.
+- Kept the update narrow: this widens specialization evidence within the existing optimizer model; it does not change the published support or benchmark claims.
+
 Subject: Stage 3.3 @vueuse/core scoped-browser corpus widening
 
 ## 2026-04-20 — Stage 3.3 @vueuse/core scoped-browser corpus widening
