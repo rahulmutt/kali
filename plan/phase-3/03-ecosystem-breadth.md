@@ -64,7 +64,7 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   app-framework package name, keeping the browser package corpus breadth concrete without changing
   the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@chakra-ui/react`, `@mantine/core`,
-  `@emotion/styled`, `@heroicons/react`, `@radix-ui/react-dialog`, and `react-dom` as more representative browser package
+  `@emotion/styled`, `@heroicons/react`, `lucide-react`, `@radix-ui/react-dialog`, and `react-dom` as more representative browser package
   names, keeping the browser package corpus breadth concrete without changing the support-rung
   story.
 - The browser web-baseline interop corpus now also exercises `next` as one more browser
@@ -97,7 +97,7 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   package name covered without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@playwright/test` as one more representative browser test-runner package, keeping the browser package corpus breadth concrete without changing the support-rung story.
 - The utility corpus now also exercises `vite` in the plain-package and web-baseline interop slices,
-  keeping one more modern build-tool package name covered without changing the support-rung story.
+  and now also carries `lucide-react` in the plain-package slice, keeping one more modern build-tool / browser UI package name covered without changing the support-rung story.
 - The utility corpus now also exercises `luxon` in the browser web-baseline, utility plain-package,
   utility web-baseline interop, and utility module-entry slices, broadening the representative
   date-time utility set without changing the support-rung story.
