@@ -48,6 +48,11 @@ follow-up widening rather than unfinished baseline delivery:
   and `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`.
 
 
+### Stage 3.3 - cross-module re-export smoke widening
+- ✅ `crates/kali_cli/tests/runtime_smoke.rs` now exercises a cross-module re-export chain (`math` → `helper` → `bridge` → `public` → `main`) so the public API types stay inferred without annotations within the Phase-3 budget.
+- ✅ The same smoke path still passes both `check` and `build`, keeping the multi-module inference case anchored in the existing solver budget.
+- ✅ Kept the update narrow: this widens cross-module inference evidence within the current bounded inference contract; it does not change the documented support-rung story.
+
 ## Completed
 
 ### Stage 3.3 - tailwindcss utility corpus widening

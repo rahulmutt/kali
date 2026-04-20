@@ -1996,6 +1996,8 @@ fn node_cross_module_inference_stays_within_the_phase_3_budget() {
     let dir = tempdir().expect("tempdir");
     let math_path = dir.path().join("math.ts");
     let helper_path = dir.path().join("helper.ts");
+    let bridge_path = dir.path().join("bridge.ts");
+    let public_path = dir.path().join("public.ts");
     let source_path = dir.path().join("main.ts");
 
     fs::write(
@@ -2017,8 +2019,20 @@ export function quadruple(value) {
     )
     .expect("write helper module");
     fs::write(
+        &bridge_path,
+        r#"export { quadruple } from './helper.ts';
+"#,
+    )
+    .expect("write bridge module");
+    fs::write(
+        &public_path,
+        r#"export { quadruple } from './bridge.ts';
+"#,
+    )
+    .expect("write public module");
+    fs::write(
         &source_path,
-        r#"import { quadruple } from './helper.ts';
+        r#"import { quadruple } from './public.ts';
 
 console.log(quadruple(21));
 "#,
