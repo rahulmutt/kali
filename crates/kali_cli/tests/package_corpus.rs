@@ -1343,6 +1343,7 @@ fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deploya
         ("@mantine/core", "styles"),
         ("@tanstack/react-query", "query-core"),
         ("@tanstack/table-core", "table"),
+        ("@tanstack/router", "router"),
         ("react-dom", "client"),
         ("chart.js", "auto"),
         ("zustand", "vanilla"),
@@ -1421,6 +1422,7 @@ fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkabl
         ("@mantine/core", "styles"),
         ("@tanstack/react-query", "query-core"),
         ("@tanstack/table-core", "table"),
+        ("@tanstack/router", "router"),
         ("zustand", "vanilla"),
         ("react-dom", "client"),
     ] {
