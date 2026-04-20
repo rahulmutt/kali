@@ -1,3 +1,18 @@
+Subject: Stage 3.3 tailwindcss utility corpus widening
+
+## 2026-04-20 — Stage 3.3 tailwindcss utility corpus widening
+
+I widened the Stage 3.3 package corpus one more step by adding `tailwindcss` to the utility plain-package corpus on the default standalone surface, so the representative build-tool breadth now keeps growing without changing any support-rung claims.
+
+Planned update:
+- add `tailwindcss` to `crates/kali_cli/tests/package_corpus.rs` in the utility plain-package corpus slice
+- sync the Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` so the new standalone `tailwindcss` coverage is named explicitly
+- keep the claim narrow: this is still a corpus/evidence widening within the existing package-support model, not a support-rung change
+
+Completed:
+- `crates/kali_cli/tests/package_corpus.rs` now also exercises `tailwindcss` in the utility plain-package corpus on the default standalone surface, and the tracker docs now call the new `tailwindcss` coverage out explicitly.
+- Kept the update narrow: this widens the package corpus within the existing support-rung model; it does not change the documented support rungs.
+
 Subject: Stage 3.3 @emotion/styled utility corpus widening
 
 ## 2026-04-20 — Stage 3.3 @emotion/styled utility corpus widening
