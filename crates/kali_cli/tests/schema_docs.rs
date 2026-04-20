@@ -211,6 +211,11 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         "releaseAndCollectHeapCharacterisationAndLinearMemory",
         "releaseAndCollectHeapCellsHavePositiveCount",
     ];
+    let soundness_theorem_names = [
+        "KaliCore.Soundness.subst_closed",
+        "KaliCore.litTy",
+    ];
+
     let summary_docs = [
         ("README.md", summary),
         ("specs/16-testing.md", summary),
@@ -231,6 +236,12 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
             assert!(
                 text.contains(theorem),
                 "{relative} is missing proof-summary theorem name: {theorem}"
+            );
+        }
+        for theorem in soundness_theorem_names {
+            assert!(
+                text.contains(theorem),
+                "{relative} is missing soundness proof-summary theorem name: {theorem}"
             );
         }
         for term in rc_predicate_vocabulary {

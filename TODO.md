@@ -517,7 +517,8 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Synced `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, and the verification summaries so the new decrement-path iff theorem is named explicitly alongside the current RC helper inventory.
 
 ### Stage 4.2 - Soundness-helper naming sync
-- ✅ `proofs/BOUNDARY.md` and `PLAN-4.2-STATUS.md` now explicitly name `KaliCore.Soundness.subst_closed` and the literal-to-type helper `KaliCore.litTy` alongside the widened closed-fragment soundness claims.
+- ✅ `proofs/BOUNDARY.md`, `PLAN-4.2-STATUS.md`, `specs/16-testing.md`, and `specs/19-feature-maturity.md` now explicitly name `KaliCore.Soundness.subst_closed` and the literal-to-type helper `KaliCore.litTy` alongside the widened closed-fragment soundness claims.
+- ✅ `crates/kali_cli/tests/schema_docs.rs` now also pins those soundness-helper names in the verification-summary anti-drift guard so the summary docs and proof boundary stay aligned.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a support-rung change.
 
 ### Stage 4.2 - Release-set monotonicity follow-up
