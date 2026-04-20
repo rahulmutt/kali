@@ -810,3 +810,12 @@ Planned update:
 - add `xstate` to the browser and utility exports-map / pattern-exports coverage in `crates/kali_cli/tests/package_corpus.rs`
 - sync the corresponding Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` so the new xstate shape coverage is named explicitly
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+
+## 2026-04-20 — Stage 3.1 cross-module-style re-export specialization reuse
+
+I found a small Stage 3.1 follow-up that fits the remaining specialization-depth lane: add a regression proving the release-mode generic specialization cache still reuses the same helper clone when the call chain runs through a longer re-export-style wrapper chain, so the cross-module-style reuse story stays concrete without changing any support-rung claims.
+
+Planned update:
+- add a release-mode optimizer regression in `crates/kali_optimize/src/tests.rs` that exercises a `public` / `bridge` / helper re-export chain and asserts the same generic helper specialization is reused once across the chain
+- sync the Stage 3.1 progress notes in `plan/phase-3/01-optimization-and-specialization.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` so the re-export-chain specialization coverage is named explicitly
+- keep the claim narrow: this is still a specialization-depth evidence widening within the existing optimizer model, not a new support-rung or phase claim

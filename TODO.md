@@ -242,6 +242,11 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ Identical generic specializations are now reused across owners when the callee and argument signatures already match, so duplicate helper clones are avoided when the same generic call appears in multiple function scopes.
 - ✅ Kept the update narrow: this is a specialization-dedup improvement inside the existing optimizer model; it does not change the published benchmark or support claims.
 
+### Stage 3.1 - Re-export-chain generic specialization reuse
+- ✅ `crates/kali_optimize/src/tests.rs` now exercises a `public` / `bridge` / helper re-export chain and proves the same generic helper specialization is reused once across the longer release-mode call flow, so the cross-module-style reuse story stays concrete without changing the published support or benchmark claims.
+- ✅ `plan/phase-3/01-optimization-and-specialization.md`, `PLAN.md`, `plan/phase-1/sum.md`, `TODO.md`, and `PLAN-MAILBOX.md` now name the new re-export-chain widening explicitly, keeping the specialization-depth notes aligned with the current evidence set.
+- ✅ Kept the update narrow: this widens evidence for the existing optimizer model; it does not change the published support or benchmark claims.
+
 ### Stage 3.1 - Budget-exhausted MIR specialization reuse
 - ✅ MIR-aware call-site reuse now checks the specialization cache before it spends the current owner's remaining budget, so once a clone already exists the optimizer can still retarget later duplicate call sites to it even after the owner has used every remaining specialization slot.
 - ✅ Added a regression test that builds a budgeted MIR specialization with repeated call sites and proves the later duplicate call still reuses the earlier clone after the budget is exhausted.
