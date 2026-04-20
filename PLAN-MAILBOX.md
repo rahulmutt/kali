@@ -783,10 +783,10 @@ Completed:
 
 I found a small Stage 3.3 follow-up in the utility plain-package breadth lane: add `deepmerge` to the default standalone package corpus so the representative pure-JS package coverage keeps widening without changing any support-rung claims.
 
-Planned update:
-- add `deepmerge` to the utility plain-package coverage in `crates/kali_cli/tests/package_corpus.rs`
-- sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` so the new plain-package corpus breadth is named explicitly
-- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+Completed:
+- `crates/kali_cli/tests/package_corpus.rs` now also exercises `deepmerge` in the utility plain-package corpus on the default standalone surface.
+- `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` now name the `deepmerge` widening explicitly.
+- Kept the update narrow: this widens the package corpus within the existing support-rung model; it does not change the documented support rungs.
 
 ## 2026-04-20 — Stage 3.3 @tanstack/query-core corpus widening
 
