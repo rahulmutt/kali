@@ -640,6 +640,11 @@ follow-up widening rather than unfinished baseline delivery:
 - ✅ `plan/phase-3/03-ecosystem-breadth.md` and `TODO.md` now name `@tanstack/router` explicitly in the Stage 3.3 progress notes, keeping the corpus-breadth wording aligned with the current evidence set.
 - ✅ Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
 
+### Stage 3.3 - @tanstack/router scoped-browser shape widening
+- ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `@tanstack/router` in the scoped browser exports-map and browser-condition slices, so the representative scoped routing package breadth now carries one more browser shape through the browser command path without changing the documented support rungs.
+- ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the scoped-browser `@tanstack/router` slices explicitly in the Stage 3.3 progress notes, keeping the corpus-breadth wording aligned with the current evidence set.
+- ✅ Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
+
 ### Stage 3.3 - yaml browser/utility corpus widening
 - ✅ `crates/kali_cli/tests/package_corpus.rs` now also exercises `yaml` in the browser web-baseline interop, utility plain-package, and utility web-baseline interop slices, so the representative pure-JS data-format package breadth now carries one more package name through both command paths without changing the documented support rungs.
 - ✅ `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name `yaml` explicitly in the Stage 3.3 progress notes, keeping the corpus-breadth wording aligned with the current evidence set.

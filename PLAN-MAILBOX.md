@@ -630,12 +630,12 @@ Completed:
 
 ## 2026-04-20 — Stage 3.3 @tanstack/router scoped-browser shape widening
 
-I’m widening the Stage 3.3 package corpus one step further by adding `@tanstack/router` to the scoped browser exports-map and browser-condition slices, so the representative routing-package breadth stays concrete across both browser shape coverage paths without changing any support-rung claims.
+I widened the Stage 3.3 package corpus one step further by adding `@tanstack/router` to the scoped browser exports-map and browser-condition slices, so the representative routing-package breadth stays concrete across both browser shape coverage paths without changing any support-rung claims.
 
-Planned update:
-- add `@tanstack/router` to `crates/kali_cli/tests/package_corpus.rs` in the scoped browser exports-map and browser-condition slices
-- sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the new scoped-browser routing coverage is named explicitly
-- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
+Completed:
+- `crates/kali_cli/tests/package_corpus.rs` now exercises `@tanstack/router` in the scoped browser exports-map and browser-condition slices.
+- `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` now name the scoped-browser `@tanstack/router` slices explicitly.
+- Kept the update narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change.
 
 ## 2026-04-20 — Stage 3.3 timing/microtask web-baseline widening
 
