@@ -1229,6 +1229,7 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         "react-hook-form",
         "@tanstack/react-form",
         "@tanstack/router",
+        "@tanstack/react-router",
         "path-to-regexp",
     ] {
         let dir = tempdir().expect("tempdir");
@@ -1351,6 +1352,7 @@ fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deploya
         ("@tanstack/react-query", "query-core"),
         ("@tanstack/table-core", "table"),
         ("@tanstack/router", "router"),
+        ("@tanstack/react-router", "router"),
         ("@remix-run/react", "links"),
         ("react-dom", "client"),
         ("chart.js", "auto"),
@@ -1432,6 +1434,7 @@ fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkabl
         ("@tanstack/react-query", "query-core"),
         ("@tanstack/table-core", "table"),
         ("@tanstack/router", "router"),
+        ("@tanstack/react-router", "router"),
         ("zustand", "vanilla"),
         ("@remix-run/react", "links"),
         ("react-dom", "client"),

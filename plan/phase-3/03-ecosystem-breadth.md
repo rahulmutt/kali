@@ -117,6 +117,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
 - The browser and utility web-baseline interop corpus now also exercises `@tanstack/router` as another
   representative scoped routing package name, keeping the browser/utility package breadth concrete
   without changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `@tanstack/react-router` as another
+  representative scoped routing package name, and the scoped browser corpus now also carries it
+  across the exports-map and browser-condition slices, keeping one more routing package shape
+  concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@tanstack/table-core`, and the scoped
   browser corpus now also exercises it across the exports-map and browser-condition slices, keeping
   one more representative scoped table package name covered without changing the support-rung story.
