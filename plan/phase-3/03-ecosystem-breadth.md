@@ -81,8 +81,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   representative browser head-management package name, keeping one more browser package shape
   concrete through the browser command path without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@stripe/react-stripe-js` as another
-  representative browser payment/UI package name, keeping one more browser package shape concrete
-  through the browser command path without changing the support-rung story.
+  representative browser payment/UI package name, and the scoped browser corpus now also exercises
+  it across the exports-map and browser-condition slices, keeping one more browser package shape
+  concrete through both the browser command path and the scoped browser shape coverage without
+  changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `ajv` as another representative
   validation package name, and the utility plain-package corpus now also carries it on the default
   standalone surface, keeping one more common pure-JS package covered without changing the

@@ -705,3 +705,15 @@ Planned update:
 - keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
 
 [2026-04-20] Follow-up widening note: add a new browser web-baseline interop package-corpus case for @stripe/react-stripe-js and mirror the evidence in the Stage 3.3 progress notes / TODO tracker. Support rungs stay unchanged; this is corpus breadth only.
+
+
+Subject: Stage 3.3 @stripe/react-stripe-js scoped-browser widening
+
+## 2026-04-20 — Stage 3.3 @stripe/react-stripe-js scoped-browser widening
+
+I found a small Stage 3.3 follow-up that fits the current package-corpus breadth lane: add `@stripe/react-stripe-js` to the scoped browser exports-map and browser-condition slices so the representative browser payment/UI package coverage keeps widening without changing any support-rung claims.
+
+Planned update:
+- add `@stripe/react-stripe-js` to the scoped browser exports-map and browser-condition coverage in `crates/kali_cli/tests/package_corpus.rs`
+- sync the corresponding Stage 3.3 progress notes in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md` so the corpus-breadth note names the new package-shape coverage explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
