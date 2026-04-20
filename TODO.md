@@ -790,3 +790,7 @@ follow-up widening rather than unfinished baseline delivery:
 ### Stage 4.2 - Final-heap positive-count wording sync
 - ✅ `KaliCore.Safety.releaseAndCollectHeapCellsHavePositiveCount` is now spelled out explicitly in the published boundary, summary docs, and Stage 4.2 progress notes, so the local collection helper's final-heap positivity story stays direct rather than implied.
 - ✅ Kept the update narrow: this is a proof-summary wording sync for the published boundary, not a boundary widening.
+
+### Stage 4.2 - Verification-depth wording sync
+- ✅ `PLAN.md` and `plan/phase-4/02-formal-verification-depth.md` now call out `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`, `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`, and `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilterAndLinearMemory` explicitly in the Stage 4.2 verification-depth follow-up note.
+- ✅ Kept the update narrow: this is a plan-summary wording sync for the published boundary, not a boundary widening.

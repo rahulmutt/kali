@@ -1,3 +1,13 @@
+Subject: Stage 4.2 verification depth wording sync
+
+## 2026-04-20 — Stage 4.2 verification depth wording sync
+
+I tightened the top-level Stage 4.2 verification-depth summary so `PLAN.md`, `plan/phase-4/02-formal-verification-depth.md`, and the matching tracker note now name the collection helper's `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCount`, `KaliCore.Safety.releaseAndCollectTargetCellAllocatedWhenPositiveCount`, and `KaliCore.Safety.releaseAndCollectHeapIsPositiveCountFilterAndLinearMemory` companions explicitly alongside the existing RC snapshot inventory.
+
+Completed:
+- `PLAN.md` and `plan/phase-4/02-formal-verification-depth.md` now call out the collection target-cell iff bridge, target-cell allocation corollary, and heap-filter + linear-memory companion explicitly in the Stage 4.2 verification-depth follow-up lane.
+- Kept the update narrow: this is a plan-summary wording sync for the published boundary, not a boundary widening.
+
 Subject: Stage 3.3 tailwindcss utility corpus widening
 
 ## 2026-04-20 — Stage 3.3 tailwindcss utility corpus widening
