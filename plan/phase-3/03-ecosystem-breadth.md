@@ -71,9 +71,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   story.
 - The browser web-baseline interop corpus now also exercises `next` as one more browser
   app-framework package, `framer-motion` as one more representative browser UI package,
-  `chart.js` as one more browser charting package, `recharts` as one more browser charting package,
-  and `@storybook/react` as one more representative scoped browser package; the scoped browser corpus
+  `chart.js`, `recharts`, and `d3` as more representative browser charting packages, and
+  `@storybook/react` as one more representative scoped browser package; the scoped browser corpus
   now also exercises `@storybook/react` across the exports-map and browser-condition slices,
+  and the utility plain-package corpus now also carries `d3` on the default standalone surface too,
   keeping the browser package corpus breadth concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `@remix-run/react` as another
   representative browser app-framework package name, and the scoped browser corpus now also
