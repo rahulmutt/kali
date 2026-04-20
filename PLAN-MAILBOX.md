@@ -853,3 +853,4 @@ Completed:
 ### Stage 3.3 - @reduxjs/toolkit scoped utility corpus widening
 - Noted that `crates/kali_cli/tests/package_corpus.rs` now also exercises `@reduxjs/toolkit` in the utility scoped-package corpus on the default standalone surface, so the representative scoped utility package breadth stays concrete without changing the documented support-rung story.
 - Kept the progress wording aligned in `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, and `TODO.md`.
+- Completed the note by keeping the scoped utility corpus wording aligned with the existing corpus evidence; no support-rung claim changed.
