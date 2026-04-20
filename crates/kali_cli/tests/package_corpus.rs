@@ -551,6 +551,7 @@ fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_thr
         ("react", "jsx-runtime"),
         ("preact", "hooks"),
         ("vue", "runtime-dom"),
+        ("dayjs", "locale"),
         ("hono", "client"),
         ("svelte", "compiler"),
         ("lit", "decorators"),
@@ -839,6 +840,7 @@ fn browser_corpus_packages_with_browser_exports_remain_checkable_and_deployable_
         ("react", "jsx-runtime"),
         ("preact", "hooks"),
         ("vue", "runtime-dom"),
+        ("dayjs", "locale"),
         ("jotai", "store"),
     ] {
         let dir = tempdir().expect("tempdir");

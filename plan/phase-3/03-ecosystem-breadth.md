@@ -272,6 +272,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   `@radix-ui/react-dialog`, and `@tanstack/react-query` alongside the existing browser
   representatives, keeping six more scoped browser package names covered by the browser command
   path without changing the support-rung story.
+- The browser corpus now also exercises `dayjs` across the exports-map and browser-condition slices,
+  keeping one more date-time package shape concrete through the browser command path without
+  changing the support-rung story.
 - The browser router corpus now also exercises `vue-router` and `react-router` across the
   web-baseline interop, exports-map, and pattern-exports slices, adding two more representative
   browser package shapes without changing the documented support rungs.
