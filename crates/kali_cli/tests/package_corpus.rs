@@ -494,6 +494,7 @@ fn browser_corpus_packages_remain_checkable_and_deployable_through_host() {
         "@testing-library/dom",
         "nanostores",
         "@storybook/react",
+        "@remix-run/react",
         "path-to-regexp",
     ] {
         let dir = tempdir().expect("tempdir");
@@ -557,6 +558,7 @@ fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_thr
         ("vue-router", "history"),
         ("react-router", "dom"),
         ("jotai", "store"),
+        ("@remix-run/react", "links"),
         ("react-dom", "client"),
     ] {
         let dir = tempdir().expect("tempdir");
@@ -1424,6 +1426,7 @@ fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkabl
         ("@tanstack/table-core", "table"),
         ("@tanstack/router", "router"),
         ("zustand", "vanilla"),
+        ("@remix-run/react", "links"),
         ("react-dom", "client"),
     ] {
         let dir = tempdir().expect("tempdir");

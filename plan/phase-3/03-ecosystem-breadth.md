@@ -73,6 +73,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   and `@storybook/react` as one more representative scoped browser package; the scoped browser corpus
   now also exercises `@storybook/react` across the exports-map and browser-condition slices,
   keeping the browser package corpus breadth concrete without changing the support-rung story.
+- The browser web-baseline interop corpus now also exercises `@remix-run/react` as another
+  representative browser app-framework package name, and the scoped browser corpus now also
+  exercises it across the exports-map and browser-condition slices, keeping the browser package
+  breadth concrete without changing the support-rung story.
 - The browser corpus now also exercises `rxjs`, and the browser web-baseline interop corpus now also
   exercises it too as another representative utility package name, keeping one more browser/utility
   package name covered without changing the support-rung story.
