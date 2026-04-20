@@ -1979,6 +1979,7 @@ fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the
         "chart.js",
         "recharts",
         "@emotion/styled",
+        "@storybook/react",
         "@tanstack/react-table",
         "lodash",
         "vite",

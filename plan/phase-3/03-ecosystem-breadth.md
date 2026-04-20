@@ -178,6 +178,7 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   browser-condition slices, so one more representative scoped query package shape stays concrete
   without changing the support-rung story.
 - The utility web-baseline interop corpus now also exercises `recharts` as another representative browser charting package name, and now also exercises `@emotion/styled` as another representative scoped UI package name, keeping the browser-style charting surface concrete without changing the support-rung story.
+- The utility web-baseline interop corpus now also exercises `@storybook/react` as another representative scoped browser package name, keeping the browser-style package breadth concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `query-string`, and the utility plain-package corpus now also carries it on the default standalone surface, so one more query-string package name stays concrete without changing the support-rung story.
 - The browser web-baseline interop corpus, utility plain-package corpus, and utility web-baseline interop corpus now also exercise `yup` as another representative validation-library package name, keeping one more common JS package name concrete without changing the support-rung story.
 - The browser web-baseline interop corpus now also exercises `graphql`, and the utility plain-package corpus now also carries it on the default standalone surface, keeping one more common JS package name covered without changing the support-rung story.
