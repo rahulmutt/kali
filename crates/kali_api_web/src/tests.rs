@@ -485,7 +485,7 @@ fn broadcast_channel_stub_records_posted_messages() {
 
 #[test]
 fn indexed_db_stub_persists_values() {
-    let db = IndexedDb::open("browser-cache");
+    let db = IndexedDB::open("browser-cache");
     assert_eq!(db.name(), "browser-cache");
 
     db.put("sessions", "alpha", Value::String("1".to_string()));
@@ -503,4 +503,7 @@ fn indexed_db_stub_persists_values() {
 
     db.clear_store("sessions");
     assert!(db.store_names().is_empty());
+
+    let alias = IndexedDb::open("browser-cache-alias");
+    assert_eq!(alias.name(), "browser-cache-alias");
 }

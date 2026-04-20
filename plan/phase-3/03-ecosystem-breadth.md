@@ -205,6 +205,10 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   `BroadcastChannel`, `WebSocket`, `Worker`, and `IndexedDB`, and the Deno compatibility surface
   reexports those names so browser-style code can exercise the ambient surface without changing the
   documented support rungs.
+- The shared browser/runtime support library now also exposes an `IndexedDB` alias for the in-memory
+  stub, and the Deno compatibility surface reexports that browser-aligned name too so Rust-facing
+  code can mirror the docs while the lower-case `indexedDB` global stays the corpus source of
+  truth.
 - The shared browser/runtime support library now also exposes deterministic `atob` / `btoa`
   helpers, and the Deno compatibility surface reexports them so browser-style code can round-trip
   binary strings without changing the documented support rungs.

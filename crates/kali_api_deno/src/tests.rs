@@ -217,8 +217,11 @@ fn browser_stubs_are_reexported_through_the_deno_surface() {
     assert_eq!(params.get("alpha").as_deref(), Some("1"));
     assert_eq!(params.get_all("beta"), vec!["two words".to_string()]);
 
-    let db = IndexedDb::open("browser-cache");
+    let db = IndexedDB::open("browser-cache");
     db.put("objects", "item", serde_json::json!({"ok": true}));
+
+    let alias = IndexedDb::open("browser-cache-alias");
+    assert_eq!(alias.name(), "browser-cache-alias");
     assert_eq!(
         db.get("objects", "item"),
         Some(serde_json::json!({"ok": true}))

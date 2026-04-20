@@ -1425,6 +1425,9 @@ pub struct IndexedDb {
     stores: Arc<Mutex<BTreeMap<String, BTreeMap<String, Value>>>>,
 }
 
+/// Browser-aligned alias for the deterministic IndexedDB stub.
+pub type IndexedDB = IndexedDb;
+
 impl IndexedDb {
     /// Create a database stub with a stable name.
     pub fn open(name: impl Into<String>) -> Self {
