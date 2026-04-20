@@ -679,3 +679,12 @@ Completed:
 MIR specialization follow-up: allow generic specialization inside MIR-specialized clones so layout-specialized functions can still clone and fold large generic callees after the MIR pass narrows the arguments.
 
 Completed: release-mode MIR-specialized clones now keep generic specialization enabled inside their bodies, so a layout-specialized wrapper can still clone and fold a large generic callee after the MIR pass narrows its arguments.
+
+## 2026-04-20 — Stage 3.3 ajv browser/utility corpus widening
+
+I found one more small Stage 3.3 package-corpus widening that fits the current breadth follow-up lane: add `ajv` to the browser web-baseline interop slice and the utility plain-package slice so the representative validation-package coverage stays concrete on both the browser and default standalone surfaces without changing any support-rung claims.
+
+Planned update:
+- add `ajv` to `crates/kali_cli/tests/package_corpus.rs` in the browser web-baseline interop and utility plain-package corpus slices
+- sync `plan/phase-3/03-ecosystem-breadth.md`, `PLAN.md`, `plan/phase-1/sum.md`, and `TODO.md` so the Stage 3.3 progress notes name the new `ajv` coverage explicitly
+- keep the claim narrow: this is still a corpus / evidence widening within the existing package-support model, not a support-rung change
