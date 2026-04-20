@@ -1,3 +1,14 @@
+Subject: Stage 3.3 @vueuse/core scoped-browser corpus widening
+
+## 2026-04-20 — Stage 3.3 @vueuse/core scoped-browser corpus widening
+
+I widened the Stage 3.3 package corpus one more step by adding `@vueuse/core` to the scoped browser exports-map and browser-condition slices, so the representative scoped browser utility breadth is now explicit on top of the existing web-baseline coverage.
+
+Completed:
+- `crates/kali_cli/tests/package_corpus.rs` now also exercises `@vueuse/core` in the scoped browser exports-map and browser-condition slices.
+- `PLAN.md`, `plan/phase-3/03-ecosystem-breadth.md`, `plan/phase-1/sum.md`, and `TODO.md` now name the scoped-browser `@vueuse/core` widening explicitly.
+- Kept the update narrow: this is still a corpus/evidence widening within the existing package-support model, not a support-rung change.
+
 Subject: Stage 4.2 verification depth wording sync
 
 ## 2026-04-20 — Stage 4.2 verification depth wording sync

@@ -1357,6 +1357,7 @@ fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deploya
         ("@tanstack/router", "router"),
         ("@tanstack/react-router", "router"),
         ("@remix-run/react", "links"),
+        ("@vueuse/core", "index"),
         ("react-dom", "client"),
         ("chart.js", "auto"),
         ("zustand", "vanilla"),
@@ -1440,6 +1441,7 @@ fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkabl
         ("@tanstack/react-router", "router"),
         ("zustand", "vanilla"),
         ("@remix-run/react", "links"),
+        ("@vueuse/core", "index"),
         ("react-dom", "client"),
     ] {
         let dir = tempdir().expect("tempdir");

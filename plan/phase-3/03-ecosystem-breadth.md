@@ -206,6 +206,9 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   `TextDecoder` as more representative browser/web-framework, browser utility, and text-codec
   primitives, keeping the browser package corpus breadth concrete without changing the support-rung
   story.
+- The scoped browser corpus now also exercises `@vueuse/core` across the exports-map and
+  browser-condition slices, keeping one more representative scoped browser utility package shape
+  covered without changing the support-rung story.
 - Scoped browser conditional-exports coverage now exercises packages whose browser branch wins over
   import/require fallbacks, tightening the browser/runtime interoperability slice without changing
   the package-support rungs claimed for the corpus.
