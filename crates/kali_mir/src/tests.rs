@@ -214,6 +214,59 @@ fn test_ownership_classes_define_thread_boundary_rules() {
 }
 
 #[test]
+fn test_thread_boundary_profiles_split_shareable_and_local_bindings() {
+    let mir = analyze(
+        "function outer() { const shared = 1; const localOnly = 2; function inner() { return shared; } return inner; }",
+    );
+    let profile = mir.thread_boundary_profile();
+
+    let shared = profile
+        .bindings
+        .iter()
+        .find(|binding| binding.scope == "outer" && binding.name == "shared")
+        .expect("shared binding");
+    assert_eq!(shared.disposition, ThreadBoundaryDisposition::SharedOnly);
+
+    let local = profile
+        .bindings
+        .iter()
+        .find(|binding| binding.scope == "outer" && binding.name == "localOnly")
+        .expect("local binding");
+    assert_eq!(local.disposition, ThreadBoundaryDisposition::LocalOnly);
+
+    let inner = profile
+        .bindings
+        .iter()
+        .find(|binding| binding.scope == "outer" && binding.name == "inner")
+        .expect("inner binding");
+    assert_eq!(inner.disposition, ThreadBoundaryDisposition::LocalOnly);
+
+    let outer = profile
+        .bindings
+        .iter()
+        .find(|binding| binding.scope == "module" && binding.name == "outer")
+        .expect("outer binding");
+    assert_eq!(outer.disposition, ThreadBoundaryDisposition::LocalOnly);
+}
+
+#[test]
+fn test_binding_thread_boundary_entry_uses_scope_and_disposition() {
+    let binding = MirBinding {
+        name: "value".to_string(),
+        kind: MirBindingKind::Local,
+        ownership: OwnershipClass::SharedHeap,
+        layout: LayoutDescriptor::scalar("number"),
+        escapes: true,
+        captured_by: vec!["inner".to_string()],
+    };
+
+    let entry = binding.thread_boundary_binding("outer");
+    assert_eq!(entry.scope, "outer");
+    assert_eq!(entry.name, "value");
+    assert_eq!(entry.disposition, ThreadBoundaryDisposition::SharedOnly);
+}
+
+#[test]
 fn test_object_literal_values_escape_without_treating_keys_as_identifiers() {
     let hir = HirLoweringResult {
         root: HirNodeId::new(0),

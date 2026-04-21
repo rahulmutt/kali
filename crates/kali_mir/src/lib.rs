@@ -17,12 +17,48 @@ pub enum OwnershipClass {
 }
 
 /// Canonical thread-boundary disposition for a value in the later threaded profile.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum ThreadBoundaryDisposition {
     /// The value must remain local to one runtime instance / thread.
     LocalOnly,
     /// The value is shareable across thread boundaries via shared-heap ownership.
     SharedOnly,
+}
+
+/// Canonical thread-boundary profile entry for a MIR binding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ThreadBoundaryBinding {
+    pub scope: String,
+    pub name: String,
+    pub disposition: ThreadBoundaryDisposition,
+}
+
+/// Canonical thread-boundary profile for a MIR function or whole program.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ThreadBoundaryProfile {
+    pub bindings: Vec<ThreadBoundaryBinding>,
+}
+
+impl ThreadBoundaryProfile {
+    fn push_binding(&mut self, scope: impl Into<String>, binding: &MirBinding) {
+        self.bindings.push(ThreadBoundaryBinding {
+            scope: scope.into(),
+            name: binding.name.clone(),
+            disposition: binding.thread_boundary_disposition(),
+        });
+    }
+
+    fn finalize(mut self) -> Self {
+        self.bindings.sort_by(|left, right| {
+            left.scope
+                .cmp(&right.scope)
+                .then_with(|| left.name.cmp(&right.name))
+                .then_with(|| left.disposition.cmp(&right.disposition))
+        });
+        self.bindings
+            .dedup_by(|left, right| left.scope == right.scope && left.name == right.name);
+        self
+    }
 }
 
 impl OwnershipClass {
@@ -99,6 +135,15 @@ impl MirBinding {
         self.ownership.thread_boundary_disposition()
     }
 
+    /// Convert this binding into a canonical thread-boundary profile entry.
+    pub fn thread_boundary_binding(&self, scope: impl Into<String>) -> ThreadBoundaryBinding {
+        ThreadBoundaryBinding {
+            scope: scope.into(),
+            name: self.name.clone(),
+            disposition: self.thread_boundary_disposition(),
+        }
+    }
+
     /// Whether this binding may cross thread boundaries in the later threaded profile.
     pub fn is_thread_shareable(&self) -> bool {
         self.ownership.is_thread_shareable()
@@ -129,6 +174,16 @@ pub struct MirFunction {
 impl MirFunction {
     pub fn binding(&self, name: &str) -> Option<&MirBinding> {
         self.bindings.iter().find(|binding| binding.name == name)
+    }
+
+    /// Return the thread-boundary profile for this function scope.
+    pub fn thread_boundary_profile(&self, scope: impl Into<String>) -> ThreadBoundaryProfile {
+        let scope = scope.into();
+        let mut profile = ThreadBoundaryProfile::default();
+        for binding in &self.bindings {
+            profile.push_binding(scope.clone(), binding);
+        }
+        profile.finalize()
     }
 }
 
@@ -249,6 +304,21 @@ impl MirProgram {
         self.functions
             .iter()
             .find(|function| function.name.as_deref() == Some(name))
+    }
+
+    /// Return the thread-boundary profile for the whole MIR program.
+    pub fn thread_boundary_profile(&self) -> ThreadBoundaryProfile {
+        let mut profile = ThreadBoundaryProfile::default();
+        for function in &self.functions {
+            let scope = function
+                .name
+                .clone()
+                .unwrap_or_else(|| "module".to_string());
+            for binding in &function.bindings {
+                profile.push_binding(scope.clone(), binding);
+            }
+        }
+        profile.finalize()
     }
 }
 
