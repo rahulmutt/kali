@@ -23,7 +23,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 ## Progress
 
 - `kali run` and `kali test` now share an explicit browser-runtime rejection helper so both explicit and inherited `browser` API surfaces are gated consistently with the current later-compatibility row instead of accidentally executing against the single-threaded baseline.
-- Added CLI smoke coverage for both explicit and inherited browser API surfaces on `run` and `test`, including JSON-envelope regressions for the unsupported browser gate, so the phase-one browser runtime boundary stays honest until the standalone browser harness exists.
+- Added CLI smoke coverage for both explicit and inherited browser API surfaces on `run` and `test`, including JSON-envelope regressions for the unsupported browser gate, so the phase-one browser runtime boundary stays honest until the standalone browser harness exists. The `run` browser-gate regression now also exercises the documented `--` guest-argument separator, so the rejected browser path stays pinned even when caller args are present.
 
 ## Tasks
 

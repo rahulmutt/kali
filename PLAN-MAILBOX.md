@@ -222,3 +222,7 @@ Proposed fix:
 2026-04-21 resolution note
 - added JSON-envelope regressions for explicit and inherited browser API surfaces on `kali run` and `kali test`, so the unsupported later-compatibility gate now has machine-readable coverage alongside the existing text-path smoke tests
 - updated the Stage 5.2 progress note to mention the new JSON browser-gate coverage alongside the existing browser-runtime rejection helper and text smoke coverage
+
+2026-04-21 resolution note
+- added JSON-envelope regression coverage for the `run` browser gate when guest arguments are present after `--`, so the new command-shape split stays pinned even on the rejected later-compatibility path
+- updated the Stage 5.2 progress note to mention the guest-argument separator coverage alongside the existing browser-runtime rejection helper and JSON smoke coverage
