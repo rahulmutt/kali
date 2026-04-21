@@ -44,3 +44,11 @@ Proposed fix:
 
 2026-04-21 resolution note
 - updated the Stage 5.1 progress note so it explicitly names the `runtimeProfiles` metadata axis and the current empty-set normalization in emitted build metadata
+
+2026-04-21 follow-up note
+
+While hardening the Phase-2 coverage evidence lane, the completed Stage 2.5 playbook should record the deterministic multi-file ordering contract for `kali test --coverage` so the historical progress note matches the shipped JSON payload shape.
+
+Proposed fix:
+- update `plan/phase-2/05-test-coverage-and-reporting.md` to mention deterministic file ordering in the coverage progress note
+- add an integration regression that exercises `kali test --coverage` with reversed explicit file input order and asserts the emitted coverage file list is sorted deterministically

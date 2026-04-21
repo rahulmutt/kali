@@ -857,6 +857,71 @@ fn test_reports_function_coverage_with_normalized_relative_paths() {
 }
 
 #[test]
+fn test_reports_function_coverage_in_deterministic_file_order() {
+    let dir = tempdir().expect("tempdir");
+    let first_path = dir.path().join("z.test.ts");
+    let second_path = dir.path().join("a.test.ts");
+    fs::write(
+        &first_path,
+        r#"Kali.test("z", () => {
+    1 + 1;
+});
+"#,
+    )
+    .expect("write first test file");
+    fs::write(
+        &second_path,
+        r#"Kali.test("a", () => {
+    2 + 2;
+});
+"#,
+    )
+    .expect("write second test file");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--output")
+        .arg("json")
+        .arg("--coverage")
+        .arg(&first_path)
+        .arg(&second_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    let files = json["payload"]["coverage"]["files"]
+        .as_array()
+        .expect("coverage files");
+    assert_eq!(files.len(), 2, "coverage files: {files:?}");
+
+    let first_file = files[0]["file"].as_str().expect("first coverage file path");
+    let second_file = files[1]["file"]
+        .as_str()
+        .expect("second coverage file path");
+
+    assert!(
+        first_file.ends_with("a.test.ts"),
+        "coverage rows should be sorted deterministically: {first_file}"
+    );
+    assert!(
+        second_file.ends_with("z.test.ts"),
+        "coverage rows should be sorted deterministically: {second_file}"
+    );
+    assert!(
+        !Path::new(first_file).is_absolute() && !Path::new(second_file).is_absolute(),
+        "coverage file paths should be relative: {files:?}"
+    );
+}
+
+#[test]
 fn check_accepts_compat_eval_flag() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
