@@ -3601,6 +3601,35 @@ fn effects_rejects_wasm_threads_runtime_profile() {
 }
 
 #[test]
+fn effects_rejects_inherited_wasm_threads_runtime_profile() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('ok');").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+}
+
+#[test]
 fn package_effects_command_emits_native_json_payload() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
