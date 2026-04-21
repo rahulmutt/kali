@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-21 resolution note
+- updated the Stage 4.2 progress note and schema-doc anti-drift guard so the explicit linear-memory companion theorems `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIffAndLinearMemory` and `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCountAndLinearMemory` stay pinned in the plan/test synchronization path
+- kept the canonical proof-backed summary unchanged while tightening the theorem inventory regression to the target-cell split companions
+
+2026-04-21 resolution note
 - added a JSON-envelope regression for the later-threaded runtime-profile gate so `check --output json --wasm-threads` now asserts the canonical `E5006` diagnostic in machine-readable output as well as the text envelope
 - recorded that coverage in the Stage 5.1 progress note so the historical plan matches the new evidence lane
 
