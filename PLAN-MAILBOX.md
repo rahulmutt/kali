@@ -194,3 +194,7 @@ Proposed fix:
 2026-04-21 resolution note
 - added the mixed live/terminated `ThreadRuntimeTopology` shutdown-order regression in `kali_api_web`
 - updated the Stage 5.1 progress note to mention the deterministic shutdown ordering coverage alongside the existing threaded-topology baseline
+
+2026-04-21 resolution note
+- added a second `ThreadRuntimeTopology` shutdown-order regression in `kali_api_web` that terminates the first worker before shutdown, so the mixed live/terminated evidence now covers a stronger out-of-spawn-order teardown case
+- updated the Stage 5.1 progress note to mention the terminated-first variant alongside the existing mixed live/terminated shutdown-order coverage
