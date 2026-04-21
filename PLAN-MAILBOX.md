@@ -101,5 +101,8 @@ Proposed fix:
 - keep the canonical short summary unchanged while expanding the theorem inventory wording to match the Lean proof tree
 
 2026-04-21 resolution note
+- confirmed the Stage 4.2 plan file and tracker already name the target-cell split companions explicitly, so the published proof inventory remains synchronized without changing the canonical short summary
+
+2026-04-21 resolution note
 - updated the Stage 4.2 plan file, `PLAN-4.2-STATUS.md`, `proofs/BOUNDARY.md`, and `README.md` so the target-cell split companions are now named explicitly alongside the proof-backed boundary summary
 - kept the canonical short summary unchanged
