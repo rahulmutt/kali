@@ -46,6 +46,9 @@ Kali's host/runtime contract, not the `--api node` package-compatibility lane.
   `Deno.env.set`, `new Deno.Command(...)`, `Deno.connect(...)`, `Deno.listen(...)`, and
   `Deno.serve(...)`, and the package-corpus suite now carries explicit Deno-host fixtures for the
   environment-mutation, subprocess, and listener/HTTP helper cases.
+- The remaining resource-limit handoff now threads `--max-spawned-processes` through the runtime
+  execution envelope and host-spawn enforcement so positive caps tighten the effective budget
+  while zero remains the explicit deny/tightening value.
 
 ## Tasks
 
@@ -122,6 +125,7 @@ Update package and command evidence for the new host capabilities:
 
 ## Status
 
-In progress — filesystem, environment, subprocess, and TCP/HTTP helper surfaces are implemented;
-sandbox policy/effect handoff and package-corpus evidence for the Deno host slice are now in
-place, while the remaining resource-limit handoff stays tracked here.
+Complete. The filesystem, environment, subprocess, TCP/HTTP helper, sandbox policy/effect handoff,
+package-corpus evidence, and runtime resource-limit handoff for the Deno host slice are in place.
+Any further widening in this area is owned by the normative host/runtime and maturity docs rather
+than by reopening this stage checklist.

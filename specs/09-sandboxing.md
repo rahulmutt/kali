@@ -295,7 +295,7 @@ Effective-limit rule:
 - `--max-spawned-processes` normalizes to an integer child-process count and compares against `resources.maxSpawnedProcesses`
 - `--max-threads` normalizes to an integer thread count and compares against `resources.maxThreads`
 - when no sandbox policy is attached, direct invocation caps still contribute to that effective envelope for the resource dimensions they cover
-- for later-gated capability-specific caps, `0` remains a valid explicit deny/tightening value, while non-zero values still require that the underlying capability/profile already be supported
+- for later-gated capability-specific caps such as `resources.maxThreads`, `0` remains a valid explicit deny/tightening value, while non-zero values still require that the underlying capability/profile already be supported
 - CLI/config must not silently widen a stricter sandbox policy at runtime
 
 
@@ -317,7 +317,7 @@ Effective-limit rule:
 ### Process Limits
 - Process spawning goes through host functions → policy-checked
 - `resources.maxSpawnedProcesses` is the cross-cutting cap for concurrently active child processes once subprocess APIs exist
-- this field follows the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): `0` is a valid explicit deny/tightening value, while positive values must still be rejected until subprocess support exists
+- this field follows the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): `0` is a valid explicit deny/tightening value, while positive values are accepted once subprocess support exists and still remain subject to the selected command/context's normal sandbox checks
 
 ### Timer Limits
 - Timer creation can be disabled entirely via `effects.timer.schedule: false`

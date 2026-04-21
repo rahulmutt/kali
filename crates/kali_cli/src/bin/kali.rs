@@ -875,16 +875,12 @@ fn reject_unavailable_browser_runtime(
 
 fn reject_unavailable_zero_capable_budgets(
     command: &str,
-    max_spawned_processes: Option<u64>,
     max_threads: Option<u64>,
     output: &CliOutputOptions,
     source_path: Option<&Path>,
     source_contents: Option<&str>,
 ) -> Result<(), i32> {
     let mut unavailable = Vec::new();
-    if max_spawned_processes.is_some_and(|count| count > 0) {
-        unavailable.push("resources.maxSpawnedProcesses");
-    }
     if max_threads.is_some_and(|count| count > 0) {
         unavailable.push("resources.maxThreads");
     }
@@ -2234,14 +2230,9 @@ fn run_command(
     {
         return Err(exit_code);
     }
-    if let Err(exit_code) = reject_unavailable_zero_capable_budgets(
-        "run",
-        max_spawned_processes,
-        max_threads,
-        output,
-        None,
-        None,
-    ) {
+    if let Err(exit_code) =
+        reject_unavailable_zero_capable_budgets("run", max_threads, output, None, None)
+    {
         return Err(exit_code);
     }
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
@@ -2275,7 +2266,8 @@ fn run_command(
 
     let runtime = RuntimeCtx::with_api_surface(policy.clone(), effective_api.to_string())
         .with_runtime_profiles(effective_runtime_profiles.clone())
-        .with_max_threads(max_threads);
+        .with_max_threads(max_threads)
+        .with_max_spawned_processes(max_spawned_processes);
     let start = Instant::now();
     match runtime.execute(&wasm_bytes) {
         Ok(outcome) => {
@@ -2379,14 +2371,9 @@ fn test_command(
     {
         return Err(exit_code);
     }
-    if let Err(exit_code) = reject_unavailable_zero_capable_budgets(
-        "test",
-        max_spawned_processes,
-        max_threads,
-        output,
-        None,
-        None,
-    ) {
+    if let Err(exit_code) =
+        reject_unavailable_zero_capable_budgets("test", max_threads, output, None, None)
+    {
         return Err(exit_code);
     }
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
@@ -2467,7 +2454,8 @@ fn test_command(
 
     let runtime = RuntimeCtx::with_api_surface(policy.clone(), effective_api.to_string())
         .with_runtime_profiles(effective_runtime_profiles.clone())
-        .with_max_threads(max_threads);
+        .with_max_threads(max_threads)
+        .with_max_spawned_processes(max_spawned_processes);
     let mut total = 0usize;
     let mut passed = 0usize;
     let mut failed = 0usize;

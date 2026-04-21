@@ -50,7 +50,7 @@ fn valid_policy() -> SandboxPolicy {
             max_memory_mb: Some(256),
             max_cpu_time_ms: Some(10_000),
             max_open_files: Some(16),
-            max_spawned_processes: Some(0),
+            max_spawned_processes: Some(1),
             max_threads: Some(0),
         },
         base_dir: PathBuf::from("/workspace"),
@@ -78,12 +78,21 @@ fn policy_thread_budget_helper_preserves_zero_cap_tightening() {
 }
 
 #[test]
+fn policy_spawn_budget_helper_combines_policy_and_override() {
+    let mut policy = valid_policy();
+    policy.resources.max_spawned_processes = Some(4);
+
+    assert_eq!(policy.effective_spawn_budget(None), Some(4));
+    assert_eq!(policy.effective_spawn_budget(Some(0)), Some(0));
+    assert_eq!(policy.effective_spawn_budget(Some(2)), Some(2));
+}
+
+#[test]
 fn policy_rejects_unavailable_capabilities() {
     let mut policy = valid_policy();
     policy.effects.process.env_write = AccessRule::Deny(true);
     policy.effects.network.connect = AccessRule::Deny(true);
     policy.effects.eval = true;
-    policy.resources.max_spawned_processes = Some(1);
     policy.resources.max_threads = Some(1);
 
     let validation = policy.validate_policy();

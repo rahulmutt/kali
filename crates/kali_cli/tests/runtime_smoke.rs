@@ -546,7 +546,7 @@ fn run_rejects_positive_thread_budget_override() {
 }
 
 #[test]
-fn run_rejects_positive_spawned_process_budget_override() {
+fn run_accepts_positive_spawned_process_budget_override() {
     let output = Command::new(kali_bin())
         .arg("run")
         .arg("--max-spawned-processes")
@@ -555,13 +555,10 @@ fn run_rejects_positive_spawned_process_budget_override() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
     assert!(
-        stderr.contains("resources.maxSpawnedProcesses"),
-        "stderr: {stderr}"
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
 }
 

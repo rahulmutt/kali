@@ -36,6 +36,8 @@ pub struct RuntimeCtx {
     pub runtime_profiles: Vec<String>,
     /// Invocation-level thread budget override preserved for later threaded-profile enforcement.
     pub max_threads: Option<u64>,
+    /// Invocation-level spawned-process budget preserved for subprocess resource enforcement.
+    pub max_spawned_processes: Option<u64>,
 }
 
 /// Host-side state owned by the runtime.
@@ -53,6 +55,8 @@ pub struct KaliHostState {
     pub runtime_profiles: Vec<String>,
     /// Thread budget derived from the active policy and any invocation override.
     pub max_threads: Option<u64>,
+    /// Spawn budget derived from the active policy and any invocation override.
+    pub max_spawned_processes: Option<u64>,
     /// Captured guest stdout.
     pub stdout: String,
     /// Captured guest stderr.
@@ -79,6 +83,8 @@ pub struct KaliHostState {
     pub active_file_handles: usize,
     /// Active host network operations counted for policy enforcement.
     pub active_network_connections: usize,
+    /// Active spawned processes counted for resource enforcement.
+    pub active_spawned_processes: usize,
 }
 
 /// A scheduled timer callback.
@@ -119,6 +125,7 @@ impl Default for RuntimeCtx {
             api_surface: "deno".to_string(),
             runtime_profiles: Vec::new(),
             max_threads: None,
+            max_spawned_processes: None,
         }
     }
 }
@@ -164,6 +171,7 @@ impl RuntimeCtx {
             api_surface: api_surface.into(),
             runtime_profiles: Vec::new(),
             max_threads: None,
+            max_spawned_processes: None,
         }
     }
 
@@ -176,6 +184,12 @@ impl RuntimeCtx {
     /// Attach an invocation-level thread budget override to the current execution context.
     pub fn with_max_threads(mut self, max_threads: Option<u64>) -> Self {
         self.max_threads = max_threads;
+        self
+    }
+
+    /// Attach an invocation-level spawned-process budget to the current execution context.
+    pub fn with_max_spawned_processes(mut self, max_spawned_processes: Option<u64>) -> Self {
+        self.max_spawned_processes = max_spawned_processes;
         self
     }
 
@@ -233,6 +247,11 @@ impl RuntimeCtx {
                     .as_ref()
                     .map(|policy| policy.effective_thread_budget(self.max_threads))
                     .unwrap_or(self.max_threads),
+                max_spawned_processes: self
+                    .policy
+                    .as_ref()
+                    .map(|policy| policy.effective_spawn_budget(self.max_spawned_processes))
+                    .unwrap_or(self.max_spawned_processes),
                 stdout: String::new(),
                 stderr: String::new(),
                 pending_timers: BTreeMap::new(),
@@ -246,6 +265,7 @@ impl RuntimeCtx {
                 pending_diagnostic: None,
                 active_file_handles: 0,
                 active_network_connections: 0,
+                active_spawned_processes: 0,
             },
         );
         store.limiter(|state| &mut state.store_limits);
@@ -1633,9 +1653,21 @@ fn register_node_host_imports(
                     },
                 )?;
                 let args = decode_spawn_args(&encoded_args);
-                let output = child_process
-                    .spawn(&command, &args)
-                    .map_err(|error| wasmtime::Error::msg(error.to_string()))?;
+                {
+                    let state = caller.data_mut();
+                    state.begin_spawn()?;
+                }
+                let output = match child_process.spawn(&command, &args) {
+                    Ok(output) => output,
+                    Err(error) => {
+                        caller.data_mut().finish_spawn();
+                        return Err(wasmtime::Error::msg(error.to_string()));
+                    }
+                };
+                {
+                    let state = caller.data_mut();
+                    state.finish_spawn();
+                }
                 let stdout = output.stdout();
                 write_guest_bytes(&mut caller, out_ptr, out_cap, stdout)?;
                 Ok(output.status())
@@ -1901,6 +1933,33 @@ impl KaliHostState {
             .get(event_type)
             .map(|callbacks| callbacks.len())
             .unwrap_or(0)
+    }
+
+    fn begin_spawn(&mut self) -> wasmtime::Result<()> {
+        if let Some(limit) = self.max_spawned_processes {
+            if self.active_spawned_processes >= limit as usize {
+                let diagnostic = Diagnostic::error(
+                    e4::RESOURCE_LIMIT_EXCEEDED as u32,
+                    format!(
+                        "active child process count {} exceeds policy limit of {}",
+                        self.active_spawned_processes.saturating_add(1),
+                        limit
+                    ),
+                );
+                self.pending_diagnostic = Some(diagnostic);
+                return Err(wasmtime::Error::msg(format!(
+                    "KALI_E4003: active child process count {} exceeds policy limit of {}",
+                    self.active_spawned_processes.saturating_add(1),
+                    limit
+                )));
+            }
+        }
+        self.active_spawned_processes = self.active_spawned_processes.saturating_add(1);
+        Ok(())
+    }
+
+    fn finish_spawn(&mut self) {
+        self.active_spawned_processes = self.active_spawned_processes.saturating_sub(1);
     }
 }
 

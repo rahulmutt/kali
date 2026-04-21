@@ -43,3 +43,15 @@ Proposed fix:
 
 2026-04-21 resolution note
 - the RC snapshot summary and the downstream proof-summary docs already name `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIffAndLinearMemory` and `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCountAndLinearMemory` explicitly, so the proof-boundary inventory remains synchronized without a spec edit
+
+2026-04-21 follow-up note
+
+While implementing Phase-3 subprocess support, the shared budget/availability prose still says positive `resources.maxSpawnedProcesses` values must be rejected until subprocess support exists. That wording needs to be updated once the direct invocation cap and runtime host-spawn path actually accept the Phase-3 budget.
+
+Proposed fix:
+- update the subprocess budget language in `specs/09-sandboxing.md`, `specs/12-cli.md`, and `specs/18-schemas.md` so the positive-cap rule reflects the implemented subprocess path instead of the pre-support rejection state
+- keep the browser-targeted budget-compatibility wording intact so browser checks can still be described separately
+- align the maturity wording in `specs/19-feature-maturity.md` only if the availability row itself needs to change
+
+2026-04-21 resolution note
+- updated the subprocess budget language in `specs/09-sandboxing.md`, `specs/12-cli.md`, and `specs/18-schemas.md` so the direct `--max-spawned-processes` / `resources.maxSpawnedProcesses` path now reflects the implemented subprocess budget handoff rather than the pre-support rejection wording

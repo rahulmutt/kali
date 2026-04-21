@@ -258,9 +258,6 @@ impl SandboxPolicy {
         if self.effects.eval {
             diagnostics.push(unavailable_capability("effects.eval"));
         }
-        if self.resources.max_spawned_processes.unwrap_or(0) > 0 {
-            diagnostics.push(unavailable_capability("resources.maxSpawnedProcesses"));
-        }
         if self.resources.max_threads.unwrap_or(0) > 0 {
             diagnostics.push(unavailable_capability("resources.maxThreads"));
         }
@@ -283,6 +280,17 @@ impl SandboxPolicy {
     /// threaded-profile work has a single canonical limit path.
     pub fn effective_thread_budget(&self, invocation_override: Option<u64>) -> Option<u64> {
         match (self.resources.max_threads, invocation_override) {
+            (Some(policy_limit), Some(requested_limit)) => Some(policy_limit.min(requested_limit)),
+            (Some(policy_limit), None) => Some(policy_limit),
+            (None, Some(requested_limit)) => Some(requested_limit),
+            (None, None) => None,
+        }
+    }
+
+    /// Resolve the effective spawned-process budget after combining the attached policy cap
+    /// with an invocation override.
+    pub fn effective_spawn_budget(&self, invocation_override: Option<u64>) -> Option<u64> {
+        match (self.resources.max_spawned_processes, invocation_override) {
             (Some(policy_limit), Some(requested_limit)) => Some(policy_limit.min(requested_limit)),
             (Some(policy_limit), None) => Some(policy_limit),
             (None, Some(requested_limit)) => Some(requested_limit),

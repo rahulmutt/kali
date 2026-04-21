@@ -115,3 +115,14 @@ Proposed fix:
 2026-04-21 resolution note
 - updated the Stage 4.2 plan file, `PLAN-4.2-STATUS.md`, `proofs/BOUNDARY.md`, and `README.md` so the target-cell split companions are now named explicitly alongside the proof-backed boundary summary
 - kept the canonical short summary unchanged
+
+2026-04-21 follow-up note
+
+While implementing Phase-3 subprocess support, the Stage 3.4 plan note still says the remaining resource-limit handoff is tracked here. Once the runtime host-spawn path and `--max-spawned-processes` invocation budget are actually wired through, the stage should be marked complete and the historical progress note should call out the accepted positive-cap behavior instead of the provisional rejection state.
+
+Proposed fix:
+- update `plan/phase-3/04-host-capability-expansion.md` to record the runtime `maxSpawnedProcesses` handoff, the accepted positive-cap budget path, and the corresponding stage completion status
+- keep `PLAN.md` aligned if the Phase-3 milestone summary needs a one-line completion note
+
+2026-04-21 resolution note
+- updated the Stage 3.4 host-capability-expansion note to record the runtime `maxSpawnedProcesses` handoff, positive-cap acceptance, and stage completion status

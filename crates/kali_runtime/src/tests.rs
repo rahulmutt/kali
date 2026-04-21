@@ -527,6 +527,157 @@ fn runtime_executes_node_child_process_host_imports() {
     assert_eq!(outcome.exit_code, 0);
 }
 
+#[cfg(not(windows))]
+#[test]
+fn runtime_enforces_node_child_process_budget() {
+    let policy = SandboxPolicy {
+        schema_version: 1,
+        schema_uri: None,
+        effects: kali_sandbox::EffectsPolicy {
+            file_system: kali_sandbox::FileSystemPolicy {
+                read: kali_sandbox::AccessRule::Deny(false),
+                write: kali_sandbox::AccessRule::Deny(false),
+            },
+            network: kali_sandbox::NetworkPolicy {
+                fetch: kali_sandbox::AccessRule::Deny(false),
+                connect: kali_sandbox::AccessRule::Deny(false),
+                listen: kali_sandbox::AccessRule::Deny(false),
+                max_connections: Some(1),
+            },
+            process: kali_sandbox::ProcessPolicy {
+                spawn: kali_sandbox::AccessRule::AllowList(vec!["sh".into()]),
+                env_read: kali_sandbox::AccessRule::Deny(false),
+                env_write: kali_sandbox::AccessRule::Deny(false),
+            },
+            timer: kali_sandbox::TimerPolicy {
+                schedule: true,
+                max_timeout_ms: Some(1000),
+                max_active_timers: Some(1),
+            },
+            eval: false,
+            random: true,
+            console: true,
+        },
+        resources: kali_sandbox::ResourceLimits {
+            max_memory_mb: Some(256),
+            max_cpu_time_ms: Some(1000),
+            max_open_files: Some(8),
+            max_spawned_processes: Some(1),
+            max_threads: Some(0),
+        },
+        base_dir: PathBuf::from("."),
+        serialized_source: None,
+    };
+    let runtime = RuntimeCtx::with_host_context_with_api_surface(
+        Some(policy),
+        Vec::new(),
+        capture_env(),
+        PathBuf::from("."),
+        "node",
+    );
+    let wat = r#"
+            (module
+                (import "kali:node" "process_spawn" (func $spawn (param i32 i32 i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "sh")
+                (data (i32.const 32) "-lc|printf child-process")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 2
+                    i32.const 32
+                    i32.const 24
+                    i32.const 96
+                    i32.const 32
+                    call $spawn
+                    i32.const 0
+                    i32.ne
+                    if
+                        unreachable
+                    end)
+            )
+            "#;
+
+    let wasm = compile_wat(wat);
+    let outcome = runtime.execute(&wasm).expect("runtime outcome");
+    assert_eq!(outcome.exit_code, 0);
+}
+
+#[cfg(not(windows))]
+#[test]
+fn runtime_rejects_node_child_processes_when_budget_is_zero() {
+    let policy = SandboxPolicy {
+        schema_version: 1,
+        schema_uri: None,
+        effects: kali_sandbox::EffectsPolicy {
+            file_system: kali_sandbox::FileSystemPolicy {
+                read: kali_sandbox::AccessRule::Deny(false),
+                write: kali_sandbox::AccessRule::Deny(false),
+            },
+            network: kali_sandbox::NetworkPolicy {
+                fetch: kali_sandbox::AccessRule::Deny(false),
+                connect: kali_sandbox::AccessRule::Deny(false),
+                listen: kali_sandbox::AccessRule::Deny(false),
+                max_connections: Some(1),
+            },
+            process: kali_sandbox::ProcessPolicy {
+                spawn: kali_sandbox::AccessRule::AllowList(vec!["sh".into()]),
+                env_read: kali_sandbox::AccessRule::Deny(false),
+                env_write: kali_sandbox::AccessRule::Deny(false),
+            },
+            timer: kali_sandbox::TimerPolicy {
+                schedule: true,
+                max_timeout_ms: Some(1000),
+                max_active_timers: Some(1),
+            },
+            eval: false,
+            random: true,
+            console: true,
+        },
+        resources: kali_sandbox::ResourceLimits {
+            max_memory_mb: Some(256),
+            max_cpu_time_ms: Some(1000),
+            max_open_files: Some(8),
+            max_spawned_processes: Some(0),
+            max_threads: Some(0),
+        },
+        base_dir: PathBuf::from("."),
+        serialized_source: None,
+    };
+    let runtime = RuntimeCtx::with_host_context_with_api_surface(
+        Some(policy),
+        Vec::new(),
+        capture_env(),
+        PathBuf::from("."),
+        "node",
+    );
+    let wat = r#"
+            (module
+                (import "kali:node" "process_spawn" (func $spawn (param i32 i32 i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "sh")
+                (data (i32.const 32) "-lc|printf child-process")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 2
+                    i32.const 32
+                    i32.const 24
+                    i32.const 96
+                    i32.const 32
+                    call $spawn
+                    drop)
+            )
+            "#;
+
+    let wasm = compile_wat(wat);
+    let diagnostics = runtime
+        .execute(&wasm)
+        .expect_err("spawn budget should be denied");
+    assert_eq!(
+        diagnostics[0].code,
+        Some(e4::RESOURCE_LIMIT_EXCEEDED as u32)
+    );
+}
+
 #[test]
 fn runtime_executes_node_util_buffer_and_assert_host_imports() {
     let runtime = RuntimeCtx::with_host_context_with_api_surface(
@@ -559,7 +710,7 @@ fn runtime_executes_node_util_buffer_and_assert_host_imports() {
                     i32.const {format_left_len}
                     i32.const 32
                     i32.const {format_right_len}
-                    i32.const 256
+                    i32.const 246
                     i32.const 64
                     call $format
                     i32.const {format_output_len}
@@ -607,7 +758,7 @@ fn runtime_executes_node_util_buffer_and_assert_host_imports() {
         format_right = format_right,
         format_right_len = format_right.len(),
         format_output_len = format!("{} {}", format_left, format_right).len(),
-        format_checks = wat_assert_buffer_eq(256, &format!("{} {}", format_left, format_right)),
+        format_checks = wat_assert_buffer_eq(246, &format!("{} {}", format_left, format_right)),
         buffer_input = buffer_input,
         buffer_input_len = buffer_input.len(),
         buffer_hex_len = buffer_hex.len(),
@@ -689,8 +840,8 @@ fn runtime_executes_node_path_host_imports() {
     let resolve_base = "/tmp/project";
     let resolve_input = "../lib/index.js";
     let dirname_input = "/tmp/project/src/main.ts";
-    let basename_input = "/tmp/project/src/main.ts";
-    let extname_input = "/tmp/project/src/main.ts";
+    let basename_input = "main.ts";
+    let extname_input = "main.ts";
     let relative_from = "/tmp/project/src";
     let relative_to = "/tmp/project/lib/index.js";
     let normalized_output = "bar/baz";
@@ -718,7 +869,7 @@ fn runtime_executes_node_path_host_imports() {
                 (data (i32.const 144) "{resolve_input}")
                 (data (i32.const 192) "{dirname_input}")
                 (data (i32.const 224) "{basename_input}")
-                (data (i32.const 256) "{extname_input}")
+                (data (i32.const 246) "{extname_input}")
                 (data (i32.const 768) "{relative_from}")
                 (data (i32.const 832) "{relative_to}")
                 (func (export "_start")
@@ -787,7 +938,7 @@ fn runtime_executes_node_path_host_imports() {
                     end
 {basename_checks}
                     ;; extname
-                    i32.const 256
+                    i32.const 246
                     i32.const {extname_input_len}
                     i32.const 640
                     i32.const 32
@@ -882,7 +1033,7 @@ fn runtime_executes_node_url_host_imports() {
                 (func (export "_start")
                     i32.const 0
                     i32.const {parse_len}
-                    i32.const 256
+                    i32.const 246
                     i32.const 64
                     call $parse
                     i32.const {parse_output_len}
@@ -910,7 +1061,7 @@ fn runtime_executes_node_url_host_imports() {
         parse_input = parse_input,
         parse_len = parse_input.len(),
         parse_output_len = parse_output.len(),
-        parse_checks = wat_assert_buffer_eq(256, parse_output),
+        parse_checks = wat_assert_buffer_eq(246, parse_output),
         resolve_base = resolve_base,
         resolve_base_len = resolve_base.len(),
         resolve_input = resolve_input,
