@@ -18,5 +18,9 @@ Proposed fix:
 While implementing the next test-evidence task, the phase-2 planning docs need to move `kali test --coverage` from the aspirational backlog into the executed milestone set and reflect the narrower function-level coverage contract that the code now provides.
 
 Proposed fix:
-- update `plan/phase-2/05-test-coverage-and-reporting.md` to record the delivered coverage contract and mark the stage complete once the tests land
+- update `plan/phase-2/05-test-coverage-and-reporting.md` to record the delivered function-level coverage contract and keep the stage prose aligned with the shipped payload shape
 - keep `PLAN.md` aligned with that stage status so the Phase-2 milestone map does not still describe coverage as only planned
+
+2026-04-21 resolution note
+- updated the Phase 2 milestone row and completion gate in `PLAN.md` to describe the shipped function-coverage contract explicitly
+- tightened `plan/phase-2/05-test-coverage-and-reporting.md` so the historical stage prose now names the canonical function-level payload instead of implying a broader backlog

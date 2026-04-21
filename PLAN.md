@@ -235,7 +235,7 @@ Phase 1 is complete when:
 
 ## Phase 2 — Ownership, Effects & Public Embedding
 
-**Goal:** add MIR-backed ownership semantics, public effect reporting, stable embedding outputs, the Lean verification foundation, and the stable test-coverage/reporting contract required by `kali test --coverage`.
+**Goal:** add MIR-backed ownership semantics, public effect reporting, stable embedding outputs, the Lean verification foundation, and the stable function-coverage reporting contract required by `kali test --coverage`.
 
 **Dependency shape:** `2.1` is the main prerequisite; `2.2`, `2.3`, most of `2.4`, and the machine-readable half of `2.5` build on it.
 
@@ -247,7 +247,7 @@ Phase 1 is complete when:
 | 2.2 | [Public Effect Reporting](plan/phase-2/02-public-effect-reporting.md) | `kali effects` / `kali package-effects`, policy comparison, and explicit built-in effect annotations are stable |
 | 2.3 | [Public Embedding Surface](plan/phase-2/03-public-embedding-surface.md) | Stable Rust embedding API and stable `--lib` / `--capi` / `--component` artifact modes |
 | 2.4 | [Lean Model Foundation](plan/phase-2/04-lean-model-foundation.md) | Lean workspace, proof CI, and core type-calculus model |
-| 2.5 | [Test Coverage & Reporting](plan/phase-2/05-test-coverage-and-reporting.md) | `kali test --coverage` gains a stable coverage contract and evidence-backed output |
+| 2.5 | [Test Coverage & Reporting](plan/phase-2/05-test-coverage-and-reporting.md) | `kali test --coverage` gains a stable function-coverage contract and evidence-backed output |
 
 ### Phase 2 completion gate
 
@@ -258,7 +258,7 @@ Phase 2 is complete when:
 - Effect-annotation checking and inferred-effect-vs-policy validation are stable for their documented built-in capability subset
 - Embedding artifact modes are stable, including host-ABI metadata/version checks where applicable
 - Lean proof jobs run in CI
-- `kali test --coverage` is stable for its documented command contexts, with schema-backed output and deterministic reports
+- `kali test --coverage` is stable for its documented function-coverage command contexts, with schema-backed output and deterministic reports
 - Phase-2 maturity rows are opened only with matching evidence
 
 ---
