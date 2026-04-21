@@ -15,7 +15,8 @@ pub use kali_api_web::{
 
 use std::{
     collections::BTreeMap,
-    fs,
+    fs::{self, File as StdFile, OpenOptions},
+    io::{Read, Write},
     path::{Component, Path, PathBuf},
 };
 
@@ -184,15 +185,18 @@ impl DenoPermissions {
 pub struct DenoFileInfo {
     is_file: bool,
     is_dir: bool,
+    is_symlink: bool,
     len: u64,
     readonly: bool,
 }
 
 impl DenoFileInfo {
     fn from_metadata(metadata: &fs::Metadata) -> Self {
+        let file_type = metadata.file_type();
         Self {
             is_file: metadata.is_file(),
             is_dir: metadata.is_dir(),
+            is_symlink: file_type.is_symlink(),
             len: metadata.len(),
             readonly: metadata.permissions().readonly(),
         }
@@ -206,6 +210,10 @@ impl DenoFileInfo {
         self.is_dir
     }
 
+    pub fn is_symlink(&self) -> bool {
+        self.is_symlink
+    }
+
     pub fn len(&self) -> u64 {
         self.len
     }
@@ -216,6 +224,42 @@ impl DenoFileInfo {
 
     pub fn readonly(&self) -> bool {
         self.readonly
+    }
+}
+
+/// Deterministic file handle returned by the Deno compatibility filesystem view.
+#[derive(Debug)]
+pub struct DenoFile {
+    file: StdFile,
+}
+
+impl DenoFile {
+    fn new(file: StdFile) -> Self {
+        Self { file }
+    }
+
+    pub fn read_to_string(&mut self) -> Result<String, std::io::Error> {
+        let mut contents = String::new();
+        self.file.read_to_string(&mut contents)?;
+        Ok(contents)
+    }
+
+    pub fn read_to_end(&mut self) -> Result<Vec<u8>, std::io::Error> {
+        let mut contents = Vec::new();
+        self.file.read_to_end(&mut contents)?;
+        Ok(contents)
+    }
+
+    pub fn write_all(&mut self, contents: impl AsRef<[u8]>) -> Result<(), std::io::Error> {
+        self.file.write_all(contents.as_ref())
+    }
+
+    pub fn flush(&mut self) -> Result<(), std::io::Error> {
+        self.file.flush()
+    }
+
+    pub fn metadata(&self) -> Result<DenoFileInfo, std::io::Error> {
+        Ok(DenoFileInfo::from_metadata(&self.file.metadata()?))
     }
 }
 
@@ -266,6 +310,24 @@ impl DenoFs {
         fs::write(self.resolve(path), contents.as_ref())
     }
 
+    pub fn open(&self, path: impl AsRef<Path>) -> Result<DenoFile, std::io::Error> {
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(self.resolve(path))?;
+        Ok(DenoFile::new(file))
+    }
+
+    pub fn create(&self, path: impl AsRef<Path>) -> Result<DenoFile, std::io::Error> {
+        let file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(self.resolve(path))?;
+        Ok(DenoFile::new(file))
+    }
+
     pub fn mkdir(&self, path: impl AsRef<Path>, recursive: bool) -> Result<(), std::io::Error> {
         let resolved = self.resolve(path);
         if recursive {
@@ -285,9 +347,17 @@ impl DenoFs {
         Ok(entries)
     }
 
+    pub fn rename(
+        &self,
+        from: impl AsRef<Path>,
+        to: impl AsRef<Path>,
+    ) -> Result<(), std::io::Error> {
+        fs::rename(self.resolve(from), self.resolve(to))
+    }
+
     pub fn remove(&self, path: impl AsRef<Path>, recursive: bool) -> Result<(), std::io::Error> {
         let resolved = self.resolve(path);
-        let metadata = fs::metadata(&resolved)?;
+        let metadata = fs::symlink_metadata(&resolved)?;
         if metadata.is_dir() {
             if recursive {
                 fs::remove_dir_all(resolved)
@@ -301,6 +371,12 @@ impl DenoFs {
 
     pub fn stat(&self, path: impl AsRef<Path>) -> Result<DenoFileInfo, std::io::Error> {
         Ok(DenoFileInfo::from_metadata(&fs::metadata(
+            self.resolve(path),
+        )?))
+    }
+
+    pub fn lstat(&self, path: impl AsRef<Path>) -> Result<DenoFileInfo, std::io::Error> {
+        Ok(DenoFileInfo::from_metadata(&fs::symlink_metadata(
             self.resolve(path),
         )?))
     }

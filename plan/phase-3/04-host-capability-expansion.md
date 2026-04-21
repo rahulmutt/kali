@@ -26,6 +26,14 @@ Kali's host/runtime contract, not the `--api node` package-compatibility lane.
 - The package corpus can claim the newly enabled support rungs with evidence tied to these exact
   host capabilities.
 
+## Progress
+
+- `kali_api_deno` now covers the broader Phase-3 filesystem surface with deterministic `open`,
+  `create`, `rename`, and `lstat` helpers on top of the existing read/write/stat/remove/mkdir
+  support.
+- The Deno compatibility tests now exercise file creation, handle reads/writes, renames, and
+  `stat`/`lstat` metadata round-trips so the broader filesystem contract stays regression-tested.
+
 ## Tasks
 
 ### 1. Broader Deno-oriented filesystem surface
