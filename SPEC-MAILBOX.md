@@ -18,3 +18,11 @@ Proposed fix:
 - update `specs/12-cli.md` so `--coverage` is described as the stable test-coverage selector rather than a permanently phase-gated flag
 - update `specs/16-testing.md` so the evidence lane explicitly calls for positive `kali test --coverage` coverage
 - keep the new contract narrowly scoped to the documented `test` command path and its deterministic machine-readable output
+
+2026-04-21 follow-up note
+
+While hardening the function-coverage report path, the stable schema-v1 test result contract also needs to document that `kali test --coverage` normalizes per-file report paths relative to the effective project root when available and keeps the file list in deterministic order.
+
+Proposed fix:
+- update `specs/18-schemas.md` to state the normalized/sorted coverage-report path rule
+- keep the implementation and tests aligned with that deterministic output contract

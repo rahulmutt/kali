@@ -752,6 +752,39 @@ fn test_reports_function_coverage_in_json_output() {
 }
 
 #[test]
+fn test_reports_function_coverage_with_normalized_relative_paths() {
+    let output = Command::new(kali_bin())
+        .arg("test")
+        .arg("--output")
+        .arg("json")
+        .arg("--coverage")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    let files = json["payload"]["coverage"]["files"]
+        .as_array()
+        .expect("coverage files");
+    assert_eq!(files.len(), 1, "coverage files: {files:?}");
+    let file = files[0]["file"].as_str().expect("coverage file path");
+    assert!(
+        file.ends_with("tests/fixtures/tests/smoke.test.ts"),
+        "file path should be project-root relative: {file}"
+    );
+    assert!(
+        !Path::new(file).is_absolute(),
+        "file path should not be absolute: {file}"
+    );
+}
+
+#[test]
 fn check_accepts_compat_eval_flag() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

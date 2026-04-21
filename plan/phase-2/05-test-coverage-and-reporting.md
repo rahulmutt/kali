@@ -23,6 +23,7 @@ optional coverage object instead of inventing a second runner or a separate ad h
 - Added deterministic function-level coverage instrumentation to the compiler/runtime path so `kali test --coverage` now measures executed function entries instead of remaining gated.
 - Added a stable function-level `coverage` object to the `kali test` result payload and schema-v1 documentation, with per-file totals plus a deterministic summary.
 - Added human-output and JSON-output regression coverage for the new function-level reporting path so `kali test --coverage` stays deterministic in both presentation modes.
+- Normalized per-file coverage rows relative to the effective project root and sorted them deterministically before emission so JSON consumers get stable path order as well as stable totals.
 - Kept ordinary `kali test` lean by making the coverage instrumentation opt-in at compile time.
 
 ## Tasks

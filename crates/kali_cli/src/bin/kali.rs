@@ -24,7 +24,7 @@ use kali_sandbox::{
 use serde_json::{json, Value};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs,
+    env, fs,
     path::{Component as PathComponent, Path, PathBuf},
     time::Instant,
 };
@@ -2355,6 +2355,10 @@ fn test_command(
     let mut captured_stderr = String::new();
     let mut diagnostics = Vec::new();
     let mut coverage_reports = Vec::new();
+    let project_root =
+        discover_project_root(&env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+            .or_else(|| env::current_dir().ok())
+            .unwrap_or_else(|| PathBuf::from("."));
     let start = Instant::now();
 
     for file in filtered_files {
@@ -2395,7 +2399,7 @@ fn test_command(
                 if coverage {
                     let covered = outcome.coverage_hits.len().min(coverage_total);
                     coverage_reports.push(json!({
-                        "file": file,
+                        "file": normalize_coverage_report_path(&file, &project_root),
                         "functionsTotal": coverage_total,
                         "functionsCovered": covered,
                         "functionsMissed": coverage_total.saturating_sub(covered),
@@ -2412,6 +2416,10 @@ fn test_command(
                 failed += 1;
             }
         }
+    }
+
+    if coverage {
+        sort_coverage_reports(&mut coverage_reports);
     }
 
     if output.is_json() {
@@ -2514,6 +2522,31 @@ fn coverage_function_count_from_wasm(bytes: &[u8]) -> Option<usize> {
         }
     }
     None
+}
+
+fn normalize_coverage_report_path(file: &str, project_root: &Path) -> String {
+    let source = PathBuf::from(file);
+    let candidate = if source.is_absolute() {
+        source
+    } else {
+        env::current_dir()
+            .ok()
+            .map(|cwd| cwd.join(&source))
+            .unwrap_or(source)
+    };
+    let canonical = fs::canonicalize(&candidate).unwrap_or(candidate);
+    canonical
+        .strip_prefix(project_root)
+        .map(|relative| relative.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_else(|_| canonical.to_string_lossy().replace('\\', "/"))
+}
+
+fn sort_coverage_reports(reports: &mut [Value]) {
+    reports.sort_by(|left, right| {
+        let left_file = left.get("file").and_then(Value::as_str).unwrap_or("");
+        let right_file = right.get("file").and_then(Value::as_str).unwrap_or("");
+        left_file.cmp(right_file)
+    });
 }
 
 fn coverage_percent(covered: usize, total: usize) -> f64 {
