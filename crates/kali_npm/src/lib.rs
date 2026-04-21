@@ -2158,9 +2158,10 @@ fn source_mentions_node_only_host_api(contents: &str) -> Option<&'static str> {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 struct PackageJson {
     pub name: Option<String>,
+    pub version: Option<String>,
     pub main: Option<String>,
     pub module: Option<String>,
     pub exports: Option<serde_json::Value>,

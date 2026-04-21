@@ -11,7 +11,10 @@ use wasm_encoder::{
 };
 
 const TEST_REGISTER_IMPORT_INDEX: u32 = 0;
-const FUNCTION_INDEX_OFFSET: u32 = 1;
+const CONSOLE_LOG_IMPORT_INDEX: u32 = 1;
+const CONSOLE_ERROR_IMPORT_INDEX: u32 = 2;
+const CONSOLE_WARN_IMPORT_INDEX: u32 = 3;
+const FUNCTION_INDEX_OFFSET: u32 = 4;
 
 /// WASM code generator context.
 pub struct CodegenCtx {
@@ -380,13 +383,31 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let callee_name = callee_node.text.as_deref().unwrap_or_default();
-        let mut resolved = self.functions.get(callee_name).copied();
+        let resolved = self.functions.get(callee_name).copied();
+
+        if let Some(import_index) = self.console_import_index(&callee_node) {
+            let mut args = node.children.iter().skip(1);
+            if let Some(first_arg) = args.next() {
+                let _ = self.emit_node(function, *first_arg, true);
+            } else {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            function.instruction(&Instruction::Call(import_index));
+            for arg in args {
+                let _ = self.emit_node(function, *arg, true);
+                function.instruction(&Instruction::Drop);
+            }
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
 
         for arg in node.children.iter().skip(1) {
             let _ = self.emit_node(function, *arg, true);
         }
 
-        if let Some(index) = resolved.take() {
+        if let Some(index) = resolved {
             function.instruction(&Instruction::Call(index));
             EmittedValue {
                 produced: true,
@@ -405,6 +426,22 @@ impl<'a> FunctionEmitter<'a> {
                 produced: true,
                 shape: ValueShape::Unknown,
             }
+        }
+    }
+
+    fn console_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        let object = callee_node.children.first().copied()?;
+        let object_name = self.node(object).text.as_deref()?;
+        if object_name != "console" {
+            return None;
+        }
+
+        match method {
+            "log" => Some(CONSOLE_LOG_IMPORT_INDEX),
+            "error" => Some(CONSOLE_ERROR_IMPORT_INDEX),
+            "warn" => Some(CONSOLE_WARN_IMPORT_INDEX),
+            _ => None,
         }
     }
 
@@ -510,8 +547,12 @@ pub fn lower_lir_to_wasm(_ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResu
 
     let mut type_section = TypeSection::new();
     type_section.ty().function(vec![ValType::I32], Vec::new());
+    type_section.ty().function(vec![ValType::I64], Vec::new());
     let mut import_section = ImportSection::new();
     import_section.import("kali:rt", "test_register", EntityType::Function(0));
+    import_section.import("kali:rt", "console_log", EntityType::Function(1));
+    import_section.import("kali:rt", "console_error", EntityType::Function(1));
+    import_section.import("kali:rt", "console_warn", EntityType::Function(1));
     let mut function_types = BTreeMap::<(usize, bool), u32>::new();
     let mut type_for_function = Vec::with_capacity(all_functions.len());
 
@@ -520,7 +561,7 @@ pub fn lower_lir_to_wasm(_ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResu
         let type_index = if let Some(&idx) = function_types.get(&key) {
             idx
         } else {
-            let idx = function_types.len() as u32 + 1;
+            let idx = function_types.len() as u32 + 2;
             let params = vec![ValType::I64; function.params.len()];
             let results = if function.result {
                 vec![ValType::I64]

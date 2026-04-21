@@ -2870,6 +2870,28 @@ fn build_emits_component_artifacts_and_valid_component_bytes() {
 }
 
 #[test]
+fn run_surfaces_console_stdout_for_numeric_logs() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log(1);").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n");
+}
+
+#[test]
 fn effects_command_emits_native_json_payload() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

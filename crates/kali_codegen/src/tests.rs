@@ -113,6 +113,26 @@ fn boolean_branches_use_the_layout_fast_path() {
     assert!(!printed.contains("i64.eqz"));
 }
 
+#[test]
+fn console_member_calls_lower_to_console_host_imports() {
+    let program = parse_and_lower_lir("console.log(1); console.error(2); console.warn(3);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("import \"kali:rt\" \"console_log\""));
+    assert!(printed.contains("import \"kali:rt\" \"console_error\""));
+    assert!(printed.contains("import \"kali:rt\" \"console_warn\""));
+}
+
 fn legacy_phase1_baseline(program: &LirProgram, mir: &kali_mir::MirProgram) -> LirProgram {
     let mut nodes = program.nodes.clone();
     let mut extra_nodes = Vec::new();
