@@ -840,6 +840,31 @@ fn reject_unavailable_runtime_profiles(
     )
 }
 
+fn reject_unavailable_browser_runtime(
+    command: &str,
+    api_surface: kali_cli::ApiSurface,
+    output: &CliOutputOptions,
+    source_path: Option<&Path>,
+    source_contents: Option<&str>,
+) -> Result<(), i32> {
+    if !matches!(api_surface, kali_cli::ApiSurface::Browser) {
+        return Ok(());
+    }
+
+    let diagnostic = Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        "selected API surface is unavailable in this phase",
+    );
+    emit_diagnostics_and_exit(
+        command,
+        vec![diagnostic],
+        1,
+        output,
+        source_path,
+        source_contents,
+    )
+}
+
 fn reject_unavailable_zero_capable_budgets(
     command: &str,
     max_spawned_processes: Option<u64>,
@@ -2171,12 +2196,10 @@ fn run_command(
         }
     };
 
-    if matches!(effective_api, kali_cli::ApiSurface::Browser) {
-        let diagnostic = Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            "selected API surface is unavailable in this phase",
-        );
-        return emit_diagnostics_and_exit("run", vec![diagnostic], 1, output, None, None);
+    if let Err(exit_code) =
+        reject_unavailable_browser_runtime("run", effective_api, output, None, None)
+    {
+        return Err(exit_code);
     }
 
     let policy = load_policy_or_exit(sandbox, output)?;
@@ -2315,6 +2338,12 @@ fn test_command(
             return emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
         }
     };
+
+    if let Err(exit_code) =
+        reject_unavailable_browser_runtime("test", effective_api, output, None, None)
+    {
+        return Err(exit_code);
+    }
 
     let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;

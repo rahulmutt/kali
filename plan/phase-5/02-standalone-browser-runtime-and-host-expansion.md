@@ -20,6 +20,11 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - Runtime backend expansion, if implemented, remains behind one stable public contract and does not
   fork CLI, schema, or diagnostic behavior.
 
+## Progress
+
+- `kali run` and `kali test` now share an explicit browser-runtime rejection helper so both explicit and inherited `browser` API surfaces are gated consistently with the current later-compatibility row instead of accidentally executing against the single-threaded baseline.
+- Added CLI smoke coverage for both explicit and inherited browser API surfaces on `run` and `test`, keeping the phase-one browser runtime gate honest until the standalone browser harness exists.
+
 ## Tasks
 
 ### 1. Standalone browser runtime contract
