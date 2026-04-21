@@ -1055,6 +1055,7 @@ pub fn install_project(
     let mut installed_paths = BTreeMap::new();
     let mut diagnostics = Vec::new();
     let mut explicit_raw_url: Option<String> = None;
+    let mut resolved_root_keys = BTreeSet::new();
     let host_fit_context = package_host_fit_context_for_manifest(&manifest);
 
     if let Some(target) = parsed_target {
@@ -1083,6 +1084,7 @@ pub fn install_project(
 
                 validate_manifest_registry_collisions(&manifest)?;
 
+                resolved_root_keys.insert(package_key(&resolved.name, &resolved.version));
                 install_registry_package(
                     root,
                     &mut lock,
@@ -1114,6 +1116,7 @@ pub fn install_project(
             };
             let resolved = resolve_registry_package(registry, name, Some(version.as_str()))
                 .map_err(|diagnostic| vec![diagnostic])?;
+            resolved_root_keys.insert(package_key(&resolved.name, &resolved.version));
             install_registry_package(
                 root,
                 &mut lock,
@@ -1135,7 +1138,11 @@ pub fn install_project(
     }
     reconcile_raw_urls(root, &mut lock, &declared_raw_urls, &mut installed)?;
 
-    let root_keys = manifest_registry_package_keys(&manifest);
+    let root_keys = if resolved_root_keys.is_empty() {
+        manifest_registry_package_keys(&manifest)
+    } else {
+        resolved_root_keys.into_iter().collect::<Vec<_>>()
+    };
     let reachable = collect_reachable_registry_packages(&lock, &root_keys)
         .map_err(|diagnostic| vec![diagnostic])?;
     prune_unreachable_registry_packages(root, &mut lock, &reachable)?;
