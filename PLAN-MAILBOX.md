@@ -79,7 +79,7 @@ Proposed fix:
 - the Stage 2.5 progress note already records the deterministic multi-file ordering contract for `kali test --coverage`, including the reversed explicit file-input regression case and the normalized/sorted per-file coverage output contract, so no further plan churn was needed
 
 2026-04-21 resolution note
-- updated the Stage 2.5 progress note so it now calls out the reversed explicit file-input regression case and the deterministic coverage file ordering contract that the integration test already enforces
+- updated the Stage 2.5 progress note so it now calls out the reversed explicit file-input regression case, the deterministic coverage file ordering contract, and the new filter-aware coverage regression that keeps `kali test --coverage --filter ...` pinned to the selected test files only
 
 2026-04-21 follow-up note
 

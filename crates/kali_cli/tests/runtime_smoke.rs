@@ -1166,6 +1166,64 @@ fn test_reports_function_coverage_in_deterministic_file_order() {
 }
 
 #[test]
+fn test_reports_function_coverage_respects_filter_selection() {
+    let dir = tempdir().expect("tempdir");
+    let keep = dir.path().join("math.test.ts");
+    let skip = dir.path().join("strings.test.ts");
+    fs::write(
+        &keep,
+        r#"Kali.test("math", () => {
+    1 + 1;
+});
+"#,
+    )
+    .expect("write keep test file");
+    fs::write(
+        &skip,
+        r#"Kali.test("strings", () => {
+    2 + 2;
+});
+"#,
+    )
+    .expect("write skip test file");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--output")
+        .arg("json")
+        .arg("--coverage")
+        .arg("--filter")
+        .arg("math")
+        .arg(&keep)
+        .arg(&skip)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    let files = json["payload"]["coverage"]["files"]
+        .as_array()
+        .expect("coverage files");
+    assert_eq!(files.len(), 1, "coverage files: {files:?}");
+    let file = files[0]["file"].as_str().expect("coverage file path");
+    assert!(
+        file.ends_with("math.test.ts"),
+        "coverage should only report filtered files: {file}"
+    );
+    assert!(
+        !Path::new(file).is_absolute(),
+        "coverage file path should be relative: {file}"
+    );
+}
+
+#[test]
 fn check_accepts_compat_eval_flag() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
