@@ -2861,6 +2861,32 @@ fn json_check_emits_diagnostic_envelope() {
 }
 
 #[test]
+fn json_check_rejects_wasm_threads_runtime_profile() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "let value = 1 + 2; value;").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--wasm-threads")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert_eq!(json["errors"][0]["code"], "E5006");
+}
+
+#[test]
 fn json_fmt_emits_a_command_envelope() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

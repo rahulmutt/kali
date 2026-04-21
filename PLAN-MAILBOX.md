@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-21 resolution note
+- added a JSON-envelope regression for the later-threaded runtime-profile gate so `check --output json --wasm-threads` now asserts the canonical `E5006` diagnostic in machine-readable output as well as the text envelope
+- recorded that coverage in the Stage 5.1 progress note so the historical plan matches the new evidence lane
+
+2026-04-21 resolution note
 - added a deterministic `Deno.Command` helper to `kali_api_deno` with captured stdout/stderr output and a regression test, then recorded the progress in the Stage 3.4 host-capability expansion note
 - no spec edit was required because `Deno.Command` is already described as a Phase-3 target in the owning standard-APIs chapter
 
@@ -50,17 +54,13 @@ While hardening the function-coverage report path, the completed Stage 2.5 cover
 Proposed fix:
 - update `plan/phase-2/05-test-coverage-and-reporting.md` progress notes to mention normalized coverage-report paths and deterministic ordering
 
-2026-04-21 follow-up note
-
-While wiring the threaded-profile axis into artifact metadata, the Stage 5.1 progress note should mention that emitted build metadata now carries `runtimeProfiles` explicitly even though the current phase still normalizes to the empty set.
-
-Proposed fix:
-- update `plan/phase-5/01-threaded-runtime-profile.md` progress notes to mention the explicit `runtimeProfiles` metadata axis and the current empty-set normalization
-
 2026-04-21 resolution note
 - updated the Stage 5.1 progress note so it explicitly names the `runtimeProfiles` metadata axis and the current empty-set normalization in emitted build metadata
 
 2026-04-21 follow-up note
+- the shared runtime-profile validation path now also feeds the embedding compiler config and artifact metadata emission, so the Stage 5.1 progress note should mention that duplicate and unknown runtime-profile entries are rejected deterministically before the phase gate
+
+2026-04-21 resolution note
 - the shared runtime-profile validation path now also feeds the embedding compiler config and artifact metadata emission, so the Stage 5.1 progress note should mention that duplicate and unknown runtime-profile entries are rejected deterministically before the phase gate
 
 2026-04-21 follow-up note
