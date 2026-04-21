@@ -630,8 +630,9 @@ fn shared_array_buffer_clones_share_mutations() {
     assert_eq!(Atomics::add(&buffer, 0, 4), Some(1));
     assert_eq!(Atomics::sub(&buffer, 2, 1), Some(3));
     assert_eq!(Atomics::compare_exchange(&buffer, 3, 4, 7), Some(Ok(4)));
-    assert_eq!(buffer.snapshot(), vec![5, 9, 2, 7]);
-    assert_eq!(clone.snapshot(), vec![5, 9, 2, 7]);
+    assert_eq!(Atomics::exchange(&clone, 0, 6), Some(5));
+    assert_eq!(buffer.snapshot(), vec![6, 9, 2, 7]);
+    assert_eq!(clone.snapshot(), vec![6, 9, 2, 7]);
 }
 
 #[test]
