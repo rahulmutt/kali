@@ -39,6 +39,9 @@ Kali's host/runtime contract, not the `--api node` package-compatibility lane.
 - Added a deterministic `Deno.Command` helper in `kali_api_deno` with captured stdout/stderr
   output so the Phase-3 subprocess lane now has a concrete host-side compatibility wrapper and
   regression coverage.
+- Added deterministic TCP connect/listen wrappers plus a one-shot HTTP `serve` helper in
+  `kali_api_deno`, together with regression coverage for raw byte round-trips and a basic HTTP
+  response smoke test.
 
 ## Tasks
 
@@ -115,4 +118,5 @@ Update package and command evidence for the new host capabilities:
 
 ## Status
 
-Planned.
+In progress — filesystem, environment, subprocess, and TCP/HTTP helper surfaces are implemented;
+package-corpus evidence and broader policy/resource handoff remain.
