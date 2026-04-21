@@ -761,7 +761,11 @@ fn registry_package_has_install_time_lifecycle_hooks_inner(
         .collect::<Vec<_>>();
 
     for (dep_name, dep_spec) in dependency_specs {
-        let dep_registry = if dep_name.starts_with("jsr:") { "jsr" } else { "npm" };
+        let dep_registry = if dep_name.starts_with("jsr:") {
+            "jsr"
+        } else {
+            "npm"
+        };
         if registry_package_has_install_time_lifecycle_hooks_inner(
             dep_registry,
             &dep_name,

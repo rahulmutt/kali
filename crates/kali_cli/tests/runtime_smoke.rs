@@ -655,23 +655,51 @@ fn init_scaffolds_library_project() {
 }
 
 #[test]
-fn test_rejects_coverage_flag_until_report_contract_exists() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.test.ts");
-    fs::write(&source_path, "1 + 2;").expect("write source");
-
+fn test_reports_function_coverage_for_explicit_file_sets() {
     let output = Command::new(kali_bin())
-        .current_dir(dir.path())
         .arg("test")
         .arg("--coverage")
-        .arg(&source_path)
+        .arg(fixture_path("tests/smoke.test.ts"))
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1 (coverage:"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_reports_function_coverage_in_json_output() {
+    let output = Command::new(kali_bin())
+        .arg("test")
+        .arg("--output")
+        .arg("json")
+        .arg("--coverage")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["coverage"]["mode"], "function");
+    assert!(
+        json["payload"]["coverage"]["summary"]["functionsTotal"]
+            .as_u64()
+            .expect("functionsTotal")
+            >= 1
+    );
 }
 
 #[test]

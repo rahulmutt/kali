@@ -65,6 +65,7 @@ fn generates_valid_wasm_for_simple_programs() {
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
+        coverage: false,
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
@@ -104,6 +105,7 @@ fn boolean_branches_use_the_layout_fast_path() {
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
+        coverage: false,
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
@@ -119,6 +121,7 @@ fn console_member_calls_lower_to_console_host_imports() {
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
+        coverage: false,
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
@@ -214,6 +217,7 @@ fn compile_and_measure(program: &LirProgram) -> (Vec<u8>, usize) {
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
+        coverage: false,
     });
     let result = lower_lir_to_wasm(&mut ctx, program);
     assert!(

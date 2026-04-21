@@ -112,6 +112,7 @@ pub fn compile_source_file_with_cache_state(
     max_specializations: usize,
     api_surface: ApiSurface,
     compat_eval: bool,
+    coverage: bool,
 ) -> Result<CompileOutput, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
 
@@ -121,6 +122,7 @@ pub fn compile_source_file_with_cache_state(
         max_specializations,
         api_surface,
         compat_eval,
+        coverage,
     )? {
         match fs::read(&cache_path) {
             Ok(wasm_bytes) => {
@@ -149,6 +151,7 @@ pub fn compile_source_file_with_cache_state(
             max_specializations,
             api_surface,
             compat_eval,
+            coverage,
         )?;
 
         if let Some(parent) = cache_path.parent() {
@@ -168,6 +171,7 @@ pub fn compile_source_file_with_cache_state(
             max_specializations,
             api_surface,
             compat_eval,
+            coverage,
         )?;
         Ok(CompileOutput {
             wasm_bytes,
@@ -182,8 +186,16 @@ pub fn compile_source_file(
     mode: BuildMode,
     api_surface: ApiSurface,
     compat_eval: bool,
+    coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    compile_source_file_with_specialization_cap(source_path, mode, 16, api_surface, compat_eval)
+    compile_source_file_with_specialization_cap(
+        source_path,
+        mode,
+        16,
+        api_surface,
+        compat_eval,
+        coverage,
+    )
 }
 
 pub fn compile_source_file_with_specialization_cap(
@@ -192,6 +204,7 @@ pub fn compile_source_file_with_specialization_cap(
     max_specializations: usize,
     api_surface: ApiSurface,
     compat_eval: bool,
+    coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
     compile_source_file_with_cache_state(
         source_path,
@@ -199,6 +212,7 @@ pub fn compile_source_file_with_specialization_cap(
         max_specializations,
         api_surface,
         compat_eval,
+        coverage,
     )
     .map(|output| output.wasm_bytes)
 }
@@ -209,6 +223,7 @@ fn compile_source_file_uncached(
     max_specializations: usize,
     api_surface: ApiSurface,
     compat_eval: bool,
+    coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
     let analyzed = analyze_source_file(source_path.as_ref(), api_surface, compat_eval)?;
 
@@ -234,6 +249,7 @@ fn compile_source_file_uncached(
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations,
         compat_eval,
+        coverage,
     });
     let result = lower_lir_to_wasm(&mut ctx, &lir);
     diagnostics.extend(result.diagnostics);
@@ -251,6 +267,7 @@ fn incremental_cache_path(
     max_specializations: usize,
     api_surface: ApiSurface,
     compat_eval: bool,
+    coverage: bool,
 ) -> Result<Option<PathBuf>, Vec<Diagnostic>> {
     let source_hash = source_hash_for_file(source_path).map_err(|error| {
         vec![Diagnostic::error(
@@ -266,12 +283,13 @@ fn incremental_cache_path(
         return Ok(None);
     };
     let cache_key = format!(
-        "{}-{}-{}-{}-{}-{}",
+        "{}-{}-{}-{}-{}-{}-{}",
         source_hash,
         build_mode_name(mode),
         api_surface,
         max_specializations,
         compat_eval,
+        coverage,
         env!("CARGO_PKG_VERSION")
     );
     Ok(Some(
@@ -835,7 +853,7 @@ pub fn build_source_file(
     sandbox_policy: Option<&SandboxPolicy>,
 ) -> Result<BuildOutput, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
-    let mut wasm_bytes = compile_source_file(source_path, mode, api_surface, compat_eval)?;
+    let mut wasm_bytes = compile_source_file(source_path, mode, api_surface, compat_eval, false)?;
     let metadata = build_artifact_metadata(
         source_path,
         "executable",

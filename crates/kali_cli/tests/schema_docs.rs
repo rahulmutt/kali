@@ -76,6 +76,12 @@ fn core_schema_documents_match_current_cli_contracts() {
     .expect("parse build schema");
     assert_eq!(build["anyOf"].as_array().expect("anyOf array").len(), 6);
 
+    let test_result: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/result/test/v1.json")).expect("read test schema"),
+    )
+    .expect("parse test schema");
+    assert!(test_result["properties"]["coverage"].is_object());
+
     let artifact_meta: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/artifact-meta/v1.json"))
             .expect("read artifact schema"),

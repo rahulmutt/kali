@@ -39,7 +39,7 @@ Examples:
 | Package compatibility | curated package-corpus results recorded per shipped source-graph command/context and per claimed rung of the shared package-support ladder |
 | Install workflow / opt-in npm lifecycle hooks | install-command integration tests for manifest/lock/materialization updates, hook gating, and invalid raw-URL / JSR combinations |
 | Registry-analysis commands (`package-effects`, `package-audit`) | command-shape negatives, deterministic single-package version-selection tests, context-participation tests, and JSON-contract assertions |
-| CLI behavior / JSON schemas | golden CLI snapshots, schema validation, and exit-code assertions |
+| CLI behavior / JSON schemas | golden CLI snapshots, schema validation, exit-code assertions, and the `kali test --coverage` payload contract |
 | Artifact reproducibility | repeated-build tests over pinned inputs plus stable artifact-byte and metadata assertions |
 | Proof-backed claims | passing Lean proof jobs for the currently published proof boundary |
 
@@ -67,7 +67,7 @@ End-to-end coverage should include:
 - source + policy → `run/test --sandbox` runtime enforcement
 - source graph + policy → the **Phase-1 static policy-validation surface**
 - install workflow: `kali install`, `kali install <pkg>`, `kali install --dev <pkg>`, and opt-in `kali install --allow-scripts ...`
-- test discovery / explicit-file selection / `--filter`
+- test discovery / explicit-file selection / `--filter` / `--coverage`
 - `kali build --lib` for fixtures with a **statically known export surface**
 - browser-targeted `check` / `build --bundle`
 - repeated builds of identical pinned inputs for determinism

@@ -12,3 +12,11 @@ Proposed fix:
 - added a `Current post-completion follow-up lanes` section to `PLAN.md` so the closed-stage follow-up pointers now land on real headings
 - added `Remaining Work` sections to the Stage 3.1, Stage 3.3, and Stage 4.2 plan files so the TODO and plan references stay synchronized
 - kept the canonical proof-backed summary string unchanged and explicitly pinned in the Stage 4.2 follow-up lane
+
+2026-04-21 follow-up note
+
+While implementing the next test-evidence task, the phase-2 planning docs need to move `kali test --coverage` from the aspirational backlog into the executed milestone set and reflect the narrower function-level coverage contract that the code now provides.
+
+Proposed fix:
+- update `plan/phase-2/05-test-coverage-and-reporting.md` to record the delivered coverage contract and mark the stage complete once the tests land
+- keep `PLAN.md` aligned with that stage status so the Phase-2 milestone map does not still describe coverage as only planned

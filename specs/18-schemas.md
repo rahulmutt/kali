@@ -826,12 +826,13 @@ Consistency rules:
 
 ## Coverage Reporting Status
 
-Coverage output is intentionally absent from schema v1.
+`kali test --coverage` now uses the stable schema-v1 test result contract with an optional function-coverage payload.
 
 Interpretation rule:
-- `kali test --coverage` is a Phase 2 target because it needs its own stable machine-readable contract
-- until that contract exists, docs and implementations must not imply that ad hoc text output is the canonical coverage format
-- when coverage lands, its schema belongs in this file rather than being defined informally in the testing or CLI chapters
+- coverage output is function-based in schema v1: the report records per-file function totals plus a deterministic summary object
+- `kali test --coverage` reuses the normal test command and JSON envelope rather than introducing a second runner
+- the canonical coverage payload lives in `schemas/result/test/v1.json`; docs and examples must not invent a second coverage shape
+- future coverage granularity widening should extend this schema rather than replacing it with ad hoc text output
 
 ## Artifact Schema
 

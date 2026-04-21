@@ -58,6 +58,7 @@ impl KaliCompiler {
             self.config.build_mode,
             self.config.api_surface,
             false,
+            false,
         )
         .map_err(CompileError::from)?;
         let metadata = build::build_artifact_metadata(
@@ -83,6 +84,7 @@ impl KaliCompiler {
             path,
             self.config.build_mode,
             self.config.api_surface,
+            false,
             false,
         )
         .map_err(CompileError::from)?;
@@ -132,6 +134,7 @@ impl KaliCompiler {
                 &temp_path,
                 self.config.build_mode,
                 self.config.api_surface,
+                false,
                 false,
             )
             .map_err(CompileError::from)?;

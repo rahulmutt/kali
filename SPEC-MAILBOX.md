@@ -8,3 +8,13 @@ Proposed fix:
 - add the canonical short summary to the proof-claim discipline section in `specs/16-testing.md`
 - keep the wording identical to the repository summary already used elsewhere:
   **"Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target."**
+
+2026-04-21 follow-up note
+
+While implementing the next test-evidence task, the CLI/runtime work surfaced a need to widen the test result contract so `kali test --coverage` can report a stable machine-readable coverage payload instead of remaining permanently gated.
+
+Proposed fix:
+- extend `specs/18-schemas.md` with the Phase-2 coverage result shape for `kali test --coverage`
+- update `specs/12-cli.md` so `--coverage` is described as the stable test-coverage selector rather than a permanently phase-gated flag
+- update `specs/16-testing.md` so the evidence lane explicitly calls for positive `kali test --coverage` coverage
+- keep the new contract narrowly scoped to the documented `test` command path and its deterministic machine-readable output

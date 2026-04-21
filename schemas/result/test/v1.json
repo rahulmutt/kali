@@ -31,6 +31,64 @@
     "runtimeMs": {
       "type": "integer",
       "minimum": 0
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["mode", "files", "summary"],
+      "properties": {
+        "mode": {
+          "const": "function"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["file", "functionsTotal", "functionsCovered", "functionsMissed"],
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "functionsTotal": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "functionsCovered": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "functionsMissed": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["functionsTotal", "functionsCovered", "functionsMissed", "coveragePercent"],
+          "properties": {
+            "functionsTotal": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "functionsCovered": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "functionsMissed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "coveragePercent": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
     }
   }
 }

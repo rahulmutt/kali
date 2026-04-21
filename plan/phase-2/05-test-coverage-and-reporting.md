@@ -7,8 +7,8 @@
 ## Goal
 
 Open the Phase-2 `kali test --coverage` surface with one explicit, deterministic reporting contract.
-This stage exists because the spec intentionally leaves coverage **out of schema v1** until Kali can
-name a stable machine-readable format instead of treating ad hoc runner text as the contract.
+The delivered contract is function-based and reuses the stable `kali test` result payload with an
+optional coverage object instead of inventing a second runner or a separate ad hoc text format.
 
 ## Workable Milestone
 
@@ -17,6 +17,13 @@ name a stable machine-readable format instead of treating ad hoc runner text as 
 - Human output and JSON output report the same underlying coverage result instead of diverging into
   separate semantics.
 - Repeated runs over identical pinned inputs converge on deterministic coverage ordering and totals.
+
+## Progress
+
+- Added deterministic function-level coverage instrumentation to the compiler/runtime path so `kali test --coverage` now measures executed function entries instead of remaining gated.
+- Added a stable `coverage` object to the `kali test` result payload and schema-v1 documentation, with per-file totals plus a deterministic summary.
+- Added human-output and JSON-output regression coverage for the new reporting path so `kali test --coverage` stays deterministic in both presentation modes.
+- Kept ordinary `kali test` lean by making the coverage instrumentation opt-in at compile time.
 
 ## Tasks
 
@@ -87,4 +94,8 @@ Extend the testing evidence required by the spec:
 
 ## Status
 
-Planned.
+Complete.
+
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).

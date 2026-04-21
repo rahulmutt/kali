@@ -42,6 +42,7 @@ fn compile_source_file_uses_incremental_cache_on_repeat_builds() {
         16,
         ApiSurface::Deno,
         false,
+        false,
     )
     .expect("first compile");
     assert!(!first.cache_hit);
@@ -59,6 +60,7 @@ fn compile_source_file_uses_incremental_cache_on_repeat_builds() {
         BuildMode::Release,
         16,
         ApiSurface::Deno,
+        false,
         false,
     )
     .expect("second compile");

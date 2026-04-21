@@ -9,7 +9,7 @@ use kali_error::{_error_codes::e4, Diagnostic};
 use kali_sandbox::{HostOperation, SandboxPolicy};
 use reqwest::blocking;
 use std::{
-    collections::{BTreeMap, HashSet, VecDeque},
+    collections::{BTreeMap, BTreeSet, HashSet, VecDeque},
     fs,
     path::{Path, PathBuf},
     thread,
@@ -59,6 +59,8 @@ pub struct KaliHostState {
     pub next_timer_id: u32,
     /// Registered test callbacks collected from guest-side `Kali.test(...)` calls.
     pub registered_tests: Vec<i32>,
+    /// Coverage hit ordinals recorded by instrumented guest modules.
+    pub coverage_hits: BTreeSet<u32>,
     /// Registered Node-style event callbacks collected from guest-side `EventEmitter` calls.
     pub event_listeners: BTreeMap<String, Vec<i32>>,
     /// Memory/table limits for the current store.
@@ -95,6 +97,8 @@ pub struct RuntimeOutcome {
     pub stdout: String,
     /// Captured guest stderr.
     pub stderr: String,
+    /// Coverage hit ordinals recorded during the execution.
+    pub coverage_hits: Vec<u32>,
 }
 
 impl Default for RuntimeCtx {
@@ -206,6 +210,7 @@ impl RuntimeCtx {
                 cancelled_timers: HashSet::new(),
                 next_timer_id: 0,
                 registered_tests: Vec::new(),
+                coverage_hits: BTreeSet::new(),
                 event_listeners: BTreeMap::new(),
                 store_limits,
                 pending_diagnostic: None,
@@ -275,6 +280,7 @@ impl RuntimeCtx {
                 tests_failed: 0,
                 stdout: state.stdout.clone(),
                 stderr: state.stderr.clone(),
+                coverage_hits: state.coverage_hits.iter().copied().collect(),
             });
         }
 
@@ -291,6 +297,7 @@ impl RuntimeCtx {
                 tests_failed: 0,
                 stdout: state.stdout.clone(),
                 stderr: state.stderr.clone(),
+                coverage_hits: state.coverage_hits.iter().copied().collect(),
             });
         }
 
@@ -318,6 +325,7 @@ impl RuntimeCtx {
             tests_failed,
             stdout: state.stdout.clone(),
             stderr: state.stderr.clone(),
+            coverage_hits: state.coverage_hits.iter().copied().collect(),
         })
     }
 }
@@ -469,6 +477,19 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
             },
         )
         .map_err(|error| host_import_error("test_register", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "coverage_hit",
+            |mut caller: Caller<'_, KaliHostState>, coverage_id: i32| -> wasmtime::Result<()> {
+                if coverage_id >= 0 {
+                    caller.data_mut().coverage_hits.insert(coverage_id as u32);
+                }
+                Ok(())
+            },
+        )
+        .map_err(|error| host_import_error("coverage_hit", error))?;
 
     linker
         .func_wrap(

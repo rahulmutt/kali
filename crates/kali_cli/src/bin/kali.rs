@@ -29,6 +29,7 @@ use std::{
     time::Instant,
 };
 use wasm_encoder::{Component, ComponentSectionId, CustomSection, RawSection, Section};
+use wasmparser::{Parser as WasmParser, Payload};
 
 fn main() {
     let args = Args::parse();
@@ -885,6 +886,7 @@ fn build_executable_artifact(
         max_specializations,
         api_surface,
         compat_eval,
+        false,
     )?;
     let metadata = build::build_artifact_metadata(
         &source,
@@ -955,6 +957,7 @@ fn build_library_artifact(
         max_specializations,
         api_surface,
         compat_eval,
+        false,
     )?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
@@ -1052,6 +1055,7 @@ fn build_capi_artifact(
         max_specializations,
         api_surface,
         compat_eval,
+        false,
     )?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
@@ -1185,6 +1189,7 @@ fn build_component_artifact(
         max_specializations,
         api_surface,
         compat_eval,
+        false,
     )?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
@@ -1344,6 +1349,7 @@ fn write_browser_bundle_files(
         max_specializations,
         api_surface,
         compat_eval,
+        false,
     )?;
     let exports =
         build::collect_browser_bundle_exports(source, tree_shake_exports).unwrap_or_default();
@@ -1966,6 +1972,7 @@ fn run_command(
         build::BuildMode::Fast,
         effective_api,
         compat_eval,
+        false,
     ) {
         Ok(bytes) => bytes,
         Err(diagnostics) => {
@@ -2051,30 +2058,6 @@ fn test_command(
         }
     };
 
-    if coverage {
-        let diagnostic = Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            "test coverage reporting is unavailable in this phase",
-        );
-        if output.is_json() {
-            let (errors, warnings) = single_diagnostic_to_values(diagnostic, None, None);
-            print_envelope(
-                "test",
-                false,
-                errors,
-                warnings,
-                Value::Null,
-                None,
-                None,
-                1,
-                output,
-            );
-        } else {
-            eprintln!("{}", diagnostic);
-        }
-        return Err(1);
-    }
-
     let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
     let effective_compat = match resolve_effective_compat_features(compat) {
@@ -2126,7 +2109,27 @@ fn test_command(
 
     if filtered_files.is_empty() {
         if output.is_json() {
-            let payload = json!({ "total": 0, "passed": 0, "failed": 0, "skipped": 0 });
+            let payload = if coverage {
+                json!({
+                    "total": 0,
+                    "passed": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                    "runtimeMs": 0,
+                    "coverage": {
+                        "mode": "function",
+                        "files": [],
+                        "summary": {
+                            "functionsTotal": 0,
+                            "functionsCovered": 0,
+                            "functionsMissed": 0,
+                            "coveragePercent": 100.0,
+                        },
+                    },
+                })
+            } else {
+                json!({ "total": 0, "passed": 0, "failed": 0, "skipped": 0, "runtimeMs": 0 })
+            };
             print_envelope(
                 "test",
                 true,
@@ -2151,6 +2154,7 @@ fn test_command(
     let mut captured_stdout = String::new();
     let mut captured_stderr = String::new();
     let mut diagnostics = Vec::new();
+    let mut coverage_reports = Vec::new();
     let start = Instant::now();
 
     for file in filtered_files {
@@ -2160,6 +2164,7 @@ fn test_command(
             build::BuildMode::Fast,
             effective_api,
             compat_eval,
+            coverage,
         ) {
             Ok(bytes) => bytes,
             Err(errs) => {
@@ -2174,6 +2179,12 @@ fn test_command(
             }
         };
 
+        let coverage_total = if coverage {
+            coverage_function_count_from_wasm(&wasm_bytes).unwrap_or(0)
+        } else {
+            0
+        };
+
         match runtime.execute_tests(&wasm_bytes) {
             Ok(outcome) => {
                 total += outcome.tests_run;
@@ -2181,6 +2192,15 @@ fn test_command(
                 failed += outcome.tests_failed;
                 captured_stdout.push_str(&outcome.stdout);
                 captured_stderr.push_str(&outcome.stderr);
+                if coverage {
+                    let covered = outcome.coverage_hits.len().min(coverage_total);
+                    coverage_reports.push(json!({
+                        "file": file,
+                        "functionsTotal": coverage_total,
+                        "functionsCovered": covered,
+                        "functionsMissed": coverage_total.saturating_sub(covered),
+                    }));
+                }
             }
             Err(errs) => {
                 diagnostics.extend(errs.clone());
@@ -2195,13 +2215,42 @@ fn test_command(
     }
 
     if output.is_json() {
-        let payload = json!({
-            "total": total,
-            "passed": passed,
-            "failed": failed,
-            "skipped": 0,
-            "runtimeMs": start.elapsed().as_millis(),
-        });
+        let payload = if coverage {
+            let functions_total = coverage_reports
+                .iter()
+                .map(|report| report["functionsTotal"].as_u64().unwrap_or(0) as usize)
+                .sum::<usize>();
+            let functions_covered = coverage_reports
+                .iter()
+                .map(|report| report["functionsCovered"].as_u64().unwrap_or(0) as usize)
+                .sum::<usize>();
+            let functions_missed = functions_total.saturating_sub(functions_covered);
+            json!({
+                "total": total,
+                "passed": passed,
+                "failed": failed,
+                "skipped": 0,
+                "runtimeMs": start.elapsed().as_millis(),
+                "coverage": {
+                    "mode": "function",
+                    "files": coverage_reports,
+                    "summary": {
+                        "functionsTotal": functions_total,
+                        "functionsCovered": functions_covered,
+                        "functionsMissed": functions_missed,
+                        "coveragePercent": coverage_percent(functions_covered, functions_total),
+                    },
+                },
+            })
+        } else {
+            json!({
+                "total": total,
+                "passed": passed,
+                "failed": failed,
+                "skipped": 0,
+                "runtimeMs": start.elapsed().as_millis(),
+            })
+        };
         let success = diagnostics.is_empty();
         let (errors, warnings) = split_and_convert_diagnostics(&diagnostics, None, None);
         print_envelope(
@@ -2223,7 +2272,25 @@ fn test_command(
             eprint!("{}", captured_stderr);
         }
         if diagnostics.is_empty() {
-            println!("ok {}", passed);
+            if coverage {
+                let functions_total = coverage_reports
+                    .iter()
+                    .map(|report| report["functionsTotal"].as_u64().unwrap_or(0) as usize)
+                    .sum::<usize>();
+                let functions_covered = coverage_reports
+                    .iter()
+                    .map(|report| report["functionsCovered"].as_u64().unwrap_or(0) as usize)
+                    .sum::<usize>();
+                println!(
+                    "ok {} (coverage: {}/{} functions, {:.1}%)",
+                    passed,
+                    functions_covered,
+                    functions_total,
+                    coverage_percent(functions_covered, functions_total)
+                );
+            } else {
+                println!("ok {}", passed);
+            }
         } else {
             println!("FAILED {}", failed);
         }
@@ -2233,6 +2300,27 @@ fn test_command(
         Ok(())
     } else {
         Err(1)
+    }
+}
+
+fn coverage_function_count_from_wasm(bytes: &[u8]) -> Option<usize> {
+    for payload in WasmParser::new(0).parse_all(bytes) {
+        if let Ok(Payload::CustomSection(section)) = payload {
+            if section.name() == "kali:coverage" && section.data().len() >= 4 {
+                let mut raw = [0u8; 4];
+                raw.copy_from_slice(&section.data()[..4]);
+                return Some(u32::from_le_bytes(raw) as usize);
+            }
+        }
+    }
+    None
+}
+
+fn coverage_percent(covered: usize, total: usize) -> f64 {
+    if total == 0 {
+        100.0
+    } else {
+        (covered as f64 / total as f64) * 100.0
     }
 }
 

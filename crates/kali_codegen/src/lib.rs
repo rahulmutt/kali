@@ -1,20 +1,24 @@
 //! WASM code generation for the Kali compiler.
 
-use std::collections::{BTreeMap, HashSet};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashSet},
+};
 
 use kali_error::{_error_codes::e8, Diagnostic};
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
 use serde::{Deserialize, Serialize};
 use wasm_encoder::{
-    BlockType, CodeSection, ConstExpr, DataSection, EntityType, ExportKind, ExportSection,
-    Function, FunctionSection, ImportSection, Instruction, MemorySection, MemoryType, Module,
-    TypeSection, ValType,
+    BlockType, CodeSection, ConstExpr, CustomSection, DataSection, EntityType, ExportKind,
+    ExportSection, Function, FunctionSection, ImportSection, Instruction, MemorySection,
+    MemoryType, Module, TypeSection, ValType,
 };
 
 const TEST_REGISTER_IMPORT_INDEX: u32 = 0;
 const CONSOLE_LOG_IMPORT_INDEX: u32 = 1;
 const CONSOLE_ERROR_IMPORT_INDEX: u32 = 2;
 const CONSOLE_WARN_IMPORT_INDEX: u32 = 3;
+const COVERAGE_HIT_IMPORT_INDEX: u32 = 4;
 const FUNCTION_INDEX_OFFSET: u32 = 4;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
@@ -37,6 +41,8 @@ pub struct TargetConfig {
     pub max_specializations: usize,
     /// Whether compatibility eval source stubs were pre-resolved earlier in the pipeline.
     pub compat_eval: bool,
+    /// Whether coverage instrumentation is enabled for this compilation.
+    pub coverage: bool,
 }
 
 impl Default for TargetConfig {
@@ -44,6 +50,7 @@ impl Default for TargetConfig {
         Self {
             max_specializations: 16,
             compat_eval: false,
+            coverage: false,
         }
     }
 }
@@ -146,12 +153,21 @@ impl<'a> FunctionEmitter<'a> {
         &self.node_lookup[id.0 as usize]
     }
 
+    fn emit_coverage_hit(&mut self, function: &mut Function, coverage_id: Option<u32>) {
+        if let Some(coverage_id) = coverage_id {
+            function.instruction(&Instruction::I32Const(coverage_id as i32));
+            function.instruction(&Instruction::Call(COVERAGE_HIT_IMPORT_INDEX));
+        }
+    }
+
     fn emit_function_body(
         &mut self,
         function: &mut Function,
         body: LirNodeId,
         returns_value: bool,
+        coverage_id: Option<u32>,
     ) {
+        self.emit_coverage_hit(function, coverage_id);
         let produced = self.emit_node(function, body, returns_value);
         if returns_value && !produced.produced {
             function.instruction(&Instruction::I64Const(0));
@@ -690,11 +706,12 @@ impl<'a> FunctionEmitter<'a> {
 }
 
 /// Generate WASM from LIR.
-pub fn lower_lir_to_wasm(_ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
+pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
     let mut diagnostics = Vec::new();
     let function_plans = collect_functions(lir);
     let mut function_name_to_index = BTreeMap::new();
     let mut string_pool = StringPool::new();
+    let function_index_offset = FUNCTION_INDEX_OFFSET + if ctx.target.coverage { 1 } else { 0 };
 
     // Keep the emitted order deterministic: imported registration hook first, synthetic entry
     // second, then named functions in source order.
@@ -709,7 +726,7 @@ pub fn lower_lir_to_wasm(_ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResu
     all_functions.extend(function_plans);
 
     for (idx, function) in all_functions.iter().enumerate() {
-        function_name_to_index.insert(function.name.clone(), idx as u32 + FUNCTION_INDEX_OFFSET);
+        function_name_to_index.insert(function.name.clone(), idx as u32 + function_index_offset);
     }
 
     let mut type_section = TypeSection::new();
@@ -720,6 +737,9 @@ pub fn lower_lir_to_wasm(_ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResu
     import_section.import("kali:rt", "console_log", EntityType::Function(1));
     import_section.import("kali:rt", "console_error", EntityType::Function(1));
     import_section.import("kali:rt", "console_warn", EntityType::Function(1));
+    if ctx.target.coverage {
+        import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
+    }
     let mut function_types = BTreeMap::<(usize, bool), u32>::new();
     let mut type_for_function = Vec::with_capacity(all_functions.len());
 
@@ -771,7 +791,7 @@ pub fn lower_lir_to_wasm(_ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResu
     }
 
     let mut code_section = CodeSection::new();
-    for function in &all_functions {
+    for (coverage_id, function) in all_functions.iter().enumerate() {
         let mut body = Function::new(Vec::new());
         let mut emitter = FunctionEmitter::new(
             lir,
@@ -780,10 +800,12 @@ pub fn lower_lir_to_wasm(_ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResu
             &mut string_pool,
             &function.params,
         );
+        let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
         if function.is_entry {
+            emitter.emit_coverage_hit(&mut body, coverage_id);
             emitter.emit_sequence(&mut body, &top_level_children(lir), false);
         } else {
-            emitter.emit_function_body(&mut body, function.body, function.result);
+            emitter.emit_function_body(&mut body, function.body, function.result, coverage_id);
         }
         body.instruction(&Instruction::End);
         code_section.function(&body);
@@ -805,6 +827,12 @@ pub fn lower_lir_to_wasm(_ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResu
     module.section(&memory_section);
     module.section(&export_section);
     module.section(&code_section);
+    if ctx.target.coverage {
+        module.section(&CustomSection {
+            name: Cow::Borrowed("kali:coverage"),
+            data: Cow::Owned((all_functions.len() as u32).to_le_bytes().to_vec()),
+        });
+    }
     if !data_section.is_empty() {
         module.section(&data_section);
     }

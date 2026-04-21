@@ -159,7 +159,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--fix` | `lint` | Apply only structured, tool-generated safe fixes for lint diagnostics in the selected file/project set |
 | `--check` | `fmt` | Report formatting drift without rewriting files |
 | `--filter <pattern>` | `test` | Run only matching tests |
-| `--coverage` | `test` | Emit test coverage data once the coverage report contract is stabilized; before then this flag is phase-gated |
+| `--coverage` | `test` | Emit deterministic function-coverage data through the stable `kali test` result payload; the flag extends `kali test` rather than creating a second runner |
 | `--dev` | `install` | Add the named registry dependency to `devDependencies` instead of `dependencies` |
 | `--allow-scripts` | `install` | Opt into the schema-v1 **install-time npm-package hook path** for that install invocation only; meaningful only when the invocation has non-empty **effective npm-scriptable install work** from [SPEC.md](../SPEC.md) |
 
@@ -489,7 +489,7 @@ kali test                                  # Run discovered tests from the execu
 kali test src/math.test.ts src/vec.test.ts # Run an explicit test-module set
 kali test --filter "math"                  # Filter discovered or explicit tests by name
 kali test --sandbox kali.policy.json       # Run tests in sandbox
-kali test --coverage                       # Phase 2 target: with coverage report once the stable contract lands
+kali test --coverage                       # Emits the stable function-coverage report alongside the ordinary test summary
 kali test --api deno                       # Supported early standalone test profile
 kali test --api node                       # Phase 3 target
 kali test --api browser                    # Later compatibility; unavailable in early phases because browser support is limited to the shared Phase-1 browser-targeted command set first
