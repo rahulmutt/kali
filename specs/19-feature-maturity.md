@@ -431,6 +431,7 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - `check/build --sandbox` perform the documented Phase-1 policy-schema/config validation without overclaiming full inferred-effect-vs-policy validation/comparison yet.
 - The shared **effect-surface split** remains intact in Phase 1: internal effect bookkeeping may exist, but both Phase-2 halves of the stable **public effect-report surface** — the reporting half (`kali effects` / `kali package-effects`) and the policy-comparison half (inferred-effect-vs-policy validation) — are still correctly absent from the shipped Phase-1 surface.
 - The verification story stays phase-correct: Phase 1 requires the **proof-ready** baseline, and any stronger proof-backed wording must match the current published boundary in [`proofs/BOUNDARY.md`](../proofs/BOUNDARY.md) rather than duplicating theorem inventory here.
+- The current proof-summary inventory also pins `KaliCore.Safety.releaseAndCollectLiveRefsAreOwnedAndAllocatedAndLinearMemory`
 - Unsupported dynamic features fail with the canonical feature-maturity diagnostic instead of silently degrading.
 - Package support works for the documented pure JS/TS, statically linkable subset, and the same Phase-1 lock/materialization story also covers supported raw-URL dependency graphs.
 - Non-install commands still fail with `E5004` on missing/stale dependency state instead of auto-installing or auto-repairing project-managed dependency state.

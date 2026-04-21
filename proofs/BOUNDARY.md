@@ -96,6 +96,7 @@ Release rule:
 - `KaliCore.Safety.releaseAndCollectDropsOriginalZeroCountCells` — mechanised theorem that original zero-count cells are dropped from the final heap
 - `KaliCore.Safety.releaseAndCollectPreservesOtherLiveRefs` — mechanised theorem that other live references remain live after the local release-and-collect helper runs
 - `KaliCore.Safety.releaseAndCollectLiveRefsAreOwnedAndAllocated` — mechanised theorem that the local release-and-collect helper keeps surviving live references anchored in ownership and allocation
+- `KaliCore.Safety.releaseAndCollectLiveRefsAreOwnedAndAllocatedAndLinearMemory` — mechanised theorem that the local release-and-collect helper keeps surviving live references anchored in ownership and allocation while preserving the explicit linear-memory payload
 - `KaliCore.Safety.releaseAndCollectReleasedNotLiveRef` — mechanised theorem that released references stay disjoint from the live set after the local release-and-collect helper runs
 - `KaliCore.Safety.releaseRefPreservesOwnership` — mechanised theorem that the release-only helper leaves the ownership environment unchanged
 - `KaliCore.Safety.releaseAndDecrementPreservesOwnership` — mechanised theorem that the release-and-decrement helper leaves the ownership environment unchanged

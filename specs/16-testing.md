@@ -143,3 +143,4 @@ Concrete CI layout, directory structure, benchmark automation, and staged eviden
 - [`PLAN.md`](../PLAN.md)
 - [`plan/phase-1/14-evidence-hardening.md`](../plan/phase-1/14-evidence-hardening.md)
 - later phase plan files when new evidence lanes open
+- the current proof-summary inventory also pins `KaliCore.Safety.releaseAndCollectLiveRefsAreOwnedAndAllocatedAndLinearMemory`

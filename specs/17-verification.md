@@ -133,3 +133,4 @@ Concrete proof milestones, Lean-project staging, and deeper verification expansi
 - [`PLAN.md`](../PLAN.md)
 - [`plan/phase-2/04-lean-model-foundation.md`](../plan/phase-2/04-lean-model-foundation.md)
 - [`plan/phase-4/02-formal-verification-depth.md`](../plan/phase-4/02-formal-verification-depth.md)
+- the current proof-summary inventory also pins `KaliCore.Safety.releaseAndCollectLiveRefsAreOwnedAndAllocatedAndLinearMemory`

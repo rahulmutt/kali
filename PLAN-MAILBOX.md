@@ -56,6 +56,9 @@ Proposed fix:
 - kept the canonical proof-backed summary string unchanged and explicitly pinned in the Stage 4.2 follow-up lane
 
 2026-04-21 follow-up note
+- widened the Stage 4.2 proof summary with `KaliCore.Safety.releaseAndCollectLiveRefsAreOwnedAndAllocatedAndLinearMemory`, and mirrored that theorem in the Stage 4.2 plan/status tracker so the collection-helper live-reference slice stays aligned with the explicit linear-memory payload
+
+2026-04-21 follow-up note
 
 While implementing the next test-evidence task, the phase-2 planning docs need to move `kali test --coverage` from the aspirational backlog into the executed milestone set and reflect the narrower function-level coverage contract that the code now provides.
 

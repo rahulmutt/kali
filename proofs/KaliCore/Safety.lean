@@ -940,6 +940,18 @@ theorem releaseAndCollectLiveRefsAreOwnedAndAllocated (snapshot : RcSnapshot) (r
     releaseAndCollectPreservesWellFormed snapshot ref h
   exact liveRefsAreOwnedAndAllocated (releaseAndCollect snapshot ref) hwf r hr
 
+/-- The release-and-collect helper keeps the surviving live references anchored in ownership and
+allocation while preserving the explicit linear-memory payload. -/
+theorem releaseAndCollectLiveRefsAreOwnedAndAllocatedAndLinearMemory (snapshot : RcSnapshot)
+    (ref : String) (h : WellFormed snapshot) :
+    (∀ r, r ∈ (releaseAndCollect snapshot ref).liveRefs →
+      hasOwnership (releaseAndCollect snapshot ref).ownership r ∧
+      allocated (releaseAndCollect snapshot ref) r) ∧
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndCollectLiveRefsAreOwnedAndAllocated snapshot ref h
+  · exact releaseAndCollectPreservesLinearMemory snapshot ref
+
 /-- The surviving release-and-collect live references are still live-annotated. -/
 theorem releaseAndCollectLiveRefsAreLiveAnnotated (snapshot : RcSnapshot) (ref : String)
     (h : WellFormed snapshot) :
