@@ -117,6 +117,33 @@ Reject them with the canonical invalid-entrypoint diagnostic before execution be
 - declaration-only negative fixtures
 - host-API integration tests for the Phase-1 standalone surface
 
+## Follow-up work uncovered by the semver probe
+
+A real `semver` execution attempt exposed two end-to-end runtime-path gaps that should be tracked
+explicitly.
+
+### Semver-specific regression surfaces
+
+- `kali run --api node node_modules/semver/bin/semver.js -- 1.2.3` was parsed as multiple primary
+  source inputs and failed with `E5008` instead of passing `1.2.3` through to the guest program.
+- A small consumer program importing `semver` built and ran, but produced incorrect runtime output,
+  showing that the package-execution path is still allowing unresolved or mis-lowered imported
+  functionality to reach execution instead of preserving real package semantics or failing earlier.
+
+### Systematic fix plan
+
+1. Implement the documented `kali run <file> [-- args...]` split so everything after `--` becomes
+   guest arguments instead of extra entrypoints.
+2. Route those arguments through the documented invocation-context surface (`Deno.args` today and
+   the Phase-3 Node `process.argv` path when `--api node` is selected).
+3. Tighten the compile→run handoff so unresolved imported bindings/call targets are never silently
+   lowered into executable placeholder values; they must either lower faithfully or stop the run
+   with a hard diagnostic before WASM emission.
+4. Add an end-to-end package execution regression using the real `semver` consumer/library case so
+   runtime output is compared against known-good behavior rather than only checking exit success.
+5. Add a package-bin regression for `semver/bin/semver.js` once the Node path is selected, covering
+   shebang handling, `process.argv`, `require('../package.json')`, and the help/argument flow.
+
 ## Out of Scope
 
 - sandbox enforcement details owned by Stage 1.9

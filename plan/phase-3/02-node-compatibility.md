@@ -78,6 +78,27 @@ Update the package-support decision order for Node-context projects:
 - negative tests proving later Node breadth stays gated
 - CLI and diagnostics tests keeping inherited Node config aligned with explicit `--api node`
 
+## Follow-up work uncovered by the semver probe
+
+The `semver` package is a useful real-world Phase-3 Node-subset probe because its CLI entrypoint
+combines `process.argv`, CommonJS `require()`, package-relative JSON loading, and a non-trivial
+help-text path.
+
+### Systematic fix plan
+
+1. Add `semver/bin/semver.js` as a representative Node-compatibility fixture.
+2. Prove the fixture works both with no guest args (help path) and with `-- 1.2.3` argument
+   passthrough.
+3. Keep the expected surface narrowly scoped to the documented subset:
+   - CommonJS `require()`
+   - `process.argv`
+   - package-relative file / JSON resolution
+   - ordinary console output
+4. Add a paired negative test under the default standalone surface so the same package bin still
+   fails honestly when `--api node` is not selected.
+5. Record the exact achieved support rung for `semver`: installable in Phase 1, library-consumable
+   once CommonJS package lowering is faithful, and CLI-executable only on the Node path.
+
 ## Out of Scope
 
 - full Node.js parity

@@ -66,13 +66,22 @@ Following `specs/16-testing.md`:
 ### 3. Package corpus tests
 
 - Select a curated set of popular pure-JS/TS npm packages (e.g. `lodash`, `zod`, `date-fns`,
-  `chalk`, `commander`) that should be **installable/checkable/buildable** under Phase 1's
+  `chalk`, `commander`, `semver`) that should be **installable/checkable/buildable** under Phase 1's
   package-support contract.
 - For each package:
   - `kali install <pkg>` → assert lock file written and integrity verified.
   - `kali check` with the package as a dependency → assert 0 type errors from the package itself
     (unless known upstream typing issues are tracked).
   - `kali build` / `kali run` a small consumer program that uses the package → assert success.
+- Add an explicit `semver` regression lane because it exercises multiple common failure modes at
+  once:
+  - plain `kali install semver` must succeed without `--allow-scripts` because `semver` has
+    non-install scripts but no install-time lifecycle hooks
+  - a consumer using `import { valid, satisfies, minVersion } from "semver"` must produce the same
+    observable output as Node for representative calls
+  - a consumer using `minVersion(... )?.version` must not regress into bogus `E3100` diagnostics
+  - `kali run node_modules/semver/bin/semver.js` must fail honestly on the default standalone
+    surface, while the Node-path fixture tracked in Phase 3 proves the documented gated behavior
 - Select a set of packages that **must be rejected** (native addons, Node-only API users) and
   assert they produce the correct `E6004` or `E6005` diagnostic.
 

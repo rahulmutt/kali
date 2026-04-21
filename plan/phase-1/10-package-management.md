@@ -227,6 +227,35 @@ Materialised packages live under `.kali-cache/` (gitignore'd):
 - `kali install --allow-scripts <pkg>` with no lifecycle scripts → clean/no-op, exits 0.
 - `kali install --allow-scripts <raw-url>` → exits 1 with `E6009` (not valid for raw-URL targets).
 
+## Follow-up work uncovered by the semver probe
+
+A real-world `semver` install attempt exposed a Phase-1 package-management gap that should be
+tracked explicitly even though the historical stage milestone is otherwise complete.
+
+### Semver-specific regression to close
+
+Observed behavior during `kali install semver`:
+- Kali rejected the install with `E6006` (`npm lifecycle scripts require --allow-scripts`).
+- The published `semver` package does **not** use install-time lifecycle hooks for normal
+  installation; it declares non-install scripts such as `test`, `lint`, `postlint`, and
+  `posttest`.
+
+### Systematic fix plan
+
+1. Narrow install-hook detection so `--allow-scripts` is required only for actual install-time npm
+   lifecycle hooks that participate in the current invocation's **effective npm-scriptable install
+   work**.
+2. Treat non-install scripts (`test`, `lint`, `postlint`, `posttest`, etc.) as ordinary package
+   metadata, not as install blockers.
+3. Keep rejecting truly unsupported install/bootstrap cases (`preinstall`, `install`,
+   `postinstall`, native builds, binary bootstraps) on the existing `E6004`/`E6006` paths.
+4. Add a regression fixture using the real `semver` metadata shape so Phase-1 install support is
+   evidence-backed for this common pure-JS package class.
+5. Extend install tests to distinguish:
+   - package has no install-time hooks → plain `kali install <pkg>` succeeds
+   - package has install-time hooks → plain install rejects, `--allow-scripts` is required
+   - package has non-install scripts only → plain install still succeeds
+
 ## Out of Scope
 
 - `kali package-effects` (Phase 2 target).

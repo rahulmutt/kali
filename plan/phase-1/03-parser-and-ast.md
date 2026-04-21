@@ -35,6 +35,33 @@ Stage 1.3 now provides a usable parser/AST layer for downstream compiler stages:
 - control-flow and declaration coverage
 - stable AST types for the currently supported statement and expression shapes
 
+## Follow-up work uncovered by the semver probe
+
+A `semver` compile/run attempt exposed parser coverage gaps that should be tracked explicitly as
+post-milestone hardening work.
+
+### Semver-specific regression surfaces
+
+- A consumer using `minVersion("^1.2.3")?.version` produced `E3100` on `version`, which indicates
+  the parser/AST pipeline is not preserving optional-chaining member access correctly when the base
+  expression is a call result.
+- `node_modules/semver/bin/semver.js` produced a flood of bogus identifier errors from the help
+  text, which points to incorrect handling of multi-line template literals / backtick string
+  bodies.
+
+### Systematic fix plan
+
+1. Add explicit parser coverage for optional chaining after call/member expressions:
+   - `call()?.prop`
+   - `call()?.[expr]`
+   - chained forms like `a?.b?.c`
+2. Add lexer/parser coverage for multi-line template literals with plain text and embedded newlines,
+   plus `${...}` interpolation round-tripping into the AST.
+3. Add regression fixtures from the actual `semver` CLI source shape so the parser test corpus is
+   anchored to a real package entrypoint rather than a synthetic micro-case.
+4. Define the acceptance bar as: no spurious identifier diagnostics may originate from template
+   literal bodies or optional-chain property names.
+
 ### Next Stage
 
 Proceed to [1.4 — Name Resolution](04-name-resolution.md).
