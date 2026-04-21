@@ -565,6 +565,60 @@ fn thread_runtime_topology_shutdown_reports_live_instances_deterministically() {
 }
 
 #[test]
+fn thread_runtime_topology_shutdown_keeps_live_instances_sorted_by_id() {
+    let mut topology = ThreadRuntimeTopology::new();
+    let first = topology
+        .spawn_worker("https://example.com/first-worker.js")
+        .expect("first worker");
+    let middle = topology
+        .spawn_worker("https://example.com/middle-worker.js")
+        .expect("middle worker");
+    let last = topology
+        .spawn_worker("https://example.com/last-worker.js")
+        .expect("last worker");
+
+    topology.post_message(first, Value::String("first".to_string()));
+    topology.post_shared_buffer(first, SharedArrayBuffer::from_bytes([1, 0, 0]));
+    topology.post_message(middle, Value::String("middle".to_string()));
+    topology.post_shared_buffer(middle, SharedArrayBuffer::from_bytes([0, 1, 0]));
+    topology.post_message(last, Value::String("last".to_string()));
+    topology.post_shared_buffer(last, SharedArrayBuffer::from_bytes([0, 0, 1]));
+
+    topology.terminate(middle);
+
+    let report = topology.shutdown();
+    assert_eq!(report.total_instances, 3);
+    assert_eq!(report.terminated_instances, 3);
+    assert_eq!(report.live_instances.len(), 2);
+    assert_eq!(
+        report
+            .live_instances
+            .iter()
+            .map(|snapshot| snapshot.instance_id)
+            .collect::<Vec<_>>(),
+        vec![first, last]
+    );
+    assert_eq!(
+        report.live_instances[0].posted_messages,
+        vec![Value::String("first".to_string())]
+    );
+    assert_eq!(
+        report.live_instances[0].posted_shared_buffers,
+        vec![vec![1, 0, 0]]
+    );
+    assert_eq!(
+        report.live_instances[1].posted_messages,
+        vec![Value::String("last".to_string())]
+    );
+    assert_eq!(
+        report.live_instances[1].posted_shared_buffers,
+        vec![vec![0, 0, 1]]
+    );
+    assert!(!report.live_instances[0].was_terminated);
+    assert!(!report.live_instances[1].was_terminated);
+}
+
+#[test]
 fn shared_array_buffer_clones_share_mutations() {
     let buffer = SharedArrayBuffer::from_bytes([1, 2, 3, 4]);
     let clone = buffer.clone();

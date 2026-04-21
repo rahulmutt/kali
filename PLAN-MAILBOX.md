@@ -182,3 +182,15 @@ Proposed fix:
 2026-04-21 resolution note
 - added deterministic ordered post queues to the `kali_api_web` worker and broadcast-channel stubs so shared buffers stay first-class transport payloads instead of being flattened into JSON-only bookkeeping
 - updated the Stage 5.1 progress note to record the new shared-buffer coordination baseline and the ordered transport queue
+
+2026-04-21 follow-up note
+
+While hardening the threaded runtime-topology model, the browser/runtime compatibility crate still needs an explicit regression for mixed live/terminated instances so the shutdown/leak report ordering stays deterministic when teardown does not happen in spawn order.
+
+Proposed fix:
+- add a `ThreadRuntimeTopology` regression that spawns multiple workers, terminates a middle instance first, and asserts the shutdown report keeps the remaining live snapshots in deterministic instance-id order
+- mention the new ordering coverage in the Stage 5.1 progress note so the historical plan stays aligned with the evidence lane
+
+2026-04-21 resolution note
+- added the mixed live/terminated `ThreadRuntimeTopology` shutdown-order regression in `kali_api_web`
+- updated the Stage 5.1 progress note to mention the deterministic shutdown ordering coverage alongside the existing threaded-topology baseline
