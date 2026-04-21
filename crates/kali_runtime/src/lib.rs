@@ -32,6 +32,8 @@ pub struct RuntimeCtx {
     pub cwd: PathBuf,
     /// Selected API surface for the current execution context.
     pub api_surface: String,
+    /// Requested runtime profiles for the current execution context.
+    pub runtime_profiles: Vec<String>,
 }
 
 /// Host-side state owned by the runtime.
@@ -45,6 +47,10 @@ pub struct KaliHostState {
     pub env: BTreeMap<String, String>,
     /// Current working directory used for relative host-path resolution.
     pub cwd: PathBuf,
+    /// Requested runtime profiles for the current execution context.
+    pub runtime_profiles: Vec<String>,
+    /// Thread budget derived from the active policy, if one is attached.
+    pub max_threads: Option<u64>,
     /// Captured guest stdout.
     pub stdout: String,
     /// Captured guest stderr.
@@ -109,6 +115,7 @@ impl Default for RuntimeCtx {
             env: BTreeMap::new(),
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
             api_surface: "deno".to_string(),
+            runtime_profiles: Vec::new(),
         }
     }
 }
@@ -152,7 +159,14 @@ impl RuntimeCtx {
             env,
             cwd,
             api_surface: api_surface.into(),
+            runtime_profiles: Vec::new(),
         }
+    }
+
+    /// Attach the requested runtime profiles to the current execution context.
+    pub fn with_runtime_profiles(mut self, runtime_profiles: Vec<String>) -> Self {
+        self.runtime_profiles = runtime_profiles;
+        self
     }
 
     /// Execute a WASM module.
@@ -203,6 +217,11 @@ impl RuntimeCtx {
                 args: self.args.clone(),
                 env: self.env.clone(),
                 cwd: self.cwd.clone(),
+                runtime_profiles: self.runtime_profiles.clone(),
+                max_threads: self
+                    .policy
+                    .as_ref()
+                    .and_then(|policy| policy.resources.max_threads),
                 stdout: String::new(),
                 stderr: String::new(),
                 pending_timers: BTreeMap::new(),

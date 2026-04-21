@@ -74,6 +74,15 @@ fn runtime_exposes_arguments() {
 }
 
 #[test]
+fn runtime_context_carries_runtime_profiles() {
+    let runtime = RuntimeCtx::with_api_surface(None, "deno")
+        .with_runtime_profiles(vec!["wasm-threads".to_string()]);
+
+    assert_eq!(runtime.api_surface, "deno");
+    assert_eq!(runtime.runtime_profiles, vec!["wasm-threads".to_string()]);
+}
+
+#[test]
 fn runtime_exposes_environment_variables() {
     let mut env = BTreeMap::new();
     env.insert("KALI_RUNTIME_TEST_ENV".to_string(), "hello".to_string());

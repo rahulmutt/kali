@@ -2273,7 +2273,8 @@ fn run_command(
         }
     };
 
-    let runtime = RuntimeCtx::with_api_surface(policy.clone(), effective_api.to_string());
+    let runtime = RuntimeCtx::with_api_surface(policy.clone(), effective_api.to_string())
+        .with_runtime_profiles(effective_runtime_profiles.clone());
     let start = Instant::now();
     match runtime.execute(&wasm_bytes) {
         Ok(outcome) => {
@@ -2463,7 +2464,8 @@ fn test_command(
         return Ok(());
     }
 
-    let runtime = RuntimeCtx::with_api_surface(policy.clone(), effective_api.to_string());
+    let runtime = RuntimeCtx::with_api_surface(policy.clone(), effective_api.to_string())
+        .with_runtime_profiles(effective_runtime_profiles.clone());
     let mut total = 0usize;
     let mut passed = 0usize;
     let mut failed = 0usize;

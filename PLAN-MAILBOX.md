@@ -84,3 +84,6 @@ Proposed fix:
 
 2026-04-21 resolution note
 - confirmed the Stage 5.1 progress note already covers the shared runtime-profile validation path, the embedding/config handoff, and the duplicate/unknown-entry rejection coverage, so the unresolved follow-up note is now closed without further plan churn
+
+2026-04-21 resolution note
+- updated the Stage 5.1 progress note to mention that runtime-profile validation now also preserves the selected runtime-profile vector into the runtime execution context / host-side runtime state
