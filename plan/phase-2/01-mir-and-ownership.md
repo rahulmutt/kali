@@ -32,7 +32,9 @@ counting placeholder with deterministic compile-time ownership decisions: `stack
   skip the redundant truthiness cast when the shape is already known to be canonical 0/1.
   MIR closure bindings now retain the concrete capture list in their closure layout descriptors so
   the ownership model records not just who captured a value but also which values each closure
-  environment needs to carry.
+  environment needs to carry. The ownership analyzer now also distinguishes non-escaping closure
+  captures from escaping ones, so borrowed lifetimes remain borrowed when a nested closure stays
+  local instead of being forced into shared-heap ownership.
 
 ## Tasks
 

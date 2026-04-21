@@ -343,28 +343,6 @@ impl BindingState {
             captured_by: BTreeSet::new(),
         }
     }
-
-    fn finalize(self) -> MirBinding {
-        let escapes = self.returned || self.escaped_via_flow || !self.captured_by.is_empty();
-        let ownership = if !self.captured_by.is_empty() {
-            OwnershipClass::SharedHeap
-        } else if self.returned || self.escaped_via_flow {
-            match self.kind {
-                MirBindingKind::Local | MirBindingKind::Function => OwnershipClass::OwnedHeap,
-                MirBindingKind::Parameter | MirBindingKind::Import => self.ownership,
-            }
-        } else {
-            self.ownership
-        };
-        MirBinding {
-            name: self.name,
-            kind: self.kind,
-            ownership,
-            layout: self.layout,
-            escapes,
-            captured_by: self.captured_by.into_iter().collect(),
-        }
-    }
 }
 
 fn default_ownership(kind: MirBindingKind) -> OwnershipClass {
@@ -383,6 +361,80 @@ fn parameter_escape_flags(function: &MirFunction) -> Vec<bool> {
         .filter(|binding| binding.kind == MirBindingKind::Parameter)
         .map(|binding| binding.escapes)
         .collect()
+}
+
+fn function_binding_escapes(
+    bindings: &[BindingState],
+    name: &str,
+    cache: &mut BTreeMap<String, bool>,
+    visiting: &mut BTreeSet<String>,
+) -> bool {
+    if let Some(&cached) = cache.get(name) {
+        return cached;
+    }
+
+    if !visiting.insert(name.to_string()) {
+        return true;
+    }
+
+    let escapes = bindings
+        .iter()
+        .find(|binding| binding.kind == MirBindingKind::Function && binding.name == name)
+        .map(|binding| {
+            binding.returned
+                || binding.escaped_via_flow
+                || binding
+                    .captured_by
+                    .iter()
+                    .any(|capturer| function_binding_escapes(bindings, capturer, cache, visiting))
+        })
+        .unwrap_or(false);
+
+    visiting.remove(name);
+    cache.insert(name.to_string(), escapes);
+    escapes
+}
+
+fn finalise_binding(
+    binding: BindingState,
+    scope_bindings: &[BindingState],
+    capture_escape_cache: &mut BTreeMap<String, bool>,
+    visiting: &mut BTreeSet<String>,
+) -> MirBinding {
+    let capture_escapes = binding.captured_by.iter().any(|capturing| {
+        function_binding_escapes(scope_bindings, capturing, capture_escape_cache, visiting)
+    });
+
+    let escapes = binding.returned || binding.escaped_via_flow || capture_escapes;
+    let ownership = if capture_escapes {
+        match binding.kind {
+            MirBindingKind::Import => binding.ownership,
+            MirBindingKind::Parameter | MirBindingKind::Local | MirBindingKind::Function => {
+                OwnershipClass::SharedHeap
+            }
+        }
+    } else if binding.returned || binding.escaped_via_flow {
+        match binding.kind {
+            MirBindingKind::Local | MirBindingKind::Function => OwnershipClass::OwnedHeap,
+            MirBindingKind::Parameter | MirBindingKind::Import => binding.ownership,
+        }
+    } else if !binding.captured_by.is_empty() {
+        match binding.kind {
+            MirBindingKind::Import | MirBindingKind::Parameter => binding.ownership,
+            MirBindingKind::Local | MirBindingKind::Function => OwnershipClass::Borrowed,
+        }
+    } else {
+        binding.ownership
+    };
+
+    MirBinding {
+        name: binding.name,
+        kind: binding.kind,
+        ownership,
+        layout: binding.layout,
+        escapes,
+        captured_by: binding.captured_by.into_iter().collect(),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -461,6 +513,9 @@ impl ScopeState {
                 };
             }
         }
+        let scope_bindings = bindings.clone();
+        let mut capture_escape_cache = BTreeMap::new();
+        let mut visiting = BTreeSet::new();
         MirFunction {
             name: if kind == MirFunctionKind::Module {
                 None
@@ -468,7 +523,17 @@ impl ScopeState {
                 Some(label)
             },
             kind,
-            bindings: bindings.into_iter().map(BindingState::finalize).collect(),
+            bindings: bindings
+                .into_iter()
+                .map(|binding| {
+                    finalise_binding(
+                        binding,
+                        &scope_bindings,
+                        &mut capture_escape_cache,
+                        &mut visiting,
+                    )
+                })
+                .collect(),
         }
     }
 }
@@ -880,23 +945,25 @@ impl<'a> OwnershipAnalyzer<'a> {
             }
         }
 
-        if matches!(context, UseContext::Return) {
-            if let Some(binding) = self
-                .scope_stack
-                .get_mut(scope_index)
-                .and_then(|scope| scope.bindings.get_mut(binding_index))
-            {
-                binding.returned = true;
+        if scope_index == current_index {
+            if matches!(context, UseContext::Return) {
+                if let Some(binding) = self
+                    .scope_stack
+                    .get_mut(scope_index)
+                    .and_then(|scope| scope.bindings.get_mut(binding_index))
+                {
+                    binding.returned = true;
+                }
             }
-        }
 
-        if matches!(context, UseContext::Escape) {
-            if let Some(binding) = self
-                .scope_stack
-                .get_mut(scope_index)
-                .and_then(|scope| scope.bindings.get_mut(binding_index))
-            {
-                binding.escaped_via_flow = true;
+            if matches!(context, UseContext::Escape) {
+                if let Some(binding) = self
+                    .scope_stack
+                    .get_mut(scope_index)
+                    .and_then(|scope| scope.bindings.get_mut(binding_index))
+                {
+                    binding.escaped_via_flow = true;
+                }
             }
         }
     }
