@@ -1,7 +1,18 @@
 # PLAN mailbox
 
 2026-04-21 resolution note
-- updated the Stage 5.1 progress note so it explicitly mentions the `runtimeProfiles` axis and the current empty-set normalization in emitted build metadata
+- updated the Stage 5.1 progress note so it explicitly names the `runtimeProfiles` metadata axis and the current empty-set normalization in emitted build metadata
+
+2026-04-21 follow-up note
+
+While hardening the threaded-runtime profile validation path, the CLI smoke suite still needs one end-to-end regression for duplicate `compilerOptions.runtimeProfiles` entries inherited from `kali.json` so the shared config loader is covered at the command level rather than only in the lower-level build/embed helpers.
+
+Proposed fix:
+- add a `kali build` smoke test that writes a manifest with duplicate `runtimeProfiles` entries and asserts the canonical `E5009` rejection path
+- mention the new CLI-level duplicate-entry coverage in the Stage 5.1 progress note so the historical plan matches the regression suite
+
+2026-04-21 resolution note
+- added the CLI smoke regression for duplicate inherited `runtimeProfiles` entries and updated the Stage 5.1 progress note to mention the new command-level coverage
 
 2026-04-21 follow-up note
 
