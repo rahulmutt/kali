@@ -550,7 +550,7 @@ fn thread_runtime_topology_shutdown_reports_live_instances_deterministically() {
 
     let report = topology.shutdown();
     assert_eq!(report.total_instances, 2);
-    assert_eq!(report.terminated_instances, 2);
+    assert_eq!(report.terminated_instances, 1);
     assert_eq!(report.live_instances.len(), 1);
 
     let snapshot = &report.live_instances[0];
@@ -588,7 +588,7 @@ fn thread_runtime_topology_shutdown_keeps_live_instances_sorted_by_id() {
 
     let report = topology.shutdown();
     assert_eq!(report.total_instances, 3);
-    assert_eq!(report.terminated_instances, 3);
+    assert_eq!(report.terminated_instances, 1);
     assert_eq!(report.live_instances.len(), 2);
     assert_eq!(
         report

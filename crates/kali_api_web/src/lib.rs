@@ -1809,6 +1809,12 @@ impl ThreadRuntimeTopology {
 
     /// Produce a stable shutdown/leak report and mark every tracked instance terminated.
     pub fn shutdown(self) -> ThreadRuntimeShutdownReport {
+        let total_instances = self.instances.len();
+        let terminated_instances = self
+            .instances
+            .values()
+            .filter(|worker| worker.is_terminated())
+            .count();
         let live_instances = self
             .instances
             .iter()
@@ -1820,14 +1826,8 @@ impl ThreadRuntimeTopology {
             worker.terminate();
         }
 
-        let terminated_instances = self
-            .instances
-            .values()
-            .filter(|worker| worker.is_terminated())
-            .count();
-
         ThreadRuntimeShutdownReport {
-            total_instances: self.instances.len(),
+            total_instances,
             terminated_instances,
             live_instances,
         }
