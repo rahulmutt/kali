@@ -1,4 +1,21 @@
 use super::*;
+use std::{
+    fs,
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+fn write_source_fixture(source: &str) -> PathBuf {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time")
+        .as_nanos();
+    let dir = std::env::temp_dir().join(format!("kali-sandbox-{unique}-{}", std::process::id()));
+    fs::create_dir_all(&dir).expect("create temp dir");
+    let path = dir.join("main.ts");
+    fs::write(&path, source).expect("write source fixture");
+    path
+}
 
 fn valid_policy() -> SandboxPolicy {
     SandboxPolicy {
@@ -95,6 +112,58 @@ fn access_rules_match_globs() {
         &policy.base_dir,
         PatternKind::Url
     ));
+}
+
+#[test]
+fn effect_analysis_tracks_phase_three_deno_host_capabilities() {
+    let source = write_source_fixture(
+        r#"
+Deno.env.set('KALI_CORPUS_FLAG', 'set');
+new Deno.Command('sh').spawn();
+Deno.connect('127.0.0.1', 1);
+Deno.listen('127.0.0.1', 0);
+Deno.serve('127.0.0.1', 0);
+Deno.open('/workspace/input.txt');
+Deno.create('/workspace/output.txt');
+Deno.mkdir('/workspace/newdir');
+Deno.remove('/workspace/old.txt');
+Deno.rename('/workspace/from.txt', '/workspace/to.txt');
+Deno.lstat('/workspace/input.txt');
+"#,
+    );
+
+    let inference = infer_effects_from_roots(&[source], EffectAnalysisContext::new("deno"))
+        .expect("infer effects");
+
+    let kinds: Vec<_> = inference
+        .effects
+        .iter()
+        .map(|effect| effect.kind.as_str())
+        .collect();
+    for kind in [
+        "FileSystem.Read",
+        "FileSystem.Write",
+        "Network.Connect",
+        "Network.Listen",
+        "Process.EnvWrite",
+        "Process.Spawn",
+    ] {
+        assert!(
+            kinds.contains(&kind),
+            "missing effect kind {kind:?}: {kinds:?}"
+        );
+    }
+
+    let diagnostics = compare_effects_to_policy(&inference.effects, &valid_policy());
+    assert!(
+        diagnostics.len() >= 4,
+        "expected policy diagnostics for the phase-three capability slice, got {diagnostics:?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diag| diag.code == Some(9007)),
+        "expected an E9007 policy mismatch diagnostic: {diagnostics:?}"
+    );
+    assert!(inference.dynamic_reasons.is_empty());
 }
 
 #[test]

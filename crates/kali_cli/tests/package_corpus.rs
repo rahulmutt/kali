@@ -94,6 +94,11 @@ fn write_types_stub_package(root: &Path, name: &str) {
     .expect("write types package entry");
 }
 
+fn write_deno_host_package(root: &Path, name: &str, body: &str) {
+    write_stub_package(root, name, body);
+    write_types_stub_package(root, name);
+}
+
 fn write_export_map_package(
     root: &Path,
     name: &str,
@@ -2128,6 +2133,63 @@ fn utility_corpus_scoped_packages_remain_executable_on_the_default_standalone_su
         assert!(
             run.status.success(),
             "scoped utility package {package} should stay executable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+    }
+}
+
+#[test]
+fn deno_host_corpus_packages_remain_executable_on_the_default_standalone_surface() {
+    for (package, body) in [
+        (
+            "fresh-env",
+            "export default function mutate() {\n  Deno.env.set('KALI_CORPUS_FLAG', 'set');\n  return Deno.env.get('KALI_CORPUS_FLAG');\n}\n",
+        ),
+        (
+            "spawn-tools",
+            "export default function spawn() {\n  new Deno.Command('sh').spawn();\n  return 'spawn';\n}\n",
+        ),
+        (
+            "listen-tools",
+            "export default function listen() {\n  Deno.listen('127.0.0.1', 0);\n  return 'listen';\n}\n",
+        ),
+        (
+            "serve-tools",
+            "export default function serve() {\n  Deno.serve('127.0.0.1', 0);\n  return 'serve';\n}\n",
+        ),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("deno"));
+        write_deno_host_package(dir.path(), package, body);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write deno host source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "deno", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "deno host package {package} should be checkable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let run = run_kali(
+            dir.path(),
+            ["run", "--api", "deno", source_path.to_str().unwrap()],
+        );
+        assert!(
+            run.status.success(),
+            "deno host package {package} should stay executable\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr)
         );

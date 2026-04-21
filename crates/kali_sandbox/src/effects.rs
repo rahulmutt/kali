@@ -569,6 +569,12 @@ fn scan_tokens_for_effects(
             continue;
         }
 
+        if let Some((kind, target)) = is_deno_command_constructor(tokens, i) {
+            effects.push(observed_effect(file, token, source, kind, target));
+            i += 1;
+            continue;
+        }
+
         if let Some((kind, target)) = is_deno_host_call(tokens, i) {
             effects.push(observed_effect(file, token, source, kind, target));
             i += 1;
@@ -650,6 +656,28 @@ fn is_console_write_call(tokens: &[Token], index: usize) -> bool {
     }
 }
 
+fn is_deno_command_constructor(
+    tokens: &[Token],
+    index: usize,
+) -> Option<(&'static str, Option<String>)> {
+    if !matches!(tokens.get(index), Some(token) if token.kind == TokenType::New) {
+        return None;
+    }
+    if !matches!(tokens.get(index + 1), Some(token) if token.kind == TokenType::Identifier && token.value == "Deno")
+    {
+        return None;
+    }
+    if !matches!(tokens.get(index + 2).map(|t| t.kind), Some(TokenType::Dot)) {
+        return None;
+    }
+    if !matches!(tokens.get(index + 3), Some(token) if token.kind == TokenType::Identifier && token.value == "Command")
+    {
+        return None;
+    }
+
+    Some(("Process.Spawn", call_string_argument(tokens, index + 4)))
+}
+
 fn is_deno_host_call(tokens: &[Token], index: usize) -> Option<(&'static str, Option<String>)> {
     if !matches!(tokens.get(index), Some(token) if token.kind == TokenType::Identifier && token.value == "Deno")
     {
@@ -666,10 +694,14 @@ fn is_deno_host_call(tokens: &[Token], index: usize) -> Option<(&'static str, Op
     }
 
     let kind = match member.value.as_str() {
-        "readTextFile" | "readTextFileSync" | "readDir" | "readDirSync" | "stat" | "statSync" => {
-            Some("FileSystem.Read")
+        "open" | "openSync" | "readTextFile" | "readTextFileSync" | "readDir" | "readDirSync"
+        | "stat" | "statSync" | "lstat" | "lstatSync" => Some("FileSystem.Read"),
+        "create" | "createSync" | "writeTextFile" | "writeTextFileSync" | "mkdir" | "mkdirSync"
+        | "remove" | "removeSync" | "rename" | "renameSync" => Some("FileSystem.Write"),
+        "connect" => return Some(("Network.Connect", call_string_argument(tokens, index + 3))),
+        "listen" | "serve" => {
+            return Some(("Network.Listen", call_string_argument(tokens, index + 3)))
         }
-        "writeTextFile" | "writeTextFileSync" => Some("FileSystem.Write"),
         "env" => {
             let dot = tokens.get(index + 3)?;
             if dot.kind != TokenType::Dot {

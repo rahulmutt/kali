@@ -42,6 +42,10 @@ Kali's host/runtime contract, not the `--api node` package-compatibility lane.
 - Added deterministic TCP connect/listen wrappers plus a one-shot HTTP `serve` helper in
   `kali_api_deno`, together with regression coverage for raw byte round-trips and a basic HTTP
   response smoke test.
+- The sandbox effect scanner and CLI smoke suite now recognize the Phase-3 Deno host slice for
+  `Deno.env.set`, `new Deno.Command(...)`, `Deno.connect(...)`, `Deno.listen(...)`, and
+  `Deno.serve(...)`, and the package-corpus suite now carries explicit Deno-host fixtures for the
+  environment-mutation, subprocess, and listener/HTTP helper cases.
 
 ## Tasks
 
@@ -119,4 +123,5 @@ Update package and command evidence for the new host capabilities:
 ## Status
 
 In progress — filesystem, environment, subprocess, and TCP/HTTP helper surfaces are implemented;
-package-corpus evidence and broader policy/resource handoff remain.
+sandbox policy/effect handoff and package-corpus evidence for the Deno host slice are now in
+place, while the remaining resource-limit handoff stays tracked here.

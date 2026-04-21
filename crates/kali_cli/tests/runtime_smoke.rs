@@ -3833,6 +3833,43 @@ fn check_with_sandbox_rejects_inferred_effects() {
     assert!(stderr.contains("E9007"), "stderr: {stderr}");
 }
 
+#[test]
+fn check_with_sandbox_rejects_phase_three_deno_host_effects() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "Deno.env.set('KALI_CORPUS_FLAG', 'set');\nnew Deno.Command('sh').spawn();\nDeno.connect('127.0.0.1', 1);\nDeno.listen('127.0.0.1', 0);\nDeno.serve('127.0.0.1', 0);\n",
+    )
+    .expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E9007"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("Process.EnvWrite")
+            || stderr.contains("Process.Spawn")
+            || stderr.contains("Network.Connect")
+            || stderr.contains("Network.Listen"),
+        "stderr: {stderr}"
+    );
+}
+
 fn package_audit_metadata_body(
     postinstall_script: Option<&str>,
     native_addon: bool,
