@@ -115,6 +115,8 @@ pub struct RuntimeOutcome {
     pub stderr: String,
     /// Coverage hit ordinals recorded during the execution.
     pub coverage_hits: Vec<u32>,
+    /// Canonical runtime profiles active for the execution.
+    pub runtime_profiles: Vec<String>,
 }
 
 impl Default for RuntimeCtx {
@@ -334,6 +336,7 @@ impl RuntimeCtx {
                 stdout: state.stdout.clone(),
                 stderr: state.stderr.clone(),
                 coverage_hits: state.coverage_hits.iter().copied().collect(),
+                runtime_profiles: state.runtime_profiles.clone(),
             });
         }
 
@@ -351,6 +354,7 @@ impl RuntimeCtx {
                 stdout: state.stdout.clone(),
                 stderr: state.stderr.clone(),
                 coverage_hits: state.coverage_hits.iter().copied().collect(),
+                runtime_profiles: state.runtime_profiles.clone(),
             });
         }
 
@@ -379,6 +383,7 @@ impl RuntimeCtx {
             stdout: state.stdout.clone(),
             stderr: state.stderr.clone(),
             coverage_hits: state.coverage_hits.iter().copied().collect(),
+            runtime_profiles: state.runtime_profiles.clone(),
         })
     }
 }

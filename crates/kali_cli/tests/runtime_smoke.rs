@@ -462,7 +462,10 @@ fn check_rejects_threaded_runtime_globals() {
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
-    assert!(stderr.contains("globalThis.SharedArrayBuffer"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("globalThis.SharedArrayBuffer"),
+        "stderr: {stderr}"
+    );
     assert!(stderr.contains("globalThis.Atomics"), "stderr: {stderr}");
 }
 

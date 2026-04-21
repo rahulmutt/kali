@@ -144,3 +144,7 @@ Proposed fix:
 2026-04-21 resolution note
 - added end-to-end CLI smoke regressions for `globalThis.SharedArrayBuffer` and `globalThis.Atomics` in both text and JSON `kali check` output, so the Stage 5.1 threaded-global story now has user-visible smoke coverage in addition to the lower-level resolver tests
 - updated the Stage 5.1 progress note to mention the new CLI smoke coverage alongside the existing resolver-level gating path
+
+2026-04-21 follow-up note
+- while tightening the Stage 5.1 runtime-profile plumbing, the runtime execution outcome should also preserve the normalized runtime-profile vector so callers can inspect the canonical profile list that actually reached execution
+- proposed fix: extend `RuntimeOutcome` with a `runtime_profiles` field, carry the normalized profile list through each execution return path, and note the outcome-level preservation in the Stage 5.1 progress entry
