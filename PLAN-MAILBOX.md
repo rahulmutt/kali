@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-21 resolution note
+- added a deterministic `Deno.Command` helper to `kali_api_deno` with captured stdout/stderr output and a regression test, then recorded the progress in the Stage 3.4 host-capability expansion note
+- no spec edit was required because `Deno.Command` is already described as a Phase-3 target in the owning standard-APIs chapter
+
+2026-04-21 resolution note
 - updated the Stage 5.1 progress note so it explicitly names the `runtimeProfiles` metadata axis and the current empty-set normalization in emitted build metadata
 
 2026-04-21 follow-up note

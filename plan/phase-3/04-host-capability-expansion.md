@@ -36,6 +36,9 @@ Kali's host/runtime contract, not the `--api node` package-compatibility lane.
   concrete compatibility helper to build on.
 - The Deno compatibility tests now exercise file creation, handle reads/writes, renames, and
   `stat`/`lstat` metadata round-trips so the broader filesystem contract stays regression-tested.
+- Added a deterministic `Deno.Command` helper in `kali_api_deno` with captured stdout/stderr
+  output so the Phase-3 subprocess lane now has a concrete host-side compatibility wrapper and
+  regression coverage.
 
 ## Tasks
 
