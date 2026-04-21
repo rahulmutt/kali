@@ -161,3 +161,7 @@ Proposed fix:
 
 2026-04-21 resolution note
 - added the `kali check --sandbox` smoke regression for positive `resources.maxThreads` policies and updated the Stage 5.1 progress note so the historical plan now records the command-level `E5006` / `resources.maxThreads` coverage alongside the existing runtime and direct-override tests
+
+2026-04-21 resolution note
+- added the `kali test --sandbox` smoke regression for positive `resources.maxThreads` policies so the Stage 5.1 evidence story now covers the policy-driven thread-budget rejection path on both execution commands
+- updated the Stage 5.1 progress note to mention the `check` and `test` command-level `E5006` / `resources.maxThreads` coverage together
