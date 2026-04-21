@@ -655,7 +655,41 @@ fn ensure_project_ready_rejects_missing_raw_url_cache() {
 }
 
 #[test]
-fn validate_package_shape_rejects_node_gyp_lifecycle_scripts() {
+fn validate_package_shape_rejects_install_time_scripts_without_allow_scripts() {
+    let package = PackageJson {
+        scripts: BTreeMap::from([
+            ("preinstall".to_string(), "echo prep".to_string()),
+            ("install".to_string(), "echo install".to_string()),
+            ("postinstall".to_string(), "echo done".to_string()),
+        ]),
+        ..PackageJson::default()
+    };
+
+    let error = validate_package_shape(&package, false).unwrap_err();
+    assert_eq!(error[0].code, Some(e6::LIFECYCLE_SCRIPT_REJECTED as u32));
+    assert!(error[0]
+        .message
+        .contains("npm install-time lifecycle scripts require `--allow-scripts`"));
+}
+
+#[test]
+fn validate_package_shape_allows_non_install_scripts_without_allow_scripts() {
+    let package = PackageJson {
+        scripts: BTreeMap::from([
+            ("test".to_string(), "echo test".to_string()),
+            ("lint".to_string(), "echo lint".to_string()),
+            ("postlint".to_string(), "echo postlint".to_string()),
+            ("posttest".to_string(), "echo posttest".to_string()),
+        ]),
+        ..PackageJson::default()
+    };
+
+    validate_package_shape(&package, false)
+        .expect("non-install lifecycle scripts should be treated as ordinary metadata");
+}
+
+#[test]
+fn validate_package_shape_rejects_node_gyp_install_time_scripts() {
     let package = PackageJson {
         scripts: BTreeMap::from([("install".to_string(), "node-gyp rebuild".to_string())]),
         ..PackageJson::default()

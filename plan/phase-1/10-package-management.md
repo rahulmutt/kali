@@ -57,6 +57,9 @@ graph without performing any mutations.
   empty install state.
 - Registry metadata lookups use a process-local cache so repeated resolution within a single
   install run avoids redundant network round-trips.
+- Install-time script detection now keys only off `preinstall` / `install` / `postinstall`, so
+  packages whose `scripts` section only contains ordinary metadata such as `test`, `lint`,
+  `postlint`, or `posttest` no longer trip the `--allow-scripts` guardrail.
 
 ## Tasks
 

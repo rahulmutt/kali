@@ -679,18 +679,156 @@ fn is_raw_url(specifier: &str) -> bool {
     specifier.starts_with("https://") || specifier.starts_with("http://")
 }
 
+fn registry_package_has_install_time_lifecycle_hooks(
+    registry: &str,
+    display_name: &str,
+    requested_version: Option<&str>,
+) -> Result<bool, Diagnostic> {
+    let mut visited = BTreeSet::new();
+    registry_package_has_install_time_lifecycle_hooks_inner(
+        registry,
+        display_name,
+        requested_version,
+        &mut visited,
+    )
+}
+
+fn registry_package_has_install_time_lifecycle_hooks_inner(
+    registry: &str,
+    display_name: &str,
+    requested_version: Option<&str>,
+    visited: &mut BTreeSet<String>,
+) -> Result<bool, Diagnostic> {
+    let metadata_url = match registry {
+        "npm" => npm_registry_metadata_url(display_name),
+        "jsr" => jsr_registry_metadata_url(display_name),
+        other => {
+            return Err(Diagnostic::error(
+                e6::INVALID_PACKAGE_SPECIFIER as u32,
+                format!(
+                    "unsupported registry '{}' for package '{}'",
+                    other, display_name
+                ),
+            ));
+        }
+    };
+
+    let metadata = fetch_registry_metadata(registry, display_name, &metadata_url)?;
+    let versions = metadata
+        .get("versions")
+        .and_then(|value| value.as_object())
+        .ok_or_else(|| {
+            Diagnostic::error(
+                e6::NOT_FOUND as u32,
+                format!(
+                    "{} metadata for '{}' does not contain versions",
+                    registry, display_name
+                ),
+            )
+        })?;
+
+    let version = select_registry_version(display_name, versions, requested_version)?;
+    let visit_key = format!("{registry}:{display_name}@{version}");
+    if !visited.insert(visit_key) {
+        return Ok(false);
+    }
+
+    let version_meta = versions
+        .get(&version)
+        .and_then(|value| value.as_object())
+        .ok_or_else(|| {
+            Diagnostic::error(
+                e6::NOT_FOUND as u32,
+                format!("missing metadata for '{}'@{}", display_name, version),
+            )
+        })?;
+
+    if package_version_has_install_time_lifecycle_hooks(version_meta) {
+        return Ok(true);
+    }
+
+    let dependency_specs = version_meta
+        .get("dependencies")
+        .and_then(|value| value.as_object())
+        .into_iter()
+        .chain(
+            version_meta
+                .get("optionalDependencies")
+                .and_then(|value| value.as_object()),
+        )
+        .flat_map(|map| map.iter())
+        .filter_map(|(name, value)| value.as_str().map(|spec| (name.clone(), spec.to_string())))
+        .collect::<Vec<_>>();
+
+    for (dep_name, dep_spec) in dependency_specs {
+        let dep_registry = if dep_name.starts_with("jsr:") { "jsr" } else { "npm" };
+        if registry_package_has_install_time_lifecycle_hooks_inner(
+            dep_registry,
+            &dep_name,
+            Some(dep_spec.as_str()),
+            visited,
+        )? {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+fn package_version_has_install_time_lifecycle_hooks(
+    version_meta: &serde_json::Map<String, serde_json::Value>,
+) -> bool {
+    version_meta
+        .get("scripts")
+        .and_then(|value| value.as_object())
+        .map(|scripts| {
+            ["preinstall", "install", "postinstall"]
+                .iter()
+                .any(|phase| {
+                    scripts
+                        .get(*phase)
+                        .and_then(|value| value.as_str())
+                        .map(|script| !script.trim().is_empty())
+                        .unwrap_or(false)
+                })
+        })
+        .unwrap_or(false)
+}
+
 fn has_effective_npm_scriptable_install_work(
     manifest: &ProjectManifest,
     target: Option<&PackageTarget>,
-) -> bool {
+) -> Result<bool, Diagnostic> {
     match target {
-        Some(PackageTarget::Registry { registry, .. }) => registry == "npm",
-        Some(PackageTarget::RawUrl(_)) => false,
-        None => manifest
-            .dependencies
-            .keys()
-            .chain(manifest.dev_dependencies.keys())
-            .any(|name| !name.starts_with("jsr:")),
+        Some(PackageTarget::Registry {
+            registry,
+            name,
+            version,
+        }) if registry == "npm" => {
+            registry_package_has_install_time_lifecycle_hooks(registry, name, version.as_deref())
+        }
+        Some(PackageTarget::Registry { registry, .. }) if registry == "jsr" => Ok(false),
+        Some(PackageTarget::Registry { .. }) => Ok(false),
+        Some(PackageTarget::RawUrl(_)) => Ok(false),
+        None => {
+            for (name, version) in manifest
+                .dependencies
+                .iter()
+                .chain(manifest.dev_dependencies.iter())
+            {
+                if name.starts_with("jsr:") {
+                    continue;
+                }
+                if registry_package_has_install_time_lifecycle_hooks(
+                    "npm",
+                    name,
+                    Some(version.as_str()),
+                )? {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        }
     }
 }
 
@@ -890,15 +1028,16 @@ pub fn install_project(
                     "`--allow-scripts` is not valid for JSR targets",
                 )]);
             }
-            Some(PackageTarget::Registry { registry, .. }) if registry == "npm" => {}
-            None if !has_effective_npm_scriptable_install_work(&manifest, None) => {
-                return Err(vec![Diagnostic::error(
-                    e5::INVALID_CLI_USAGE as u32,
-                    "`--allow-scripts` requires effective npm-scriptable install work",
-                )]);
-            }
-            None => {}
             _ => {}
+        }
+
+        if !has_effective_npm_scriptable_install_work(&manifest, parsed_target.as_ref())
+            .map_err(|diagnostic| vec![diagnostic])?
+        {
+            return Err(vec![Diagnostic::error(
+                e5::INVALID_CLI_USAGE as u32,
+                "`--allow-scripts` requires effective npm-scriptable install work",
+            )]);
         }
     }
 
@@ -1938,16 +2077,48 @@ fn validate_package_shape(
     package_json: &PackageJson,
     allow_scripts: bool,
 ) -> Result<(), Vec<Diagnostic>> {
-    if !allow_scripts && !package_json.scripts.is_empty() {
+    let install_time_phases = [
+        (
+            "preinstall",
+            package_json
+                .scripts
+                .get("preinstall")
+                .map(|script| !script.trim().is_empty())
+                .unwrap_or(false),
+        ),
+        (
+            "install",
+            package_json
+                .scripts
+                .get("install")
+                .map(|script| !script.trim().is_empty())
+                .unwrap_or(false),
+        ),
+        (
+            "postinstall",
+            package_json
+                .scripts
+                .get("postinstall")
+                .map(|script| !script.trim().is_empty())
+                .unwrap_or(false),
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(phase, present)| present.then_some(phase))
+    .collect::<Vec<_>>();
+
+    if !allow_scripts && !install_time_phases.is_empty() {
         return Err(vec![Diagnostic::error(
             e6::LIFECYCLE_SCRIPT_REJECTED as u32,
-            "npm lifecycle scripts require `--allow-scripts`",
+            "npm install-time lifecycle scripts require `--allow-scripts`",
         )]);
     }
 
-    for (name, script) in &package_json.scripts {
-        if matches!(name.as_str(), "install" | "preinstall" | "postinstall")
-            && script.contains("node-gyp")
+    for phase in install_time_phases {
+        if package_json
+            .scripts
+            .get(phase)
+            .is_some_and(|script| script.contains("node-gyp"))
         {
             return Err(vec![Diagnostic::error(
                 e6::INCOMPATIBLE_PACKAGE as u32,

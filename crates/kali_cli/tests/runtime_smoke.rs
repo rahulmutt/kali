@@ -2965,7 +2965,8 @@ fn regression_package_bin_entrypoints_using_node_cli_features_require_the_node_c
 }
 
 #[test]
-fn regression_package_bin_entrypoints_using_node_cli_features_fail_with_phase_gated_node_diagnostic() {
+fn regression_package_bin_entrypoints_using_node_cli_features_fail_with_phase_gated_node_diagnostic(
+) {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/semver");
     fs::create_dir_all(package_dir.join("bin")).expect("create package dir");
@@ -2997,7 +2998,10 @@ fn regression_package_bin_entrypoints_using_node_cli_features_fail_with_phase_ga
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
-    assert!(stderr.contains("npm package bin 'semver'"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("npm package bin 'semver'"),
+        "stderr: {stderr}"
+    );
     assert!(stderr.contains("CommonJS require()"), "stderr: {stderr}");
     assert!(stderr.contains("Node process global"), "stderr: {stderr}");
 }
