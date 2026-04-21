@@ -278,7 +278,7 @@ pub enum Commands {
         /// Only run tests matching this pattern
         #[arg(long)]
         filter: Option<String>,
-        /// Emit coverage data once the report contract is stabilized
+        /// Emit deterministic function-coverage data through the stable report contract
         #[arg(long)]
         coverage: bool,
         /// Source files to test
