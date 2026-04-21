@@ -669,6 +669,39 @@ fn run_rejects_inherited_wasm_threads_runtime_profile() {
 }
 
 #[test]
+fn run_rejects_inherited_duplicate_runtime_profiles() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('threaded run');").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads", "wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5009"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("duplicate runtimeProfile"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn test_reports_success_for_explicit_file_sets() {
     let output = Command::new(kali_bin())
         .arg("test")
@@ -765,6 +798,39 @@ fn test_rejects_inherited_wasm_threads_runtime_profile() {
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_rejects_inherited_duplicate_runtime_profiles() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(&source_path, "1 + 2;").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads", "wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5009"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("duplicate runtimeProfile"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
