@@ -1,5 +1,8 @@
 # SPEC mailbox
 
+2026-04-21 resolution note
+- `specs/16-testing.md` already contains the canonical short summary string in the proof-claim discipline section, so no spec edit was required for that follow-up
+
 2026-04-21 follow-up note
 
 While hardening the semver/browser bundle path, the workspace test suite revealed that `specs/16-testing.md` is missing the canonical proof-backed summary string that is already present in `README.md` and `proofs/BOUNDARY.md`.

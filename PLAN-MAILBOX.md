@@ -1,5 +1,8 @@
 # PLAN mailbox
 
+2026-04-21 resolution note
+- updated the Stage 5.1 progress note so it explicitly mentions the `runtimeProfiles` axis and the current empty-set normalization in emitted build metadata
+
 2026-04-21 follow-up note
 
 While hardening the semver/browser bundle path and aligning the proof-summary docs, the schema-doc regression suite revealed that `plan/phase-4/02-formal-verification-depth.md` still lacks the canonical proof-backed summary text and theorem inventory snippets that are already used in `README.md`, `proofs/BOUNDARY.md`, and the spec chapters.
