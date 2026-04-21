@@ -62,6 +62,8 @@ graph without performing any mutations.
   `postlint`, or `posttest` no longer trip the `--allow-scripts` guardrail.
 - Added a semver-shaped regression fixture so the common pure-JS `semver` package metadata shape
   stays evidence-backed and does not regress back into the old `--allow-scripts` false positive.
+- Added a package-install regression that proves plain `kali install semver` succeeds without
+  `--allow-scripts` when only non-install lifecycle scripts are present.
 
 ## Tasks
 
@@ -260,6 +262,10 @@ Observed behavior during `kali install semver`:
    - package has no install-time hooks → plain `kali install <pkg>` succeeds
    - package has install-time hooks → plain install rejects, `--allow-scripts` is required
    - package has non-install scripts only → plain install still succeeds
+
+Current outcome:
+- the semver-style install regression now passes in the package-management test suite, confirming
+  that non-install scripts are treated as ordinary metadata instead of an install blocker
 
 ## Out of Scope
 

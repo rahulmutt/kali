@@ -4,11 +4,13 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
-    Arc,
+    Arc, Mutex, OnceLock,
 };
 use std::thread;
 use std::time::Duration;
 use tempfile::tempdir;
+
+use serde_json::json;
 
 #[test]
 fn manifest_round_trip_is_deterministic() {
@@ -400,15 +402,89 @@ fn start_raw_url_server(body: &'static str) -> String {
             let mut buffer = [0u8; 1024];
             let _ = stream.read(&mut buffer);
             let response = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/typescript\r\nConnection: close\r\n\r\n{}",
-                    body.len(),
-                    body
-                );
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/typescript\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
             let _ = stream.write_all(response.as_bytes());
             let _ = stream.flush();
         }
     });
     format!("http://127.0.0.1:{}/mod.ts", addr.port())
+}
+
+fn start_response_server(
+    body: Vec<u8>,
+    content_type: &'static str,
+) -> (
+    String,
+    Arc<AtomicUsize>,
+    Arc<AtomicBool>,
+    thread::JoinHandle<()>,
+) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let addr = listener.local_addr().unwrap();
+    let hits = Arc::new(AtomicUsize::new(0));
+    let stop = Arc::new(AtomicBool::new(false));
+    let hits_thread = hits.clone();
+    let stop_thread = stop.clone();
+    let handle = thread::spawn(move || loop {
+        if stop_thread.load(Ordering::SeqCst) {
+            break;
+        }
+
+        match listener.accept() {
+            Ok((mut stream, _)) => {
+                hits_thread.fetch_add(1, Ordering::SeqCst);
+                let mut buffer = [0u8; 1024];
+                let _ = stream.read(&mut buffer);
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: {}\r\nConnection: close\r\n\r\n",
+                    body.len(),
+                    content_type
+                );
+                let _ = stream.write_all(response.as_bytes());
+                let _ = stream.write_all(&body);
+                let _ = stream.flush();
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(5));
+            }
+            Err(_) => break,
+        }
+    });
+    (
+        format!("http://127.0.0.1:{}", addr.port()),
+        hits,
+        stop,
+        handle,
+    )
+}
+
+fn build_package_tarball(entries: &[(&str, &[u8])]) -> Vec<u8> {
+    let encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    let mut builder = tar::Builder::new(encoder);
+
+    for (path, contents) in entries {
+        let mut header = tar::Header::new_gnu();
+        header.set_path(path).unwrap();
+        header.set_size(contents.len() as u64);
+        header.set_mode(0o644);
+        header.set_mtime(0);
+        header.set_uid(0);
+        header.set_gid(0);
+        header.set_cksum();
+        builder.append(&header, *contents).unwrap();
+    }
+
+    let encoder = builder.into_inner().unwrap();
+    encoder.finish().unwrap()
+}
+
+fn kali_registry_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
 }
 
 fn start_metadata_server(
@@ -715,6 +791,88 @@ fn validate_package_shape_allows_semver_style_metadata_without_allow_scripts() {
 
     validate_package_shape(&package, false)
         .expect("semver-style package metadata should not require `--allow-scripts`");
+}
+
+#[test]
+fn install_reconciles_semver_style_package_without_allow_scripts() {
+    let _guard = kali_registry_lock().lock().unwrap();
+    let dir = tempdir().unwrap();
+
+    let package_json = json!({
+        "name": "semver",
+        "version": "7.7.4",
+        "main": "index.js",
+        "bin": { "semver": "bin/semver.js" },
+        "scripts": {
+            "test": "tap",
+            "lint": "eslint \"**/*.{js,cjs,ts,mjs,jsx}\"",
+            "postlint": "npm run test -- --ignore-scripts",
+            "posttest": "npm run lint -- --ignore-scripts"
+        }
+    });
+    let package_json_bytes = serde_json::to_vec_pretty(&package_json).unwrap();
+    let tarball_bytes = build_package_tarball(&[
+        ("package/package.json", package_json_bytes.as_slice()),
+        ("package/index.js", b"module.exports = {};\n"),
+        (
+            "package/bin/semver.js",
+            b"#!/usr/bin/env node\nconsole.log('semver');\n",
+        ),
+    ]);
+    let tarball_integrity = format!("sha512-{}", format_sha512(&tarball_bytes));
+    let (tarball_base, tarball_hits, tarball_stop, tarball_handle) =
+        start_response_server(tarball_bytes, "application/octet-stream");
+
+    let metadata = json!({
+        "versions": {
+            "7.7.4": {
+                "dist": {
+                    "tarball": format!("{}/semver-7.7.4.tgz", tarball_base),
+                    "integrity": tarball_integrity
+                }
+            }
+        }
+    });
+    let (registry_base, registry_hits, registry_stop, registry_handle) =
+        start_response_server(serde_json::to_vec(&metadata).unwrap(), "application/json");
+    let previous_registry = std::env::var_os("KALI_REGISTRY");
+    std::env::set_var("KALI_REGISTRY", &registry_base);
+
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{"schemaVersion":1,"dependencies":{"semver":"7.7.4"}}"#,
+    )
+    .unwrap();
+
+    let summary = install_project(dir.path(), InstallOptions::default()).unwrap();
+
+    if let Some(previous_registry) = previous_registry {
+        std::env::set_var("KALI_REGISTRY", previous_registry);
+    } else {
+        std::env::remove_var("KALI_REGISTRY");
+    }
+
+    let lock_path = dir.path().join("kali.lock");
+    assert_eq!(summary.lock_path.as_deref(), Some(lock_path.as_path()));
+    assert_eq!(summary.installed, vec![package_key("semver", "7.7.4")]);
+
+    let lock = load_lock(dir.path()).unwrap().unwrap();
+    assert!(
+        lock.packages.contains_key("semver@7.7.4"),
+        "lock: {lock:#?}"
+    );
+    assert!(dir.path().join("node_modules/semver/package.json").exists());
+    assert!(dir
+        .path()
+        .join(".kali-cache/packages/semver@7.7.4/package/package.json")
+        .exists());
+
+    tarball_stop.store(true, Ordering::SeqCst);
+    registry_stop.store(true, Ordering::SeqCst);
+    tarball_handle.join().unwrap();
+    registry_handle.join().unwrap();
+    assert_eq!(tarball_hits.load(Ordering::SeqCst), 1);
+    assert_eq!(registry_hits.load(Ordering::SeqCst), 1);
 }
 
 #[test]
