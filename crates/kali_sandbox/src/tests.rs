@@ -78,6 +78,32 @@ fn policy_thread_budget_helper_preserves_zero_cap_tightening() {
 }
 
 #[test]
+fn policy_rejects_thread_spawn_when_no_budget_is_available() {
+    let mut policy = valid_policy();
+    policy.resources.max_threads = None;
+
+    let diagnostic = policy
+        .check_operation(HostOperation::ThreadSpawn { active_threads: 0 })
+        .expect_err("thread creation should remain gated without a budget");
+
+    assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    assert!(diagnostic.message.contains("resources.maxThreads"));
+}
+
+#[test]
+fn policy_rejects_thread_spawn_when_the_budget_is_zero() {
+    let mut policy = valid_policy();
+    policy.resources.max_threads = Some(0);
+
+    let diagnostic = policy
+        .check_operation(HostOperation::ThreadSpawn { active_threads: 0 })
+        .expect_err("zero-cap thread budgets should deny thread creation");
+
+    assert_eq!(diagnostic.code, Some(e4::RESOURCE_LIMIT_EXCEEDED as u32));
+    assert!(diagnostic.message.contains("active thread count 1"));
+}
+
+#[test]
 fn policy_spawn_budget_helper_combines_policy_and_override() {
     let mut policy = valid_policy();
     policy.resources.max_spawned_processes = Some(4);

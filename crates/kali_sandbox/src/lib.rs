@@ -125,16 +125,41 @@ pub enum AccessRule {
 pub enum HostOperation {
     Console,
     Random,
-    FileRead { path: PathBuf },
-    FileWrite { path: PathBuf },
-    NetworkFetch { url: String },
-    NetworkConnect { target: String },
-    NetworkListen { target: String },
-    EnvironmentRead { key: String },
-    EnvironmentWrite { key: String },
-    TimerSchedule { delay_ms: u64, active_timers: usize },
-    ProcessSpawn { executable: String },
-    ProcessEnvWrite { key: String },
+    FileRead {
+        path: PathBuf,
+    },
+    FileWrite {
+        path: PathBuf,
+    },
+    NetworkFetch {
+        url: String,
+    },
+    NetworkConnect {
+        target: String,
+    },
+    NetworkListen {
+        target: String,
+    },
+    EnvironmentRead {
+        key: String,
+    },
+    EnvironmentWrite {
+        key: String,
+    },
+    TimerSchedule {
+        delay_ms: u64,
+        active_timers: usize,
+    },
+    ProcessSpawn {
+        executable: String,
+    },
+    /// Thread creation request with the current active thread count.
+    ThreadSpawn {
+        active_threads: usize,
+    },
+    ProcessEnvWrite {
+        key: String,
+    },
     Eval,
 }
 
@@ -385,6 +410,20 @@ impl SandboxPolicy {
             HostOperation::ProcessSpawn { executable } => {
                 self.check_exact_access(&self.effects.process.spawn, &executable, "Process.Spawn")
             }
+            HostOperation::ThreadSpawn { active_threads } => match self.resources.max_threads {
+                Some(limit) => {
+                    if active_threads.saturating_add(1) > limit as usize {
+                        Err(resource_limit_violation(format!(
+                            "active thread count {} exceeds policy limit of {}",
+                            active_threads.saturating_add(1),
+                            limit
+                        )))
+                    } else {
+                        Ok(())
+                    }
+                }
+                None => Err(unavailable_capability("resources.maxThreads")),
+            },
             HostOperation::ProcessEnvWrite { key } => {
                 self.check_exact_access(&self.effects.process.env_write, &key, "Process.EnvWrite")
             }

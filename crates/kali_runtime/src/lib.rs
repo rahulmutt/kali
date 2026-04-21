@@ -85,6 +85,8 @@ pub struct KaliHostState {
     pub active_network_connections: usize,
     /// Active spawned processes counted for resource enforcement.
     pub active_spawned_processes: usize,
+    /// Active worker/thread instances counted for later threaded-profile enforcement.
+    pub active_threads: usize,
 }
 
 /// A scheduled timer callback.
@@ -266,6 +268,7 @@ impl RuntimeCtx {
                 active_file_handles: 0,
                 active_network_connections: 0,
                 active_spawned_processes: 0,
+                active_threads: 0,
             },
         );
         store.limiter(|state| &mut state.store_limits);
@@ -1960,6 +1963,45 @@ impl KaliHostState {
 
     fn finish_spawn(&mut self) {
         self.active_spawned_processes = self.active_spawned_processes.saturating_sub(1);
+    }
+
+    #[allow(dead_code)]
+    fn begin_thread(&mut self) -> wasmtime::Result<()> {
+        if let Some(limit) = self.max_threads {
+            if self.active_threads >= limit as usize {
+                let diagnostic = Diagnostic::error(
+                    e4::RESOURCE_LIMIT_EXCEEDED as u32,
+                    format!(
+                        "active thread count {} exceeds policy limit of {}",
+                        self.active_threads.saturating_add(1),
+                        limit
+                    ),
+                );
+                self.pending_diagnostic = Some(diagnostic);
+                return Err(wasmtime::Error::msg(format!(
+                    "KALI_E4003: active thread count {} exceeds policy limit of {}",
+                    self.active_threads.saturating_add(1),
+                    limit
+                )));
+            }
+        } else {
+            let diagnostic = Diagnostic::error(
+                e4::RESOURCE_LIMIT_EXCEEDED as u32,
+                "threaded runtime profile is unavailable without an explicit thread budget",
+            );
+            self.pending_diagnostic = Some(diagnostic);
+            return Err(wasmtime::Error::msg(
+                "KALI_E4003: threaded runtime profile is unavailable without an explicit thread budget",
+            ));
+        }
+
+        self.active_threads = self.active_threads.saturating_add(1);
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    fn finish_thread(&mut self) {
+        self.active_threads = self.active_threads.saturating_sub(1);
     }
 }
 

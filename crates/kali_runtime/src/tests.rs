@@ -96,6 +96,29 @@ fn runtime_context_carries_thread_budget_override() {
 }
 
 #[test]
+fn runtime_host_state_tracks_thread_budget_bookkeeping() {
+    let mut state = KaliHostState::default();
+
+    assert!(
+        state.begin_thread().is_err(),
+        "thread creation should be gated without a budget"
+    );
+
+    state.max_threads = Some(0);
+    assert!(
+        state.begin_thread().is_err(),
+        "zero-cap budgets should deny thread creation"
+    );
+
+    state.max_threads = Some(2);
+    assert!(state.begin_thread().is_ok());
+    assert!(state.begin_thread().is_ok());
+    assert!(state.begin_thread().is_err());
+    state.finish_thread();
+    assert!(state.begin_thread().is_ok());
+}
+
+#[test]
 fn runtime_exposes_environment_variables() {
     let mut env = BTreeMap::new();
     env.insert("KALI_RUNTIME_TEST_ENV".to_string(), "hello".to_string());

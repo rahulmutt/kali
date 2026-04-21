@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-21 resolution note
+- added canonical thread-spawn bookkeeping plumbing to the sandbox/runtime layer, including a dedicated `HostOperation::ThreadSpawn` policy check and runtime host-state thread counters, so the later threaded-profile budget path has a shared enforcement hook in place even while the profile remains gated
+- recorded the plumbing in the Stage 5.1 progress note so the historical plan stays aligned with the implementation state
+
+2026-04-21 resolution note
 - added the CLI smoke regression `test_accepts_positive_spawned_process_budget_override` so the Phase-3 host-capability milestone now has symmetric acceptance evidence for `--max-spawned-processes` on both `run` and `test`
 - updated the Stage 3.4 progress note to record the new acceptance coverage alongside the existing resource-limit handoff
 
