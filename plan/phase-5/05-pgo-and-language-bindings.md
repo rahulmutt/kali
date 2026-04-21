@@ -1,0 +1,74 @@
+# Stage 5.5 — PGO & Language Bindings
+
+**Phase:** 5 — Later Compatibility & Platform Expansion  
+**Spec refs:** [`specs/07-specialization.md`](../../specs/07-specialization.md), [`specs/13-embedding.md`](../../specs/13-embedding.md), [`specs/16-testing.md`](../../specs/16-testing.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** [3.1 — Optimization & Specialization](../phase-3/01-optimization-and-specialization.md), [2.3 — Public Embedding Surface](../phase-2/03-public-embedding-surface.md), and whichever Phase-5 runtime/host stages the target binding or profile data depends on
+
+## Goal
+
+Finish the spec surfaces that are intentionally beyond the early optimization and embedding core:
+
+- profile-guided optimization as an explicit later toolchain mode
+- expansion from the stable public C ABI / WIT contract into higher-level language bindings and
+  distribution workflows
+
+## Workable Milestone
+
+- Kali can collect profile data and feed it back into later optimization decisions without changing
+  the stable build-mode vocabulary.
+- At least one non-Rust language binding is generated or maintained over the stable public ABI
+  contract.
+- PGO artifacts, reports, and binding-generation outputs are deterministic and schema-backed where
+  they become machine-visible.
+
+## Tasks
+
+### 1. Profile data collection
+
+Design and implement the PGO data path:
+
+- `--profile` or equivalent profiling workflow
+- stable profile-data format and versioning rules
+- capture of hot paths relevant to inlining, specialization, and branch/layout decisions
+- deterministic merging/normalization rules for repeated runs
+
+### 2. PGO-guided optimization pipeline
+
+Integrate profile data into the optimizer without changing the user-facing build-mode vocabulary:
+
+- `fast`, `release`, and `release-advanced` remain the stable mode names
+- PGO becomes an additive workflow, not a fourth hidden replacement mode
+- optimization reports and diagnostics stay explicit about when profile data was or was not used
+
+### 3. Binding-generation and packaging workflow
+
+Build on the stable public embedding surface to support higher-level language bindings:
+
+- bindings over `kali_capi` and/or WIT for languages such as Python, Go, C#, Java, Ruby, Zig
+- version and compatibility checks against the host ABI metadata
+- packaging/distribution rules for headers, metadata, and generated glue
+
+### 4. Tooling and documentation alignment
+
+Ensure binding and PGO tooling do not fork the core vocabulary:
+
+- reuse the canonical build mode / API surface / runtime profile / compat feature names
+- preserve deterministic JSON/schema contracts where outputs become machine-readable
+- keep README/examples/support wording aligned with the maturity matrix
+
+### 5. Tests and benchmarks
+
+- benchmark suite proving PGO gains on representative workloads
+- reproducibility tests for profile-data ingestion and optimized outputs
+- ABI/version compatibility tests for generated language bindings
+- smoke tests for at least one maintained non-Rust binding
+
+## Out of Scope
+
+- replacing the stable build-mode vocabulary with a second optimization naming scheme
+- ad hoc language bindings that bypass the public ABI/WIT contract
+- widening public maturity claims without the corresponding evidence lane
+
+## Status
+
+Planned.

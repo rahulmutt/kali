@@ -2,133 +2,123 @@
 
 **Phase:** 2 — Ownership, Effects & Public Embedding  
 **Spec refs:** [`specs/09-sandboxing.md`](../../specs/09-sandboxing.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/18-schemas.md`](../../specs/18-schemas.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
-**Depends on:** [2.1 — MIR & Ownership Analysis](01-mir-and-ownership.md) (effect inference runs over the MIR graph)
+**Depends on:** [2.1 — MIR & Ownership Analysis](01-mir-and-ownership.md) (effect inference runs over the canonical mid-pipeline analysis graph)
 
 ## Goal
 
 Open the stable **public effect-report surface** in both of its explicit halves:
 
-1. **Reporting half**: `kali effects <file>` (one-root source-graph command) and
-   `kali package-effects <package>` (single-package registry-analysis command) emit stable
-   schema-v1 effect-report JSON.
-2. **Policy-comparison half**: `kali check --sandbox` and `kali build --sandbox` extend their
-   Phase-1 static-validation behaviour with compile-time inferred-effect-vs-policy rejection.
+1. **Reporting half**
+   - `kali effects <file>` as the one-root source-graph report command
+   - `kali package-effects <package>` as the single-package registry-analysis report command
+2. **Policy-comparison half**
+   - `kali check --sandbox ...`
+   - `kali build --sandbox ...`
+
+The stage must follow the current schema/CLI split exactly: `kali effects` and
+`kali package-effects` are the Phase-2 **native-JSON commands**, while policy comparison extends
+existing `check/build --sandbox` flows instead of inventing a second sandbox command family.
 
 ## Workable Milestone
 
-- `kali effects <file>` analyses the source graph and emits a structured JSON effect report.
-- `kali package-effects <pkg>` analyses a single installed package and emits a per-package
-  effect report.
-- `kali check --sandbox` / `kali build --sandbox` now reject when inferred effects exceed the
-  declared policy (in addition to the existing schema/config validation from Phase 1).
-- Phase-1 gating tests for these commands are updated from "assert unavailable" to positive
-  coverage.
+- `kali effects <file>` emits the schema-owned reusable **EffectReport** payload.
+- `kali package-effects <package>` emits the schema-owned outer package payload plus the nested
+  reusable **EffectReport**.
+- `kali check --sandbox` / `kali build --sandbox` reject inferred built-in effects that the active
+  policy does not permit, using the canonical diagnostic path.
+- Phase-1 unavailability tests for these surfaces are replaced by positive evidence.
 
 ## Progress
 
-**Status:** Implemented in the CLI on 2026-04-12; effect reports now flow through the native-JSON command surface and sandbox policy comparison reuses the same inferred effect model.
+**Status:** Complete. The public reporting surface is implemented and aligned with the current
+schema-v1 command and payload rules.
 
-## Tasks
+## Historical stage tasks
 
-### 1. Effect model
+### 1. Stabilize the built-in effect vocabulary
 
-Formalise the effect vocabulary used internally since Phase 1 into a stable public schema.
-An *effect* is a capability used by a program that the sandbox model can reason about:
+Promote the internal sandbox-oriented bookkeeping from Phase 1 into the public built-in vocabulary
+owned by [`specs/18-schemas.md`](../../specs/18-schemas.md):
 
-| Effect kind | Example |
-|---|---|
-| `fs.read(path_glob)` | `Deno.readTextFile("./data.json")` |
-| `fs.write(path_glob)` | `Deno.writeTextFile("./out.txt", data)` |
-| `net.connect(host_pattern)` | `fetch("https://api.example.com/...")` |
-| `env.read(var_name)` | `Deno.env.get("HOME")` |
-| `env.write(var_name)` | `Deno.env.set("PATH", ...)` |
-| `proc.exit` | `Deno.exit(0)` |
+- `FileSystem.Read`
+- `FileSystem.Write`
+- `Network.Fetch`
+- `Network.Connect`
+- `Network.Listen`
+- `Process.Spawn`
+- `Process.EnvRead`
+- `Process.EnvWrite`
+- `Timer.Schedule`
+- `Random.GetBytes`
+- `Console.Write`
+- `Eval`
 
-Effects are inferred conservatively: if Kali cannot determine at compile time that an effect is
-absent, it is reported as potentially present.
+The public surface reports a conservative upper bound. Dynamic/incomplete cases are surfaced by the
+shared `dynamicEffects` and `dynamicReasons` fields rather than by an ad hoc second effect format.
 
-### 2. `kali effects <file>` — one-root source-graph command
+### 2. `kali effects <file>` — source-graph effect reporting
 
-```
+The CLI contract is the schema-owned one:
+
+```bash
 kali effects <file>
+kali effects --pretty <file>
 kali effects --output json <file>
+kali effects --pretty --output json <file>
 ```
 
-Analysis: walk the source graph rooted at `<file>`, collect all inferred effects, and emit a
-report. This is a **native-JSON command**: its default success output is structured JSON (no need
-for `--output json` to get machine-readable output, though `--output json` still wraps it in the
-standard envelope).
+Key rules preserved by the stage:
 
-Effect report JSON shape (schema `schemas/result/effects/v1.json`):
+- default success mode emits the native **EffectReport** JSON payload
+- `--output json` wraps that payload in the standard command envelope
+- `--pretty` reformats the active JSON document only; it does not create a second availability path
+- the report records `analysisContext`, `entryPoints`, `effects`, `dynamicEffects`, and
+  `dynamicReasons` using the exact schema-owned field names
 
-```json
-{
-  "$schema": "https://kali-lang.org/schemas/result/effects/v1",
-  "schemaVersion": 1,
-  "entrypoint": "src/main.ts",
-  "effects": [
-    { "kind": "net.connect", "pattern": "api.example.com:443", "definite": false },
-    { "kind": "fs.read", "pattern": "./data/**", "definite": true }
-  ]
-}
+### 3. `kali package-effects <package>` — registry-analysis effect reporting
+
+This command follows the schema-v1 registry-analysis split:
+
+```bash
+kali package-effects lodash
+kali package-effects --pretty lodash
+kali package-effects --output json lodash
 ```
 
-`definite: true` means the effect always occurs on any execution path; `false` means it may occur
-conditionally.
+The package selector is the canonical **identity-only registry target** (`lodash`,
+`jsr:@std/path`, etc.), not an inline `pkg@version` selector. The resolved concrete version is
+recorded in the emitted payload's `package` coordinate after the command applies the shared
+stable-release selection rule.
 
-`kali effects` is **not** a dry-run variant of `kali run`. It is a static analysis command that
-does not execute the program.
+The command remains registry-analysis by input shape and effect-reporting by output contract.
+Those two classifications are both intentional.
 
-### 3. `kali package-effects <package>` — single-package registry-analysis command
+### 4. Policy-comparison half on `check/build --sandbox`
 
-```
-kali package-effects <pkg>@<version>
-kali package-effects --output json <pkg>@<version>
-```
+Extend the existing Phase-1 static policy-validation surface so that once effect inference is
+publicly stable:
 
-Analyses a single installed package (not a project source graph). Reports which effects the
-package's published API surface may produce. This command participates in the
-**registry-analysis command** workflow — it answers a different question from `kali effects`
-(which is a source-graph question).
+- `kali check --sandbox ...` compares inferred built-in effects against the active policy
+- `kali build --sandbox ...` does the same for build lanes that accept sandbox attachment
+- denials use the canonical compile-time policy-comparison diagnostic path (`E9007`)
 
-The dual classification: by command/input shape it is a registry-analysis command; by output
-contract it is part of the public effect-report surface. Both classifications are intentional.
+This remains the pass/fail half of the same public effect-report surface; it is not a hidden
+`run --dry`, `test --dry`, or `effects --sandbox` command family.
 
-Per-package effect report schema: `schemas/result/package-effects/v1.json`.
+### 5. Evidence
 
-### 4. Policy-comparison half: inferred-effect-vs-policy rejection
-
-Extend `kali check --sandbox <policy>` and `kali build --sandbox <policy>`:
-
-- **Phase 1** (already shipped): validate the policy schema/config.
-- **Phase 2 addition**: run effect inference on the source graph; compare inferred effects
-  against the policy's `allow` entries; emit `E9007` for each inferred effect not covered by the
-  policy.
-
-```
-E9007: inferred effect 'net.connect("api.example.com:443")' is not permitted by the active policy
-  --> src/service.ts:42:5
-  = note: add "api.example.com:443" to allow.net in your policy file
-```
-
-This is not a new `run --dry` or `test --dry` workflow variant. It is the Phase-2 extension of
-the same `check/build --sandbox` command paths that existed in Phase 1.
-
-### 5. Tests
-
-- `kali effects fixtures/effects-app.ts` → JSON report matches golden snapshot.
-- `kali effects fixtures/pure-compute.ts` → empty effects list.
-- `kali package-effects lodash@4.17.21` → reports zero network/FS effects (lodash is pure compute).
-- `kali check --sandbox fixtures/deny-net.json fixtures/fetch.ts` → now emits `E9007` for the
-  net effect (in addition to the existing schema-validation checks).
-- Gating tests from Phase 1 for `kali effects` and `kali package-effects` are updated to positive
-  coverage.
+- positive golden coverage for `kali effects`
+- positive golden coverage for `kali package-effects`
+- policy-comparison positives and negatives on `check/build --sandbox`
+- deterministic JSON ordering tests for effect kinds, locations, and dynamic-reason arrays
+- inherited-context tests proving browser/Node/threaded/compatibility contexts follow the same
+  maturity gates as their explicit source-graph counterparts
 
 ## Out of Scope
 
-- `kali package-audit` (Later compatibility).
-- Effects on `--api node` surface (Phase 3 target).
-- Programmable policy predicates (later compatibility).
+- `kali package-audit` (Phase 4 compatibility)
+- user-defined/custom effect kinds in the stable public machine contracts
+- executable project-local sandbox policy code
 
 ## Status
 

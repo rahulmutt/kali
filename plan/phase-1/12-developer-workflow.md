@@ -1,210 +1,127 @@
 # Stage 1.12 — Developer Workflow
 
 **Phase:** 1 — Core Compiler & Toolchain MVP  
-**Spec refs:** [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/15-errors.md`](../../specs/15-errors.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
-**Depends on:** [1.5 — Type Checker](05-type-checker.md) (for `kali lint`), [1.8 — Runtime & Execution](08-runtime-execution.md) (for `kali init` project validation), [1.11 — Build Artifacts](11-build-artifacts.md) (all prior pipeline stages complete)
+**Spec refs:** [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/15-errors.md`](../../specs/15-errors.md), [`specs/18-schemas.md`](../../specs/18-schemas.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
+**Depends on:** [1.5 — Type Checker](05-type-checker.md), [1.8 — Runtime & Execution](08-runtime-execution.md), [1.11 — Build Artifacts](11-build-artifacts.md)
 
 ## Goal
 
-Complete the Deno-inspired developer workflow surface: `kali init`, `kali fmt`, and `kali lint`.
-After this stage the full set of Phase-1 CLI subcommands is available, giving developers a
-coherent end-to-end workflow from project creation to formatting, linting, type-checking, running,
-testing, and building.
+Complete the Phase-1 developer workflow surface: `kali init`, `kali fmt`, and `kali lint`.
 
 ## Workable Milestone
 
-- `kali init` scaffolds a new project with a valid `kali.json` and starter source files.
-- `kali init --lib` scaffolds a library project.
-- `kali fmt [files...]` formats TypeScript/JavaScript source files in-place.
-- `kali fmt --check [files...]` checks formatting without writing; exits non-zero if any file
-  would change.
-- `kali lint [files...]` reports lint warnings/errors.
-- `kali lint --fix [files...]` auto-fixes fixable lint issues.
+- `kali init` creates the minimal current-directory project scaffold.
+- `kali init --lib` creates the minimal library scaffold.
+- `kali fmt [files...]` formats project files, with `--check` for read-only CI usage.
+- `kali lint [files...]` reports the stable Phase-1 lint registry, with `--fix` for the supported
+  lint-only autofix path.
 
 ## Progress
 
-- `kali init` and `kali init --lib` now create the current-directory scaffold when the target
-  directory is empty, writing a minimal `kali.json` plus starter `main.ts` / `lib.ts` files.
-- `kali fmt` now formats source files in-place, supports `--check`, and is wired through the CLI.
-- `kali lint` now reports the initial Phase-1 built-in lint set, supports `--fix`, and is wired
-  through the CLI.
-- Project discovery now excludes hidden directories, nested project roots, and test files from the
-  source-file walk while still including declaration files for source-oriented commands.
+- `kali init` and `kali init --lib` create the minimal current-directory scaffold with
+  `kali.json` plus `main.ts` or `lib.ts`.
+- `kali fmt` is deterministic, supports `--check`, and is wired through the CLI.
+- `kali lint` exposes the Phase-1 lint registry, supports `--fix`, and is wired through the CLI.
+- Project discovery honors the current schema-v1 config/discovery rules, including nested project
+  boundaries and declaration-file participation where the command allows it.
 
-## Tasks
+## Historical stage tasks
 
 ### 1. `kali init` scaffold
 
-```
-kali init [name]
-kali init --lib [name]
-```
+The schema-v1 contract is intentionally minimal and current-directory-scoped:
 
-`kali init` creates a minimal project scaffold in the current directory (or a new subdirectory
-named `<name>` if provided):
-
-**Executable project scaffold (`kali init`):**
-
-```
-<name>/
-├── kali.json          — project manifest
-├── main.ts            — "Hello, World!" entrypoint
-└── main.test.ts       — minimal test stub
+```bash
+kali init
+kali init --lib
 ```
 
-`kali.json` for an executable:
+Phase-1 scaffold rules:
+
+- `kali init` creates `kali.json` plus `main.ts`
+- `kali init --lib` creates `kali.json` plus `lib.ts`
+- the canonical initial config is the smallest valid schema-v1 config:
 
 ```json
 {
-  "$schema": "https://kali-lang.org/schemas/manifest/v1",
-  "name": "<name>",
-  "version": "0.1.0",
-  "compilerOptions": {
-    "apiSurface": "deno",
-    "strict": true
-  }
+  "schemaVersion": 1
 }
 ```
 
-**Library project scaffold (`kali init --lib`):**
+- `init` does not install dependencies, write `kali.lock`, or materialize packages
+- `init` is current-directory-scoped; it does not retarget itself to an ancestor project root
+- if the current working directory already contains `kali.json`, fail with the canonical invalid
+  usage/config path from the owning specs instead of overwriting files
 
-```
-<name>/
-├── kali.json          — project manifest with lib markers
-└── src/
-    ├── lib.ts         — exported library entry point
-    └── lib.test.ts    — minimal test stub
-```
+### 2. Formatter (`kali fmt`)
 
-`kali.json` for a library adds `"lib": true` under `compilerOptions` and sets the
-`"entrypoint"` field for `kali build --lib`.
+Implement the deterministic formatter and its read-only companion mode:
 
-**Rules:**
-
-- `kali init` must not invoke `kali install` or mutate any dependency state. It only creates files.
-- `kali init` must not blur into a materialisation step; the user runs `kali install` separately.
-- If the target directory already exists and is non-empty, emit `E5010` (init target not empty)
-  rather than overwriting files silently.
-
-Error codes:
-
-| Code | Meaning |
-|---|---|
-| `E5010` | Init target directory already exists and is non-empty |
-| `E5011` | Invalid project name (must be a valid npm package name) |
-
-### 2. Formatter (`kali fmt`, `kali_fmt`)
-
-Implement `kali_fmt` — an opinionated, deterministic TypeScript/JavaScript formatter. The formatter
-operates on the AST produced by `kali_parser`, so it never re-parses source that has already been
-parsed by the pipeline.
-
-Formatting rules (Prettier-compatible defaults where possible):
-
-- Indent: 2 spaces.
-- Max line length: 80 characters (soft); 100 (hard wrap for strings/template literals).
-- Trailing commas: `"all"` (ES5+ mode).
-- Semicolons: always.
-- Quotes: double quotes for strings; single quotes for template expressions.
-- Arrow functions: always parenthesise parameters.
-- Bracket spacing: `{ key: value }` not `{key: value}`.
-- End-of-file newline: always.
-
-The formatter must be **idempotent**: `fmt(fmt(x)) == fmt(x)`.
-
-```
-kali fmt [files...]          # format files in-place
-kali fmt --check [files...]  # check only; exit non-zero if any would change
+```bash
+kali fmt [files...]
+kali fmt --check [files...]
 ```
 
-When no files are given, `fmt` discovers all source files in the project tree.
+Requirements:
 
-The formatter preserves comments and their attachment to the surrounding AST nodes (as threaded
-in the lexer's trivia in Stage 1.2).
+- deterministic/idempotent formatting
+- project discovery when no explicit files are provided
+- declaration-only files participate because `fmt` works over the canonical project file set
+- `--check` reports drift without rewriting files
 
-### 3. Linter (`kali lint`, `kali_lint`)
+### 3. Linter (`kali lint`)
 
-Implement `kali_lint` with a set of Phase-1 built-in lint rules. The linter walks the typed AST
-(post name-resolution and type-checking) so rules can use type information.
+Implement the stable Phase-1 lint registry and the lint-only autofix path:
 
-Phase-1 built-in lint rules (the canonical `W2xxx` registry):
-
-| Code | Rule | Severity | Auto-fixable |
-|---|---|---|---|
-| `W2000` | `no-unused-vars` | warning | no |
-| `W2001` | `no-unused-imports` | warning | yes |
-| `W2002` | `no-explicit-any` | warning | no |
-| `W2003` | `prefer-const` | warning | yes |
-| `W2004` | `no-var` | warning | yes |
-| `W2005` | `eqeqeq` | warning | yes |
-| `W2006` | `no-debugger` | error | yes |
-| `W2007` | `no-console` | warning (off by default) | no |
-| `W2008` | `no-empty` | warning | no |
-| `W2009` | `no-unreachable` | error | no |
-| `W2010` | `no-undef` (redundant with E3003 but useful for `--fix`) | warning | no |
-
-Lint rules are configured in `kali.json` under `"lint": { "rules": { ... } }`.
-
-```
-kali lint [files...]          # check files; exit 1 if any errors
-kali lint --fix [files...]    # auto-fix fixable issues, then check
+```bash
+kali lint [files...]
+kali lint --fix [files...]
 ```
 
-When no files are given, `lint` discovers all source files in the project tree.
+The lint rule registry follows the canonical `W2xxx` set owned by the error spec. `--fix` applies
+only structured, non-speculative lint fixes; it does not widen into checker autofix.
 
 ### 4. Project discovery
 
-Several commands (`check`, `fmt`, `lint`, `test`) use **project discovery** when no explicit files
-are provided. Implement the canonical project-discovery algorithm (shared across all
-discovery-driven commands):
+Keep discovery aligned with the config/schema rules instead of inventing per-command walkers:
 
-1. Walk the directory tree from the current working directory.
-2. Include files matching the **executable/analyzable source-file class**: `.ts`, `.tsx`,
-   `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`.
-3. Include declaration files for `check`, `fmt`, and `lint`.
-4. Exclude: `node_modules/`, `.kali-cache/`, hidden directories, and any paths listed in
-   `kali.json`'s `"exclude"` array.
-5. Respect `.gitignore` patterns.
+- use the effective project root selected by the nearest `kali.json` when one exists
+- honor `include` / `exclude`
+- stop recursive discovery at nested child directories that contain their own `kali.json`
+- include declaration files for commands whose file class allows them
+- keep `fmt` and `lint` aligned with the canonical project file set rather than a hidden smaller
+  subset
 
-### 5. Integration between workflow commands
+### 5. Workflow composition
 
-After this stage, the typical developer workflow is:
+After this stage, the Phase-1 developer workflow is explicit and non-magical:
 
 ```bash
-kali init my-app          # scaffold
-cd my-app
-kali install              # install deps
-kali fmt                  # format
-kali lint                 # lint
-kali check                # type-check
-kali test                 # run tests
-kali build main.ts        # build artifact
-kali run main.ts          # run directly
+kali init
+kali fmt
+kali lint
+kali check
+kali test
+kali build main.ts
+kali run main.ts
 ```
 
-Each command is independent; none triggers another automatically. This keeps the workflow explicit
-and predictable.
+Commands remain independent. None performs hidden dependency installation or hidden command chaining.
 
-### 6. Tests
+### 6. Evidence
 
-- `kali init my-proj` creates the expected file tree with valid `kali.json`.
-- `kali init --lib my-lib` creates the library scaffold.
-- `kali init` in a non-empty directory → `E5010`.
-- `kali fmt fixtures/unformatted.ts` → file content matches the expected formatted output.
-- `kali fmt --check fixtures/unformatted.ts` → exits 1.
-- `kali fmt --check fixtures/formatted.ts` → exits 0.
-- Formatter idempotence: `fmt(fmt(x)) == fmt(x)` for all fixture files.
-- `kali lint fixtures/with-issues.ts` → exits 1, reports expected lint codes.
-- `kali lint --fix fixtures/with-fixes.ts` → auto-fixes `prefer-const`, `no-var`, `eqeqeq`;
-  remaining non-fixable issues still reported.
-- Project-discovery test: running `fmt`/`lint`/`check` without explicit files discovers the
-  correct file set.
+- `kali init` / `kali init --lib` scaffold tests
+- existing-project-root rejection tests
+- formatter idempotence tests
+- `fmt --check` tests
+- lint diagnostics and `--fix` tests
+- discovery tests for explicit files vs discovery-driven runs
 
 ## Out of Scope
 
-- Custom lint rule plugins (later compatibility).
-- Incremental formatting (format only changed files) — Phase 3 target.
-- `kali publish` or package publishing workflow (not in spec).
+- checker autofix (`kali check --fix`), which remains later compatibility
+- custom lint-rule plugins
+- publishing workflows not owned by the current spec set
 
 ## Status
 

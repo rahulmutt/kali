@@ -2,114 +2,89 @@
 
 **Phase:** 3 — Specialisation, Optimisation & Ecosystem Breadth  
 **Spec refs:** [`specs/11-standard-apis.md`](../../specs/11-standard-apis.md), [`specs/14-packages.md`](../../specs/14-packages.md), [`specs/12-cli.md`](../../specs/12-cli.md), [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)  
-**Depends on:** Phase 1 complete; can proceed in parallel with Phase 2 stages
+**Depends on:** Phase 1 complete; can proceed after [3.1 — Optimization & Specialization](01-optimization-and-specialization.md)
 
 ## Goal
 
-Open the `--api node` command path and the `kali_api_node` host-API implementation so Node.js
-programs and pure-JS npm packages that rely on Node built-ins can be compiled and run under Kali.
+Open the `--api node` command path for the **documented Phase-3 Node subset** so Node-oriented
+programs and pure-JS packages that depend on common Node built-ins can be compiled, checked,
+built, run, and tested under Kali without pretending to full Node parity.
 
 ## Workable Milestone
 
-- `kali run --api node <file>` executes programs that use common Node built-ins (`fs`, `path`,
-  `os`, `url`, `crypto`, `stream`, `events`, `http`).
-- npm packages with Node-only dependencies are now **executable** (not just installable/checkable)
-  when the host/API fit passes the `--api node` context check.
-- `kali build --api node <file>` produces an executable WASM artifact for the Node context.
+- `kali check/build/run/test --api node ...` are available for the documented Phase-3 Node subset.
+- Pure-JS packages whose host fit depends on that subset can move from blocked-at-host-fit to the
+  documented support rung.
+- The Node subset stays aligned with the maturity matrix instead of importing later Node breadth
+  early.
 
 ## Progress
 
-- The `--api node` command path is now wired through `check`, `build`, `run`, and `test`, and the
-  type/name-resolution path accepts `node:` imports only in the Node analysis context.
-- `kali_api_node` now covers the documented common Node subset end to end: process/path/crypto,
-  URL parsing and resolution, event emitters, buffer conversions, util formatting, assertions,
-  OS probes, child-process scaffolding, and the current `fs` / stream / HTTP runtime projection.
-- Runtime linker coverage now includes `process.argv` / `process.env`, process stdout/stderr,
-  path normalization/join/resolve/relative, crypto hashing and HMAC helpers, URL parse/resolve,
-  event-emitter registration/emission, and Buffer base64/hex round-tripping.
-- Package host-fit validation now respects `compilerOptions.apiSurface = "node"`, so Node-only
-  built-ins are accepted in the Node context while the default standalone context still rejects
-  them with the canonical `E6005` path.
-- The package corpus now includes representative Node-assuming packages (`axios`, `express`, and
-  `chalk`) and positive runtime smoke coverage for the documented Stage 3.2 subset.
-- The semver package-bin smoke now runs under `--api node` so the Node CLI gate stays aligned with a real CommonJS-style package entrypoint instead of only synthetic helper packages.
+**Status:** Complete for the Phase-3 subset.
 
-## Tasks
+## Historical stage tasks
 
 ### 1. Node API layer (`kali_api_node`)
 
-Implement the Phase-3 Node built-in host imports in `kali_api_node`. Priority order based on
-package corpus coverage:
+Implement the documented Node subset in one explicit compatibility layer.
 
-| Module | Phase-3 coverage target |
+Phase-3 target subset from the owning spec:
+
+| Module / global | Phase-3 scope |
 |---|---|
-| `fs` / `fs/promises` | full async read/write/stat/mkdir/readdir/rm |
-| `path` | all path utility functions |
-| `os` | platform, EOL, homedir, tmpdir, cpus |
-| `url` | `URL`, `URLSearchParams` (if not already in Web baseline) |
-| `crypto` | `createHash`, `randomBytes`, `randomUUID`, `createHmac` |
+| `fs`, `fs/promises` | file-system operations needed by real packages first |
+| `path` | path manipulation |
+| `buffer` | `Buffer` class and common conversions |
 | `events` | `EventEmitter` |
-| `stream` | `Readable`, `Writable`, `Transform` (basic) |
-| `http` / `https` | `createServer` (basic), `request` / `get` |
-| `process` | `env`, `argv`, `exit`, `cwd`, `stdout`, `stderr` |
-| `buffer` | `Buffer` class |
-| `util` | `promisify`, `inspect`, `format` |
-| `assert` | full assert module |
-| `child_process` | `execFile`, `spawn` (sandbox-gated) |
+| `util` | selected utilities such as `promisify` / `inspect` / `format` |
+| `url` | URL parsing / resolution |
+| `assert` | assertion helpers |
+| `process` | `env`, `argv`, and the selected query/control helpers explicitly in Phase 3 |
 
-Each built-in is implemented as Rust host-import functions registered with the wasmtime linker,
-following the same pattern as `kali_api_deno`.
-
-Progress note: the repository now has an expanded pure-Rust Node helper layer in
-`kali_api_node` covering process/path/crypto/events/buffer/util primitives plus fs/url/os
-scaffolding and unit tests. The helper layer now also includes Node-style assertion helpers and a
-synchronous `util.promisify` bridge, `NodeProcess::exit` mirrors the `process.exit(code)`-style
-termination record, and `NodeBuffer` now round-trips base64/hex so the binary-data slice looks more
-like a real Node Buffer workflow. A `NodeRuntimeProjection` facade now bundles the common
-path/crypto/process surfaces so future host-import registration has one projection point. The
-Node- and Deno-style filesystem metadata wrappers now also expose `is_empty()` alongside `len()`
-so the host-API surface stays ergonomic and clippy-clean. Install-time package host-fit validation
-now respects `compilerOptions.apiSurface = "node"`, so Node-targeted projects can accept
-Node-only builtins while the default standalone context still rejects them. Runtime wiring and
-`--api node` enablement are now in place for the documented Phase-3 subset.
+Important boundary:
+- later-breadth modules such as `os`, `child_process`, `http`, `https`, `crypto`, `stream`, and
+  other remaining core modules stay on the later-compatibility path unless and until the owning
+  spec moves them.
+- process identity/control surfaces such as `pid`, `exit`, and `cwd`/`chdir` remain outside this
+  stage and are tracked with the later host-control work.
 
 ### 2. `--api node` command path
 
-Wire the `--api node` flag:
+Wire the Node API surface through the ordinary source-graph commands:
 
-```
-kali run --api node <file>
-kali build --api node <file>
+```bash
 kali check --api node [files...]
+kali build --api node <file>
+kali run --api node <file>
 kali test --api node [files...]
 ```
 
-The Node context uses a different host-import table from the Deno context. The type declarations
-for Node built-ins come from `@types/node`.
+Inherited config must behave the same way as the explicit flag. Node mode must not partially leak
+through the default standalone context.
 
 ### 3. Package support expansion
 
-With `--api node` available, extend the package-support decision order to include Node-assuming
-packages:
+Update the package-support decision order for Node-context projects:
 
-- Packages that previously failed at **host/API fit** (`E6005`) may now pass if their Node
-  built-in usage is covered by the Phase-3 Node API layer.
-- Update the package corpus tests to include Node-assuming packages.
+- packages previously blocked only on **host/API fit** may now be checkable/buildable/executable
+  when the needed built-ins are inside the documented Node subset
+- the package corpus must record the exact rung claimed for each representative package
+- native addons / N-API / binary/bootstrap-heavy packages remain outside scope
 
-### 4. Tests
+### 4. Evidence
 
-- `kali run --api node fixtures/node-fs.ts` → reads/writes a file using `fs/promises`.
-- `kali run --api node fixtures/node-crypto.ts` → computes a SHA-256 hash.
-- `kali test --api node fixtures/node-tests/` → test suite using Node APIs passes.
-- npm package corpus: `express` (basic), `axios`, `chalk` (Node colour output).
-- Negative: `kali build --bundle --api node` → `E5008` (contradiction).
+- positive `check/build/run/test --api node` coverage for the documented subset
+- package-corpus fixtures for representative Node-assuming pure-JS packages
+- negative tests proving later Node breadth stays gated
+- CLI and diagnostics tests keeping inherited Node config aligned with explicit `--api node`
 
 ## Out of Scope
 
-- Full Node.js API compatibility (Later compatibility; Phase 3 covers the most common built-ins).
-- `node-gyp` / native addons (rejected by default; N-API bindings remain outside the pure JS/TS
-  package contract).
-- Executable `eval` / `Function()` (Phase 4 target).
+- full Node.js parity
+- native addons / `node-gyp` / N-API packages
+- process identity/control and working-directory APIs tracked as later compatibility
+- later-breadth Node modules that the owning spec still leaves outside the Phase-3 subset
+- executable `eval` / `Function()` compatibility (Phase 4)
 
 ## Status
 
