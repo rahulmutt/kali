@@ -442,6 +442,31 @@ fn check_rejects_inherited_wasm_threads_runtime_profile() {
 }
 
 #[test]
+fn check_rejects_threaded_runtime_globals() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "globalThis.SharedArrayBuffer; globalThis.Atomics;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("globalThis.SharedArrayBuffer"), "stderr: {stderr}");
+    assert!(stderr.contains("globalThis.Atomics"), "stderr: {stderr}");
+}
+
+#[test]
 fn check_discovers_fixture_tree_from_cwd() {
     let output = Command::new(kali_bin())
         .current_dir(fixture_root())
@@ -2967,6 +2992,51 @@ fn json_check_rejects_wasm_threads_runtime_profile() {
     assert_eq!(json["success"], false);
     assert!(json["errors"].as_array().expect("errors array").len() > 0);
     assert_eq!(json["errors"][0]["code"], "E5006");
+}
+
+#[test]
+fn json_check_rejects_threaded_runtime_globals() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "globalThis.SharedArrayBuffer; globalThis.Atomics;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(errors.len() >= 2, "errors: {errors:?}");
+    let messages = errors
+        .iter()
+        .map(|entry| entry["message"].as_str().expect("message"))
+        .collect::<Vec<_>>();
+    assert!(
+        messages
+            .iter()
+            .any(|message| message.contains("globalThis.SharedArrayBuffer")),
+        "messages: {messages:?}"
+    );
+    assert!(
+        messages
+            .iter()
+            .any(|message| message.contains("globalThis.Atomics")),
+        "messages: {messages:?}"
+    );
 }
 
 #[test]

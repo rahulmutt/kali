@@ -134,3 +134,13 @@ Proposed fix:
 
 2026-04-21 resolution note
 - updated the Stage 3.4 host-capability-expansion note to record the runtime `maxSpawnedProcesses` handoff, positive-cap acceptance, and stage completion status
+
+2026-04-21 follow-up note
+- while hardening the threaded-runtime handoff, the resolver-level `SharedArrayBuffer` / `Atomics` coverage still lacked an end-to-end CLI smoke regression for the language-visible `globalThis.SharedArrayBuffer` / `globalThis.Atomics` forms
+
+Proposed fix:
+- add `kali check` and JSON smoke coverage for `globalThis.SharedArrayBuffer` and `globalThis.Atomics` so the Stage 5.1 plan note can point at an end-to-end regression instead of only the lower-level resolver tests
+
+2026-04-21 resolution note
+- added end-to-end CLI smoke regressions for `globalThis.SharedArrayBuffer` and `globalThis.Atomics` in both text and JSON `kali check` output, so the Stage 5.1 threaded-global story now has user-visible smoke coverage in addition to the lower-level resolver tests
+- updated the Stage 5.1 progress note to mention the new CLI smoke coverage alongside the existing resolver-level gating path
