@@ -574,6 +574,23 @@ fn run_rejects_positive_thread_budget_override() {
 }
 
 #[test]
+fn run_accepts_zero_spawned_process_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("run")
+        .arg("--max-spawned-processes")
+        .arg("0")
+        .arg(fixture_path("run/hello.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn run_accepts_positive_spawned_process_budget_override() {
     let output = Command::new(kali_bin())
         .arg("run")
@@ -779,6 +796,26 @@ fn test_rejects_positive_thread_budget_override() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
     assert!(stderr.contains("resources.maxThreads"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_accepts_zero_spawned_process_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("test")
+        .arg("--max-spawned-processes")
+        .arg("0")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
 }
 
 #[test]
