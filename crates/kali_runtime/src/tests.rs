@@ -75,11 +75,17 @@ fn runtime_exposes_arguments() {
 
 #[test]
 fn runtime_context_carries_runtime_profiles() {
-    let runtime = RuntimeCtx::with_api_surface(None, "deno")
-        .with_runtime_profiles(vec!["wasm-threads".to_string()]);
+    let runtime = RuntimeCtx::with_api_surface(None, "deno").with_runtime_profiles(vec![
+        "wasm-threads".to_string(),
+        "wasm-threads".to_string(),
+        "alpha".to_string(),
+    ]);
 
     assert_eq!(runtime.api_surface, "deno");
-    assert_eq!(runtime.runtime_profiles, vec!["wasm-threads".to_string()]);
+    assert_eq!(
+        runtime.runtime_profiles,
+        vec!["alpha".to_string(), "wasm-threads".to_string()]
+    );
 }
 
 #[test]

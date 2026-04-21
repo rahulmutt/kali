@@ -34,6 +34,13 @@ impl EffectAnalysisContext {
             compat_features: Vec::new(),
         }
     }
+
+    /// Return a normalized copy with sorted, deduplicated semantic axes.
+    pub fn normalized(mut self) -> Self {
+        self.runtime_profiles = normalize_semantic_axis(self.runtime_profiles);
+        self.compat_features = normalize_semantic_axis(self.compat_features);
+        self
+    }
 }
 
 /// Location attached to an observed effect.
@@ -139,6 +146,7 @@ pub fn effect_report_from_inference(
         effects,
         dynamic_reasons,
     } = inference;
+    let context = context.normalized();
 
     let mut grouped = BTreeMap::<String, Vec<EffectLocation>>::new();
     for effect in effects {
@@ -253,6 +261,17 @@ fn policy_suggestion(effect: &ObservedEffect) -> String {
         _ => "adjust the sandbox policy to permit the inferred effect or rewrite the code"
             .to_string(),
     }
+}
+
+fn normalize_semantic_axis(values: Vec<String>) -> Vec<String> {
+    let mut normalized = BTreeSet::new();
+    for value in values {
+        let value = value.trim();
+        if !value.is_empty() {
+            normalized.insert(value.to_string());
+        }
+    }
+    normalized.into_iter().collect()
 }
 
 fn effect_allowed(effect: &ObservedEffect, policy: &SandboxPolicy) -> bool {

@@ -96,3 +96,32 @@ fn access_rules_match_globs() {
         PatternKind::Url
     ));
 }
+
+#[test]
+fn effect_reports_normalize_analysis_context_axes() {
+    let mut context = EffectAnalysisContext::new("deno");
+    context.runtime_profiles = vec![
+        "wasm-threads".to_string(),
+        "alpha".to_string(),
+        "wasm-threads".to_string(),
+    ];
+    context.compat_features = vec!["beta".to_string(), "alpha".to_string(), "beta".to_string()];
+
+    let report = effect_report_from_inference(
+        vec!["main.ts".to_string()],
+        context,
+        EffectInference {
+            effects: Vec::new(),
+            dynamic_reasons: Vec::new(),
+        },
+    );
+
+    assert_eq!(
+        report.analysis_context.runtime_profiles,
+        vec!["alpha", "wasm-threads"]
+    );
+    assert_eq!(
+        report.analysis_context.compat_features,
+        vec!["alpha", "beta"]
+    );
+}

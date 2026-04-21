@@ -109,5 +109,9 @@ Proposed fix:
 - confirmed the Stage 4.2 plan file and tracker already name the target-cell split companions explicitly, so the published proof inventory remains synchronized without changing the canonical short summary
 
 2026-04-21 resolution note
+- normalized set-like runtime-profile axes in the effect-report and runtime host contexts so noisy caller vectors are deduplicated and sorted before emission or host-state construction
+- updated the Stage 5.1 progress note to record the canonicalized runtime-profile path alongside the existing CLI/config/metadata/runtime gating coverage
+
+2026-04-21 resolution note
 - updated the Stage 4.2 plan file, `PLAN-4.2-STATUS.md`, `proofs/BOUNDARY.md`, and `README.md` so the target-cell split companions are now named explicitly alongside the proof-backed boundary summary
 - kept the canonical short summary unchanged

@@ -628,10 +628,7 @@ impl DenoHttpServer {
 }
 
 /// Connect to one TCP peer using the deterministic Deno compatibility surface.
-pub fn connect(
-    hostname: impl AsRef<str>,
-    port: u16,
-) -> Result<DenoTcpConnection, std::io::Error> {
+pub fn connect(hostname: impl AsRef<str>, port: u16) -> Result<DenoTcpConnection, std::io::Error> {
     let stream = TcpStream::connect((hostname.as_ref(), port))?;
     let _ = stream.set_nodelay(true);
     Ok(DenoTcpConnection::new(stream))
@@ -699,15 +696,11 @@ fn read_http_request(
         format!("http://{}{}", local_addr, path)
     };
 
-    Request::with_parts(url, method, headers, body).map_err(|error| {
-        std::io::Error::new(std::io::ErrorKind::InvalidInput, error.to_string())
-    })
+    Request::with_parts(url, method, headers, body)
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidInput, error.to_string()))
 }
 
-fn write_http_response(
-    stream: &mut TcpStream,
-    response: Response,
-) -> Result<(), std::io::Error> {
+fn write_http_response(stream: &mut TcpStream, response: Response) -> Result<(), std::io::Error> {
     let headers = response.headers();
     let mut entries = headers.entries();
     if !entries
@@ -720,7 +713,12 @@ fn write_http_response(
         ));
     }
 
-    write!(stream, "HTTP/1.1 {} {}\r\n", response.status(), response.status_text())?;
+    write!(
+        stream,
+        "HTTP/1.1 {} {}\r\n",
+        response.status(),
+        response.status_text()
+    )?;
     for (name, value) in entries {
         write!(stream, "{}: {}\r\n", name, value)?;
     }

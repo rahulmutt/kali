@@ -169,7 +169,7 @@ impl RuntimeCtx {
 
     /// Attach the requested runtime profiles to the current execution context.
     pub fn with_runtime_profiles(mut self, runtime_profiles: Vec<String>) -> Self {
-        self.runtime_profiles = runtime_profiles;
+        self.runtime_profiles = normalize_runtime_profiles(runtime_profiles);
         self
     }
 
@@ -1644,6 +1644,17 @@ fn register_node_host_imports(
         .map_err(|error| host_import_error("process_spawn", error))?;
 
     Ok(())
+}
+
+fn normalize_runtime_profiles(runtime_profiles: Vec<String>) -> Vec<String> {
+    let mut normalized = BTreeSet::new();
+    for profile in runtime_profiles {
+        let profile = profile.trim();
+        if !profile.is_empty() {
+            normalized.insert(profile.to_string());
+        }
+    }
+    normalized.into_iter().collect()
 }
 
 fn capture_env() -> BTreeMap<String, String> {

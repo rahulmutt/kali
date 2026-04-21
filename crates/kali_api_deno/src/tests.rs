@@ -304,7 +304,14 @@ fn tcp_connect_and_listen_round_trip_bytes() {
     });
 
     let mut client = connect("127.0.0.1", addr.port()).expect("connect");
-    assert_eq!(client.local_addr().expect("client local addr").ip().to_string(), "127.0.0.1");
+    assert_eq!(
+        client
+            .local_addr()
+            .expect("client local addr")
+            .ip()
+            .to_string(),
+        "127.0.0.1"
+    );
     client.write_all(b"ping").expect("client write");
     client.flush().expect("client flush");
     client.shutdown_write().expect("client shutdown write");
@@ -336,12 +343,20 @@ fn serve_emits_a_basic_http_response() {
     socket
         .write_all(b"GET /hello HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
         .expect("write request");
-    socket.shutdown(std::net::Shutdown::Write).expect("shutdown write");
+    socket
+        .shutdown(std::net::Shutdown::Write)
+        .expect("shutdown write");
 
     let mut response = String::new();
     socket.read_to_string(&mut response).expect("read response");
-    assert!(response.starts_with("HTTP/1.1 200 OK"), "response: {response}");
-    assert!(response.contains("content-type: text/plain; charset=utf-8"), "response: {response}");
+    assert!(
+        response.starts_with("HTTP/1.1 200 OK"),
+        "response: {response}"
+    );
+    assert!(
+        response.contains("content-type: text/plain; charset=utf-8"),
+        "response: {response}"
+    );
     assert!(response.ends_with("hello"), "response: {response}");
 
     server.join().expect("server join");
