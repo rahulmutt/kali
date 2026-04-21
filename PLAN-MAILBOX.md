@@ -52,3 +52,6 @@ While hardening the Phase-2 coverage evidence lane, the completed Stage 2.5 play
 Proposed fix:
 - update `plan/phase-2/05-test-coverage-and-reporting.md` to mention deterministic file ordering in the coverage progress note
 - add an integration regression that exercises `kali test --coverage` with reversed explicit file input order and asserts the emitted coverage file list is sorted deterministically
+
+2026-04-21 resolution note
+- updated the Stage 2.5 progress note so it now calls out the reversed explicit file-input regression case and the deterministic coverage file ordering contract that the integration test already enforces

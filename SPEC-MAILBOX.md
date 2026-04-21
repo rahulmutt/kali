@@ -37,3 +37,6 @@ While wiring runtime-profile metadata through the emitted build artifact contrac
 Proposed fix:
 - update the artifact-metadata portion of `specs/18-schemas.md` if/when the build metadata contract is formalized there
 - keep the emitted sidecar metadata and the stage notes aligned on the explicit `runtimeProfiles` axis
+
+2026-04-21 resolution note
+- the stable coverage-report path rule is already captured in `specs/18-schemas.md`, and the `runtimeProfiles` axis is already carried in the current schema vocabulary and Stage 5.1 progress note, so no further spec edit was required for these follow-ups
