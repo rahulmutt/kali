@@ -178,3 +178,7 @@ Proposed fix:
 2026-04-21 resolution note
 - added the deterministic `SharedArrayBuffer` / `Atomics` baseline to `kali_api_web` with clone-shared byte storage and byte-wise atomic helpers
 - updated the Stage 5.1 progress note so the historical plan now records the shared-memory baseline alongside the existing threaded-profile plumbing and gating evidence
+
+2026-04-21 follow-up note
+- while extending the browser/runtime compatibility baseline, the worker and broadcast-channel stubs still need deterministic shared-buffer queues so cross-runtime-instance coordination can preserve shared backing stores instead of only recording JSON payloads
+- proposed fix: add shared-buffer posting/accessors to the `kali_api_web` worker and broadcast-channel stubs, then record the new coordination baseline in the Stage 5.1 progress note

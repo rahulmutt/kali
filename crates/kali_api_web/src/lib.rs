@@ -1370,6 +1370,7 @@ impl WebSocket {
 pub struct Worker {
     script_url: Url,
     posted_messages: Arc<Mutex<Vec<Value>>>,
+    posted_shared_buffers: Arc<Mutex<Vec<SharedArrayBuffer>>>,
     terminated: Arc<AtomicBool>,
 }
 
@@ -1379,6 +1380,7 @@ impl Worker {
         Ok(Self {
             script_url: Url::parse(url.as_ref())?,
             posted_messages: Arc::new(Mutex::new(Vec::new())),
+            posted_shared_buffers: Arc::new(Mutex::new(Vec::new())),
             terminated: Arc::new(AtomicBool::new(false)),
         })
     }
@@ -1399,9 +1401,28 @@ impl Worker {
             .push(message);
     }
 
+    /// Record a shared buffer in the deterministic worker-message queue.
+    pub fn post_shared_buffer(&self, buffer: SharedArrayBuffer) {
+        if self.terminated.load(Ordering::SeqCst) {
+            return;
+        }
+        self.posted_shared_buffers
+            .lock()
+            .expect("worker mutex poisoned")
+            .push(buffer);
+    }
+
     /// Return the buffered messages.
     pub fn posted_messages(&self) -> Vec<Value> {
         self.posted_messages
+            .lock()
+            .expect("worker mutex poisoned")
+            .clone()
+    }
+
+    /// Return the buffered shared buffers.
+    pub fn posted_shared_buffers(&self) -> Vec<SharedArrayBuffer> {
+        self.posted_shared_buffers
             .lock()
             .expect("worker mutex poisoned")
             .clone()
@@ -1559,6 +1580,7 @@ impl Atomics {
 pub struct BroadcastChannel {
     name: String,
     posted_messages: Arc<Mutex<Vec<Value>>>,
+    posted_shared_buffers: Arc<Mutex<Vec<SharedArrayBuffer>>>,
     closed: Arc<AtomicBool>,
 }
 
@@ -1568,6 +1590,7 @@ impl BroadcastChannel {
         Self {
             name: name.into(),
             posted_messages: Arc::new(Mutex::new(Vec::new())),
+            posted_shared_buffers: Arc::new(Mutex::new(Vec::new())),
             closed: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -1588,9 +1611,28 @@ impl BroadcastChannel {
             .push(message);
     }
 
+    /// Record a shared buffer in the deterministic broadcast queue.
+    pub fn post_shared_buffer(&self, buffer: SharedArrayBuffer) {
+        if self.closed.load(Ordering::SeqCst) {
+            return;
+        }
+        self.posted_shared_buffers
+            .lock()
+            .expect("broadcast channel mutex poisoned")
+            .push(buffer);
+    }
+
     /// Return the buffered messages.
     pub fn posted_messages(&self) -> Vec<Value> {
         self.posted_messages
+            .lock()
+            .expect("broadcast channel mutex poisoned")
+            .clone()
+    }
+
+    /// Return the buffered shared buffers.
+    pub fn posted_shared_buffers(&self) -> Vec<SharedArrayBuffer> {
+        self.posted_shared_buffers
             .lock()
             .expect("broadcast channel mutex poisoned")
             .clone()

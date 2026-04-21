@@ -478,6 +478,20 @@ fn worker_stub_records_posted_messages() {
 }
 
 #[test]
+fn worker_stub_records_shared_buffers_with_shared_backing() {
+    let worker = Worker::new("https://example.com/worker.js").expect("worker url");
+    let buffer = SharedArrayBuffer::from_bytes([1, 2, 3]);
+
+    worker.post_shared_buffer(buffer.clone());
+    let posted = worker.posted_shared_buffers();
+    assert_eq!(posted.len(), 1);
+    assert_eq!(posted[0].snapshot(), vec![1, 2, 3]);
+
+    buffer.store(1, 9);
+    assert_eq!(worker.posted_shared_buffers()[0].snapshot(), vec![1, 9, 3]);
+}
+
+#[test]
 fn shared_array_buffer_clones_share_mutations() {
     let buffer = SharedArrayBuffer::from_bytes([1, 2, 3, 4]);
     let clone = buffer.clone();
@@ -522,6 +536,20 @@ fn broadcast_channel_stub_records_posted_messages() {
         channel.posted_messages(),
         vec![Value::String("ping".to_string())]
     );
+}
+
+#[test]
+fn broadcast_channel_stub_records_shared_buffers_with_shared_backing() {
+    let channel = BroadcastChannel::new("browser-corpus");
+    let buffer = SharedArrayBuffer::from_bytes([4, 5, 6]);
+
+    channel.post_shared_buffer(buffer.clone());
+    let posted = channel.posted_shared_buffers();
+    assert_eq!(posted.len(), 1);
+    assert_eq!(posted[0].snapshot(), vec![4, 5, 6]);
+
+    buffer.add(2, 1);
+    assert_eq!(channel.posted_shared_buffers()[0].snapshot(), vec![4, 5, 7]);
 }
 
 #[test]
