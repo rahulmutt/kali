@@ -99,3 +99,7 @@ While widening the Stage 4.2 proof inventory, the historical plan tracker should
 Proposed fix:
 - update `plan/phase-4/02-formal-verification-depth.md` and `PLAN-4.2-STATUS.md` to mention `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIffAndLinearMemory` and `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCountAndLinearMemory`
 - keep the canonical short summary unchanged while expanding the theorem inventory wording to match the Lean proof tree
+
+2026-04-21 resolution note
+- updated the Stage 4.2 plan file, `PLAN-4.2-STATUS.md`, `proofs/BOUNDARY.md`, and `README.md` so the target-cell split companions are now named explicitly alongside the proof-backed boundary summary
+- kept the canonical short summary unchanged
