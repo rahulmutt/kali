@@ -245,6 +245,9 @@ pub enum Commands {
         /// Opt into the later threaded runtime profile
         #[arg(long = "wasm-threads", action = ArgAction::SetTrue)]
         wasm_threads: bool,
+        /// Override the specialization fan-out cap for this invocation
+        #[arg(long = "max-specializations")]
+        max_specializations: Option<usize>,
         /// Override the invocation child-process cap
         #[arg(long = "max-spawned-processes")]
         max_spawned_processes: Option<u64>,
@@ -272,6 +275,9 @@ pub enum Commands {
         /// Opt into the later threaded runtime profile
         #[arg(long = "wasm-threads", action = ArgAction::SetTrue)]
         wasm_threads: bool,
+        /// Override the specialization fan-out cap for this invocation
+        #[arg(long = "max-specializations")]
+        max_specializations: Option<usize>,
         /// Override the invocation child-process cap
         #[arg(long = "max-spawned-processes")]
         max_spawned_processes: Option<u64>,

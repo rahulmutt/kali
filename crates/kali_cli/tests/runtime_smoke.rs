@@ -608,6 +608,67 @@ fn run_accepts_positive_spawned_process_budget_override() {
 }
 
 #[test]
+fn run_and_test_accept_the_specialization_cap_override() {
+    let dir = tempdir().expect("tempdir");
+    let run_source = dir.path().join("main.ts");
+    let test_source = dir.path().join("smoke.test.ts");
+
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "maxSpecializations": 1
+  }
+}"#,
+    )
+    .expect("write manifest");
+    fs::write(&run_source, "console.log('specialization-cap');").expect("write run source");
+    fs::write(
+        &test_source,
+        "Kali.test('addition', () => {\n    1 + 2;\n});\n",
+    )
+    .expect("write test source");
+
+    let run = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--max-specializations")
+        .arg("4")
+        .arg(&run_source)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        run.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&run.stdout).contains("specialization-cap"),
+        "stdout: {}",
+        String::from_utf8_lossy(&run.stdout)
+    );
+
+    let test = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--max-specializations")
+        .arg("4")
+        .arg(&test_source)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        test.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+}
+
+#[test]
 fn run_rejects_declaration_only_fixture_entrypoints() {
     let output = Command::new(kali_bin())
         .arg("run")

@@ -32,6 +32,7 @@ use kali_sandbox::{
 use serde_json::{json, Value};
 use std::{
     collections::{BTreeMap, BTreeSet},
+    convert::TryFrom,
     env, fs,
     path::{Component as PathComponent, Path, PathBuf},
     time::Instant,
@@ -120,6 +121,7 @@ fn main() {
             api,
             compat,
             wasm_threads,
+            max_specializations,
             max_spawned_processes,
             max_threads,
             file,
@@ -131,6 +133,7 @@ fn main() {
                 api,
                 compat,
                 wasm_threads,
+                max_specializations,
                 max_spawned_processes,
                 max_threads,
                 sandbox,
@@ -144,6 +147,7 @@ fn main() {
             api,
             compat,
             wasm_threads,
+            max_specializations,
             max_spawned_processes,
             max_threads,
             files,
@@ -155,6 +159,7 @@ fn main() {
                 api,
                 compat,
                 wasm_threads,
+                max_specializations,
                 max_spawned_processes,
                 max_threads,
                 filter,
@@ -491,7 +496,12 @@ fn build_command(
 
     let source = source.to_string_lossy().to_string();
     let mode = build::build_mode_from_flags(fast, release, release_advanced);
-    let max_specializations = max_specializations.unwrap_or(16);
+    let max_specializations = match resolve_effective_max_specializations(max_specializations) {
+        Ok(max_specializations) => max_specializations,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
+        }
+    };
     let out_dir_path = out_dir.as_deref();
     let bundle_format = format.unwrap_or(BundleFormat::Esm);
     let artifact_mode = if lib {
@@ -686,6 +696,22 @@ fn resolve_effective_runtime_profiles(
     Ok(profiles)
 }
 
+fn resolve_effective_max_specializations(
+    explicit_max_specializations: Option<usize>,
+) -> Result<usize, Vec<Diagnostic>> {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let project_root = discover_project_root(&cwd).unwrap_or(cwd);
+    let Some(manifest) = load_manifest(&project_root).map_err(|diagnostic| vec![diagnostic])?
+    else {
+        return Ok(explicit_max_specializations.unwrap_or(16));
+    };
+
+    let manifest_max_specializations = manifest_max_specializations(&manifest)?;
+    Ok(explicit_max_specializations
+        .or(manifest_max_specializations)
+        .unwrap_or(16))
+}
+
 fn manifest_compat_features(manifest: &ProjectManifest) -> Result<Vec<String>, Vec<Diagnostic>> {
     let Some(compat) = manifest.compat.as_ref() else {
         return Ok(Vec::new());
@@ -758,6 +784,41 @@ fn manifest_runtime_profiles(manifest: &ProjectManifest) -> Result<Vec<String>, 
     }
 
     build::validate_runtime_profiles(&raw_profiles, "kali.json")
+}
+
+fn manifest_max_specializations(
+    manifest: &ProjectManifest,
+) -> Result<Option<usize>, Vec<Diagnostic>> {
+    let Some(options) = manifest.compiler_options.as_ref() else {
+        return Ok(None);
+    };
+
+    let Some(options) = options.as_object() else {
+        return Err(vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            "`compilerOptions` must be a JSON object",
+        )]);
+    };
+
+    let Some(value) = options.get("maxSpecializations") else {
+        return Ok(None);
+    };
+
+    let Some(max_specializations) = value.as_u64() else {
+        return Err(vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            "`compilerOptions.maxSpecializations` must be a non-negative integer",
+        )]);
+    };
+
+    let max_specializations = usize::try_from(max_specializations).map_err(|_| {
+        vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            "`compilerOptions.maxSpecializations` is too large for this host",
+        )]
+    })?;
+
+    Ok(Some(max_specializations))
 }
 
 fn normalize_compat_features(features: Vec<String>) -> Vec<String> {
@@ -2196,6 +2257,7 @@ fn run_command(
     api: Option<kali_cli::ApiSurface>,
     compat: Vec<String>,
     wasm_threads: bool,
+    max_specializations: Option<usize>,
     max_spawned_processes: Option<u64>,
     max_threads: Option<u64>,
     sandbox: Option<PathBuf>,
@@ -2243,6 +2305,12 @@ fn run_command(
     {
         return Err(exit_code);
     }
+    let max_specializations = match resolve_effective_max_specializations(max_specializations) {
+        Ok(max_specializations) => max_specializations,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
+        }
+    };
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
     let source = PathBuf::from(file);
 
@@ -2250,9 +2318,10 @@ fn run_command(
         return emit_diagnostics_and_exit("run", vec![diagnostic], 5, output, None, None);
     }
 
-    let wasm_bytes = match build::compile_source_file(
+    let wasm_bytes = match build::compile_source_file_with_specialization_cap(
         &source,
         build::BuildMode::Fast,
+        max_specializations,
         effective_api,
         &effective_runtime_profiles,
         compat_eval,
@@ -2340,6 +2409,7 @@ fn test_command(
     api: Option<kali_cli::ApiSurface>,
     compat: Vec<String>,
     wasm_threads: bool,
+    max_specializations: Option<usize>,
     max_spawned_processes: Option<u64>,
     max_threads: Option<u64>,
     filter: Option<String>,
@@ -2397,6 +2467,12 @@ fn test_command(
     {
         return Err(exit_code);
     }
+    let max_specializations = match resolve_effective_max_specializations(max_specializations) {
+        Ok(max_specializations) => max_specializations,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
+        }
+    };
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
 
     let selected_files = if files.is_empty() {
@@ -2492,9 +2568,10 @@ fn test_command(
 
     for file in filtered_files {
         let source = PathBuf::from(&file);
-        let wasm_bytes = match build::compile_source_file(
+        let wasm_bytes = match build::compile_source_file_with_specialization_cap(
             &source,
             build::BuildMode::Fast,
+            max_specializations,
             effective_api,
             &effective_runtime_profiles,
             compat_eval,

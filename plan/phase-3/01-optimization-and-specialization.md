@@ -27,6 +27,9 @@ types are statically known.
 - The delivered optimization set includes constant folding, branch elimination, small-function
   inlining, aggressive dead-code pruning, MIR-aware call-site specialization, and incremental
   compilation reuse via `.kali-cache/incremental/`.
+- `compilerOptions.maxSpecializations` is now honored alongside the existing CLI override across
+  `build`, `run`, and `test`, so the specialization cap is resolved consistently from manifest or
+  invocation context before optimization runs.
 - Specialization keys are now materially richer and more stable: layout-aware fingerprints cover
   object/array descriptors, closure captures, literal distinctions (including string/template,
   regex, nullish, boolean, numeric, signed-zero, BigInt, and special-number cases), and owner-
