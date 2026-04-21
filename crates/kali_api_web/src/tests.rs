@@ -492,6 +492,60 @@ fn worker_stub_records_shared_buffers_with_shared_backing() {
 }
 
 #[test]
+fn thread_runtime_topology_assigns_one_instance_per_worker() {
+    let mut topology = ThreadRuntimeTopology::new();
+    let first = topology
+        .spawn_worker("https://example.com/worker-a.js")
+        .expect("first worker");
+    let second = topology
+        .spawn_worker("https://example.com/worker-b.js")
+        .expect("second worker");
+
+    assert_ne!(first, second);
+    assert_eq!(topology.total_instances(), 2);
+    assert_eq!(topology.instance_ids(), vec![first, second]);
+    assert!(topology.is_live(first));
+    assert!(topology.is_live(second));
+
+    assert!(topology.post_message(first, Value::String("ping".to_string())));
+    assert!(topology.post_shared_buffer(second, SharedArrayBuffer::from_bytes([7, 8, 9])));
+    assert!(topology.terminate(first));
+    assert!(!topology.is_live(first));
+    assert!(topology.is_live(second));
+}
+
+#[test]
+fn thread_runtime_topology_shutdown_reports_live_instances_deterministically() {
+    let mut topology = ThreadRuntimeTopology::new();
+    let live = topology
+        .spawn_worker("https://example.com/live-worker.js")
+        .expect("live worker");
+    let terminated = topology
+        .spawn_worker("https://example.com/terminated-worker.js")
+        .expect("terminated worker");
+
+    topology.post_message(live, Value::String("hello".to_string()));
+    topology.post_shared_buffer(live, SharedArrayBuffer::from_bytes([1, 2, 3]));
+    topology.post_message(terminated, Value::String("goodbye".to_string()));
+    topology.terminate(terminated);
+
+    let report = topology.shutdown();
+    assert_eq!(report.total_instances, 2);
+    assert_eq!(report.terminated_instances, 2);
+    assert_eq!(report.live_instances.len(), 1);
+
+    let snapshot = &report.live_instances[0];
+    assert_eq!(snapshot.instance_id, live);
+    assert_eq!(snapshot.script_url, "https://example.com/live-worker.js");
+    assert_eq!(
+        snapshot.posted_messages,
+        vec![Value::String("hello".to_string())]
+    );
+    assert_eq!(snapshot.posted_shared_buffers, vec![vec![1, 2, 3]]);
+    assert!(!snapshot.was_terminated);
+}
+
+#[test]
 fn shared_array_buffer_clones_share_mutations() {
     let buffer = SharedArrayBuffer::from_bytes([1, 2, 3, 4]);
     let clone = buffer.clone();

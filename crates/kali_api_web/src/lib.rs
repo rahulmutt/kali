@@ -1649,6 +1649,144 @@ impl BroadcastChannel {
     }
 }
 
+/// A deterministic runtime-topology model that assigns one worker/runtime instance per spawned
+/// thread and produces a stable shutdown/leak report.
+#[derive(Clone, Debug, Default)]
+pub struct ThreadRuntimeTopology {
+    next_instance_id: usize,
+    instances: BTreeMap<usize, Worker>,
+}
+
+/// A snapshot of one runtime instance at shutdown.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ThreadRuntimeInstanceSnapshot {
+    /// Stable runtime-instance identifier.
+    pub instance_id: usize,
+    /// Script URL for the worker/runtime instance.
+    pub script_url: String,
+    /// Buffered messages observed for this instance.
+    pub posted_messages: Vec<Value>,
+    /// Buffered shared-buffer snapshots observed for this instance.
+    pub posted_shared_buffers: Vec<Vec<u8>>,
+    /// Whether the instance had already been terminated before shutdown.
+    pub was_terminated: bool,
+}
+
+/// Deterministic shutdown/leak accounting for the runtime-topology model.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ThreadRuntimeShutdownReport {
+    /// Number of runtime instances created by the topology.
+    pub total_instances: usize,
+    /// Number of instances that were already terminated before shutdown.
+    pub terminated_instances: usize,
+    /// Instances that were still live when shutdown began.
+    pub live_instances: Vec<ThreadRuntimeInstanceSnapshot>,
+}
+
+impl ThreadRuntimeTopology {
+    /// Create an empty runtime-topology model.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Spawn a new worker/runtime instance with a deterministic identifier.
+    pub fn spawn_worker(&mut self, url: impl AsRef<str>) -> Result<usize, url::ParseError> {
+        let instance_id = self.next_instance_id;
+        self.next_instance_id = self.next_instance_id.saturating_add(1);
+        self.instances.insert(instance_id, Worker::new(url)?);
+        Ok(instance_id)
+    }
+
+    /// Return the number of tracked runtime instances.
+    pub fn total_instances(&self) -> usize {
+        self.instances.len()
+    }
+
+    /// Return the identifiers of all tracked instances in deterministic order.
+    pub fn instance_ids(&self) -> Vec<usize> {
+        self.instances.keys().copied().collect()
+    }
+
+    /// Return whether the selected runtime instance is still live.
+    pub fn is_live(&self, instance_id: usize) -> bool {
+        self.instances
+            .get(&instance_id)
+            .map(|worker| !worker.is_terminated())
+            .unwrap_or(false)
+    }
+
+    /// Forward a posted message to the selected runtime instance.
+    pub fn post_message(&self, instance_id: usize, message: Value) -> bool {
+        let Some(worker) = self.instances.get(&instance_id) else {
+            return false;
+        };
+        worker.post_message(message);
+        true
+    }
+
+    /// Forward a shared buffer to the selected runtime instance.
+    pub fn post_shared_buffer(&self, instance_id: usize, buffer: SharedArrayBuffer) -> bool {
+        let Some(worker) = self.instances.get(&instance_id) else {
+            return false;
+        };
+        worker.post_shared_buffer(buffer);
+        true
+    }
+
+    /// Terminate the selected runtime instance.
+    pub fn terminate(&self, instance_id: usize) -> bool {
+        let Some(worker) = self.instances.get(&instance_id) else {
+            return false;
+        };
+        worker.terminate();
+        true
+    }
+
+    fn snapshot_instance(
+        &self,
+        instance_id: usize,
+        worker: &Worker,
+    ) -> ThreadRuntimeInstanceSnapshot {
+        ThreadRuntimeInstanceSnapshot {
+            instance_id,
+            script_url: worker.script_url().as_str().to_string(),
+            posted_messages: worker.posted_messages(),
+            posted_shared_buffers: worker
+                .posted_shared_buffers()
+                .into_iter()
+                .map(|buffer| buffer.snapshot())
+                .collect(),
+            was_terminated: worker.is_terminated(),
+        }
+    }
+
+    /// Produce a stable shutdown/leak report and mark every tracked instance terminated.
+    pub fn shutdown(self) -> ThreadRuntimeShutdownReport {
+        let live_instances = self
+            .instances
+            .iter()
+            .filter(|(_, worker)| !worker.is_terminated())
+            .map(|(instance_id, worker)| self.snapshot_instance(*instance_id, worker))
+            .collect::<Vec<_>>();
+
+        for worker in self.instances.values() {
+            worker.terminate();
+        }
+
+        let terminated_instances = self
+            .instances
+            .values()
+            .filter(|worker| worker.is_terminated())
+            .count();
+
+        ThreadRuntimeShutdownReport {
+            total_instances: self.instances.len(),
+            terminated_instances,
+            live_instances,
+        }
+    }
+}
+
 /// A deterministic in-memory IndexedDB stub.
 #[derive(Clone, Debug, Default)]
 pub struct IndexedDb {
