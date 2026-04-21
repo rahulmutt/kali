@@ -107,16 +107,10 @@ license compatibility, dependency count, and known malicious package signals.
 - Tracing GC (hard invariant; never allowed).
 - Full POSIX process model (`fork`, `exec` beyond the sandboxed `child_process` stub).
 
-## Definition of Done
+## Status
 
-- [x] `eval("1 + 2")` with `compat.features.eval = true` returns `3`.
-- [x] `eval(dynamicString)` with `compat.features.eval = true` executes correctly for
-  dynamically constructed strings.
-- [x] `eval("...")` without the compat switch emits the correct diagnostic error.
-- [x] Non-literal `import(expr)` resolves for statically known specifiers.
-- [x] Non-literal `import(expr)` with an unknown specifier emits `E4008`.
-- [x] `kali package-audit <pkg>` publicly available without a `--preview` gate; emits a
-  valid schema-v1 audit JSON report.
-- [x] Hard-invariant preservation tests pass: no language-level JIT or tracing-GC paths
-  introduced by this stage.
-- [x] All Phase-1, Phase-2, and Phase-3 tests continue to pass without regression.
+This stage is complete.
+
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).

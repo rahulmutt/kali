@@ -123,19 +123,16 @@ types are statically known.
   chain deterministic by folding the first public branch to a literal while still specializing the
   later public wrapper once.
 
-## Remaining Work
+## Status
 
-Stage 3.1 is complete. The remaining work in this area is follow-up widening rather than
-unfinished baseline delivery:
+Stage 3.1 is complete.
 
-- keep widening specialization depth beyond the current MIR-aware layout-specialized path toward a
-  fuller generic-instantiation planner,
-- extend cross-module specialization behavior beyond the current owner-scoped reuse and re-export
-  regressions while preserving deterministic specialization-budget enforcement,
-- keep benchmark and regression evidence honest as new literal-signature and clone-reuse cases are
-  added.
+Any further widening in this area is owned by the normative optimization/spec maturity docs rather
+than by reopening this stage checklist. See:
+- [`specs/07-specialization.md`](../../specs/07-specialization.md) for the optimization and specialization contract, and
+- [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md) for maturity boundaries.
 
-## Tasks
+## Historical Stage Tasks
 
 ### 1. Generic / function specialisation (monomorphisation)
 
@@ -203,21 +200,9 @@ Lift the **annotation-required inference boundary** for well-typed public APIs:
   recompile (cache hit).
 - All Phase-1 and Phase-2 tests continue to pass.
 
-## Out of Scope
+## Follow-up Tracking
 
-- LTO across Kali + user-provided native libraries (later compatibility).
-- Profile-guided optimisation (later compatibility).
-- `eval` / dynamic code generation (Phase 4 target).
-
-## Definition of Done
-
-- [x] `kali build --release` produces measurably faster or smaller WASM than `--fast` on the
-  CI benchmark suite.
-- [x] `kali build --release-advanced` produces a further improvement over `--release`.
-- [x] Monomorphisation tests confirm no `TagCheck` / `Untag` instructions in specialised
-  hot paths.
-- [x] `compilerOptions.maxSpecializations` enforced; code-size explosion test passes, with the
-  specialization budget scoped per function so separate hot paths keep independent caps.
-- [x] Incremental compilation: a second build of an unchanged module is a cache hit (no
-  recompile).
-- [x] All Phase-1 and Phase-2 tests continue to pass without regression.
+This stage's remaining forward-looking work is already tracked normatively in:
+- [`specs/07-specialization.md`](../../specs/07-specialization.md) for later optimization families such as LTO/profile-guided work,
+- [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md) for what is publicly available, and
+- benchmark/regression evidence in the test suite rather than a reopened stage checklist.

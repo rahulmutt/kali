@@ -206,11 +206,10 @@ and predictable.
 - Incremental formatting (format only changed files) — Phase 3 target.
 - `kali publish` or package publishing workflow (not in spec).
 
-## Definition of Done
+## Status
 
-- [x] `kali init` and `kali init --lib` produce valid scaffolds.
-- [x] `kali fmt` and `kali fmt --check` are idempotent and correct.
-- [x] `kali lint` and `kali lint --fix` report and fix the Phase-1 built-in rules.
-- [x] Project discovery finds the correct file set for all discovery-driven commands.
-- [x] All integration tests pass.
-- [x] No Stage 1.1–1.11 regressions.
+This stage is complete.
+
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).

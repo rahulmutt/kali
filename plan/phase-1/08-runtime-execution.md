@@ -184,11 +184,10 @@ compilation pipeline starts.
 - `eval` / `Function()` execution (Phase 4 compatibility).
 - Threaded runtime profile (later compatibility).
 
-## Definition of Done
+## Status
 
-- [x] `kali run fixtures/hello.ts` executes and exits 0.
-- [x] `kali test fixtures/tests/` passes with correct counts.
-- [x] All `E4xxx` error cases covered by integration tests.
-- [x] wasmtime is the engine; no C/C++ implementation dependencies introduced.
-- [x] `cargo test` integration tests pass.
-- [x] No Stage 1.1–1.7 regressions.
+This stage is complete.
+
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).

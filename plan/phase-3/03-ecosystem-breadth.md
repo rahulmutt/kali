@@ -416,35 +416,15 @@ While `kali package-audit` remains **Later compatibility**, use this stage to:
 - Cross-module inference tests: public API types inferred without annotation in Phase-3 cases.
 - All Phase-1 and Phase-2 tests continue to pass.
 
-## Remaining Work
+## Status
 
-Stage 3.3 is complete. The remaining work in this area is breadth/depth follow-up rather than
-unfinished Stage-3.3 implementation:
+Stage 3.3 is complete.
 
-- keep widening the representative package corpus without overclaiming support rungs,
-- deepen browser/runtime interoperability beyond the current bundle/chunk/source-map/tree-shaking
-  slice and the current in-memory Blob/File/FileReader/storage baseline plus the stub
-  WebSocket/Worker/IndexedDB surface,
-- widen cross-module inference carefully within the published solver/specialization budgets beyond
-  the current higher-order helper chain that already returns a function value across the
-  `factory` → `helper` → `bridge` → `public` → `main` re-export path,
-- keep widening the default-standalone scoped utility package corpus where representative package
-  shapes are still missing,
-- keep widening the default-standalone plain-package corpus where representative pure-JS package
-  shapes are still missing.
+Forward-looking package/browser/inference widening is already tracked in the owning spec chapters
+instead of this completed stage document:
+- [`specs/11-standard-apis.md`](../../specs/11-standard-apis.md) for browser and host-surface breadth,
+- [`specs/14-packages.md`](../../specs/14-packages.md) for package-compatibility rules and support-rung discipline, and
+- [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md) for exact availability boundaries.
 
-## Historical Out of Scope for Stage 3.3
-
-- Full Web API compatibility.
-- `eval` / `Function()` (delivered later in Phase 4 under explicit compatibility gating).
-- `kali package-audit` public availability (delivered later in Stage 4.1).
-- Threading / `Worker` full support.
-
-## Definition of Done
-
-- [x] Package corpus expanded; all newly added packages pass at their documented support rung.
-- [x] Code-splitting tests produce multiple bundle chunks from dynamic `import()` boundaries.
-- [x] Tree-shaking tests confirm unused exports are absent from emitted bundles.
-- [x] Cross-module inference tests pass within the Phase-3 solver budget.
-- [x] `kali package-audit` reached the Stage-3.3 preview milestone that later allowed Stage 4.1 to open public availability.
-- [x] All Phase-1 and Phase-2 tests continue to pass without regression.
+This file remains the historical implementation playbook for the Phase-3 ecosystem-breadth
+milestone rather than an open-ended corpus wishlist.

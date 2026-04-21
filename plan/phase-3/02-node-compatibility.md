@@ -111,13 +111,10 @@ packages:
   package contract).
 - Executable `eval` / `Function()` (Phase 4 target).
 
-## Definition of Done
+## Status
 
-- [x] `kali run --api node <file>` executes programs using `fs/promises`, `path`, `crypto`,
-  and `http` built-ins correctly.
-- [x] `kali test --api node <dir>` runs a test suite that uses Node APIs.
-- [x] npm package corpus expanded to include at least one Node-assuming package (e.g.
-  `axios`, `express` basic); all newly added packages pass at their documented rung.
-- [x] Negative test: `kali build --bundle --api node` still returns `E5008`.
-- [x] Phase-1 and Phase-2 gating tests for `--api node` updated to positive coverage.
-- [x] All Phase-1 and Phase-2 tests continue to pass without regression.
+This stage is complete.
+
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).

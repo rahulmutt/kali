@@ -177,16 +177,10 @@ under 10 seconds on the CI reference hardware. Regressions beyond 20% flag a CI 
 - Package corpus expansion to Phase-3 packages (Phase 3 target).
 - Node compatibility tests (Phase 3 target).
 
-## Definition of Done
+## Status
 
-- [x] test262 conformance subset runs in CI with an explicit pass rate and exclusion list.
-- [x] TypeScript checker baselines committed and passing.
-- [x] Package corpus (installable + checkable + runnable) passes for the selected pure-JS/TS set.
-- [x] Native-addon packages rejected correctly in corpus tests.
-- [x] Browser bundle smoke tests pass in a headless harness.
-- [x] Determinism checks pass on Linux and macOS.
-- [x] All Phase-2+ gating tests are present and pass (assert unavailability).
-- [x] `proofs/BOUNDARY.md` is accurate; proof-CI trigger configured.
-- [x] README quotes the canonical proof-ready summary verbatim.
-- [x] CI matrix is complete and all jobs pass.
-- [x] No Stage 1.1–1.13 regressions.
+This stage is complete.
+
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).

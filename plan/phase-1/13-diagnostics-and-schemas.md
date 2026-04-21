@@ -254,11 +254,10 @@ These are shared presentation/control flags available on all commands.
 - `kali effects` / `kali package-effects` JSON schemas (Phase 2 target; reserved shapes only here).
 - `kali package-audit` JSON schema (Later compatibility; reserved shape only here).
 
-## Definition of Done
+## Status
 
-- [x] All shipped commands emit valid schema-v1 JSON envelopes under `--output json`.
-- [x] All `E1xxx`–`E9xxx` error codes have stable messages and are covered by golden tests.
-- [x] JSON Schema documents committed under `schemas/`.
-- [x] Golden/snapshot tests pass and are committed.
-- [x] Exit-code contract tested for all cases.
-- [x] No Stage 1.1–1.12 regressions.
+This stage is complete.
+
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).

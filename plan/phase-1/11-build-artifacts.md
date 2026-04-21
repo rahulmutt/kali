@@ -194,12 +194,10 @@ Ensure the metadata is deterministic: given the same source + flags + package lo
 - `--api node` build path (Phase 3 target).
 - Incremental builds (Phase 3 target).
 
-## Definition of Done
+## Status
 
-- [x] `kali build`, `kali build --bundle`, and `kali build --lib` produce valid artifacts.
-- [x] All three accept `--sandbox <policy>` for static policy validation.
-- [x] Artifact metadata JSON is deterministic and schema-v1 compliant.
-- [x] `E5xxx` command-shape contradictions are rejected with the correct error code.
-- [x] Browser bundle smoke test passes in a headless browser harness.
-- [x] Repeated builds of identical inputs are byte-identical.
-- [x] No Stage 1.1–1.10 regressions.
+This stage is complete.
+
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).

@@ -38,18 +38,10 @@ Stage 1.1 is long closed and the repository has moved far beyond the original bo
 - ✅ `kali --version` is wired through the CLI binary target
 - ✅ `proofs/BOUNDARY.md` exists and remains the canonical verification-claim boundary
 
-## Remaining Follow-up
+## Status
 
-This stage has no unfinished implementation work of its own. The remaining work is maintenance:
+This stage is complete.
 
-- keep workspace/docs/CI wiring aligned with the actual crate tree,
-- keep proof-boundary status docs synchronized with `proofs/BOUNDARY.md`, and
-- keep new top-level developer workflows routed through canonical `mise` tasks.
-
-## Definition of Done
-
-- [x] Cargo workspace and crate layout are checked in
-- [x] CLI binary target exists
-- [x] Developer workflow bootstrap files exist (`mise`, `devenv`, CI)
-- [x] `proofs/BOUNDARY.md` exists and anchors verification-claim discipline
-- [x] Later stages can build on this scaffold without reorganizing the repository root
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).

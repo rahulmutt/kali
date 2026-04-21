@@ -204,33 +204,15 @@ non-empty proof-backed boundary in `proofs/BOUNDARY.md`.
   permitted in this stage as a placeholder strategy marker, but any `sorry` must be documented
   and tracked as a Stage 4.2 obligation; a CI warning (not block) is emitted for each `sorry`.
 
-## Current Remaining Work
+## Status
 
-Stage 2.4 itself is complete. The remaining verification work is later-phase widening work:
+Stage 2.4 is complete.
 
-- broaden proof coverage beyond the current published proof-backed boundary,
-- deepen the ownership / RC model beyond the current snapshot helper slice,
-- deepen lowering correctness beyond the current modeled HIR subset, and
-- keep all proof-summary/status documents synchronized with `proofs/BOUNDARY.md`.
+The current repository has advanced beyond this stage's original provisional-boundary milestone.
+For current verification scope and widening work, read:
+- [`proofs/BOUNDARY.md`](../../proofs/BOUNDARY.md) for the published proof boundary,
+- [`specs/17-verification.md`](../../specs/17-verification.md) for verification-program rules, and
+- [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md) for the maturity/claim boundary.
 
-## Historical Out of Scope for Stage 2.4
-
-- Full proof-backed release claims (delivered later in Stage 4.2).
-- Lowering-correctness proofs for HIR → LIR / MIR → LIR (later Stage 4.2 depth).
-- Proof coverage of `eval` / dynamic compatibility features.
-- Automated proof generation or LLM-assisted proof search.
-- Proof coverage of Node or browser API semantics.
-
-## Definition of Done
-
-- [x] `proofs/lakefile.lean` exists and declares all `.lean` targets.
-- [x] `KaliCore/Types.lean` defines the core type calculus including `Ty` and `Expr`.
-- [x] `KaliCore/Semantics.lean` defines the small-step evaluation relation and value predicate.
-- [x] `KaliCore/Soundness.lean` contains proved (or documented-sorry) progress and preservation
-  theorems for the bounded core calculus.
-- [x] `KaliCore/Safety.lean` contains the ownership-class model (after Stage 2.1) and the
-  no-dangling-reference property statement.
-- [x] CI `proof-check` job runs `lake build` and blocks on failure.
-- [x] Completeness guard and boundary consistency CI tests pass.
-- [x] `proofs/BOUNDARY.md` updated with the Stage-2.4 provisional scope description (later widened by Stage 4.2).
-- [x] All Phase-1 and Phase-2 (1–3) tests continue to pass.
+This plan file remains the historical implementation playbook for the Lean workspace bootstrap,
+core calculus model, initial soundness proofs, and proof-CI integration.

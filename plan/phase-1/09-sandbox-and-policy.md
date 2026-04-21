@@ -174,12 +174,10 @@ it.
 - Programmable / executable project policy code (explicit non-goal).
 - `--api node` sandbox context (Phase 3 target).
 
-## Definition of Done
+## Status
 
-- [x] Policy files parse and validate against schema v1.
-- [x] `kali run --sandbox` enforces policy at runtime; violations produce `E4001`.
-- [x] `kali check --sandbox` validates policy schema; exits 0 on valid, 1 on invalid.
-- [x] `kali build --sandbox` embeds policy in artifact as `kali:policy` custom section.
-- [x] All `E9xxx` error cases covered by unit tests.
-- [x] Runtime enforcement integration tests pass.
-- [x] No Stage 1.1–1.8 regressions.
+This stage is complete.
+
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).

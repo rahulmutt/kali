@@ -139,15 +139,10 @@ Publish `kali_embed` as a public crate on crates.io with a stable semver version
 - Cross-language component composition beyond the WIT sidecar (later compatibility).
 - Node.js compatibility (Phase 3 target).
 
-## Definition of Done
+## Status
 
-- [x] `kali build --lib <file>` emits a WIT sidecar alongside the WASM artifact; WIT content
-  matches a committed golden snapshot.
-- [x] `kali build --capi <file>` emits WASM + C header; the generated header compiles with the
-  system C compiler used in CI smoke coverage.
-- [x] `kali build --component <file>` emits a valid Component Model WASM artifact; the emitted
-  bytes validate with the component-model validator used in CI smoke coverage.
-- [x] `kali_embed` exposes the stable public embedding API in-tree; the Rust embedding API
-  integration test passes.
-- [x] Phase-1 gating tests for `--capi` and `--component` updated to positive coverage.
-- [x] All Phase-1 tests continue to pass without regression.
+This stage is complete.
+
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).

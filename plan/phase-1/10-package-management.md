@@ -234,12 +234,10 @@ Materialised packages live under `.kali-cache/` (gitignore'd):
 - Automatic dependency repair outside `kali install` (explicit non-goal).
 - Broad `--api node` package support (Phase 3 target).
 
-## Definition of Done
+## Status
 
-- [x] `kali install` resolves, locks, and materialises npm/JSR/raw-URL deps deterministically.
-- [x] Bare specifiers resolve in `kali check` / `kali build` / `kali run` after install.
-- [x] Native-addon packages rejected with `E6004`.
-- [x] Non-install commands emit `E6007` if lock file is stale.
-- [x] All `E6xxx` error cases covered by tests.
-- [x] `cargo test -p kali_npm` and integration tests pass.
-- [x] No Stage 1.1–1.9 regressions.
+This stage is complete.
+
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).

@@ -2,56 +2,16 @@
 
 ## Current State
 
-**Completed (14/14 stages, still closed):**
-- [x] 1.1 - Workspace scaffold
-- [x] 1.2 - Lexer
-- [x] 1.3 - Parser
-- [x] 1.4 - Name resolution
-- [x] 1.5 - Type checker foundation
-- [x] 1.6 - HIR/LIR lowering
-- [x] 1.7 - WASM codegen
-- [x] 1.8 - Runtime execution
-- [x] 1.9 - Sandbox & policy
-- [x] 1.10 - Package management
-- [x] 1.11 - Build artifacts
-- [x] 1.12 - Developer workflow
-- [x] 1.13 - Diagnostics & schemas
-- [x] 1.14 - Evidence hardening
+Phase 1 is complete and remains closed.
 
-**Current repo position:**
-- Phase 1 remains complete.
-- Later repo work has also completed the Phase 2, Phase 3, and Phase 4 stage documents.
-- Phase-1 plan maintenance is now about keeping the historical stage docs honest about the current
-  repository state, not reopening unfinished Phase-1 implementation work.
-
-## Verification Notes
-
-- The historical “next step is Phase 2” wording is no longer accurate for this repository state.
-- Phase-1 evidence remains the baseline that later phases build on, but some Phase-1 docs need to
-  explicitly acknowledge later-phase completion where that changes the current availability story
-  (for example verification and `package-audit`).
-- The repository should only claim green evidence when the tracked status docs that CI expects are
-  actually present and synchronized.
-
-## Remaining Work
-
-There is no remaining **Phase-1 feature implementation** work. The remaining work connected to the
-Phase-1 plan is follow-up maintenance and broader post-Phase-1 depth:
-
-1. **Plan/status/documentation anti-drift**
-   - Keep the stage docs, proof-status summaries, and CI expectations synchronized.
-   - Keep evidence statements honest: only claim `cargo test --workspace` is green when the tracked
-     documentation/status surfaces required by tests are present.
-
-2. **Post-Phase-1 breadth/depth follow-up lanes**
-   - Continue widening specialization depth beyond the current stable MIR-aware clone path, including the remaining literal-signature distinctions that keep `true` / `false` and similar constants from collapsing together; current progress now also distinguishes `Infinity`, `-Infinity`, and `NaN` call-site arguments, plus RegExp-literal arguments, in the specialization path, and the new re-export-chain regression keeps the same generic helper clone reused once when the call flow runs through a longer `public` / `bridge` / helper chain in release mode, with `release-advanced` now keeping that same chain deterministic by folding the first public branch to a literal while still specializing the later public wrapper once.
-   - Continue widening the representative package corpus without overclaiming support rungs; current progress now also carries `superjson`, `@jridgewell/sourcemap-codec`, and `@emotion/react` through the default standalone surface, and `chart.js` through the browser-facing surfaces, alongside the existing browser/utility breadth, and now also carries `reselect` as another representative state-management package name, and now also carries `xstate` through the browser and utility exports-map and pattern-exports slices so the shape-based corpus stays concrete, and now also carries `ajv` through the browser web-baseline interop slice and the default standalone surface so one more validation package name stays concrete without changing the documented support-rungs, and now also carries `dayjs` through the browser exports-map and browser-condition slices so one more date-time package name stays concrete without changing the documented support-rungs, and now also carries `tailwindcss` through the utility plain-package/default standalone surface as another representative build-tool package name, and now also carries `@stripe/react-stripe-js` through the browser web-baseline interop slice and the scoped browser exports-map/browser-condition slices so one more representative browser payment/UI package name stays concrete without changing the documented support-rungs, and now also carries `@babel/runtime` and `@npmcli/package-json` through the scoped utility package slice on the default standalone surface so one more representative scoped utility package shape stays concrete without changing the documented support-rungs, and now also carries `deepmerge` through the utility plain-package slice on the default standalone surface so one more common pure-JS package stays concrete without changing the documented support-rungs, and now also carries `camelcase` through the utility plain-package slice on the default standalone surface so one more common pure-JS package stays concrete without changing the documented support-rungs, and now also carries `@vueuse/core` through the scoped browser exports-map and browser-condition slices so one more representative scoped browser utility package shape stays concrete without changing the documented support-rungs, and now also carries `@tanstack/query-core` through the browser web-baseline interop and utility plain-package slices so one more representative scoped query package name stays concrete without changing the documented support-rungs, and now also carries `@tanstack/react-virtual` through the browser web-baseline interop corpus as another representative scoped browser virtualization package name, and the browser web-baseline interop corpus now also exercises `@babel/runtime` as another representative scoped utility package name without changing the support-rung story, and the utility web-baseline interop corpus now also exercises `@storybook/react` on the default standalone surface too without changing the support-rung story, and the shared browser/runtime support library now also exposes a deterministic `Crypto` facade for the browser `crypto.getRandomValues()` / `crypto.randomUUID()` randomness subset so the standalone surface keeps that ambient Web Crypto slice concrete too.
-   - Continue widening the proof-backed boundary beyond the current published RC snapshot +
-     lowering slice.
+This repository has also advanced through the later plan stages, so Phase-1 follow-up work is now
+tracked by the owning normative specs rather than by a Phase-1 todo list. Use:
+- [`specs/16-testing.md`](../../specs/16-testing.md) for evidence obligations,
+- [`specs/17-verification.md`](../../specs/17-verification.md) and [`proofs/BOUNDARY.md`](../../proofs/BOUNDARY.md) for verification status,
+- [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md) for current public availability, and
+- the later phase plan files for the historical implementation sequence.
 
 ## Evidence
 
-- ✅ `cargo build` succeeds
-- ✅ The workspace contains the shipped Phase-1 command surface and its later-phase extensions
-- ✅ Phase-1 runtime/package/build/developer-workflow smoke coverage remains in-tree
-- ✅ Phase-1 is closed as an implementation phase; remaining work is maintenance and later-phase breadth/depth
+- Phase 1 remains the shipped baseline for CLI, runtime, package, build, and developer-workflow behavior.
+- Any additional breadth/depth work should update the owning specs and evidence tracks directly rather than reopening completed Phase-1 checklist items.

@@ -147,11 +147,10 @@ Add a CI step that:
 - Optimisation passes beyond the stub no-op (Phase 3 depth).
 - MIR-backed layout-aware codegen (Phase 2 target).
 
-## Definition of Done
+## Status
 
-- [x] `kali build <file>` produces a `.wasm` file for representative fixtures.
-- [x] Every emitted binary passes `wasmparser::validate()`.
-- [x] Instruction mapping tests pass.
-- [x] CI binary validation step passes on the fixture suite.
-- [x] `cargo test -p kali_codegen` passes.
-- [x] No Stage 1.1–1.6 regressions.
+This stage is complete.
+
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).

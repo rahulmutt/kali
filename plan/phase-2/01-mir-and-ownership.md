@@ -108,13 +108,10 @@ Update the `MIR → LIR` lowering (replacing the old `HIR → LIR` path):
 - Effect inference changes (Stage 2.2).
 - Public embedding surface changes (Stage 2.3).
 
-## Definition of Done
+## Status
 
-- [x] `kali_mir` crate compiles and all crate unit tests pass.
-- [x] Escape analysis correctly classifies locals; LIR diff tests confirm stack-allocated values
-  no longer emit `Alloc` / `RcIncref` / `RcDecref`.
-- [x] Full `TypedAST → HIR → MIR → LIR → WASM` pipeline produces runnable output for all
-  Phase-1 fixtures.
-- [x] Benchmark shows measurable reduction in WASM module size or instruction count over the
-  Phase-1 direct-lowering baseline.
-- [x] All Phase-1 integration tests continue to pass without regression.
+This stage is complete.
+
+Treat this file as the historical implementation playbook for the milestone it delivered. For
+current availability, constraints, and any later widening work, use the owning spec references at
+the top of this file together with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).
