@@ -851,6 +851,7 @@ pub fn build_source_file(
     mode: BuildMode,
     api_surface: ApiSurface,
     compat_eval: bool,
+    runtime_profiles: &[String],
     out_dir: Option<&Path>,
     sandbox_policy: Option<&SandboxPolicy>,
 ) -> Result<BuildOutput, Vec<Diagnostic>> {
@@ -861,6 +862,7 @@ pub fn build_source_file(
         "executable",
         mode,
         &api_surface.to_string(),
+        runtime_profiles,
         None,
     )?;
     append_metadata_section(&mut wasm_bytes, &metadata)?;
@@ -1054,6 +1056,7 @@ pub fn build_artifact_metadata(
     artifact_kind: &str,
     mode: BuildMode,
     api_surface: &str,
+    runtime_profiles: &[String],
     exports: Option<Vec<LibraryExport>>,
 ) -> Result<ArtifactMetadata, Vec<Diagnostic>> {
     let source_hash = source_hash_for_file(source_path).map_err(|error| {
@@ -1073,7 +1076,7 @@ pub fn build_artifact_metadata(
         entrypoint: source_path.to_string_lossy().to_string(),
         build_mode: build_mode_name(mode).to_string(),
         api_surface: api_surface.to_string(),
-        runtime_profiles: Vec::new(),
+        runtime_profiles: runtime_profiles.to_vec(),
         kali_version: env!("CARGO_PKG_VERSION").to_string(),
         source_hash,
         exports,

@@ -18,6 +18,7 @@ fn build_source_file_writes_valid_wasm_artifact() {
         BuildMode::Fast,
         ApiSurface::Deno,
         false,
+        &[],
         None,
         None,
     )
@@ -67,6 +68,26 @@ fn compile_source_file_uses_incremental_cache_on_repeat_builds() {
     assert!(second.cache_hit);
     assert_eq!(first.wasm_bytes, second.wasm_bytes);
     assert_eq!(first.cache_path, second.cache_path);
+}
+
+#[test]
+fn build_artifact_metadata_preserves_runtime_profiles() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "const main = 1;").expect("write source");
+
+    let runtime_profiles = vec!["wasm-threads".to_string()];
+    let metadata = build_artifact_metadata(
+        &source_path,
+        "executable",
+        BuildMode::Fast,
+        "deno",
+        &runtime_profiles,
+        None,
+    )
+    .expect("build metadata");
+
+    assert_eq!(metadata.runtime_profiles, runtime_profiles);
 }
 
 #[test]

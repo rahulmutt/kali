@@ -491,6 +491,7 @@ fn build_command(
             policy.as_ref(),
             effective_api,
             compat_eval,
+            &effective_runtime_profiles,
         ),
         BuildArtifactSelection::Library => build_library_artifact(
             &source,
@@ -500,6 +501,7 @@ fn build_command(
             policy.as_ref(),
             effective_api,
             compat_eval,
+            &effective_runtime_profiles,
         ),
         BuildArtifactSelection::Capi => build_capi_artifact(
             &source,
@@ -509,6 +511,7 @@ fn build_command(
             policy.as_ref(),
             effective_api,
             compat_eval,
+            &effective_runtime_profiles,
         ),
         BuildArtifactSelection::Component => build_component_artifact(
             &source,
@@ -518,6 +521,7 @@ fn build_command(
             policy.as_ref(),
             effective_api,
             compat_eval,
+            &effective_runtime_profiles,
         ),
         BuildArtifactSelection::BrowserBundle => build_browser_bundle_artifact(
             &source,
@@ -527,6 +531,7 @@ fn build_command(
             policy.as_ref(),
             effective_api,
             compat_eval,
+            &effective_runtime_profiles,
             bundle_format,
         ),
     };
@@ -1054,6 +1059,7 @@ fn build_executable_artifact(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    runtime_profiles: &[String],
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
     let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
@@ -1069,6 +1075,7 @@ fn build_executable_artifact(
         "executable",
         mode,
         &api_surface.to_string(),
+        runtime_profiles,
         None,
     )?;
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
@@ -1125,6 +1132,7 @@ fn build_library_artifact(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    runtime_profiles: &[String],
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
     let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
@@ -1142,6 +1150,7 @@ fn build_library_artifact(
         "lib",
         mode,
         &api_surface.to_string(),
+        runtime_profiles,
         Some(exports.clone()),
     )?;
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
@@ -1223,6 +1232,7 @@ fn build_capi_artifact(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    runtime_profiles: &[String],
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
     let mut wasm_bytes = build::compile_source_file_with_specialization_cap(
@@ -1240,6 +1250,7 @@ fn build_capi_artifact(
         "capi",
         mode,
         &api_surface.to_string(),
+        runtime_profiles,
         Some(exports.clone()),
     )?;
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
@@ -1357,6 +1368,7 @@ fn build_component_artifact(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    runtime_profiles: &[String],
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
     let wasm_bytes = build::compile_source_file_with_specialization_cap(
@@ -1374,6 +1386,7 @@ fn build_component_artifact(
         "component",
         mode,
         &api_surface.to_string(),
+        runtime_profiles,
         Some(exports),
     )?;
 
@@ -1465,6 +1478,7 @@ fn build_browser_bundle_artifact(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    runtime_profiles: &[String],
     format: BundleFormat,
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
@@ -1479,6 +1493,7 @@ fn build_browser_bundle_artifact(
         policy,
         api_surface,
         compat_eval,
+        runtime_profiles,
         format,
         true,
     )?;
@@ -1490,6 +1505,7 @@ fn build_browser_bundle_artifact(
         policy,
         api_surface,
         compat_eval,
+        runtime_profiles,
         format,
         true,
         &mut visited,
@@ -1516,6 +1532,7 @@ fn write_browser_bundle_files(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    runtime_profiles: &[String],
     format: BundleFormat,
     tree_shake_exports: bool,
 ) -> Result<BrowserBundleBuild, Vec<Diagnostic>> {
@@ -1534,6 +1551,7 @@ fn write_browser_bundle_files(
         "bundle",
         mode,
         &api_surface.to_string(),
+        runtime_profiles,
         Some(exports.clone()),
     )?;
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
@@ -1663,6 +1681,7 @@ fn collect_browser_bundle_chunk_artifacts(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    runtime_profiles: &[String],
     format: BundleFormat,
     _tree_shake_exports: bool,
     visited: &mut std::collections::BTreeSet<PathBuf>,
@@ -1691,6 +1710,7 @@ fn collect_browser_bundle_chunk_artifacts(
             policy,
             api_surface,
             compat_eval,
+            runtime_profiles,
             format,
             false,
         )?;
@@ -1719,6 +1739,7 @@ fn collect_browser_bundle_chunk_artifacts(
             policy,
             api_surface,
             compat_eval,
+            runtime_profiles,
             format,
             false,
             visited,

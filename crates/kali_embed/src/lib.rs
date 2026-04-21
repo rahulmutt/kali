@@ -70,6 +70,7 @@ impl KaliCompiler {
             "executable",
             self.config.build_mode,
             &self.config.api_surface.to_string(),
+            &self.config.runtime_profiles,
             None,
         )
         .map_err(CompileError::from)?;
@@ -98,6 +99,7 @@ impl KaliCompiler {
             "lib",
             self.config.build_mode,
             &self.config.api_surface.to_string(),
+            &self.config.runtime_profiles,
             Some(exports.clone()),
         )
         .map_err(CompileError::from)?;
@@ -149,6 +151,7 @@ impl KaliCompiler {
                 "lib",
                 self.config.build_mode,
                 &self.config.api_surface.to_string(),
+                &self.config.runtime_profiles,
                 Some(exports.clone()),
             )
             .map_err(CompileError::from)?;
