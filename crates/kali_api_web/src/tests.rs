@@ -492,6 +492,25 @@ fn worker_stub_records_shared_buffers_with_shared_backing() {
 }
 
 #[test]
+fn worker_stub_preserves_interleaved_post_order() {
+    let worker = Worker::new("https://example.com/worker.js").expect("worker url");
+    let buffer = SharedArrayBuffer::from_bytes([7, 8, 9]);
+
+    worker.post_message(Value::String("alpha".to_string()));
+    worker.post_shared_buffer(buffer.clone());
+    worker.post_message(Value::String("omega".to_string()));
+
+    assert_eq!(
+        worker.posted_items(),
+        vec![
+            PostedItem::Message(Value::String("alpha".to_string())),
+            PostedItem::SharedBuffer(buffer),
+            PostedItem::Message(Value::String("omega".to_string())),
+        ]
+    );
+}
+
+#[test]
 fn thread_runtime_topology_assigns_one_instance_per_worker() {
     let mut topology = ThreadRuntimeTopology::new();
     let first = topology
@@ -604,6 +623,25 @@ fn broadcast_channel_stub_records_shared_buffers_with_shared_backing() {
 
     buffer.add(2, 1);
     assert_eq!(channel.posted_shared_buffers()[0].snapshot(), vec![4, 5, 7]);
+}
+
+#[test]
+fn broadcast_channel_stub_preserves_interleaved_post_order() {
+    let channel = BroadcastChannel::new("browser-corpus");
+    let buffer = SharedArrayBuffer::from_bytes([4, 5, 6]);
+
+    channel.post_message(Value::String("alpha".to_string()));
+    channel.post_shared_buffer(buffer.clone());
+    channel.post_message(Value::String("omega".to_string()));
+
+    assert_eq!(
+        channel.posted_items(),
+        vec![
+            PostedItem::Message(Value::String("alpha".to_string())),
+            PostedItem::SharedBuffer(buffer),
+            PostedItem::Message(Value::String("omega".to_string())),
+        ]
+    );
 }
 
 #[test]

@@ -1365,12 +1365,65 @@ impl WebSocket {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+enum PostedItem {
+    Message(Value),
+    SharedBuffer(SharedArrayBuffer),
+}
+
+#[derive(Clone, Debug, Default)]
+struct DeterministicPostQueue {
+    items: Arc<Mutex<Vec<PostedItem>>>,
+}
+
+impl DeterministicPostQueue {
+    fn push_message(&self, message: Value) {
+        self.items
+            .lock()
+            .expect("post queue mutex poisoned")
+            .push(PostedItem::Message(message));
+    }
+
+    fn push_shared_buffer(&self, buffer: SharedArrayBuffer) {
+        self.items
+            .lock()
+            .expect("post queue mutex poisoned")
+            .push(PostedItem::SharedBuffer(buffer));
+    }
+
+    fn snapshot(&self) -> Vec<PostedItem> {
+        self.items
+            .lock()
+            .expect("post queue mutex poisoned")
+            .clone()
+    }
+
+    fn messages(&self) -> Vec<Value> {
+        self.snapshot()
+            .into_iter()
+            .filter_map(|item| match item {
+                PostedItem::Message(message) => Some(message),
+                PostedItem::SharedBuffer(_) => None,
+            })
+            .collect()
+    }
+
+    fn shared_buffers(&self) -> Vec<SharedArrayBuffer> {
+        self.snapshot()
+            .into_iter()
+            .filter_map(|item| match item {
+                PostedItem::Message(_) => None,
+                PostedItem::SharedBuffer(buffer) => Some(buffer),
+            })
+            .collect()
+    }
+}
+
 /// A deterministic worker stub used by the browser baseline.
 #[derive(Clone, Debug)]
 pub struct Worker {
     script_url: Url,
-    posted_messages: Arc<Mutex<Vec<Value>>>,
-    posted_shared_buffers: Arc<Mutex<Vec<SharedArrayBuffer>>>,
+    posted_items: DeterministicPostQueue,
     terminated: Arc<AtomicBool>,
 }
 
@@ -1379,8 +1432,7 @@ impl Worker {
     pub fn new(url: impl AsRef<str>) -> Result<Self, url::ParseError> {
         Ok(Self {
             script_url: Url::parse(url.as_ref())?,
-            posted_messages: Arc::new(Mutex::new(Vec::new())),
-            posted_shared_buffers: Arc::new(Mutex::new(Vec::new())),
+            posted_items: DeterministicPostQueue::default(),
             terminated: Arc::new(AtomicBool::new(false)),
         })
     }
@@ -1395,10 +1447,7 @@ impl Worker {
         if self.terminated.load(Ordering::SeqCst) {
             return;
         }
-        self.posted_messages
-            .lock()
-            .expect("worker mutex poisoned")
-            .push(message);
+        self.posted_items.push_message(message);
     }
 
     /// Record a shared buffer in the deterministic worker-message queue.
@@ -1406,26 +1455,21 @@ impl Worker {
         if self.terminated.load(Ordering::SeqCst) {
             return;
         }
-        self.posted_shared_buffers
-            .lock()
-            .expect("worker mutex poisoned")
-            .push(buffer);
+        self.posted_items.push_shared_buffer(buffer);
     }
 
     /// Return the buffered messages.
     pub fn posted_messages(&self) -> Vec<Value> {
-        self.posted_messages
-            .lock()
-            .expect("worker mutex poisoned")
-            .clone()
+        self.posted_items.messages()
     }
 
     /// Return the buffered shared buffers.
     pub fn posted_shared_buffers(&self) -> Vec<SharedArrayBuffer> {
-        self.posted_shared_buffers
-            .lock()
-            .expect("worker mutex poisoned")
-            .clone()
+        self.posted_items.shared_buffers()
+    }
+
+    fn posted_items(&self) -> Vec<PostedItem> {
+        self.posted_items.snapshot()
     }
 
     /// Transition the stub worker into the terminated state.
@@ -1579,8 +1623,7 @@ impl Atomics {
 #[derive(Clone, Debug)]
 pub struct BroadcastChannel {
     name: String,
-    posted_messages: Arc<Mutex<Vec<Value>>>,
-    posted_shared_buffers: Arc<Mutex<Vec<SharedArrayBuffer>>>,
+    posted_items: DeterministicPostQueue,
     closed: Arc<AtomicBool>,
 }
 
@@ -1589,8 +1632,7 @@ impl BroadcastChannel {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
-            posted_messages: Arc::new(Mutex::new(Vec::new())),
-            posted_shared_buffers: Arc::new(Mutex::new(Vec::new())),
+            posted_items: DeterministicPostQueue::default(),
             closed: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -1605,10 +1647,7 @@ impl BroadcastChannel {
         if self.closed.load(Ordering::SeqCst) {
             return;
         }
-        self.posted_messages
-            .lock()
-            .expect("broadcast channel mutex poisoned")
-            .push(message);
+        self.posted_items.push_message(message);
     }
 
     /// Record a shared buffer in the deterministic broadcast queue.
@@ -1616,26 +1655,22 @@ impl BroadcastChannel {
         if self.closed.load(Ordering::SeqCst) {
             return;
         }
-        self.posted_shared_buffers
-            .lock()
-            .expect("broadcast channel mutex poisoned")
-            .push(buffer);
+        self.posted_items.push_shared_buffer(buffer);
     }
 
     /// Return the buffered messages.
     pub fn posted_messages(&self) -> Vec<Value> {
-        self.posted_messages
-            .lock()
-            .expect("broadcast channel mutex poisoned")
-            .clone()
+        self.posted_items.messages()
     }
 
     /// Return the buffered shared buffers.
     pub fn posted_shared_buffers(&self) -> Vec<SharedArrayBuffer> {
-        self.posted_shared_buffers
-            .lock()
-            .expect("broadcast channel mutex poisoned")
-            .clone()
+        self.posted_items.shared_buffers()
+    }
+
+    #[cfg(test)]
+    fn posted_items(&self) -> Vec<PostedItem> {
+        self.posted_items.snapshot()
     }
 
     /// Transition the stub channel into the closed state.
@@ -1747,15 +1782,27 @@ impl ThreadRuntimeTopology {
         instance_id: usize,
         worker: &Worker,
     ) -> ThreadRuntimeInstanceSnapshot {
+        let posted_items = worker.posted_items();
+        let posted_messages = posted_items
+            .iter()
+            .filter_map(|item| match item {
+                PostedItem::Message(message) => Some(message.clone()),
+                PostedItem::SharedBuffer(_) => None,
+            })
+            .collect();
+        let posted_shared_buffers = posted_items
+            .into_iter()
+            .filter_map(|item| match item {
+                PostedItem::Message(_) => None,
+                PostedItem::SharedBuffer(buffer) => Some(buffer.snapshot()),
+            })
+            .collect();
+
         ThreadRuntimeInstanceSnapshot {
             instance_id,
             script_url: worker.script_url().as_str().to_string(),
-            posted_messages: worker.posted_messages(),
-            posted_shared_buffers: worker
-                .posted_shared_buffers()
-                .into_iter()
-                .map(|buffer| buffer.snapshot())
-                .collect(),
+            posted_messages,
+            posted_shared_buffers,
             was_terminated: worker.is_terminated(),
         }
     }
