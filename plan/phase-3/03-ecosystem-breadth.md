@@ -340,9 +340,12 @@ deepens all three Phase-3 breadth areas without introducing new hard invariant r
   `esbuild`, so the representative package corpus now spans a few more tooling-style package names
   across the stable shape tests without changing the support-rung story.
 - Phase-3 cross-module inference smoke coverage now exercises a multi-file import chain with
-  inferred public API types within the solver budget, and the latest smoke also keeps that chain
-  honest under an explicit `compilerOptions.maxSpecializations = 1` cap while flowing through an
-  object-returning helper so the public-type inference story stays concrete.
+  inferred public API types within the solver budget, and the latest smokes keep that chain
+  honest under an explicit `compilerOptions.maxSpecializations = 1` cap both when the flow runs
+  through an object-returning helper and when it runs through the higher-order
+  `factory` → `helper` → `bridge` → `public` → `main` chain where the public-facing function
+  returns another function, so the public-type inference story stays concrete even for the
+  current function-valued return slice.
 - Historical note: this stage originally introduced `kali package-audit` as a Phase-3 preview.
   The current repository has since advanced beyond that: Stage 4.1 made `kali package-audit`
   publicly available, so the preview-only note below is now a historical stage constraint rather
@@ -420,7 +423,7 @@ unfinished Stage-3.3 implementation:
 
 - keep widening the representative package corpus without overclaiming support rungs; the current corpus now also carries `superjson`, `chart.js`, `recharts`, `@jridgewell/sourcemap-codec`, and `@emotion/react` through the default standalone surface alongside the existing browser/utility breadth, and the utility plain-package corpus now also carries `tailwindcss` on the default standalone surface as another build-tool package name, and the utility plain-package corpus now also carries `camelcase` on the default standalone surface as another common pure-JS package name, and the shared web-baseline helper source now also exercises `performance.now()` and `queueMicrotask` so the browser/runtime timing and microtask baseline stays concrete,
 - deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice and the current in-memory Blob/File/FileReader/storage baseline plus the stub WebSocket/Worker/IndexedDB surface,
-- widen cross-module inference carefully within the published solver/specialization budgets, including higher-order helper chains that return function values across the re-export path.
+- widen cross-module inference carefully within the published solver/specialization budgets beyond the current higher-order helper chain that already returns a function value across the `factory` → `helper` → `bridge` → `public` → `main` re-export path.
 
 ## Historical Out of Scope for Stage 3.3
 
