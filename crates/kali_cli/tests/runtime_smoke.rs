@@ -754,6 +754,26 @@ fn test_rejects_positive_thread_budget_override() {
 }
 
 #[test]
+fn test_accepts_positive_spawned_process_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("test")
+        .arg("--max-spawned-processes")
+        .arg("1")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn test_rejects_wasm_threads_runtime_profile() {
     let output = Command::new(kali_bin())
         .arg("test")

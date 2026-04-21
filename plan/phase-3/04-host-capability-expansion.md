@@ -49,6 +49,9 @@ Kali's host/runtime contract, not the `--api node` package-compatibility lane.
 - The remaining resource-limit handoff now threads `--max-spawned-processes` through the runtime
   execution envelope and host-spawn enforcement so positive caps tighten the effective budget
   while zero remains the explicit deny/tightening value.
+- CLI smoke coverage now exercises the positive spawned-process budget on both `run` and `test`,
+  so the host-capability milestone has symmetrical acceptance evidence for the explicit Phase-3
+  budget path instead of only the rejection lanes.
 
 ## Tasks
 

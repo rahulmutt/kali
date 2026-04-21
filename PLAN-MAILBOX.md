@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-21 resolution note
+- added the CLI smoke regression `test_accepts_positive_spawned_process_budget_override` so the Phase-3 host-capability milestone now has symmetric acceptance evidence for `--max-spawned-processes` on both `run` and `test`
+- updated the Stage 3.4 progress note to record the new acceptance coverage alongside the existing resource-limit handoff
+
+2026-04-21 resolution note
 - updated the Stage 4.2 progress note and schema-doc anti-drift guard so the explicit linear-memory companion theorems `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIffAndLinearMemory` and `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCountAndLinearMemory` stay pinned in the plan/test synchronization path
 - kept the canonical proof-backed summary unchanged while tightening the theorem inventory regression to the target-cell split companions
 
