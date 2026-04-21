@@ -345,6 +345,20 @@ Phase 5 is complete when:
 - New runtime/backend/embedding breadth does not weaken the core invariants or machine contracts
 - The maturity matrix is updated feature-by-feature rather than with one blanket “Phase 5 support” claim
 
+## Current post-completion follow-up lanes
+
+The repo still tracks a few closed-stage follow-up lanes explicitly so the plan set and the proof-summary docs stay in sync:
+
+- **Stage 3.1 specialization depth follow-up** — see [`plan/phase-3/01-optimization-and-specialization.md`](./plan/phase-3/01-optimization-and-specialization.md) → `Remaining Work`
+- **Stage 3.3 ecosystem/package/browser breadth follow-up** — see [`plan/phase-3/03-ecosystem-breadth.md`](./plan/phase-3/03-ecosystem-breadth.md) → `Remaining Work`
+- **Stage 4.2 verification-depth follow-up** — see [`plan/phase-4/02-formal-verification-depth.md`](./plan/phase-4/02-formal-verification-depth.md) → `Remaining Work`
+
+Canonical proof-summary pin for those follow-up lanes:
+
+> **Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.**
+
+The proof-summary theorem inventory itself remains authored by [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) and mirrored in the summary docs/tests that pin the current published boundary.
+
 ---
 
 ## Cross-cutting rules

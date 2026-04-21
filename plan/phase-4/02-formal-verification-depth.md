@@ -45,5 +45,12 @@ and the normative verification docs, not by reopening this stage checklist. Read
 - [`specs/17-verification.md`](../../specs/17-verification.md) for verification-program rules, and
 - [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md) for claim and maturity boundaries.
 
+## Remaining Work
+
+This stage's closed follow-up lane stays intentionally narrow:
+- the canonical summary remains: **Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.**
+- any widening beyond the published theorem inventory must stay mirrored in [`proofs/BOUNDARY.md`](../../proofs/BOUNDARY.md) and the verification/spec summary docs
+- the plan here stays historical so the published boundary wording does not drift into a broader claim than the theorem inventory supports
+
 This file remains the historical implementation playbook for moving Kali from the Stage-2.4
 provisional Lean state to a proof-backed published boundary.

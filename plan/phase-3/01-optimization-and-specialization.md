@@ -46,6 +46,13 @@ than by reopening this stage checklist. See:
 - [`specs/07-specialization.md`](../../specs/07-specialization.md) for the optimization and specialization contract, and
 - [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md) for maturity boundaries.
 
+## Remaining Work
+
+This stage's closed follow-up lane stays intentionally narrow:
+- later optimization families such as LTO/profile-guided work remain tracked in [`specs/07-specialization.md`](../../specs/07-specialization.md)
+- maturity wording stays controlled by [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+- benchmark/regression evidence continues to live in the test suite rather than reopening the stage checklist
+
 ## Historical Stage Tasks
 
 ### 1. Generic / function specialisation (monomorphisation)

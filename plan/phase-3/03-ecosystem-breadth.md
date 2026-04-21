@@ -93,5 +93,12 @@ instead of this completed stage document:
 - [`specs/14-packages.md`](../../specs/14-packages.md) for package-compatibility rules and support-rung discipline, and
 - [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md) for exact availability boundaries.
 
+## Remaining Work
+
+This stage's closed follow-up lane stays intentionally narrow:
+- broader package/browser/inference widening remains owned by the spec chapters above
+- the exact support rung still comes from [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)
+- evidence for broader corpus or browser-host cases continues to live in the test suite instead of reopening the stage checklist
+
 This file remains the historical implementation playbook for the Phase-3 ecosystem-breadth
 milestone rather than an open-ended corpus wishlist.
