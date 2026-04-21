@@ -1130,6 +1130,7 @@ fn build_executable_artifact(
         mode,
         max_specializations,
         api_surface,
+        runtime_profiles,
         compat_eval,
         false,
     )?;
@@ -1203,6 +1204,7 @@ fn build_library_artifact(
         mode,
         max_specializations,
         api_surface,
+        runtime_profiles,
         compat_eval,
         false,
     )?;
@@ -1303,6 +1305,7 @@ fn build_capi_artifact(
         mode,
         max_specializations,
         api_surface,
+        runtime_profiles,
         compat_eval,
         false,
     )?;
@@ -1439,6 +1442,7 @@ fn build_component_artifact(
         mode,
         max_specializations,
         api_surface,
+        runtime_profiles,
         compat_eval,
         false,
     )?;
@@ -1604,6 +1608,7 @@ fn write_browser_bundle_files(
         mode,
         max_specializations,
         api_surface,
+        runtime_profiles,
         compat_eval,
         false,
     )?;
@@ -2248,6 +2253,7 @@ fn run_command(
         &source,
         build::BuildMode::Fast,
         effective_api,
+        &effective_runtime_profiles,
         compat_eval,
         false,
     ) {
@@ -2475,6 +2481,7 @@ fn test_command(
             &source,
             build::BuildMode::Fast,
             effective_api,
+            &effective_runtime_profiles,
             compat_eval,
             coverage,
         ) {

@@ -61,6 +61,7 @@ impl KaliCompiler {
             path,
             self.config.build_mode,
             self.config.api_surface,
+            &runtime_profiles,
             false,
             false,
         )
@@ -90,6 +91,7 @@ impl KaliCompiler {
             path,
             self.config.build_mode,
             self.config.api_surface,
+            &runtime_profiles,
             false,
             false,
         )
@@ -142,6 +144,7 @@ impl KaliCompiler {
                 &temp_path,
                 self.config.build_mode,
                 self.config.api_surface,
+                &runtime_profiles,
                 false,
                 false,
             )

@@ -42,6 +42,7 @@ fn compile_source_file_uses_incremental_cache_on_repeat_builds() {
         BuildMode::Release,
         16,
         ApiSurface::Deno,
+        &[],
         false,
         false,
     )
@@ -61,6 +62,7 @@ fn compile_source_file_uses_incremental_cache_on_repeat_builds() {
         BuildMode::Release,
         16,
         ApiSurface::Deno,
+        &[],
         false,
         false,
     )
@@ -68,6 +70,51 @@ fn compile_source_file_uses_incremental_cache_on_repeat_builds() {
     assert!(second.cache_hit);
     assert_eq!(first.wasm_bytes, second.wasm_bytes);
     assert_eq!(first.cache_path, second.cache_path);
+}
+
+#[test]
+fn incremental_cache_path_includes_runtime_profiles() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log(1);").expect("write source");
+
+    let base = incremental_cache_path(
+        &source_path,
+        BuildMode::Release,
+        16,
+        ApiSurface::Deno,
+        &[],
+        false,
+        false,
+    )
+    .expect("base cache path")
+    .expect("base cache path should exist");
+    let normalized = incremental_cache_path(
+        &source_path,
+        BuildMode::Release,
+        16,
+        ApiSurface::Deno,
+        &[" wasm-threads ".to_string(), "wasm-threads".to_string()],
+        false,
+        false,
+    )
+    .expect("normalized cache path")
+    .expect("normalized cache path should exist");
+    let canonical = incremental_cache_path(
+        &source_path,
+        BuildMode::Release,
+        16,
+        ApiSurface::Deno,
+        &["wasm-threads".to_string()],
+        false,
+        false,
+    )
+    .expect("canonical cache path")
+    .expect("canonical cache path should exist");
+
+    assert_ne!(base, normalized);
+    assert_eq!(normalized, canonical);
 }
 
 #[test]

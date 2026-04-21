@@ -113,6 +113,7 @@ pub fn compile_source_file_with_cache_state(
     mode: BuildMode,
     max_specializations: usize,
     api_surface: ApiSurface,
+    runtime_profiles: &[String],
     compat_eval: bool,
     coverage: bool,
 ) -> Result<CompileOutput, Vec<Diagnostic>> {
@@ -123,6 +124,7 @@ pub fn compile_source_file_with_cache_state(
         mode,
         max_specializations,
         api_surface,
+        runtime_profiles,
         compat_eval,
         coverage,
     )? {
@@ -187,6 +189,7 @@ pub fn compile_source_file(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
     api_surface: ApiSurface,
+    runtime_profiles: &[String],
     compat_eval: bool,
     coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
@@ -195,6 +198,7 @@ pub fn compile_source_file(
         mode,
         16,
         api_surface,
+        runtime_profiles,
         compat_eval,
         coverage,
     )
@@ -205,6 +209,7 @@ pub fn compile_source_file_with_specialization_cap(
     mode: BuildMode,
     max_specializations: usize,
     api_surface: ApiSurface,
+    runtime_profiles: &[String],
     compat_eval: bool,
     coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
@@ -213,6 +218,7 @@ pub fn compile_source_file_with_specialization_cap(
         mode,
         max_specializations,
         api_surface,
+        runtime_profiles,
         compat_eval,
         coverage,
     )
@@ -268,6 +274,7 @@ fn incremental_cache_path(
     mode: BuildMode,
     max_specializations: usize,
     api_surface: ApiSurface,
+    runtime_profiles: &[String],
     compat_eval: bool,
     coverage: bool,
 ) -> Result<Option<PathBuf>, Vec<Diagnostic>> {
@@ -284,12 +291,14 @@ fn incremental_cache_path(
     let Some(project_root) = project_root_for_source(source_path) else {
         return Ok(None);
     };
+    let normalized_runtime_profiles = normalize_runtime_profiles_for_cache(runtime_profiles);
     let cache_key = format!(
-        "{}-{}-{}-{}-{}-{}-{}",
+        "{}-{}-{}-{}-profiles:{}-{}-{}-{}",
         source_hash,
         build_mode_name(mode),
         api_surface,
         max_specializations,
+        normalized_runtime_profiles.join(","),
         compat_eval,
         coverage,
         env!("CARGO_PKG_VERSION")
@@ -300,6 +309,17 @@ fn incremental_cache_path(
             .join("incremental")
             .join(format!("{}.wasm", cache_key)),
     ))
+}
+
+fn normalize_runtime_profiles_for_cache(runtime_profiles: &[String]) -> Vec<String> {
+    let mut normalized = BTreeSet::new();
+    for profile in runtime_profiles {
+        let profile = profile.trim();
+        if !profile.is_empty() {
+            normalized.insert(profile.to_string());
+        }
+    }
+    normalized.into_iter().collect()
 }
 
 fn project_root_for_source(source_path: &Path) -> Option<PathBuf> {
@@ -856,7 +876,14 @@ pub fn build_source_file(
     sandbox_policy: Option<&SandboxPolicy>,
 ) -> Result<BuildOutput, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
-    let mut wasm_bytes = compile_source_file(source_path, mode, api_surface, compat_eval, false)?;
+    let mut wasm_bytes = compile_source_file(
+        source_path,
+        mode,
+        api_surface,
+        runtime_profiles,
+        compat_eval,
+        false,
+    )?;
     let metadata = build_artifact_metadata(
         source_path,
         "executable",
