@@ -16,6 +16,40 @@ pub enum OwnershipClass {
     Borrowed,
 }
 
+/// Canonical thread-boundary disposition for a value in the later threaded profile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ThreadBoundaryDisposition {
+    /// The value must remain local to one runtime instance / thread.
+    LocalOnly,
+    /// The value is shareable across thread boundaries via shared-heap ownership.
+    SharedOnly,
+}
+
+impl OwnershipClass {
+    /// Return the canonical thread-boundary disposition for this ownership class.
+    pub fn thread_boundary_disposition(self) -> ThreadBoundaryDisposition {
+        match self {
+            OwnershipClass::SharedHeap => ThreadBoundaryDisposition::SharedOnly,
+            OwnershipClass::Stack | OwnershipClass::OwnedHeap | OwnershipClass::Borrowed => {
+                ThreadBoundaryDisposition::LocalOnly
+            }
+        }
+    }
+
+    /// Whether this ownership class may cross thread boundaries in the later threaded profile.
+    pub fn is_thread_shareable(self) -> bool {
+        matches!(
+            self.thread_boundary_disposition(),
+            ThreadBoundaryDisposition::SharedOnly
+        )
+    }
+
+    /// Whether this ownership class must remain thread-local.
+    pub fn is_thread_local(self) -> bool {
+        !self.is_thread_shareable()
+    }
+}
+
 /// Canonical layout descriptor used by MIR analysis.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum LayoutDescriptor {
@@ -57,6 +91,23 @@ pub struct MirBinding {
     pub layout: LayoutDescriptor,
     pub escapes: bool,
     pub captured_by: Vec<String>,
+}
+
+impl MirBinding {
+    /// Return the canonical thread-boundary disposition for this binding.
+    pub fn thread_boundary_disposition(&self) -> ThreadBoundaryDisposition {
+        self.ownership.thread_boundary_disposition()
+    }
+
+    /// Whether this binding may cross thread boundaries in the later threaded profile.
+    pub fn is_thread_shareable(&self) -> bool {
+        self.ownership.is_thread_shareable()
+    }
+
+    /// Whether this binding must remain thread-local.
+    pub fn is_thread_local(&self) -> bool {
+        self.ownership.is_thread_local()
+    }
 }
 
 /// MIR function/module scope metadata.

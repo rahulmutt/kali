@@ -87,6 +87,12 @@ fn test_captured_bindings_become_shared_heap() {
             captures: vec!["answer".to_string()],
         }
     );
+    assert_eq!(
+        binding.thread_boundary_disposition(),
+        ThreadBoundaryDisposition::SharedOnly
+    );
+    assert!(binding.is_thread_shareable());
+    assert!(!binding.is_thread_local());
 }
 
 #[test]
@@ -140,6 +146,12 @@ fn test_inline_leaking_function_calls_still_escape_arguments() {
 
     assert_eq!(binding.ownership, OwnershipClass::OwnedHeap);
     assert!(binding.escapes);
+    assert_eq!(
+        binding.thread_boundary_disposition(),
+        ThreadBoundaryDisposition::LocalOnly
+    );
+    assert!(binding.is_thread_local());
+    assert!(!binding.is_thread_shareable());
 }
 
 #[test]
@@ -175,6 +187,30 @@ fn test_aliased_function_expressions_still_track_nested_closure_escapes() {
 
     assert_eq!(binding.ownership, OwnershipClass::OwnedHeap);
     assert!(binding.escapes);
+}
+
+#[test]
+fn test_ownership_classes_define_thread_boundary_rules() {
+    assert_eq!(
+        OwnershipClass::Stack.thread_boundary_disposition(),
+        ThreadBoundaryDisposition::LocalOnly
+    );
+    assert_eq!(
+        OwnershipClass::OwnedHeap.thread_boundary_disposition(),
+        ThreadBoundaryDisposition::LocalOnly
+    );
+    assert_eq!(
+        OwnershipClass::Borrowed.thread_boundary_disposition(),
+        ThreadBoundaryDisposition::LocalOnly
+    );
+    assert_eq!(
+        OwnershipClass::SharedHeap.thread_boundary_disposition(),
+        ThreadBoundaryDisposition::SharedOnly
+    );
+    assert!(!OwnershipClass::Stack.is_thread_shareable());
+    assert!(OwnershipClass::SharedHeap.is_thread_shareable());
+    assert!(OwnershipClass::Stack.is_thread_local());
+    assert!(!OwnershipClass::SharedHeap.is_thread_local());
 }
 
 #[test]

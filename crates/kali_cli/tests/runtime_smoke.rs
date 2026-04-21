@@ -4106,10 +4106,7 @@ fn check_with_sandbox_rejects_positive_thread_budget_policy() {
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("resources.maxThreads"),
-        "stderr: {stderr}"
-    );
+    assert!(stderr.contains("resources.maxThreads"), "stderr: {stderr}");
 }
 
 fn package_audit_metadata_body(
