@@ -397,6 +397,26 @@ impl Optimizer {
             return true;
         }
 
+        if property == "length" {
+            if let Some(length) = self.array_literal_length(program, object_id) {
+                let key = format!(
+                    "layout-array-length:{}:{}",
+                    property,
+                    node_signature(program, object_id)
+                );
+                if !tracker.allow(owner, key) {
+                    return false;
+                }
+
+                program.nodes[id.0 as usize] = LirNode {
+                    kind: LirNodeKind::Literal,
+                    text: Some(length.to_string()),
+                    children: Vec::new(),
+                };
+                return true;
+            }
+        }
+
         let Some(index) = self.constant_array_index(program, env, property) else {
             return false;
         };
@@ -458,6 +478,15 @@ impl Optimizer {
         node.children.get(index).copied()
     }
 
+    fn array_literal_length(&self, program: &LirProgram, id: LirNodeId) -> Option<usize> {
+        if !self.is_array_literal(program, id) {
+            return None;
+        }
+
+        let node = program.nodes.get(id.0 as usize)?;
+        Some(node.children.len())
+    }
+
     fn constant_array_index(
         &self,
         program: &LirProgram,
@@ -506,7 +535,7 @@ impl Optimizer {
         let Some(node) = program.nodes.get(id.0 as usize) else {
             return false;
         };
-        if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.is_empty() {
+        if node.kind != LirNodeKind::Value || node.text.is_some() {
             return false;
         }
 

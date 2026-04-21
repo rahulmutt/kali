@@ -6,8 +6,9 @@ use kali_error::{_error_codes::e8, Diagnostic};
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
 use serde::{Deserialize, Serialize};
 use wasm_encoder::{
-    BlockType, CodeSection, EntityType, ExportKind, ExportSection, Function, FunctionSection,
-    ImportSection, Instruction, MemorySection, MemoryType, Module, TypeSection, ValType,
+    BlockType, CodeSection, ConstExpr, DataSection, EntityType, ExportKind, ExportSection,
+    Function, FunctionSection, ImportSection, Instruction, MemorySection, MemoryType, Module,
+    TypeSection, ValType,
 };
 
 const TEST_REGISTER_IMPORT_INDEX: u32 = 0;
@@ -15,6 +16,7 @@ const CONSOLE_LOG_IMPORT_INDEX: u32 = 1;
 const CONSOLE_ERROR_IMPORT_INDEX: u32 = 2;
 const CONSOLE_WARN_IMPORT_INDEX: u32 = 3;
 const FUNCTION_INDEX_OFFSET: u32 = 4;
+const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
 /// WASM code generator context.
 pub struct CodegenCtx {
@@ -77,12 +79,43 @@ struct EmittedValue {
     shape: ValueShape,
 }
 
+struct StringPool {
+    entries: Vec<(u32, String)>,
+    offsets: BTreeMap<String, u32>,
+    next_offset: u32,
+}
+
+impl StringPool {
+    fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+            offsets: BTreeMap::new(),
+            next_offset: 0,
+        }
+    }
+
+    fn intern(&mut self, text: &str) -> (u32, u32) {
+        if let Some(&offset) = self.offsets.get(text) {
+            return (offset, text.len() as u32);
+        }
+
+        let offset = self.next_offset;
+        let len = text.len() as u32;
+        self.entries.push((offset, text.to_owned()));
+        self.offsets.insert(text.to_owned(), offset);
+        self.next_offset = self.next_offset.saturating_add(len);
+        (offset, len)
+    }
+}
+
 struct FunctionEmitter<'a> {
     program: &'a LirProgram,
     node_lookup: &'a [LirNode],
     functions: &'a BTreeMap<String, u32>,
     diagnostics: &'a mut Vec<Diagnostic>,
+    strings: &'a mut StringPool,
     locals: BTreeMap<String, u32>,
+    bindings: BTreeMap<String, LirNodeId>,
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -90,6 +123,7 @@ impl<'a> FunctionEmitter<'a> {
         program: &'a LirProgram,
         functions: &'a BTreeMap<String, u32>,
         diagnostics: &'a mut Vec<Diagnostic>,
+        strings: &'a mut StringPool,
         params: &[String],
     ) -> Self {
         let mut locals = BTreeMap::new();
@@ -102,7 +136,9 @@ impl<'a> FunctionEmitter<'a> {
             node_lookup: &program.nodes,
             functions,
             diagnostics,
+            strings,
             locals,
+            bindings: BTreeMap::new(),
         }
     }
 
@@ -165,6 +201,26 @@ impl<'a> FunctionEmitter<'a> {
                 self.emit_sequence(function, &node.children, want_value)
             }
             LirNodeKind::Instruction => {
+                if matches!(node.text.as_deref(), Some("const" | "let" | "var")) {
+                    for declarator_id in &node.children {
+                        let declarator = self.node(*declarator_id).clone();
+                        if declarator.children.len() < 2 {
+                            continue;
+                        }
+                        if let Some(name) = declarator.text.clone() {
+                            self.bindings.insert(name, declarator.children[1]);
+                        }
+                        let init = declarator.children[1];
+                        let init_result = self.emit_node(function, init, false);
+                        if init_result.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
+                    }
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
                 if is_function_like(&self.program.nodes, id) {
                     // Function declarations are emitted separately from the body scan.
                     return EmittedValue {
@@ -174,7 +230,7 @@ impl<'a> FunctionEmitter<'a> {
                 }
                 self.emit_sequence(function, &node.children, false)
             }
-            LirNodeKind::Literal => emit_literal(function, node.text.as_deref()),
+            LirNodeKind::Literal => emit_literal(function, node.text.as_deref(), self.strings),
             LirNodeKind::Value => self.emit_value(function, &node, want_value),
             LirNodeKind::Call => self.emit_call(function, &node),
             LirNodeKind::Branch => self.emit_branch(function, &node, want_value),
@@ -203,6 +259,10 @@ impl<'a> FunctionEmitter<'a> {
                             produced: true,
                             shape: ValueShape::Unknown,
                         };
+                    }
+
+                    if let Some(bound) = self.bindings.get(text).copied() {
+                        return self.emit_node(function, bound, want_value);
                     }
 
                     if let Some(constant) = parse_number_literal(text) {
@@ -267,13 +327,29 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Boolean,
                 }
             }
+            "length" => {
+                let produced = self.emit_node(function, arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+                function.instruction(&Instruction::I64Const(0));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                }
+            }
             _ => {
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,
                     format!("unsupported unary operator '{}'", op),
                 ));
+                let produced = self.emit_node(function, arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+                function.instruction(&Instruction::I64Const(0));
                 EmittedValue {
-                    produced: false,
+                    produced: true,
                     shape: ValueShape::Unknown,
                 }
             }
@@ -386,6 +462,17 @@ impl<'a> FunctionEmitter<'a> {
         let resolved = self.functions.get(callee_name).copied();
 
         if let Some(import_index) = self.console_import_index(&callee_node) {
+            if let Some(rendered) = self.render_console_call(node) {
+                let (offset, len) = self.strings.intern(&rendered);
+                let handle = encode_string_handle(offset, len);
+                function.instruction(&Instruction::I64Const(handle));
+                function.instruction(&Instruction::Call(import_index));
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+
             let mut args = node.children.iter().skip(1);
             if let Some(first_arg) = args.next() {
                 let _ = self.emit_node(function, *first_arg, true);
@@ -442,6 +529,85 @@ impl<'a> FunctionEmitter<'a> {
             "error" => Some(CONSOLE_ERROR_IMPORT_INDEX),
             "warn" => Some(CONSOLE_WARN_IMPORT_INDEX),
             _ => None,
+        }
+    }
+
+    fn render_console_call(&self, node: &LirNode) -> Option<String> {
+        let mut rendered = Vec::new();
+        for arg in node.children.iter().skip(1) {
+            rendered.push(self.render_static_value(*arg)?);
+        }
+        Some(rendered.join(" "))
+    }
+
+    fn render_static_value(&self, id: LirNodeId) -> Option<String> {
+        let node = self.node(id);
+        match node.kind {
+            LirNodeKind::Literal => match node.text.as_deref() {
+                Some("true") => Some("true".to_string()),
+                Some("false") => Some("false".to_string()),
+                Some("null") => Some("null".to_string()),
+                Some("undefined") => Some("undefined".to_string()),
+                Some(text) => {
+                    if parse_number_literal(text).is_some() {
+                        Some(text.to_string())
+                    } else {
+                        Some(strip_string_delimiters(text).to_string())
+                    }
+                }
+                None => Some("0".to_string()),
+            },
+            LirNodeKind::Value => {
+                if node.children.is_empty() {
+                    let text = node.text.as_deref()?;
+                    if let Some(bound) = self.bindings.get(text).copied() {
+                        return self.render_static_value(bound);
+                    }
+                    if let Some(index) = self.locals.get(text).copied() {
+                        return Some(index.to_string());
+                    }
+                    if let Some(number) = parse_number_literal(text) {
+                        return Some(number.to_string());
+                    }
+                    match text {
+                        "true" | "false" | "null" | "undefined" => Some(text.to_string()),
+                        _ => None,
+                    }
+                } else if node.text.as_deref().is_some_and(|text| text == "length") {
+                    self.render_length(&node.children[0])
+                } else if node.text.is_none() {
+                    if node.children.len() == 1 {
+                        self.render_static_value(node.children[0])
+                    } else {
+                        Some(node.children.len().to_string())
+                    }
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn render_length(&self, id: &LirNodeId) -> Option<String> {
+        let node = self.node(*id);
+        if node.text.is_none() {
+            return Some(node.children.len().to_string());
+        }
+
+        if node.children.is_empty() {
+            if let Some(text) = node.text.as_deref() {
+                if let Some(bound) = self.bindings.get(text).copied() {
+                    return self.render_length(&bound);
+                }
+                return Some("0".to_string());
+            }
+        }
+
+        if node.children.len() == 1 {
+            self.render_length(&node.children[0])
+        } else {
+            Some(node.children.len().to_string())
         }
     }
 
@@ -528,6 +694,7 @@ pub fn lower_lir_to_wasm(_ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResu
     let mut diagnostics = Vec::new();
     let function_plans = collect_functions(lir);
     let mut function_name_to_index = BTreeMap::new();
+    let mut string_pool = StringPool::new();
 
     // Keep the emitted order deterministic: imported registration hook first, synthetic entry
     // second, then named functions in source order.
@@ -610,6 +777,7 @@ pub fn lower_lir_to_wasm(_ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResu
             lir,
             &function_name_to_index,
             &mut diagnostics,
+            &mut string_pool,
             &function.params,
         );
         if function.is_entry {
@@ -621,6 +789,15 @@ pub fn lower_lir_to_wasm(_ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResu
         code_section.function(&body);
     }
 
+    let mut data_section = DataSection::new();
+    for (offset, text) in &string_pool.entries {
+        data_section.active(
+            0,
+            &ConstExpr::i32_const(*offset as i32),
+            text.as_bytes().iter().copied(),
+        );
+    }
+
     let mut module = Module::new();
     module.section(&type_section);
     module.section(&import_section);
@@ -628,6 +805,9 @@ pub fn lower_lir_to_wasm(_ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResu
     module.section(&memory_section);
     module.section(&export_section);
     module.section(&code_section);
+    if !data_section.is_empty() {
+        module.section(&data_section);
+    }
 
     let wasm_bytes = module.finish();
 
@@ -726,7 +906,11 @@ fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {
     children
 }
 
-fn emit_literal(function: &mut Function, text: Option<&str>) -> EmittedValue {
+fn emit_literal(
+    function: &mut Function,
+    text: Option<&str>,
+    strings: &mut StringPool,
+) -> EmittedValue {
     match text {
         Some("true") => {
             function.instruction(&Instruction::I64Const(1));
@@ -753,7 +937,9 @@ fn emit_literal(function: &mut Function, text: Option<&str>) -> EmittedValue {
             if let Some(number) = parse_number_literal(text) {
                 function.instruction(&Instruction::I64Const(number));
             } else {
-                function.instruction(&Instruction::I64Const(0));
+                let normalized = strip_string_delimiters(text);
+                let (offset, len) = strings.intern(normalized);
+                function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
             }
             EmittedValue {
                 produced: true,
@@ -767,6 +953,29 @@ fn emit_literal(function: &mut Function, text: Option<&str>) -> EmittedValue {
                 shape: ValueShape::Unknown,
             }
         }
+    }
+}
+
+fn encode_string_handle(offset: u32, len: u32) -> i64 {
+    (STRING_HANDLE_TAG | ((offset as u64) << 32) | u64::from(len)) as i64
+}
+
+fn strip_string_delimiters(text: &str) -> &str {
+    let trimmed = text.trim();
+    let Some(first) = trimmed.chars().next() else {
+        return trimmed;
+    };
+    let Some(last) = trimmed.chars().last() else {
+        return trimmed;
+    };
+
+    if (first == '"' && last == '"')
+        || (first == '\'' && last == '\'')
+        || (first == '`' && last == '`')
+    {
+        &trimmed[1..trimmed.len().saturating_sub(1)]
+    } else {
+        trimmed
     }
 }
 

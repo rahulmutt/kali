@@ -1,11 +1,10 @@
 # SPEC mailbox
 
-Triaged on 2026-04-21.
+2026-04-21 follow-up note
 
-All previously recorded SPEC mailbox items are now either:
-- incorporated into the owning spec chapters under `specs/`,
-- reflected in `proofs/BOUNDARY.md` and the related verification summaries,
-- covered by existing anti-drift guidance already present in `SPEC.md`, or
-- otherwise already mentioned elsewhere and no longer need a top-level SPEC follow-up entry.
+While hardening the semver/browser bundle path, the workspace test suite revealed that `specs/16-testing.md` is missing the canonical proof-backed summary string that is already present in `README.md` and `proofs/BOUNDARY.md`.
 
-Current outstanding SPEC-specific mailbox items: none.
+Proposed fix:
+- add the canonical short summary to the proof-claim discipline section in `specs/16-testing.md`
+- keep the wording identical to the repository summary already used elsewhere:
+  **"Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target."**

@@ -1681,7 +1681,22 @@ const dynamicImportTargets = new Map([
 
 const importObject = {{
   "kali:rt": {{
-    test_register() {{}}
+    test_register() {{}},
+    console_log(val) {{
+      if (typeof console !== 'undefined' && typeof console.log === 'function') {{
+        console.log(formatConsoleValue(val));
+      }}
+    }},
+    console_error(val) {{
+      if (typeof console !== 'undefined' && typeof console.error === 'function') {{
+        console.error(formatConsoleValue(val));
+      }}
+    }},
+    console_warn(val) {{
+      if (typeof console !== 'undefined' && typeof console.warn === 'function') {{
+        console.warn(formatConsoleValue(val));
+      }}
+    }}
   }}
 }};
 
@@ -1699,7 +1714,24 @@ async function instantiate() {{
   return await WebAssembly.instantiate(bytes, importObject);
 }}
 
-const instancePromise = instantiate();
+let wasmMemory = null;
+const instancePromise = instantiate().then((instance) => {{
+  wasmMemory = instance.instance.exports.memory;
+  return instance.instance;
+}});
+
+function formatConsoleValue(val) {{
+  if (typeof val === 'bigint') {{
+    if ((val & 0x8000000000000000n) !== 0n && wasmMemory !== null) {{
+      const offset = Number((val >> 32n) & 0x7fffffffn);
+      const length = Number(val & 0xffffffffn);
+      const bytes = new Uint8Array(wasmMemory.buffer, offset, length);
+      return new TextDecoder().decode(bytes);
+    }}
+    return val.toString();
+  }}
+  return String(val);
+}}
 
 function normalizeDynamicImportSpecifier(specifier) {{
   const normalized = String(specifier).trim().replace(/\\/g, '/');
@@ -1759,7 +1791,22 @@ const dynamicImportTargets = new Map([
 
 const importObject = {{
   "kali:rt": {{
-    test_register() {{}}
+    test_register() {{}},
+    console_log(val) {{
+      if (typeof console !== 'undefined' && typeof console.log === 'function') {{
+        console.log(formatConsoleValue(val));
+      }}
+    }},
+    console_error(val) {{
+      if (typeof console !== 'undefined' && typeof console.error === 'function') {{
+        console.error(formatConsoleValue(val));
+      }}
+    }},
+    console_warn(val) {{
+      if (typeof console !== 'undefined' && typeof console.warn === 'function') {{
+        console.warn(formatConsoleValue(val));
+      }}
+    }}
   }}
 }};
 
@@ -1777,7 +1824,24 @@ async function instantiate() {{
   return await WebAssembly.instantiate(bytes, importObject);
 }}
 
-const instancePromise = instantiate();
+let wasmMemory = null;
+const instancePromise = instantiate().then((instance) => {{
+  wasmMemory = instance.instance.exports.memory;
+  return instance.instance;
+}});
+
+function formatConsoleValue(val) {{
+  if (typeof val === 'bigint') {{
+    if ((val & 0x8000000000000000n) !== 0n && wasmMemory !== null) {{
+      const offset = Number((val >> 32n) & 0x7fffffffn);
+      const length = Number(val & 0xffffffffn);
+      const bytes = new Uint8Array(wasmMemory.buffer, offset, length);
+      return new TextDecoder().decode(bytes);
+    }}
+    return val.toString();
+  }}
+  return String(val);
+}}
 
 function normalizeDynamicImportSpecifier(specifier) {{
   const normalized = String(specifier).trim().replace(/\\/g, '/');
@@ -1834,11 +1898,11 @@ const exported = {{ load, loadDynamicImport }};
     for export in exports {
         match format {
             BundleFormat::Esm => content.push_str(&format!(
-                "export async function {}(...args) {{\n  const {{ instance }} = await instancePromise;\n  return instance.exports.{}(...args);\n}}\n\n",
+                "export async function {}(...args) {{\n  const instance = await instancePromise;\n  return instance.exports.{}(...args);\n}}\n\n",
                 export.name, export.name
             )),
             BundleFormat::Cjs => content.push_str(&format!(
-                "exported.{0} = async function {0}(...args) {{\n  const {{ instance }} = await instancePromise;\n  return instance.exports.{0}(...args);\n}};\n\n",
+                "exported.{0} = async function {0}(...args) {{\n  const instance = await instancePromise;\n  return instance.exports.{0}(...args);\n}};\n\n",
                 export.name
             )),
         }

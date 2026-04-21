@@ -22,6 +22,12 @@ built, run, and tested under Kali without pretending to full Node parity.
 
 **Status:** Complete for the Phase-3 subset.
 
+The current repo hardening pass also keeps the semver probe honest: the browser-bundle
+smoke harness now has explicit `kali:rt` console shims (`console_log`, `console_error`,
+`console_warn`) so emitted browser bundles instantiate cleanly under the Node-based harness,
+and the remaining semver node-compatibility gap is now isolated to guest string rendering rather
+than being conflated with the browser bundle path.
+
 ## Historical stage tasks
 
 ### 1. Node API layer (`kali_api_node`)

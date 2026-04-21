@@ -1,12 +1,12 @@
 #![allow(dead_code)]
 use kali_ast::{
-    ASTBuilder, BinaryExpression, BlockStatement, BreakStatement, CallExpression, CatchClause,
-    ClassDeclaration, ContinueStatement, DebuggerStatement, DoWhileStatement, Expression,
-    ExpressionStatement, ForInit, ForStatement, FunctionDeclaration, FunctionExpression,
-    FunctionParam, IfStatement, ImportDeclaration, ImportExpression, ImportName,
-    ImportNamedSpecifier, ImportSpecifier, MemberExpression, ParenthesizedExpression,
-    ReturnStatement, Statement, SwitchCase, SwitchStatement, ThrowStatement, TryStatement,
-    VariableDeclaration, VariableDeclarator, WhileStatement, AST,
+    ASTBuilder, ArrayExpression, BinaryExpression, BlockStatement, BreakStatement, CallExpression,
+    CatchClause, ClassDeclaration, ContinueStatement, DebuggerStatement, DoWhileStatement,
+    Expression, ExpressionOrSpread, ExpressionStatement, ForInit, ForStatement,
+    FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
+    ImportExpression, ImportName, ImportNamedSpecifier, ImportSpecifier, MemberExpression,
+    ParenthesizedExpression, ReturnStatement, Statement, SwitchCase, SwitchStatement,
+    ThrowStatement, TryStatement, VariableDeclaration, VariableDeclarator, WhileStatement, AST,
 };
 use kali_common::FileId;
 use kali_error::diagnostic::Diagnostic;
@@ -1017,6 +1017,26 @@ impl Parser {
                 Expression::ParenthesizedExpression(Box::new(ParenthesizedExpression {
                     expression: Box::new(expr),
                 }))
+            }
+            TokenType::LeftBracket => {
+                let _ = self.stream.advance();
+                let mut elements = Vec::new();
+                if !self.stream.accept(TokenType::RightBracket) {
+                    loop {
+                        let element = self.parse_expression();
+                        elements.push(Some(ExpressionOrSpread::Expression(element)));
+                        if self.stream.accept(TokenType::Comma) {
+                            if self.stream.current_kind() == Some(&TokenType::RightBracket) {
+                                let _ = self.stream.accept(TokenType::RightBracket);
+                                break;
+                            }
+                            continue;
+                        }
+                        let _ = self.stream.accept(TokenType::RightBracket);
+                        break;
+                    }
+                }
+                Expression::ArrayExpression(ArrayExpression { elements })
             }
             TokenType::Function => self.parse_function_expression(),
             TokenType::Import => {
