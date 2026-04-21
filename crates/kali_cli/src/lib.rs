@@ -1,6 +1,6 @@
 //! CLI interface for the Kali compiler.
 
-use clap::{Parser, ValueEnum};
+use clap::{ArgAction, Parser, ValueEnum};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use ignore::WalkBuilder;
 use serde_json::Value;
@@ -176,6 +176,9 @@ pub enum Commands {
         /// Enable documented compatibility features
         #[arg(long = "compat", value_delimiter = ',')]
         compat: Vec<String>,
+        /// Opt into the later threaded runtime profile
+        #[arg(long = "wasm-threads", action = ArgAction::SetTrue)]
+        wasm_threads: bool,
         /// Source files to check
         files: Vec<String>,
     },
@@ -205,6 +208,9 @@ pub enum Commands {
         /// Override the specialization fan-out cap for this build
         #[arg(long = "max-specializations")]
         max_specializations: Option<usize>,
+        /// Opt into the later threaded runtime profile
+        #[arg(long = "wasm-threads", action = ArgAction::SetTrue)]
+        wasm_threads: bool,
         /// Select the browser bundle artifact mode
         #[arg(long, conflicts_with_all = ["lib", "capi", "component"])]
         bundle: bool,
@@ -236,6 +242,9 @@ pub enum Commands {
         /// Enable documented compatibility features
         #[arg(long = "compat", value_delimiter = ',')]
         compat: Vec<String>,
+        /// Opt into the later threaded runtime profile
+        #[arg(long = "wasm-threads", action = ArgAction::SetTrue)]
+        wasm_threads: bool,
         /// Source files to run
         files: Vec<String>,
     },
@@ -251,6 +260,9 @@ pub enum Commands {
         /// Enable documented compatibility features
         #[arg(long = "compat", value_delimiter = ',')]
         compat: Vec<String>,
+        /// Opt into the later threaded runtime profile
+        #[arg(long = "wasm-threads", action = ArgAction::SetTrue)]
+        wasm_threads: bool,
         /// Only run tests matching this pattern
         #[arg(long)]
         filter: Option<String>,
@@ -303,6 +315,9 @@ pub enum Commands {
         /// Enable documented compatibility features
         #[arg(long = "compat", value_delimiter = ',')]
         compat: Vec<String>,
+        /// Opt into the later threaded runtime profile
+        #[arg(long = "wasm-threads", action = ArgAction::SetTrue)]
+        wasm_threads: bool,
         /// Source files to analyze
         files: Vec<String>,
     },

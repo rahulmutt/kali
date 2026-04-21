@@ -13,7 +13,7 @@ use kali_cli::{
     build::{self, BuildMode},
     ApiSurface,
 };
-use kali_error::{_error_codes::e8, Diagnostic};
+use kali_error::{_error_codes::e5, _error_codes::e8, Diagnostic};
 
 /// Compiler configuration for the embedding API.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,6 +22,8 @@ pub struct CompilerConfig {
     pub build_mode: BuildMode,
     /// Effective API surface used for analysis and artifact metadata.
     pub api_surface: ApiSurface,
+    /// Requested runtime profiles.
+    pub runtime_profiles: Vec<String>,
 }
 
 impl Default for CompilerConfig {
@@ -29,6 +31,7 @@ impl Default for CompilerConfig {
         Self {
             build_mode: BuildMode::Fast,
             api_surface: ApiSurface::Deno,
+            runtime_profiles: Vec::new(),
         }
     }
 }
@@ -53,6 +56,7 @@ impl KaliCompiler {
 
     /// Compile a source file into a standalone executable artifact.
     pub fn compile_file(&self, path: &Path) -> Result<CompiledArtifact, CompileError> {
+        self.validate_runtime_profiles()?;
         let mut wasm_bytes = build::compile_source_file(
             path,
             self.config.build_mode,
@@ -79,6 +83,7 @@ impl KaliCompiler {
 
     /// Compile a source file into a library artifact plus a deterministic WIT sidecar.
     pub fn compile_lib(&self, path: &Path) -> Result<LibArtifact, CompileError> {
+        self.validate_runtime_profiles()?;
         let exports = build::collect_library_exports(path).map_err(CompileError::from)?;
         let mut wasm_bytes = build::compile_source_file(
             path,
@@ -112,6 +117,7 @@ impl KaliCompiler {
         module_name: &str,
         source: &str,
     ) -> Result<LibArtifact, CompileError> {
+        self.validate_runtime_profiles()?;
         let temp_path = temporary_source_path(module_name);
         if let Some(parent) = temp_path.parent() {
             let _ = fs::create_dir_all(parent);
@@ -160,6 +166,22 @@ impl KaliCompiler {
 
         let _ = fs::remove_file(&temp_path);
         result
+    }
+
+    fn validate_runtime_profiles(&self) -> Result<(), CompileError> {
+        if self
+            .config
+            .runtime_profiles
+            .iter()
+            .any(|profile| profile == "wasm-threads")
+        {
+            return Err(CompileError::from(vec![Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "selected runtime profile is unavailable in this phase",
+            )]));
+        }
+
+        Ok(())
     }
 }
 

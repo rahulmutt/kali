@@ -60,9 +60,12 @@ fn main() {
             sandbox,
             api,
             compat,
+            wasm_threads,
             files,
         } => {
-            if let Err(exit_code) = check_command(files, sandbox, api, compat, &output) {
+            if let Err(exit_code) =
+                check_command(files, sandbox, api, compat, wasm_threads, &output)
+            {
                 std::process::exit(exit_code);
             }
         }
@@ -70,6 +73,7 @@ fn main() {
             sandbox,
             api,
             compat,
+            wasm_threads,
             files,
             fast,
             release,
@@ -87,6 +91,7 @@ fn main() {
                 sandbox,
                 api,
                 compat,
+                wasm_threads,
                 fast,
                 release,
                 release_advanced,
@@ -106,9 +111,11 @@ fn main() {
             sandbox,
             api,
             compat,
+            wasm_threads,
             files,
         } => {
-            if let Err(exit_code) = run_command(files, api, compat, sandbox, &output) {
+            if let Err(exit_code) = run_command(files, api, compat, wasm_threads, sandbox, &output)
+            {
                 std::process::exit(exit_code);
             }
         }
@@ -116,13 +123,21 @@ fn main() {
             sandbox,
             api,
             compat,
+            wasm_threads,
             files,
             filter,
             coverage,
         } => {
-            if let Err(exit_code) =
-                test_command(files, api, compat, filter, coverage, sandbox, &output)
-            {
+            if let Err(exit_code) = test_command(
+                files,
+                api,
+                compat,
+                wasm_threads,
+                filter,
+                coverage,
+                sandbox,
+                &output,
+            ) {
                 std::process::exit(exit_code);
             }
         }
@@ -199,8 +214,12 @@ fn main() {
                 std::process::exit(exit_code);
             }
         }
-        Commands::Effects { compat, files } => {
-            if let Err(exit_code) = effects_command(files, compat, &output) {
+        Commands::Effects {
+            compat,
+            wasm_threads,
+            files,
+        } => {
+            if let Err(exit_code) = effects_command(files, compat, wasm_threads, &output) {
                 std::process::exit(exit_code);
             }
         }
@@ -222,6 +241,7 @@ fn check_command(
     sandbox: Option<PathBuf>,
     api: Option<kali_cli::ApiSurface>,
     compat: Vec<String>,
+    wasm_threads: bool,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
     let effective_api = match resolve_effective_api_surface(api) {
@@ -242,6 +262,21 @@ fn check_command(
     if let Err(exit_code) =
         reject_unavailable_compat_features("check", &effective_compat, output, None, None)
     {
+        return Err(exit_code);
+    }
+    let effective_runtime_profiles = match resolve_effective_runtime_profiles(wasm_threads) {
+        Ok(profiles) => profiles,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)
+        }
+    };
+    if let Err(exit_code) = reject_unavailable_runtime_profiles(
+        "check",
+        &effective_runtime_profiles,
+        output,
+        None,
+        None,
+    ) {
         return Err(exit_code);
     }
 
@@ -346,6 +381,7 @@ fn build_command(
     sandbox: Option<PathBuf>,
     api: Option<kali_cli::ApiSurface>,
     compat: Vec<String>,
+    wasm_threads: bool,
     fast: bool,
     release: bool,
     release_advanced: bool,
@@ -407,6 +443,22 @@ fn build_command(
             "`kali build` without `--bundle` is not valid for the browser API surface",
         );
         return emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
+    }
+
+    let effective_runtime_profiles = match resolve_effective_runtime_profiles(wasm_threads) {
+        Ok(profiles) => profiles,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
+        }
+    };
+    if let Err(exit_code) = reject_unavailable_runtime_profiles(
+        "build",
+        &effective_runtime_profiles,
+        output,
+        None,
+        None,
+    ) {
+        return Err(exit_code);
     }
 
     let Some(source) = single_or_error(files, "build", output)? else {
@@ -580,6 +632,31 @@ fn resolve_effective_compat_features(
     Ok(features)
 }
 
+fn resolve_effective_runtime_profiles(
+    explicit_wasm_threads: bool,
+) -> Result<Vec<String>, Vec<Diagnostic>> {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let project_root = discover_project_root(&cwd).unwrap_or(cwd);
+    let Some(manifest) = load_manifest(&project_root).map_err(|diagnostic| vec![diagnostic])?
+    else {
+        return Ok(normalize_runtime_profiles(if explicit_wasm_threads {
+            vec!["wasm-threads".to_string()]
+        } else {
+            Vec::new()
+        }));
+    };
+
+    let mut profiles = normalize_runtime_profiles(if explicit_wasm_threads {
+        vec!["wasm-threads".to_string()]
+    } else {
+        Vec::new()
+    });
+    profiles.extend(manifest_runtime_profiles(&manifest)?);
+    profiles.sort();
+    profiles.dedup();
+    Ok(profiles)
+}
+
 fn manifest_compat_features(manifest: &ProjectManifest) -> Result<Vec<String>, Vec<Diagnostic>> {
     let Some(compat) = manifest.compat.as_ref() else {
         return Ok(Vec::new());
@@ -617,12 +694,77 @@ fn manifest_compat_features(manifest: &ProjectManifest) -> Result<Vec<String>, V
     Ok(normalized)
 }
 
+fn manifest_runtime_profiles(manifest: &ProjectManifest) -> Result<Vec<String>, Vec<Diagnostic>> {
+    let Some(options) = manifest.compiler_options.as_ref() else {
+        return Ok(Vec::new());
+    };
+
+    let Some(options) = options.as_object() else {
+        return Err(vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            "`compilerOptions` must be a JSON object",
+        )]);
+    };
+
+    let Some(profiles) = options.get("runtimeProfiles") else {
+        return Ok(Vec::new());
+    };
+
+    let Some(profiles) = profiles.as_array() else {
+        return Err(vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            "`compilerOptions.runtimeProfiles` must be an array of strings",
+        )]);
+    };
+
+    let mut normalized = Vec::new();
+    let mut seen = BTreeSet::new();
+    for profile in profiles {
+        let Some(profile) = profile.as_str() else {
+            return Err(vec![Diagnostic::error(
+                e5::INVALID_CONFIG as u32,
+                "`compilerOptions.runtimeProfiles` entries must be strings",
+            )]);
+        };
+        let profile = profile.trim();
+        if profile.is_empty() {
+            continue;
+        }
+        if !matches!(profile, "wasm-threads") {
+            return Err(vec![Diagnostic::error(
+                e5::INVALID_CONFIG as u32,
+                format!("unsupported runtimeProfile '{}' in kali.json", profile),
+            )]);
+        }
+        if !seen.insert(profile.to_string()) {
+            return Err(vec![Diagnostic::error(
+                e5::INVALID_CONFIG as u32,
+                format!("duplicate runtimeProfile '{}' in kali.json", profile),
+            )]);
+        }
+        normalized.push(profile.to_string());
+    }
+
+    Ok(normalized)
+}
+
 fn normalize_compat_features(features: Vec<String>) -> Vec<String> {
     let mut normalized = BTreeSet::new();
     for feature in features {
         let feature = feature.trim();
         if !feature.is_empty() {
             normalized.insert(feature.to_string());
+        }
+    }
+    normalized.into_iter().collect()
+}
+
+fn normalize_runtime_profiles(profiles: Vec<String>) -> Vec<String> {
+    let mut normalized = BTreeSet::new();
+    for profile in profiles {
+        let profile = profile.trim();
+        if !profile.is_empty() {
+            normalized.insert(profile.to_string());
         }
     }
     normalized.into_iter().collect()
@@ -649,6 +791,40 @@ fn reject_unavailable_compat_features(
         e5::FEATURE_UNAVAILABLE as u32,
         format!(
             "selected compatibility feature(s) {:?} are unavailable in this phase",
+            unavailable
+        ),
+    );
+    emit_diagnostics_and_exit(
+        command,
+        vec![diagnostic],
+        5,
+        output,
+        source_path,
+        source_contents,
+    )
+}
+
+fn reject_unavailable_runtime_profiles(
+    command: &str,
+    runtime_profiles: &[String],
+    output: &CliOutputOptions,
+    source_path: Option<&Path>,
+    source_contents: Option<&str>,
+) -> Result<(), i32> {
+    let unavailable: Vec<String> = runtime_profiles
+        .iter()
+        .filter(|profile| profile.as_str() == "wasm-threads")
+        .cloned()
+        .collect();
+
+    if unavailable.is_empty() {
+        return Ok(());
+    }
+
+    let diagnostic = Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        format!(
+            "selected runtime profile(s) {:?} are unavailable in this phase",
             unavailable
         ),
     );
@@ -1927,6 +2103,7 @@ fn run_command(
     files: Vec<String>,
     api: Option<kali_cli::ApiSurface>,
     compat: Vec<String>,
+    wasm_threads: bool,
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
@@ -1955,6 +2132,17 @@ fn run_command(
     };
     if let Err(exit_code) =
         reject_unavailable_compat_features("run", &effective_compat, output, None, None)
+    {
+        return Err(exit_code);
+    }
+    let effective_runtime_profiles = match resolve_effective_runtime_profiles(wasm_threads) {
+        Ok(profiles) => profiles,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
+        }
+    };
+    if let Err(exit_code) =
+        reject_unavailable_runtime_profiles("run", &effective_runtime_profiles, output, None, None)
     {
         return Err(exit_code);
     }
@@ -2038,6 +2226,7 @@ fn test_command(
     files: Vec<String>,
     api: Option<kali_cli::ApiSurface>,
     compat: Vec<String>,
+    wasm_threads: bool,
     filter: Option<String>,
     coverage: bool,
     sandbox: Option<PathBuf>,
@@ -2068,6 +2257,17 @@ fn test_command(
     };
     if let Err(exit_code) =
         reject_unavailable_compat_features("test", &effective_compat, output, None, None)
+    {
+        return Err(exit_code);
+    }
+    let effective_runtime_profiles = match resolve_effective_runtime_profiles(wasm_threads) {
+        Ok(profiles) => profiles,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
+        }
+    };
+    if let Err(exit_code) =
+        reject_unavailable_runtime_profiles("test", &effective_runtime_profiles, output, None, None)
     {
         return Err(exit_code);
     }
@@ -2522,6 +2722,7 @@ fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Res
 fn effects_command(
     files: Vec<String>,
     compat: Vec<String>,
+    wasm_threads: bool,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
     let Some(source) = single_or_error(files, "effects", output)? else {
@@ -2573,7 +2774,33 @@ fn effects_command(
     ) {
         return Err(exit_code);
     }
-    let context = analysis_context_for_api(effective_api);
+    let effective_runtime_profiles = match resolve_effective_runtime_profiles(wasm_threads) {
+        Ok(profiles) => profiles,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit(
+                "effects",
+                diagnostics,
+                5,
+                output,
+                Some(&source),
+                fs::read_to_string(&source).ok().as_deref(),
+            );
+        }
+    };
+    if let Err(exit_code) = reject_unavailable_runtime_profiles(
+        "effects",
+        &effective_runtime_profiles,
+        output,
+        Some(&source),
+        fs::read_to_string(&source).ok().as_deref(),
+    ) {
+        return Err(exit_code);
+    }
+    let context = analysis_context_for_api(
+        effective_api,
+        effective_runtime_profiles,
+        effective_compat.clone(),
+    );
     let inference = match infer_effects_from_roots(&[source.clone()], context.clone()) {
         Ok(inference) => inference,
         Err(diagnostics) => {
@@ -2695,7 +2922,29 @@ fn package_effects_command(target: String, output: &CliOutputOptions) -> Result<
             );
         }
     };
-    let context = analysis_context_for_api(effective_api);
+    let effective_runtime_profiles = match resolve_effective_runtime_profiles(false) {
+        Ok(profiles) => profiles,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit(
+                "package-effects",
+                diagnostics,
+                5,
+                output,
+                None,
+                None,
+            );
+        }
+    };
+    if let Err(exit_code) = reject_unavailable_runtime_profiles(
+        "package-effects",
+        &effective_runtime_profiles,
+        output,
+        None,
+        None,
+    ) {
+        return Err(exit_code);
+    }
+    let context = analysis_context_for_api(effective_api, effective_runtime_profiles, Vec::new());
     let inference = match infer_effects_from_roots(&[entry_path.clone()], context.clone()) {
         Ok(inference) => inference,
         Err(diagnostics) => {
@@ -3274,8 +3523,15 @@ fn read_package_version(package_root: &Path) -> Result<String, Diagnostic> {
         })
 }
 
-fn analysis_context_for_api(api: kali_cli::ApiSurface) -> EffectAnalysisContext {
-    EffectAnalysisContext::new(api.to_string())
+fn analysis_context_for_api(
+    api: kali_cli::ApiSurface,
+    runtime_profiles: Vec<String>,
+    compat_features: Vec<String>,
+) -> EffectAnalysisContext {
+    let mut context = EffectAnalysisContext::new(api.to_string());
+    context.runtime_profiles = runtime_profiles;
+    context.compat_features = compat_features;
+    context
 }
 
 fn validate_source_effects_against_policy(
@@ -3291,7 +3547,7 @@ fn validate_source_effects_against_policy_for_roots(
     policy: &SandboxPolicy,
     api: kali_cli::ApiSurface,
 ) -> Result<(), Vec<Diagnostic>> {
-    let context = analysis_context_for_api(api);
+    let context = analysis_context_for_api(api, Vec::new(), Vec::new());
     let inference = infer_effects_from_roots(roots, context)?;
     let diagnostics = compare_effects_to_policy(&inference.effects, policy);
     if diagnostics.is_empty() {
