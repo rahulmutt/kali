@@ -1312,7 +1312,10 @@ fn build_rejects_inherited_duplicate_runtime_profiles() {
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5009"), "stderr: {stderr}");
-    assert!(stderr.contains("duplicate runtimeProfile"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("duplicate runtimeProfile"),
+        "stderr: {stderr}"
+    );
     assert!(!dir.path().join("main.wasm").exists());
 }
 
@@ -1343,7 +1346,10 @@ fn build_rejects_inherited_unknown_runtime_profile() {
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5009"), "stderr: {stderr}");
-    assert!(stderr.contains("unsupported runtimeProfile"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("unsupported runtimeProfile"),
+        "stderr: {stderr}"
+    );
     assert!(!dir.path().join("main.wasm").exists());
 }
 

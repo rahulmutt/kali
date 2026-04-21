@@ -128,6 +128,7 @@ impl Optimizer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn optimize_node(
         &self,
         program: &mut LirProgram,
@@ -217,6 +218,7 @@ impl Optimizer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn specialize_layout_bindings(
         &self,
         program: &mut LirProgram,
@@ -720,11 +722,9 @@ impl Optimizer {
                     Some(ConstantValue::Boolean(false)) => {
                         program.nodes[id.0 as usize] =
                             LirNode::with_text(LirNodeKind::Literal, "false");
-                        return true;
                     }
                     Some(ConstantValue::Boolean(true)) => {
                         program.nodes[id.0 as usize] = program.nodes[right.0 as usize].clone();
-                        return true;
                     }
                     _ => {}
                 }
@@ -733,11 +733,11 @@ impl Optimizer {
                     Some(ConstantValue::Boolean(false)) => {
                         program.nodes[id.0 as usize] =
                             LirNode::with_text(LirNodeKind::Literal, "false");
-                        return true;
+                        true
                     }
                     Some(ConstantValue::Boolean(true)) => {
                         program.nodes[id.0 as usize] = program.nodes[left.0 as usize].clone();
-                        return true;
+                        true
                     }
                     _ => false,
                 }
@@ -755,11 +755,9 @@ impl Optimizer {
                     Some(ConstantValue::Boolean(true)) => {
                         program.nodes[id.0 as usize] =
                             LirNode::with_text(LirNodeKind::Literal, "true");
-                        return true;
                     }
                     Some(ConstantValue::Boolean(false)) => {
                         program.nodes[id.0 as usize] = program.nodes[right.0 as usize].clone();
-                        return true;
                     }
                     _ => {}
                 }
@@ -768,11 +766,11 @@ impl Optimizer {
                     Some(ConstantValue::Boolean(true)) => {
                         program.nodes[id.0 as usize] =
                             LirNode::with_text(LirNodeKind::Literal, "true");
-                        return true;
+                        true
                     }
                     Some(ConstantValue::Boolean(false)) => {
                         program.nodes[id.0 as usize] = program.nodes[left.0 as usize].clone();
-                        return true;
+                        true
                     }
                     _ => false,
                 }
@@ -780,6 +778,7 @@ impl Optimizer {
             _ => false,
         }
     }
+    #[allow(clippy::too_many_arguments)]
     fn optimize_call_site(
         &self,
         program: &mut LirProgram,
@@ -909,6 +908,7 @@ impl Optimizer {
         true
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn specialize_mir_call_sites(
         &self,
         program: &mut LirProgram,
@@ -989,6 +989,7 @@ impl Optimizer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn specialize_mir_call_site(
         &self,
         program: &mut LirProgram,
@@ -1005,18 +1006,10 @@ impl Optimizer {
             return None;
         }
 
-        let Some(callee_id) = snapshot.children.first().copied() else {
-            return None;
-        };
-        let Some(callee_node) = program.nodes.get(callee_id.0 as usize).cloned() else {
-            return None;
-        };
-        let Some(callee_name) = callee_node.text.as_deref() else {
-            return None;
-        };
-        let Some(summary) = plan.functions.get(callee_name) else {
-            return None;
-        };
+        let callee_id = snapshot.children.first().copied()?;
+        let callee_node = program.nodes.get(callee_id.0 as usize).cloned()?;
+        let callee_name = callee_node.text.as_deref()?;
+        let summary = plan.functions.get(callee_name)?;
         if summary.recursive {
             return None;
         }

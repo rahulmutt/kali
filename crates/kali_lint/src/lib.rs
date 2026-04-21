@@ -550,17 +550,15 @@ fn walk_statement_for_var_rules(
                         );
                         fix_plan.var_tokens.insert(token_index);
                     }
-                    "let" => {
-                        if decl.declarations.iter().any(|item| item.init.is_some()) {
-                            diagnostics.push(
-                                Diagnostic::warning(
-                                    w2::PREFER_CONST as u32,
-                                    "prefer `const` when a binding is never reassigned",
-                                )
-                                .with_suggestion("replace `let` with `const`"),
-                            );
-                            fix_plan.let_to_const_tokens.insert(token_index);
-                        }
+                    "let" if decl.declarations.iter().any(|item| item.init.is_some()) => {
+                        diagnostics.push(
+                            Diagnostic::warning(
+                                w2::PREFER_CONST as u32,
+                                "prefer `const` when a binding is never reassigned",
+                            )
+                            .with_suggestion("replace `let` with `const`"),
+                        );
+                        fix_plan.let_to_const_tokens.insert(token_index);
                     }
                     _ => {}
                 }
@@ -765,17 +763,15 @@ fn check_variable_declaration_kind(
                 );
                 fix_plan.var_tokens.insert(token_index);
             }
-            "let" => {
-                if has_initializer {
-                    diagnostics.push(
-                        Diagnostic::warning(
-                            w2::PREFER_CONST as u32,
-                            "prefer `const` when a binding is never reassigned",
-                        )
-                        .with_suggestion("replace `let` with `const`"),
-                    );
-                    fix_plan.let_to_const_tokens.insert(token_index);
-                }
+            "let" if has_initializer => {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        w2::PREFER_CONST as u32,
+                        "prefer `const` when a binding is never reassigned",
+                    )
+                    .with_suggestion("replace `let` with `const`"),
+                );
+                fix_plan.let_to_const_tokens.insert(token_index);
             }
             _ => {}
         }

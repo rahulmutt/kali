@@ -498,10 +498,10 @@ fn rewrite_static_function_constructor_calls(source: &str) -> String {
 }
 
 fn is_bare_function_constructor_spelling(source: &str, index: usize) -> bool {
-    match source[..index].chars().next_back() {
-        Some(ch) if ch.is_ascii_alphanumeric() || ch == '_' || ch == '$' || ch == '.' => false,
-        _ => true,
-    }
+    !matches!(
+        source[..index].chars().next_back(),
+        Some(ch) if ch.is_ascii_alphanumeric() || ch == '_' || ch == '$' || ch == '.'
+    )
 }
 
 fn find_immediate_invocation_end(source: &str, constructor_end: usize) -> Option<usize> {

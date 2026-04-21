@@ -17,6 +17,27 @@ static LOCAL_STORAGE: OnceLock<Storage> = OnceLock::new();
 static SESSION_STORAGE: OnceLock<Storage> = OnceLock::new();
 static NAVIGATOR: OnceLock<Navigator> = OnceLock::new();
 
+/// Errors returned when mutating a deterministic URL baseline.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UrlMutationError {
+    InvalidProtocol,
+    InvalidHost,
+    InvalidPort,
+}
+
+impl fmt::Display for UrlMutationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let message = match self {
+            Self::InvalidProtocol => "invalid URL protocol",
+            Self::InvalidHost => "invalid URL host",
+            Self::InvalidPort => "invalid URL port",
+        };
+        f.write_str(message)
+    }
+}
+
+impl std::error::Error for UrlMutationError {}
+
 /// Initialize the Web API compatibility surface.
 pub fn web_api_init() {}
 
@@ -554,9 +575,11 @@ impl URL {
     }
 
     /// Update the protocol/scheme component.
-    pub fn set_protocol(&mut self, protocol: impl AsRef<str>) -> Result<(), ()> {
+    pub fn set_protocol(&mut self, protocol: impl AsRef<str>) -> Result<(), UrlMutationError> {
         let protocol = protocol.as_ref().trim_end_matches(':');
-        self.url.set_scheme(protocol)
+        self.url
+            .set_scheme(protocol)
+            .map_err(|_| UrlMutationError::InvalidProtocol)
     }
 
     /// Return the current pathname component.
@@ -603,8 +626,10 @@ impl URL {
     }
 
     /// Update the host component.
-    pub fn set_host(&mut self, host: impl AsRef<str>) -> Result<(), ()> {
-        self.url.set_host(Some(host.as_ref())).map_err(|_| ())
+    pub fn set_host(&mut self, host: impl AsRef<str>) -> Result<(), UrlMutationError> {
+        self.url
+            .set_host(Some(host.as_ref()))
+            .map_err(|_| UrlMutationError::InvalidHost)
     }
 
     /// Return the current port component, if any.
@@ -613,8 +638,10 @@ impl URL {
     }
 
     /// Update the port component.
-    pub fn set_port(&mut self, port: Option<u16>) -> Result<(), ()> {
-        self.url.set_port(port)
+    pub fn set_port(&mut self, port: Option<u16>) -> Result<(), UrlMutationError> {
+        self.url
+            .set_port(port)
+            .map_err(|_| UrlMutationError::InvalidPort)
     }
 }
 
@@ -918,7 +945,7 @@ fn encode_base64(bytes: &[u8]) -> String {
 
 fn decode_base64(input: &str) -> Result<Vec<u8>, Base64Error> {
     let bytes = input.as_bytes();
-    if bytes.len() % 4 != 0 {
+    if !bytes.len().is_multiple_of(4) {
         return Err(Base64Error::new(
             "The string to be decoded is not correctly encoded.",
         ));
@@ -1067,8 +1094,7 @@ impl URLSearchParams {
             .clone()
     }
 
-    /// Serialize the parameters to a standard query string.
-    pub fn to_string(&self) -> String {
+    fn serialize(&self) -> String {
         let mut serializer = form_urlencoded::Serializer::new(String::new());
         for (name, value) in self
             .entries
@@ -1079,6 +1105,12 @@ impl URLSearchParams {
             serializer.append_pair(name, value);
         }
         serializer.finish()
+    }
+}
+
+impl fmt::Display for URLSearchParams {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.serialize())
     }
 }
 

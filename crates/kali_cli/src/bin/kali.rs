@@ -1,3 +1,11 @@
+#![allow(
+    clippy::cloned_ref_to_slice_refs,
+    clippy::match_like_matches_macro,
+    clippy::needless_borrows_for_generic_args,
+    clippy::question_mark,
+    clippy::too_many_arguments
+)]
+
 use clap::Parser;
 use kali_capi::{
     arity_from_signature, generate_header, generate_metadata as generate_capi_metadata,

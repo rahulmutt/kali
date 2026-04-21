@@ -121,7 +121,7 @@ pub fn infer_effects_from_roots(
     }
 
     let mut effects = dedupe_effects(effects);
-    effects.sort_by(|a, b| effect_sort_cmp(a, b));
+    effects.sort_by(effect_sort_cmp);
 
     Ok(EffectInference {
         effects,
@@ -457,11 +457,10 @@ fn resolve_relative_import(current_file: &Path, spec: &str) -> Option<PathBuf> {
     }
 
     if raw.is_dir() {
-        for candidate in ["index"] {
-            let indexed = raw.join(candidate);
-            if let Some(resolved) = resolve_with_extensions(&indexed) {
-                return Some(resolved);
-            }
+        let candidate = "index";
+        let indexed = raw.join(candidate);
+        if let Some(resolved) = resolve_with_extensions(&indexed) {
+            return Some(resolved);
         }
     }
 
@@ -638,15 +637,11 @@ fn is_deno_host_call(tokens: &[Token], index: usize) -> Option<(&'static str, Op
         return None;
     }
 
-    let Some(dot) = tokens.get(index + 1) else {
-        return None;
-    };
+    let dot = tokens.get(index + 1)?;
     if dot.kind != TokenType::Dot {
         return None;
     }
-    let Some(member) = tokens.get(index + 2) else {
-        return None;
-    };
+    let member = tokens.get(index + 2)?;
     if member.kind != TokenType::Identifier {
         return None;
     }
@@ -657,15 +652,11 @@ fn is_deno_host_call(tokens: &[Token], index: usize) -> Option<(&'static str, Op
         }
         "writeTextFile" | "writeTextFileSync" => Some("FileSystem.Write"),
         "env" => {
-            let Some(dot) = tokens.get(index + 3) else {
-                return None;
-            };
+            let dot = tokens.get(index + 3)?;
             if dot.kind != TokenType::Dot {
                 return None;
             }
-            let Some(method) = tokens.get(index + 4) else {
-                return None;
-            };
+            let method = tokens.get(index + 4)?;
             if method.kind != TokenType::Identifier {
                 return None;
             }
