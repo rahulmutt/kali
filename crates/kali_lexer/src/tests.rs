@@ -52,3 +52,18 @@ fn test_lexer_unterminated_string() {
         .iter()
         .any(|d| d.code == Some(e1::UNTERMINATED_STRING as u32)));
 }
+
+#[test]
+fn test_lexer_multiline_template() {
+    let mut lexer = Lexer::new(FileId::new(0), "`hello\nworld`".to_string());
+    let token = lexer.next_token().unwrap();
+    assert_eq!(token.kind, TokenType::Template);
+    assert_eq!(token.value, "`hello\nworld`");
+
+    let result = lexer.lex_all();
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}

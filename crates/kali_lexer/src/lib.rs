@@ -334,8 +334,8 @@ impl Lexer {
                     }
                 }
                 Some(&'\n') => {
-                    self.emit_error(e1::UNTERMINATED_TEMPLATE, "Unterminated template");
-                    return Token::new(TokenType::Template, value, self.span());
+                    value.push('\n');
+                    self.position += 1;
                 }
                 Some(&c) => {
                     value.push(c);
@@ -428,6 +428,7 @@ impl Lexer {
             }
             '>' if self.nth(1) == Some('>') => (TokenType::GtGt, ">>".to_string(), 2),
             '?' if self.nth(1) == Some('?') => (TokenType::NullCoalesce, "??".to_string(), 2),
+            '?' if self.nth(1) == Some('.') => (TokenType::QuestionDot, "?.".to_string(), 2),
             '.' if self.nth(1) == Some('.') && self.nth(2) == Some('.') => {
                 (TokenType::DotDotDot, "...".to_string(), 3)
             }

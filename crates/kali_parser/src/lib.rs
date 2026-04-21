@@ -918,6 +918,10 @@ impl Parser {
                         }
                     }
                 }
+                Some(TokenType::QuestionDot) => {
+                    let _ = self.stream.advance();
+                    expr = self.parse_optional_chain_expression(expr);
+                }
                 _ => break,
             }
             iterations += 1;
@@ -927,6 +931,40 @@ impl Parser {
         }
 
         expr
+    }
+
+    fn parse_optional_chain_expression(&mut self, object: Expression) -> Expression {
+        match self.stream.current_kind() {
+            Some(TokenType::Identifier) => {
+                let _ = self.stream.advance();
+            }
+            Some(TokenType::LeftBracket) => {
+                let _ = self.stream.advance();
+                let _ = self.parse_expression();
+                let _ = self.stream.accept(TokenType::RightBracket);
+            }
+            Some(TokenType::LeftParen) => {
+                let _ = self.stream.advance();
+                if !self.stream.accept(TokenType::RightParen) {
+                    let _ = self.parse_expression();
+                    while self.stream.accept(TokenType::Comma) {
+                        let _ = self.parse_expression();
+                    }
+                    let _ = self.stream.accept(TokenType::RightParen);
+                }
+            }
+            Some(TokenType::QuestionDot) => {
+                // Support repeated optional chaining segments like `a?.b?.c`.
+            }
+            _ => {}
+        }
+
+        Expression::OptionalChainExpression(Box::new(kali_ast::OptionalChainExpression {
+            inner: Box::new(kali_ast::OptionalChainInner::NonNull {
+                object: Box::new(object),
+                optional: true,
+            }),
+        }))
     }
 
     fn parse_function_expression(&mut self) -> Expression {

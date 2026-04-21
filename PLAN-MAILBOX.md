@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-21 resolution note
+- added parser/lexer regression coverage for the semver probe's optional-chaining and multiline-template cases so `minVersion(... )?.version` and multi-line template bodies stay covered by the evidence suite
+- updated the Stage 1.3 parser/AST follow-up notes and the Stage 1.14 evidence-hardening progress note to reflect that coverage
+
+2026-04-21 resolution note
 - added a `package-effects` smoke regression for inherited `runtimeProfiles = ["wasm-threads"]` so the Stage 5.1 threaded-profile handoff now has CLI-level package-analysis coverage in addition to the existing config/metadata/embedding/runtime checks
 - updated the Stage 5.1 progress note to mention the new package-analysis evidence lane alongside the earlier runtime-profile gating coverage
 

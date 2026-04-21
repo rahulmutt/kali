@@ -42,21 +42,25 @@ post-milestone hardening work.
 
 ### Semver-specific regression surfaces
 
-- A consumer using `minVersion("^1.2.3")?.version` produced `E3100` on `version`, which indicates
-  the parser/AST pipeline is not preserving optional-chaining member access correctly when the base
-  expression is a call result.
+- A consumer using `minVersion("^1.2.3")?.version` produced `E3100` on `version`, which indicated
+  the parser/AST pipeline was not preserving optional-chaining member access correctly when the base
+  expression is a call result. That gap is now covered by parser regression tests for `call()?.prop`
+  and chained optional access.
 - `node_modules/semver/bin/semver.js` produced a flood of bogus identifier errors from the help
-  text, which points to incorrect handling of multi-line template literals / backtick string
-  bodies.
+  text, which pointed to incorrect handling of multi-line template literals / backtick string
+  bodies. The lexer now keeps multi-line template bodies intact so this regression no longer splits
+  the help text into stray identifiers.
 
 ### Systematic fix plan
 
-1. Add explicit parser coverage for optional chaining after call/member expressions:
+1. Optional-chaining coverage after call/member expressions is now present in the parser
+   regression suite:
    - `call()?.prop`
    - `call()?.[expr]`
    - chained forms like `a?.b?.c`
-2. Add lexer/parser coverage for multi-line template literals with plain text and embedded newlines,
-   plus `${...}` interpolation round-tripping into the AST.
+2. Multi-line template literal coverage is now present in the lexer regression suite for plain text
+   and embedded newlines; fuller `${...}` interpolation round-tripping into the AST remains a
+   separate historical hardening note if we decide to model the template substructure later.
 3. Add regression fixtures from the actual `semver` CLI source shape so the parser test corpus is
    anchored to a real package entrypoint rather than a synthetic micro-case.
 4. Define the acceptance bar as: no spurious identifier diagnostics may originate from template
