@@ -60,6 +60,8 @@ graph without performing any mutations.
 - Install-time script detection now keys only off `preinstall` / `install` / `postinstall`, so
   packages whose `scripts` section only contains ordinary metadata such as `test`, `lint`,
   `postlint`, or `posttest` no longer trip the `--allow-scripts` guardrail.
+- Added a semver-shaped regression fixture so the common pure-JS `semver` package metadata shape
+  stays evidence-backed and does not regress back into the old `--allow-scripts` false positive.
 
 ## Tasks
 

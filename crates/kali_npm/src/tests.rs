@@ -689,6 +689,35 @@ fn validate_package_shape_allows_non_install_scripts_without_allow_scripts() {
 }
 
 #[test]
+fn validate_package_shape_allows_semver_style_metadata_without_allow_scripts() {
+    let package = PackageJson {
+        name: Some("semver".to_string()),
+        version: Some("7.7.4".to_string()),
+        main: Some("index.js".to_string()),
+        bin: Some(serde_json::json!({"semver": "bin/semver.js"})),
+        scripts: BTreeMap::from([
+            ("test".to_string(), "tap".to_string()),
+            (
+                "lint".to_string(),
+                "eslint \"**/*.{js,cjs,ts,mjs,jsx}\"".to_string(),
+            ),
+            (
+                "postlint".to_string(),
+                "npm run test -- --ignore-scripts".to_string(),
+            ),
+            (
+                "posttest".to_string(),
+                "npm run lint -- --ignore-scripts".to_string(),
+            ),
+        ]),
+        ..PackageJson::default()
+    };
+
+    validate_package_shape(&package, false)
+        .expect("semver-style package metadata should not require `--allow-scripts`");
+}
+
+#[test]
 fn validate_package_shape_rejects_node_gyp_install_time_scripts() {
     let package = PackageJson {
         scripts: BTreeMap::from([("install".to_string(), "node-gyp rebuild".to_string())]),
