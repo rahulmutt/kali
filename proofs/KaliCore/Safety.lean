@@ -509,6 +509,15 @@ theorem releaseAndDecrementTargetCellPositiveCountIff (snapshot : RcSnapshot) (r
   · intro hgt1
     simpa [hname] using Nat.sub_pos_of_lt hgt1
 
+/-- The release-and-decrement target-cell positive-count split stays explicit together with the linear-memory payload. -/
+theorem releaseAndDecrementTargetCellPositiveCountIffAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (∀ cell, cell ∈ snapshot.heap → cell.name = ref →
+      ({ cell with refCount := cell.refCount - 1 }.refCount > 0 ↔ cell.refCount > 1)) ∧
+    (releaseAndDecrement snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndDecrementTargetCellPositiveCountIff snapshot ref
+  · exact releaseAndDecrementPreservesLinearMemory snapshot ref
+
 /-- A release-and-collect step removes zero-count cells after the decrement pass. -/
 theorem releaseAndCollectRemovesZeroCountCells (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ snapshot.heap → cell.name = ref → cell.refCount = 1 →
@@ -653,6 +662,15 @@ theorem releaseAndCollectTargetCellPresentIffPositiveCount (snapshot : RcSnapsho
     simpa using (Nat.sub_pos_iff_lt.mp hsub)
   · intro hgt1
     exact releaseAndCollectKeepsTargetCellWhenPositiveCount snapshot ref cell hmem hname hgt1
+
+/-- The release-and-collect target-cell survival split stays explicit together with the linear-memory payload. -/
+theorem releaseAndCollectTargetCellPresentIffPositiveCountAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (∀ cell, cell ∈ snapshot.heap → cell.name = ref →
+      ({ cell with refCount := cell.refCount - 1 } ∈ (releaseAndCollect snapshot ref).heap ↔ cell.refCount > 1)) ∧
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndCollectTargetCellPresentIffPositiveCount snapshot ref
+  · exact releaseAndCollectPreservesLinearMemory snapshot ref
 
 /-- Every surviving release-and-collect heap cell comes from the original heap, with only the released target decremented. -/
 theorem releaseAndCollectHeapCellOrigin (snapshot : RcSnapshot) (ref : String) :

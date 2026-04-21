@@ -40,3 +40,12 @@ Proposed fix:
 
 2026-04-21 resolution note
 - the stable coverage-report path rule is already captured in `specs/18-schemas.md`, and the `runtimeProfiles` axis is already carried in the current schema vocabulary and Stage 5.1 progress note, so no further spec edit was required for these follow-ups
+
+2026-04-21 follow-up note
+
+While widening the proof-boundary theorem inventory, the RC snapshot summary should also carry linear-memory companion theorems for the target-cell positive-count split so the release-and-decrement and release-and-collect bookkeeping remain consistently paired with the explicit payload axis.
+
+Proposed fix:
+- add `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIffAndLinearMemory`
+- add `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCountAndLinearMemory`
+- mirror the new theorem names through `proofs/BOUNDARY.md`, `specs/16-testing.md`, `specs/17-verification.md`, `specs/19-feature-maturity.md`, `README.md`, and the Stage 4.2 plan tracker so the published proof summary stays synchronized

@@ -87,3 +87,11 @@ Proposed fix:
 
 2026-04-21 resolution note
 - updated the Stage 5.1 progress note to mention that runtime-profile validation now also preserves the selected runtime-profile vector into the runtime execution context / host-side runtime state
+
+2026-04-21 follow-up note
+
+While widening the Stage 4.2 proof inventory, the historical plan tracker should note the new linear-memory companion theorems that package the target-cell positive-count split for the release-and-decrement and release-and-collect paths.
+
+Proposed fix:
+- update `plan/phase-4/02-formal-verification-depth.md` and `PLAN-4.2-STATUS.md` to mention `KaliCore.Safety.releaseAndDecrementTargetCellPositiveCountIffAndLinearMemory` and `KaliCore.Safety.releaseAndCollectTargetCellPresentIffPositiveCountAndLinearMemory`
+- keep the canonical short summary unchanged while expanding the theorem inventory wording to match the Lean proof tree
