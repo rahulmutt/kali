@@ -226,3 +226,14 @@ Proposed fix:
 2026-04-21 resolution note
 - added JSON-envelope regression coverage for the `run` browser gate when guest arguments are present after `--`, so the new command-shape split stays pinned even on the rejected later-compatibility path
 - updated the Stage 5.2 progress note to mention the guest-argument separator coverage alongside the existing browser-runtime rejection helper and JSON smoke coverage
+
+2026-04-21 follow-up note
+- the threaded-runtime workspace still needs a regression that shared-buffer posts are ignored after a worker or broadcast channel has been terminated/closed, so the post-shutdown behavior stays symmetrical with the existing post-message ignore coverage
+
+Proposed fix:
+- add worker and broadcast-channel tests that post a `SharedArrayBuffer` after termination/close and assert the buffered shared payload list does not change
+- mention the new post-close shared-buffer coverage in the Stage 5.1 progress note so the historical plan reflects the runtime shutdown semantics explicitly
+
+2026-04-21 resolution note
+- added worker and broadcast-channel regressions that ignore shared-buffer posts after termination/close, so the threaded-runtime shutdown semantics now match the existing post-message ignore coverage
+- updated the Stage 5.1 progress note to record the post-close shared-buffer symmetry alongside the existing threaded-topology and shared-memory baseline coverage

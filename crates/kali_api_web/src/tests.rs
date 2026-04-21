@@ -492,6 +492,18 @@ fn worker_stub_records_shared_buffers_with_shared_backing() {
 }
 
 #[test]
+fn worker_stub_ignores_shared_buffer_posts_after_termination() {
+    let worker = Worker::new("https://example.com/worker.js").expect("worker url");
+    let buffer = SharedArrayBuffer::from_bytes([4, 5, 6]);
+
+    worker.post_shared_buffer(buffer.clone());
+    worker.terminate();
+    worker.post_shared_buffer(SharedArrayBuffer::from_bytes([7, 8, 9]));
+
+    assert_eq!(worker.posted_shared_buffers(), vec![buffer]);
+}
+
+#[test]
 fn worker_stub_preserves_interleaved_post_order() {
     let worker = Worker::new("https://example.com/worker.js").expect("worker url");
     let buffer = SharedArrayBuffer::from_bytes([7, 8, 9]);
@@ -732,6 +744,18 @@ fn broadcast_channel_stub_records_shared_buffers_with_shared_backing() {
 
     buffer.add(2, 1);
     assert_eq!(channel.posted_shared_buffers()[0].snapshot(), vec![4, 5, 7]);
+}
+
+#[test]
+fn broadcast_channel_stub_ignores_shared_buffer_posts_after_close() {
+    let channel = BroadcastChannel::new("browser-corpus");
+    let buffer = SharedArrayBuffer::from_bytes([4, 5, 6]);
+
+    channel.post_shared_buffer(buffer.clone());
+    channel.close();
+    channel.post_shared_buffer(SharedArrayBuffer::from_bytes([7, 8, 9]));
+
+    assert_eq!(channel.posted_shared_buffers(), vec![buffer]);
 }
 
 #[test]
