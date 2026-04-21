@@ -25,14 +25,14 @@ pub fn deno_api_init() {
     kali_api_web::web_api_init();
 }
 
-/// Read-only environment view for the Deno compatibility layer.
+/// Deterministic environment view for the Deno compatibility layer.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DenoEnv {
     values: BTreeMap<String, String>,
 }
 
 impl DenoEnv {
-    /// Create a read-only environment view from host-provided values.
+    /// Create an environment view from host-provided values.
     pub fn new(values: BTreeMap<String, String>) -> Self {
         Self { values }
     }
@@ -40,6 +40,11 @@ impl DenoEnv {
     /// Read an environment variable from the sandbox-filtered view.
     pub fn get(&self, key: &str) -> Option<&str> {
         self.values.get(key).map(String::as_str)
+    }
+
+    /// Set or replace an environment variable in the captured view.
+    pub fn set(&mut self, key: impl Into<String>, value: impl Into<String>) -> Option<String> {
+        self.values.insert(key.into(), value.into())
     }
 
     /// Return a deterministic snapshot of the visible environment.
@@ -423,6 +428,11 @@ impl DenoRuntimeProjection {
 
     pub fn env(&self) -> &DenoEnv {
         &self.env
+    }
+
+    /// Mutable access to the captured environment view.
+    pub fn env_mut(&mut self) -> &mut DenoEnv {
+        &mut self.env
     }
 
     pub fn fs(&self) -> &DenoFs {

@@ -2,8 +2,8 @@ use super::*;
 use tempfile::tempdir;
 
 #[test]
-fn env_view_is_read_only_and_deterministic() {
-    let env = DenoEnv::new(BTreeMap::from([
+fn env_view_is_deterministic_and_mutable() {
+    let mut env = DenoEnv::new(BTreeMap::from([
         (String::from("HOME"), String::from("/tmp/home")),
         (String::from("TERM"), String::from("xterm-256color")),
     ]));
@@ -11,10 +11,17 @@ fn env_view_is_read_only_and_deterministic() {
     assert_eq!(env.get("HOME"), Some("/tmp/home"));
     assert_eq!(env.get("MISSING"), None);
     assert_eq!(
+        env.set("HOME", "/workspace/home"),
+        Some(String::from("/tmp/home"))
+    );
+    assert_eq!(env.set("EDITOR", "nano"), None);
+    assert_eq!(env.get("HOME"), Some("/workspace/home"));
+    assert_eq!(
         env.to_object().get("TERM"),
         Some(&String::from("xterm-256color"))
     );
-    assert_eq!(env.iter().count(), 2);
+    assert_eq!(env.to_object().get("EDITOR"), Some(&String::from("nano")));
+    assert_eq!(env.iter().count(), 3);
 }
 
 #[test]
@@ -149,7 +156,7 @@ fn filesystem_round_trips_files_and_metadata() {
 
 #[test]
 fn runtime_projection_bundles_baseline_context() {
-    let projection = DenoRuntimeProjection::from_host_context(
+    let mut projection = DenoRuntimeProjection::from_host_context(
         vec![String::from("kali"), String::from("run")],
         BTreeMap::from([(String::from("HOME"), String::from("/tmp/home"))]),
         "/workspace/project",
@@ -161,6 +168,8 @@ fn runtime_projection_bundles_baseline_context() {
         &[String::from("kali"), String::from("run")]
     );
     assert_eq!(projection.env().get("HOME"), Some("/tmp/home"));
+    projection.env_mut().set("HOME", "/workspace/home");
+    assert_eq!(projection.env().get("HOME"), Some("/workspace/home"));
     assert_eq!(projection.fs().cwd(), Path::new("/workspace/project"));
     assert_eq!(
         projection.permissions().query(DenoPermissionKind::Read),
