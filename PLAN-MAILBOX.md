@@ -198,3 +198,7 @@ Proposed fix:
 2026-04-21 resolution note
 - added a second `ThreadRuntimeTopology` shutdown-order regression in `kali_api_web` that terminates the first worker before shutdown, so the mixed live/terminated evidence now covers a stronger out-of-spawn-order teardown case
 - updated the Stage 5.1 progress note to mention the terminated-first variant alongside the existing mixed live/terminated shutdown-order coverage
+
+2026-04-21 resolution note
+- added browser-targeted `check --api browser --wasm-threads` smoke coverage in both text and JSON forms so the canonical later-threaded gate stays visible on the browser analysis path as well as the default source-graph path
+- updated the Stage 5.1 progress note to mention the new browser-targeted regression alongside the existing runtime-profile and package-analysis coverage
