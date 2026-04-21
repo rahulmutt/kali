@@ -4037,6 +4037,46 @@ fn package_effects_rejects_inherited_duplicate_runtime_profiles() {
 }
 
 #[test]
+fn package_effects_rejects_inherited_wasm_threads_runtime_profile() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/purepkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "purepkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), "console.log('hello');").expect("write package entry");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("purepkg")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("wasm-threads"), "stderr: {stderr}");
+}
+
+#[test]
 fn check_with_sandbox_rejects_inferred_effects() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

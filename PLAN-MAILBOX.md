@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-21 resolution note
+- added a `package-effects` smoke regression for inherited `runtimeProfiles = ["wasm-threads"]` so the Stage 5.1 threaded-profile handoff now has CLI-level package-analysis coverage in addition to the existing config/metadata/embedding/runtime checks
+- updated the Stage 5.1 progress note to mention the new package-analysis evidence lane alongside the earlier runtime-profile gating coverage
+
+2026-04-21 resolution note
 - added canonical thread-spawn bookkeeping plumbing to the sandbox/runtime layer, including a dedicated `HostOperation::ThreadSpawn` policy check and runtime host-state thread counters, so the later threaded-profile budget path has a shared enforcement hook in place even while the profile remains gated
 - recorded the plumbing in the Stage 5.1 progress note so the historical plan stays aligned with the implementation state
 
