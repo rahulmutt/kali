@@ -118,13 +118,17 @@ pub fn compile_source_file_with_cache_state(
     coverage: bool,
 ) -> Result<CompileOutput, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
+    let runtime_profiles = validate_runtime_profiles(
+        runtime_profiles,
+        &format!("compile request for '{}'", source_path.display()),
+    )?;
 
     if let Some(cache_path) = incremental_cache_path(
         source_path,
         mode,
         max_specializations,
         api_surface,
-        runtime_profiles,
+        &runtime_profiles,
         compat_eval,
         coverage,
     )? {

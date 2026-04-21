@@ -73,6 +73,30 @@ fn compile_source_file_uses_incremental_cache_on_repeat_builds() {
 }
 
 #[test]
+fn compile_source_file_with_cache_state_rejects_invalid_runtime_profiles() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log(1);").expect("write source");
+
+    let error = compile_source_file_with_cache_state(
+        &source_path,
+        BuildMode::Release,
+        16,
+        ApiSurface::Deno,
+        &["wasm-threads".to_string(), "wasm-threads".to_string()],
+        false,
+        false,
+    )
+    .expect_err("invalid runtime profiles should fail");
+
+    assert!(error
+        .iter()
+        .any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::INVALID_CONFIG as u32)));
+}
+
+#[test]
 fn incremental_cache_path_includes_runtime_profiles() {
     let dir = tempdir().expect("tempdir");
     fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");

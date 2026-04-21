@@ -154,6 +154,10 @@ Proposed fix:
 - updated the Stage 5.1 progress note to mention the new CLI smoke coverage alongside the existing resolver-level gating path
 
 2026-04-21 resolution note
+- the shared runtime-profile validation path now also rejects invalid entries from the public compile-source helper before cache lookup, so direct callers see the same deterministic duplicate/unknown rejection path as the CLI, metadata, embedding, runtime, and package-analysis entrypoints
+- updated the Stage 5.1 progress note to record the helper-level validation path alongside the existing runtime-profile plumbing and gating coverage
+
+2026-04-21 resolution note
 - extended the runtime execution coverage so both `execute` and `execute_tests` preserve the normalized runtime-profile vector in `RuntimeOutcome`, and updated the Stage 5.1 progress note to call out the outcome-level preservation across both execution return paths
 
 2026-04-21 follow-up note
