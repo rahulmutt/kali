@@ -112,10 +112,20 @@ fn main() {
             api,
             compat,
             wasm_threads,
+            max_spawned_processes,
+            max_threads,
             files,
         } => {
-            if let Err(exit_code) = run_command(files, api, compat, wasm_threads, sandbox, &output)
-            {
+            if let Err(exit_code) = run_command(
+                files,
+                api,
+                compat,
+                wasm_threads,
+                max_spawned_processes,
+                max_threads,
+                sandbox,
+                &output,
+            ) {
                 std::process::exit(exit_code);
             }
         }
@@ -124,6 +134,8 @@ fn main() {
             api,
             compat,
             wasm_threads,
+            max_spawned_processes,
+            max_threads,
             files,
             filter,
             coverage,
@@ -133,6 +145,8 @@ fn main() {
                 api,
                 compat,
                 wasm_threads,
+                max_spawned_processes,
+                max_threads,
                 filter,
                 coverage,
                 sandbox,
@@ -830,6 +844,43 @@ fn reject_unavailable_runtime_profiles(
         e5::FEATURE_UNAVAILABLE as u32,
         format!(
             "selected runtime profile(s) {:?} are unavailable in this phase",
+            unavailable
+        ),
+    );
+    emit_diagnostics_and_exit(
+        command,
+        vec![diagnostic],
+        5,
+        output,
+        source_path,
+        source_contents,
+    )
+}
+
+fn reject_unavailable_zero_capable_budgets(
+    command: &str,
+    max_spawned_processes: Option<u64>,
+    max_threads: Option<u64>,
+    output: &CliOutputOptions,
+    source_path: Option<&Path>,
+    source_contents: Option<&str>,
+) -> Result<(), i32> {
+    let mut unavailable = Vec::new();
+    if max_spawned_processes.is_some_and(|count| count > 0) {
+        unavailable.push("resources.maxSpawnedProcesses");
+    }
+    if max_threads.is_some_and(|count| count > 0) {
+        unavailable.push("resources.maxThreads");
+    }
+
+    if unavailable.is_empty() {
+        return Ok(());
+    }
+
+    let diagnostic = Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        format!(
+            "selected resource budget(s) {:?} are unavailable in this phase",
             unavailable
         ),
     );
@@ -2125,6 +2176,8 @@ fn run_command(
     api: Option<kali_cli::ApiSurface>,
     compat: Vec<String>,
     wasm_threads: bool,
+    max_spawned_processes: Option<u64>,
+    max_threads: Option<u64>,
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
@@ -2165,6 +2218,16 @@ fn run_command(
     if let Err(exit_code) =
         reject_unavailable_runtime_profiles("run", &effective_runtime_profiles, output, None, None)
     {
+        return Err(exit_code);
+    }
+    if let Err(exit_code) = reject_unavailable_zero_capable_budgets(
+        "run",
+        max_spawned_processes,
+        max_threads,
+        output,
+        None,
+        None,
+    ) {
         return Err(exit_code);
     }
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
@@ -2248,6 +2311,8 @@ fn test_command(
     api: Option<kali_cli::ApiSurface>,
     compat: Vec<String>,
     wasm_threads: bool,
+    max_spawned_processes: Option<u64>,
+    max_threads: Option<u64>,
     filter: Option<String>,
     coverage: bool,
     sandbox: Option<PathBuf>,
@@ -2290,6 +2355,16 @@ fn test_command(
     if let Err(exit_code) =
         reject_unavailable_runtime_profiles("test", &effective_runtime_profiles, output, None, None)
     {
+        return Err(exit_code);
+    }
+    if let Err(exit_code) = reject_unavailable_zero_capable_budgets(
+        "test",
+        max_spawned_processes,
+        max_threads,
+        output,
+        None,
+        None,
+    ) {
         return Err(exit_code);
     }
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");

@@ -245,6 +245,12 @@ pub enum Commands {
         /// Opt into the later threaded runtime profile
         #[arg(long = "wasm-threads", action = ArgAction::SetTrue)]
         wasm_threads: bool,
+        /// Override the invocation child-process cap
+        #[arg(long = "max-spawned-processes")]
+        max_spawned_processes: Option<u64>,
+        /// Override the invocation thread cap
+        #[arg(long = "max-threads")]
+        max_threads: Option<u64>,
         /// Source files to run
         files: Vec<String>,
     },
@@ -263,6 +269,12 @@ pub enum Commands {
         /// Opt into the later threaded runtime profile
         #[arg(long = "wasm-threads", action = ArgAction::SetTrue)]
         wasm_threads: bool,
+        /// Override the invocation child-process cap
+        #[arg(long = "max-spawned-processes")]
+        max_spawned_processes: Option<u64>,
+        /// Override the invocation thread cap
+        #[arg(long = "max-threads")]
+        max_threads: Option<u64>,
         /// Only run tests matching this pattern
         #[arg(long)]
         filter: Option<String>,

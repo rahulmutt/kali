@@ -57,6 +57,7 @@ fn policy_rejects_unavailable_capabilities() {
     policy.effects.network.connect = AccessRule::Deny(true);
     policy.effects.eval = true;
     policy.resources.max_spawned_processes = Some(1);
+    policy.resources.max_threads = Some(1);
 
     let validation = policy.validate_policy();
     assert!(!validation.valid);

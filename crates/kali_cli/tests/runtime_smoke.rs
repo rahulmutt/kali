@@ -511,6 +511,61 @@ fn run_accepts_the_explicit_deno_api_surface() {
 }
 
 #[test]
+fn run_accepts_zero_thread_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("run")
+        .arg("--max-threads")
+        .arg("0")
+        .arg(fixture_path("run/hello.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn run_rejects_positive_thread_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("run")
+        .arg("--max-threads")
+        .arg("1")
+        .arg(fixture_path("run/hello.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("resources.maxThreads"), "stderr: {stderr}");
+}
+
+#[test]
+fn run_rejects_positive_spawned_process_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("run")
+        .arg("--max-spawned-processes")
+        .arg("1")
+        .arg(fixture_path("run/hello.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("resources.maxSpawnedProcesses"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn run_rejects_declaration_only_fixture_entrypoints() {
     let output = Command::new(kali_bin())
         .arg("run")
@@ -560,6 +615,23 @@ fn test_accepts_the_explicit_deno_api_surface() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_rejects_positive_thread_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("test")
+        .arg("--max-threads")
+        .arg("1")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("resources.maxThreads"), "stderr: {stderr}");
 }
 
 #[test]
