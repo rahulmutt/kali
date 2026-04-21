@@ -46,6 +46,9 @@ Proposed fix:
 - updated the Stage 5.1 progress note so it explicitly names the `runtimeProfiles` metadata axis and the current empty-set normalization in emitted build metadata
 
 2026-04-21 follow-up note
+- the shared runtime-profile validation path now also feeds the embedding compiler config and artifact metadata emission, so the Stage 5.1 progress note should mention that duplicate and unknown runtime-profile entries are rejected deterministically before the phase gate
+
+2026-04-21 follow-up note
 
 While hardening the Phase-2 coverage evidence lane, the completed Stage 2.5 playbook should record the deterministic multi-file ordering contract for `kali test --coverage` so the historical progress note matches the shipped JSON payload shape.
 

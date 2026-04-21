@@ -27,6 +27,7 @@ AOT-only, and no-tracing-GC invariants. This stage owns the runtime-profile plum
 - Effect-report context plumbing now carries `runtimeProfiles` and `compatFeatures` through the shared analysis context so later evidence can reuse the same axis-aligned shape.
 - The embedding config surface now retains runtime-profile requests and fails them explicitly in the current phase instead of silently dropping them.
 - Build artifact metadata sidecars now carry an explicit `runtimeProfiles` axis, normalizing the current phase to the empty `[]` set while still threading the effective runtime-profile vector through executable, library, C-ABI, component, and browser-bundle metadata emission so the emitted artifact contract stays aligned with the same semantic knob even though the current phase still rejects threaded requests before artifact production.
+- The runtime-profile validation path is now shared between CLI config loading, artifact metadata emission, and the embedding compiler config, so duplicate or unknown runtime-profile entries are rejected deterministically before the threaded-profile phase gate is applied.
 - The CLI now accepts the zero-cap thread-budget overrides documented for execution commands, with `--max-threads` / `--max-spawned-processes` normalizing through the shared `resources.*` vocabulary and rejecting positive values with the canonical `E5006` gate until their phase/profile contracts open.
 
 ## Tasks

@@ -736,8 +736,7 @@ fn manifest_runtime_profiles(manifest: &ProjectManifest) -> Result<Vec<String>, 
         )]);
     };
 
-    let mut normalized = Vec::new();
-    let mut seen = BTreeSet::new();
+    let mut raw_profiles = Vec::new();
     for profile in profiles {
         let Some(profile) = profile.as_str() else {
             return Err(vec![Diagnostic::error(
@@ -745,26 +744,10 @@ fn manifest_runtime_profiles(manifest: &ProjectManifest) -> Result<Vec<String>, 
                 "`compilerOptions.runtimeProfiles` entries must be strings",
             )]);
         };
-        let profile = profile.trim();
-        if profile.is_empty() {
-            continue;
-        }
-        if !matches!(profile, "wasm-threads") {
-            return Err(vec![Diagnostic::error(
-                e5::INVALID_CONFIG as u32,
-                format!("unsupported runtimeProfile '{}' in kali.json", profile),
-            )]);
-        }
-        if !seen.insert(profile.to_string()) {
-            return Err(vec![Diagnostic::error(
-                e5::INVALID_CONFIG as u32,
-                format!("duplicate runtimeProfile '{}' in kali.json", profile),
-            )]);
-        }
-        normalized.push(profile.to_string());
+        raw_profiles.push(profile.to_string());
     }
 
-    Ok(normalized)
+    build::validate_runtime_profiles(&raw_profiles, "kali.json")
 }
 
 fn normalize_compat_features(features: Vec<String>) -> Vec<String> {

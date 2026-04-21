@@ -91,6 +91,29 @@ fn build_artifact_metadata_preserves_runtime_profiles() {
 }
 
 #[test]
+fn build_artifact_metadata_rejects_duplicate_runtime_profiles() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "const main = 1;").expect("write source");
+
+    let runtime_profiles = vec!["wasm-threads".to_string(), "wasm-threads".to_string()];
+    let error = build_artifact_metadata(
+        &source_path,
+        "executable",
+        BuildMode::Fast,
+        "deno",
+        &runtime_profiles,
+        None,
+    )
+    .expect_err("duplicate runtime profiles should fail");
+
+    assert!(error
+        .iter()
+        .any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::INVALID_CONFIG as u32)));
+}
+
+#[test]
 fn output_path_uses_source_stem() {
     let source = PathBuf::from("/tmp/demo/main.ts");
     let output = executable_output_path_for(&source, Some(Path::new("dist")));

@@ -56,7 +56,7 @@ impl KaliCompiler {
 
     /// Compile a source file into a standalone executable artifact.
     pub fn compile_file(&self, path: &Path) -> Result<CompiledArtifact, CompileError> {
-        self.validate_runtime_profiles()?;
+        let runtime_profiles = self.normalized_runtime_profiles()?;
         let mut wasm_bytes = build::compile_source_file(
             path,
             self.config.build_mode,
@@ -70,7 +70,7 @@ impl KaliCompiler {
             "executable",
             self.config.build_mode,
             &self.config.api_surface.to_string(),
-            &self.config.runtime_profiles,
+            &runtime_profiles,
             None,
         )
         .map_err(CompileError::from)?;
@@ -84,7 +84,7 @@ impl KaliCompiler {
 
     /// Compile a source file into a library artifact plus a deterministic WIT sidecar.
     pub fn compile_lib(&self, path: &Path) -> Result<LibArtifact, CompileError> {
-        self.validate_runtime_profiles()?;
+        let runtime_profiles = self.normalized_runtime_profiles()?;
         let exports = build::collect_library_exports(path).map_err(CompileError::from)?;
         let mut wasm_bytes = build::compile_source_file(
             path,
@@ -99,7 +99,7 @@ impl KaliCompiler {
             "lib",
             self.config.build_mode,
             &self.config.api_surface.to_string(),
-            &self.config.runtime_profiles,
+            &runtime_profiles,
             Some(exports.clone()),
         )
         .map_err(CompileError::from)?;
@@ -119,7 +119,7 @@ impl KaliCompiler {
         module_name: &str,
         source: &str,
     ) -> Result<LibArtifact, CompileError> {
-        self.validate_runtime_profiles()?;
+        let runtime_profiles = self.normalized_runtime_profiles()?;
         let temp_path = temporary_source_path(module_name);
         if let Some(parent) = temp_path.parent() {
             let _ = fs::create_dir_all(parent);
@@ -151,7 +151,7 @@ impl KaliCompiler {
                 "lib",
                 self.config.build_mode,
                 &self.config.api_surface.to_string(),
-                &self.config.runtime_profiles,
+                &runtime_profiles,
                 Some(exports.clone()),
             )
             .map_err(CompileError::from)?;
@@ -171,10 +171,12 @@ impl KaliCompiler {
         result
     }
 
-    fn validate_runtime_profiles(&self) -> Result<(), CompileError> {
-        if self
-            .config
-            .runtime_profiles
+    fn normalized_runtime_profiles(&self) -> Result<Vec<String>, CompileError> {
+        let runtime_profiles =
+            build::validate_runtime_profiles(&self.config.runtime_profiles, "embedding config")
+                .map_err(CompileError::from)?;
+
+        if runtime_profiles
             .iter()
             .any(|profile| profile == "wasm-threads")
         {
@@ -184,7 +186,7 @@ impl KaliCompiler {
             )]));
         }
 
-        Ok(())
+        Ok(runtime_profiles)
     }
 }
 

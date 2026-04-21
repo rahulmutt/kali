@@ -1,6 +1,6 @@
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -1051,6 +1051,39 @@ fn build_mode_name(mode: BuildMode) -> &'static str {
     }
 }
 
+pub fn validate_runtime_profiles(
+    runtime_profiles: &[String],
+    source_label: &str,
+) -> Result<Vec<String>, Vec<Diagnostic>> {
+    let mut normalized = BTreeSet::new();
+
+    for profile in runtime_profiles {
+        let profile = profile.trim();
+        if profile.is_empty() {
+            continue;
+        }
+
+        if !matches!(profile, "wasm-threads") {
+            return Err(vec![Diagnostic::error(
+                e5::INVALID_CONFIG as u32,
+                format!(
+                    "unsupported runtimeProfile '{}' in {}",
+                    profile, source_label
+                ),
+            )]);
+        }
+
+        if !normalized.insert(profile.to_string()) {
+            return Err(vec![Diagnostic::error(
+                e5::INVALID_CONFIG as u32,
+                format!("duplicate runtimeProfile '{}' in {}", profile, source_label),
+            )]);
+        }
+    }
+
+    Ok(normalized.into_iter().collect())
+}
+
 pub fn build_artifact_metadata(
     source_path: &Path,
     artifact_kind: &str,
@@ -1070,13 +1103,18 @@ pub fn build_artifact_metadata(
         )]
     })?;
 
+    let runtime_profiles = validate_runtime_profiles(
+        runtime_profiles,
+        &format!("artifact metadata for '{}'", source_path.display()),
+    )?;
+
     Ok(ArtifactMetadata {
         schema_version: 1,
         artifact_kind: artifact_kind.to_string(),
         entrypoint: source_path.to_string_lossy().to_string(),
         build_mode: build_mode_name(mode).to_string(),
         api_surface: api_surface.to_string(),
-        runtime_profiles: runtime_profiles.to_vec(),
+        runtime_profiles,
         kali_version: env!("CARGO_PKG_VERSION").to_string(),
         source_hash,
         exports,
