@@ -51,6 +51,16 @@ fn policy_validates_and_serializes() {
 }
 
 #[test]
+fn policy_thread_budget_helper_preserves_zero_cap_tightening() {
+    let mut policy = valid_policy();
+    policy.resources.max_threads = Some(4);
+
+    assert_eq!(policy.effective_thread_budget(None), Some(4));
+    assert_eq!(policy.effective_thread_budget(Some(0)), Some(0));
+    assert_eq!(policy.effective_thread_budget(Some(2)), Some(2));
+}
+
+#[test]
 fn policy_rejects_unavailable_capabilities() {
     let mut policy = valid_policy();
     policy.effects.process.env_write = AccessRule::Deny(true);

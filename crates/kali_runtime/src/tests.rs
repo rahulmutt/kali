@@ -83,6 +83,13 @@ fn runtime_context_carries_runtime_profiles() {
 }
 
 #[test]
+fn runtime_context_carries_thread_budget_override() {
+    let runtime = RuntimeCtx::with_api_surface(None, "deno").with_max_threads(Some(0));
+
+    assert_eq!(runtime.max_threads, Some(0));
+}
+
+#[test]
 fn runtime_exposes_environment_variables() {
     let mut env = BTreeMap::new();
     env.insert("KALI_RUNTIME_TEST_ENV".to_string(), "hello".to_string());

@@ -275,6 +275,21 @@ impl SandboxPolicy {
         }
     }
 
+    /// Resolve the effective thread budget after combining the attached policy cap
+    /// with an invocation override.
+    ///
+    /// The current phase still rejects positive runtime thread requests before execution,
+    /// but the resolver keeps the shared zero-cap tightening rule explicit so later
+    /// threaded-profile work has a single canonical limit path.
+    pub fn effective_thread_budget(&self, invocation_override: Option<u64>) -> Option<u64> {
+        match (self.resources.max_threads, invocation_override) {
+            (Some(policy_limit), Some(requested_limit)) => Some(policy_limit.min(requested_limit)),
+            (Some(policy_limit), None) => Some(policy_limit),
+            (None, Some(requested_limit)) => Some(requested_limit),
+            (None, None) => None,
+        }
+    }
+
     /// Validate the policy and wrap the result in a `PolicyValidation` helper.
     pub fn validate_policy(&self) -> PolicyValidation {
         match self.validate() {

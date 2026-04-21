@@ -34,6 +34,8 @@ pub struct RuntimeCtx {
     pub api_surface: String,
     /// Requested runtime profiles for the current execution context.
     pub runtime_profiles: Vec<String>,
+    /// Invocation-level thread budget override preserved for later threaded-profile enforcement.
+    pub max_threads: Option<u64>,
 }
 
 /// Host-side state owned by the runtime.
@@ -49,7 +51,7 @@ pub struct KaliHostState {
     pub cwd: PathBuf,
     /// Requested runtime profiles for the current execution context.
     pub runtime_profiles: Vec<String>,
-    /// Thread budget derived from the active policy, if one is attached.
+    /// Thread budget derived from the active policy and any invocation override.
     pub max_threads: Option<u64>,
     /// Captured guest stdout.
     pub stdout: String,
@@ -116,6 +118,7 @@ impl Default for RuntimeCtx {
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
             api_surface: "deno".to_string(),
             runtime_profiles: Vec::new(),
+            max_threads: None,
         }
     }
 }
@@ -160,12 +163,19 @@ impl RuntimeCtx {
             cwd,
             api_surface: api_surface.into(),
             runtime_profiles: Vec::new(),
+            max_threads: None,
         }
     }
 
     /// Attach the requested runtime profiles to the current execution context.
     pub fn with_runtime_profiles(mut self, runtime_profiles: Vec<String>) -> Self {
         self.runtime_profiles = runtime_profiles;
+        self
+    }
+
+    /// Attach an invocation-level thread budget override to the current execution context.
+    pub fn with_max_threads(mut self, max_threads: Option<u64>) -> Self {
+        self.max_threads = max_threads;
         self
     }
 
@@ -221,7 +231,8 @@ impl RuntimeCtx {
                 max_threads: self
                     .policy
                     .as_ref()
-                    .and_then(|policy| policy.resources.max_threads),
+                    .map(|policy| policy.effective_thread_budget(self.max_threads))
+                    .unwrap_or(self.max_threads),
                 stdout: String::new(),
                 stderr: String::new(),
                 pending_timers: BTreeMap::new(),
