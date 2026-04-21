@@ -165,3 +165,16 @@ Proposed fix:
 2026-04-21 resolution note
 - added the `kali test --sandbox` smoke regression for positive `resources.maxThreads` policies so the Stage 5.1 evidence story now covers the policy-driven thread-budget rejection path on both execution commands
 - updated the Stage 5.1 progress note to mention the `check` and `test` command-level `E5006` / `resources.maxThreads` coverage together
+
+2026-04-21 follow-up note
+
+While advancing the threaded-runtime-profile work, the browser/web compatibility crate needs a deterministic shared-memory baseline so later `SharedArrayBuffer` / `Atomics` plumbing can reuse one stable byte-buffer model instead of inventing a second ad hoc helper.
+
+Proposed fix:
+- add a small deterministic `SharedArrayBuffer` / `Atomics` baseline to `crates/kali_api_web`
+- keep it internal to the runtime compatibility layer for now, with tests that prove clone-sharing and atomic byte updates are deterministic
+- mention the new baseline in the Stage 5.1 progress note so the historical plan stays aligned with the implementation state
+
+2026-04-21 resolution note
+- added the deterministic `SharedArrayBuffer` / `Atomics` baseline to `kali_api_web` with clone-shared byte storage and byte-wise atomic helpers
+- updated the Stage 5.1 progress note so the historical plan now records the shared-memory baseline alongside the existing threaded-profile plumbing and gating evidence

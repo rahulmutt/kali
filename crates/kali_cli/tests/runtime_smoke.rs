@@ -4190,8 +4190,7 @@ fn check_with_sandbox_rejects_positive_thread_budget_policy() {
 fn test_with_sandbox_rejects_positive_thread_budget_policy() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
-    fs::write(&source_path, "Kali.test(\"addition\", () => { 1 + 2; });")
-        .expect("write source");
+    fs::write(&source_path, "Kali.test(\"addition\", () => { 1 + 2; });").expect("write source");
     let policy_path = dir.path().join("kali.policy.json");
     fs::write(
         &policy_path,

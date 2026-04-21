@@ -5,7 +5,7 @@ use std::{
     collections::BTreeMap,
     fmt::{self, Write as _},
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering},
         Arc, Mutex, OnceLock,
     },
     time::Instant,
@@ -1415,6 +1415,142 @@ impl Worker {
     /// Return whether the stub worker has been terminated.
     pub fn is_terminated(&self) -> bool {
         self.terminated.load(Ordering::SeqCst)
+    }
+}
+
+/// A deterministic shared-memory baseline used by the browser/runtime compatibility layer.
+#[derive(Clone, Default)]
+pub struct SharedArrayBuffer {
+    bytes: Arc<Vec<AtomicU8>>,
+}
+
+impl SharedArrayBuffer {
+    /// Create a zero-initialized shared buffer with a fixed byte length.
+    pub fn new(byte_length: usize) -> Self {
+        Self::from_bytes(vec![0u8; byte_length])
+    }
+
+    /// Create a shared buffer from deterministic initial bytes.
+    pub fn from_bytes(bytes: impl AsRef<[u8]>) -> Self {
+        Self {
+            bytes: Arc::new(bytes.as_ref().iter().copied().map(AtomicU8::new).collect()),
+        }
+    }
+
+    /// Return the buffer length in bytes.
+    pub fn byte_length(&self) -> usize {
+        self.bytes.len()
+    }
+
+    /// Return whether the buffer is empty.
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
+
+    /// Read a byte at the provided offset.
+    pub fn load(&self, index: usize) -> Option<u8> {
+        self.bytes
+            .get(index)
+            .map(|cell| cell.load(Ordering::SeqCst))
+    }
+
+    /// Overwrite a byte at the provided offset, returning the previous value.
+    pub fn store(&self, index: usize, value: u8) -> Option<u8> {
+        self.bytes
+            .get(index)
+            .map(|cell| cell.swap(value, Ordering::SeqCst))
+    }
+
+    /// Add to a byte at the provided offset with wrapping arithmetic.
+    pub fn add(&self, index: usize, value: u8) -> Option<u8> {
+        self.bytes
+            .get(index)
+            .map(|cell| cell.fetch_add(value, Ordering::SeqCst))
+    }
+
+    /// Subtract from a byte at the provided offset with wrapping arithmetic.
+    pub fn sub(&self, index: usize, value: u8) -> Option<u8> {
+        self.bytes
+            .get(index)
+            .map(|cell| cell.fetch_sub(value, Ordering::SeqCst))
+    }
+
+    /// Compare-and-exchange a byte at the provided offset.
+    pub fn compare_exchange(&self, index: usize, current: u8, new: u8) -> Option<Result<u8, u8>> {
+        self.bytes
+            .get(index)
+            .map(|cell| cell.compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst))
+    }
+
+    /// Return a deterministic snapshot of the current bytes.
+    pub fn snapshot(&self) -> Vec<u8> {
+        self.bytes
+            .iter()
+            .map(|cell| cell.load(Ordering::SeqCst))
+            .collect()
+    }
+}
+
+impl PartialEq for SharedArrayBuffer {
+    fn eq(&self, other: &Self) -> bool {
+        self.snapshot() == other.snapshot()
+    }
+}
+
+impl Eq for SharedArrayBuffer {}
+
+impl std::fmt::Debug for SharedArrayBuffer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SharedArrayBuffer")
+            .field("byte_length", &self.byte_length())
+            .field("bytes", &self.snapshot())
+            .finish()
+    }
+}
+
+/// Deterministic atomics helpers for the shared-memory baseline.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Atomics;
+
+impl Atomics {
+    /// Load a byte from the provided shared buffer.
+    pub fn load(buffer: &SharedArrayBuffer, index: usize) -> Option<u8> {
+        buffer.load(index)
+    }
+
+    /// Store a byte into the provided shared buffer.
+    pub fn store(buffer: &SharedArrayBuffer, index: usize, value: u8) -> Option<u8> {
+        buffer.store(index, value)
+    }
+
+    /// Exchange a byte in the provided shared buffer.
+    pub fn exchange(buffer: &SharedArrayBuffer, index: usize, value: u8) -> Option<u8> {
+        buffer.store(index, value)
+    }
+
+    /// Add to a byte in the provided shared buffer.
+    pub fn add(buffer: &SharedArrayBuffer, index: usize, value: u8) -> Option<u8> {
+        buffer.add(index, value)
+    }
+
+    /// Subtract from a byte in the provided shared buffer.
+    pub fn sub(buffer: &SharedArrayBuffer, index: usize, value: u8) -> Option<u8> {
+        buffer.sub(index, value)
+    }
+
+    /// Compare-and-exchange a byte in the provided shared buffer.
+    pub fn compare_exchange(
+        buffer: &SharedArrayBuffer,
+        index: usize,
+        current: u8,
+        new: u8,
+    ) -> Option<Result<u8, u8>> {
+        buffer.compare_exchange(index, current, new)
+    }
+
+    /// Return a deterministic snapshot of the shared buffer.
+    pub fn snapshot(buffer: &SharedArrayBuffer) -> Vec<u8> {
+        buffer.snapshot()
     }
 }
 

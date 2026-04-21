@@ -478,6 +478,32 @@ fn worker_stub_records_posted_messages() {
 }
 
 #[test]
+fn shared_array_buffer_clones_share_mutations() {
+    let buffer = SharedArrayBuffer::from_bytes([1, 2, 3, 4]);
+    let clone = buffer.clone();
+
+    assert_eq!(buffer.byte_length(), 4);
+    assert_eq!(buffer.snapshot(), vec![1, 2, 3, 4]);
+    assert_eq!(Atomics::load(&clone, 1), Some(2));
+    assert_eq!(Atomics::store(&clone, 1, 9), Some(2));
+    assert_eq!(Atomics::add(&buffer, 0, 4), Some(1));
+    assert_eq!(Atomics::sub(&buffer, 2, 1), Some(3));
+    assert_eq!(Atomics::compare_exchange(&buffer, 3, 4, 7), Some(Ok(4)));
+    assert_eq!(buffer.snapshot(), vec![5, 9, 2, 7]);
+    assert_eq!(clone.snapshot(), vec![5, 9, 2, 7]);
+}
+
+#[test]
+fn shared_array_buffer_supports_zero_length_buffers() {
+    let buffer = SharedArrayBuffer::new(0);
+    assert!(buffer.is_empty());
+    assert!(Atomics::load(&buffer, 0).is_none());
+    assert!(Atomics::store(&buffer, 0, 1).is_none());
+    assert!(Atomics::compare_exchange(&buffer, 0, 0, 1).is_none());
+    assert!(Atomics::snapshot(&buffer).is_empty());
+}
+
+#[test]
 fn broadcast_channel_stub_records_posted_messages() {
     let channel = BroadcastChannel::new("browser-corpus");
     assert_eq!(channel.name(), "browser-corpus");
