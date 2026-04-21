@@ -24,8 +24,8 @@ Kali's hard invariants (AOT-only, no language-level JIT, no tracing GC).
   deterministic registry-metadata findings over the selected package version, including the
   documented `KALI_REGISTRY` override path for npm metadata fetches.
 - Browser-bundle chunk discovery now follows simple statically resolvable dynamic-import targets,
-  including concatenated, parenthesized, and const-bound static fragments, and the emitted bundle
-  now carries a runtime `loadDynamicImport(specifier)` helper with path-normalized lookup.
+  and emitted bundles carry a runtime `loadDynamicImport(specifier)` helper with path-normalized
+  lookup.
 - Unknown dynamic-import targets now take the dedicated `E4008` path instead of blending into
   generic import-resolution failures.
 - The shared compatibility-feature plumbing now accepts `--compat eval` and inherited

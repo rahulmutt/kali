@@ -22,106 +22,20 @@ types are statically known.
 
 ## Progress
 
-- `kali_optimize` is now wired into the build pipeline and `release` / `release-advanced` run real,
-  deterministic optimization passes instead of placeholders.
-- The current optimizer performs constant folding, branch elimination, small-function inlining,
-  aggressive dead top-level-function pruning, and MIR-aware call-site specialization for
-  layout-stable callees.
-- Layout-aware specialization now fingerprints struct and array descriptors precisely and keeps
-  closure capture identities in the layout signature, so identical higher-order call-site layouts
-  reuse one specialized clone while distinct closure capture sets no longer collapse onto the same
-  specialization.
-- Array-valued MIR bindings now preserve their element/length fingerprints through call-site
-  specialization, so the array-layout widening can split into separate clones while same-shaped
-  callers still share one clone instead of collapsing onto a single shared body.
-- Direct array-literal call-site arguments now also carry explicit `Value:array:len=...` shape
-  signatures, so the direct array-literal shape widening can split inline arrays with different
-  lengths into separate clones even when the callee only sees a tagged parameter.
-- Quoted string-literal call-site arguments now carry distinct specialization signatures, so
-  different string literals can split into separate clones instead of collapsing onto the generic
-  tagged fallback while still respecting the deterministic specialization budget.
-- No-substitution template-literal call-site arguments now keep a template-specific signature, so
-  backtick-delimited string literals stay distinct from quoted strings instead of collapsing onto
-  the generic tagged fallback while still respecting the deterministic specialization budget.
-- RegExp-literal call-site arguments now carry distinct canonical signatures, so `/foo/i` and
-  `/bar/i` stay separate in the specialization path instead of collapsing onto the generic tagged
-  fallback while still respecting the deterministic specialization budget, and the MIR-aware
-  specialization path preserves that same regex-literal split when it has to run without layout
-  metadata.
-- `null` and `undefined` call-site arguments now also carry distinct literal signatures instead of
-  collapsing onto the old zero-valued fallback, so the specialization path stays honest about
-  nullish arguments when the MIR plan can see them as constants.
-- Boolean call-site arguments now likewise preserve their `true` / `false` identity in the
-  specialization signature, so tagged-parameter and MIR-backed hot paths do not collapse distinct
-  control-flow constants onto one shared clone.
-- Numeric-literal call-site arguments now also carry value-specific signatures, so repeated `1`
-  calls still share a clone while `1` and `2` no longer collapse onto the same specialized body.
-- Signed-zero numeric literals now preserve `-0` as a distinct specialization signature from `0`,
-  so the literal-signature path stays honest about the JavaScript signed-zero edge case without
-  changing the deterministic budget story.
-- BigInt-literal call-site arguments now carry distinct `1n` / `2n` signatures as well, so the
-  specialization path keeps BigInt constants separate from the old numeric fallback without
-  changing the deterministic budget story.
-- `Infinity`, `-Infinity`, and `NaN` call-site arguments now also carry distinct literal
-  signatures, so the remaining special-number edge cases stay visible to the deterministic
-  specialization path instead of collapsing onto the generic tagged fallback.
-- Nested MIR-bound bindings inside object-literal call sites now also participate in the MIR-aware
-  specialization signature, so composite arguments can split into distinct clones when the same
-  surface shape is fed by different scoped binding layouts.
-- Object-literal property order is now canonicalized in the specialization signature, so
-  semantically identical object shapes with reordered fields reuse one specialized clone instead
-  of splitting on insertion order.
-- Const-bound object property reads and constant-index array reads now fold before codegen, and
-  optimized numeric hot paths are regression-tested to stay free of tag-check / untag boxing.
-- Incremental compilation now reuses `.kali-cache/incremental/` for unchanged modules, and the
-  specialization budget is enforced per function owner so separate hot paths keep independent caps.
-- Newly created MIR-specialized clones are recursively revisited under their own owner key, so
-  clone-specific optimization can expose deeper specializable call sites without collapsing the
-  parent function's deterministic budget accounting.
-- A nested-call regression now proves a specialized clone can recursively surface a second
-  specializable call site inside its own body, so the current depth story reaches past the first
-  cloned layer without changing the deterministic budget model.
-- Tagged-parameter call sites now specialize when the actual arguments have a concrete literal or
-  MIR-backed layout, even when the callee is too large to inline but still small enough to stay
-  within the deterministic specialization budget, so the monomorphisation path reaches one level
-  deeper than the previous non-tagged-layout gate.
-- MIR-backed binding layout lookups are now scoped by function owner, so identically named bindings
-  in different functions can specialize independently instead of collapsing to one shared fallback
-  layout.
-- The pure-LIR optimizer path now also performs a concrete-argument fallback specialization for
-  literal-shaped call sites when MIR layout metadata is unavailable, so generic/function
-  specialization can still clone deterministic helpers even before the MIR-aware pass runs.
-- The MIR-aware specialization path now also clones literal-shaped concrete-argument calls when the
-  MIR plan has no parameter layout metadata, so the MIR pass can keep deterministic monomorphized
-  helpers alive instead of dropping back to a generic no-specialization result.
-- Identical generic specializations are now reused across owners when the callee and argument
-  signatures already match, so the specialization path avoids cloning duplicate helpers just
-  because the same generic call appears in more than one function scope.
-- MIR-aware specialization now checks the specialization cache before spending the current
-  owner's remaining budget, so an already-materialized clone can still be reused even after that
-  owner has exhausted its specialization slots.
-- A representative benchmark suite now records compile time, WASM size, instruction count, and
-  add-op deltas across `fast`, `release`, and `release-advanced`.
-- The release-advanced MIR-specialized clone path now keeps the generic-instantiation path available
-  inside its specialized bodies, so a layout-specialized function can still clone and fold a large
-  generic callee after the MIR pass narrows the arguments.
-- MIR-specialized clones now keep generic specialization enabled inside their bodies in `release`
-  too, so a layout-specialized wrapper can still clone and fold a large generic callee after the
-  MIR pass narrows its arguments.
-- `release_advanced` now has a regression that proves the same layout-specialized wrapper path still
-  materializes a nested generic clone for a large callee, so the deeper monomorphisation path
-  remains covered in the advanced mode as well, and the same advanced mode now also reuses
-  identical generic specializations across layout-specialized owners so the cross-owner reuse path
-  stays regression-tested there too.
-- Nested generic specializations are now also reused across layout-specialized wrapper owners, so
-  identical imported helpers stay deduplicated even when different caller shapes force separate
-  wrapper clones.
-- The new re-export-chain regression now also proves the same generic helper clone is reused once
-  when the call flow runs through an explicit `public` / `bridge` / helper chain in release mode,
-  and the bridge wrapper itself still specializes once, so the cross-module-style reuse story stays
-  concrete without changing the deterministic budget model; `release-advanced` now keeps the same
-  chain deterministic by folding the first public branch to a literal while still specializing the
-  later public wrapper once.
+- `kali_optimize` is wired into the build pipeline, and both `release` and
+  `release-advanced` now run real deterministic optimization passes.
+- The delivered optimization set includes constant folding, branch elimination, small-function
+  inlining, aggressive dead-code pruning, MIR-aware call-site specialization, and incremental
+  compilation reuse via `.kali-cache/incremental/`.
+- Specialization keys are now materially richer and more stable: layout-aware fingerprints cover
+  object/array descriptors, closure captures, literal distinctions (including string/template,
+  regex, nullish, boolean, numeric, signed-zero, BigInt, and special-number cases), and owner-
+  scoped MIR binding layouts.
+- Clone reuse and budget enforcement are now deterministic across owners and nested specialized
+  bodies, including cache-before-budget reuse and deeper specialization inside already-specialized
+  wrappers.
+- Regression and benchmark coverage now tracks `fast` vs `release` vs `release-advanced`, nested
+  specialization depth, cross-owner reuse, and re-export-chain specialization behavior.
 
 ## Status
 
