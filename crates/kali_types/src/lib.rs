@@ -1246,7 +1246,7 @@ fn builtin_globals() -> &'static [&'static str] {
 }
 
 fn node_builtin_globals() -> &'static [&'static str] {
-    &["Buffer", "process"]
+    &["Buffer", "exports", "module", "process", "require"]
 }
 
 fn node_builtin_specifiers() -> &'static [&'static str] {

@@ -32,6 +32,7 @@ programs and pure-JS npm packages that rely on Node built-ins can be compiled an
   them with the canonical `E6005` path.
 - The package corpus now includes representative Node-assuming packages (`axios`, `express`, and
   `chalk`) and positive runtime smoke coverage for the documented Stage 3.2 subset.
+- The semver package-bin smoke now runs under `--api node` so the Node CLI gate stays aligned with a real CommonJS-style package entrypoint instead of only synthetic helper packages.
 
 ## Tasks
 
