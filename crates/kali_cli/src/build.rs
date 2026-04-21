@@ -74,6 +74,31 @@ pub fn check_source_file(
     Ok(())
 }
 
+pub fn normalize_compiler_source(source: &str) -> Cow<'_, str> {
+    if source.starts_with("#!") {
+        let mut normalized = source.to_string();
+        normalized.replace_range(..2, "//");
+        Cow::Owned(normalized)
+    } else {
+        Cow::Borrowed(source)
+    }
+}
+
+pub fn read_compiler_source_file(source_path: &Path) -> Result<String, Vec<Diagnostic>> {
+    let source = fs::read_to_string(source_path).map_err(|error| {
+        vec![Diagnostic::error(
+            e8::INTERNAL_ERROR as u32,
+            format!(
+                "failed to read source file '{}': {}",
+                source_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    Ok(normalize_compiler_source(&source).into_owned())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompileOutput {
     pub wasm_bytes: Vec<u8>,
@@ -272,16 +297,7 @@ fn analyze_source_file(
     api_surface: ApiSurface,
     compat_eval: bool,
 ) -> Result<AnalyzedSource, Vec<Diagnostic>> {
-    let source = fs::read_to_string(source_path).map_err(|error| {
-        vec![Diagnostic::error(
-            e8::INTERNAL_ERROR as u32,
-            format!(
-                "failed to read source file '{}': {}",
-                source_path.display(),
-                error
-            ),
-        )]
-    })?;
+    let source = read_compiler_source_file(source_path)?;
 
     let source = if compat_eval {
         rewrite_eval_compat_source(&source)
@@ -1143,16 +1159,7 @@ pub fn collect_browser_bundle_exports(
 }
 
 fn parse_source_file(source_path: &Path) -> Result<Vec<Statement>, Vec<Diagnostic>> {
-    let source = fs::read_to_string(source_path).map_err(|error| {
-        vec![Diagnostic::error(
-            e8::INTERNAL_ERROR as u32,
-            format!(
-                "failed to read source file '{}': {}",
-                source_path.display(),
-                error
-            ),
-        )]
-    })?;
+    let source = read_compiler_source_file(source_path)?;
 
     let lexer = Lexer::new(FileId::new(0), source);
     let tokens = lexer.lex_all().tokens;

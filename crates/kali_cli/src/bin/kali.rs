@@ -1893,7 +1893,7 @@ fn run_command(
         return Err(1);
     };
 
-    if let Err(diagnostic) = validate_runtime_entrypoint(&source) {
+    if let Err(diagnostic) = validate_runtime_entrypoint(&source, effective_api) {
         return emit_diagnostics_and_exit("run", vec![diagnostic], 5, output, None, None);
     }
 
@@ -2038,7 +2038,7 @@ fn test_command(
     let mut valid_files = Vec::new();
     for file in selected_files {
         let source = PathBuf::from(&file);
-        if let Err(diagnostic) = validate_runtime_entrypoint(&source) {
+        if let Err(diagnostic) = validate_runtime_entrypoint(&source, effective_api) {
             return emit_diagnostics_and_exit(
                 "test",
                 vec![diagnostic],
@@ -2376,17 +2376,6 @@ fn effects_command(
         return Err(1);
     };
 
-    if let Err(diagnostic) = validate_runtime_entrypoint(&source) {
-        return emit_diagnostics_and_exit(
-            "effects",
-            vec![diagnostic],
-            5,
-            output,
-            Some(&source),
-            fs::read_to_string(&source).ok().as_deref(),
-        );
-    }
-
     let effective_api = match resolve_effective_api_surface(None) {
         Ok(api) => api,
         Err(diagnostics) => {
@@ -2400,6 +2389,16 @@ fn effects_command(
             );
         }
     };
+    if let Err(diagnostic) = validate_runtime_entrypoint(&source, effective_api) {
+        return emit_diagnostics_and_exit(
+            "effects",
+            vec![diagnostic],
+            5,
+            output,
+            Some(&source),
+            fs::read_to_string(&source).ok().as_deref(),
+        );
+    }
     let effective_compat = match resolve_effective_compat_features(compat) {
         Ok(features) => features,
         Err(diagnostics) => {
@@ -2800,7 +2799,10 @@ fn single_or_error(
     }
 }
 
-fn validate_runtime_entrypoint(source: &PathBuf) -> Result<(), Diagnostic> {
+fn validate_runtime_entrypoint(
+    source: &PathBuf,
+    api_surface: kali_cli::ApiSurface,
+) -> Result<(), Diagnostic> {
     if is_declaration_only_source_file(source) {
         Err(Diagnostic::error(
             e5::INVALID_PRIMARY_INPUT_KIND as u32,
@@ -2810,9 +2812,141 @@ fn validate_runtime_entrypoint(source: &PathBuf) -> Result<(), Diagnostic> {
             ),
         )
         .with_suggestion("use `kali check` for declaration-only files"))
+    } else if let Some(diagnostic) = validate_package_bin_runtime_entrypoint(source, api_surface) {
+        Err(diagnostic)
     } else {
         Ok(())
     }
+}
+
+#[derive(Debug, Clone)]
+struct PackageBinEntrypoint {
+    package_name: String,
+    bin_name: String,
+}
+
+fn validate_package_bin_runtime_entrypoint(
+    source: &Path,
+    api_surface: kali_cli::ApiSurface,
+) -> Option<Diagnostic> {
+    if api_surface == kali_cli::ApiSurface::Node {
+        return None;
+    }
+
+    let package_bin = detect_package_bin_entrypoint(source)?;
+    let source_contents = fs::read_to_string(source).ok()?;
+    let markers = collect_unsupported_node_bin_markers(&source_contents);
+    if markers.is_empty() {
+        return None;
+    }
+
+    Some(
+        Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "npm package bin '{}' from package '{}' assumes Node.js CLI features ({}) that are unavailable on the '{}' API surface in this phase",
+                package_bin.bin_name,
+                package_bin.package_name,
+                markers.join(", "),
+                api_surface,
+            ),
+        )
+        .note("package bins that depend on CommonJS `require()` or the Node `process` global require the later Node compatibility path")
+        .with_suggestion("run the package through an imported library entrypoint, or use the documented later-phase Node compatibility target"),
+    )
+}
+
+fn detect_package_bin_entrypoint(source: &Path) -> Option<PackageBinEntrypoint> {
+    let package_root = package_root_for_node_modules_source(source)?;
+    let package_json_path = package_root.join("package.json");
+    let package_json_contents = fs::read_to_string(&package_json_path).ok()?;
+    let package_json: serde_json::Value = serde_json::from_str(&package_json_contents).ok()?;
+    let package_name = package_json
+        .get("name")
+        .and_then(|value| value.as_str())?
+        .to_string();
+    let bin = package_json.get("bin")?;
+    let relative_path = source.strip_prefix(&package_root).ok()?.to_string_lossy();
+
+    match bin {
+        serde_json::Value::String(path) => {
+            if relative_path == path.as_str() {
+                Some(PackageBinEntrypoint {
+                    package_name: package_name.clone(),
+                    bin_name: package_name,
+                })
+            } else {
+                None
+            }
+        }
+        serde_json::Value::Object(entries) => entries.iter().find_map(|(name, value)| {
+            let path = value.as_str()?;
+            (relative_path == path).then(|| PackageBinEntrypoint {
+                package_name: package_name.clone(),
+                bin_name: name.clone(),
+            })
+        }),
+        _ => None,
+    }
+}
+
+fn package_root_for_node_modules_source(source: &Path) -> Option<PathBuf> {
+    for ancestor in source.ancestors() {
+        if !ancestor.join("package.json").exists() {
+            continue;
+        }
+
+        let parent = ancestor.parent()?;
+        if parent.file_name() == Some(std::ffi::OsStr::new("node_modules")) {
+            return Some(ancestor.to_path_buf());
+        }
+
+        let grandparent = parent.parent()?;
+        if parent
+            .file_name()
+            .is_some_and(|name| name.to_string_lossy().starts_with('@'))
+            && grandparent.file_name() == Some(std::ffi::OsStr::new("node_modules"))
+        {
+            return Some(ancestor.to_path_buf());
+        }
+    }
+
+    None
+}
+
+fn collect_unsupported_node_bin_markers(source: &str) -> Vec<&'static str> {
+    let mut markers = Vec::new();
+    if source.contains("require(") {
+        markers.push("CommonJS require()")
+    }
+    if source_mentions_identifier(source, "process") {
+        markers.push("Node process global")
+    }
+    markers
+}
+
+fn source_mentions_identifier(source: &str, ident: &str) -> bool {
+    let bytes = source.as_bytes();
+    let ident_bytes = ident.as_bytes();
+    if ident_bytes.is_empty() || bytes.len() < ident_bytes.len() {
+        return false;
+    }
+
+    let is_ident = |byte: u8| byte == b'_' || byte.is_ascii_alphanumeric();
+    for start in 0..=bytes.len() - ident_bytes.len() {
+        if &bytes[start..start + ident_bytes.len()] != ident_bytes {
+            continue;
+        }
+
+        let before_ok = start == 0 || !is_ident(bytes[start - 1]);
+        let after_index = start + ident_bytes.len();
+        let after_ok = after_index == bytes.len() || !is_ident(bytes[after_index]);
+        if before_ok && after_ok {
+            return true;
+        }
+    }
+
+    false
 }
 
 #[derive(Debug, Clone)]
