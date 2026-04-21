@@ -206,3 +206,15 @@ Proposed fix:
 2026-04-21 resolution note
 - added browser-targeted `check --api browser --wasm-threads` smoke coverage in both text and JSON forms so the canonical later-threaded gate stays visible on the browser analysis path as well as the default source-graph path
 - updated the Stage 5.1 progress note to mention the new browser-targeted regression alongside the existing runtime-profile and package-analysis coverage
+
+2026-04-21 follow-up note
+
+While tightening the browser-runtime gate evidence, the CLI smoke suite still lacks JSON-output regressions for the existing `run` and `test` browser rejections. The text-path checks are already in place, but the machine-readable envelope should mirror them so the unsupported later-compatibility gate stays deterministic across both output formats.
+
+Proposed fix:
+- add `--output json` regressions for explicit and inherited browser API surfaces on `kali run` and `kali test`
+- mention the new JSON coverage in the Stage 5.2 progress note so the historical plan records the machine-readable gate as well as the text gate
+
+2026-04-21 resolution note
+- added JSON-envelope regressions for explicit and inherited browser API surfaces on `kali run` and `kali test`, so the unsupported later-compatibility gate now has machine-readable coverage alongside the existing text-path smoke tests
+- updated the Stage 5.2 progress note to mention the new JSON browser-gate coverage alongside the existing browser-runtime rejection helper and text smoke coverage
