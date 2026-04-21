@@ -123,6 +123,18 @@ types are statically known.
   chain deterministic by folding the first public branch to a literal while still specializing the
   later public wrapper once.
 
+## Remaining Work
+
+Stage 3.1 is complete. The remaining work in this area is follow-up widening rather than
+unfinished baseline delivery:
+
+- keep widening specialization depth beyond the current MIR-aware layout-specialized path toward a
+  fuller generic-instantiation planner,
+- extend cross-module specialization behavior beyond the current owner-scoped reuse and re-export
+  regressions while preserving deterministic specialization-budget enforcement,
+- keep benchmark and regression evidence honest as new literal-signature and clone-reuse cases are
+  added.
+
 ## Tasks
 
 ### 1. Generic / function specialisation (monomorphisation)

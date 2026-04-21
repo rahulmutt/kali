@@ -421,9 +421,17 @@ While `kali package-audit` remains **Later compatibility**, use this stage to:
 Stage 3.3 is complete. The remaining work in this area is breadth/depth follow-up rather than
 unfinished Stage-3.3 implementation:
 
-- keep widening the representative package corpus without overclaiming support rungs; the current corpus now also carries `superjson`, `chart.js`, `recharts`, `@jridgewell/sourcemap-codec`, and `@emotion/react` through the default standalone surface alongside the existing browser/utility breadth, and the utility plain-package corpus now also carries `tailwindcss` on the default standalone surface as another build-tool package name, and the utility plain-package corpus now also carries `camelcase` on the default standalone surface as another common pure-JS package name, and the shared web-baseline helper source now also exercises `performance.now()` and `queueMicrotask` so the browser/runtime timing and microtask baseline stays concrete,
-- deepen browser interoperability beyond the current bundle/chunk/source-map/tree-shaking slice and the current in-memory Blob/File/FileReader/storage baseline plus the stub WebSocket/Worker/IndexedDB surface,
-- widen cross-module inference carefully within the published solver/specialization budgets beyond the current higher-order helper chain that already returns a function value across the `factory` → `helper` → `bridge` → `public` → `main` re-export path.
+- keep widening the representative package corpus without overclaiming support rungs,
+- deepen browser/runtime interoperability beyond the current bundle/chunk/source-map/tree-shaking
+  slice and the current in-memory Blob/File/FileReader/storage baseline plus the stub
+  WebSocket/Worker/IndexedDB surface,
+- widen cross-module inference carefully within the published solver/specialization budgets beyond
+  the current higher-order helper chain that already returns a function value across the
+  `factory` → `helper` → `bridge` → `public` → `main` re-export path,
+- keep widening the default-standalone scoped utility package corpus where representative package
+  shapes are still missing,
+- keep widening the default-standalone plain-package corpus where representative pure-JS package
+  shapes are still missing.
 
 ## Historical Out of Scope for Stage 3.3
 
