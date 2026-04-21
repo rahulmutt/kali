@@ -748,6 +748,29 @@ impl TypeContext {
 
     fn resolve_member_expression(&mut self, expr: &MemberExpression) {
         self.resolve_expression(&expr.object);
+        self.resolve_threaded_runtime_member(expr);
+    }
+
+    fn resolve_threaded_runtime_member(&mut self, expr: &MemberExpression) {
+        let Expression::Identifier(object_name) = &expr.object else {
+            return;
+        };
+
+        if object_name != "globalThis" {
+            return;
+        }
+
+        if !matches!(expr.property.as_str(), "SharedArrayBuffer" | "Atomics") {
+            return;
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "threaded runtime global 'globalThis.{}' is unavailable until the WASM-threaded profile is enabled",
+                expr.property
+            ),
+        ));
     }
 
     fn resolve_function_expression(&mut self, expr: &FunctionExpression) {
