@@ -223,22 +223,23 @@ Reading rule for the examples below:
 - examples that mention later-phase commands or contexts (for example `effects`, `package-effects`, `package-audit`, `--capi`, `--component`, `--api node`, or standalone browser `run` / `test`) do **not** override the availability owner in [19 — Feature Maturity](19-feature-maturity.md)
 - when an example is both well-formed and phase-gated, read it as "this is the stable command spelling once that maturity row opens" rather than as an implied Phase-1 promise
 
-### `kali run <file>`
+### `kali run <file> [-- args...]`
 Compile and execute a TypeScript/JavaScript file.
 ```bash
-kali run main.ts                           # Run with default settings
+kali run main.ts                            # Run with default settings
+kali run main.ts -- --help                  # Pass guest args after `--`
 kali run --sandbox kali.policy.json main.ts # Run with sandbox
-kali run --max-memory 256mb main.ts        # Resource limit
-kali run --max-cpu 10s main.ts             # CPU time limit
-kali run --max-open-files 32 main.ts       # Open-file-handle limit
-kali run --max-spawned-processes 0 main.ts # Disallow child processes for this run
-kali run --api node main.ts                # Use Node.js API surface (Phase 3 target)
-kali run --api deno main.ts                # Use Deno API surface (default)
-kali run --api browser main.ts             # Later compatibility; unavailable in early standalone phases because browser is a browser-targeted context first
-kali run --wasm-threads main.ts            # Enable WASM threads (SharedArrayBuffer, Atomics; opt-in only)
+kali run --max-memory 256mb main.ts         # Resource limit
+kali run --max-cpu 10s main.ts              # CPU time limit
+kali run --max-open-files 32 main.ts        # Open-file-handle limit
+kali run --max-spawned-processes 0 main.ts  # Disallow child processes for this run
+kali run --api node main.ts -- 1.2.3        # Use Node.js API surface (Phase 3 target)
+kali run --api deno main.ts -- 1.2.3        # Use Deno API surface (default)
+kali run --api browser main.ts              # Later compatibility; unavailable in early standalone phases because browser is a browser-targeted context first
+kali run --wasm-threads main.ts             # Enable WASM threads (SharedArrayBuffer, Atomics; opt-in only)
 ```
 
-`kali run` is a direct-input command in early phases: it requires exactly one explicit executable/analyzable source entrypoint and does not guess a project default such as `main.ts`.
+`kali run` is a direct-input command in early phases: it requires exactly one explicit executable/analyzable source entrypoint, accepts guest arguments only after `--`, and does not guess a project default such as `main.ts`.
 
 Initial implementations use wasmtime; alternative runtime backends are a later-phase feature. Feature flags and subcommands that depend on later phases should be hidden or clearly diagnosed when unavailable rather than exposed as silently nonfunctional options.
 
@@ -248,6 +249,7 @@ Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
 - follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): supported early browser shapes are the shared **Phase-1 browser-targeted command set**; wrong browser build shapes use `E5008`, while browser execution/test requests use `E5006` until Kali defines a standalone browser runtime/test contract.
 - `--api node` is phase-gated consistently across `check`, `effects`, `build`, `run`, and `test`; early phases reject it with `E5006` rather than exposing a partial Node surface.
+- guest arguments after `--` are forwarded through the invocation-context surface: in the default standalone context they populate `Deno.args`, and in the Node context they populate `process.argv` with the documented executable/source prefix before the guest tail.
 - explicit `--api ...` and inherited `compilerOptions.apiSurface = ...` are equivalent here too: plain `kali run main.ts` and plain `kali run --sandbox kali.policy.json main.ts` must validate against the same effective API surface and therefore hit the same Node/browser execution gates as their explicit `--api node` / `--api browser` forms instead of silently falling back to `deno`.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
 - in schema v1, `--compat eval` is the only stable compatibility-feature spelling and it gates both direct `eval` and `Function()`; the CLI should not invent a separate `--compat function-constructor` alias.

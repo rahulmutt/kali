@@ -90,7 +90,7 @@ It is intentionally narrower than the full command/profile matrix below:
 | Area | Phase 1 shipped surface | Not yet shipped in Phase 1 |
 |---|---|---|
 | Project workflow | `kali init`, `kali init --lib`, `kali install`, the opt-in schema-v1 **install-time npm-package hook path** via `kali install --allow-scripts` when the invocation has non-empty **effective npm-scriptable install work**, `kali fmt` *(including `--check`)*, `kali lint` *(including `--fix`)*, `kali check [files...]` *(including the project-discovery no-file form and explicit file sets)*, plus first-class `.js` source support under the bounded-inference contract | no automatic dependency repair outside `kali install` |
-| Execution | `kali run <file>` and `kali test [files...]` in the shared **Default standalone context (schema v1)**, with supported `--sandbox` runtime enforcement on the Deno-oriented standalone surface | no standalone browser runtime/test contract; no Node execution path yet |
+| Execution | `kali run <file> [-- args...]` and `kali test [files...]` in the shared **Default standalone context (schema v1)**, with supported `--sandbox` runtime enforcement on the Deno-oriented standalone surface | no standalone browser runtime/test contract; no Node execution path yet |
 | Executable build | `kali build <file>` in the shared **Deno-oriented build context (schema v1)**, with shipped static policy validation on the supported `kali build --sandbox <policy> <file>` path | no non-bundle browser build mode; no Node executable build path yet |
 | Export-oriented build / embedding | Phase-1 **base library artifact** via `kali build --lib <file>` in the shared **Deno-oriented build context (schema v1)** for **exact-version consumers**, only when Kali can determine a **statically known export surface**; shipped static policy validation also covers `kali build --lib --sandbox <policy> <file>`. Here, the Deno-oriented build context is the build/analysis default, not a claim that Phase-1 library outputs expose a Deno-specific public ABI. | no stable public Rust embedding API; no stable public WIT sidecar for plain `--lib`; no stable public C ABI or Component Model flow; no cross-version host-loading guarantee yet |
 | Browser-targeted support | exactly the shared **Phase-1 browser-targeted command set** from [SPEC.md](../SPEC.md) — concretely, browser-targeted `check [files...]` plus `build --bundle <file>`, with the supported `--sandbox` variants and equivalent inherited-config forms — while keeping that canonical term as the cross-spec owner | no `run --api browser`; no `test --api browser`; no browser library/embed artifact modes |
@@ -129,7 +129,7 @@ Phase-1 sandbox-behavior reading aid:
 
 | Command family | Phase 1 `--sandbox` meaning |
 |---|---|
-| `kali run <file>` / `kali test [files...]` | runtime sandbox enforcement |
+| `kali run <file> [-- args...]` / `kali test [files...]` | runtime sandbox enforcement |
 | the shared **Phase-1 static policy-validation surface** | policy-schema/config validation only; for its browser-targeted `build --bundle` member, this remains browser-targeted static validation only and does not imply post-deployment runtime enforcement |
 
 Phase 2 later extends the `check` / `build` rows with inferred-effect-vs-policy validation; this table is only the compact Phase-1 reading aid.

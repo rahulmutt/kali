@@ -251,8 +251,11 @@ pub enum Commands {
         /// Override the invocation thread cap
         #[arg(long = "max-threads")]
         max_threads: Option<u64>,
-        /// Source files to run
-        files: Vec<String>,
+        /// Source file to run
+        file: String,
+        /// Guest arguments passed through after `--`
+        #[arg(last = true, allow_hyphen_values = true)]
+        guest_args: Vec<String>,
     },
     #[command(name = "test")]
     /// Test source files

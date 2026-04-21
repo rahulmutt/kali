@@ -122,10 +122,12 @@ fn main() {
             wasm_threads,
             max_spawned_processes,
             max_threads,
-            files,
+            file,
+            guest_args,
         } => {
             if let Err(exit_code) = run_command(
-                files,
+                file,
+                guest_args,
                 api,
                 compat,
                 wasm_threads,
@@ -2189,7 +2191,8 @@ const exported = {{ load, loadDynamicImport }};
 }
 
 fn run_command(
-    files: Vec<String>,
+    file: String,
+    guest_args: Vec<String>,
     api: Option<kali_cli::ApiSurface>,
     compat: Vec<String>,
     wasm_threads: bool,
@@ -2241,9 +2244,7 @@ fn run_command(
         return Err(exit_code);
     }
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
-    let Some(source) = single_or_error(files, "run", output)? else {
-        return Err(1);
-    };
+    let source = PathBuf::from(file);
 
     if let Err(diagnostic) = validate_runtime_entrypoint(&source, effective_api) {
         return emit_diagnostics_and_exit("run", vec![diagnostic], 5, output, None, None);
@@ -2270,10 +2271,24 @@ fn run_command(
         }
     };
 
-    let runtime = RuntimeCtx::with_api_surface(policy.clone(), effective_api.to_string())
-        .with_runtime_profiles(effective_runtime_profiles.clone())
-        .with_max_threads(max_threads)
-        .with_max_spawned_processes(max_spawned_processes);
+    let runtime_args = if effective_api == kali_cli::ApiSurface::Node {
+        let mut argv = vec!["node".to_string(), source.display().to_string()];
+        argv.extend(guest_args);
+        argv
+    } else {
+        guest_args
+    };
+    let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let runtime = RuntimeCtx::with_host_context_with_api_surface(
+        policy.clone(),
+        runtime_args,
+        env::vars().collect::<BTreeMap<_, _>>(),
+        cwd,
+        effective_api.to_string(),
+    )
+    .with_runtime_profiles(effective_runtime_profiles.clone())
+    .with_max_threads(max_threads)
+    .with_max_spawned_processes(max_spawned_processes);
     let start = Instant::now();
     match runtime.execute(&wasm_bytes) {
         Ok(outcome) => {

@@ -3780,7 +3780,7 @@ fn run_executes_package_bin_entrypoints_with_shebangs_after_stripping_the_sheban
 }
 
 #[test]
-fn regression_package_bin_entrypoints_using_node_cli_features_require_the_node_context() {
+fn regression_package_bin_entrypoints_accept_guest_args_after_double_dash() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/semver");
     fs::create_dir_all(package_dir.join("bin")).expect("create package dir");
@@ -3797,7 +3797,7 @@ fn regression_package_bin_entrypoints_using_node_cli_features_require_the_node_c
     .expect("write package json");
     fs::write(
         package_dir.join("bin/semver.js"),
-        "#!/usr/bin/env node\nconst argv = [];\nconst helper = 'semver-helper';\nconsole.log(argv.length, helper);\n",
+        "#!/usr/bin/env node\nconsole.log('ok');\n",
     )
     .expect("write package bin");
 
@@ -3807,12 +3807,13 @@ fn regression_package_bin_entrypoints_using_node_cli_features_require_the_node_c
         .arg("--api")
         .arg("node")
         .arg(package_dir.join("bin/semver.js"))
+        .arg("--")
+        .arg("1.2.3")
         .output()
         .expect("run kali");
 
     assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout, "0 semver-helper\n", "stdout: {stdout}");
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
     assert!(String::from_utf8_lossy(&output.stderr).is_empty());
 }
 

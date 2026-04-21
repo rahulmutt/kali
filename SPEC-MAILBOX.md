@@ -55,3 +55,15 @@ Proposed fix:
 
 2026-04-21 resolution note
 - updated the subprocess budget language in `specs/09-sandboxing.md`, `specs/12-cli.md`, and `specs/18-schemas.md` so the direct `--max-spawned-processes` / `resources.maxSpawnedProcesses` path now reflects the implemented subprocess budget handoff rather than the pre-support rejection wording
+
+2026-04-21 follow-up note
+
+While implementing the `kali run <file> [-- args...]` split, the CLI surface text in `specs/12-cli.md` still documents `kali run <file>` without the guest-argument separator, so the spec chapter should be updated to match the now-implemented command shape and the Node-path `process.argv` / default-surface argument routing.
+
+Proposed fix:
+- update `specs/12-cli.md` so the `kali run` command shape is documented as `kali run <file> [-- args...]`
+- keep the availability wording unchanged; this is a shape/documentation update, not a maturity change
+- preserve the existing node-gating language while making the guest-argument flow explicit
+
+2026-04-21 resolution note
+- `specs/12-cli.md` and `specs/19-feature-maturity.md` now both describe the `kali run <file> [-- args...]` command shape, so the CLI shape is synchronized across the command chapter and the maturity matrix

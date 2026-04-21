@@ -61,3 +61,17 @@ fn build_command_parses_max_specializations_override() {
         other => panic!("expected build command, got {other:?}"),
     }
 }
+
+#[test]
+fn run_command_splits_guest_args_after_double_dash() {
+    let args = Args::parse_from(["kali", "run", "--api", "node", "main.ts", "--", "1.2.3"]);
+    match args.command {
+        Some(Commands::Run {
+            file, guest_args, ..
+        }) => {
+            assert_eq!(file, "main.ts");
+            assert_eq!(guest_args, vec![String::from("1.2.3")]);
+        }
+        other => panic!("expected run command, got {other:?}"),
+    }
+}
