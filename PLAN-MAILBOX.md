@@ -41,3 +41,6 @@ While wiring the threaded-profile axis into artifact metadata, the Stage 5.1 pro
 
 Proposed fix:
 - update `plan/phase-5/01-threaded-runtime-profile.md` progress notes to mention the explicit `runtimeProfiles` metadata axis and the current empty-set normalization
+
+2026-04-21 resolution note
+- updated the Stage 5.1 progress note so it explicitly names the `runtimeProfiles` metadata axis and the current empty-set normalization in emitted build metadata
