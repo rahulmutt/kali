@@ -3,6 +3,7 @@ use kali_ast::{
     BinaryExpression, LiteralValue, ParenthesizedExpression, TypeAliasDeclaration,
     VariableDeclarator,
 };
+use kali_error::_error_codes::{e3, e5};
 use std::fs;
 use tempfile::tempdir;
 
@@ -226,6 +227,26 @@ fn test_resolution_allows_browser_stub_globals() {
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+}
+
+#[test]
+fn test_resolution_reports_threaded_runtime_globals_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("SharedArrayBuffer".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("Atomics".to_string())),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
 }
 
 #[test]

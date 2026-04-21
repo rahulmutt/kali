@@ -69,3 +69,15 @@ Proposed fix:
 
 2026-04-21 resolution note
 - updated the Stage 2.5 progress note so it now calls out the reversed explicit file-input regression case and the deterministic coverage file ordering contract that the integration test already enforces
+
+2026-04-21 follow-up note
+
+While preparing the threaded-runtime profile handoff, the resolver still reports `SharedArrayBuffer` and `Atomics` as plain undefined names instead of the canonical feature-gating diagnostic.
+
+Proposed fix:
+- teach the name resolver to emit the shared `E5006` availability diagnostic for those two later-compatibility globals so the first threaded primitives fail with the right maturity code rather than a generic undefined-name error
+- add resolver-level coverage for the new diagnostics and record the threaded-profile progress in the Stage 5.1 plan note
+
+2026-04-21 resolution note
+- the threaded-runtime profile now has resolver-level coverage for `SharedArrayBuffer` and `Atomics`, which surface the canonical `E5006` later-compatibility diagnostic instead of falling back to a generic undefined-name error
+- updated the Stage 5.1 progress note so the historical plan records the first language-visible threaded globals explicitly

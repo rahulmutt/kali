@@ -18,7 +18,7 @@ use kali_ast::{
     TryStatement, TypeAliasDeclaration, TypeAssertion, VariableDeclaration, WhileStatement,
     WithStatement,
 };
-use kali_error::{_error_codes::e3, _error_codes::e4, diagnostic::Diagnostic};
+use kali_error::{_error_codes::e3, _error_codes::e4, _error_codes::e5, diagnostic::Diagnostic};
 use std::path::{Path, PathBuf};
 
 /// Scope types recognized by the stage-1 resolver.
@@ -714,6 +714,17 @@ impl TypeContext {
 
     fn resolve_identifier(&mut self, name: &str) {
         if name == "unknown" {
+            return;
+        }
+
+        if matches!(name, "SharedArrayBuffer" | "Atomics") {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "threaded runtime global '{}' is unavailable until the WASM-threaded profile is enabled",
+                    name
+                ),
+            ));
             return;
         }
 
