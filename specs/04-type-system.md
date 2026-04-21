@@ -262,7 +262,7 @@ Future schema revisions may split this bundle into named sub-options only when t
 ### Long-Term Compatibility Targets
 These are the intended TypeScript-language compatibility targets for Kali overall, **not** a promise that every advanced checker feature is equally mature in Phase 1.
 
-The canonical phase/maturity rules still live in [specs/19-feature-maturity.md](19-feature-maturity.md). For implementation planning, Phase 1 should prioritize the subset that unlocks real JS/TS projects and package compatibility before pursuing every advanced edge-case of the TypeScript type system.
+The canonical phase/maturity rules still live in [specs/19-feature-maturity.md](19-feature-maturity.md). This section describes long-term compatibility breadth, not a blanket same-phase promise for every advanced checker feature.
 
 Target feature families include:
 - utility types (`Partial`, `Required`, `Pick`, `Omit`, `Record`, etc.)

@@ -4,8 +4,7 @@
 
 Implement APIs through one shared guest-facing capability model. Using the canonical terminology from [SPEC.md](../SPEC.md), Kali realizes that model through different **host adapters**: the native host adapter for Kali-hosted execution and the browser host adapter for browser-targeted bundle output. In the target implementation structure, each API surface is organized as a separate crate that defines the relevant bindings/registration logic for that surface.
 
-Current repository-state note:
-- follow the shared **current-repository-state vs target-contract reading** from [SPEC.md](../SPEC.md): API-surface crate names in this chapter describe the target implementation decomposition, not a claim that every such crate already exists in the current repo today
+Repository-state note: API-surface crate names in this chapter describe the target implementation decomposition, not a claim that every such crate already exists today.
 
 Using the canonical **host-support staircase** from [SPEC.md](../SPEC.md), compatibility is delivered in layers:
 1. **Web baseline**: shared platform primitives needed by modern JS libraries.

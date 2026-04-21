@@ -79,6 +79,10 @@ Planning material lives here, not in `SPEC.md`.
 
 If a sentence is primarily about **what gets built when**, **what depends on what**, or **what a stage must prove before moving on**, it belongs in the plan set.
 
+Recent compaction rule:
+- `specs/16-testing.md` now owns the normative evidence requirements only; concrete CI rollout, benchmark automation, and staged evidence expansion live in [phase-1/14](./plan/phase-1/14-evidence-hardening.md) and later stage files.
+- `specs/17-verification.md` now owns proof-boundary discipline only; concrete Lean milestones, first proof-backed scope growth, and deeper verification rollout live in [phase-2/04](./plan/phase-2/04-lean-model-foundation.md) and [phase-4/02](./plan/phase-4/02-formal-verification-depth.md).
+
 ---
 
 ## Implementation strata
