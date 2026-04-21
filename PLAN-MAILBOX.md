@@ -67,13 +67,8 @@ Proposed fix:
 2026-04-21 resolution note
 - the shared runtime-profile validation path now also feeds the embedding compiler config and artifact metadata emission, so the Stage 5.1 progress note should mention that duplicate and unknown runtime-profile entries are rejected deterministically before the phase gate
 
-2026-04-21 follow-up note
-
-While hardening the Phase-2 coverage evidence lane, the completed Stage 2.5 playbook should record the deterministic multi-file ordering contract for `kali test --coverage` so the historical progress note matches the shipped JSON payload shape.
-
-Proposed fix:
-- update `plan/phase-2/05-test-coverage-and-reporting.md` to mention deterministic file ordering in the coverage progress note
-- add an integration regression that exercises `kali test --coverage` with reversed explicit file input order and asserts the emitted coverage file list is sorted deterministically
+2026-04-21 resolution note
+- the Stage 2.5 progress note already records the deterministic multi-file ordering contract for `kali test --coverage`, including the reversed explicit file-input regression case and the normalized/sorted per-file coverage output contract, so no further plan churn was needed
 
 2026-04-21 resolution note
 - updated the Stage 2.5 progress note so it now calls out the reversed explicit file-input regression case and the deterministic coverage file ordering contract that the integration test already enforces
