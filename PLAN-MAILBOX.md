@@ -147,3 +147,13 @@ Proposed fix:
 
 2026-04-21 resolution note
 - extended the runtime execution coverage so both `execute` and `execute_tests` preserve the normalized runtime-profile vector in `RuntimeOutcome`, and updated the Stage 5.1 progress note to call out the outcome-level preservation across both execution return paths
+
+2026-04-21 follow-up note
+- the Stage 5.1 thread-budget story still lacks a CLI smoke regression for sandbox-attached policies that set positive `resources.maxThreads`, so the plan note should record that policy-level rejection path once we add the command-level test
+
+Proposed fix:
+- add a `kali check --sandbox` smoke test that writes a policy with `resources.maxThreads: 1` and asserts the canonical `E5006` / `resources.maxThreads` rejection path
+- mention the new policy-level CLI smoke coverage in the Stage 5.1 progress note so the historical plan reflects the command-level evidence
+
+2026-04-21 resolution note
+- added the `kali check --sandbox` smoke regression for positive `resources.maxThreads` policies and updated the Stage 5.1 progress note so the historical plan now records the command-level `E5006` / `resources.maxThreads` coverage alongside the existing runtime and direct-override tests
