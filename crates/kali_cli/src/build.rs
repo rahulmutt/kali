@@ -58,6 +58,8 @@ pub struct ArtifactMetadata {
     pub build_mode: String,
     #[serde(rename = "apiSurface")]
     pub api_surface: String,
+    #[serde(rename = "runtimeProfiles")]
+    pub runtime_profiles: Vec<String>,
     #[serde(rename = "kaliVersion")]
     pub kali_version: String,
     #[serde(rename = "sourceHash")]
@@ -1071,6 +1073,7 @@ pub fn build_artifact_metadata(
         entrypoint: source_path.to_string_lossy().to_string(),
         build_mode: build_mode_name(mode).to_string(),
         api_surface: api_surface.to_string(),
+        runtime_profiles: Vec::new(),
         kali_version: env!("CARGO_PKG_VERSION").to_string(),
         source_hash,
         exports,

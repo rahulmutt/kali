@@ -1115,6 +1115,7 @@ fn build_emits_browser_bundle_artifacts() {
         .expect("parse metadata json");
     assert_eq!(metadata["artifactKind"], "bundle");
     assert_eq!(metadata["apiSurface"], "browser");
+    assert_eq!(metadata["runtimeProfiles"], json!([]));
 
     assert_browser_bundle_executes(&bundle_dir, "greet");
 }
@@ -1517,6 +1518,7 @@ fn build_emits_browser_bundle_cjs_artifacts() {
         .expect("parse metadata json");
     assert_eq!(metadata["artifactKind"], "bundle");
     assert_eq!(metadata["apiSurface"], "browser");
+    assert_eq!(metadata["runtimeProfiles"], json!([]));
 
     let envelope = parse_json_stdout(&output);
     let payload = envelope["payload"]

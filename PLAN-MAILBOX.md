@@ -31,3 +31,10 @@ While hardening the function-coverage report path, the completed Stage 2.5 cover
 
 Proposed fix:
 - update `plan/phase-2/05-test-coverage-and-reporting.md` progress notes to mention normalized coverage-report paths and deterministic ordering
+
+2026-04-21 follow-up note
+
+While wiring the threaded-profile axis into artifact metadata, the Stage 5.1 progress note should mention that emitted build metadata now carries `runtimeProfiles` explicitly even though the current phase still normalizes to the empty set.
+
+Proposed fix:
+- update `plan/phase-5/01-threaded-runtime-profile.md` progress notes to mention the explicit `runtimeProfiles` metadata axis and the current empty-set normalization

@@ -26,6 +26,7 @@ AOT-only, and no-tracing-GC invariants. This stage owns the runtime-profile plum
 - CLI and config parsing now recognize the documented `--wasm-threads` / `compilerOptions.runtimeProfiles` axis, normalize `wasm-threads`, and reject it explicitly with the canonical `E5006` gate until the profile actually opens.
 - Effect-report context plumbing now carries `runtimeProfiles` and `compatFeatures` through the shared analysis context so later evidence can reuse the same axis-aligned shape.
 - The embedding config surface now retains runtime-profile requests and fails them explicitly in the current phase instead of silently dropping them.
+- Build artifact metadata sidecars now carry the `runtimeProfiles` axis explicitly, keeping the emitted artifact contract aligned with the same semantic knob even though the current phase still normalizes to the empty set.
 
 ## Tasks
 

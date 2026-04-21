@@ -26,3 +26,11 @@ While hardening the function-coverage report path, the stable schema-v1 test res
 Proposed fix:
 - update `specs/18-schemas.md` to state the normalized/sorted coverage-report path rule
 - keep the implementation and tests aligned with that deterministic output contract
+
+2026-04-21 follow-up note
+
+While wiring runtime-profile metadata through the emitted build artifact contract, the schema notes should eventually mention that artifact metadata now carries a `runtimeProfiles` field so the threaded-profile axis remains explicit even when the current phase still normalizes to the empty set.
+
+Proposed fix:
+- update the artifact-metadata portion of `specs/18-schemas.md` if/when the build metadata contract is formalized there
+- keep the emitted sidecar metadata and the stage notes aligned on the explicit `runtimeProfiles` axis
