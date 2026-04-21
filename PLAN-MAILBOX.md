@@ -81,3 +81,6 @@ Proposed fix:
 2026-04-21 resolution note
 - the threaded-runtime profile now has resolver-level coverage for `SharedArrayBuffer` and `Atomics`, which surface the canonical `E5006` later-compatibility diagnostic instead of falling back to a generic undefined-name error
 - updated the Stage 5.1 progress note so the historical plan records the first language-visible threaded globals explicitly
+
+2026-04-21 resolution note
+- confirmed the Stage 5.1 progress note already covers the shared runtime-profile validation path, the embedding/config handoff, and the duplicate/unknown-entry rejection coverage, so the unresolved follow-up note is now closed without further plan churn
