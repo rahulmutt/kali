@@ -69,6 +69,33 @@ Each stage document should define:
 
 ---
 
+## Planning ownership
+
+Planning material lives here, not in `SPEC.md`.
+
+- `SPEC.md` defines cross-spec normalization, phase contracts, and release-claim rules.
+- `PLAN.md` defines implementation order, dependency structure, phase sequencing, and completion gates.
+- `plan/**/*.md` defines the detailed stage tasks and concrete definitions of done.
+
+If a sentence is primarily about **what gets built when**, **what depends on what**, or **what a stage must prove before moving on**, it belongs in the plan set.
+
+---
+
+## Implementation strata
+
+The spec set is easiest to implement in four broad delivery strata:
+
+| Stratum | Purpose | Primary chapters | Plan ownership |
+|---|---|---|---|
+| Bootstrap normalization + cross-spec rules | Turn `BOOTSTRAP.md` into phase-correct claims and shared vocabulary | `SPEC.md`, `specs/19-feature-maturity.md` | this document sets the delivery sequencing that respects those claims |
+| Frontend + semantics | Parse TS/JS, build typed meaning, and enforce the bounded inference contract | `specs/01`-`specs/04` | Phase 1 stages 1.1-1.5 |
+| Lowering + runtime core | Lower through IR, generate WASM, execute safely, and define host/runtime behavior | `specs/05`-`specs/11` | Phase 1 stages 1.6-1.11, then Phase 2 stage 2.1 |
+| Product/tooling surface | CLI, packages, diagnostics, schemas, testing, embedding, verification | `specs/12`-`specs/18` | Phase 1 stages 1.9-1.14, Phase 2+, and later evidence/depth work |
+
+This stratum view is for implementation planning only. It does not change normative ownership or public availability.
+
+---
+
 ## Phase map
 
 | Phase | Focus | Workable outcome |
@@ -80,7 +107,31 @@ Each stage document should define:
 
 ---
 
-## Important ordering decision
+## Important ordering decisions
+
+### Phase contracts vs implementation order
+
+Kali uses two different orderings on purpose:
+
+- **phase contracts** describe the earliest user-visible support promise for a feature;
+- **implementation order** describes the recommended engineering sequence for getting there.
+
+A feature may be documented early for naming stability without being publicly available. This plan never overrides `specs/19-feature-maturity.md`; it only explains the recommended build order.
+
+### Phase 1 recommended implementation order
+
+Phase 1 should be approached in this order:
+
+1. **Frontend + checking foundation** — lexer, parser, AST, name resolution, TypeScript-compatible checking, and first-class JavaScript handling.
+2. **Deterministic package/install foundation** — lock/materialization rules and strict non-mutating behavior for non-install commands.
+3. **Kali-hosted execution foundation** — one AOT pipeline to one linked WASM payload, `run`/`test` in the default standalone context, and the Phase-1 sandbox/runtime contract.
+4. **Build/artifact foundation** — executable builds, browser bundles, and the Phase-1 base library artifact.
+5. **Developer workflow foundation** — `init`, `check`, `fmt`, `lint`, diagnostics, and schema-v1 machine-readable outputs.
+6. **Phase-1 evidence hardening** — conformance, package corpus, browser smoke, determinism, and proof-ready CI maintenance.
+
+This ordering is reflected by the stage graph below, even where practical sequencing differs slightly for workability.
+
+### Execution before package management
 
 Within Phase 1, execution work comes before package management:
 
@@ -88,6 +139,10 @@ Within Phase 1, execution work comes before package management:
 - then `1.10` (package management)
 
 This is intentional. An end-to-end compiler/runtime for local files is already workable. Package installation is more valuable once execution exists. This does **not** change the Phase-1 contract; it only changes implementation order.
+
+### Proof-readiness starts at Stage 1.1
+
+Proof-readiness is not a final cleanup task. The repository should publish `proofs/BOUNDARY.md` and maintain proof-CI discipline from the beginning of the spec-first repository state; later stages harden and expand that baseline.
 
 ---
 
