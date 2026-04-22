@@ -1,5 +1,9 @@
 # PLAN mailbox
 
+2026-04-22 resolution note
+- added JSON-envelope regressions for `effects --wasm-threads` and inherited `runtimeProfiles = ["wasm-threads"]` so the Stage 5.1 threaded-profile gate now stays machine-readable on the effect-report surface as well as `check` / `run` / `test` / `package-effects`
+- updated the Stage 5.1 progress note to mention the JSON `effects` gate coverage alongside the existing text and JSON smoke coverage on the other later-threaded surfaces
+
 2026-04-21 resolution note
 - added parser/lexer regression coverage for the semver probe's optional-chaining and multiline-template cases so `minVersion(... )?.version` and multi-line template bodies stay covered by the evidence suite
 - updated the Stage 1.3 parser/AST follow-up notes and the Stage 1.14 evidence-hardening progress note to reflect that coverage

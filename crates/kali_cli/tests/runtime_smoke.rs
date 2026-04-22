@@ -4247,6 +4247,65 @@ fn effects_rejects_inherited_wasm_threads_runtime_profile() {
 }
 
 #[test]
+fn json_effects_rejects_wasm_threads_runtime_profile() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('ok');").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("effects")
+        .arg("--wasm-threads")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert_eq!(json["errors"][0]["code"], "E5006");
+}
+
+#[test]
+fn json_effects_rejects_inherited_wasm_threads_runtime_profile() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('ok');").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("effects")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert_eq!(json["errors"][0]["code"], "E5006");
+}
+
+#[test]
 fn package_effects_command_emits_native_json_payload() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
