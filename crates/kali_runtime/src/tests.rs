@@ -197,6 +197,7 @@ fn runtime_rejects_browser_api_surface() {
         diagnostic.context.as_deref(),
         Some(
             &DiagnosticContext::new(DiagnosticContextOrigin::Default)
+                .with_requested_value("browser")
                 .with_effective_value("browser")
         ),
         "diagnostic: {diagnostic:?}"
@@ -232,6 +233,7 @@ fn runtime_test_execution_rejects_browser_api_surface() {
         diagnostic.context.as_deref(),
         Some(
             &DiagnosticContext::new(DiagnosticContextOrigin::Default)
+                .with_requested_value("browser")
                 .with_effective_value("browser")
         ),
         "diagnostic: {diagnostic:?}"

@@ -301,10 +301,9 @@ impl RuntimeCtx {
             RuntimeHostContract::BrowserRequested => {
                 return Err(vec![browser_runtime_unavailable_diagnostic(
                     None,
-                    Some(
-                        DiagnosticContext::new(DiagnosticContextOrigin::Default)
-                            .with_effective_value("browser"),
-                    ),
+                    Some(browser_runtime_request_context(
+                        DiagnosticContextOrigin::Default,
+                    )),
                 )]);
             }
             RuntimeHostContract::KaliHosted => {}
@@ -1982,6 +1981,12 @@ pub fn browser_runtime_unavailable_diagnostic(
         diagnostic = diagnostic.with_context(context);
     }
     diagnostic
+}
+
+pub fn browser_runtime_request_context(origin: DiagnosticContextOrigin) -> DiagnosticContext {
+    DiagnosticContext::new(origin)
+        .with_requested_value("browser")
+        .with_effective_value("browser")
 }
 
 fn enforce_operation(state: &mut KaliHostState, op: HostOperation) -> wasmtime::Result<()> {
