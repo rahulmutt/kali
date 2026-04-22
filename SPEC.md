@@ -154,7 +154,7 @@ This section is the short answer to “did the derived spec set actually preserv
 | Real-package e2e validation (for example `semver` and `@mariozechner/pi-coding-agent`) | preserved as phase-correct package-corpus evidence: representative package probes must assert the right rung and expected outcome for the current host/API maturity, rather than assuming every named package is Phase-1 executable |
 | Embeddability / WIT / C ABI / Component Model | preserved, but split into a Phase-1 base library artifact and a later stable public embedding surface |
 | `eval` and hardest dynamic features | preserved as later compatibility only; not allowed to violate the AOT-only invariant |
-| Lean verification | preserved through the proof-ready/proof-backed split and the proof-boundary manifest discipline |
+| Lean verification | preserved through the proof-ready/proof-backed split and the proof-boundary manifest discipline; Phase 1 requires the proof-ready baseline, while stronger current-state claims come only from [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) |
 | Deno-like CLI and AI-friendly machine output | preserved through the CLI/schema/error chapters |
 
 Verdict:
