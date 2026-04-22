@@ -43,8 +43,9 @@ graph without performing any mutations.
   package cache / `node_modules` layout when the lock graph already exists.
 - Raw URL reconciliation follows project-discovery/import-map declarations and prunes stale
   URL cache entries when the declaration graph changes.
-- `kali install --allow-scripts` rejects invocations with no effective npm-scriptable install
-  work, and the invalid raw-URL / JSR lifecycle-hook combinations are rejected before any fetch.
+- `kali install --allow-scripts` treats packages without install-time lifecycle hooks as a
+  no-op success, while the invalid raw-URL / JSR lifecycle-hook combinations are still rejected
+  before any fetch.
 - NPM lifecycle hooks (`preinstall`, `install`, `postinstall`) execute during install when the
   opt-in flag is present, and blank hooks are treated as deterministic no-ops.
 - `kali install --dev` requires an explicit registry target and rejects raw-URL targets before
@@ -64,6 +65,8 @@ graph without performing any mutations.
   stays evidence-backed and does not regress back into the old `--allow-scripts` false positive.
 - Added a package-install regression that proves plain `kali install semver` succeeds without
   `--allow-scripts` when only non-install lifecycle scripts are present.
+- Added an explicit `kali install --allow-scripts semver` regression so the no-op allow-scripts
+  path stays covered for packages whose metadata only carries non-install lifecycle hooks.
 
 ## Tasks
 

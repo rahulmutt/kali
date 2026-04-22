@@ -29,6 +29,8 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added deterministic repeated-build smoke coverage for executable, base-library, and browser-bundle artifact outputs so the evidence suite now checks byte-for-byte stability across identical inputs.
 - Added raw-URL install idempotence coverage so repeated `kali install` runs over the same raw URL graph now assert lockfile byte stability.
 - Added a semver package-corpus regression that proves plain `kali install semver` succeeds without `--allow-scripts` when the package only carries non-install lifecycle metadata.
+- Added a companion `kali install --allow-scripts semver` regression so the evidence suite now
+  covers the no-op allow-scripts path for packages with only non-install lifecycle hooks.
 - Added a dedicated Linux runtime-smoke CI lane for the browser smoke, determinism, and negative-gating regressions, plus a nightly package-corpus lane that runs the heavier corpus suite outside the per-commit path.
 - Added parser/lexer regression coverage for the semver probe's optional-chaining and multiline-template cases so `minVersion(... )?.version` and multi-line template bodies stay covered by the evidence suite.
 - Added a default-surface semver consumer smoke test so `valid`, `satisfies`, and `minVersion` now stay covered by an end-to-end package/runtime regression instead of only by package-bin probes.

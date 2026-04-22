@@ -681,23 +681,20 @@ fn install_is_idempotent_for_unchanged_raw_url_graph() {
 }
 
 #[test]
-fn install_rejects_allow_scripts_without_npm_work() {
+fn install_allows_scripts_without_effective_npm_work() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).unwrap();
 
-    let error = install_project(
+    let summary = install_project(
         dir.path(),
         InstallOptions {
             allow_scripts: true,
             ..InstallOptions::default()
         },
     )
-    .unwrap_err();
+    .unwrap();
 
-    assert_eq!(error[0].code, Some(e5::INVALID_CLI_USAGE as u32));
-    assert!(error[0]
-        .message
-        .contains("requires effective npm-scriptable install work"));
+    assert!(summary.installed.is_empty());
 }
 
 #[test]
@@ -917,6 +914,95 @@ fn install_reconciles_semver_style_package_without_allow_scripts() {
     .unwrap();
 
     let summary = install_project(dir.path(), InstallOptions::default()).unwrap();
+
+    if let Some(previous_registry) = previous_registry {
+        std::env::set_var("KALI_REGISTRY", previous_registry);
+    } else {
+        std::env::remove_var("KALI_REGISTRY");
+    }
+
+    let lock_path = dir.path().join("kali.lock");
+    assert_eq!(summary.lock_path.as_deref(), Some(lock_path.as_path()));
+    assert_eq!(summary.installed, vec![package_key("semver", "7.7.4")]);
+
+    let lock = load_lock(dir.path()).unwrap().unwrap();
+    assert!(
+        lock.packages.contains_key("semver@7.7.4"),
+        "lock: {lock:#?}"
+    );
+    assert!(dir.path().join("node_modules/semver/package.json").exists());
+    assert!(dir
+        .path()
+        .join(".kali-cache/packages/semver@7.7.4/package/package.json")
+        .exists());
+
+    tarball_stop.store(true, Ordering::SeqCst);
+    registry_stop.store(true, Ordering::SeqCst);
+    tarball_handle.join().unwrap();
+    registry_handle.join().unwrap();
+    assert_eq!(tarball_hits.load(Ordering::SeqCst), 1);
+    assert_eq!(registry_hits.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn install_reconciles_semver_style_package_with_allow_scripts_noop() {
+    let _guard = kali_registry_lock().lock().unwrap();
+    let dir = tempdir().unwrap();
+
+    let package_json = json!({
+        "name": "semver",
+        "version": "7.7.4",
+        "main": "index.js",
+        "bin": { "semver": "bin/semver.js" },
+        "scripts": {
+            "test": "tap",
+            "lint": "eslint \"**/*.{js,cjs,ts,mjs,jsx}\"",
+            "postlint": "npm run test -- --ignore-scripts",
+            "posttest": "npm run lint -- --ignore-scripts"
+        }
+    });
+    let package_json_bytes = serde_json::to_vec_pretty(&package_json).unwrap();
+    let tarball_bytes = build_package_tarball(&[
+        ("package/package.json", package_json_bytes.as_slice()),
+        ("package/index.js", b"module.exports = {};\n"),
+        (
+            "package/bin/semver.js",
+            b"#!/usr/bin/env node\nconsole.log('semver');\n",
+        ),
+    ]);
+    let tarball_integrity = format!("sha512-{}", format_sha512(&tarball_bytes));
+    let (tarball_base, tarball_hits, tarball_stop, tarball_handle) =
+        start_response_server(tarball_bytes, "application/octet-stream");
+
+    let metadata = json!({
+        "versions": {
+            "7.7.4": {
+                "dist": {
+                    "tarball": format!("{}/semver-7.7.4.tgz", tarball_base),
+                    "integrity": tarball_integrity
+                }
+            }
+        }
+    });
+    let (registry_base, registry_hits, registry_stop, registry_handle) =
+        start_response_server(serde_json::to_vec(&metadata).unwrap(), "application/json");
+    let previous_registry = std::env::var_os("KALI_REGISTRY");
+    std::env::set_var("KALI_REGISTRY", &registry_base);
+
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{"schemaVersion":1,"dependencies":{"semver":"7.7.4"}}"#,
+    )
+    .unwrap();
+
+    let summary = install_project(
+        dir.path(),
+        InstallOptions {
+            allow_scripts: true,
+            ..InstallOptions::default()
+        },
+    )
+    .unwrap();
 
     if let Some(previous_registry) = previous_registry {
         std::env::set_var("KALI_REGISTRY", previous_registry);
