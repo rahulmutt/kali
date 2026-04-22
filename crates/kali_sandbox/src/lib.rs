@@ -205,6 +205,7 @@ impl PolicyPredicateContext {
                 ("effects.timer.schedule", delay_ms.to_string())
             }
             HostOperation::ProcessSpawn { executable } => {
+                details.insert("executable".to_string(), executable.clone());
                 ("effects.process.spawn", executable.clone())
             }
             HostOperation::ThreadSpawn { active_threads } => {

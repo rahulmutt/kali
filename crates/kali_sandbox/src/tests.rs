@@ -165,6 +165,22 @@ fn registered_predicates_run_after_declarative_allowance() {
 }
 
 #[test]
+fn predicate_context_records_process_spawn_details() {
+    let operation = HostOperation::ProcessSpawn {
+        executable: "deno".to_string(),
+    };
+    let context = PolicyPredicateContext::from_operation(&operation);
+
+    assert_eq!(context.capability, "effects.process.spawn");
+    assert_eq!(context.subject, "deno");
+    assert_eq!(context.operation, operation);
+    assert_eq!(
+        context.details.get("executable").map(String::as_str),
+        Some("deno")
+    );
+}
+
+#[test]
 fn predicate_context_records_thread_spawn_details() {
     let operation = HostOperation::ThreadSpawn { active_threads: 3 };
     let context = PolicyPredicateContext::from_operation(&operation);

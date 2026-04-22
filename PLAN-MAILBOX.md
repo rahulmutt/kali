@@ -450,3 +450,7 @@ Proposed fix:
 
 2026-04-22 resolution note
 - taught the maintained Python binding helper to auto-discover the generated stem-specific `*.binding-package.json` layout used by `build --capi`, and added direct regression coverage for that generated bundle shape so Stage 5.5 now reflects the actual packaging workflow instead of only the legacy generic manifest name
+
+2026-04-22 follow-up note
+- extended the canonical host-predicate context payload with an explicit `executable` detail for `ProcessSpawn`, and added sandbox/embedding regressions so the Stage 5.3 programmable-policy lane now covers the process-spawn predicate payload alongside the existing console and thread-budget context details
+- update the Stage 5.3 progress note to mention the process-spawn detail payload alongside the existing host-predicate context and availability coverage
