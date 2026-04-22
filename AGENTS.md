@@ -101,6 +101,8 @@ Phase 1 evidence hardening (`stage 1.14`) requires:
 - A completed implementation stage does **not** automatically change maturity.
 - Public availability always comes from `specs/19-feature-maturity.md`.
 - Proof-backed status requires a non-empty published boundary in `proofs/BOUNDARY.md`.
+- `proofs/BOUNDARY.md` is the source of truth for the proof-backed boundary, theorem/property inventory, covered-path list, proof-CI trigger scope, and canonical short verification summary.
+- Do not duplicate or independently evolve the proof-boundary inventory in `plan/phase-4/02-formal-verification-depth.md`; keep that file as a reference back to `proofs/BOUNDARY.md`.
 - Do not claim proof-backed status until the boundary is non-empty.
 
 ## 6) Schema, diagnostics, and CLI rules

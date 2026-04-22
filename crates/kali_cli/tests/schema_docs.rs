@@ -111,142 +111,11 @@ fn core_schema_documents_match_current_cli_contracts() {
 }
 
 #[test]
-fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
+fn proof_boundary_summary_docs_reference_the_canonical_boundary() {
     let root = repo_root();
     let summary =
         "Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.";
     let proof_backed_phrase = "proof-backed for the published boundary";
-    let rc_predicate_vocabulary = ["hasOwnership", "allocated", "liveAnnotated"];
-    let rc_theorem_names = [
-        "releaseRefNoDanglingReference",
-        "KaliCore.Safety.noDanglingReference",
-        // Keep the release-only helper and the decrement/collection live-reference filtering corollaries pinned together.
-        "releaseRefLiveRefsAreOwnedAndAllocated",
-        "releaseRefLiveRefsAreLiveAnnotated",
-        "releaseAndDecrementLiveRefsAreLiveAnnotated",
-        "releaseAndCollectLiveRefsAreLiveAnnotated",
-        "releaseAndCollectLiveRefsAreOwnedAndAllocated",
-        "releaseAndCollectLiveRefsAreOwnedAndAllocatedAndLinearMemory",
-        "releaseRefLiveRefsAreOwnedAndAllocatedAndLinearMemory",
-        "releaseAndDecrementLiveRefsAreOwnedAndAllocatedAndLinearMemory",
-        "liveRefsAreOwnedAndAllocated",
-        "releaseRefLiveRefsFiltered",
-        "releaseAndDecrementLiveRefsFiltered",
-        "releaseAndCollectLiveRefsFiltered",
-        "releasePreservesWellFormed",
-        "releaseRecorded",
-        "releaseAndDecrementRecorded",
-        "releaseAndDecrementDecrementsTargetCell",
-        "releaseAndDecrementPreservesWellFormed",
-        "releaseAndDecrementPreservesOwnership",
-        "releaseAndDecrementLiveRefsAreOwnedAndAllocated",
-        "releaseAndDecrementLiveRefsAreLiveAnnotated",
-        "releaseAndDecrementReleasedNotLiveRef",
-        "releaseAndDecrementZeroesLastTargetCell",
-        "releaseRefReleasedRefsCons",
-        "releaseRefPreservesReleasedRefs",
-        "releaseRefHeapCharacterisation",
-        "releaseRefHeapCharacterisationAndLinearMemory",
-        "releaseRefHeapCellOrigin",
-        "releaseRefHeapCellOriginAndOwnership",
-        "releaseRefHeapCellOriginOwnershipAndPositiveCount",
-        "releaseRefHeapCellOriginOwnershipAndPositiveCountAndLinearMemory",
-        "releaseRefPreservesOwnership",
-        "releaseRefPreservesLinearMemory",
-        "releaseRefPreservesOwnershipAndLinearMemory",
-        "releaseAndCollectPreservesLinearMemory",
-        "releaseAndCollectHeapIsPositiveCountFilterAndLinearMemory",
-        "releaseAndCollectPreservesOwnershipAndLinearMemory",
-        "releaseRefPreservesWellFormedAndLinearMemory",
-        "releaseAndDecrementPreservesWellFormedAndLinearMemory",
-        "releaseAndCollectPreservesWellFormedAndLinearMemory",
-        "releaseRefPreservesWellFormedAndOwnershipAndLinearMemory",
-        "releaseAndDecrementPreservesWellFormedAndOwnershipAndLinearMemory",
-        "releaseAndCollectPreservesWellFormedAndOwnershipAndLinearMemory",
-        "releaseAndCollectPreservesWellFormedAndOwnershipAndReleasedRefsAndLinearMemory",
-        "releaseRefPreservesWellFormedAndOwnership",
-        "releaseAndDecrementPreservesWellFormedAndOwnership",
-        "releaseAndCollectPreservesWellFormedAndOwnership",
-        "releaseRefReleasedNotLiveRef",
-        "releaseAndDecrementNoDanglingReference",
-        "releaseAndDecrementKeepsTargetCellWhenPositiveCount",
-        "releaseAndDecrementKeepsOtherPositiveCountCells",
-        "releaseAndDecrementTargetCellPositiveCountIff",
-        "releaseAndDecrementTargetCellPositiveCountIffAndLinearMemory",
-        "releaseAndDecrementTargetCellOrigin",
-        "releaseAndDecrementKeepsOriginalPositiveCountCells",
-        "releaseAndDecrementTargetCellOriginAndPositiveCount",
-        "releaseAndDecrementTargetCellOriginAndPositiveCountAndLinearMemory",
-        "releaseAndDecrementKeepsOtherHeapEntries",
-        "releaseAndDecrementPreservesOtherLiveRefs",
-        "releaseAndDecrementHeapCellOrigin",
-        "releaseAndDecrementHeapCellOriginAndOwnership",
-        "releaseAndDecrementHeapCellOriginAndPositiveCount",
-        "releaseAndDecrementHeapCellOriginOwnershipAndPositiveCount",
-        "releaseAndDecrementHeapCellOriginOwnershipAndPositiveCountAndLinearMemory",
-        "releaseAndDecrementTargetCellAllocatedWhenPositiveCount",
-        "releaseAndDecrementTargetCellOwnedAndAllocatedWhenPositiveCount",
-        "releaseAndDecrementPreservesLinearMemory",
-        "releaseAndDecrementPreservesOwnershipAndLinearMemory",
-        "releaseAndCollectPreservesOwnership",
-        "releaseAndDecrementReleasedRefsCons",
-        "releaseAndDecrementPreservesReleasedRefs",
-        "releaseAndCollectNoDanglingReference",
-        "releasedNotLive",
-        "releasedNotLiveRef",
-        "releaseAndCollectRecorded",
-        "releaseAndCollectDropsZeroCountCells",
-        "releaseAndCollectRemovesZeroCountCells",
-        "releaseAndCollectKeepsPositiveCountCells",
-        "releaseAndCollectDropsOriginalZeroCountCells",
-        "releaseAndCollectKeepsOtherPositiveCountCells",
-        "releaseAndCollectKeepsOriginalPositiveCountCells",
-        "releaseAndCollectKeepsOtherHeapEntries",
-        "releaseAndCollectPreservesOtherLiveRefs",
-        "releaseAndCollectKeepsTargetCellWhenPositiveCount",
-        "releaseAndCollectTargetCellPresentIffPositiveCount",
-        "releaseAndCollectTargetCellPresentIffPositiveCountAndLinearMemory",
-        "releaseAndCollectPreservesWellFormed",
-        "releaseAndCollectReleasedNotLiveRef",
-        "releaseAndCollectHeapCellOrigin",
-        "releaseAndCollectHeapCellOriginAndOwnership",
-        "releaseAndCollectHeapCellOriginOwnershipAndPositiveCount",
-        "releaseAndCollectHeapCellOriginOwnershipAndPositiveCountAndLinearMemory",
-        "releaseAndCollectHeapCellOriginAndPositiveCount",
-        "releaseAndCollectHeapCellOriginAndPositiveCountAndLinearMemory",
-        "releaseAndCollectHeapIsPositiveCountFilter",
-        "releaseAndCollectHeapCellsHavePositiveCount",
-        "releaseAndCollectTargetCellAllocatedWhenPositiveCount",
-        "releaseAndCollectLiveRefsAreLiveAnnotated",
-        "releaseAndCollectTargetCellOrigin",
-        "releaseAndCollectTargetCellOriginAndPositiveCount",
-        "releaseAndCollectTargetCellOriginOwnershipAndPositiveCount",
-        "releaseAndCollectTargetCellOriginOwnershipAndPositiveCountAndLinearMemory",
-        "releaseAndCollectTargetCellOwnedAndAllocatedWhenPositiveCount",
-        "releaseAndCollectPreservesLinearMemory",
-        "releaseAndCollectPreservesOwnershipAndLinearMemory",
-        "releaseAndCollectLiveRefsAreOwnedAndAllocated",
-        "releaseAndCollectLiveRefsAreOwnedAndAllocatedAndLinearMemory",
-        "releaseAndCollectReleasedRefsCons",
-        "releaseAndCollectPreservesReleasedRefs",
-        "releaseAndDecrementHeapCharacterisation",
-        "releaseAndDecrementHeapCharacterisationAndLinearMemory",
-        "releaseAndCollectHeapCharacterisation",
-        "releaseAndCollectHeapCharacterisationAndLinearMemory",
-        "releaseAndCollectHeapCellsHavePositiveCount",
-        "releaseAndCollectHeapCellsHavePositiveCountAndLinearMemory",
-    ];
-    let soundness_theorem_names = ["KaliCore.Soundness.subst_closed", "KaliCore.litTy"];
-    let context_lookup_theorem_names = [
-        "Context.lookup_remove_head",
-        "Context.lookup_remove_head_other",
-        "Context.lookup_remove_ne",
-    ];
-    let context_lookup_docs = [
-        "proofs/BOUNDARY.md",
-        "plan/phase-4/02-formal-verification-depth.md",
-        "PLAN-4.2-STATUS.md",
-    ];
 
     let summary_docs = [
         ("README.md", summary),
@@ -255,12 +124,6 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         ("specs/17-verification.md", summary),
         ("specs/19-feature-maturity.md", proof_backed_phrase),
         ("plan/phase-4/02-formal-verification-depth.md", summary),
-        ("PLAN-4.2-STATUS.md", summary),
-    ];
-    let theorem_inventory_docs = [
-        "proofs/BOUNDARY.md",
-        "plan/phase-4/02-formal-verification-depth.md",
-        "PLAN-4.2-STATUS.md",
     ];
 
     for (relative, expected_summary) in summary_docs {
@@ -271,84 +134,16 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         );
     }
 
-    for relative in theorem_inventory_docs {
-        let text = fs::read_to_string(root.join(relative)).expect("read theorem inventory doc");
-        for theorem in rc_theorem_names {
-            assert!(
-                text.contains(theorem),
-                "{relative} is missing proof-summary theorem name: {theorem}"
-            );
-        }
-        for theorem in soundness_theorem_names {
-            assert!(
-                text.contains(theorem),
-                "{relative} is missing soundness proof-summary theorem name: {theorem}"
-            );
-        }
-        for term in rc_predicate_vocabulary {
-            assert!(
-                text.contains(term),
-                "{relative} is missing RC predicate vocabulary term: {term}"
-            );
-        }
-    }
-
-    for relative in context_lookup_docs {
-        let text = fs::read_to_string(root.join(relative)).expect("read context lookup doc");
-        for theorem in context_lookup_theorem_names {
-            assert!(
-                text.contains(theorem),
-                "{relative} is missing context lookup proof-summary theorem name: {theorem}"
-            );
-        }
-    }
-
-    let lowering_theorem_names = [
-        "KaliIR.Value",
-        "KaliIR.LoweringCorrectness.lower_preserves_value",
-        "KaliIR.LoweringCorrectness.lower_preserves_step",
-        "KaliIR.LoweringCorrectness.lower_preserves_steps",
-    ];
-    let lowering_theorem_docs = [
-        "proofs/BOUNDARY.md",
-        "plan/phase-4/02-formal-verification-depth.md",
-        "PLAN-4.2-STATUS.md",
-        "TODO.md",
-    ];
-
-    for relative in lowering_theorem_docs {
-        let text = fs::read_to_string(root.join(relative)).expect("read lowering doc");
-        for theorem in lowering_theorem_names {
-            assert!(
-                text.contains(theorem),
-                "{relative} is missing lowering theorem name: {theorem}"
-            );
-        }
-    }
-
-    let theorem_only_docs = ["TODO.md"];
-
-    for relative in theorem_only_docs {
-        let text = fs::read_to_string(root.join(relative)).expect("read tracker doc");
-        for theorem in rc_theorem_names {
-            assert!(
-                text.contains(theorem),
-                "{relative} is missing proof-summary theorem name: {theorem}"
-            );
-        }
-        for theorem in soundness_theorem_names {
-            assert!(
-                text.contains(theorem),
-                "{relative} is missing soundness proof-summary theorem name: {theorem}"
-            );
-        }
-        for term in rc_predicate_vocabulary {
-            assert!(
-                text.contains(term),
-                "{relative} is missing RC predicate vocabulary term: {term}"
-            );
-        }
-    }
+    let stage_doc = fs::read_to_string(root.join("plan/phase-4/02-formal-verification-depth.md"))
+        .expect("read stage 4.2 doc");
+    assert!(
+        stage_doc.contains("[`proofs/BOUNDARY.md`](../../proofs/BOUNDARY.md)"),
+        "stage 4.2 doc should reference the canonical proof boundary"
+    );
+    assert!(
+        stage_doc.contains("authoritative source") || stage_doc.contains("historical"),
+        "stage 4.2 doc should describe proofs/BOUNDARY.md as the canonical boundary source"
+    );
 
     let boundary = fs::read_to_string(root.join("proofs/BOUNDARY.md")).expect("read boundary");
     assert!(
