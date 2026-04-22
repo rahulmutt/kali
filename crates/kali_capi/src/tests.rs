@@ -22,7 +22,7 @@ fn binding_package_manifest_orders_glue_deterministically() {
         "sample.capi.wasm",
         "sample.cabi.json",
         "sample.h",
-        &vec!["support.py".to_string(), "shim.py".to_string()],
+        &["support.py".to_string(), "shim.py".to_string()],
     );
 
     assert_eq!(manifest["schemaVersion"], 1);
@@ -177,7 +177,7 @@ assert binding._library.calls == [("add", 2, 3), ("zero",)]
         "sample.capi.wasm",
         "sample.cabi.json",
         "sample.h",
-        &vec!["support.py".to_string(), "shim.py".to_string()],
+        &["support.py".to_string(), "shim.py".to_string()],
     );
     fs::write(
         temp_root.join("binding-package.json"),
@@ -261,7 +261,7 @@ assert binding._library.calls == [("add", 2, 3), ("zero",)]
         "sample.capi.wasm",
         "sample.cabi.json",
         "sample.h",
-        &vec!["support.py".to_string(), "shim.py".to_string()],
+        &["support.py".to_string(), "shim.py".to_string()],
     );
     fs::write(
         temp_root.join("sample.binding-package.json"),

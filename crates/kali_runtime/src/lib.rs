@@ -187,6 +187,11 @@ impl BrowserRuntimeContract {
         "browser runtime host description: real browser host"
     }
 
+    /// Return a stable note that summarizes the later browser runtime contract.
+    pub const fn summary_note() -> &'static str {
+        "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work"
+    }
+
     /// Return a stable note that summarizes the future browser runtime contract scope.
     pub const fn contract_scope_note() -> &'static str {
         "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness"
@@ -2058,6 +2063,7 @@ pub fn browser_runtime_unavailable_diagnostic(
             RuntimeBackend::Wasmtime.canonical_label()
         ))
         .note(BrowserRuntimeContract::supported_commands_note())
+        .note(BrowserRuntimeContract::summary_note())
         .note(BrowserRuntimeContract::contract_scope_note())
         .note(BrowserRuntimeContract::host_description_note());
     if let Some(context) = context {

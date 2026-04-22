@@ -210,14 +210,14 @@ fn profile_guided_optimization_benchmark_tracks_hot_call_site_reduction_on_a_rep
     ] {
         let release_started = Instant::now();
         for _ in 0..bench_iterations {
-            let (mut cold_program, _) = build_workload(function_name, &literals);
+            let (mut cold_program, _) = build_workload(function_name, literals);
             Optimizer::new(OptimizationLevel::Release).optimize_program(&mut cold_program);
         }
         let release_elapsed = release_started.elapsed();
 
         let profile_started = Instant::now();
         for _ in 0..bench_iterations {
-            let (mut hot_program, _) = build_workload(function_name, &literals);
+            let (mut hot_program, _) = build_workload(function_name, literals);
             Optimizer::new(OptimizationLevel::Release)
                 .with_profile_data(ProfileData::new(vec![ProfileSample::new(
                     ProfileSampleKind::Function,
@@ -234,7 +234,7 @@ fn profile_guided_optimization_benchmark_tracks_hot_call_site_reduction_on_a_rep
             profile_elapsed.as_micros()
         );
 
-        let (mut cold_program, cold_call) = build_workload(function_name, &literals);
+        let (mut cold_program, cold_call) = build_workload(function_name, literals);
         Optimizer::new(OptimizationLevel::Release).optimize_program(&mut cold_program);
         assert_eq!(
             cold_program.nodes[cold_call.0 as usize].kind,
@@ -242,7 +242,7 @@ fn profile_guided_optimization_benchmark_tracks_hot_call_site_reduction_on_a_rep
             "baseline release should keep the representative {function_name} call site"
         );
 
-        let (mut hot_program, hot_call) = build_workload(function_name, &literals);
+        let (mut hot_program, hot_call) = build_workload(function_name, literals);
         Optimizer::new(OptimizationLevel::Release)
             .with_profile_data(ProfileData::new(vec![ProfileSample::new(
                 ProfileSampleKind::Function,

@@ -344,8 +344,10 @@ fn compiler_rejects_threaded_runtime_profiles_in_the_current_phase() {
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
 
-    let mut config = CompilerConfig::default();
-    config.runtime_profiles = vec!["wasm-threads".to_string()];
+    let config = CompilerConfig {
+        runtime_profiles: vec!["wasm-threads".to_string()],
+        ..CompilerConfig::default()
+    };
     let compiler = KaliCompiler::new(config);
     let error = compiler
         .compile_file(&source_path)
@@ -364,8 +366,10 @@ fn compiler_rejects_duplicate_runtime_profiles_before_phase_gating() {
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
 
-    let mut config = CompilerConfig::default();
-    config.runtime_profiles = vec!["wasm-threads".to_string(), "wasm-threads".to_string()];
+    let config = CompilerConfig {
+        runtime_profiles: vec!["wasm-threads".to_string(), "wasm-threads".to_string()],
+        ..CompilerConfig::default()
+    };
     let compiler = KaliCompiler::new(config);
     let error = compiler
         .compile_file(&source_path)
@@ -384,8 +388,10 @@ fn compiler_rejects_unknown_runtime_profiles_before_phase_gating() {
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
 
-    let mut config = CompilerConfig::default();
-    config.runtime_profiles = vec!["fiber-threads".to_string()];
+    let config = CompilerConfig {
+        runtime_profiles: vec!["fiber-threads".to_string()],
+        ..CompilerConfig::default()
+    };
     let compiler = KaliCompiler::new(config);
     let error = compiler
         .compile_file(&source_path)

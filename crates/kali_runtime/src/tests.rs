@@ -126,6 +126,10 @@ fn browser_runtime_contract_documents_the_future_execution_surface() {
         BrowserRuntimeContract::supported_commands_note(),
         "supported browser runtime commands: run, test"
     );
+    assert_eq!(
+        BrowserRuntimeContract::summary_note(),
+        "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work"
+    );
     assert!(BrowserRuntimeContract::diagnostic_hint().contains("kali check --api browser"));
     assert!(BrowserRuntimeContract::diagnostic_hint().contains("kali build --bundle --api browser"));
 }
@@ -275,6 +279,13 @@ fn runtime_rejects_browser_api_surface() {
             .any(|note| note == "current runtime backend: wasmtime"),
         "diagnostic: {diagnostic:?}"
     );
+    assert!(
+        diagnostic
+            .notes
+            .iter()
+            .any(|note| note == BrowserRuntimeContract::summary_note()),
+        "diagnostic: {diagnostic:?}"
+    );
     assert_eq!(
         diagnostic.context.as_deref(),
         Some(
@@ -316,6 +327,13 @@ fn runtime_test_execution_rejects_browser_api_surface() {
             .notes
             .iter()
             .any(|note| note == "current runtime backend: wasmtime"),
+        "diagnostic: {diagnostic:?}"
+    );
+    assert!(
+        diagnostic
+            .notes
+            .iter()
+            .any(|note| note == BrowserRuntimeContract::summary_note()),
         "diagnostic: {diagnostic:?}"
     );
     assert_eq!(

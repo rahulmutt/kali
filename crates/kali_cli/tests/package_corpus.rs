@@ -334,6 +334,7 @@ fn write_module_only_package(root: &Path, name: &str, body: &str) {
     fs::write(package_dir.join("index.mjs"), body).expect("write package module entry");
 }
 
+#[allow(clippy::too_many_arguments)]
 fn write_browser_condition_exports_package(
     root: &Path,
     name: &str,

@@ -51,6 +51,10 @@ fn assert_browser_runtime_rejection_text(text: &str) {
         "stderr: {text}"
     );
     assert!(
+        text.contains("browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work"),
+        "stderr: {text}"
+    );
+    assert!(
         text.contains("browser runtime contract scope: run and test only"),
         "stderr: {text}"
     );
@@ -92,6 +96,12 @@ fn assert_browser_runtime_rejection_notes(notes: &[Value]) {
         notes
             .iter()
             .any(|note| note.as_str() == Some("supported browser runtime commands: run, test")),
+        "notes: {notes:?}"
+    );
+    assert!(
+        notes.iter().any(
+            |note| note.as_str() == Some("browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work")
+        ),
         "notes: {notes:?}"
     );
     assert!(
@@ -177,9 +187,8 @@ fn count_i64_adds(bytes: &[u8]) -> usize {
         if let Ok(Payload::CodeSectionEntry(body)) = payload {
             let mut reader = body.get_operators_reader().expect("operators reader");
             while !reader.eof() {
-                match reader.read().expect("read operator") {
-                    Operator::I64Add => count += 1,
-                    _ => {}
+                if reader.read().expect("read operator") == Operator::I64Add {
+                    count += 1
                 }
             }
         }
@@ -3482,7 +3491,7 @@ fn build_artifacts_are_deterministic_across_repeated_invocations() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let executable_first = read_artifact_bytes(&[executable_output.clone()]);
+    let executable_first = read_artifact_bytes(std::slice::from_ref(&executable_output));
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -3496,7 +3505,7 @@ fn build_artifacts_are_deterministic_across_repeated_invocations() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_artifact_bytes_stable(&[executable_output.clone()], &executable_first);
+    assert_artifact_bytes_stable(std::slice::from_ref(&executable_output), &executable_first);
 
     let library_source = dir.path().join("lib.ts");
     fs::write(
@@ -4298,7 +4307,7 @@ fn json_check_emits_diagnostic_envelope() {
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["filesChecked"], 1);
-    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert!(!json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -4344,7 +4353,7 @@ fn json_check_rejects_fix_flag_as_later_compatibility() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], false);
-    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5006");
     assert!(json["errors"][0]["message"]
         .as_str()
@@ -4374,7 +4383,7 @@ fn json_check_rejects_wasm_threads_runtime_profile() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], false);
-    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5006");
 }
 
@@ -4410,7 +4419,7 @@ fn json_check_rejects_inherited_duplicate_runtime_profiles() {
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert!(errors.len() > 0, "errors: {errors:?}");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5009");
     assert!(errors[0]["message"]
         .as_str()
@@ -4442,7 +4451,7 @@ fn json_check_rejects_browser_api_surface_with_wasm_threads() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], false);
-    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5006");
 }
 
@@ -4599,7 +4608,7 @@ fn json_run_rejects_positive_thread_budget_override() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], false);
-    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5006");
 }
 
@@ -4621,7 +4630,7 @@ fn json_test_rejects_positive_thread_budget_override() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
     assert_eq!(json["success"], false);
-    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5006");
 }
 
@@ -6012,7 +6021,7 @@ fn json_effects_rejects_wasm_threads_runtime_profile() {
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
-    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5006");
 }
 
@@ -6046,7 +6055,7 @@ fn json_effects_rejects_inherited_wasm_threads_runtime_profile() {
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
-    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5006");
 }
 
@@ -6333,7 +6342,7 @@ fn json_check_with_sandbox_rejects_positive_thread_budget_policy() {
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
-    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5006");
 }
 
@@ -6384,7 +6393,7 @@ fn test_with_sandbox_rejects_positive_thread_budget_policy() {
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
-    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5006");
 }
 
@@ -6482,7 +6491,7 @@ fn json_run_with_sandbox_rejects_positive_thread_budget_policy() {
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
-    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5006");
 }
 

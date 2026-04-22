@@ -377,8 +377,11 @@ globalThis.Proxy.revocable({}, {});
 "#,
     );
 
-    let inference = infer_effects_from_roots(&[source.clone()], EffectAnalysisContext::new("deno"))
-        .expect("infer effects");
+    let inference = infer_effects_from_roots(
+        std::slice::from_ref(&source),
+        EffectAnalysisContext::new("deno"),
+    )
+    .expect("infer effects");
 
     assert_eq!(inference.dynamic_reasons, vec!["proxy-traps"]);
     assert!(

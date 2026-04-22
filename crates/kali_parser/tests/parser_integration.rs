@@ -313,7 +313,7 @@ mod control_flow_statements {
 
         match &output.statements[0] {
             kali_ast::Statement::IfStatement(if_stmt) => {
-                assert!(if_stmt.consequent.body.len() > 0);
+                assert!(!if_stmt.consequent.body.is_empty());
             }
             _ => panic!("Expected IfStatement"),
         }
@@ -339,7 +339,7 @@ mod control_flow_statements {
 
         match &output.statements[0] {
             kali_ast::Statement::WhileStatement(ws) => {
-                assert!(ws.body.body.len() > 0);
+                assert!(!ws.body.body.is_empty());
             }
             _ => panic!("Expected WhileStatement"),
         }
@@ -352,7 +352,7 @@ mod control_flow_statements {
 
         match &output.statements[0] {
             kali_ast::Statement::DoWhileStatement(dws) => {
-                assert!(dws.body.body.len() > 0);
+                assert!(!dws.body.body.is_empty());
             }
             _ => panic!("Expected DoWhileStatement"),
         }
