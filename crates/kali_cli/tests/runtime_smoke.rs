@@ -1194,6 +1194,45 @@ fn run_accepts_the_explicit_deno_api_surface() {
 }
 
 #[test]
+fn run_accepts_the_browser_api_surface_when_a_harness_command_is_configured() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('browser run');").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("browser run"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn run_accepts_zero_thread_budget_override() {
     let output = Command::new(kali_bin())
         .arg("run")
@@ -1708,6 +1747,27 @@ fn test_accepts_the_explicit_deno_api_surface() {
         .arg("test")
         .arg("--api")
         .arg("deno")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_accepts_the_browser_api_surface_when_a_harness_command_is_configured() {
+    let output = Command::new(kali_bin())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
         .arg(fixture_path("tests/smoke.test.ts"))
         .output()
         .expect("run kali");

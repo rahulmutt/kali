@@ -27,7 +27,7 @@ use kali_npm::{
 use kali_optimize::ProfileData;
 use kali_runtime::{
     browser_runtime_request_context, browser_runtime_unavailable_diagnostic,
-    normalize_runtime_profiles, RuntimeCtx,
+    normalize_runtime_profiles, RuntimeCtx, BROWSER_HARNESS_COMMAND_ENV,
 };
 use kali_sandbox::{
     compare_effects_to_policy, effect_report_from_inference, infer_effects_from_roots,
@@ -937,15 +937,20 @@ fn reject_unavailable_runtime_profiles(
     )
 }
 
+fn browser_runtime_harness_command_available() -> bool {
+    std::env::var_os(BROWSER_HARNESS_COMMAND_ENV).is_some()
+}
+
 fn reject_unavailable_browser_runtime(
     command: &str,
     api_surface: kali_cli::ApiSurface,
+    browser_runtime_available: bool,
     browser_context: Option<DiagnosticContext>,
     output: &CliOutputOptions,
     source_path: Option<&Path>,
     source_contents: Option<&str>,
 ) -> Result<(), i32> {
-    if !matches!(api_surface, kali_cli::ApiSurface::Browser) {
+    if !matches!(api_surface, kali_cli::ApiSurface::Browser) || browser_runtime_available {
         return Ok(());
     }
 
@@ -2451,6 +2456,7 @@ fn run_command(
     if let Err(exit_code) = reject_unavailable_browser_runtime(
         "run",
         effective_api,
+        browser_runtime_harness_command_available(),
         browser_context,
         output,
         None,
@@ -2627,6 +2633,7 @@ fn test_command(
     if let Err(exit_code) = reject_unavailable_browser_runtime(
         "test",
         effective_api,
+        browser_runtime_harness_command_available(),
         browser_context,
         output,
         None,
