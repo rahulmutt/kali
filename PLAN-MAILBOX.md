@@ -338,3 +338,7 @@ Proposed fix:
 
 2026-04-22 resolution note
 - added CLI smoke coverage for direct and `globalThis`-qualified `WeakMap`, `WeakSet`, and `FinalizationRegistry` rejections in both text and JSON `check` output, so Stage 5.4 now pins the late object-model gate surface alongside the existing host-control, Proxy, Intl, and Web Crypto regressions
+2026-04-22 follow-up note
+- the Stage 5.4 browser package-corpus baseline should be widened to exercise `crypto.subtle.digest` so the later Web Crypto breadth slice has package-evidence coverage alongside the direct API tests
+2026-04-22 resolution note
+- widened the Stage 5.4 browser package-corpus baseline with `crypto.subtle.digest` coverage and added SHA-384/SHA-512 digest tests in `kali_api_web`, so the later Web Crypto breadth slice now has both direct API and package-evidence coverage
