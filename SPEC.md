@@ -234,6 +234,18 @@ The Phase-1 `kali build --lib` output intended for exact-version consumers when 
 
 The later stable embedding contract: stable Rust embedding API plus the stable public WIT-first `--lib` contract, with `--capi` and `--component` as explicit projections over that same export surface.
 
+### Binding-package sidecar manifest
+
+The deterministic stem-specific embedding bundle index emitted alongside later public `--capi` and `--component` flows. In schemas/artifact manifests its canonical artifact `kind` is `binding-package`; it is a sidecar manifest for generated binding layouts, not a second primary linked-code artifact.
+
+### Build-only additive PGO input
+
+The `build` command's `--profile <file>` input is an explicit opt-in optimization add-on that loads deterministic profile data. It does not create a fourth build mode, does not rename the stable `fast` / `release` / `release-advanced` vocabulary, and does not define a separate artifact family.
+
+### Feature-gated zero-capable execution budgets
+
+`maxSpawnedProcesses` and `maxThreads` are the two schema-v1 execution-budget axes where `0` is a meaningful explicit deny/tightening value. Positive values on those axes remain gated on the underlying subprocess/thread capability actually existing for the selected command/profile/context; this zero-capable rule does not generalize to unrelated numeric limits such as memory, CPU time, open files, timers, or network-connection caps.
+
 ### Pure JS/TS package contract
 
 Packages that fit Kali's early support envelope: JavaScript/TypeScript published artifacts, no required native addon path, no mandatory bootstrap-heavy binary/tool download path, and host assumptions that fit the documented execution/build context.
