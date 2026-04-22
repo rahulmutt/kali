@@ -113,25 +113,29 @@ fn runtime_reports_browser_host_contract_for_browser_api_surface() {
 
 #[test]
 fn browser_runtime_contract_documents_the_future_execution_surface() {
-    assert_eq!(BrowserRuntimeContract::host_label(), "browser-requested");
+    let descriptor = BrowserRuntimeContract::descriptor();
+
+    assert_eq!(descriptor.host_label, "browser-requested");
+    assert_eq!(descriptor.host_description, "real browser host");
+    assert_eq!(descriptor.supported_commands, &["run", "test"]);
     assert_eq!(
-        BrowserRuntimeContract::host_description(),
-        "real browser host"
-    );
-    assert_eq!(
-        BrowserRuntimeContract::supported_commands(),
-        &["run", "test"]
-    );
-    assert_eq!(
-        BrowserRuntimeContract::supported_commands_note(),
+        descriptor.supported_commands_note,
         "supported browser runtime commands: run, test"
     );
     assert_eq!(
-        BrowserRuntimeContract::summary_note(),
+        descriptor.summary_note,
         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work"
     );
-    assert!(BrowserRuntimeContract::diagnostic_hint().contains("kali check --api browser"));
-    assert!(BrowserRuntimeContract::diagnostic_hint().contains("kali build --bundle --api browser"));
+    assert_eq!(
+        descriptor.contract_scope_note,
+        "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness"
+    );
+    assert!(descriptor
+        .diagnostic_hint
+        .contains("kali check --api browser"));
+    assert!(descriptor
+        .diagnostic_hint
+        .contains("kali build --bundle --api browser"));
 }
 
 #[test]

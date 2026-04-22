@@ -155,6 +155,25 @@ impl RuntimeBackend {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct BrowserRuntimeContract;
 
+/// Structured descriptor for the later standalone browser runtime contract.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BrowserRuntimeContractDescriptor {
+    /// Canonical host-contract label used in diagnostics.
+    pub host_label: &'static str,
+    /// High-level description of the intended browser host.
+    pub host_description: &'static str,
+    /// Future browser runtime command names.
+    pub supported_commands: &'static [&'static str],
+    /// Stable note that names the browser runtime command family.
+    pub supported_commands_note: &'static str,
+    /// Diagnostic hint that points users back to the browser-targeted analysis/build lane.
+    pub diagnostic_hint: &'static str,
+    /// Stable note that summarizes the later browser runtime contract.
+    pub summary_note: &'static str,
+    /// Stable note that summarizes the future browser runtime contract scope.
+    pub contract_scope_note: &'static str,
+}
+
 /// Environment variable used to override the browser harness command.
 pub const BROWSER_HARNESS_COMMAND_ENV: &str = "KALI_BROWSER_BUNDLE_HARNESS_COMMAND";
 
@@ -175,6 +194,19 @@ impl BrowserRuntimeContract {
     /// Return the future browser runtime contract's supported command names.
     pub const fn supported_commands() -> &'static [&'static str] {
         &Self::SUPPORTED_COMMANDS
+    }
+
+    /// Return a structured descriptor for the browser runtime contract.
+    pub const fn descriptor() -> BrowserRuntimeContractDescriptor {
+        BrowserRuntimeContractDescriptor {
+            host_label: Self::host_label(),
+            host_description: Self::host_description(),
+            supported_commands: Self::supported_commands(),
+            supported_commands_note: Self::supported_commands_note(),
+            diagnostic_hint: Self::diagnostic_hint(),
+            summary_note: Self::summary_note(),
+            contract_scope_note: Self::contract_scope_note(),
+        }
     }
 
     /// Return a stable note that names the browser runtime command family.
@@ -2051,8 +2083,9 @@ pub fn browser_runtime_unavailable_diagnostic(
     command: Option<&str>,
     context: Option<DiagnosticContext>,
 ) -> Diagnostic {
-    let hint = BrowserRuntimeContract::diagnostic_hint();
-    let contract = BrowserRuntimeContract::host_label();
+    let browser_contract = BrowserRuntimeContract::descriptor();
+    let hint = browser_contract.diagnostic_hint;
+    let contract = browser_contract.host_label;
     let message = match command {
         Some(command) => format!(
             "{command} does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract (selected host contract: {contract}). {hint}"
@@ -2067,9 +2100,9 @@ pub fn browser_runtime_unavailable_diagnostic(
             "current runtime backend: {}",
             RuntimeBackend::Wasmtime.canonical_label()
         ))
-        .note(BrowserRuntimeContract::supported_commands_note())
-        .note(BrowserRuntimeContract::summary_note())
-        .note(BrowserRuntimeContract::contract_scope_note())
+        .note(browser_contract.supported_commands_note)
+        .note(browser_contract.summary_note)
+        .note(browser_contract.contract_scope_note)
         .note(BrowserRuntimeContract::host_description_note());
     if let Some(context) = context {
         diagnostic = diagnostic.with_context(context);

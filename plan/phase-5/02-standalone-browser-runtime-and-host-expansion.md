@@ -22,6 +22,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 
 ## Progress
 
+- The browser-runtime contract metadata now exposes a structured descriptor helper in `kali_runtime`, and the shared browser-runtime rejection diagnostics now consume that descriptor so the command-family wording, host label, host description, and future command scope stay centralized instead of being hand-written in each call site.
 - The browser-runtime contract metadata now exposes a reusable supported-commands note helper, and the shared browser-runtime rejection diagnostics now consume that helper so the command-family wording stays centralized with the later contract descriptor instead of being hand-written in each call site.
 - The browser-runtime contract now also exposes a centralized summary note, and the CLI/runtime browser-gate diagnostics reuse it so the later-compatibility wording stays aligned across the direct runtime rejection path and the user-facing smoke tests.
 - The browser harness command-spec parser now lives in `kali_runtime`, giving the browser smoke lane and future browser-runtime harness one shared argv-style command splitter plus a deterministic bun/node default selector instead of duplicating the override logic in tests.
