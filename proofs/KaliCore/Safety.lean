@@ -694,6 +694,14 @@ theorem releaseAndCollectHeapCellsHavePositiveCount (snapshot : RcSnapshot) (ref
   have hdec : decide (cell.refCount > 0) = true := (List.mem_filter.mp hfilter).2
   exact of_decide_eq_true hdec
 
+/-- The release-and-collect helper's final heap positivity theorem stays paired with the explicit linear-memory payload. -/
+theorem releaseAndCollectHeapCellsHavePositiveCountAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (∀ cell, cell ∈ (releaseAndCollect snapshot ref).heap → cell.refCount > 0) ∧
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndCollectHeapCellsHavePositiveCount snapshot ref
+  · exact releaseAndCollectPreservesLinearMemory snapshot ref
+
 theorem releaseAndCollectTargetCellPresentIffPositiveCount (snapshot : RcSnapshot) (ref : String) :
     ∀ cell, cell ∈ snapshot.heap → cell.name = ref →
       ({ cell with refCount := cell.refCount - 1 } ∈ (releaseAndCollect snapshot ref).heap ↔ cell.refCount > 1) := by

@@ -234,6 +234,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         "releaseAndCollectHeapCharacterisation",
         "releaseAndCollectHeapCharacterisationAndLinearMemory",
         "releaseAndCollectHeapCellsHavePositiveCount",
+        "releaseAndCollectHeapCellsHavePositiveCountAndLinearMemory",
     ];
     let soundness_theorem_names = ["KaliCore.Soundness.subst_closed", "KaliCore.litTy"];
     let context_lookup_theorem_names = [

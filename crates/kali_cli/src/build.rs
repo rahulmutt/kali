@@ -999,6 +999,7 @@ struct AnalyzedSource {
     diagnostics: Vec<Diagnostic>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_source_file(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
