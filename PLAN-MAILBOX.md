@@ -476,3 +476,6 @@ Proposed fix:
 
 2026-04-22 resolution note
 - recorded the deterministic capability/resource/detail notes in the Stage 5.3 progress note, so the programmable-policy lane now captures the machine-readable predicate payload alongside the existing narrowing behavior and registration-order coverage
+
+2026-04-22 resolution note
+- added `run` / `test` smoke coverage for the late object-model gate in both text and JSON output, and updated the Stage 5.4 progress note so the historical plan now records the full `check`, `run`, and `test` command-surface coverage for `Proxy`, `WeakMap`, `WeakSet`, and `FinalizationRegistry`

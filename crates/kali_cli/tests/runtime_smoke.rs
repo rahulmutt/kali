@@ -815,6 +815,160 @@ fn check_rejects_late_object_model_globals_in_json() {
 }
 
 #[test]
+fn run_rejects_late_object_model_globals() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "Proxy; globalThis.Proxy; new WeakMap(); globalThis.WeakMap; new WeakSet(); globalThis.WeakSet; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    for expected in [
+        "Proxy",
+        "globalThis.Proxy",
+        "WeakMap",
+        "WeakSet",
+        "FinalizationRegistry",
+    ] {
+        assert!(stderr.contains(expected), "missing {expected} in stderr: {stderr}");
+    }
+}
+
+#[test]
+fn run_rejects_late_object_model_globals_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "Proxy; globalThis.Proxy; new WeakMap(); globalThis.WeakMap; new WeakSet(); globalThis.WeakSet; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_eq!(errors.len(), 8);
+    assert!(errors.iter().all(|error| error["code"] == "E5006"));
+    let messages = errors
+        .iter()
+        .map(|error| error["message"].as_str().expect("error message"))
+        .collect::<Vec<_>>();
+    for expected in [
+        "Proxy",
+        "globalThis.Proxy",
+        "WeakMap",
+        "WeakSet",
+        "FinalizationRegistry",
+    ] {
+        assert!(
+            messages.iter().any(|message| message.contains(expected)),
+            "missing {expected} in {messages:?}"
+        );
+    }
+}
+
+#[test]
+fn test_rejects_late_object_model_globals() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "Proxy; globalThis.Proxy; new WeakMap(); globalThis.WeakMap; new WeakSet(); globalThis.WeakSet; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    for expected in [
+        "Proxy",
+        "globalThis.Proxy",
+        "WeakMap",
+        "WeakSet",
+        "FinalizationRegistry",
+    ] {
+        assert!(stderr.contains(expected), "missing {expected} in stderr: {stderr}");
+    }
+}
+
+#[test]
+fn test_rejects_late_object_model_globals_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "Proxy; globalThis.Proxy; new WeakMap(); globalThis.WeakMap; new WeakSet(); globalThis.WeakSet; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_eq!(errors.len(), 8);
+    assert!(errors.iter().all(|error| error["code"] == "E5006"));
+    let messages = errors
+        .iter()
+        .map(|error| error["message"].as_str().expect("error message"))
+        .collect::<Vec<_>>();
+    for expected in [
+        "Proxy",
+        "globalThis.Proxy",
+        "WeakMap",
+        "WeakSet",
+        "FinalizationRegistry",
+    ] {
+        assert!(
+            messages.iter().any(|message| message.contains(expected)),
+            "missing {expected} in {messages:?}"
+        );
+    }
+}
+
+#[test]
 fn check_discovers_fixture_tree_from_cwd() {
     let output = Command::new(kali_bin())
         .current_dir(fixture_root())
