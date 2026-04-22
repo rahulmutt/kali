@@ -10,6 +10,10 @@
 # PLAN mailbox
 
 2026-04-22 resolution note
+- widened the Stage 5.4 browser package-corpus baseline with SHA-384 / SHA-512 `crypto.subtle.digest` coverage so the later Web Crypto breadth slice now mirrors the broader direct API tests in the package-evidence lane
+- updated the Stage 5.4 progress note to record the broader digest coverage alongside the existing browser bundle smoke and direct API evidence
+
+2026-04-22 resolution note
 - clarified the Stage 5.5 PGO plan note so the build-only `--profile` input is now called out as an explicit opt-in in the stage's progress tracking, matching the CLI and maturity docs
 
 2026-04-22 resolution note
