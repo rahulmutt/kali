@@ -25,6 +25,7 @@ commands, versioned artifact metadata schemas, and the `kali.json` config schema
 - Added CLI smoke coverage for invalid-usage cases such as `--pretty` without JSON output, declaration-only runtime entrypoints, and multi-file `build` invocations so `E5008`/`E5007` now map to the documented exit code.
 - Committed the repository `schemas/` documents for the command envelope, diagnostics, manifests, lockfiles, policies, artifact metadata, and the current shipped result payloads, including reserved later-phase shapes.
 - Tightened the default human diagnostic renderer so severity labels and help/note lines follow the canonical `error[...]` / `= help:` / `= note:` style.
+- Added explicit later-compatibility gating for `kali check --fix`, so the checker autofix path now rejects through the canonical `E5006` availability diagnostic instead of falling through to an unhelpful unknown-flag parse error.
 
 ## Tasks
 

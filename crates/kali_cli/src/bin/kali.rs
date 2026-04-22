@@ -71,10 +71,11 @@ fn main() {
             api,
             compat,
             wasm_threads,
+            fix,
             files,
         } => {
             if let Err(exit_code) =
-                check_command(files, sandbox, api, compat, wasm_threads, &output)
+                check_command(files, sandbox, api, compat, wasm_threads, fix, &output)
             {
                 std::process::exit(exit_code);
             }
@@ -275,6 +276,7 @@ fn check_command(
     api: Option<kali_cli::ApiSurface>,
     compat: Vec<String>,
     wasm_threads: bool,
+    fix: bool,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
     let effective_api = match resolve_effective_api_surface(api) {
@@ -283,6 +285,15 @@ fn check_command(
             return emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)
         }
     };
+
+    if fix {
+        let diagnostic = Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "kali check --fix is unavailable in this phase; use kali lint --fix for autofix"
+                .to_string(),
+        );
+        return emit_diagnostics_and_exit("check", vec![diagnostic], 1, output, None, None);
+    }
 
     let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;

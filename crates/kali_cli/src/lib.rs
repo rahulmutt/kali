@@ -179,6 +179,9 @@ pub enum Commands {
         /// Opt into the later threaded runtime profile
         #[arg(long = "wasm-threads", action = ArgAction::SetTrue)]
         wasm_threads: bool,
+        /// Apply checker autofix rewrites when the checker rewrite contract is available
+        #[arg(long)]
+        fix: bool,
         /// Source files to check
         files: Vec<String>,
     },
