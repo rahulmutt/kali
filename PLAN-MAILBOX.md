@@ -289,3 +289,7 @@ Proposed fix:
 
 2026-04-22 resolution note
 - extended the host-predicate coverage with deterministic `resources.maxThreads` / `activeThreads` context details, plus matching sandbox and embedding regressions, so the Stage 5.3 plan note now pins the host-specific detail payload in addition to the shared capability/subject context
+
+2026-04-22 resolution note
+- added late host-control gating for `Deno.pid` / `Deno.cwd` / `Deno.chdir` / `Deno.exit` and the corresponding `process.*` member accesses in the type resolver, so the stage-5.4 follow-up lane now has a canonical `E5006` availability diagnostic instead of a generic property lookup path
+- updated the Stage 5.4 progress note to record the new availability gate coverage alongside the rest of the planned late host/object compatibility work

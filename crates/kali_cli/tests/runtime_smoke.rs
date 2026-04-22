@@ -493,6 +493,33 @@ fn check_rejects_threaded_runtime_globals() {
 }
 
 #[test]
+fn check_rejects_late_host_control_globals() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "Deno.pid; Deno.cwd(); Deno.chdir('/tmp'); Deno.exit(0);",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("Deno.pid"), "stderr: {stderr}");
+    assert!(stderr.contains("Deno.cwd"), "stderr: {stderr}");
+    assert!(stderr.contains("Deno.chdir"), "stderr: {stderr}");
+    assert!(stderr.contains("Deno.exit"), "stderr: {stderr}");
+}
+
+#[test]
 fn check_discovers_fixture_tree_from_cwd() {
     let output = Command::new(kali_bin())
         .current_dir(fixture_root())

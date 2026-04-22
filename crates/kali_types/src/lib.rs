@@ -749,6 +749,7 @@ impl TypeContext {
     fn resolve_member_expression(&mut self, expr: &MemberExpression) {
         self.resolve_expression(&expr.object);
         self.resolve_threaded_runtime_member(expr);
+        self.resolve_late_host_control_member(expr);
     }
 
     fn resolve_threaded_runtime_member(&mut self, expr: &MemberExpression) {
@@ -771,6 +772,38 @@ impl TypeContext {
                 expr.property
             ),
         ));
+    }
+
+    fn resolve_late_host_control_member(&mut self, expr: &MemberExpression) {
+        if !matches!(expr.property.as_str(), "pid" | "cwd" | "chdir" | "exit") {
+            return;
+        }
+
+        let Some(object_name) = Self::member_object_name(&expr.object) else {
+            return;
+        };
+
+        if !matches!(object_name.as_str(), "Deno" | "process") {
+            return;
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "late host-control API '{}.{}' is unavailable until the later host-control compatibility path is enabled",
+                object_name, expr.property
+            ),
+        ));
+    }
+
+    fn member_object_name(object: &Expression) -> Option<String> {
+        match object {
+            Expression::Identifier(name) => Some(name.clone()),
+            Expression::MemberExpression(member) if matches!(&member.object, Expression::Identifier(name) if name == "globalThis") => {
+                Some(member.property.clone())
+            }
+            _ => None,
+        }
     }
 
     fn resolve_function_expression(&mut self, expr: &FunctionExpression) {

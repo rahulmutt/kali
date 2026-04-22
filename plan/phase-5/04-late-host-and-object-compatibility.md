@@ -20,6 +20,10 @@ with explicit evidence and no hidden semantic weakening.
 - Legacy/web-compat additions remain explicit and evidence-backed instead of being absorbed as
   silent runtime heuristics.
 
+## Progress
+
+- The type resolver now issues the canonical `E5006` availability diagnostic for late host-control member accesses such as `Deno.pid`, `Deno.cwd`, `Deno.chdir`, `Deno.exit`, `process.pid`, `process.cwd`, `process.chdir`, and `process.exit`, including the `globalThis.`-qualified forms that appear in browser/Node-style source. CLI smoke coverage now pins the Deno-side `check` rejection path so the availability gate is visible both in resolver tests and in the user-facing command surface.
+
 ## Tasks
 
 ### 1. Late host-control APIs
