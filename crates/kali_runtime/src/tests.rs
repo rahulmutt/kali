@@ -196,6 +196,53 @@ fn browser_requested_test_runtime_can_execute_registered_callbacks() {
     assert!(outcome.stdout.contains("11"), "stdout: {}", outcome.stdout);
 }
 
+#[cfg(unix)]
+#[test]
+fn browser_runtime_execution_helper_uses_html_entrypoint_for_browser_executables() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let browser = tempdir.path().join("firefox");
+    fs::write(
+        &browser,
+        r#"#!/bin/sh
+printf '%s\n' '{"args":[],"tests":["7"],"testsFailed":0}' > "$KALI_BROWSER_HARNESS_SUMMARY_FILE"
+exit 0
+"#,
+    )
+    .expect("write browser executable shim");
+    let mut permissions = fs::metadata(&browser).expect("metadata").permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&browser, permissions).expect("mark browser executable shim executable");
+
+    let wasm = compile_wat(
+        r#"
+            (module
+                (func (export "_start")))
+            "#,
+    );
+    let browser_command = browser.display().to_string();
+    let outcome = browser_runtime_execute_checked(
+        Some(browser_command.as_str()),
+        &wasm,
+        &[],
+        tempdir.path(),
+        true,
+    )
+    .expect("execute browser runtime harness through browser executable");
+
+    assert_eq!(outcome.command[0], browser.display().to_string());
+    assert!(
+        outcome.command[1].ends_with("browser-runtime.html"),
+        "command: {:?}",
+        outcome.command
+    );
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.reported_args, Vec::<String>::new());
+    assert_eq!(outcome.registered_tests, vec!["7".to_string()]);
+    assert_eq!(outcome.tests_run(), 1);
+    assert_eq!(outcome.tests_failed, 0);
+    assert_eq!(outcome.status.code(), Some(0));
+}
+
 #[test]
 fn browser_runtime_contract_documents_the_future_execution_surface() {
     let descriptor = BrowserRuntimeContract::descriptor();

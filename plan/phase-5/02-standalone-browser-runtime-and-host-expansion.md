@@ -77,6 +77,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - Added browser-runtime package-corpus smoke coverage for browser-field and browser-condition fixtures under the configured harness command, so the browser-executable rung now has an explicit package evidence lane in addition to the browser-targeted check/build corpus.
 - The `run` and `test` JSON payloads now carry the canonical `runtimeBackend` provenance label alongside `hostContract`, so browser-harness executions report `browser-harness` explicitly and the native path continues to report `wasmtime` through the same machine-readable envelope.
 - The browser-bundle runtime harness now also opens an HTML entrypoint for browser-like executables instead of always forcing the Node-style module path, keeping the standalone browser-host bridge aligned with the browser-runtime entrypoint selection that already exists for direct WASM execution.
+- Added a browser-runtime regression that exercises a browser-named executable shim and proves the direct `browser-runtime` path switches to the HTML entrypoint for browser executables as well, so the real-browser harness selection is now covered on both the bundle and direct runtime paths.
 
 ## Tasks
 
