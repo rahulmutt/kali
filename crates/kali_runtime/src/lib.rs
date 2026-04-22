@@ -1,5 +1,6 @@
 //! Runtime execution for Kali-generated WASM modules.
 
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use kali_api_node::{
     NodeAssert, NodeBuffer, NodeChildProcess, NodeCrypto, NodePath, NodeRuntimeProjection, NodeUrl,
     NodeUtil,
@@ -2278,6 +2279,86 @@ pub fn browser_bundle_harness_script(bundle_dir: &str, allow_subpaths: bool, bod
         "{}{}",
         browser_bundle_harness_prelude(bundle_dir, allow_subpaths),
         body
+    )
+}
+
+/// Build a self-contained browser-runtime harness script from embedded WASM bytes.
+///
+/// The generated module is intentionally generic: it instantiates the supplied WASM bytes, wires
+/// the canonical Kali runtime imports for console/argument handling, and optionally emits a simple
+/// test summary payload for future browser-runtime test plumbing.
+pub fn browser_runtime_harness_script(
+    wasm_bytes: &[u8],
+    args: &[String],
+    run_registered_tests: bool,
+) -> String {
+    let wasm_base64 = BASE64_STANDARD.encode(wasm_bytes);
+    let args_json = serde_json::to_string(args).expect("serialize browser runtime args");
+    format!(
+        r#"const runtimeArgs = {args_json};
+const runRegisteredTests = {run_registered_tests};
+const runtimeWasm = decodeBase64("{wasm_base64}");
+let wasmMemory = null;
+const collectedTests = [];
+
+function decodeBase64(base64) {{
+  const binary = typeof atob === 'function'
+    ? atob(base64)
+    : (typeof Buffer !== 'undefined'
+        ? Buffer.from(base64, 'base64').toString('binary')
+        : (() => {{ throw new Error('base64 decoding is unavailable in this host'); }})());
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {{
+    bytes[index] = binary.charCodeAt(index);
+  }}
+  return bytes;
+}}
+
+function formatConsoleValue(val) {{
+  if (typeof val === 'bigint') {{
+    if ((val & 0x8000000000000000n) !== 0n && wasmMemory !== null) {{
+      const offset = Number((val >> 32n) & 0x7fffffffn);
+      const length = Number(val & 0xffffffffn);
+      const bytes = new Uint8Array(wasmMemory.buffer, offset, length);
+      return new TextDecoder().decode(bytes);
+    }}
+    return val.toString();
+  }}
+  return String(val);
+}}
+
+const importObject = {{
+  "kali:rt": {{
+    test_register(val) {{
+      collectedTests.push(formatConsoleValue(val));
+    }},
+    args_len() {{
+      return runtimeArgs.length;
+    }},
+    console_log(val) {{
+      console.log(formatConsoleValue(val));
+    }},
+    console_error(val) {{
+      console.error(formatConsoleValue(val));
+    }},
+    console_warn(val) {{
+      console.warn(formatConsoleValue(val));
+    }},
+  }},
+}};
+
+const {{ instance }} = await WebAssembly.instantiate(runtimeWasm, importObject);
+wasmMemory = instance.exports.memory ?? null;
+if (typeof instance.exports._start === 'function') {{
+  await instance.exports._start();
+}}
+if (runRegisteredTests && collectedTests.length > 0) {{
+  console.log(JSON.stringify({{ args: runtimeArgs, tests: collectedTests }}));
+}}
+"#,
+        args_json = args_json,
+        run_registered_tests = run_registered_tests,
+        wasm_base64 = wasm_base64,
     )
 }
 

@@ -220,6 +220,70 @@ fn browser_bundle_harness_script_reuses_the_shared_fetch_prelude() {
 }
 
 #[test]
+fn browser_runtime_harness_script_executes_wasm_and_bridges_console_output() {
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "args_len" (func $args_len (result i32)))
+                (import "kali:rt" "console_log" (func $console_log (param i64)))
+                (import "kali:rt" "console_error" (func $console_error (param i64)))
+                (func (export "_start")
+                    call $args_len
+                    i64.extend_i32_s
+                    call $console_log
+                    call $args_len
+                    i64.extend_i32_s
+                    call $console_error))
+        "#,
+    );
+    let script =
+        browser_runtime_harness_script(&wasm, &["alpha".to_string(), "beta".to_string()], false);
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let script_path = tempdir.path().join("browser-runtime.mjs");
+    fs::write(&script_path, script).expect("write browser runtime script");
+
+    let outcome = browser_harness_run_checked(Some("node"), &script_path, &[], tempdir.path())
+        .expect("launch browser runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert!(outcome.stdout.contains('2'), "stdout: {}", outcome.stdout);
+    assert!(outcome.stderr.contains('2'), "stderr: {}", outcome.stderr);
+}
+
+#[test]
+fn browser_runtime_harness_script_can_publish_registered_test_summary() {
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "test_register" (func $test_register (param i64)))
+                (func (export "_start")
+                    i64.const 7
+                    call $test_register))
+        "#,
+    );
+    let script = browser_runtime_harness_script(&wasm, &["gamma".to_string()], true);
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let script_path = tempdir.path().join("browser-runtime-tests.mjs");
+    fs::write(&script_path, script).expect("write browser runtime test script");
+
+    let outcome = browser_harness_run_checked(Some("node"), &script_path, &[], tempdir.path())
+        .expect("launch browser runtime harness");
+
+    assert_eq!(outcome.status.code(), Some(0));
+    assert!(
+        outcome.stdout.contains("\"tests\":[\"7\"]"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert!(
+        outcome.stdout.contains("\"args\":[\"gamma\"]"),
+        "stdout: {}",
+        outcome.stdout
+    );
+}
+
+#[test]
 fn browser_harness_invocation_checked_builds_a_launch_plan() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let script = tempdir.path().join("browser-harness.mjs");

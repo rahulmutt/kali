@@ -1385,12 +1385,14 @@ dependencies = [
 name = "kali_runtime"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "kali_api_node",
  "kali_api_web",
  "kali_common",
  "kali_error",
  "kali_sandbox",
  "reqwest",
+ "serde_json",
  "tempfile",
  "wasmtime",
  "wat",
