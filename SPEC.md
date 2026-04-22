@@ -147,7 +147,9 @@ This section is the short answer to “did the derived spec set actually preserv
 | Sandboxing first, policy-controlled execution | preserved, but split honestly into static policy validation, runtime enforcement, and later effect reporting |
 | Static JSON effect visibility | preserved, but normalized into later explicit reporting commands plus policy-comparison workflows rather than a `run --dry` shadow mode |
 | TypeScript superset / stronger inference | preserved under the bounded-inference contract and annotation-required boundary |
+| Upstream-inspired conformance and checker baselines | preserved as an explicit testing/evidence requirement: `test262` coverage, `tsc`-style checker baselines, and dedicated `.js` / inference fixtures live in [`specs/16-testing.md`](./specs/16-testing.md) |
 | Aggressive specialization and layout-aware IR | preserved as optimization-direction guidance, with phase-gated delivery |
+| Fast-path vs advanced-optimization modes | preserved through the stable build-mode vocabulary (`fast`, `release`, `release-advanced`) plus later evidence-backed optimization depth, rather than as an unconditional same-phase throughput promise |
 | Benchmark suite / Rust-competitive performance aspiration | preserved as a later optimization-evidence lane and benchmarking program, not as a Phase-1 performance guarantee |
 | Deno / browser / Node API support | preserved, but split by context and maturity; Phase 1 is Deno-oriented plus the browser-targeted command set, while Node is later |
 | npm ecosystem access | preserved through the pure JS/TS package contract and support ladder, not as an unqualified “all npm works” claim |
@@ -188,6 +190,8 @@ Use this table when a bootstrap sentence sounds broader than the normalized spec
 | “statically run a command and get JSON output of all potential effects” | later explicit effect-report commands and policy comparison, not a hidden `run/test` dry-run lane | [`specs/09-sandboxing.md`](./specs/09-sandboxing.md), [`specs/12-cli.md`](./specs/12-cli.md), [`specs/18-schemas.md`](./specs/18-schemas.md) |
 | “support non node-gyp packages from npm” | support is determined by package shape, host/API fit, command maturity, and support rung | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | “must be embeddable / expose a C API / support WIT” | Phase 1 ships only the base library artifact; stable embedding surfaces are later | [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| “have a comprehensive test suite inspired by upstream `tsc`” | normalized into explicit evidence lanes rather than vague quality prose: `test262`, `tsc`-style baselines, JS/inference fixtures, and package/browser/determinism tracks | [`specs/16-testing.md`](./specs/16-testing.md) |
+| “benchmark against Rust / Benchmarks Game style workloads” | normalized into a version-pinned benchmark evidence lane rather than a blanket Phase-1 speed claim | [`specs/16-testing.md`](./specs/16-testing.md), [`specs/07-specialization.md`](./specs/07-specialization.md) |
 | “support all features including eval” | parser acceptance/planning does not imply executable support; runtime `eval` stays later compatibility | [`specs/10-runtime.md`](./specs/10-runtime.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | “formally verify implementation details with Lean” | repository claims are limited by the published proof boundary | [`specs/17-verification.md`](./specs/17-verification.md), [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) |
 

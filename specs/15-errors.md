@@ -49,13 +49,20 @@ Terminology note:
 | E1xxx | Type errors |
 | E2xxx | Syntax errors |
 | E3xxx | Name resolution errors |
-| E4xxx | Sandbox/effect violations |
-| E5xxx | Import/module/availability errors |
-| E6xxx | Runtime errors |
+| E4xxx | Effect-system and runtime sandbox violations |
+| E5xxx | Import/module/package resolution, feature availability, and CLI/input-shape errors |
+| E6xxx | Runtime execution failures |
 | E7xxx | Memory/ownership errors |
+| E9xxx | Sandbox-policy and compile-time policy-validation diagnostics |
 | W1xxx | Type warnings |
 | W2xxx | Style/lint diagnostics |
 | W3xxx | Performance warnings |
+
+Range clarification:
+- Kali intentionally uses both `E4xxx` and `E9xxx` in the broader sandbox/effect story.
+- `E4xxx` is the runtime/effect-semantics side (for example a capability use denied during execution).
+- `E9xxx` is the policy-validation side (for example compile-time inferred-effect-vs-policy rejection on sandbox-attached `check` / `build`).
+- Keep that split explicit so policy-schema/availability failures do not drift into ad hoc runtime-only wording.
 
 ## Error Categories
 
@@ -83,12 +90,15 @@ Terminology note:
 - `E3003`: Cannot access before initialization (TDZ)
 - `E3004`: Export not found in module
 
-### Sandbox Errors (E4xxx / E9xxx)
+### Sandbox, Effects, and Policy Errors (E4xxx / E9xxx)
+Runtime/effect side:
 - `E4001`: Effect not permitted by sandbox policy during runtime enforcement
 - `E4002`: API call not permitted
 - `E4003`: Resource limit exceeded (compile-time provable)
 - `E4004`: Dynamic effect detected (cannot statically verify)
 - `E4008`: Dynamic import target is not in the linked graph or cannot be resolved statically
+
+Policy-validation side:
 - `E9007`: Inferred effect not permitted by the active sandbox policy during compile-time `check` / `build --sandbox` validation
 
 ### Import/Module/Availability/Command-Input Errors (E5xxx)

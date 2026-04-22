@@ -44,6 +44,19 @@ Examples:
 | Artifact reproducibility | repeated-build tests over pinned inputs plus stable artifact-byte and metadata assertions |
 | Proof-backed claims | passing Lean proof jobs for the currently published proof boundary |
 
+## Bootstrap-evidence normalization
+
+The bootstrap brief names a few evidence asks that are easy to lose once the spec set is split across phases. Read them through this one normalized checklist:
+
+| Bootstrap ask | Normalized evidence lane |
+|---|---|
+| Comprehensive test suite inspired by upstream `tsc` | parser/integration coverage plus `test262` and `tsc`-style checker baselines |
+| Fast compiler + optional advanced optimizations | build-mode comparisons and reproducible benchmark runs, not vague throughput claims |
+| Benchmark against Rust / Benchmarks Game style workloads | the canonical optimization/performance lane includes adapted Computer Language Benchmarks Game workloads derived from Node.js / JavaScript submissions |
+| Real-package validation such as `semver` and `@mariozechner/pi-coding-agent` | package-corpus fixtures with phase-correct expected rung/outcome, not blanket executable-package promises |
+
+This section is intentionally a reading aid: it does not create new support claims by itself. Availability still comes from [`specs/19-feature-maturity.md`](./19-feature-maturity.md).
+
 Interpretation rules:
 - grammar coverage and execution-semantic support are separate claims
 - package-corpus evidence for ordinary source-graph commands is separate from evidence for later registry-analysis commands
@@ -98,6 +111,7 @@ Bootstrap-normalization note:
 - `semver` is the canonical early positive probe for the pure-JS/TS package contract and should be asserted at the exact claimed rung/context (for example installable/materializable first, then checkable/buildable, and only later executable where the host/API fit is actually satisfied)
 - `@mariozechner/pi-coding-agent` is the canonical breadth/negative probe and should stay explicitly phase-correct rather than being treated as an implied Phase-1 executable-package promise; until the required Node/browser/runtime maturity rows open, the corpus should record the expected rejection or narrower rung honestly
 - those probes should assert the exact rung/context being claimed at the time: for example, a package may be installable/materializable before it is executable, or may stay negatively asserted until the required Node/browser/runtime maturity rows open
+- simplification rule: keep the corpus table phrased in support-ladder terms (`installable/materializable`, `checkable`, `buildable`, `executable`, `deployable-through-host`, or explicit rejection) so package evidence does not silently overclaim broader compatibility than the maturity matrix allows
 
 ## Determinism requirements
 
