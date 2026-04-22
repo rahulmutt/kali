@@ -34,6 +34,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added negative `kali build --lib` coverage for sources without a statically known export surface so the Phase-1 base-library evidence lane keeps enforcing `E5011`.
 - Added sandbox artifact coverage that now asserts the embedded `kali:policy` custom section matches the source policy bytes exactly, not just the presence of the section.
 - Added a Node-based browser-bundle execution smoke harness that imports the generated ESM bundle, resolves the emitted WASM, and exercises the exported wrapper for both explicit and inherited browser API-surface builds.
+- Added a bigint-literal lexer/parser regression so browser-bundle smoke fixtures that return `0n` no longer split the literal into a stray identifier and false positive diagnostic.
 - Added a repository regression test that pins the canonical proof-ready summary in both `README.md` and `proofs/BOUNDARY.md`, so the empty proof boundary stays aligned with the public status wording.
 - Wired the CI proof-check job so it now listens for `proofs/**` changes, verifies the Lean proof-tree layout, and runs `lake build` instead of relying on an unreferenced filter output.
 - Expanded the GitHub Actions build/test job into a Linux + macOS matrix so the workspace test suite and determinism coverage now run on both platforms called for by the stage plan.

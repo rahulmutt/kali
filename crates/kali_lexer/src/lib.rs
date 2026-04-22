@@ -272,6 +272,11 @@ impl Lexer {
                 break;
             }
         }
+
+        if self.source.get(self.position) == Some(&'n') {
+            self.position += 1;
+        }
+
         Token::new(TokenType::NumericLiteral, self.slice(_start), self.span())
     }
 

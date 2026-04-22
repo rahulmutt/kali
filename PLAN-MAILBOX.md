@@ -351,3 +351,7 @@ Proposed fix:
 
 2026-04-22 resolution note
 - synchronized the Stage 4.2 plan/status trackers so they now name `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocatedAndLinearMemory` and `KaliCore.Safety.releaseAndDecrementLiveRefsAreOwnedAndAllocatedAndLinearMemory` alongside the collection-helper companion, keeping the follow-up lane aligned with the proof tree
+
+2026-04-22 resolution note
+- added bigint-literal lexer/parser support so browser-bundle crypto smoke fixtures can return `0n` without the lexer splitting the suffix into a stray identifier
+- recorded the new literal coverage in the Stage 1.3 parser/AST notes and the Stage 1.14 evidence-hardening progress note so the plan history matches the regression suite

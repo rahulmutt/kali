@@ -1037,10 +1037,13 @@ impl Parser {
             }
             TokenType::NumericLiteral => {
                 let token = self.stream.advance();
-                let value = token
-                    .map(|t| t.value.parse::<f64>().unwrap_or(0.0))
-                    .unwrap_or(0.0);
-                Expression::Literal(kali_ast::LiteralValue::Number(value))
+                let value = token.map(|t| t.value).unwrap_or_default();
+                if value.ends_with('n') {
+                    Expression::BigIntLiteral(value)
+                } else {
+                    let parsed = value.parse::<f64>().unwrap_or(0.0);
+                    Expression::Literal(kali_ast::LiteralValue::Number(parsed))
+                }
             }
             TokenType::StringLiteral | TokenType::Template | TokenType::Backtick => {
                 let token = self.stream.advance();

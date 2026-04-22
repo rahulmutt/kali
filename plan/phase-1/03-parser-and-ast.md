@@ -9,7 +9,7 @@
 
 - TokenStream-based parser foundation
 - Statement parsing for variable declarations, blocks, functions, classes, control flow, try/catch, switch, debugger, throw, break/continue
-- Expression parsing for identifiers, literals, parenthesized expressions, function expressions, call chains, member access, binary expressions, and `new`
+- Expression parsing for identifiers, literals, bigint literals, parenthesized expressions, function expressions, call chains, member access, binary expressions, and `new`
 - AST support aligned with the parser for block-bodied control-flow nodes and class methods
 - Lexer fixes for punctuation, `debugger`, and division tokens so parser tests terminate correctly
 

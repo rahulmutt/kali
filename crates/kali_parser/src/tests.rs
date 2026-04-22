@@ -83,6 +83,25 @@ fn test_parse_dynamic_import_expression() {
 }
 
 #[test]
+fn test_parse_bigint_literal_expression() {
+    let tokens = lex("const value = 42n;");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::VariableDeclaration(vd) => {
+            let init = vd.declarations[0].init.as_ref().expect("initializer");
+            match init {
+                Expression::BigIntLiteral(value) => assert_eq!(value, "42n"),
+                other => panic!("Expected BigIntLiteral, got {other:?}"),
+            }
+        }
+        other => panic!("Expected VariableDeclaration, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_parse_optional_chain_member_expression() {
     let tokens = lex("minVersion(\"^1.2.3\")?.version;");
     let mut parser = Parser::new(FileId::new(0), tokens);
