@@ -817,8 +817,8 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "late host-control API '{}.{}' is unavailable until the later host-control compatibility path is enabled",
-                object_name, expr.property
+                "late host-control API '{}' is unavailable until the later host-control compatibility path is enabled",
+                Self::member_access_name(expr).unwrap_or_else(|| format!("{}.{}", object_name, expr.property))
             ),
         ));
     }
@@ -838,8 +838,10 @@ impl TypeContext {
 
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            "broader Intl support is unavailable until the later web/Intl compatibility path is enabled"
-                .to_string(),
+            format!(
+                "broader Intl support via '{}' is unavailable until the later web/Intl compatibility path is enabled",
+                Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone())
+            ),
         ));
         true
     }
@@ -863,10 +865,20 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "late object-model API '{}.{}' is unavailable until the later object-model compatibility path is enabled",
-                object_name, expr.property
+                "late object-model API '{}' is unavailable until the later object-model compatibility path is enabled",
+                Self::member_access_name(expr).unwrap_or_else(|| format!("{}.{}", object_name, expr.property))
             ),
         ));
+    }
+
+    fn member_access_name(expr: &MemberExpression) -> Option<String> {
+        let object_name = match &expr.object {
+            Expression::Identifier(name) => Some(name.clone()),
+            Expression::MemberExpression(member) => Self::member_access_name(member),
+            _ => None,
+        }?;
+
+        Some(format!("{}.{}", object_name, expr.property))
     }
 
     fn member_object_name(object: &Expression) -> Option<String> {

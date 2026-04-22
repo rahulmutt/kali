@@ -366,3 +366,7 @@ Proposed fix:
 2026-04-22 resolution note
 - added the public embedding-side host-predicate registration façade in `kali_embed` (`OperationContext`, `PredicateDecision`, and `EmbeddingCtx::register_sandbox_predicate` / `check_operation_with_policy`), so the Stage 5.3 programmable-policy lane now has a concrete host API layered over the canonical sandbox predicate vocabulary
 - updated the Stage 5.3 plan note to record the new embedding registration surface alongside the existing sandbox predicate context and declarative-first evaluation path
+
+2026-04-22 resolution note
+- widened the Stage 5.4 late host-control smoke coverage so the CLI regression story now includes the process-side member forms (`process.pid`, `process.cwd`, `process.chdir`, and `process.exit`) alongside the existing Deno-side gates
+- updated the Stage 5.4 progress note to record that broader host-control coverage in the historical plan

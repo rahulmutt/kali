@@ -498,13 +498,15 @@ fn check_rejects_late_host_control_globals() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "Deno.pid; Deno.cwd(); Deno.chdir('/tmp'); Deno.exit(0);",
+        "Deno.pid; globalThis.Deno.pid; globalThis.Deno.cwd; Deno.chdir('/tmp'); globalThis.Deno.chdir('/tmp'); globalThis.Deno.exit(0); process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir('/tmp'); globalThis.process.chdir('/tmp'); globalThis.process.exit(0);",
     )
     .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
         .arg("check")
+        .arg("--api")
+        .arg("node")
         .arg(&source_path)
         .output()
         .expect("run kali");
@@ -513,10 +515,79 @@ fn check_rejects_late_host_control_globals() {
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
-    assert!(stderr.contains("Deno.pid"), "stderr: {stderr}");
-    assert!(stderr.contains("Deno.cwd"), "stderr: {stderr}");
-    assert!(stderr.contains("Deno.chdir"), "stderr: {stderr}");
-    assert!(stderr.contains("Deno.exit"), "stderr: {stderr}");
+    for expected in [
+        "Deno.pid",
+        "globalThis.Deno.pid",
+        "globalThis.Deno.cwd",
+        "Deno.chdir",
+        "globalThis.Deno.chdir",
+        "globalThis.Deno.exit",
+        "process.pid",
+        "globalThis.process.pid",
+        "globalThis.process.cwd",
+        "process.chdir",
+        "globalThis.process.chdir",
+        "globalThis.process.exit",
+    ] {
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn check_rejects_late_host_control_globals_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "Deno.pid; globalThis.Deno.pid; globalThis.Deno.cwd; Deno.chdir('/tmp'); globalThis.Deno.chdir('/tmp'); globalThis.Deno.exit(0); process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir('/tmp'); globalThis.process.chdir('/tmp'); globalThis.process.exit(0);",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--api")
+        .arg("node")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_eq!(errors.len(), 12);
+    assert!(errors.iter().all(|error| error["code"] == "E5006"));
+    let messages = errors
+        .iter()
+        .map(|error| error["message"].as_str().expect("error message"))
+        .collect::<Vec<_>>();
+    for expected in [
+        "Deno.pid",
+        "globalThis.Deno.pid",
+        "globalThis.Deno.cwd",
+        "Deno.chdir",
+        "globalThis.Deno.chdir",
+        "globalThis.Deno.exit",
+        "process.pid",
+        "globalThis.process.pid",
+        "globalThis.process.cwd",
+        "process.chdir",
+        "globalThis.process.chdir",
+        "globalThis.process.exit",
+    ] {
+        assert!(
+            messages.iter().any(|message| message.contains(expected)),
+            "missing {expected} in {messages:?}"
+        );
+    }
 }
 
 #[test]

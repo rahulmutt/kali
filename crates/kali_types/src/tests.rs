@@ -284,6 +284,77 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
+                    property: "pid".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Deno".to_string(),
+                    })),
+                    property: "cwd".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Deno".to_string()),
+                    property: "chdir".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Deno".to_string(),
+                    })),
+                    property: "chdir".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Deno".to_string(),
+                    })),
+                    property: "exit".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("process".to_string()),
+                    property: "pid".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "process".to_string(),
+                    })),
+                    property: "pid".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "process".to_string(),
+                    })),
                     property: "cwd".to_string(),
                 },
             ))),
@@ -292,7 +363,7 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
                     object: Expression::Identifier("process".to_string()),
-                    property: "exit".to_string(),
+                    property: "chdir".to_string(),
                 },
             ))),
         }),
@@ -307,30 +378,48 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
                 },
             ))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "process".to_string(),
+                    })),
+                    property: "exit".to_string(),
+                },
+            ))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 4);
+    assert_eq!(result.diagnostics.len(), 12);
     assert!(result
         .diagnostics
         .iter()
         .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("Deno.pid")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("Deno.cwd")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("process.exit")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("process.chdir")));
+    for expected in [
+        "Deno.pid",
+        "globalThis.Deno.pid",
+        "globalThis.Deno.cwd",
+        "Deno.chdir",
+        "globalThis.Deno.chdir",
+        "globalThis.Deno.exit",
+        "process.pid",
+        "globalThis.process.pid",
+        "globalThis.process.cwd",
+        "process.chdir",
+        "globalThis.process.chdir",
+        "globalThis.process.exit",
+    ] {
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.message.contains(expected)),
+            "missing {expected} in {:?}",
+            result.diagnostics
+        );
+    }
 }
 
 #[test]
