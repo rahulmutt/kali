@@ -2854,6 +2854,49 @@ fn build_rejects_explicit_node_bundle_api_surface() {
 }
 
 #[test]
+fn json_build_rejects_inherited_browser_bundle_wasm_threads_runtime_profile() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(&source_path, "function greet(name) { return name; }").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert!(!json["success"].as_bool().expect("success boolean"));
+    assert_eq!(json["errors"][0]["code"], "E5006");
+    assert!(
+        json["errors"][0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("runtime profile"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn build_rejects_bundle_format_without_bundle() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
