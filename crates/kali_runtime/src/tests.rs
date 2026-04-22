@@ -228,6 +228,15 @@ process.exit(7);
     )
     .expect("launch browser harness");
 
+    assert_eq!(
+        outcome.command,
+        vec![
+            "node".to_string(),
+            script.display().to_string(),
+            "alpha".to_string(),
+            "beta".to_string(),
+        ]
+    );
     assert_eq!(outcome.status.code(), Some(7));
     assert!(
         outcome.stdout.contains(r#"["alpha","beta"]"#),

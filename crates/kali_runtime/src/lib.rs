@@ -2226,6 +2226,9 @@ pub fn browser_harness_command_parts_for(command: Option<&str>) -> Vec<String> {
 /// A deterministic browser-harness execution result.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BrowserHarnessOutcome {
+    /// The fully resolved command line used to launch the harness, including the script path and
+    /// any trailing entrypoint arguments.
+    pub command: Vec<String>,
     /// The harness process exit status.
     pub status: std::process::ExitStatus,
     /// Captured harness stdout.
@@ -2291,6 +2294,12 @@ pub fn browser_harness_run_checked(
 
     let executable = parts.remove(0);
     let script = script.as_ref().to_path_buf();
+    let mut resolved_command = Vec::with_capacity(2 + parts.len() + args.len());
+    resolved_command.push(executable.clone());
+    resolved_command.extend(parts.iter().cloned());
+    resolved_command.push(script.to_string_lossy().into_owned());
+    resolved_command.extend(args.iter().cloned());
+
     let mut harness = Command::new(&executable);
     harness.args(parts);
     harness.arg(&script);
@@ -2306,6 +2315,7 @@ pub fn browser_harness_run_checked(
         })?;
 
     Ok(BrowserHarnessOutcome {
+        command: resolved_command,
         status: output.status,
         stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
         stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
