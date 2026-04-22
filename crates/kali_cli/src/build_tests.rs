@@ -290,3 +290,10 @@ fn output_path_uses_source_stem() {
     let output = executable_output_path_for(&source, Some(Path::new("dist")));
     assert_eq!(output, PathBuf::from("dist/main.wasm"));
 }
+
+#[test]
+fn capi_binding_package_manifest_path_uses_source_stem() {
+    let source = PathBuf::from("/tmp/demo/main.ts");
+    let output = binding_package_manifest_output_path_for(&source, Some(Path::new("dist")));
+    assert_eq!(output, PathBuf::from("dist/main.binding-package.json"));
+}

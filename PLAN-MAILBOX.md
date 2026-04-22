@@ -17,6 +17,10 @@
 # PLAN mailbox
 
 2026-04-22 resolution note
+- emitted the stem-specific binding-package sidecar from `build --capi` and added CLI smoke coverage for the generated binding-package manifest companion, so the Stage 5.5 binding workflow now carries the package manifest in the actual build output instead of only in the helper library
+- updated the Stage 5.5 progress note to call out the manifest sidecar and the new smoke coverage alongside the existing Python binding scaffold
+
+2026-04-22 resolution note
 - added deterministic packaging metadata for the maintained Python binding (`bindings/python/pyproject.toml` plus `README.md`) and a regression test that pins the distributable package surface, so the Stage 5.5 binding workflow now has an explicit package/distribution scaffold alongside the existing binding helper
 
 2026-04-22 resolution note

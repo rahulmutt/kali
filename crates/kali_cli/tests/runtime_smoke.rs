@@ -4549,10 +4549,16 @@ fn build_emits_capi_artifacts_and_header_compiles() {
     let wit_path = source_path.with_file_name("lib.wit");
     let header_path = source_path.with_file_name("lib.h");
     let meta_path = source_path.with_file_name("lib.capi.meta.json");
+    let binding_package_path = source_path.with_file_name("lib.binding-package.json");
     assert!(wasm_path.exists(), "missing {}", wasm_path.display());
     assert!(wit_path.exists(), "missing {}", wit_path.display());
     assert!(header_path.exists(), "missing {}", header_path.display());
     assert!(meta_path.exists(), "missing {}", meta_path.display());
+    assert!(
+        binding_package_path.exists(),
+        "missing {}",
+        binding_package_path.display()
+    );
 
     let wit = fs::read_to_string(&wit_path).expect("read wit sidecar");
     assert!(wit.contains("package kali:embed;"));
@@ -4565,6 +4571,23 @@ fn build_emits_capi_artifacts_and_header_compiles() {
     assert_eq!(metadata["artifacts"]["wasmModule"], "lib.capi.wasm");
     assert_eq!(metadata["artifacts"]["wit"], "lib.wit");
     assert_eq!(metadata["artifacts"]["exportsHeader"], "lib.h");
+
+    let binding_package: Value = serde_json::from_str(
+        &fs::read_to_string(&binding_package_path).expect("read binding package manifest"),
+    )
+    .expect("parse binding package manifest json");
+    assert_eq!(binding_package["schemaVersion"], 1);
+    assert_eq!(binding_package["kind"], "binding-package");
+    assert_eq!(
+        binding_package["moduleName"],
+        source_path.display().to_string()
+    );
+    assert_eq!(binding_package["artifacts"]["library"], "lib.capi.wasm");
+    assert_eq!(
+        binding_package["artifacts"]["metadata"],
+        "lib.capi.meta.json"
+    );
+    assert_eq!(binding_package["artifacts"]["exportsHeader"], "lib.h");
 
     let header_check = dir.path().join("header-check.c");
     fs::write(

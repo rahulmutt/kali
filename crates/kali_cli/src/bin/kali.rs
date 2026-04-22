@@ -8,8 +8,8 @@
 
 use clap::Parser;
 use kali_capi::{
-    arity_from_signature, generate_header, generate_metadata as generate_capi_metadata,
-    Export as CApiExport,
+    arity_from_signature, generate_binding_package_manifest, generate_header,
+    generate_metadata as generate_capi_metadata, Export as CApiExport,
 };
 use kali_cli::{
     build, discover_source_files, discover_test_files, init, is_declaration_only_source_file,
@@ -1426,6 +1426,7 @@ fn build_capi_artifact(
 
     let (output_path, wit_path, header_path, meta_path) =
         build::capi_output_paths_for(&source, out_dir);
+    let binding_package_path = build::binding_package_manifest_output_path_for(&source, out_dir);
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
             vec![Diagnostic::error(
@@ -1502,6 +1503,42 @@ fn build_capi_artifact(
             format!(
                 "failed to write C ABI metadata '{}': {}",
                 meta_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    let binding_package_json = generate_binding_package_manifest(
+        &source.display().to_string(),
+        output_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("lib.capi.wasm"),
+        meta_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("lib.capi.meta.json"),
+        header_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("lib.h"),
+        &[
+            "bindings/python/README.md".to_string(),
+            "bindings/python/kali_capi/__init__.py".to_string(),
+            "bindings/python/pyproject.toml".to_string(),
+        ],
+    );
+    fs::write(
+        &binding_package_path,
+        serde_json::to_string_pretty(&binding_package_json)
+            .expect("serialize binding package manifest"),
+    )
+    .map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write binding package manifest '{}': {}",
+                binding_package_path.display(),
                 error
             ),
         )]

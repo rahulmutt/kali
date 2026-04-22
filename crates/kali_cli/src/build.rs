@@ -1130,6 +1130,18 @@ pub fn capi_output_paths_for(
     }
 }
 
+pub fn binding_package_manifest_output_path_for(
+    source_path: &Path,
+    out_dir: Option<&Path>,
+) -> PathBuf {
+    let stem = source_stem(source_path);
+    let manifest_name = format!("{}.binding-package.json", stem);
+    match out_dir {
+        Some(dir) => dir.join(manifest_name),
+        None => source_path.with_file_name(manifest_name),
+    }
+}
+
 pub fn component_output_paths_for(
     source_path: &Path,
     out_dir: Option<&Path>,
