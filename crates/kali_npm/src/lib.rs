@@ -2530,15 +2530,29 @@ fn raw_url_file_name(url: &str) -> Option<String> {
 
 /// Resolve a bare import against the materialized package graph.
 pub fn resolve_materialized_import(root: impl AsRef<Path>, source: &str) -> Option<PathBuf> {
+    resolve_materialized_import_with_browser_context(root, source, false)
+}
+
+/// Resolve a bare import against the materialized package graph with an explicit browser context.
+///
+/// The explicit browser flag is merged with the current manifest context so callers can opt into
+/// browser package resolution before a manifest is written, while still honoring an existing
+/// browser-oriented project configuration.
+pub fn resolve_materialized_import_with_browser_context(
+    root: impl AsRef<Path>,
+    source: &str,
+    browser_context: bool,
+) -> Option<PathBuf> {
     let root = root.as_ref();
     let manifest = load_manifest(root).ok().flatten();
-    let browser_context = manifest
+    let manifest_browser_context = manifest
         .as_ref()
         .and_then(|manifest| manifest.compiler_options.as_ref())
         .and_then(|options| options.as_object())
         .and_then(|options| options.get("apiSurface"))
         .and_then(|value| value.as_str())
         == Some("browser");
+    let browser_context = browser_context || manifest_browser_context;
     let (package_name, subpath) = split_bare_package_source(source)?;
     let package_dir = root.join("node_modules").join(&package_name);
     if package_dir.exists() {
@@ -2565,22 +2579,24 @@ pub fn resolve_materialized_import(root: impl AsRef<Path>, source: &str) -> Opti
         }
     }
 
-    resolve_types_package_import(root, &package_name, subpath)
+    resolve_types_package_import(root, &package_name, subpath, browser_context)
 }
 
 fn resolve_types_package_import(
     root: &Path,
     package_name: &str,
     subpath: Option<&str>,
+    browser_context: bool,
 ) -> Option<PathBuf> {
     let manifest = load_manifest(root).ok().flatten()?;
-    let browser_context = manifest
-        .compiler_options
-        .as_ref()
-        .and_then(|options| options.as_object())
-        .and_then(|options| options.get("apiSurface"))
-        .and_then(|value| value.as_str())
-        == Some("browser");
+    let browser_context = browser_context
+        || manifest
+            .compiler_options
+            .as_ref()
+            .and_then(|options| options.as_object())
+            .and_then(|options| options.get("apiSurface"))
+            .and_then(|value| value.as_str())
+            == Some("browser");
     let types_package_name = types_package_name(package_name);
     if !manifest.dev_dependencies.contains_key(&types_package_name) {
         return None;

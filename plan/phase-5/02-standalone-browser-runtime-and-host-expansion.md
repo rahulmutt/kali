@@ -68,6 +68,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - The browser runtime and browser-bundle harnesses now execute exported `__kali_callback_<id>` test callbacks, report `testsFailed`, and fail nonzero on callback traps so the future browser runtime test path has a realistic callback-execution summary instead of only a registration log.
 - `RuntimeCtx::execute` now also honors an explicitly configured browser harness command for browser API-surface requests, so the browser-requested runtime path can be exercised through the shared browser harness helper when an explicit host command is supplied while still preserving the default browser gate when no harness is configured.
 - Added browser-runtime package-resolution smoke coverage for both `run --api browser` and `test --api browser`, so the later browser runtime path now has a concrete package-shaped fixture lane in addition to the existing direct-source smoke coverage.
+- The browser-package resolver now also honors an explicit browser API-surface request before a manifest is present, which keeps `run` / `test` package selection aligned with the requested browser contract instead of falling back to the default entrypoint when the later runtime path is exercised from a bare fixture.
 
 ## Tasks
 

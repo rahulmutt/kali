@@ -179,6 +179,34 @@ fn browser_replacement_maps_rewrite_selected_root_entries() {
 }
 
 #[test]
+fn browser_replacement_maps_rewrite_selected_root_entries_from_explicit_context() {
+    let dir = tempdir().unwrap();
+
+    let package_dir = dir.path().join("node_modules/widget");
+    fs::create_dir_all(&package_dir).unwrap();
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "widget",
+  "main": "index.js",
+  "browser": {
+    "./index.js": "./index.browser.js"
+  }
+}"#,
+    )
+    .unwrap();
+    fs::write(package_dir.join("index.js"), "export default 'node';").unwrap();
+    fs::write(
+        package_dir.join("index.browser.js"),
+        "export default 'browser';",
+    )
+    .unwrap();
+
+    let resolved = resolve_materialized_import_with_browser_context(dir.path(), "widget", true);
+    assert_eq!(resolved.unwrap(), package_dir.join("index.browser.js"));
+}
+
+#[test]
 fn browser_replacement_maps_can_block_selected_root_entries() {
     let dir = tempdir().unwrap();
     fs::write(

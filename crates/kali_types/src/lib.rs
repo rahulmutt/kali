@@ -1164,7 +1164,12 @@ impl TypeContext {
             return true;
         }
 
-        kali_npm::resolve_materialized_import(project_root, source).is_some()
+        kali_npm::resolve_materialized_import_with_browser_context(
+            project_root,
+            source,
+            self.api_surface == "browser",
+        )
+        .is_some()
     }
 }
 
