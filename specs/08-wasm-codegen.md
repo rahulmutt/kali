@@ -159,5 +159,6 @@ Availability reminder:
 When debug/source-map output is requested, Kali may emit WASM source maps (DWARF-based) mapping WASM offsets back to TypeScript/JavaScript source positions for debugging. Browser bundles also carry a source-map companion in the browser bundle output set, and artifact metadata exposed through the CLI JSON envelope should describe source maps using the shared artifact schema in [specs/18-schemas.md](18-schemas.md).
 
 Clarification:
-- source maps are optional companion debug artifacts, not part of the minimal Phase 1 default artifact contract
-- when emitted, they use artifact kind `source-map` and should normally carry role `debug-source-map`
+- standalone executable/library builds treat source maps as optional companion debug artifacts rather than part of the minimal Phase 1 default artifact contract
+- the browser-bundle path is the exception: its emitted bundle artifact set includes the wrapper-specific source-map companion described above
+- when emitted, source maps use artifact kind `source-map` and should normally carry role `debug-source-map`

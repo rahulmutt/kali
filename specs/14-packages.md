@@ -65,7 +65,7 @@ Compact workflow comparison:
 | **source-graph commands** (`check` / `effects` / `build` / `run` / `test`) | “Can Kali analyze/build/run this local project graph in the selected command context?” | No | resulting **availability context** (derived from the full effective command context for the participating axes) |
 | **install workflow** (`install`) | “What dependency state should be recorded/materialized for this project?” | Yes | intentionally profile-agnostic in Phase 1 |
 | **registry-analysis: `package-effects`** | “What effects would one registry package report under the inherited analysis context?” | No | inherits semantic analysis context once the command exists; version selection still follows the shared **identity-only registry target** + **stable-release selection rule (schema v1)** rather than the current project's installed version |
-| **registry-analysis: `package-audit`** | “What context-free registry-analysis/security-audit result is reported for one package?” | Yes, Phase 4 compatibility | context-free in schema v1; version selection still follows the shared **identity-only registry target** + **stable-release selection rule (schema v1)** rather than the current project's installed version |
+| **registry-analysis: `package-audit`** | “What context-free registry-analysis/security-audit result is reported for one package?” | No | context-free in schema v1; version selection still follows the shared **identity-only registry target** + **stable-release selection rule (schema v1)** rather than the current project's installed version |
 
 Registry-analysis independence reminder:
 - `package-effects` / `package-audit` are intentionally **not** alternate views over the current project's installed dependency graph

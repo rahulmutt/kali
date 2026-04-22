@@ -39,7 +39,7 @@ Examples:
 | Package compatibility | curated package-corpus results recorded per shipped source-graph command/context and per claimed rung of the shared package-support ladder |
 | Install workflow / opt-in npm lifecycle hooks | install-command integration tests for manifest/lock/materialization updates, hook gating, and invalid raw-URL / JSR combinations |
 | Registry-analysis commands (`package-effects`, `package-audit`) | command-shape negatives, deterministic single-package version-selection tests, context-participation tests, and JSON-contract assertions |
-| Optimization/performance claims | version-pinned benchmark suite coverage, reproducible benchmark harness runs, and like-for-like build-mode comparisons against the claimed baseline |
+| Optimization/performance claims | version-pinned benchmark suite coverage, reproducible benchmark harness runs, and like-for-like build-mode comparisons against the claimed baseline; the canonical benchmark lane should include adapted Computer Language Benchmarks Game workloads derived from the Node.js / JavaScript submissions and normalized to Kali's TS/JS pipeline |
 | CLI behavior / JSON schemas | golden CLI snapshots, schema validation, exit-code assertions, and the `kali test --coverage` payload contract |
 | Artifact reproducibility | repeated-build tests over pinned inputs plus stable artifact-byte and metadata assertions |
 | Proof-backed claims | passing Lean proof jobs for the currently published proof boundary |
@@ -95,6 +95,8 @@ Maintain a curated package corpus that records expected outcomes per shipped com
 Bootstrap-normalization note:
 - representative real-package probes from the bootstrap brief belong here as evidence fixtures, not as blanket support promises
 - at minimum, keep a pure-JS utility probe such as `semver` and a broader host-heavy probe such as `@mariozechner/pi-coding-agent` in the corpus with phase-correct expected outcomes
+- `semver` is the canonical early positive probe for the pure-JS/TS package contract and should be asserted at the exact claimed rung/context (for example installable/materializable first, then checkable/buildable, and only later executable where the host/API fit is actually satisfied)
+- `@mariozechner/pi-coding-agent` is the canonical breadth/negative probe and should stay explicitly phase-correct rather than being treated as an implied Phase-1 executable-package promise; until the required Node/browser/runtime maturity rows open, the corpus should record the expected rejection or narrower rung honestly
 - those probes should assert the exact rung/context being claimed at the time: for example, a package may be installable/materializable before it is executable, or may stay negatively asserted until the required Node/browser/runtime maturity rows open
 
 ## Determinism requirements
