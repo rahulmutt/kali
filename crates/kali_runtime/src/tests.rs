@@ -271,6 +271,7 @@ fn browser_harness_command_parts_exposes_override_and_default_selection() {
 
 #[test]
 fn split_command_spec_rejects_malformed_inputs() {
+    assert_eq!(split_command_spec("   "), None);
     assert_eq!(split_command_spec(r#"" --flag"#), None);
     assert_eq!(split_command_spec(r#"browser-wrapper "unterminated"#), None);
     assert_eq!(split_command_spec(r#"browser-wrapper \"#), None);

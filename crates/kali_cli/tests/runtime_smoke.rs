@@ -347,6 +347,7 @@ fn browser_bundle_harness_command_override_preserves_empty_quoted_arguments() {
 
 #[test]
 fn browser_bundle_harness_command_override_rejects_empty_executable_token() {
+    assert_eq!(split_command_spec("   "), None);
     assert_eq!(split_command_spec(r#"" --flag"#), None);
 }
 
@@ -359,6 +360,10 @@ fn browser_bundle_harness_command_override_rejects_unterminated_quotes() {
 fn browser_bundle_harness_command_override_rejects_malformed_environment_values() {
     assert!(
         std::panic::catch_unwind(|| { browser_bundle_harness_command_parts_for(Some("")) })
+            .is_err()
+    );
+    assert!(
+        std::panic::catch_unwind(|| { browser_bundle_harness_command_parts_for(Some("   ")) })
             .is_err()
     );
     assert!(std::panic::catch_unwind(|| {

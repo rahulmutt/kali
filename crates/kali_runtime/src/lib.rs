@@ -2201,7 +2201,7 @@ pub fn browser_runtime_request_context(origin: DiagnosticContextOrigin) -> Diagn
 /// overrides: whitespace separates tokens, single and double quotes group
 /// whitespace, and backslashes escape the next character outside single quotes.
 /// The function returns `None` for malformed input such as unterminated quotes,
-/// a dangling escape, or an empty first token.
+/// a dangling escape, or an empty or whitespace-only command string.
 pub fn split_command_spec(command: &str) -> Option<Vec<String>> {
     let mut parts = Vec::new();
     let mut current = String::new();
@@ -2251,7 +2251,7 @@ pub fn split_command_spec(command: &str) -> Option<Vec<String>> {
         parts.push(current);
     }
 
-    if parts.first().is_some_and(|part| part.is_empty()) {
+    if parts.is_empty() || parts.first().is_some_and(|part| part.is_empty()) {
         return None;
     }
 
