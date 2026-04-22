@@ -231,6 +231,10 @@ fn split_command_spec(command: &str) -> Option<Vec<String>> {
         parts.push(current);
     }
 
+    if parts.first().is_some_and(|part| part.is_empty()) {
+        return None;
+    }
+
     Some(parts)
 }
 
@@ -293,6 +297,11 @@ fn browser_bundle_harness_command_override_preserves_empty_quoted_arguments() {
             "trailing".to_string(),
         ]
     );
+}
+
+#[test]
+fn browser_bundle_harness_command_override_rejects_empty_executable_token() {
+    assert_eq!(split_command_spec(r#"" --flag"#), None);
 }
 
 #[test]
