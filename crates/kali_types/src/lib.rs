@@ -827,6 +827,10 @@ impl TypeContext {
         let is_intl_root = matches!(&expr.object, Expression::Identifier(name) if name == "Intl")
             || matches!(
                 &expr.object,
+                Expression::Identifier(name) if name == "globalThis" && expr.property == "Intl"
+            )
+            || matches!(
+                &expr.object,
                 Expression::MemberExpression(member)
                     if matches!(&member.object, Expression::Identifier(name) if name == "globalThis")
                         && member.property == "Intl"

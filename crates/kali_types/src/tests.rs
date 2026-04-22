@@ -472,6 +472,27 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_reports_global_this_intl_root_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::MemberExpression(Box::new(
+            kali_ast::MemberExpression {
+                object: Expression::Identifier("globalThis".to_string()),
+                property: "Intl".to_string(),
+            },
+        ))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0].message.contains("globalThis.Intl"));
+}
+
+#[test]
 fn test_resolution_reports_late_intl_member_access_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {

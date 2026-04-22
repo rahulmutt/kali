@@ -701,6 +701,7 @@ fn check_rejects_broader_intl_support() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
     assert!(stderr.contains("Intl"), "stderr: {stderr}");
+    assert!(stderr.contains("globalThis.Intl"), "stderr: {stderr}");
 }
 
 #[test]
@@ -734,6 +735,10 @@ fn check_rejects_broader_intl_support_in_json() {
         .as_str()
         .expect("error message")
         .contains("Intl"));
+    assert!(errors.iter().any(|error| error["message"]
+        .as_str()
+        .expect("error message")
+        .contains("globalThis.Intl")));
 }
 
 #[test]
