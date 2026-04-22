@@ -172,6 +172,11 @@ impl BrowserRuntimeContract {
         &Self::SUPPORTED_COMMANDS
     }
 
+    /// Return a stable note that names the browser runtime command family.
+    pub const fn supported_commands_note() -> &'static str {
+        "supported browser runtime commands: run, test"
+    }
+
     /// Return the browser-runtime request diagnostic hint.
     pub const fn diagnostic_hint() -> &'static str {
         "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work."
@@ -2038,7 +2043,6 @@ pub fn browser_runtime_unavailable_diagnostic(
 ) -> Diagnostic {
     let hint = BrowserRuntimeContract::diagnostic_hint();
     let contract = BrowserRuntimeContract::host_label();
-    let supported_commands = BrowserRuntimeContract::supported_commands().join(", ");
     let message = match command {
         Some(command) => format!(
             "{command} does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract (selected host contract: {contract}). {hint}"
@@ -2053,9 +2057,7 @@ pub fn browser_runtime_unavailable_diagnostic(
             "current runtime backend: {}",
             RuntimeBackend::Wasmtime.canonical_label()
         ))
-        .note(format!(
-            "supported browser runtime commands: {supported_commands}"
-        ))
+        .note(BrowserRuntimeContract::supported_commands_note())
         .note(BrowserRuntimeContract::contract_scope_note())
         .note(BrowserRuntimeContract::host_description_note());
     if let Some(context) = context {

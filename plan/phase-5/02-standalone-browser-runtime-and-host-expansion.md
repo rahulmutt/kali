@@ -22,6 +22,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 
 ## Progress
 
+- The browser-runtime contract metadata now exposes a reusable supported-commands note helper, and the shared browser-runtime rejection diagnostics now consume that helper so the command-family wording stays centralized with the later contract descriptor instead of being hand-written in each call site.
 - `kali run` and `kali test` now share an explicit browser-runtime rejection helper so both explicit and inherited `browser` API surfaces are gated consistently with the current later-compatibility row instead of accidentally executing against the single-threaded baseline; the helper now reports the browser API surface explicitly in the diagnostic text.
 - The same rejection helper now also states that Kali does not yet define a standalone browser runtime contract, which keeps the user-facing error aligned with the Stage 5.2 contract wording instead of implying a fake in-process DOM story.
 - Added CLI smoke coverage for both explicit and inherited browser API surfaces on `run` and `test`, including JSON-envelope regressions for the unsupported browser gate, so the phase-one browser runtime boundary stays honest until the standalone browser harness exists. The `run` browser-gate regression now also exercises the documented `--` guest-argument separator, and new sandbox-attached browser-gate regressions pin that `--sandbox` does not relax the `run` / `test` browser availability split.

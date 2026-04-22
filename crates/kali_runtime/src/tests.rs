@@ -122,6 +122,10 @@ fn browser_runtime_contract_documents_the_future_execution_surface() {
         BrowserRuntimeContract::supported_commands(),
         &["run", "test"]
     );
+    assert_eq!(
+        BrowserRuntimeContract::supported_commands_note(),
+        "supported browser runtime commands: run, test"
+    );
     assert!(BrowserRuntimeContract::diagnostic_hint().contains("kali check --api browser"));
     assert!(BrowserRuntimeContract::diagnostic_hint().contains("kali build --bundle --api browser"));
 }
