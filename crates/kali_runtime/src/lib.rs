@@ -181,6 +181,9 @@ pub struct BrowserRuntimeContractDescriptor {
 /// Environment variable used to override the browser harness command.
 pub const BROWSER_HARNESS_COMMAND_ENV: &str = "KALI_BROWSER_BUNDLE_HARNESS_COMMAND";
 
+/// Environment variable used to request deterministic browser-harness summary capture.
+const BROWSER_HARNESS_SUMMARY_FILE_ENV: &str = "KALI_BROWSER_HARNESS_SUMMARY_FILE";
+
 impl BrowserRuntimeContract {
     /// The command family the future browser runtime contract will own.
     pub const SUPPORTED_COMMANDS: [&'static str; 2] = ["run", "test"];
@@ -2376,6 +2379,26 @@ function formatConsoleValue(val) {{
   return String(val);
 }}
 
+const summaryFile = globalThis.process?.env?.["KALI_BROWSER_HARNESS_SUMMARY_FILE"]
+  ?? globalThis.Deno?.env?.get?.("KALI_BROWSER_HARNESS_SUMMARY_FILE")
+  ?? null;
+
+async function emitBrowserRuntimeSummary(summary) {{
+  const serialized = JSON.stringify(summary);
+  if (summaryFile !== null) {{
+    if (globalThis.Deno?.writeTextFile) {{
+      await globalThis.Deno.writeTextFile(summaryFile, serialized);
+      return;
+    }}
+    if (globalThis.process?.versions?.node !== undefined) {{
+      const fs = await import('node:fs/promises');
+      await fs.writeFile(summaryFile, serialized);
+      return;
+    }}
+  }}
+  console.log(serialized);
+}}
+
 const importObject = {{
   "kali:rt": {{
     test_register(val) {{
@@ -2419,10 +2442,18 @@ if (runRegisteredTests) {{
       console.error(error instanceof Error ? error.stack ?? error.message : String(error));
     }}
   }}
-  console.log(JSON.stringify({{ args: runtimeArgs, tests: collectedTests, testsFailed: registeredTestFailures }}));
-  if (registeredTestFailures > 0) {{
-    throw new Error(`browser runtime test failures: ${{registeredTestFailures}}`);
-  }}
+}}
+let summaryEmissionError = null;
+try {{
+  await emitBrowserRuntimeSummary({{ args: runtimeArgs, tests: collectedTests, testsFailed: registeredTestFailures }});
+}} catch (error) {{
+  summaryEmissionError = error;
+}}
+if (registeredTestFailures > 0) {{
+  throw new Error(`browser runtime test failures: ${{registeredTestFailures}}`);
+}}
+if (summaryEmissionError !== null) {{
+  throw summaryEmissionError;
 }}
 "#,
         browser_bundle_harness_prelude(bundle_dir, allow_subpaths),
@@ -2460,6 +2491,7 @@ pub fn browser_bundle_runtime_execute_checked(
                 ),
             })?;
     let script_path = current_dir.join("browser-bundle-runtime.mjs");
+    let summary_path = current_dir.join("browser-bundle-runtime-summary.json");
     fs::write(
         &script_path,
         browser_bundle_runtime_harness_script(
@@ -2473,12 +2505,14 @@ pub fn browser_bundle_runtime_execute_checked(
         message: error.to_string(),
     })?;
 
-    let outcome = browser_harness_run_checked(command, &script_path, &[], current_dir)?;
-    let summary = if run_registered_tests {
-        parse_browser_runtime_summary(&outcome.stdout)
-    } else {
-        BrowserRuntimeSummary::default()
-    };
+    let outcome = browser_harness_run_checked_with_env(
+        command,
+        &script_path,
+        &[],
+        current_dir,
+        &[(BROWSER_HARNESS_SUMMARY_FILE_ENV, summary_path.as_os_str())],
+    )?;
+    let summary = browser_runtime_summary_for_outcome(&summary_path, &outcome);
 
     Ok(BrowserRuntimeExecutionOutcome {
         command: outcome.command,
@@ -2538,6 +2572,26 @@ function formatConsoleValue(val) {{
   return String(val);
 }}
 
+const summaryFile = globalThis.process?.env?.["KALI_BROWSER_HARNESS_SUMMARY_FILE"]
+  ?? globalThis.Deno?.env?.get?.("KALI_BROWSER_HARNESS_SUMMARY_FILE")
+  ?? null;
+
+async function emitBrowserRuntimeSummary(summary) {{
+  const serialized = JSON.stringify(summary);
+  if (summaryFile !== null) {{
+    if (globalThis.Deno?.writeTextFile) {{
+      await globalThis.Deno.writeTextFile(summaryFile, serialized);
+      return;
+    }}
+    if (globalThis.process?.versions?.node !== undefined) {{
+      const fs = await import('node:fs/promises');
+      await fs.writeFile(summaryFile, serialized);
+      return;
+    }}
+  }}
+  console.log(serialized);
+}}
+
 const importObject = {{
   "kali:rt": {{
     test_register(val) {{
@@ -2577,10 +2631,18 @@ if (runRegisteredTests) {{
       console.error(error instanceof Error ? error.stack ?? error.message : String(error));
     }}
   }}
-  console.log(JSON.stringify({{ args: runtimeArgs, tests: collectedTests, testsFailed: registeredTestFailures }}));
-  if (registeredTestFailures > 0) {{
-    throw new Error(`browser runtime test failures: ${{registeredTestFailures}}`);
-  }}
+}}
+let summaryEmissionError = null;
+try {{
+  await emitBrowserRuntimeSummary({{ args: runtimeArgs, tests: collectedTests, testsFailed: registeredTestFailures }});
+}} catch (error) {{
+  summaryEmissionError = error;
+}}
+if (registeredTestFailures > 0) {{
+  throw new Error(`browser runtime test failures: ${{registeredTestFailures}}`);
+}}
+if (summaryEmissionError !== null) {{
+  throw summaryEmissionError;
 }}
 "#,
         args_json = args_json,
@@ -2656,6 +2718,16 @@ fn parse_browser_runtime_summary(stdout: &str) -> BrowserRuntimeSummary {
         .unwrap_or_default()
 }
 
+fn browser_runtime_summary_for_outcome(
+    summary_path: &Path,
+    outcome: &BrowserHarnessOutcome,
+) -> BrowserRuntimeSummary {
+    match fs::read_to_string(summary_path) {
+        Ok(text) => parse_browser_runtime_summary(&text),
+        Err(_) => parse_browser_runtime_summary(&outcome.stdout),
+    }
+}
+
 /// Execute a WASM module through the browser harness and capture the resulting summary.
 pub fn browser_runtime_execute_checked(
     command: Option<&str>,
@@ -2668,6 +2740,7 @@ pub fn browser_runtime_execute_checked(
         message: error.to_string(),
     })?;
     let script_path = tempdir.path().join("browser-runtime.mjs");
+    let summary_path = tempdir.path().join("browser-runtime-summary.json");
     fs::write(
         &script_path,
         browser_runtime_harness_script(wasm_bytes, args, run_registered_tests),
@@ -2676,12 +2749,14 @@ pub fn browser_runtime_execute_checked(
         message: error.to_string(),
     })?;
 
-    let outcome = browser_harness_run_checked(command, &script_path, &[], current_dir)?;
-    let summary = if run_registered_tests {
-        parse_browser_runtime_summary(&outcome.stdout)
-    } else {
-        BrowserRuntimeSummary::default()
-    };
+    let outcome = browser_harness_run_checked_with_env(
+        command,
+        &script_path,
+        &[],
+        current_dir,
+        &[(BROWSER_HARNESS_SUMMARY_FILE_ENV, summary_path.as_os_str())],
+    )?;
+    let summary = browser_runtime_summary_for_outcome(&summary_path, &outcome);
 
     Ok(BrowserRuntimeExecutionOutcome {
         command: outcome.command,
@@ -2716,6 +2791,14 @@ pub struct BrowserHarnessInvocation {
 impl BrowserHarnessInvocation {
     /// Launch the browser harness and capture stdout/stderr and exit status.
     pub fn launch(self) -> Result<BrowserHarnessOutcome, BrowserHarnessError> {
+        self.launch_with_env(&[])
+    }
+
+    /// Launch the browser harness with additional environment variables.
+    pub fn launch_with_env(
+        self,
+        extra_env: &[(&str, &std::ffi::OsStr)],
+    ) -> Result<BrowserHarnessOutcome, BrowserHarnessError> {
         let BrowserHarnessInvocation {
             executable,
             harness_args,
@@ -2730,6 +2813,9 @@ impl BrowserHarnessInvocation {
         harness.arg(&script);
         harness.args(&args);
         harness.current_dir(current_dir);
+        for &(key, value) in extra_env {
+            harness.env(key, value);
+        }
 
         let output = harness
             .output()
@@ -2856,6 +2942,18 @@ pub fn browser_harness_run_checked(
     current_dir: impl AsRef<Path>,
 ) -> Result<BrowserHarnessOutcome, BrowserHarnessError> {
     browser_harness_invocation_checked(command, script, args, current_dir)?.launch()
+}
+
+/// Launch the browser harness with additional environment variables.
+pub fn browser_harness_run_checked_with_env(
+    command: Option<&str>,
+    script: impl AsRef<Path>,
+    args: &[String],
+    current_dir: impl AsRef<Path>,
+    extra_env: &[(&str, &std::ffi::OsStr)],
+) -> Result<BrowserHarnessOutcome, BrowserHarnessError> {
+    browser_harness_invocation_checked(command, script, args, current_dir)?
+        .launch_with_env(extra_env)
 }
 
 /// Return the effective browser harness command using the configured environment override.

@@ -188,11 +188,6 @@ fn browser_requested_test_runtime_can_execute_registered_callbacks() {
     assert_eq!(outcome.tests_failed, 0);
     assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
     assert_eq!(outcome.runtime_backend, RuntimeBackend::Wasmtime);
-    assert!(
-        outcome.stdout.contains("\"tests\":[\"7\"]"),
-        "stdout: {}",
-        outcome.stdout
-    );
     assert!(outcome.stdout.contains("11"), "stdout: {}", outcome.stdout);
 }
 
@@ -459,6 +454,63 @@ fn browser_runtime_harness_script_reports_an_empty_test_summary_when_no_callback
 }
 
 #[test]
+fn browser_runtime_harness_summary_file_capture_is_deterministic() {
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "test_register" (func $test_register (param i64)))
+                (import "kali:rt" "console_log" (func $console_log (param i64)))
+                (func (export "__kali_callback_7")
+                    i64.const 11
+                    call $console_log)
+                (func (export "_start")
+                    i64.const 7
+                    call $test_register))
+        "#,
+    );
+    let script = browser_runtime_harness_script(&wasm, &["zeta".to_string()], true);
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let script_path = tempdir.path().join("browser-runtime-summary-file.mjs");
+    let summary_path = tempdir.path().join("browser-runtime-summary.json");
+    fs::write(&script_path, script).expect("write browser runtime summary script");
+
+    let outcome = browser_harness_run_checked_with_env(
+        Some("node"),
+        &script_path,
+        &[],
+        tempdir.path(),
+        &[(
+            super::BROWSER_HARNESS_SUMMARY_FILE_ENV,
+            summary_path.as_os_str(),
+        )],
+    )
+    .expect("launch browser runtime harness");
+
+    assert_eq!(outcome.status.code(), Some(0));
+    assert!(
+        !outcome.stdout.contains("\"tests\":"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    let summary = fs::read_to_string(&summary_path).expect("summary file");
+    assert!(
+        summary.contains("\"args\":[\"zeta\"]"),
+        "summary: {}",
+        summary
+    );
+    assert!(
+        summary.contains("\"tests\":[\"7\"]"),
+        "summary: {}",
+        summary
+    );
+    assert!(
+        summary.contains("\"testsFailed\":0"),
+        "summary: {}",
+        summary
+    );
+}
+
+#[test]
 fn browser_bundle_runtime_execute_checked_loads_bundle_exports_and_parses_summary() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let bundle_root = tempdir.path().join("browser-app");
@@ -509,22 +561,7 @@ export async function loadWithImports(importObject) {
     assert_eq!(outcome.command[0], "node");
     assert_eq!(outcome.status.code(), Some(0));
     assert!(outcome.stdout.contains("11"), "stdout: {}", outcome.stdout);
-    assert!(
-        outcome.stdout.contains("\"testsFailed\":0"),
-        "stdout: {}",
-        outcome.stdout
-    );
     assert_eq!(outcome.tests_failed, 0);
-    assert!(
-        outcome.stdout.contains("\"tests\":[\"7\"]"),
-        "stdout: {}",
-        outcome.stdout
-    );
-    assert!(
-        outcome.stdout.contains("\"args\":[\"alpha\"]"),
-        "stdout: {}",
-        outcome.stdout
-    );
     assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
     assert_eq!(outcome.reported_args, vec!["alpha".to_string()]);
     assert_eq!(outcome.registered_tests, vec!["7".to_string()]);
