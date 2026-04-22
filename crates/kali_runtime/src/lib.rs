@@ -2399,10 +2399,10 @@ pub fn browser_bundle_runtime_execute_checked(
     })?;
 
     let outcome = browser_harness_run_checked(command, &script_path, &[], current_dir)?;
-    let registered_tests = if run_registered_tests {
+    let summary = if run_registered_tests {
         parse_browser_runtime_summary(&outcome.stdout)
     } else {
-        Vec::new()
+        BrowserRuntimeSummary::default()
     };
 
     Ok(BrowserRuntimeExecutionOutcome {
@@ -2410,7 +2410,8 @@ pub fn browser_bundle_runtime_execute_checked(
         status: outcome.status,
         stdout: outcome.stdout,
         stderr: outcome.stderr,
-        registered_tests,
+        reported_args: summary.args,
+        registered_tests: summary.tests,
     })
 }
 
@@ -2506,6 +2507,8 @@ pub struct BrowserRuntimeExecutionOutcome {
     pub stdout: String,
     /// Captured harness stderr.
     pub stderr: String,
+    /// Runtime arguments reported by the harness summary.
+    pub reported_args: Vec<String>,
     /// Test callbacks registered by the guest and reported by the browser harness summary.
     pub registered_tests: Vec<String>,
 }
@@ -2517,7 +2520,13 @@ impl BrowserRuntimeExecutionOutcome {
     }
 }
 
-fn parse_browser_runtime_summary(stdout: &str) -> Vec<String> {
+#[derive(Default)]
+struct BrowserRuntimeSummary {
+    args: Vec<String>,
+    tests: Vec<String>,
+}
+
+fn parse_browser_runtime_summary(stdout: &str) -> BrowserRuntimeSummary {
     stdout
         .lines()
         .rev()
@@ -2528,13 +2537,18 @@ fn parse_browser_runtime_summary(stdout: &str) -> Vec<String> {
             }
 
             let value = serde_json::from_str::<serde_json::Value>(trimmed).ok()?;
+            let args = value.get("args")?.as_array()?;
             let tests = value.get("tests")?.as_array()?;
-            Some(
-                tests
+            Some(BrowserRuntimeSummary {
+                args: args
                     .iter()
                     .filter_map(|value| value.as_str().map(ToOwned::to_owned))
                     .collect(),
-            )
+                tests: tests
+                    .iter()
+                    .filter_map(|value| value.as_str().map(ToOwned::to_owned))
+                    .collect(),
+            })
         })
         .unwrap_or_default()
 }
@@ -2560,10 +2574,10 @@ pub fn browser_runtime_execute_checked(
     })?;
 
     let outcome = browser_harness_run_checked(command, &script_path, &[], current_dir)?;
-    let registered_tests = if run_registered_tests {
+    let summary = if run_registered_tests {
         parse_browser_runtime_summary(&outcome.stdout)
     } else {
-        Vec::new()
+        BrowserRuntimeSummary::default()
     };
 
     Ok(BrowserRuntimeExecutionOutcome {
@@ -2571,7 +2585,8 @@ pub fn browser_runtime_execute_checked(
         status: outcome.status,
         stdout: outcome.stdout,
         stderr: outcome.stderr,
-        registered_tests,
+        reported_args: summary.args,
+        registered_tests: summary.tests,
     })
 }
 
