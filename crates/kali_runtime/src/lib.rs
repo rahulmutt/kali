@@ -2223,6 +2223,95 @@ pub fn browser_harness_command_parts_for(command: Option<&str>) -> Vec<String> {
     browser_harness_command_parts_checked(command).unwrap_or_else(|error| panic!("{error}"))
 }
 
+/// A deterministic browser-harness execution result.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BrowserHarnessOutcome {
+    /// The harness process exit status.
+    pub status: std::process::ExitStatus,
+    /// Captured harness stdout.
+    pub stdout: String,
+    /// Captured harness stderr.
+    pub stderr: String,
+}
+
+/// Error returned when launching a browser harness command.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BrowserHarnessError {
+    /// The configured command override was malformed.
+    MalformedOverride {
+        /// The environment variable that carried the malformed override.
+        env_var: &'static str,
+        /// The malformed override value.
+        value: String,
+    },
+    /// The harness command could not be launched.
+    LaunchFailed {
+        /// The executable that failed to launch.
+        executable: String,
+        /// The script or entrypoint that was being executed.
+        script: PathBuf,
+        /// The launch error message.
+        message: String,
+    },
+}
+
+impl std::fmt::Display for BrowserHarnessError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MalformedOverride { env_var, value } => {
+                write!(f, "malformed {env_var} override: {value:?}")
+            }
+            Self::LaunchFailed {
+                executable,
+                script,
+                message,
+            } => write!(
+                f,
+                "failed to launch browser harness command {executable:?} for {script:?}: {message}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for BrowserHarnessError {}
+
+/// Launch the browser harness command, capturing stdout/stderr and exit status.
+pub fn browser_harness_run_checked(
+    command: Option<&str>,
+    script: impl AsRef<Path>,
+    args: &[String],
+    current_dir: impl AsRef<Path>,
+) -> Result<BrowserHarnessOutcome, BrowserHarnessError> {
+    let mut parts = browser_harness_command_parts_checked(command).map_err(|value| {
+        BrowserHarnessError::MalformedOverride {
+            env_var: BROWSER_HARNESS_COMMAND_ENV,
+            value,
+        }
+    })?;
+
+    let executable = parts.remove(0);
+    let script = script.as_ref().to_path_buf();
+    let mut harness = Command::new(&executable);
+    harness.args(parts);
+    harness.arg(&script);
+    harness.args(args);
+    harness.current_dir(current_dir);
+
+    let output = harness
+        .output()
+        .map_err(|error| BrowserHarnessError::LaunchFailed {
+            executable,
+            script: script.clone(),
+            message: error.to_string(),
+        })?;
+
+    Ok(BrowserHarnessOutcome {
+        status: output.status,
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+    })
+}
+
 /// Return the effective browser harness command using the configured environment override.
 pub fn browser_harness_command_parts() -> Vec<String> {
     browser_harness_command_parts_for(std::env::var(BROWSER_HARNESS_COMMAND_ENV).ok().as_deref())

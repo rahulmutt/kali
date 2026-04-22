@@ -1,5 +1,6 @@
 use super::*;
 use std::{
+    fs,
     io::{Read, Write},
     net::TcpListener,
     thread,
@@ -203,6 +204,41 @@ fn browser_harness_command_parts_checked_reports_malformed_overrides() {
     assert!(unterminated.contains("KALI_BROWSER_BUNDLE_HARNESS_COMMAND"));
     assert!(unterminated.contains("browser-wrapper"));
     assert!(unterminated.contains("unterminated"));
+}
+
+#[test]
+fn browser_harness_run_checked_launches_command_and_captures_output() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let script = tempdir.path().join("browser-harness.mjs");
+    fs::write(
+        &script,
+        r#"
+console.error('browser-harness-stderr');
+console.log(JSON.stringify(process.argv.slice(2)));
+process.exit(7);
+"#,
+    )
+    .expect("write browser harness script");
+
+    let outcome = browser_harness_run_checked(
+        Some("node"),
+        &script,
+        &["alpha".to_string(), "beta".to_string()],
+        tempdir.path(),
+    )
+    .expect("launch browser harness");
+
+    assert_eq!(outcome.status.code(), Some(7));
+    assert!(
+        outcome.stdout.contains(r#"["alpha","beta"]"#),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert!(
+        outcome.stderr.contains("browser-harness-stderr"),
+        "stderr: {}",
+        outcome.stderr
+    );
 }
 
 #[test]
