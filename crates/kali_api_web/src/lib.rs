@@ -363,6 +363,94 @@ impl Default for TransformStream {
     }
 }
 
+/// A deterministic `TextEncoderStream` baseline layered on the shared transform-stream state.
+#[derive(Clone, Debug)]
+pub struct TextEncoderStream {
+    inner: TransformStream,
+}
+
+impl TextEncoderStream {
+    /// Create a new text encoder stream baseline.
+    pub fn new() -> Self {
+        Self {
+            inner: TransformStream::new(),
+        }
+    }
+
+    /// Return the readable side of the text encoder stream.
+    pub fn readable(&self) -> &ReadableStream {
+        self.inner.readable()
+    }
+
+    /// Return the writable side of the text encoder stream.
+    pub fn writable(&self) -> &WritableStream {
+        self.inner.writable()
+    }
+
+    /// Append UTF-8 text to the encoder stream.
+    pub fn write_text(&self, text: impl Into<String>) {
+        self.writable().write_text(text);
+    }
+}
+
+impl Default for TextEncoderStream {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PartialEq for TextEncoderStream {
+    fn eq(&self, other: &Self) -> bool {
+        self.readable() == other.readable() && self.writable() == other.writable()
+    }
+}
+
+impl Eq for TextEncoderStream {}
+
+/// A deterministic `TextDecoderStream` baseline layered on the shared transform-stream state.
+#[derive(Clone, Debug)]
+pub struct TextDecoderStream {
+    inner: TransformStream,
+}
+
+impl TextDecoderStream {
+    /// Create a new text decoder stream baseline.
+    pub fn new() -> Self {
+        Self {
+            inner: TransformStream::new(),
+        }
+    }
+
+    /// Return the readable side of the text decoder stream.
+    pub fn readable(&self) -> &ReadableStream {
+        self.inner.readable()
+    }
+
+    /// Return the writable side of the text decoder stream.
+    pub fn writable(&self) -> &WritableStream {
+        self.inner.writable()
+    }
+
+    /// Append raw bytes to the decoder stream.
+    pub fn write(&self, chunk: impl AsRef<[u8]>) {
+        self.writable().write(chunk);
+    }
+}
+
+impl Default for TextDecoderStream {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PartialEq for TextDecoderStream {
+    fn eq(&self, other: &Self) -> bool {
+        self.readable() == other.readable() && self.writable() == other.writable()
+    }
+}
+
+impl Eq for TextDecoderStream {}
+
 /// Value stored inside the in-memory Web `FormData` baseline.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FormDataValue {

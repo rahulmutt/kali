@@ -273,6 +273,24 @@ fn writable_and_transform_streams_share_the_same_backing_state() {
 }
 
 #[test]
+fn text_encoder_and_decoder_streams_share_the_shared_baseline() {
+    let encoder = TextEncoderStream::new();
+    encoder.write_text("héllo 🌍");
+    assert_eq!(encoder.readable().bytes(), "héllo 🌍".as_bytes());
+    assert_eq!(encoder.writable().text().expect("encoder text"), "héllo 🌍");
+
+    let decoder = TextDecoderStream::new();
+    decoder.write("decoded ");
+    decoder.writable().write_text("payload");
+    assert_eq!(decoder.readable().bytes(), b"decoded payload");
+    assert_eq!(
+        decoder.readable().text().expect("decoder text"),
+        "decoded payload"
+    );
+    assert_eq!(decoder.writable().bytes(), b"decoded payload");
+}
+
+#[test]
 fn form_data_records_entries_and_preserves_order() {
     let blob = Blob::new(["form payload".as_bytes()], Some("text/plain".to_string()));
     let file = File::new("form.txt", ["file payload".as_bytes()], None, 13);
