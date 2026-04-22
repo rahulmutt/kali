@@ -2484,6 +2484,7 @@ fn run_command(
                 let payload = json!({
                     "exitCode": outcome.exit_code,
                     "runtimeMs": start.elapsed().as_millis(),
+                    "hostContract": runtime.host_contract().canonical_label(),
                 });
                 print_envelope(
                     "run",
@@ -2757,6 +2758,7 @@ fn test_command(
                 "failed": failed,
                 "skipped": 0,
                 "runtimeMs": start.elapsed().as_millis(),
+                "hostContract": runtime.host_contract().canonical_label(),
                 "coverage": {
                     "mode": "function",
                     "files": coverage_reports,
@@ -2775,6 +2777,7 @@ fn test_command(
                 "failed": failed,
                 "skipped": 0,
                 "runtimeMs": start.elapsed().as_millis(),
+                "hostContract": runtime.host_contract().canonical_label(),
             })
         };
         let success = diagnostics.is_empty();

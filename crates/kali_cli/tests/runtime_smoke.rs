@@ -1887,6 +1887,7 @@ fn test_reports_function_coverage_in_json_output() {
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
     assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
     assert_eq!(json["payload"]["coverage"]["mode"], "function");
     assert!(
         json["payload"]["coverage"]["summary"]["functionsTotal"]
@@ -4514,6 +4515,7 @@ fn json_run_emits_a_command_envelope() {
     assert_eq!(json["success"], true);
     assert_eq!(json["exitCode"], 0);
     assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
     assert_eq!(json["stdout"], "");
     assert_eq!(json["stderr"], "");
 }
@@ -4541,6 +4543,7 @@ fn json_test_emits_a_command_envelope() {
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 1);
     assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
     assert_eq!(json["stdout"], "");
     assert_eq!(json["stderr"], "");
 }
