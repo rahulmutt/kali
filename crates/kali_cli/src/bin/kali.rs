@@ -1042,6 +1042,7 @@ enum BuildResult {
         output_path: PathBuf,
         wit_path: PathBuf,
         meta_path: PathBuf,
+        binding_package_path: PathBuf,
         wasm_bytes: Vec<u8>,
         metadata: build::ArtifactMetadata,
     },
@@ -1121,6 +1122,7 @@ impl BuildResult {
                 output_path,
                 wit_path,
                 meta_path,
+                binding_package_path,
                 wasm_bytes,
                 metadata,
             } => json!({
@@ -1131,10 +1133,12 @@ impl BuildResult {
                 "sourceHash": metadata.source_hash.clone(),
                 "metadataPath": meta_path,
                 "witPath": wit_path,
+                "bindingPackagePath": binding_package_path,
                 "artifacts": [
                     { "kind": "wasm-component", "path": output_path },
                     { "kind": "wit", "path": wit_path },
                     { "kind": "meta-json", "path": meta_path },
+                    { "kind": "binding-package", "path": binding_package_path, "role": "binding-package-manifest" },
                 ],
                 "exports": metadata.exports.clone().unwrap_or_default(),
             }),
@@ -1607,7 +1611,8 @@ fn build_component_artifact(
         .append_to(&mut component_bytes);
     }
 
-    let (output_path, wit_path, meta_path) = build::component_output_paths_for(&source, out_dir);
+    let (output_path, wit_path, meta_path, binding_package_path) =
+        build::component_output_paths_for(&source, out_dir);
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
             vec![Diagnostic::error(
@@ -1658,10 +1663,47 @@ fn build_component_artifact(
         )]
     })?;
 
+    let binding_package_json = generate_binding_package_manifest(
+        &source.display().to_string(),
+        output_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("lib.component.wasm"),
+        meta_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("lib.component.meta.json"),
+        wit_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("lib.wit"),
+        &[
+            "bindings/python/README.md".to_string(),
+            "bindings/python/kali_capi/__init__.py".to_string(),
+            "bindings/python/pyproject.toml".to_string(),
+        ],
+    );
+    fs::write(
+        &binding_package_path,
+        serde_json::to_string_pretty(&binding_package_json)
+            .expect("serialize component binding package manifest"),
+    )
+    .map_err(|error| {
+        vec![Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to write component binding package manifest '{}': {}",
+                binding_package_path.display(),
+                error
+            ),
+        )]
+    })?;
+
     Ok(BuildResult::Component {
         output_path,
         wit_path,
         meta_path,
+        binding_package_path,
         wasm_bytes: component_bytes,
         metadata,
     })

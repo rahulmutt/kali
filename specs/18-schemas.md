@@ -312,15 +312,17 @@ Canonical schema-v1 `role` values:
 - `interface-wit` — canonical WIT interface description emitted for the stable public library/component/embedding flows once that Phase-2 public contract exists
 - `embedding-header` — generated **program-specific exports header** from `kali build --capi` (distinct from the stable **host ABI header** `kali.h`; see [SPEC.md](../SPEC.md))
 - `embedding-metadata` — generated C-ABI compatibility metadata from `kali build --capi` (the artifact `kind` remains `cabi-metadata`; this is the canonical `role` for that file)
+- `binding-package-manifest` — deterministic stem-specific bundle index emitted alongside the public embedding flows; it records the generated artifact layout for higher-level language binding workflows
 - `debug-source-map` — source-map/debug companion artifact
 
 Interpretation rules:
-- `kind` stays the primary cross-command type discriminator (`wasm-module`, `wasm-component`, `js-glue`, `wit`, `c-header`, `cabi-metadata`, `source-map`)
+- `kind` stays the primary cross-command type discriminator (`wasm-module`, `wasm-component`, `js-glue`, `wit`, `c-header`, `cabi-metadata`, `binding-package`, `source-map`)
 - `debug-source-map` is a `role`, not a second source-map `kind`; the matching artifact `kind` remains `source-map`
 - `role` exists so tools do not have to infer semantic intent from filenames alone when multiple artifact modes reuse the same `kind`
 - schema-v1 reserves these `kind` / `role` names for stable machine readability even when the owning command/artifact flow is still phase-gated; read actual availability from [19 — Feature Maturity](19-feature-maturity.md) rather than inferring it from the presence of a schema value alone
 - within one emitted artifact list, `primary-executable`, `primary-library`, and `primary-component` are each unique roles: at most one artifact may carry each of those roles
 - browser-bundle outputs therefore normally contain one `primary-executable` core `wasm-module` plus one `browser-glue` JS companion and one `source-map` debug companion, rather than two competing "primary" artifacts of the same executable flow
+- `binding-package` is the deterministic stem-specific bundle index emitted alongside the public embedding flows; it is a sidecar manifest rather than one of the primary linked-code artifacts
 - browser-bundle JSON envelopes may also surface a `bundleFormat` field so tools can distinguish the `esm` and `cjs` wrapper variants without inferring that detail from filenames alone
 - in component-oriented outputs, the wrapped core `wasm-module` normally keeps role `primary-library` while the outer `wasm-component` carries role `primary-component`; this avoids making tools guess which artifact is the deployable wrapper versus the linked core payload
 - adding a new stable `role` value is a schema-contract change and should get the same review discipline as new artifact `kind` values

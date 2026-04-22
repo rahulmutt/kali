@@ -297,3 +297,17 @@ fn capi_binding_package_manifest_path_uses_source_stem() {
     let output = binding_package_manifest_output_path_for(&source, Some(Path::new("dist")));
     assert_eq!(output, PathBuf::from("dist/main.binding-package.json"));
 }
+
+#[test]
+fn component_output_paths_use_source_stem_and_binding_manifest() {
+    let source = PathBuf::from("/tmp/demo/main.ts");
+    let (wasm, wit, meta, binding_package) =
+        component_output_paths_for(&source, Some(Path::new("dist")));
+    assert_eq!(wasm, PathBuf::from("dist/main.component.wasm"));
+    assert_eq!(wit, PathBuf::from("dist/main.wit"));
+    assert_eq!(meta, PathBuf::from("dist/main.component.meta.json"));
+    assert_eq!(
+        binding_package,
+        PathBuf::from("dist/main.binding-package.json")
+    );
+}

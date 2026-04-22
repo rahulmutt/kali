@@ -1145,21 +1145,24 @@ pub fn binding_package_manifest_output_path_for(
 pub fn component_output_paths_for(
     source_path: &Path,
     out_dir: Option<&Path>,
-) -> (PathBuf, PathBuf, PathBuf) {
+) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
     let stem = source_stem(source_path);
     let wasm_name = format!("{}.component.wasm", stem);
     let wit_name = format!("{}.wit", stem);
     let meta_name = format!("{}.component.meta.json", stem);
+    let binding_package_name = format!("{}.binding-package.json", stem);
     match out_dir {
         Some(dir) => (
             dir.join(&wasm_name),
             dir.join(&wit_name),
             dir.join(&meta_name),
+            dir.join(&binding_package_name),
         ),
         None => (
             source_path.with_file_name(wasm_name),
             source_path.with_file_name(wit_name),
             source_path.with_file_name(meta_name),
+            source_path.with_file_name(binding_package_name),
         ),
     }
 }

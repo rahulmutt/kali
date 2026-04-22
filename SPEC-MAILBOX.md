@@ -7,6 +7,12 @@
 - clarified the build-only `--profile` PGO input in `specs/12-cli.md` and `specs/19-feature-maturity.md` so the public command surface now calls it out as an explicit opt-in rather than a hidden implementation detail
 
 2026-04-22 follow-up note
+- the later embedding bundle sidecar should be surfaced for `kali build --component` as well as `--capi`, and the owning embedding/schema docs should name the shared `binding-package` artifact kind so the generated bundle index stays aligned with the CLI output and the plan prose
+
+2026-04-22 resolution note
+- updated the embedding and schema docs to name the shared `binding-package` artifact kind, and noted that both `build --capi` and `build --component` now emit the deterministic stem-specific bundle index used by the later binding workflow
+
+2026-04-22 follow-up note
 - the new CLI build-profile input (`kali build --profile <file>`) should be reflected in the owning CLI and maturity docs so the PGO workflow stays aligned with the public command surface and the `--profile` flag does not remain a hidden implementation detail
 
 2026-04-21 resolution note

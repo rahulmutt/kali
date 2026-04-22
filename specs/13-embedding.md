@@ -414,8 +414,8 @@ Example-filename rule:
 
 Artifact-role clarification:
 - `kali build --lib` is the base exported-library path in Phase 1 and the canonical stable public **WIT-first** library path from the Phase 2 target onward; once stabilized, that plain public `--lib` output emits `wit` (`role: interface-wit`) by default alongside the core `wasm-module` (`role: primary-library`)
-- `kali build --capi` uses that same core exported-library artifact (`role: primary-library`) plus `wit` (`role: interface-wit`), the generated **program-specific exports header** such as `lib.exports.h` (`role: embedding-header`), and the generated `cabi-metadata` file such as `lib.cabi.json` (`kind: cabi-metadata`, `role: embedding-metadata`)
-- `kali build --component` keeps the same linked core library payload (`role: primary-library`) and WIT sidecar (`role: interface-wit`), then adds the outer Component Model wrapper as `kind: wasm-component`, `role: primary-component`
+- `kali build --capi` uses that same core exported-library artifact (`role: primary-library`) plus `wit` (`role: interface-wit`), the generated **program-specific exports header** such as `lib.exports.h` (`role: embedding-header`), the generated `cabi-metadata` file such as `lib.cabi.json` (`kind: cabi-metadata`, `role: embedding-metadata`), and the deterministic stem-specific `binding-package` sidecar manifest for higher-level language bindings
+- `kali build --component` keeps the same linked core library payload (`role: primary-library`) and WIT sidecar (`role: interface-wit`), then adds the outer Component Model wrapper as `kind: wasm-component`, `role: primary-component`, plus the same deterministic stem-specific `binding-package` sidecar manifest
 - library-oriented embedding outputs require the same **statically known export surface** defined in [SPEC.md](../SPEC.md); WIT, generated program-specific exports headers, and component packaging are projections of that same explicit export surface rather than separate reflection-based APIs
 - if that export surface cannot be determined statically, the build must fail with `E5011` instead of synthesizing reflection-based exports for embedding
 - that outer component wrapper is packaging over the already-linked core payload, not a second independently linked guest-program graph; this keeps embedding/component outputs aligned with the single-linked-core-payload rule from [SPEC.md](../SPEC.md)
@@ -426,7 +426,7 @@ Important distinction:
 - Phase 1 plain `kali build --lib foo.ts` emits the **base library artifact** (`wasm-module`) only; this is intentionally useful before the **public embedding surface** is frozen, but it is not yet one of the stable **public embedding artifact flows**
 - once the public interface contract stabilizes in the Phase 2 target window, plain public `kali build --lib foo.ts` emits a WIT sidecar by default, and `--capi` / `--component` reuse that same canonical exported interface description instead of defining a second export vocabulary or becoming implicit replacements for plain `--lib`
 - library-oriented outputs follow the shared **library-oriented instantiation rule** from [SPEC.md](../SPEC.md): no synthetic executable entry invocation is added, normal module-instantiation behavior still runs at host instantiation time, and exported functions are the host-callable surface layered on top of that
-- In CLI JSON/artifact manifests, these outputs use the canonical artifact kinds `wasm-module`, `wit`, `wasm-component`, `c-header`, and `cabi-metadata`
+- In CLI JSON/artifact manifests, these outputs use the canonical artifact kinds `wasm-module`, `wit`, `wasm-component`, `c-header`, `cabi-metadata`, and `binding-package`
 
 This keeps the shared **host ABI header vs program-specific exports header** split from [SPEC.md](../SPEC.md) intact and avoids overloading the name `kali.h` for two different purposes.
 
