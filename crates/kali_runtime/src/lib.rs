@@ -2281,6 +2281,59 @@ pub fn browser_bundle_harness_script(bundle_dir: &str, allow_subpaths: bool, bod
     )
 }
 
+/// A deterministic browser-harness launch plan.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BrowserHarnessInvocation {
+    /// The executable used to launch the harness.
+    pub executable: String,
+    /// Arguments passed to the harness before the browser script path.
+    pub harness_args: Vec<String>,
+    /// The script or entrypoint that will be executed by the harness.
+    pub script: PathBuf,
+    /// Trailing arguments forwarded to the browser script.
+    pub args: Vec<String>,
+    /// Current working directory for the harness process.
+    pub current_dir: PathBuf,
+    /// The fully resolved command line used to launch the harness, including the script path and
+    /// any trailing entrypoint arguments.
+    pub command: Vec<String>,
+}
+
+impl BrowserHarnessInvocation {
+    /// Launch the browser harness and capture stdout/stderr and exit status.
+    pub fn launch(self) -> Result<BrowserHarnessOutcome, BrowserHarnessError> {
+        let BrowserHarnessInvocation {
+            executable,
+            harness_args,
+            script,
+            args,
+            current_dir,
+            command,
+        } = self;
+
+        let mut harness = Command::new(&executable);
+        harness.args(&harness_args);
+        harness.arg(&script);
+        harness.args(&args);
+        harness.current_dir(current_dir);
+
+        let output = harness
+            .output()
+            .map_err(|error| BrowserHarnessError::LaunchFailed {
+                executable,
+                script: script.clone(),
+                message: error.to_string(),
+            })?;
+
+        Ok(BrowserHarnessOutcome {
+            command,
+            status: output.status,
+            stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        })
+    }
+}
+
 /// A deterministic browser-harness execution result.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BrowserHarnessOutcome {
@@ -2336,13 +2389,13 @@ impl std::fmt::Display for BrowserHarnessError {
 
 impl std::error::Error for BrowserHarnessError {}
 
-/// Launch the browser harness command, capturing stdout/stderr and exit status.
-pub fn browser_harness_run_checked(
+/// Build a browser harness launch plan from the configured environment override.
+pub fn browser_harness_invocation_checked(
     command: Option<&str>,
     script: impl AsRef<Path>,
     args: &[String],
     current_dir: impl AsRef<Path>,
-) -> Result<BrowserHarnessOutcome, BrowserHarnessError> {
+) -> Result<BrowserHarnessInvocation, BrowserHarnessError> {
     let mut parts = browser_harness_command_parts_checked(command).map_err(|value| {
         BrowserHarnessError::MalformedOverride {
             env_var: BROWSER_HARNESS_COMMAND_ENV,
@@ -2352,32 +2405,31 @@ pub fn browser_harness_run_checked(
 
     let executable = parts.remove(0);
     let script = script.as_ref().to_path_buf();
-    let mut resolved_command = Vec::with_capacity(2 + parts.len() + args.len());
-    resolved_command.push(executable.clone());
-    resolved_command.extend(parts.iter().cloned());
-    resolved_command.push(script.to_string_lossy().into_owned());
-    resolved_command.extend(args.iter().cloned());
+    let current_dir = current_dir.as_ref().to_path_buf();
+    let mut command = Vec::with_capacity(2 + parts.len() + args.len());
+    command.push(executable.clone());
+    command.extend(parts.iter().cloned());
+    command.push(script.to_string_lossy().into_owned());
+    command.extend(args.iter().cloned());
 
-    let mut harness = Command::new(&executable);
-    harness.args(parts);
-    harness.arg(&script);
-    harness.args(args);
-    harness.current_dir(current_dir);
-
-    let output = harness
-        .output()
-        .map_err(|error| BrowserHarnessError::LaunchFailed {
-            executable,
-            script: script.clone(),
-            message: error.to_string(),
-        })?;
-
-    Ok(BrowserHarnessOutcome {
-        command: resolved_command,
-        status: output.status,
-        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+    Ok(BrowserHarnessInvocation {
+        executable,
+        harness_args: parts,
+        script,
+        args: args.to_vec(),
+        current_dir,
+        command,
     })
+}
+
+/// Launch the browser harness command, capturing stdout/stderr and exit status.
+pub fn browser_harness_run_checked(
+    command: Option<&str>,
+    script: impl AsRef<Path>,
+    args: &[String],
+    current_dir: impl AsRef<Path>,
+) -> Result<BrowserHarnessOutcome, BrowserHarnessError> {
+    browser_harness_invocation_checked(command, script, args, current_dir)?.launch()
 }
 
 /// Return the effective browser harness command using the configured environment override.

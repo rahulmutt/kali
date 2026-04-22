@@ -220,6 +220,40 @@ fn browser_bundle_harness_script_reuses_the_shared_fetch_prelude() {
 }
 
 #[test]
+fn browser_harness_invocation_checked_builds_a_launch_plan() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let script = tempdir.path().join("browser-harness.mjs");
+    let args = vec!["alpha".to_string(), "beta".to_string()];
+
+    let invocation = browser_harness_invocation_checked(
+        Some("node --experimental-fetch"),
+        &script,
+        &args,
+        tempdir.path(),
+    )
+    .expect("build browser harness invocation");
+
+    assert_eq!(invocation.executable, "node");
+    assert_eq!(
+        invocation.harness_args,
+        vec!["--experimental-fetch".to_string()]
+    );
+    assert_eq!(invocation.script, script);
+    assert_eq!(invocation.args, args);
+    assert_eq!(invocation.current_dir, tempdir.path());
+    assert_eq!(
+        invocation.command,
+        vec![
+            "node".to_string(),
+            "--experimental-fetch".to_string(),
+            script.display().to_string(),
+            "alpha".to_string(),
+            "beta".to_string(),
+        ]
+    );
+}
+
+#[test]
 fn browser_harness_run_checked_launches_command_and_captures_output() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let script = tempdir.path().join("browser-harness.mjs");
