@@ -460,3 +460,10 @@ Proposed fix:
 2026-04-22 resolution note
 - added the `build --component` binding-package sidecar emission so the component embedding flow now writes the same stem-specific bundle index and surfaces it in the artifact manifest alongside the component core, WIT, and metadata files
 - documented the stem-specific binding-package sidecar in the root README and refreshed the Stage 5.5 progress note so the later binding workflow now calls out the generated bundle layout alongside the maintained Python helper docs and C-ABI smoke coverage
+
+2026-04-22 follow-up note
+- the Stage 5.5 component packaging story still lacks an explicit CLI regression for `build --component --out-dir ...`; add one so the stem-specific binding-package sidecar is covered in the distribution layout as well as the default source-adjacent layout
+
+Proposed fix:
+- add a `kali build --component --output json --out-dir <dir>` smoke test that asserts the component, WIT, metadata, and binding-package artifacts are emitted into the requested output directory
+- mention the new output-directory coverage in the Stage 5.5 progress note so the historical plan reflects the distribution-layout regression too

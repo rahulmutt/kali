@@ -71,6 +71,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   and version-gate coverage.
 - Synced the owning CLI and maturity docs so the build-only `--profile` PGO input is now
   documented as an explicit opt-in rather than a hidden implementation detail.
+- Added CLI smoke coverage for `kali build --component --output json --out-dir ...` so the
+  component flow now pins the stem-specific binding-package sidecar in an explicit distribution
+  directory as well as the source-adjacent default layout.
 
 ## Tasks
 

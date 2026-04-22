@@ -4964,6 +4964,68 @@ fn build_emits_component_json_artifacts_for_binding_package_manifest() {
 }
 
 #[test]
+fn build_emits_component_artifacts_into_an_explicit_output_directory() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.ts");
+    let out_dir = dir.path().join("dist");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--component")
+        .arg("--output")
+        .arg("json")
+        .arg("--out-dir")
+        .arg(&out_dir)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "component");
+    assert_eq!(
+        PathBuf::from(
+            payload["outputPath"]
+                .as_str()
+                .expect("component output path")
+        ),
+        out_dir.join("lib.component.wasm")
+    );
+    assert_eq!(
+        PathBuf::from(
+            payload["bindingPackagePath"]
+                .as_str()
+                .expect("binding package path")
+        ),
+        out_dir.join("lib.binding-package.json")
+    );
+
+    for artifact in payload["artifacts"].as_array().expect("artifacts array") {
+        let artifact_path = PathBuf::from(artifact["path"].as_str().expect("artifact path string"));
+        assert!(
+            artifact_path.starts_with(&out_dir),
+            "artifact path should stay in the requested output directory: {artifact_path:?}"
+        );
+    }
+
+    assert!(out_dir.join("lib.component.wasm").exists());
+    assert!(out_dir.join("lib.wit").exists());
+    assert!(out_dir.join("lib.component.meta.json").exists());
+    assert!(out_dir.join("lib.binding-package.json").exists());
+}
+
+#[test]
 fn run_surfaces_console_stdout_for_numeric_logs() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
