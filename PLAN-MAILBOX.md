@@ -1,3 +1,9 @@
+2026-04-22 resolution note
+
+- tightened the Stage 5.4 Intl gating so `Intl.NumberFormat`-style member chains now hit the canonical `E5006` later-compatibility diagnostic directly, instead of relying only on the outer `Intl` identifier/member root
+
+- updated the Stage 5.4 progress note to record the direct member-access coverage alongside the existing late host-control, object-model, and browser/WebCrypto breadth evidence
+
 # PLAN mailbox
 
 2026-04-22 resolution note

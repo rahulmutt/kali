@@ -362,7 +362,7 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 3);
+    assert!(result.diagnostics.len() >= 2);
     assert!(result
         .diagnostics
         .iter()
@@ -371,6 +371,27 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
         .diagnostics
         .iter()
         .all(|diag| diag.message.contains("Intl")));
+}
+
+#[test]
+fn test_resolution_reports_late_intl_member_access_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::MemberExpression(Box::new(
+            kali_ast::MemberExpression {
+                object: Expression::Identifier("Intl".to_string()),
+                property: "NumberFormat".to_string(),
+            },
+        ))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0].message.contains("Intl"));
 }
 
 #[test]

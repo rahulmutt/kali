@@ -346,7 +346,10 @@ new globalThis.Proxy({}, {});
         .expect("infer effects");
 
     assert_eq!(inference.dynamic_reasons, vec!["proxy-traps"]);
-    assert!(inference.effects.is_empty(), "unexpected observed effects: {inference:?}");
+    assert!(
+        inference.effects.is_empty(),
+        "unexpected observed effects: {inference:?}"
+    );
 
     let report = effect_report_from_inference(
         vec![source.display().to_string()],

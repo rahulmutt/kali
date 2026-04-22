@@ -769,10 +769,13 @@ impl TypeContext {
     }
 
     fn resolve_member_expression(&mut self, expr: &MemberExpression) {
+        if self.resolve_late_intl_member(expr) {
+            return;
+        }
+
         self.resolve_expression(&expr.object);
         self.resolve_threaded_runtime_member(expr);
         self.resolve_late_host_control_member(expr);
-        self.resolve_late_intl_member(expr);
         self.resolve_late_object_model_member(expr);
     }
 
@@ -820,13 +823,17 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_late_intl_member(&mut self, expr: &MemberExpression) {
-        let Some(object_name) = Self::member_object_name(&expr.object) else {
-            return;
-        };
+    fn resolve_late_intl_member(&mut self, expr: &MemberExpression) -> bool {
+        let is_intl_root = matches!(&expr.object, Expression::Identifier(name) if name == "Intl")
+            || matches!(
+                &expr.object,
+                Expression::MemberExpression(member)
+                    if matches!(&member.object, Expression::Identifier(name) if name == "globalThis")
+                        && member.property == "Intl"
+            );
 
-        if object_name != "globalThis" || expr.property != "Intl" {
-            return;
+        if !is_intl_root {
+            return false;
         }
 
         self.diagnostics.push(Diagnostic::error(
@@ -834,6 +841,7 @@ impl TypeContext {
             "broader Intl support is unavailable until the later web/Intl compatibility path is enabled"
                 .to_string(),
         ));
+        true
     }
 
     fn resolve_late_object_model_member(&mut self, expr: &MemberExpression) {
