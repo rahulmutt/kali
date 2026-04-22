@@ -50,8 +50,15 @@ fn crypto_facade_reuses_the_shared_randomness_helpers() {
 }
 
 #[test]
-fn crypto_subtle_digest_supports_sha256_sha384_and_sha512() {
+fn crypto_subtle_digest_supports_sha1_sha256_sha384_and_sha512() {
     for (algorithm, expected) in [
+        (
+            " sha-1 ",
+            vec![
+                0xa9, 0x99, 0x3e, 0x36, 0x47, 0x06, 0x81, 0x6a, 0xba, 0x3e, 0x25, 0x71, 0x78, 0x50,
+                0xc2, 0x6c, 0x9c, 0xd0, 0xd8, 0x9d,
+            ],
+        ),
         (
             " sha-256 ",
             vec![

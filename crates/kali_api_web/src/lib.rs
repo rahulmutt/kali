@@ -11,6 +11,7 @@ use std::{
     time::Instant,
 };
 
+use sha1::Sha1;
 use sha2::{Digest, Sha256, Sha384, Sha512};
 use url::{form_urlencoded, Url};
 
@@ -1211,6 +1212,7 @@ impl SubtleCrypto {
         let normalized = canonicalize_digest_algorithm(algorithm_name);
 
         match normalized.as_str() {
+            "SHA1" => Ok(Sha1::digest(data.as_ref()).to_vec()),
             "SHA256" => Ok(Sha256::digest(data.as_ref()).to_vec()),
             "SHA384" => Ok(Sha384::digest(data.as_ref()).to_vec()),
             "SHA512" => Ok(Sha512::digest(data.as_ref()).to_vec()),
