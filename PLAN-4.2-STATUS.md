@@ -109,6 +109,7 @@ The current published boundary explicitly names the RC snapshot helper slice, in
 - `releaseAndCollectTargetCellOwnedAndAllocatedWhenPositiveCount`
 - `releaseAndCollectPreservesLinearMemory`
 - `releaseAndCollectPreservesOwnershipAndLinearMemory`
+- `KaliCore.Safety.releaseAndCollectPreservesWellFormedAndOwnershipAndReleasedRefsAndLinearMemory`
 - `releaseAndCollectReleasedRefsCons`
 - `releaseAndCollectPreservesReleasedRefs`
 - `releaseAndDecrementHeapCharacterisation`

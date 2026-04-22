@@ -945,6 +945,22 @@ theorem releaseAndCollectPreservesWellFormedAndOwnershipAndLinearMemory (snapsho
     · exact releaseAndCollectPreservesOwnership snapshot ref
     · exact releaseAndCollectPreservesLinearMemory snapshot ref
 
+/-- The local release-and-collect helper preserves well-formedness together with the ownership
+environment, the released-reference set, and explicit linear-memory payload. -/
+theorem releaseAndCollectPreservesWellFormedAndOwnershipAndReleasedRefsAndLinearMemory
+    (snapshot : RcSnapshot) (ref : String) (h : WellFormed snapshot) :
+    WellFormed (releaseAndCollect snapshot ref) ∧
+    (releaseAndCollect snapshot ref).ownership = snapshot.ownership ∧
+    (∀ r, r ∈ snapshot.releasedRefs → r ∈ (releaseAndCollect snapshot ref).releasedRefs) ∧
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndCollectPreservesWellFormed snapshot ref h
+  · constructor
+    · exact releaseAndCollectPreservesOwnership snapshot ref
+    · constructor
+      · exact releaseAndCollectPreservesReleasedRefs snapshot ref
+      · exact releaseAndCollectPreservesLinearMemory snapshot ref
+
 /-- The release-only helper preserves both well-formedness and the set of previously released references. -/
 theorem releaseRefPreservesWellFormedAndReleasedRefs (snapshot : RcSnapshot) (ref : String)
     (h : WellFormed snapshot) :
