@@ -1,5 +1,6 @@
 use super::*;
 use kali_lir::{LirBuilder, LirNodeKind};
+use std::time::Instant;
 
 fn literal(builder: &mut LirBuilder, value: &str) -> LirNodeId {
     builder.alloc_text(LirNodeKind::Literal, value)
@@ -146,7 +147,8 @@ fn hot_function_profile_data_expands_inlining_budget() {
 }
 
 #[test]
-fn profile_guided_optimization_reduces_hot_call_sites_on_a_representative_workload() {
+fn profile_guided_optimization_benchmark_tracks_hot_call_site_reduction_on_a_representative_workload(
+) {
     fn build_workload(function_name: &str, literals: &[&str]) -> (LirProgram, LirNodeId) {
         let mut builder = LirBuilder::new();
         let root = builder.alloc(LirNodeKind::Program);
@@ -183,11 +185,39 @@ fn profile_guided_optimization_reduces_hot_call_sites_on_a_representative_worklo
         )
     }
 
+    let bench_iterations = 64usize;
+
     for (function_name, literals) in [
         ("hot_add", &["1", "2", "3", "4", "5", "6"][..]),
         ("hot_mix", &["1", "2", "3", "4", "5", "6"][..]),
         ("hot_chain", &["1", "2", "3", "4", "5", "6"][..]),
     ] {
+        let release_started = Instant::now();
+        for _ in 0..bench_iterations {
+            let (mut cold_program, _) = build_workload(function_name, &literals);
+            Optimizer::new(OptimizationLevel::Release).optimize_program(&mut cold_program);
+        }
+        let release_elapsed = release_started.elapsed();
+
+        let profile_started = Instant::now();
+        for _ in 0..bench_iterations {
+            let (mut hot_program, _) = build_workload(function_name, &literals);
+            Optimizer::new(OptimizationLevel::Release)
+                .with_profile_data(ProfileData::new(vec![ProfileSample::new(
+                    ProfileSampleKind::Function,
+                    function_name,
+                    8,
+                )]))
+                .optimize_program(&mut hot_program);
+        }
+        let profile_elapsed = profile_started.elapsed();
+
+        eprintln!(
+            "profile-guided optimization benchmark for {function_name}: release={}µs profiled={}µs",
+            release_elapsed.as_micros(),
+            profile_elapsed.as_micros()
+        );
+
         let (mut cold_program, cold_call) = build_workload(function_name, &literals);
         Optimizer::new(OptimizationLevel::Release).optimize_program(&mut cold_program);
         assert_eq!(

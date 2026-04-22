@@ -1,4 +1,7 @@
 2026-04-22 resolution note
+- added the benchmark-style PGO regression in `kali_optimize/src/tests.rs`, timing release versus profile-guided optimization on a hot-function workload while still asserting the hot-call-site reduction, so the Stage 5.5 plan now matches the concrete optimizer evidence instead of only the higher-level determinism checks
+
+2026-04-22 resolution note
 - added CLI smoke coverage for sandbox-attached policies that set positive `resources.maxThreads` on `run` in both text and JSON output, so the Stage 5.1 threaded-profile handoff now records the policy-driven rejection path at the command level as well as in the existing `check` / `test` coverage
 - updated the Stage 5.1 progress note so the historical plan now names `check`, `run`, and `test` alike for the canonical `E5006` thread-budget gate
 

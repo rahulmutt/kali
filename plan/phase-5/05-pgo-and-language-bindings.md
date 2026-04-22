@@ -62,9 +62,10 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - Added JSON-envelope regression coverage for successful `build --profile` runs and unsupported
   version mismatches so the machine-readable PGO path now stays deterministic across repeated
   invocations and still rejects bad profile data through the same command contract.
-- Added a representative PGO benchmark regression that compares the release baseline against the
-  profile-guided build on a hot-function workload, so the stage now records a concrete gain-oriented
-  test in addition to the existing determinism and version-gate coverage.
+- Added a representative PGO benchmark regression that times release versus profile-guided
+  optimization on a hot-function workload while still asserting the hot-call-site reduction, so the
+  stage now records a concrete gain-oriented test in addition to the existing determinism and
+  version-gate coverage.
 - Synced the owning CLI and maturity docs so the build-only `--profile` PGO input is now
   documented as an explicit opt-in rather than a hidden implementation detail.
 
