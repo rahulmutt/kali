@@ -76,6 +76,11 @@ Rules:
 - release notes, README summaries, tests, and examples must read availability from [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md), not from implementation status or planned stage order;
 - implementation sequencing lives in [`PLAN.md`](./PLAN.md), not in this file.
 
+This is the canonical **Phase contracts vs implementation order** rule:
+- `SPEC.md` and the owning chapters define the earliest promised user-visible contract,
+- [`PLAN.md`](./PLAN.md) and `plan/` define the recommended engineering sequence,
+- neither document should be read as silently overriding the other.
+
 ## MVP cut at a glance
 
 This is the normalized Phase-1 product contract.
@@ -93,6 +98,23 @@ This is the normalized Phase-1 product contract.
 | Tooling | Deno-inspired CLI workflow, concise diagnostics, versioned JSON outputs, deterministic artifacts/reports, minimal `init` / `init --lib` scaffolds |
 
 Use the table as a reading aid only. Detailed behavior belongs to the owning chapters and the maturity matrix.
+
+## Host/API Summary
+
+Kali's early host story follows one canonical **host-support staircase**:
+1. shared **Web baseline** primitives,
+2. the **Deno-oriented standalone surface** for Kali-hosted execution,
+3. the **browser-targeted context** for the shared **Phase-1 browser-targeted command set**,
+4. later **Node compatibility surface** work.
+
+Read browser support through command context, not as one blanket runtime promise.
+
+| Host/API layer | Phase-1 normalized contract |
+|---|---|
+| Web baseline | shared across supported standalone and browser-targeted flows |
+| Deno-oriented standalone surface | default Kali-hosted non-browser `run` / `test` surface |
+| Browser-targeted context | `check --api browser` and `build --bundle --api browser` plus equivalent inherited-config forms only |
+| Node compatibility surface | phase-gated; not part of the Phase-1 shipped surface |
 
 ## Phase-1 explicit non-goals
 
@@ -260,6 +282,10 @@ Phase 1 allows practical, budgeted inference strong enough to make TypeScript an
 
 Kali may require explicit annotations at exported/public boundaries or whenever inference would otherwise exceed the bounded inference contract.
 
+### Strictness bundle
+
+Schema v1 exposes one top-level strictness switch, `compilerOptions.strict`, as the canonical **strictness bundle**. It controls checker strictness only; it must not change runtime semantics, sandbox enforcement, package resolution, or feature-maturity gates.
+
 ### Default standalone context (schema v1)
 
 The default non-browser Kali-hosted execution context for `run` and `test` in Phase 1.
@@ -283,9 +309,25 @@ Spec and plan prose may describe long-term target contracts, while some reposito
 
 Browser API ambient types may be available independently of Kali-mediated sandbox/effect handling. Ambient typing breadth does not imply that every browser capability is part of Kali's policy model.
 
+### Kali-mediated capability subset
+
+The stable sandbox/effect vocabulary models only the host capabilities Kali explicitly mediates and can talk about honestly in machine-readable contracts. Ambient API visibility may be broader than this mediated subset, especially in browser-targeted contexts.
+
+### Deno-compatible permission descriptor subset (schema v1)
+
+For the query-only `Deno.permissions` compatibility facade, schema v1 recognizes only the descriptor names `read`, `write`, `env`, and `net`, each projecting onto the corresponding currently modeled capability slice rather than implying the entire long-term Deno permission space.
+
+### Stable permission status subset (schema v1)
+
+Schema v1 permission-observation results are limited to `"granted"` and `"denied"`. Kali does not expose a stable prompt/escalation status in early phases because runtime permission negotiation is not part of the Phase-1 sandbox contract.
+
 ### Kali-hosted execution
 
 Execution where Kali controls the runtime path and enforces its documented runtime/sandbox contract.
+
+### Effective execution envelope
+
+The final runtime capability/resource ceiling for one Kali-hosted execution after defaults, discovered config, attached sandbox policy, and per-invocation tightening flags are merged. CLI overrides may tighten this envelope but must not widen a stricter policy.
 
 ### Base library artifact
 
@@ -294,6 +336,10 @@ The Phase-1 `kali build --lib` output intended for exact-version consumers when 
 ### Public embedding surface
 
 The later stable embedding contract: stable Rust embedding API plus the stable public WIT-first `--lib` contract, with `--capi` and `--component` as explicit projections over that same export surface.
+
+### Library-oriented instantiation rule
+
+Library-oriented outputs do not invent a synthetic executable entrypoint. Normal module-instantiation semantics still run when the host instantiates the artifact, and the statically known exported functions are the host-callable surface layered on top of that initialization step.
 
 ### Binding-package sidecar manifest
 
@@ -349,6 +395,28 @@ Use explicit rungs such as:
 - deployable-through-host.
 
 Do not collapse those rungs into one broad “supported package” claim.
+
+### Registry package identifier vs package coordinate
+
+Kali distinguishes:
+- the **registry package identifier** used in CLI, manifests, lockfile ordering, and diagnostics (`lodash`, `@types/node`, `jsr:@std/path`), and
+- the structured **package coordinate** used in machine-readable payloads (`{ registry, name, version }`).
+
+### Identity-only registry target
+
+Some schema-v1 workflows intentionally accept only a package identity with no inline version or range selector. For those workflows, the user supplies exactly one canonical registry package identifier such as `lodash` or `jsr:@std/path`.
+
+### Exact-version-first registry manifest rule (schema v1)
+
+Registry dependencies recorded in `kali.json` use exact resolved version strings in schema v1. Broad SemVer ranges are intentionally deferred rather than treated as an alternate manifest mode.
+
+### Raw-URL install staging/pin workflow
+
+An explicit raw-URL install pins and materializes shared lock/cache state for that URL without creating a durable manifest dependency entry. Durable ownership of raw URLs still comes from source imports or `kali.json#imports`, so a later plain `kali install` may prune an unreferenced staged URL.
+
+### Install-time declaration graph
+
+The dependency-owning graph that `kali install` reconciles: manifest registry dependencies, import-map rewrites, and source-discovered raw URL imports from the project's canonical discovery set. Non-install commands may analyze explicit files outside that discovery set, but they do not silently redefine this install-owned graph.
 
 ### Public effect-report surface
 
@@ -486,6 +554,10 @@ The source-file class that can serve as a runtime-bearing or build-bearing prima
 ### Minimal canonical scaffold contract
 
 `kali init` creates the smallest valid schema-v1 project scaffold for the selected template in the current working directory. It should avoid speculative dependencies, lockfiles, or optional config sections unless the template explicitly needs them.
+
+### Canonical project file set
+
+The default project-oriented discovery set for formatting, linting, install-time source scanning, and other no-explicit-file workflows. In schema v1 it includes executable/analyzable source files plus declaration-only files under the effective project root, subject to the documented project-boundary and include/exclude rules.
 
 ### Template selection vs build artifact mode split
 

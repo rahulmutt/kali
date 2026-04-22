@@ -11,7 +11,7 @@ Status-label spelling rule:
 Phase-label reading rule:
 - these labels name the **earliest support contract**, not the recommended implementation sequence
 - if a feature is documented early for vocabulary/schema stability, that does not promote it into the current phase by itself
-- use [SPEC.md](../SPEC.md)'s **Phase Contracts vs Implementation Order** guidance whenever roadmap sequencing and maturity labels might otherwise get conflated
+- use [SPEC.md](../SPEC.md)'s **Phase contracts vs implementation order** guidance whenever roadmap sequencing and maturity labels might otherwise get conflated
 
 Bootstrap-triage note:
 - this matrix classifies **phase contracts** and **phase-gated breadth targets** after the normalization rules in [SPEC.md](../SPEC.md)
@@ -476,7 +476,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Concern | Early canonical status | Notes |
 |---|---|---|
 | Core ECMAScript syntax and static ESM graph | Phase 1 MVP | Parser stays broad and should track the latest published standard grammar; unsupported semantics are gated separately |
-| **E1xxx lexing diagnostics** | Phase 1 MVP (opt-in only) | Lexer produces stable E1xxx error codes and recovers from lexing errors; see [specs/15-errors.md](15-errors.md) for the full E1xxx namespace
+| **E2xxx syntax diagnostics** | Phase 1 MVP | Lexer/parser produce stable syntax-error diagnostics and recover enough to continue useful analysis; see [specs/15-errors.md](15-errors.md) for the canonical syntax namespace |
 | Annex B / web-legacy semantics | Later compatibility | Broad syntax support does not imply immediate support for every legacy browser semantic corner |
 | First-class JavaScript compilation with bounded inference | Phase 1 MVP | `.js` is a first-class input under the shared **first-class JavaScript compilation** contract, with early precision bounded by the shared **bounded inference contract** |
 | CommonJS lowering with statically resolvable `require("...")` | Phase 1 MVP | Compile-time transform inside the linked-artifact model |

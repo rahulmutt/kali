@@ -69,7 +69,7 @@ The architecture is intentionally staged so the compiler can become useful early
 
 Reading rule:
 - these are **phase contracts**, not the recommended engineering work queue
-- for implementation sequencing, follow [SPEC.md](../SPEC.md)'s **Recommended Phase-1 Implementation Order** and the shared **Phase Contracts vs Implementation Order** rule
+- for implementation sequencing, follow [`PLAN.md`](../PLAN.md) plus the shared **Phase contracts vs implementation order** rule in [SPEC.md](../SPEC.md)
 - later command/artifact families may still be documented earlier as **defined command families** without becoming Phase-1 support promises
 
 
