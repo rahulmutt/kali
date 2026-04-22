@@ -298,6 +298,47 @@ process.exit(7);
 }
 
 #[test]
+fn browser_harness_launch_failure_preserves_the_resolved_command_vector() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let script = tempdir.path().join("browser-harness.mjs");
+    fs::write(&script, "console.log('unreachable');").expect("write browser harness script");
+
+    let error = browser_harness_run_checked(
+        Some("definitely-not-a-real-browser-runner"),
+        &script,
+        &["alpha".to_string(), "beta".to_string()],
+        tempdir.path(),
+    )
+    .expect_err("launch should fail for a missing executable");
+
+    match error {
+        BrowserHarnessError::LaunchFailed {
+            executable,
+            script: error_script,
+            command,
+            message,
+        } => {
+            assert_eq!(executable, "definitely-not-a-real-browser-runner");
+            assert_eq!(error_script, script);
+            assert_eq!(
+                command,
+                vec![
+                    "definitely-not-a-real-browser-runner".to_string(),
+                    script.display().to_string(),
+                    "alpha".to_string(),
+                    "beta".to_string(),
+                ]
+            );
+            assert!(
+                message.contains("No such file") || message.contains("not found"),
+                "message: {message}"
+            );
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn browser_runtime_unavailable_diagnostic_formats_command_context() {
     let command_diagnostic = browser_runtime_unavailable_diagnostic(Some("run"), None);
     assert!(

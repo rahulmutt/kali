@@ -2322,6 +2322,7 @@ impl BrowserHarnessInvocation {
             .map_err(|error| BrowserHarnessError::LaunchFailed {
                 executable,
                 script: script.clone(),
+                command: command.clone(),
                 message: error.to_string(),
             })?;
 
@@ -2364,6 +2365,8 @@ pub enum BrowserHarnessError {
         executable: String,
         /// The script or entrypoint that was being executed.
         script: PathBuf,
+        /// The fully resolved command line that was being launched.
+        command: Vec<String>,
         /// The launch error message.
         message: String,
     },
@@ -2378,10 +2381,11 @@ impl std::fmt::Display for BrowserHarnessError {
             Self::LaunchFailed {
                 executable,
                 script,
+                command,
                 message,
             } => write!(
                 f,
-                "failed to launch browser harness command {executable:?} for {script:?}: {message}"
+                "failed to launch browser harness command {executable:?} for {script:?} with resolved command {command:?}: {message}"
             ),
         }
     }
