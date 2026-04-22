@@ -3771,7 +3771,7 @@ fn analysis_context_for_api(
     let mut context = EffectAnalysisContext::new(api.to_string());
     context.runtime_profiles = runtime_profiles;
     context.compat_features = compat_features;
-    context
+    context.normalized()
 }
 
 fn validate_source_effects_against_policy(
