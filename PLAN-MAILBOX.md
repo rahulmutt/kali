@@ -1,4 +1,7 @@
 2026-04-22 resolution note
+- added the deterministic binding-package manifest helper and the Python bundle loader for the higher-level language-binding workflow, then updated the Stage 5.5 progress note so the packaging/distribution shape is now explicit alongside the existing Python ctypes helper
+
+2026-04-22 resolution note
 - added browser-bundle smoke coverage for `crypto.subtle.digest` and `crypto.randomUUID`, then updated the Stage 5.4 progress note so the later Web Crypto breadth slice is now pinned at the deployable-through-host boundary as well as in the direct API and package-corpus paths
 
 2026-04-22 resolution note

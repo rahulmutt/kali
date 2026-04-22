@@ -59,6 +59,32 @@ pub fn generate_metadata(
     })
 }
 
+/// Generate a deterministic packaging manifest for higher-level language bindings.
+pub fn generate_binding_package_manifest(
+    module_name: impl AsRef<str>,
+    library_path: impl AsRef<str>,
+    metadata_path: impl AsRef<str>,
+    exports_header_path: impl AsRef<str>,
+    glue_paths: &[String],
+) -> Value {
+    let mut glue_paths: Vec<_> = glue_paths.iter().map(String::as_str).collect();
+    glue_paths.sort();
+
+    json!({
+        "schemaVersion": 1,
+        "kind": "binding-package",
+        "moduleName": module_name.as_ref(),
+        "hostAbiVersion": HOST_ABI_VERSION,
+        "minHostAbiVersion": HOST_ABI_VERSION,
+        "artifacts": {
+            "library": library_path.as_ref(),
+            "metadata": metadata_path.as_ref(),
+            "exportsHeader": exports_header_path.as_ref(),
+            "glue": glue_paths,
+        },
+    })
+}
+
 /// Generate a deterministic C header for the provided export surface.
 pub fn generate_header(module_name: &str, exports: &[Export]) -> String {
     let mut header = String::new();

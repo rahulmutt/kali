@@ -16,6 +16,30 @@ fn metadata_generation_includes_expected_artifacts() {
 }
 
 #[test]
+fn binding_package_manifest_orders_glue_deterministically() {
+    let manifest = generate_binding_package_manifest(
+        "sample",
+        "sample.capi.wasm",
+        "sample.cabi.json",
+        "sample.h",
+        &vec!["support.py".to_string(), "shim.py".to_string()],
+    );
+
+    assert_eq!(manifest["schemaVersion"], 1);
+    assert_eq!(manifest["kind"], "binding-package");
+    assert_eq!(manifest["moduleName"], "sample");
+    assert_eq!(manifest["hostAbiVersion"], HOST_ABI_VERSION);
+    assert_eq!(manifest["minHostAbiVersion"], HOST_ABI_VERSION);
+    assert_eq!(manifest["artifacts"]["library"], "sample.capi.wasm");
+    assert_eq!(manifest["artifacts"]["metadata"], "sample.cabi.json");
+    assert_eq!(manifest["artifacts"]["exportsHeader"], "sample.h");
+    assert_eq!(
+        manifest["artifacts"]["glue"],
+        serde_json::json!(["shim.py", "support.py"])
+    );
+}
+
+#[test]
 fn header_generation_produces_c_compatible_prototypes() {
     let header = generate_header("lib", &[Export::new("add", 2), Export::new("1bad-name", 0)]);
 
@@ -68,15 +92,19 @@ import sys
 sys.path.insert(0, r"{}")
 from kali_capi import (
     HOST_ABI_VERSION,
+    BindingPackageManifest,
     Export,
     KaliCAPI,
+    ensure_compatible_binding_package_manifest,
     ensure_compatible_metadata,
+    load_binding_package_manifest,
     load_metadata,
     parse_exports,
 )
 
 header = Path(r"{}").read_text()
-metadata = load_metadata(r"{}")
+metadata_path = Path(r"{}")
+metadata = load_metadata(metadata_path)
 exports = parse_exports(header)
 assert exports == [Export("add", 2), Export("zero", 0)]
 assert metadata.host_abi_version == HOST_ABI_VERSION
@@ -87,6 +115,15 @@ assert metadata.artifacts == {{
     "wasmModule": "sample.capi.wasm",
 }}
 assert ensure_compatible_metadata(metadata) == metadata
+
+manifest = load_binding_package_manifest(Path(r"{}"))
+assert isinstance(manifest, BindingPackageManifest)
+assert manifest.host_abi_version == HOST_ABI_VERSION
+assert manifest.min_host_abi_version == HOST_ABI_VERSION
+assert manifest.module_name == "sample"
+assert manifest.artifacts["glue"] == ("shim.py", "support.py")
+assert manifest.artifacts["library"] == "sample.capi.wasm"
+assert ensure_compatible_binding_package_manifest(manifest) == manifest
 
 class DummyLibrary:
     def __init__(self):
@@ -100,7 +137,7 @@ class DummyLibrary:
         self.calls.append(("zero",))
         return 7
 
-binding = KaliCAPI.from_header_and_metadata(DummyLibrary(), header, Path(r"{}").read_text())
+binding = KaliCAPI.from_binding_package(DummyLibrary(), Path(r"{}"))
 assert binding.exports == tuple(exports)
 assert binding.add(2, 3) == 5
 assert binding.zero() == 7
@@ -109,9 +146,24 @@ assert binding._library.calls == [("add", 2, 3), ("zero",)]
         binding_root.display(),
         header_path.display(),
         metadata_path.display(),
-        metadata_path.display(),
+        temp_root.join("binding-package.json").display(),
+        temp_root.display(),
     );
     fs::write(&script_path, script).expect("write python exercise script");
+
+    let binding_manifest = generate_binding_package_manifest(
+        "sample",
+        "sample.capi.wasm",
+        "sample.cabi.json",
+        "sample.h",
+        &vec!["support.py".to_string(), "shim.py".to_string()],
+    );
+    fs::write(
+        temp_root.join("binding-package.json"),
+        binding_manifest.to_string(),
+    )
+    .expect("write binding manifest fixture");
+    fs::write(temp_root.join("sample.capi.wasm"), b"").expect("write library placeholder");
 
     let status = Command::new("python3")
         .arg(&script_path)
