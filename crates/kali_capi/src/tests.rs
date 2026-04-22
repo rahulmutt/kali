@@ -54,20 +54,39 @@ fn python_binding_wraps_generated_header_exports() {
     fs::create_dir_all(&temp_root).expect("temp dir");
 
     let header = generate_header("sample", &[Export::new("add", 2), Export::new("zero", 0)]);
+    let metadata = generate_metadata("sample.capi.wasm", "sample.wit", "sample.exports.h");
     let header_path = temp_root.join("sample.h");
+    let metadata_path = temp_root.join("sample.cabi.json");
     let script_path = temp_root.join("exercise_binding.py");
     fs::write(&header_path, header).expect("write header fixture");
+    fs::write(&metadata_path, metadata.to_string()).expect("write metadata fixture");
 
     let script = format!(
         r#"from pathlib import Path
 import sys
 
 sys.path.insert(0, r"{}")
-from kali_capi import Export, KaliCAPI, parse_exports
+from kali_capi import (
+    HOST_ABI_VERSION,
+    Export,
+    KaliCAPI,
+    ensure_compatible_metadata,
+    load_metadata,
+    parse_exports,
+)
 
 header = Path(r"{}").read_text()
+metadata = load_metadata(r"{}")
 exports = parse_exports(header)
 assert exports == [Export("add", 2), Export("zero", 0)]
+assert metadata.host_abi_version == HOST_ABI_VERSION
+assert metadata.min_host_abi_version == HOST_ABI_VERSION
+assert metadata.artifacts == {{
+    "exportsHeader": "sample.exports.h",
+    "wit": "sample.wit",
+    "wasmModule": "sample.capi.wasm",
+}}
+assert ensure_compatible_metadata(metadata) == metadata
 
 class DummyLibrary:
     def __init__(self):
@@ -81,7 +100,7 @@ class DummyLibrary:
         self.calls.append(("zero",))
         return 7
 
-binding = KaliCAPI.from_header(DummyLibrary(), header)
+binding = KaliCAPI.from_header_and_metadata(DummyLibrary(), header, Path(r"{}").read_text())
 assert binding.exports == tuple(exports)
 assert binding.add(2, 3) == 5
 assert binding.zero() == 7
@@ -89,6 +108,80 @@ assert binding._library.calls == [("add", 2, 3), ("zero",)]
 "#,
         binding_root.display(),
         header_path.display(),
+        metadata_path.display(),
+        metadata_path.display(),
+    );
+    fs::write(&script_path, script).expect("write python exercise script");
+
+    let status = Command::new("python3")
+        .arg(&script_path)
+        .current_dir(repo_root)
+        .status()
+        .expect("run python binding test");
+    assert!(
+        status.success(),
+        "python binding helper exited with {status}"
+    );
+}
+
+#[test]
+fn python_binding_rejects_incompatible_host_abi_metadata() {
+    if Command::new("python3").arg("--version").output().is_err() {
+        return;
+    }
+
+    let cargo_manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo_root = cargo_manifest_dir
+        .parent()
+        .and_then(|path| path.parent())
+        .expect("repo root");
+    let binding_root = repo_root.join("bindings/python");
+    let temp_root = std::env::temp_dir().join(format!(
+        "kali_capi_python_binding_{}_reject_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("monotonic time")
+            .as_nanos()
+    ));
+    fs::create_dir_all(&temp_root).expect("temp dir");
+
+    let header = generate_header("sample", &[Export::new("add", 2)]);
+    let metadata = generate_metadata("sample.capi.wasm", "sample.wit", "sample.exports.h");
+    let header_path = temp_root.join("sample.h");
+    let metadata_path = temp_root.join("sample.cabi.json");
+    let script_path = temp_root.join("exercise_incompatible_binding.py");
+    fs::write(&header_path, header).expect("write header fixture");
+    fs::write(&metadata_path, metadata.to_string()).expect("write metadata fixture");
+
+    let script = format!(
+        r#"from pathlib import Path
+import sys
+
+sys.path.insert(0, r"{}")
+from kali_capi import KaliCAPI
+
+class DummyLibrary:
+    def add(self, left, right):
+        return left + right
+
+header = Path(r"{}").read_text()
+metadata = Path(r"{}").read_text()
+try:
+    KaliCAPI.from_header_and_metadata(
+        DummyLibrary(),
+        header,
+        metadata,
+        available_host_abi_version=3,
+    )
+except ValueError as error:
+    assert "incompatible" in str(error)
+else:
+    raise AssertionError("expected incompatible metadata to be rejected")
+"#,
+        binding_root.display(),
+        header_path.display(),
+        metadata_path.display(),
     );
     fs::write(&script_path, script).expect("write python exercise script");
 

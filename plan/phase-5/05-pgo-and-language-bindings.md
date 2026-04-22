@@ -35,6 +35,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - Added a maintained Python ctypes binding helper over the generated Kali C ABI header, giving the
   later language-binding lane one concrete non-Rust wrapper surface to preserve alongside the
   stable ABI metadata and export layout.
+- Added deterministic host ABI metadata parsing and compatibility checks to the Python ctypes
+  helper, so the binding path now validates the generated `cabi-metadata` version window before
+  exposing exports.
 
 ## Tasks
 

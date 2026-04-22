@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-22 resolution note
+- added deterministic host ABI metadata parsing and compatibility checks to the Python ctypes binding helper, so the Stage 5.5 language-binding lane now validates `cabi-metadata` version windows before exposing exports
+- updated the Stage 5.5 progress note to record the metadata-gated binding path alongside the existing Python wrapper helper
+
+2026-04-22 resolution note
 - added a profile-guided inlining hook in `kali_optimize` so hot functions recorded in deterministic profile data now widen the inlining budget instead of leaving the PGO lane as collection-only plumbing
 - updated the Stage 5.5 progress note to record that the later PGO lane now affects a concrete optimizer decision
 
