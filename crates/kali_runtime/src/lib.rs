@@ -128,6 +128,38 @@ impl RuntimeHostContract {
     }
 }
 
+/// Canonical metadata for the later standalone browser runtime contract.
+///
+/// The contract is intentionally declarative for now: it documents the intended
+/// execution surface without claiming the runtime itself is available yet.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct BrowserRuntimeContract;
+
+impl BrowserRuntimeContract {
+    /// The command family the future browser runtime contract will own.
+    pub const SUPPORTED_COMMANDS: [&'static str; 2] = ["run", "test"];
+
+    /// Return the canonical host-contract label used in diagnostics.
+    pub const fn host_label() -> &'static str {
+        RuntimeHostContract::BrowserRequested.canonical_label()
+    }
+
+    /// Return the high-level host description for the future browser runtime.
+    pub const fn host_description() -> &'static str {
+        "real browser host"
+    }
+
+    /// Return the future browser runtime contract's supported command names.
+    pub const fn supported_commands() -> &'static [&'static str] {
+        &Self::SUPPORTED_COMMANDS
+    }
+
+    /// Return the browser-runtime request diagnostic hint.
+    pub const fn diagnostic_hint() -> &'static str {
+        "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work."
+    }
+}
+
 /// Result of executing a WASM module.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RuntimeOutcome {
@@ -1965,8 +1997,8 @@ pub fn browser_runtime_unavailable_diagnostic(
     command: Option<&str>,
     context: Option<DiagnosticContext>,
 ) -> Diagnostic {
-    let hint = "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.";
-    let contract = RuntimeHostContract::BrowserRequested.canonical_label();
+    let hint = BrowserRuntimeContract::diagnostic_hint();
+    let contract = BrowserRuntimeContract::host_label();
     let message = match command {
         Some(command) => format!(
             "{command} does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract (selected host contract: {contract}). {hint}"

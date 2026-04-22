@@ -35,6 +35,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - Direct `kali_runtime` callers that select the browser API surface now carry a minimal structured diagnostic context too (`origin = default`, `effectiveValue = browser`), so the runtime-layer gate is machine-readable even when the CLI is not the entrypoint.
 - The runtime execution path now threads the selected host contract through successful `RuntimeOutcome` values as well, so later browser backend work has one explicit execution-contract field to reuse without guessing from the API-surface string.
 - Direct runtime browser-gate diagnostics now reuse a shared browser-request context helper, so the `run` / `test` rejection path carries the same requested/effective browser context shape as the CLI entrypoint instead of dropping the requested value on the floor.
+- Added a browser-runtime contract descriptor in `kali_runtime` that records the intended future `run` / `test` command family, the canonical `browser-requested` host label, and the current browser-targeted command-set hint so the stage has a single shared contract definition to build on.
 - The CLI JSON payloads for successful `run` and `test` invocations now carry the canonical `hostContract` label alongside the exit/runtime counters, so machine-readable consumers can read the active execution contract without scraping the diagnostics path.
 
 ## Tasks

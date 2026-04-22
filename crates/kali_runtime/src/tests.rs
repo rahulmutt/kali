@@ -112,6 +112,21 @@ fn runtime_reports_browser_host_contract_for_browser_api_surface() {
 }
 
 #[test]
+fn browser_runtime_contract_documents_the_future_execution_surface() {
+    assert_eq!(BrowserRuntimeContract::host_label(), "browser-requested");
+    assert_eq!(
+        BrowserRuntimeContract::host_description(),
+        "real browser host"
+    );
+    assert_eq!(
+        BrowserRuntimeContract::supported_commands(),
+        &["run", "test"]
+    );
+    assert!(BrowserRuntimeContract::diagnostic_hint().contains("kali check --api browser"));
+    assert!(BrowserRuntimeContract::diagnostic_hint().contains("kali build --bundle --api browser"));
+}
+
+#[test]
 fn browser_runtime_unavailable_diagnostic_formats_command_context() {
     let command_diagnostic = browser_runtime_unavailable_diagnostic(Some("run"), None);
     assert!(
