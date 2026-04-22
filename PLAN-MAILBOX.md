@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-22 resolution note
+- added a profile-guided inlining hook in `kali_optimize` so hot functions recorded in deterministic profile data now widen the inlining budget instead of leaving the PGO lane as collection-only plumbing
+- updated the Stage 5.5 progress note to record that the later PGO lane now affects a concrete optimizer decision
+
+2026-04-22 resolution note
 - added the deterministic PGO profile-data format and optimizer plumbing in `kali_optimize`, so the Stage 5.5 plan now records the first collection/normalization groundwork for the later PGO lane
 - updated the Stage 5.5 plan file to mark the stage as in progress and to call out the new normalization and JSON round-trip coverage
 

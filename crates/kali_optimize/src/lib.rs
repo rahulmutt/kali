@@ -830,11 +830,7 @@ impl Optimizer {
         }
 
         if let Some(inline_body) = summary.inline_body {
-            let inline_threshold = match self.level {
-                OptimizationLevel::Release => 12,
-                OptimizationLevel::ReleaseAdvanced => 24,
-                _ => 0,
-            };
+            let inline_threshold = self.inline_threshold_for_function(callee_name);
             if summary.node_count <= inline_threshold && !summary.recursive {
                 let key = format!(
                     "inline:{}:{}",
@@ -1596,6 +1592,33 @@ impl Optimizer {
         });
         memo.insert(id, new_id);
         new_id
+    }
+
+    fn inline_threshold_for_function(&self, callee_name: &str) -> usize {
+        let base_threshold: usize = match self.level {
+            OptimizationLevel::Release => 12,
+            OptimizationLevel::ReleaseAdvanced => 24,
+            _ => 0,
+        };
+
+        if base_threshold == 0 {
+            return 0;
+        }
+
+        if self.is_hot_function(callee_name) {
+            base_threshold.saturating_mul(2)
+        } else {
+            base_threshold
+        }
+    }
+
+    fn is_hot_function(&self, callee_name: &str) -> bool {
+        const HOT_FUNCTION_MINIMUM_WEIGHT: u64 = 8;
+
+        self.profile_data
+            .as_ref()
+            .and_then(|profile| profile.sample_weight(ProfileSampleKind::Function, callee_name))
+            .is_some_and(|weight| weight >= HOT_FUNCTION_MINIMUM_WEIGHT)
     }
 
     fn call_signature(&self, program: &LirProgram, node: &LirNode) -> String {

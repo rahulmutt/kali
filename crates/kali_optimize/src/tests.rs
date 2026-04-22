@@ -5,6 +5,41 @@ fn literal(builder: &mut LirBuilder, value: &str) -> LirNodeId {
     builder.alloc_text(LirNodeKind::Literal, value)
 }
 
+fn build_hot_add_program() -> (LirProgram, LirNodeId) {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let function = builder.alloc_text(LirNodeKind::Instruction, "hot_add");
+    let param = builder.alloc_text(LirNodeKind::Value, "value");
+    let block = builder.alloc(LirNodeKind::Block);
+    let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+    let mut expression = param;
+
+    for literal_text in ["1", "2", "3", "4", "5", "6"] {
+        let add = builder.alloc_text(LirNodeKind::Value, "+");
+        let literal = literal(&mut builder, literal_text);
+        builder.node_mut(add).unwrap().children = vec![expression, literal];
+        expression = add;
+    }
+
+    builder.node_mut(ret).unwrap().children = vec![expression];
+    builder.node_mut(block).unwrap().children = vec![ret];
+    builder.node_mut(function).unwrap().children = vec![param, block];
+
+    let call = builder.alloc(LirNodeKind::Call);
+    let callee = builder.alloc_text(LirNodeKind::Value, "hot_add");
+    let argument = builder.alloc_text(LirNodeKind::Value, "input");
+    builder.node_mut(call).unwrap().children = vec![callee, argument];
+    builder.node_mut(root).unwrap().children = vec![function, call];
+
+    (
+        LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        },
+        call,
+    )
+}
+
 #[test]
 fn release_constant_folds_binary_expressions() {
     let mut builder = LirBuilder::new();
@@ -45,6 +80,31 @@ fn optimizer_carries_normalized_profile_data() {
         ]
     );
     assert_eq!(profile.hot_function_keys(3), vec!["hot-path".to_string()]);
+}
+
+#[test]
+fn hot_function_profile_data_expands_inlining_budget() {
+    let (mut cold_program, call) = build_hot_add_program();
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut cold_program);
+    assert_eq!(cold_program.nodes[call.0 as usize].kind, LirNodeKind::Call);
+
+    let (mut hot_program, call) = build_hot_add_program();
+    Optimizer::new(OptimizationLevel::Release)
+        .with_profile_data(ProfileData::new(vec![ProfileSample::new(
+            ProfileSampleKind::Function,
+            "hot_add",
+            8,
+        )]))
+        .optimize_program(&mut hot_program);
+
+    let optimized_call = &hot_program.nodes[call.0 as usize];
+    assert_eq!(optimized_call.kind, LirNodeKind::Value);
+    assert_eq!(optimized_call.text.as_deref(), Some("+"));
+    assert_eq!(
+        optimized_call.children.len(),
+        2,
+        "inlined hot call should expose the expanded expression tree"
+    );
 }
 
 #[test]

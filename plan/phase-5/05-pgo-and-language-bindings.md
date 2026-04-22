@@ -29,6 +29,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - Wired the optimizer to carry normalized profile data as an explicit optional input, keeping the
   future profile-guided decision points isolated from the existing release/release-advanced
   vocabulary.
+- Added the first profile-guided optimization hook by widening the inlining budget for hot
+  functions recorded in profile data, so the later PGO lane now influences a concrete optimization
+  decision instead of remaining collection-only plumbing.
 
 ## Tasks
 
