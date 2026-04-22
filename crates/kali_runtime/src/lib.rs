@@ -164,6 +164,8 @@ pub struct BrowserRuntimeContractDescriptor {
     pub host_label: &'static str,
     /// High-level description of the intended browser host.
     pub host_description: &'static str,
+    /// Stable note that names the intended browser host.
+    pub host_description_note: &'static str,
     /// Future browser runtime command names.
     pub supported_commands: &'static [&'static str],
     /// Stable note that names the browser runtime command family.
@@ -203,6 +205,7 @@ impl BrowserRuntimeContract {
         BrowserRuntimeContractDescriptor {
             host_label: Self::host_label(),
             host_description: Self::host_description(),
+            host_description_note: Self::host_description_note(),
             supported_commands: Self::supported_commands(),
             supported_commands_note: Self::supported_commands_note(),
             diagnostic_hint: Self::diagnostic_hint(),
@@ -2105,7 +2108,7 @@ pub fn browser_runtime_unavailable_diagnostic(
         .note(browser_contract.supported_commands_note)
         .note(browser_contract.summary_note)
         .note(browser_contract.contract_scope_note)
-        .note(BrowserRuntimeContract::host_description_note());
+        .note(browser_contract.host_description_note);
     if let Some(context) = context {
         diagnostic = diagnostic.with_context(context);
     }

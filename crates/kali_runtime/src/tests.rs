@@ -118,6 +118,10 @@ fn browser_runtime_contract_documents_the_future_execution_surface() {
 
     assert_eq!(descriptor.host_label, "browser-requested");
     assert_eq!(descriptor.host_description, "real browser host");
+    assert_eq!(
+        descriptor.host_description_note,
+        "browser runtime host description: real browser host"
+    );
     assert_eq!(descriptor.supported_commands, &["run", "test"]);
     assert_eq!(
         descriptor.supported_commands_note,
