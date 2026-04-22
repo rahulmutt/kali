@@ -833,6 +833,10 @@ fn run_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
     assert!(stderr.contains("browser API surface"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("standalone browser runtime contract"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -865,6 +869,13 @@ fn json_run_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("browser rejection message")
+            .contains("standalone browser runtime contract"),
+        "errors: {errors:?}"
+    );
 }
 
 #[test]
@@ -4038,6 +4049,10 @@ fn test_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
     assert!(stderr.contains("browser API surface"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("standalone browser runtime contract"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -4070,6 +4085,13 @@ fn json_test_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("browser rejection message")
+            .contains("standalone browser runtime contract"),
+        "errors: {errors:?}"
+    );
 }
 
 #[test]

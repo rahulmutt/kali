@@ -914,7 +914,9 @@ fn reject_unavailable_browser_runtime(
 
     let diagnostic = Diagnostic::error(
         e5::FEATURE_UNAVAILABLE as u32,
-        format!("{command} does not support the browser API surface in this phase"),
+        format!(
+            "{command} does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract"
+        ),
     );
     emit_diagnostics_and_exit(
         command,
