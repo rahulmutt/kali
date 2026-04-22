@@ -913,7 +913,7 @@ fn reject_unavailable_browser_runtime(
 
     let diagnostic = Diagnostic::error(
         e5::FEATURE_UNAVAILABLE as u32,
-        "selected API surface is unavailable in this phase",
+        format!("{command} does not support the browser API surface in this phase"),
     );
     emit_diagnostics_and_exit(
         command,
@@ -2406,14 +2406,6 @@ fn test_command(
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
-    if matches!(api, Some(kali_cli::ApiSurface::Browser)) {
-        let diagnostic = Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            "selected API surface is unavailable in this phase",
-        );
-        return emit_diagnostics_and_exit("test", vec![diagnostic], 1, output, None, None);
-    }
-
     let effective_api = match resolve_effective_api_surface(api) {
         Ok(api) => api,
         Err(diagnostics) => {

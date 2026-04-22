@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-22 resolution note
+- tightened the Stage 5.2 browser-runtime rejection path so `test` now uses the shared browser-runtime helper instead of a generic one-off gate, and the diagnostic text names the browser API surface explicitly for both `run` and `test`
+- added sandbox-attached browser-gate regressions for `run` and `test` in both text and JSON modes, then updated the Stage 5.2 progress note so the historical plan records the new honesty coverage
+
+2026-04-22 resolution note
 - centralized runtime-profile normalization in `kali_runtime` and reused the shared helper from the CLI runtime-profile resolver plus incremental cache-key derivation, so the threaded-profile canonicalization path now lives in one place across the runtime-adjacent callers
 - updated the Stage 5.1 progress note to record the shared-helper rollout alongside the existing runtime-profile validation and preservation coverage
 
