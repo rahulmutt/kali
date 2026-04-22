@@ -79,3 +79,6 @@ Proposed fix:
 
 2026-04-22 resolution note
 - documented the build-only `--profile` PGO input in `specs/12-cli.md`, added the matching later-compatibility row in `specs/19-feature-maturity.md`, and kept the README build summary aligned so the explicit opt-in PGO flag is no longer a hidden implementation detail
+
+2026-04-22 resolution note
+- synchronized the proof-summary docs so they now pin `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocatedAndLinearMemory` and `KaliCore.Safety.releaseAndDecrementLiveRefsAreOwnedAndAllocatedAndLinearMemory` alongside the collection-helper companion, keeping the proof-summary anti-drift guard aligned with the proof tree

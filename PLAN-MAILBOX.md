@@ -345,3 +345,6 @@ Proposed fix:
 - the Stage 5.4 browser package-corpus baseline should be widened to exercise `crypto.subtle.digest` so the later Web Crypto breadth slice has package-evidence coverage alongside the direct API tests
 2026-04-22 resolution note
 - widened the Stage 5.4 browser package-corpus baseline with `crypto.subtle.digest` coverage and added SHA-384/SHA-512 digest tests in `kali_api_web`, so the later Web Crypto breadth slice now has both direct API and package-evidence coverage
+
+2026-04-22 resolution note
+- synchronized the Stage 4.2 plan/status trackers so they now name `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocatedAndLinearMemory` and `KaliCore.Safety.releaseAndDecrementLiveRefsAreOwnedAndAllocatedAndLinearMemory` alongside the collection-helper companion, keeping the follow-up lane aligned with the proof tree
