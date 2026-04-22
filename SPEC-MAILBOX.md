@@ -1,6 +1,9 @@
 # SPEC mailbox
 
 2026-04-22 resolution note
+- the CLI and maturity docs already reflect the explicit build-only `--profile` PGO input, so the public command surface now calls it out as an explicit opt-in rather than a hidden implementation detail
+
+2026-04-22 resolution note
 - clarified the build-only `--profile` PGO input in `specs/12-cli.md` and `specs/19-feature-maturity.md` so the public command surface now calls it out as an explicit opt-in rather than a hidden implementation detail
 
 2026-04-22 follow-up note
