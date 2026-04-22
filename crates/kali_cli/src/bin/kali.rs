@@ -17,7 +17,7 @@ use kali_cli::{
     output::{self, CliOutputOptions},
     Args, BundleFormat, Commands,
 };
-use kali_error::{_error_codes::e5, Diagnostic};
+use kali_error::{_error_codes::e5, Diagnostic, DiagnosticContext, DiagnosticContextOrigin};
 use kali_fmt::format_source;
 use kali_lint::lint_with_options;
 use kali_npm::{
@@ -939,6 +939,7 @@ fn reject_unavailable_runtime_profiles(
 fn reject_unavailable_browser_runtime(
     command: &str,
     api_surface: kali_cli::ApiSurface,
+    browser_context: Option<DiagnosticContext>,
     output: &CliOutputOptions,
     source_path: Option<&Path>,
     source_contents: Option<&str>,
@@ -947,7 +948,7 @@ fn reject_unavailable_browser_runtime(
         return Ok(());
     }
 
-    let diagnostic = browser_runtime_unavailable_diagnostic(Some(command));
+    let diagnostic = browser_runtime_unavailable_diagnostic(Some(command), browser_context);
     emit_diagnostics_and_exit(
         command,
         vec![diagnostic],
@@ -2389,9 +2390,30 @@ fn run_command(
         }
     };
 
-    if let Err(exit_code) =
-        reject_unavailable_browser_runtime("run", effective_api, output, None, None)
-    {
+    let browser_context = if matches!(effective_api, kali_cli::ApiSurface::Browser) {
+        Some(if api.is_some() {
+            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
+                .with_flag("--api")
+                .with_requested_value("browser")
+                .with_effective_value("browser")
+        } else {
+            DiagnosticContext::new(DiagnosticContextOrigin::Config)
+                .with_config_path("compilerOptions.apiSurface")
+                .with_requested_value("browser")
+                .with_effective_value("browser")
+        })
+    } else {
+        None
+    };
+
+    if let Err(exit_code) = reject_unavailable_browser_runtime(
+        "run",
+        effective_api,
+        browser_context,
+        output,
+        None,
+        None,
+    ) {
         return Err(exit_code);
     }
 
@@ -2544,9 +2566,30 @@ fn test_command(
         }
     };
 
-    if let Err(exit_code) =
-        reject_unavailable_browser_runtime("test", effective_api, output, None, None)
-    {
+    let browser_context = if matches!(effective_api, kali_cli::ApiSurface::Browser) {
+        Some(if api.is_some() {
+            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
+                .with_flag("--api")
+                .with_requested_value("browser")
+                .with_effective_value("browser")
+        } else {
+            DiagnosticContext::new(DiagnosticContextOrigin::Config)
+                .with_config_path("compilerOptions.apiSurface")
+                .with_requested_value("browser")
+                .with_effective_value("browser")
+        })
+    } else {
+        None
+    };
+
+    if let Err(exit_code) = reject_unavailable_browser_runtime(
+        "test",
+        effective_api,
+        browser_context,
+        output,
+        None,
+        None,
+    ) {
         return Err(exit_code);
     }
 

@@ -26,6 +26,8 @@ pub struct Diagnostic {
     pub suggestion: Option<String>,
     /// Additional notes or context.
     pub notes: Vec<String>,
+    /// Structured command/config context when the diagnostic depends on the effective invocation state.
+    pub context: Option<Box<DiagnosticContext>>,
 }
 
 impl Diagnostic {
@@ -38,6 +40,7 @@ impl Diagnostic {
             span: None,
             suggestion: None,
             notes: Vec::new(),
+            context: None,
         }
     }
 
@@ -50,6 +53,7 @@ impl Diagnostic {
             span: None,
             suggestion: None,
             notes: Vec::new(),
+            context: None,
         }
     }
 
@@ -62,6 +66,7 @@ impl Diagnostic {
             span: None,
             suggestion: None,
             notes: Vec::new(),
+            context: None,
         }
     }
 
@@ -74,6 +79,7 @@ impl Diagnostic {
             span: None,
             suggestion: None,
             notes: Vec::new(),
+            context: None,
         }
     }
 
@@ -86,6 +92,7 @@ impl Diagnostic {
             span: None,
             suggestion: None,
             notes: Vec::new(),
+            context: None,
         }
     }
 
@@ -107,6 +114,13 @@ impl Diagnostic {
     #[must_use]
     pub fn note(mut self, text: impl Into<String>) -> Self {
         self.notes.push(text.into());
+        self
+    }
+
+    /// Attach structured command/config context to this diagnostic.
+    #[must_use]
+    pub fn with_context(mut self, context: DiagnosticContext) -> Self {
+        self.context = Some(Box::new(context));
         self
     }
 
@@ -159,6 +173,75 @@ impl Diagnostic {
 
         output
     }
+}
+
+/// Structured command/config context for diagnostics.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub struct DiagnosticContext {
+    /// Where the effective value came from.
+    pub origin: DiagnosticContextOrigin,
+    /// Canonical config path when a discovered/inherited config value caused the diagnostic.
+    pub config_path: Option<String>,
+    /// Canonical CLI flag spelling when an explicit flag caused the diagnostic.
+    pub flag: Option<String>,
+    /// User-requested value before normalization, if relevant.
+    pub requested_value: Option<String>,
+    /// Normalized value the command actually validated against.
+    pub effective_value: Option<String>,
+}
+
+impl DiagnosticContext {
+    /// Construct a context value with the given origin.
+    pub fn new(origin: DiagnosticContextOrigin) -> Self {
+        Self {
+            origin,
+            config_path: None,
+            flag: None,
+            requested_value: None,
+            effective_value: None,
+        }
+    }
+
+    /// Attach a config path to the context.
+    #[must_use]
+    pub fn with_config_path(mut self, config_path: impl Into<String>) -> Self {
+        self.config_path = Some(config_path.into());
+        self
+    }
+
+    /// Attach a CLI flag to the context.
+    #[must_use]
+    pub fn with_flag(mut self, flag: impl Into<String>) -> Self {
+        self.flag = Some(flag.into());
+        self
+    }
+
+    /// Attach the requested value to the context.
+    #[must_use]
+    pub fn with_requested_value(mut self, requested_value: impl Into<String>) -> Self {
+        self.requested_value = Some(requested_value.into());
+        self
+    }
+
+    /// Attach the effective value to the context.
+    #[must_use]
+    pub fn with_effective_value(mut self, effective_value: impl Into<String>) -> Self {
+        self.effective_value = Some(effective_value.into());
+        self
+    }
+}
+
+/// Canonical source of an effective diagnostic context.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
+pub enum DiagnosticContextOrigin {
+    Cli,
+    Config,
+    Default,
+    Source,
 }
 
 impl fmt::Display for Diagnostic {

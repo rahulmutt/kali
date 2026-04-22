@@ -7,7 +7,7 @@ use kali_api_node::{
 use kali_api_web::{fill_random_values, performance_now, random_uuid};
 use kali_error::{
     _error_codes::{e4, e5},
-    Diagnostic,
+    Diagnostic, DiagnosticContext,
 };
 use kali_sandbox::{HostOperation, SandboxPolicy};
 use reqwest::blocking;
@@ -299,7 +299,7 @@ impl RuntimeCtx {
     ) -> Result<RuntimeOutcome, Vec<Diagnostic>> {
         match self.host_contract() {
             RuntimeHostContract::BrowserRequested => {
-                return Err(vec![browser_runtime_unavailable_diagnostic(None)]);
+                return Err(vec![browser_runtime_unavailable_diagnostic(None, None)]);
             }
             RuntimeHostContract::KaliHosted => {}
         }
@@ -1956,7 +1956,10 @@ fn runtime_error_diagnostic(error: impl std::fmt::Display) -> Diagnostic {
     }
 }
 
-pub fn browser_runtime_unavailable_diagnostic(command: Option<&str>) -> Diagnostic {
+pub fn browser_runtime_unavailable_diagnostic(
+    command: Option<&str>,
+    context: Option<DiagnosticContext>,
+) -> Diagnostic {
     let hint = "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.";
     let contract = RuntimeHostContract::BrowserRequested.canonical_label();
     let message = match command {
@@ -1967,8 +1970,12 @@ pub fn browser_runtime_unavailable_diagnostic(command: Option<&str>) -> Diagnost
             "browser API surface is not available in the current runtime contract (selected host contract: {contract}); Kali does not yet define a standalone browser runtime contract. {hint}"
         ),
     };
-    Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message)
-        .note(format!("selected host contract: {contract}"))
+    let mut diagnostic = Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message)
+        .note(format!("selected host contract: {contract}"));
+    if let Some(context) = context {
+        diagnostic = diagnostic.with_context(context);
+    }
+    diagnostic
 }
 
 fn enforce_operation(state: &mut KaliHostState, op: HostOperation) -> wasmtime::Result<()> {

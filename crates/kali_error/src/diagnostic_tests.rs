@@ -19,3 +19,19 @@ fn test_terminal_format_uses_canonical_prefixes() {
     assert!(formatted.contains("= help: change the value or the type annotation"));
     assert!(formatted.contains("= note: strict null checks are enabled"));
 }
+
+#[test]
+fn test_diagnostic_context_builder_retains_effective_values() {
+    let context = DiagnosticContext::new(DiagnosticContextOrigin::Config)
+        .with_config_path("compilerOptions.apiSurface")
+        .with_requested_value("browser")
+        .with_effective_value("browser");
+
+    assert_eq!(context.origin, DiagnosticContextOrigin::Config);
+    assert_eq!(
+        context.config_path.as_deref(),
+        Some("compilerOptions.apiSurface")
+    );
+    assert_eq!(context.requested_value.as_deref(), Some("browser"));
+    assert_eq!(context.effective_value.as_deref(), Some("browser"));
+}

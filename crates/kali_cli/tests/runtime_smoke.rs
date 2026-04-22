@@ -1287,6 +1287,10 @@ fn json_run_rejects_browser_api_surface_in_phase_one() {
             .as_str()
             .expect("browser rejection message"),
     );
+    assert_eq!(errors[0]["context"]["origin"], "cli");
+    assert_eq!(errors[0]["context"]["flag"], "--api");
+    assert_eq!(errors[0]["context"]["requestedValue"], "browser");
+    assert_eq!(errors[0]["context"]["effectiveValue"], "browser");
 }
 
 #[test]
@@ -1328,6 +1332,13 @@ fn json_run_rejects_inherited_browser_api_surface_in_phase_one() {
             .as_str()
             .expect("browser rejection message"),
     );
+    assert_eq!(errors[0]["context"]["origin"], "config");
+    assert_eq!(
+        errors[0]["context"]["configPath"],
+        "compilerOptions.apiSurface"
+    );
+    assert_eq!(errors[0]["context"]["requestedValue"], "browser");
+    assert_eq!(errors[0]["context"]["effectiveValue"], "browser");
 }
 
 #[test]
@@ -4871,6 +4882,10 @@ fn json_test_rejects_browser_api_surface_in_phase_one() {
             .as_str()
             .expect("browser rejection message"),
     );
+    assert_eq!(errors[0]["context"]["origin"], "cli");
+    assert_eq!(errors[0]["context"]["flag"], "--api");
+    assert_eq!(errors[0]["context"]["requestedValue"], "browser");
+    assert_eq!(errors[0]["context"]["effectiveValue"], "browser");
 }
 
 #[test]
@@ -4912,6 +4927,13 @@ fn json_test_rejects_inherited_browser_api_surface_in_phase_one() {
             .as_str()
             .expect("browser rejection message"),
     );
+    assert_eq!(errors[0]["context"]["origin"], "config");
+    assert_eq!(
+        errors[0]["context"]["configPath"],
+        "compilerOptions.apiSurface"
+    );
+    assert_eq!(errors[0]["context"]["requestedValue"], "browser");
+    assert_eq!(errors[0]["context"]["effectiveValue"], "browser");
 }
 
 #[test]

@@ -113,7 +113,7 @@ fn runtime_reports_browser_host_contract_for_browser_api_surface() {
 
 #[test]
 fn browser_runtime_unavailable_diagnostic_formats_command_context() {
-    let command_diagnostic = browser_runtime_unavailable_diagnostic(Some("run"));
+    let command_diagnostic = browser_runtime_unavailable_diagnostic(Some("run"), None);
     assert!(
         command_diagnostic
             .message
@@ -140,7 +140,7 @@ fn browser_runtime_unavailable_diagnostic_formats_command_context() {
         "diagnostic: {command_diagnostic:?}"
     );
 
-    let runtime_diagnostic = browser_runtime_unavailable_diagnostic(None);
+    let runtime_diagnostic = browser_runtime_unavailable_diagnostic(None, None);
     assert!(
         runtime_diagnostic
             .message

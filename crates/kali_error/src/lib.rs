@@ -8,7 +8,7 @@
 pub mod diagnostic;
 pub mod severity;
 
-pub use diagnostic::Diagnostic;
+pub use diagnostic::{Diagnostic, DiagnosticContext, DiagnosticContextOrigin};
 pub use severity::Severity;
 
 #[doc(hidden)]
