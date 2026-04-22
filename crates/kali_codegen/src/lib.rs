@@ -3,6 +3,7 @@
 use std::{
     borrow::Cow,
     collections::{BTreeMap, HashSet},
+    path::PathBuf,
 };
 
 use kali_error::{_error_codes::e8, Diagnostic};
@@ -28,11 +29,16 @@ const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 pub struct CodegenCtx {
     /// Target configuration.
     pub target: TargetConfig,
+    /// Source file path for context-sensitive static lowering.
+    pub source_path: Option<PathBuf>,
 }
 
 impl CodegenCtx {
     pub fn new(target: TargetConfig) -> Self {
-        Self { target }
+        Self {
+            target,
+            source_path: None,
+        }
     }
 }
 
@@ -123,6 +129,7 @@ struct FunctionEmitter<'a> {
     functions: &'a BTreeMap<String, u32>,
     diagnostics: &'a mut Vec<Diagnostic>,
     strings: &'a mut StringPool,
+    source_path: Option<PathBuf>,
     locals: BTreeMap<String, u32>,
     bindings: BTreeMap<String, LirNodeId>,
 }
@@ -133,6 +140,7 @@ impl<'a> FunctionEmitter<'a> {
         functions: &'a BTreeMap<String, u32>,
         diagnostics: &'a mut Vec<Diagnostic>,
         strings: &'a mut StringPool,
+        source_path: Option<PathBuf>,
         params: &[String],
     ) -> Self {
         let mut locals = BTreeMap::new();
@@ -146,6 +154,7 @@ impl<'a> FunctionEmitter<'a> {
             functions,
             diagnostics,
             strings,
+            source_path,
             locals,
             bindings: BTreeMap::new(),
         }
@@ -366,6 +375,15 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "version" => {
+                if let Some(rendered) = self.render_package_json_version_access(arg) {
+                    let (offset, len) = self.strings.intern(&rendered);
+                    function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+
                 if self.has_semver_import() {
                     if let Some(rendered) = self.render_static_value(arg) {
                         let (offset, len) = self.strings.intern(&rendered);
@@ -633,6 +651,13 @@ impl<'a> FunctionEmitter<'a> {
                 let callee = node.children.first().copied()?;
                 let callee_node = self.node(callee);
                 let callee_name = callee_node.text.as_deref()?;
+                if callee_name == "require" {
+                    if let Some(specifier) = self.render_static_value(*node.children.get(1)?) {
+                        if let Some(version) = self.render_package_json_version(&specifier) {
+                            return Some(version);
+                        }
+                    }
+                }
                 self.render_semver_intrinsic(callee_name, node)
             }
             LirNodeKind::Value => {
@@ -704,6 +729,38 @@ impl<'a> FunctionEmitter<'a> {
             }
             _ => None,
         }
+    }
+
+    fn render_package_json_version(&self, specifier: &str) -> Option<String> {
+        let source_path = self.source_path.as_ref()?;
+        let package_json_path = source_path
+            .parent()?
+            .join(strip_string_delimiters(specifier));
+        if package_json_path.file_name().and_then(|name| name.to_str()) != Some("package.json") {
+            return None;
+        }
+
+        let raw = std::fs::read_to_string(package_json_path).ok()?;
+        let package_json: serde_json::Value = serde_json::from_str(&raw).ok()?;
+        package_json
+            .get("version")
+            .and_then(|value| value.as_str())
+            .map(|value| value.to_string())
+    }
+
+    fn render_package_json_version_access(&self, id: LirNodeId) -> Option<String> {
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Call {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        if self.node(callee).text.as_deref() != Some("require") {
+            return None;
+        }
+
+        let specifier = self.render_static_value(*node.children.get(1)?)?;
+        self.render_package_json_version(&specifier)
     }
 
     fn is_process_argv(&self, id: LirNodeId) -> bool {
@@ -919,6 +976,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &function_name_to_index,
             &mut diagnostics,
             &mut string_pool,
+            ctx.source_path.clone(),
             &function.params,
         );
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);

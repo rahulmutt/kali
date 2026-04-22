@@ -5438,6 +5438,29 @@ if (process.argv.length == 2) {
     .expect("write semver bin");
 }
 
+fn write_semver_package_json_probe_fixture(package_dir: &Path) {
+    fs::create_dir_all(package_dir.join("bin")).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "semver",
+  "version": "1.0.0",
+  "bin": {
+    "semver": "bin/semver.js"
+  }
+}"#,
+    )
+    .expect("write package json");
+    fs::write(
+        package_dir.join("bin/semver.js"),
+        r#"#!/usr/bin/env node
+console.log(require('../package.json').version);
+console.log(process.argv.length);
+"#,
+    )
+    .expect("write semver bin");
+}
+
 #[test]
 fn run_executes_semver_style_package_bin_help_path_on_node_api_surface() {
     let dir = tempdir().expect("tempdir");
@@ -5501,6 +5524,32 @@ fn run_executes_semver_style_package_bin_argument_passthrough_on_node_api_surfac
     );
     assert!(stderr.contains("CommonJS require()"), "stderr: {stderr}");
     assert!(stderr.contains("Node process global"), "stderr: {stderr}");
+}
+
+#[test]
+fn run_executes_semver_style_package_bin_package_json_require_on_node_api_surface() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/semver");
+    write_semver_package_json_probe_fixture(&package_dir);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("node")
+        .arg(package_dir.join("bin/semver.js"))
+        .arg("--")
+        .arg("1.2.3")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "1.0.0\n3\n");
+    assert!(String::from_utf8_lossy(&output.stderr).is_empty());
 }
 
 #[test]

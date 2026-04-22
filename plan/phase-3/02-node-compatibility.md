@@ -26,11 +26,11 @@ The current repo hardening pass also keeps the semver probe honest: the browser-
 smoke harness now has explicit `kali:rt` console shims (`console_log`, `console_error`,
 `console_warn`) so emitted browser bundles instantiate cleanly under the Node-based harness,
 and the regression suite now pins both the default-standalone rejection for a semver-style
-`require('../package.json')` package-bin entrypoint and the Node-path help-path /
-argument-passthrough smokes for a `semver/bin/semver.js`-shaped fixture. The
-codegen/runtime path now keeps `process.argv.length` wired to the invocation args, so the
-semver probe stays anchored to the actual package-binary shape with both no-arg and guest-arg
-coverage.
+`require('../package.json')` package-bin entrypoint, the Node-path help-path smoke for a
+`semver/bin/semver.js`-shaped fixture, and a Node-path package-json/version plus guest-argument
+count smoke on the documented Node surface. The codegen/runtime path now keeps
+`process.argv.length` wired to the invocation args, so the semver probe stays anchored to the
+actual package-binary shape with both no-arg and guest-arg coverage.
 
 ## Historical stage tasks
 

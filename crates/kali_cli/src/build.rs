@@ -363,6 +363,7 @@ fn compile_source_file_uncached(
         compat_eval,
         coverage,
     });
+    ctx.source_path = Some(source_path.as_ref().to_path_buf());
     let result = lower_lir_to_wasm(&mut ctx, &lir);
     diagnostics.extend(result.diagnostics);
 

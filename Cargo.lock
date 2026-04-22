@@ -1242,6 +1242,7 @@ dependencies = [
  "kali_parser",
  "semver",
  "serde",
+ "serde_json",
  "wasm-encoder 0.240.0",
  "wasmparser 0.240.0",
  "wasmprinter 0.240.0",

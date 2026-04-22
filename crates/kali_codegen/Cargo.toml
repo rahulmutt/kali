@@ -9,6 +9,7 @@ kali_common = { workspace = true }
 kali_error = { workspace = true }
 kali_lir = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 wasm-encoder = { workspace = true }
 wasmparser = { workspace = true }
 semver = { workspace = true }

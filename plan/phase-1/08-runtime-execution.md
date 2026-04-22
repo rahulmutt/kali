@@ -127,7 +127,8 @@ Reject them with the canonical invalid-entrypoint diagnostic before execution be
 
 A real `semver` execution attempt exposed runtime-path gaps that should be tracked explicitly.
 One of them — the `--` guest-argument split for `kali run` — is now fixed and regression-covered;
-the package-execution semantics gap remains tracked explicitly.
+package-execution semantics now also have a dedicated Node-path semver package-json/version smoke,
+while broader CommonJS lowering gaps remain tracked explicitly.
 
 ### Semver-specific regression surfaces
 
@@ -146,8 +147,8 @@ the package-execution semantics gap remains tracked explicitly.
 2. Add an end-to-end package execution regression using the real `semver` consumer/library case so
    runtime output is compared against known-good behavior rather than only checking exit success.
 3. Extend the package-bin regression for `semver/bin/semver.js` to cover the remaining Node-path
-   slices from the original probe, including `require('../package.json')` and the exact help-path
-   output shape.
+   slices from the original probe, including `require('../package.json')`, the exact help-path
+   output shape, and guest-argument counting on the Node path.
 
 ## Out of Scope
 
