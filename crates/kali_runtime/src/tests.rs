@@ -293,6 +293,7 @@ fn runtime_outcome_carries_runtime_profiles() {
         outcome.runtime_profiles,
         vec!["alpha".to_string(), "beta".to_string()]
     );
+    assert_eq!(outcome.host_contract, RuntimeHostContract::KaliHosted);
 }
 
 #[test]
@@ -365,6 +366,7 @@ fn runtime_test_outcome_carries_runtime_profiles() {
         outcome.runtime_profiles,
         vec!["alpha".to_string(), "beta".to_string()]
     );
+    assert_eq!(outcome.host_contract, RuntimeHostContract::KaliHosted);
 }
 
 #[test]

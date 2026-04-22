@@ -60,6 +60,8 @@ pub struct KaliHostState {
     pub process_id: u32,
     /// Requested runtime profiles for the current execution context.
     pub runtime_profiles: Vec<String>,
+    /// High-level host contract selected for the current execution context.
+    pub host_contract: RuntimeHostContract,
     /// Thread budget derived from the active policy and any invocation override.
     pub max_threads: Option<u64>,
     /// Spawn budget derived from the active policy and any invocation override.
@@ -143,6 +145,8 @@ pub struct RuntimeOutcome {
     pub coverage_hits: Vec<u32>,
     /// Canonical runtime profiles active for the execution.
     pub runtime_profiles: Vec<String>,
+    /// High-level host contract selected for the execution.
+    pub host_contract: RuntimeHostContract,
 }
 
 impl Default for RuntimeCtx {
@@ -342,6 +346,7 @@ impl RuntimeCtx {
                 cwd: self.cwd.clone(),
                 process_id: self.process_id,
                 runtime_profiles: normalized_runtime_profiles.clone(),
+                host_contract: self.host_contract(),
                 max_threads: self
                     .policy
                     .as_ref()
@@ -433,6 +438,7 @@ impl RuntimeCtx {
                 stderr: state.stderr.clone(),
                 coverage_hits: state.coverage_hits.iter().copied().collect(),
                 runtime_profiles: normalized_runtime_profiles.clone(),
+                host_contract: self.host_contract(),
             });
         }
 
@@ -451,6 +457,7 @@ impl RuntimeCtx {
                 stderr: state.stderr.clone(),
                 coverage_hits: state.coverage_hits.iter().copied().collect(),
                 runtime_profiles: normalized_runtime_profiles.clone(),
+                host_contract: self.host_contract(),
             });
         }
 
@@ -480,6 +487,7 @@ impl RuntimeCtx {
             stderr: state.stderr.clone(),
             coverage_hits: state.coverage_hits.iter().copied().collect(),
             runtime_profiles: normalized_runtime_profiles,
+            host_contract: self.host_contract(),
         })
     }
 }
@@ -1988,6 +1996,7 @@ impl Default for KaliHostState {
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
             process_id: std::process::id(),
             runtime_profiles: Vec::new(),
+            host_contract: RuntimeHostContract::KaliHosted,
             max_threads: None,
             max_spawned_processes: None,
             stdout: String::new(),
