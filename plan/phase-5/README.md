@@ -15,6 +15,10 @@ Track and stage later-compatibility work without collapsing it into one vague �
 
 Phase 5 is a planning bucket, not an automatic product promise. A stage living in this phase does **not** mean the feature is publicly available; actual availability still comes only from [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).
 
+## Entry criteria
+
+Phase 5 is for explicitly deferred breadth, so earlier phases should already be stable and evidence-backed before this phase begins opening new runtime/platform commitments.
+
 ## Dependency shape
 
 - Foundation first: [5.1 — Threaded Runtime Profile](./01-threaded-runtime-profile.md)
@@ -31,6 +35,16 @@ Phase 5 is a planning bucket, not an automatic product promise. A stage living i
 | [5.3 — Programmable Policy & Algebraic Effects](./03-programmable-policy-and-algebraic-effects.md) | host-registered predicates and later effect mechanisms | `specs/09`, `specs/13` |
 | [5.4 — Late Host & Object Compatibility](./04-late-host-and-object-compatibility.md) | weak refs, proxies, legacy/web-compat corners, late host APIs | `specs/10`, `specs/11` |
 | [5.5 — PGO & Language Bindings](./05-pgo-and-language-bindings.md) | additive PGO workflow and non-Rust bindings over the public ABI | `specs/07`, `specs/13`, `specs/16` |
+
+## Phase-level workable-state ladder
+
+| After stage | The repository should be able to demonstrate |
+|---|---|
+| 5.1 | opt-in threaded runtime execution with documented budget enforcement |
+| 5.2 | standalone browser runtime/test support without overclaiming browser mediation |
+| 5.3 | programmable policy/effect extensions that preserve earlier declarative guarantees |
+| 5.4 | late host/object-model breadth behind explicit gates and evidence |
+| 5.5 | additive PGO and broader language bindings over stable public surfaces |
 
 ## Coordination points
 

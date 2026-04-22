@@ -10,6 +10,10 @@ Broaden Kali from a correct Phase-1/2 core into a faster and more compatible sys
 - widening package/runtime/browser breadth where the specs allow it,
 - expanding host capabilities such as mutable env, subprocesses, and sockets.
 
+## Entry criteria
+
+Phase 3 assumes the MVP toolchain and the Phase-2 semantic foundations are stable enough that performance and compatibility growth can be measured against a known baseline rather than a moving target.
+
 ## Why this order
 
 Optimization and specialization come first because later Node, package, and host-expansion work should build on the compiler shape that Kali expects to keep. The phase is organized to avoid repeatedly widening compatibility over an unstable optimization core.
@@ -28,6 +32,15 @@ Optimization and specialization come first because later Node, package, and host
 | [3.2 — Node Compatibility](./02-node-compatibility.md) | `--api node` path and supported Node subset | `specs/11`, `specs/12`, `specs/19` |
 | [3.3 — Ecosystem Breadth](./03-ecosystem-breadth.md) | broader package corpus, dynamic import breadth, bundle/package support | `specs/11`, `specs/14`, `specs/16` |
 | [3.4 — Host Capability Expansion](./04-host-capability-expansion.md) | mutable env, subprocess, sockets/listeners, broader host APIs | `specs/09`, `specs/10`, `specs/11` |
+
+## Phase-level workable-state ladder
+
+| After stage | The repository should be able to demonstrate |
+|---|---|
+| 3.1 | measurable optimization/specialization gains in release-oriented builds |
+| 3.2 | the documented `--api node` path works end to end for its supported subset |
+| 3.3 | broader package/browser support is shown with corpus evidence at named support rungs |
+| 3.4 | widened host capabilities are enforced and tested under sandbox/resource rules |
 
 ## Coordination points
 

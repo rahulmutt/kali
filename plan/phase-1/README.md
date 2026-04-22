@@ -15,6 +15,10 @@ Deliver the first fully workable Kali toolchain:
 - expose the core CLI and schema-v1 machine-readable outputs,
 - back the shipped surface with evidence.
 
+## Entry criteria
+
+Before starting this phase, the repository should already have the normative spec set in place and the team should agree that Phase-1 availability is read from [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md), not from raw implementation progress.
+
 ## Why this order
 
 Phase 1 starts with the frontend because every later subsystem depends on a stable parsed and typed program model. It then moves into lowering, code generation, and runtime so the repository reaches a local-file end-to-end compiler before package management and broader workflow polish. Once runtime execution exists, the remaining streams can proceed in parallel around the shared CLI/schema/error contracts.
@@ -52,6 +56,18 @@ Phase 1 starts with the frontend because every later subsystem depends on a stab
 | [1.12 — Developer Workflow](./12-developer-workflow.md) | `init`, `fmt`, `lint`, and project ergonomics | `specs/12` |
 | [1.13 — Diagnostics & Schemas](./13-diagnostics-and-schemas.md) | deterministic diagnostics and schema-v1 JSON | `specs/15`, `specs/18` |
 | [1.14 — Evidence Hardening](./14-evidence-hardening.md) | conformance, browser smoke, determinism, CI evidence | `specs/16`, `specs/17`, `specs/19` |
+
+## Phase-level workable-state ladder
+
+| After stage | The repository should be able to demonstrate |
+|---|---|
+| 1.1 | workspace builds/tests plus `kali --version` |
+| 1.3 | deterministic frontend parsing over fixture inputs |
+| 1.5 | `kali check` on local TS/JS files |
+| 1.7 | validated WASM emission from local programs |
+| 1.8 | `kali run` and `kali test` in the default standalone context |
+| 1.11 | `kali build` for executable, bundle, and base-library artifact modes |
+| 1.14 | the full Phase-1 CLI/evidence surface working together |
 
 ## Workable-state rule for this phase
 

@@ -63,6 +63,46 @@ plan/
 
 Total: 27 stage documents plus 5 phase index documents.
 
+## Suggested implementation directory structure
+
+The plan assumes a repository layout that keeps normative docs, implementation crates, evidence, and fixtures separate. A sensible long-lived structure is:
+
+```text
+.
+├── Cargo.toml
+├── mise.toml
+├── SPEC.md
+├── PLAN.md
+├── specs/
+├── plan/
+├── proofs/
+├── crates/
+│   ├── kali/                  # CLI binary / command dispatch
+│   ├── cli/                   # arg parsing, help text, config discovery
+│   ├── core/                  # lexer, parser, AST, typing, lowering, codegen
+│   ├── runtime/               # wasm execution, host adapters, sandbox enforcement
+│   ├── packages/              # install, lock, resolution, cache management
+│   ├── sandbox/               # policy schema, validation, effect comparison
+│   ├── embed/                 # stable embedding APIs, C ABI, component support
+│   └── optimize/              # specialization, optimization, PGO plumbing
+├── tests/
+│   ├── integration/
+│   ├── conformance/
+│   ├── package-corpus/
+│   ├── browser-smoke/
+│   └── determinism/
+└── fixtures/
+    ├── cli/
+    ├── compiler/
+    ├── runtime/
+    └── packages/
+```
+
+Notes:
+- The exact crate names may differ from the current repository state; the important part is the ownership split.
+- Keep `specs/` and `plan/` as docs-only trees so release claims and implementation sequencing stay reviewable.
+- Keep evidence-producing tests in dedicated top-level directories so each maturity row can point to a concrete lane.
+
 ---
 
 ## How to use this document
@@ -119,6 +159,20 @@ The spec set is easiest to implement in five broad delivery strata:
 
 This stratum view is for implementation planning only. It does not change normative ownership or public availability.
 
+## Repository-area mapping
+
+To keep implementation work aligned with the specs, each stratum should predominantly touch these repository areas:
+
+| Stratum | Primary code areas | Primary evidence areas |
+|---|---|---|
+| Bootstrap normalization + cross-spec rules | `SPEC.md`, `specs/`, `PLAN.md`, `plan/` | doc review, schema/claim consistency checks |
+| Frontend + semantics | `crates/core`, parser/type fixtures | `tests/integration`, `tests/conformance` |
+| Lowering + runtime core | `crates/core`, `crates/runtime`, `crates/sandbox` | runtime fixtures, wasm validation, sandbox tests |
+| Product/tooling surface | `crates/cli`, `crates/packages`, `crates/embed` | CLI snapshots, package corpus, JSON schema checks |
+| Later-compatibility expansion | all of the above plus host-specific adapters | targeted compatibility lanes, benchmarks, proof growth |
+
+This mapping is intentionally coarse. Stage files remain the authoritative place for exact work items.
+
 ---
 
 ## Phase map
@@ -143,6 +197,23 @@ Phase-5 interpretation rule:
 - Phase 5 is a **planning bucket for spec-deferred later-compatibility work**.
 - It exists so the plan set tracks all currently documented spec surfaces.
 - It does **not** by itself turn any “Later compatibility” maturity row into a public commitment; `specs/19-feature-maturity.md` still controls actual availability wording.
+
+## Workable-state ladder
+
+The main sequencing principle is that each stage should unlock or preserve a concrete demonstration, not just internal code motion.
+
+| Stage range | Minimum repository demonstration after the range closes |
+|---|---|
+| 1.1 | `kali --version` works and the workspace builds/tests |
+| 1.2-1.3 | parsing/tokenization fixtures produce deterministic frontend output |
+| 1.4-1.5 | `kali check` reports name/type diagnostics on local files |
+| 1.6-1.7 | local programs compile to validated WASM artifacts |
+| 1.8 | `kali run` and `kali test` execute in the default standalone context |
+| 1.9-1.14 | sandboxed execution, install/build/workflow/JSON outputs, and evidence lanes all function together |
+| 2.1-2.5 | MIR/ownership, effects, embedding, Lean foundation, and coverage reporting are stable enough for external consumers |
+| 3.1-3.4 | release-mode gains, Node path, broader packages, and host-capability growth are all evidence-backed |
+| 4.1-4.2 | late dynamic features and a proof-backed published boundary are available within documented gates |
+| 5.1-5.5 | deferred runtime/platform breadth is opened one surface at a time without weakening early guarantees |
 
 ---
 
@@ -199,6 +270,23 @@ The Phase-1 browser story is intentionally **build/analysis first**. A standalon
 - the plan can preserve the spec's browser ambient-typing vs mediated-capability split without pretending Kali embeds a browser engine early.
 
 That is why standalone browser runtime work is deferred to Phase 5 instead of being folded into Phase 1 or 3.
+
+## Cross-phase dependency matrix
+
+The most important inter-phase dependencies are:
+
+| Later stage | Must not start in earnest until | Why |
+|---|---|---|
+| 2.2 Public effect reporting | 2.1 MIR & ownership | stable effect facts need canonical mid-level semantics |
+| 2.3 Public embedding surface | 2.1 MIR & ownership, 1.11 build artifacts | stable exports and ABI metadata depend on settled lowering/artifact shape |
+| 2.4 Lean foundation depth work | 1.1 proof-ready baseline, 2.1 canonical semantics | proofs should target the semantics the compiler actually commits to |
+| 2.5 Stable coverage reporting | 1.8 runtime execution | coverage without a working test runner is speculative |
+| 3.2 Node compatibility | 3.1 optimization baseline, 1.8 runtime core | host widening should build on the runtime/compiler shape Kali intends to keep |
+| 3.3 Ecosystem breadth | 3.2 and 3.4 foundations where applicable | package breadth depends on host/API fit, not package resolution alone |
+| 4.1 Dynamic compatibility | Phases 1-3 runtime, package, and host groundwork | late dynamic features amplify earlier runtime decisions |
+| 4.2 Proof-backed depth | 2.4 Lean foundation | proof-backed claims require an already-running proof program |
+| 5.2 Standalone browser runtime | 1.11 browser-targeted build maturity, 5.1 if thread-aware browser paths are desired | build-first browser support avoids overclaiming an embedded browser runtime |
+| 5.5 PGO & language bindings | 2.3 public embedding surface, 3.1 optimization baseline | feedback-guided optimization and generated bindings need stable surfaces |
 
 ---
 

@@ -11,6 +11,10 @@ Turn the Phase-1 MVP into a more principled and externally consumable platform b
 - establishing the Lean verification foundation beyond proof-ready hygiene,
 - stabilizing coverage reporting for the documented `kali test --coverage` surface.
 
+## Entry criteria
+
+Phase 2 assumes the Phase-1 critical path is closed and that the repository already has a stable enough runtime/build/tooling surface to support deeper semantic work without re-litigating the MVP command set.
+
 ## Why this order
 
 Stage 2.1 is the architectural hinge of the phase. Once MIR and ownership analysis become canonical, the compiler has the explicit memory and layout information needed for stronger effect modeling, more stable embedding metadata, and cleaner verification modeling. The remaining streams can then build on that more explicit representation instead of the earlier conservative pipeline.
@@ -30,6 +34,16 @@ Stage 2.1 is the architectural hinge of the phase. Once MIR and ownership analys
 | [2.3 — Public Embedding Surface](./03-public-embedding-surface.md) | stable Rust embedding API plus public `--lib` / `--capi` / `--component` flows | `specs/13`, `specs/18` |
 | [2.4 — Lean Model Foundation](./04-lean-model-foundation.md) | proof workspace, CI, and formal semantic core | `specs/17` |
 | [2.5 — Test Coverage & Reporting](./05-test-coverage-and-reporting.md) | stable function-coverage contract and deterministic reporting | `specs/12`, `specs/16`, `specs/18` |
+
+## Phase-level workable-state ladder
+
+| After stage | The repository should be able to demonstrate |
+|---|---|
+| 2.1 | MIR is the canonical mid-level representation and ownership analysis feeds lowering/runtime decisions |
+| 2.2 | public effect reports are emitted with stable schema-backed JSON |
+| 2.3 | stable embedding artifacts and host-consumable metadata exist |
+| 2.4 | Lean proof jobs run against the documented semantic core |
+| 2.5 | `kali test --coverage` produces deterministic function-coverage output for the documented contexts |
 
 ## Safe parallelism
 

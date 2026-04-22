@@ -9,6 +9,10 @@ Complete the most difficult late-core compatibility work while keeping the compi
 - public `package-audit` as a separate registry-analysis surface,
 - a non-empty published proof boundary with proof-backed release claims.
 
+## Entry criteria
+
+Phase 4 should start only once the runtime, package, optimization, and proof-foundation work from earlier phases has stabilized enough that late dynamic features and proof-backed claims do not churn underneath active foundational redesign.
+
 ## Why this order
 
 Dynamic compatibility depends on the runtime, packaging, host, and optimization machinery from the earlier phases. Verification depth depends on the Lean foundation from Phase 2 and on the canonical semantics established by the core pipeline. This phase therefore uses two tightly scoped streams instead of a broad compatibility grab-bag.
@@ -24,6 +28,13 @@ Dynamic compatibility depends on the runtime, packaging, host, and optimization 
 |---|---|---|
 | [4.1 — Dynamic Compatibility](./01-dynamic-compatibility.md) | `--compat eval`, `Function()`, non-literal dynamic loading, `package-audit` | `specs/10`, `specs/12`, `specs/14`, `specs/18` |
 | [4.2 — Formal Verification Depth](./02-formal-verification-depth.md) | non-empty proof boundary and proof-backed claims | `specs/16`, `specs/17`, `specs/19` |
+
+## Phase-level workable-state ladder
+
+| After stage | The repository should be able to demonstrate |
+|---|---|
+| 4.1 | gated dynamic compatibility features and public `package-audit` support within their documented limits |
+| 4.2 | a non-empty published proof boundary with proof-backed claims constrained to that boundary |
 
 ## Coordination points
 
