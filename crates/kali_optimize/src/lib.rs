@@ -297,9 +297,36 @@ impl Optimizer {
                         flattened.push(child);
                     }
                 }
-                program.nodes[id.0 as usize].children = flattened;
+
+                let mut canonicalized = Vec::with_capacity(flattened.len());
+                let mut seen = BTreeMap::new();
+                for child in flattened {
+                    if self.is_cse_candidate(program, child) {
+                        let signature = node_signature(program, child);
+                        if let Some(existing) = seen.get(&signature).copied() {
+                            canonicalized.push(existing);
+                            continue;
+                        }
+                        seen.insert(signature, child);
+                    }
+                    canonicalized.push(child);
+                }
+
+                program.nodes[id.0 as usize].children = canonicalized;
             }
             _ => {}
+        }
+    }
+
+    fn is_cse_candidate(&self, program: &LirProgram, id: LirNodeId) -> bool {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return false;
+        };
+
+        match node.kind {
+            LirNodeKind::Literal => true,
+            LirNodeKind::Value => node.text.is_some(),
+            _ => false,
         }
     }
 

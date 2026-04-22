@@ -24,9 +24,10 @@ types are statically known.
 
 - `kali_optimize` is wired into the build pipeline, and both `release` and
   `release-advanced` now run real deterministic optimization passes.
-- The delivered optimization set includes constant folding, branch elimination, small-function
-  inlining, aggressive dead-code pruning, MIR-aware call-site specialization, and incremental
-  compilation reuse via `.kali-cache/incremental/`.
+- The delivered optimization set includes constant folding, branch elimination, basic-block
+  common-subexpression elimination for pure value/literal subtrees, small-function inlining,
+  aggressive dead-code pruning, MIR-aware call-site specialization, and incremental compilation
+  reuse via `.kali-cache/incremental/`.
 - `compilerOptions.maxSpecializations` is now honored alongside the existing CLI override across
   `build`, `run`, and `test`, so the specialization cap is resolved consistently from manifest or
   invocation context before optimization runs.

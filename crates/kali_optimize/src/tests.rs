@@ -457,6 +457,34 @@ fn release_eliminates_constant_branches() {
 }
 
 #[test]
+fn release_eliminates_duplicate_pure_expressions_within_basic_blocks() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let left = builder.alloc_text(LirNodeKind::Value, "+");
+    let right = builder.alloc_text(LirNodeKind::Value, "+");
+    let left_lhs = builder.alloc_text(LirNodeKind::Value, "x");
+    let left_rhs = builder.alloc_text(LirNodeKind::Value, "y");
+    let right_lhs = builder.alloc_text(LirNodeKind::Value, "x");
+    let right_rhs = builder.alloc_text(LirNodeKind::Value, "y");
+    builder.node_mut(left).unwrap().children = vec![left_lhs, left_rhs];
+    builder.node_mut(right).unwrap().children = vec![right_lhs, right_rhs];
+    builder.node_mut(root).unwrap().children = vec![left, right];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let root_children = &program.nodes[root.0 as usize].children;
+    assert_eq!(root_children.len(), 2);
+    assert_eq!(root_children[0], root_children[1]);
+    let canonical = &program.nodes[root_children[0].0 as usize];
+    assert_eq!(canonical.kind, LirNodeKind::Value);
+    assert_eq!(canonical.text.as_deref(), Some("+"));
+}
+
+#[test]
 fn release_specializes_const_object_property_access() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
