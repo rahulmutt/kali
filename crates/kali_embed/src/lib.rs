@@ -139,6 +139,7 @@ impl KaliCompiler {
             self.config.build_mode,
             &self.config.api_surface.to_string(),
             &runtime_profiles,
+            16,
             None,
         )
         .map_err(CompileError::from)?;
@@ -169,6 +170,7 @@ impl KaliCompiler {
             self.config.build_mode,
             &self.config.api_surface.to_string(),
             &runtime_profiles,
+            16,
             Some(exports.clone()),
         )
         .map_err(CompileError::from)?;
@@ -222,6 +224,7 @@ impl KaliCompiler {
                 self.config.build_mode,
                 &self.config.api_surface.to_string(),
                 &runtime_profiles,
+                16,
                 Some(exports.clone()),
             )
             .map_err(CompileError::from)?;

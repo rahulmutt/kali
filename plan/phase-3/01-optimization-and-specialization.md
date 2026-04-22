@@ -31,6 +31,9 @@ types are statically known.
 - `compilerOptions.maxSpecializations` is now honored alongside the existing CLI override across
   `build`, `run`, and `test`, so the specialization cap is resolved consistently from manifest or
   invocation context before optimization runs.
+- Build artifact metadata sidecars now record the effective `maxSpecializations` provenance value
+  as well, keeping emitted optimization provenance explicit without widening the public build-mode
+  vocabulary.
 - Specialization keys are now materially richer and more stable: layout-aware fingerprints cover
   object/array descriptors, closure captures, literal distinctions (including string/template,
   regex, nullish, boolean, numeric, signed-zero, BigInt, and special-number cases), and owner-

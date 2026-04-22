@@ -97,7 +97,12 @@ fn core_schema_documents_match_current_cli_contracts() {
         enum_values,
         vec!["executable", "lib", "bundle", "capi", "component"]
     );
-    for property in ["runtimeProfiles", "hostContract", "runtimeBackend"] {
+    for property in [
+        "runtimeProfiles",
+        "maxSpecializations",
+        "hostContract",
+        "runtimeBackend",
+    ] {
         assert!(
             artifact_meta["properties"].get(property).is_some(),
             "missing artifact metadata property: {property}"

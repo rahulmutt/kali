@@ -20,6 +20,7 @@ fn build_source_file_writes_valid_wasm_artifact() {
         ApiSurface::Deno,
         false,
         &[],
+        16,
         None,
         None,
     )
@@ -231,11 +232,13 @@ fn build_artifact_metadata_preserves_runtime_profiles() {
         BuildMode::Fast,
         "deno",
         &runtime_profiles,
+        16,
         None,
     )
     .expect("build metadata");
 
     assert_eq!(metadata.runtime_profiles, runtime_profiles);
+    assert_eq!(metadata.max_specializations, 16);
 }
 
 #[test]
@@ -251,6 +254,7 @@ fn build_artifact_metadata_rejects_duplicate_runtime_profiles() {
         BuildMode::Fast,
         "deno",
         &runtime_profiles,
+        16,
         None,
     )
     .expect_err("duplicate runtime profiles should fail");
@@ -274,6 +278,7 @@ fn build_artifact_metadata_rejects_unknown_runtime_profiles() {
         BuildMode::Fast,
         "deno",
         &runtime_profiles,
+        16,
         None,
     )
     .expect_err("unknown runtime profiles should fail");

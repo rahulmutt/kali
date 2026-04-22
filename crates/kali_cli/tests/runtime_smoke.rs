@@ -37,10 +37,15 @@ fn parse_json_stdout(output: &std::process::Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("valid json stdout")
 }
 
-fn assert_artifact_metadata_provenance(metadata: &Value, artifact_kind: &str) {
+fn assert_artifact_metadata_provenance(
+    metadata: &Value,
+    artifact_kind: &str,
+    expected_max_specializations: usize,
+) {
     assert_eq!(metadata["schemaVersion"], 1);
     assert_eq!(metadata["artifactKind"], artifact_kind);
     assert_eq!(metadata["runtimeProfiles"], json!([]));
+    assert_eq!(metadata["maxSpecializations"], expected_max_specializations);
     assert_eq!(metadata["hostContract"], "kali-hosted");
     assert_eq!(metadata["runtimeBackend"], "wasmtime");
 }
@@ -2414,6 +2419,8 @@ fn build_emits_library_artifacts_and_metadata() {
         .current_dir(dir.path())
         .arg("build")
         .arg("--lib")
+        .arg("--max-specializations")
+        .arg("4")
         .arg(&source_path)
         .output()
         .expect("run kali");
@@ -2438,7 +2445,7 @@ fn build_emits_library_artifacts_and_metadata() {
 
     let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
         .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "lib");
+    assert_artifact_metadata_provenance(&metadata, "lib", 4);
     let exports = metadata["exports"].as_array().expect("exports array");
     assert!(exports.iter().any(|entry| entry["name"] == "add"));
 
@@ -2664,7 +2671,7 @@ fn build_emits_browser_bundle_artifacts() {
 
     let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
         .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16);
     assert_eq!(metadata["apiSurface"], "browser");
 
     assert_browser_bundle_executes(&bundle_dir, "greet");
@@ -2753,7 +2760,7 @@ fn build_emits_browser_bundle_crypto_web_apis() {
         &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
     )
     .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16);
     assert_eq!(metadata["apiSurface"], "browser");
 
     assert_browser_bundle_executes(&bundle_dir, "digestSmoke");
@@ -3104,7 +3111,7 @@ fn build_emits_browser_bundle_cjs_artifacts() {
 
     let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
         .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16);
     assert_eq!(metadata["apiSurface"], "browser");
 
     let envelope = parse_json_stdout(&output);

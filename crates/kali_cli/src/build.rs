@@ -61,6 +61,8 @@ pub struct ArtifactMetadata {
     pub api_surface: String,
     #[serde(rename = "runtimeProfiles")]
     pub runtime_profiles: Vec<String>,
+    #[serde(rename = "maxSpecializations")]
+    pub max_specializations: usize,
     #[serde(rename = "hostContract", skip_serializing_if = "Option::is_none")]
     pub host_contract: Option<String>,
     #[serde(rename = "runtimeBackend", skip_serializing_if = "Option::is_none")]
@@ -1003,6 +1005,7 @@ pub fn build_source_file(
     api_surface: ApiSurface,
     compat_eval: bool,
     runtime_profiles: &[String],
+    max_specializations: usize,
     out_dir: Option<&Path>,
     sandbox_policy: Option<&SandboxPolicy>,
 ) -> Result<BuildOutput, Vec<Diagnostic>> {
@@ -1021,6 +1024,7 @@ pub fn build_source_file(
         mode,
         &api_surface.to_string(),
         runtime_profiles,
+        max_specializations,
         None,
     )?;
     append_metadata_section(&mut wasm_bytes, &metadata)?;
@@ -1263,6 +1267,7 @@ pub fn build_artifact_metadata(
     mode: BuildMode,
     api_surface: &str,
     runtime_profiles: &[String],
+    max_specializations: usize,
     exports: Option<Vec<LibraryExport>>,
 ) -> Result<ArtifactMetadata, Vec<Diagnostic>> {
     let source_hash = source_hash_for_file(source_path).map_err(|error| {
@@ -1288,6 +1293,7 @@ pub fn build_artifact_metadata(
         build_mode: build_mode_name(mode).to_string(),
         api_surface: api_surface.to_string(),
         runtime_profiles,
+        max_specializations,
         host_contract: Some(
             RuntimeHostContract::KaliHosted
                 .canonical_label()

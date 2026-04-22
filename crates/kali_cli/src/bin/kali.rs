@@ -1233,6 +1233,7 @@ fn build_executable_artifact(
         mode,
         &api_surface.to_string(),
         runtime_profiles,
+        max_specializations,
         None,
     )?;
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
@@ -1311,6 +1312,7 @@ fn build_library_artifact(
         mode,
         &api_surface.to_string(),
         runtime_profiles,
+        max_specializations,
         Some(exports.clone()),
     )?;
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
@@ -1414,6 +1416,7 @@ fn build_capi_artifact(
         mode,
         &api_surface.to_string(),
         runtime_profiles,
+        max_specializations,
         Some(exports.clone()),
     )?;
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;
@@ -1590,6 +1593,7 @@ fn build_component_artifact(
         mode,
         &api_surface.to_string(),
         runtime_profiles,
+        max_specializations,
         Some(exports),
     )?;
 
@@ -1799,6 +1803,7 @@ fn write_browser_bundle_files(
         mode,
         &api_surface.to_string(),
         runtime_profiles,
+        max_specializations,
         Some(exports.clone()),
     )?;
     build::append_metadata_section(&mut wasm_bytes, &metadata)?;

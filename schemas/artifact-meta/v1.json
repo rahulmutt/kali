@@ -47,6 +47,9 @@
         "type": "string"
       }
     },
+    "maxSpecializations": {
+      "type": "integer"
+    },
     "hostContract": {
       "type": "string"
     },
