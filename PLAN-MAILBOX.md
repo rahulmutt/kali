@@ -335,3 +335,6 @@ Proposed fix:
 - Stage 5.4 follow-up: align the late Web/Intl breadth story by gating `Intl` (direct `Intl`, `globalThis.Intl`, and member accesses such as `Intl.NumberFormat`) with the canonical `E5006` later-compatibility diagnostic, and add regression coverage alongside the existing Proxy/WeakMap/FinalizationRegistry checks.
 - Added JSON-envelope regression coverage for the late Intl gate so the CLI smoke suite now pins the same `E5006` availability diagnostic in both text and machine-readable output.
 - No spec wording change needed if the implementation stays a rejection/gating alignment; the existing later-compatibility rows in `specs/11-standard-apis.md` and `specs/19-feature-maturity.md` already own the availability claim.
+
+2026-04-22 resolution note
+- added CLI smoke coverage for direct and `globalThis`-qualified `WeakMap`, `WeakSet`, and `FinalizationRegistry` rejections in both text and JSON `check` output, so Stage 5.4 now pins the late object-model gate surface alongside the existing host-control, Proxy, Intl, and Web Crypto regressions
