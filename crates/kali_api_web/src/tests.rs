@@ -685,6 +685,44 @@ fn thread_runtime_topology_shutdown_keeps_live_instances_sorted_after_first_term
 }
 
 #[test]
+fn thread_runtime_topology_counts_multiple_terminated_instances_deterministically() {
+    let mut topology = ThreadRuntimeTopology::new();
+    let first = topology
+        .spawn_worker("https://example.com/first-worker.js")
+        .expect("first worker");
+    let second = topology
+        .spawn_worker("https://example.com/second-worker.js")
+        .expect("second worker");
+    let third = topology
+        .spawn_worker("https://example.com/third-worker.js")
+        .expect("third worker");
+
+    topology.post_message(first, Value::String("first".to_string()));
+    topology.post_shared_buffer(first, SharedArrayBuffer::from_bytes([1, 0, 0]));
+    topology.post_message(second, Value::String("second".to_string()));
+    topology.post_shared_buffer(second, SharedArrayBuffer::from_bytes([0, 1, 0]));
+    topology.post_message(third, Value::String("third".to_string()));
+    topology.post_shared_buffer(third, SharedArrayBuffer::from_bytes([0, 0, 1]));
+    topology.terminate(first);
+    topology.terminate(second);
+
+    let report = topology.shutdown();
+    assert_eq!(report.total_instances, 3);
+    assert_eq!(report.terminated_instances, 2);
+    assert_eq!(report.live_instances.len(), 1);
+    assert_eq!(report.live_instances[0].instance_id, third);
+    assert_eq!(
+        report.live_instances[0].posted_messages,
+        vec![Value::String("third".to_string())]
+    );
+    assert_eq!(
+        report.live_instances[0].posted_shared_buffers,
+        vec![vec![0, 0, 1]]
+    );
+    assert!(!report.live_instances[0].was_terminated);
+}
+
+#[test]
 fn shared_array_buffer_clones_share_mutations() {
     let buffer = SharedArrayBuffer::from_bytes([1, 2, 3, 4]);
     let clone = buffer.clone();
