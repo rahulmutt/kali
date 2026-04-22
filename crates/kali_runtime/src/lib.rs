@@ -1999,6 +1999,7 @@ pub fn browser_runtime_unavailable_diagnostic(
 ) -> Diagnostic {
     let hint = BrowserRuntimeContract::diagnostic_hint();
     let contract = BrowserRuntimeContract::host_label();
+    let supported_commands = BrowserRuntimeContract::supported_commands().join(", ");
     let message = match command {
         Some(command) => format!(
             "{command} does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract (selected host contract: {contract}). {hint}"
@@ -2008,7 +2009,10 @@ pub fn browser_runtime_unavailable_diagnostic(
         ),
     };
     let mut diagnostic = Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message)
-        .note(format!("selected host contract: {contract}"));
+        .note(format!("selected host contract: {contract}"))
+        .note(format!(
+            "supported browser runtime commands: {supported_commands}"
+        ));
     if let Some(context) = context {
         diagnostic = diagnostic.with_context(context);
     }

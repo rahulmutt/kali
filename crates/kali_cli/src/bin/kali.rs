@@ -26,7 +26,8 @@ use kali_npm::{
 };
 use kali_optimize::ProfileData;
 use kali_runtime::{
-    browser_runtime_unavailable_diagnostic, normalize_runtime_profiles, RuntimeCtx,
+    browser_runtime_request_context, browser_runtime_unavailable_diagnostic,
+    normalize_runtime_profiles, RuntimeCtx,
 };
 use kali_sandbox::{
     compare_effects_to_policy, effect_report_from_inference, infer_effects_from_roots,
@@ -2391,16 +2392,16 @@ fn run_command(
     };
 
     let browser_context = if matches!(effective_api, kali_cli::ApiSurface::Browser) {
-        Some(if api.is_some() {
-            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
-                .with_flag("--api")
-                .with_requested_value("browser")
-                .with_effective_value("browser")
+        let origin = if api.is_some() {
+            DiagnosticContextOrigin::Cli
         } else {
-            DiagnosticContext::new(DiagnosticContextOrigin::Config)
-                .with_config_path("compilerOptions.apiSurface")
-                .with_requested_value("browser")
-                .with_effective_value("browser")
+            DiagnosticContextOrigin::Config
+        };
+        let context = browser_runtime_request_context(origin);
+        Some(if api.is_some() {
+            context.with_flag("--api")
+        } else {
+            context.with_config_path("compilerOptions.apiSurface")
         })
     } else {
         None
@@ -2567,16 +2568,16 @@ fn test_command(
     };
 
     let browser_context = if matches!(effective_api, kali_cli::ApiSurface::Browser) {
-        Some(if api.is_some() {
-            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
-                .with_flag("--api")
-                .with_requested_value("browser")
-                .with_effective_value("browser")
+        let origin = if api.is_some() {
+            DiagnosticContextOrigin::Cli
         } else {
-            DiagnosticContext::new(DiagnosticContextOrigin::Config)
-                .with_config_path("compilerOptions.apiSurface")
-                .with_requested_value("browser")
-                .with_effective_value("browser")
+            DiagnosticContextOrigin::Config
+        };
+        let context = browser_runtime_request_context(origin);
+        Some(if api.is_some() {
+            context.with_flag("--api")
+        } else {
+            context.with_config_path("compilerOptions.apiSurface")
         })
     } else {
         None
