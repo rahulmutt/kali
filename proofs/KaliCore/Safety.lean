@@ -161,13 +161,6 @@ theorem releaseAndDecrementPreservesOwnershipAndReleasedRefs (snapshot : RcSnaps
   · exact releaseAndDecrementPreservesOwnership snapshot ref
   · exact releaseAndDecrementPreservesReleasedRefs snapshot ref
 
-theorem releaseAndCollectPreservesOwnershipAndReleasedRefs (snapshot : RcSnapshot) (ref : String) :
-    (releaseAndCollect snapshot ref).ownership = snapshot.ownership ∧
-    (∀ r, r ∈ snapshot.releasedRefs → r ∈ (releaseAndCollect snapshot ref).releasedRefs) := by
-  constructor
-  · exact releaseAndCollectPreservesOwnership snapshot ref
-  · exact releaseAndCollectPreservesReleasedRefs snapshot ref
-
 /-- A reference is owned when it has an explicit ownership annotation. -/
 def hasOwnership (ownership : OwnershipEnv) (ref : String) : Prop :=
   ∃ owner, (ref, owner) ∈ ownership
@@ -951,6 +944,33 @@ theorem releaseAndCollectPreservesWellFormedAndOwnershipAndLinearMemory (snapsho
   · constructor
     · exact releaseAndCollectPreservesOwnership snapshot ref
     · exact releaseAndCollectPreservesLinearMemory snapshot ref
+
+/-- The release-only helper preserves both well-formedness and the set of previously released references. -/
+theorem releaseRefPreservesWellFormedAndReleasedRefs (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    WellFormed (releaseRef snapshot ref) ∧
+    (∀ r, r ∈ snapshot.releasedRefs → r ∈ (releaseRef snapshot ref).releasedRefs) := by
+  constructor
+  · exact releasePreservesWellFormed snapshot ref h
+  · exact releaseRefPreservesReleasedRefs snapshot ref
+
+/-- The release-and-decrement helper preserves both well-formedness and the set of previously released references. -/
+theorem releaseAndDecrementPreservesWellFormedAndReleasedRefs (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    WellFormed (releaseAndDecrement snapshot ref) ∧
+    (∀ r, r ∈ snapshot.releasedRefs → r ∈ (releaseAndDecrement snapshot ref).releasedRefs) := by
+  constructor
+  · exact releaseAndDecrementPreservesWellFormed snapshot ref h
+  · exact releaseAndDecrementPreservesReleasedRefs snapshot ref
+
+/-- The local release-and-collect helper preserves both well-formedness and the set of previously released references. -/
+theorem releaseAndCollectPreservesWellFormedAndReleasedRefs (snapshot : RcSnapshot) (ref : String)
+    (h : WellFormed snapshot) :
+    WellFormed (releaseAndCollect snapshot ref) ∧
+    (∀ r, r ∈ snapshot.releasedRefs → r ∈ (releaseAndCollect snapshot ref).releasedRefs) := by
+  constructor
+  · exact releaseAndCollectPreservesWellFormed snapshot ref h
+  · exact releaseAndCollectPreservesReleasedRefs snapshot ref
 
 /-- The release-and-collect helper keeps the surviving live references anchored in ownership and allocation. -/
 theorem releaseAndCollectLiveRefsAreOwnedAndAllocated (snapshot : RcSnapshot) (ref : String)
