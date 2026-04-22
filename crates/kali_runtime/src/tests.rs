@@ -378,6 +378,7 @@ export async function loadWithImports(importObject) {
         "stdout: {}",
         outcome.stdout
     );
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
     assert_eq!(outcome.reported_args, vec!["alpha".to_string()]);
     assert_eq!(outcome.registered_tests, vec!["7".to_string()]);
     assert_eq!(outcome.tests_run(), 1);
@@ -409,6 +410,7 @@ fn browser_runtime_execution_helper_launches_browser_harness_and_parses_summary(
 
     assert_eq!(outcome.command[0], "node");
     assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
     assert!(outcome.stdout.contains('5'), "stdout: {}", outcome.stdout);
     assert_eq!(outcome.reported_args, vec!["delta".to_string()]);
     assert_eq!(outcome.registered_tests, vec!["7".to_string()]);

@@ -23,6 +23,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 ## Progress
 
 - Added a reusable browser-harness execution helper in `kali_runtime` that launches the configured command, appends the script entrypoint plus args, and returns deterministic stdout/stderr/exit-status capture for future browser runtime wiring and the existing smoke harnesses.
+- The browser-harness execution outcome now also carries the requested host-contract label (`browser-requested`) so the future browser-runtime contract has one explicit machine-readable selector to reuse alongside the captured command, output, and summary fields.
 - Browser harness command selection now fails closed on an explicit empty override value instead of silently falling back to the default host command, keeping malformed `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` inputs honest for the later browser-runtime path.
 - The shared browser-runtime execution outcome now also preserves the guest-reported argument list from the harness summary alongside the registered-test list, giving the later browser contract one more deterministic summary field to reuse instead of only parsing stdout text.
 - Added a self-contained browser-runtime harness script generator in `kali_runtime` that embeds WASM bytes, bridges console output, and can emit a simple registered-test summary so future real-browser execution has one deterministic script shape to reuse.

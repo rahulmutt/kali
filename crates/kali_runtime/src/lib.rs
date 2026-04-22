@@ -2413,6 +2413,7 @@ pub fn browser_bundle_runtime_execute_checked(
         status: outcome.status,
         stdout: outcome.stdout,
         stderr: outcome.stderr,
+        host_contract: RuntimeHostContract::BrowserRequested,
         reported_args: summary.args,
         registered_tests: summary.tests,
     })
@@ -2510,6 +2511,8 @@ pub struct BrowserRuntimeExecutionOutcome {
     pub stdout: String,
     /// Captured harness stderr.
     pub stderr: String,
+    /// The high-level host contract selected for the browser harness request.
+    pub host_contract: RuntimeHostContract,
     /// Runtime arguments reported by the harness summary.
     pub reported_args: Vec<String>,
     /// Test callbacks registered by the guest and reported by the browser harness summary.
@@ -2588,6 +2591,7 @@ pub fn browser_runtime_execute_checked(
         status: outcome.status,
         stdout: outcome.stdout,
         stderr: outcome.stderr,
+        host_contract: RuntimeHostContract::BrowserRequested,
         reported_args: summary.args,
         registered_tests: summary.tests,
     })
