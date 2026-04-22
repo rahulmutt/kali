@@ -3,7 +3,7 @@
 `SPEC.md` is the top-level normalization layer for the Kali spec set.
 
 It exists to:
-1. normalize [`BOOTSTRAP.md`](./BOOTSTRAP.md) into concrete phase-correct product claims,
+1. normalize [`BOOTSTRAP.md`](./BOOTSTRAP.md) — the top-level mirror of [`prompts/bootstrap.md`](./prompts/bootstrap.md) — into concrete phase-correct product claims,
 2. define cross-spec rules and shared vocabulary that should not drift,
 3. point readers to the owning chapter for subsystem details.
 
@@ -17,7 +17,7 @@ Detailed subsystem contracts live in [`specs/`](./specs). When this file and an 
 
 Kali uses one explicit ownership split:
 
-- [`BOOTSTRAP.md`](./BOOTSTRAP.md) is the input brief only.
+- [`BOOTSTRAP.md`](./BOOTSTRAP.md) is the input brief only and mirrors [`prompts/bootstrap.md`](./prompts/bootstrap.md) for top-level spec navigation.
 - [`SPEC.md`](./SPEC.md) owns cross-spec normalization, shared vocabulary, and conflict resolution.
 - the owning chapter in [`specs/`](./specs) owns the concrete subsystem contract.
 - [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) owns availability and phase status.
@@ -128,9 +128,36 @@ To reduce drift, these command-set names are defined once here:
 
 - **Phase-1 browser-targeted command set** = browser-targeted `kali check [files...]` plus browser-targeted `kali build --bundle <file>`, including supported `--sandbox` variants and equivalent inherited-config forms when the effective `apiSurface` is `browser`
 - **Phase-1 static policy-validation surface** = `kali check --sandbox ...` plus the Phase-1 build lanes that accept static policy attachment: default executable-oriented `kali build --sandbox <policy> <file>`, `kali build --lib --sandbox <policy> <file>`, and browser-targeted `kali build --bundle --sandbox <policy> <file>`
+- **defined command family** = a command, flag, or artifact family whose shape is documented for naming/schema stability even if its availability remains phase-gated in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
+- **discovery-driven command** = a command that may derive its working input set from canonical project discovery when explicit inputs are omitted
+- **single-package registry-analysis command** = a command whose primary explicit input is exactly one package selector rather than a source file or project discovery result
 
 Guardrail:
 - attaching `--sandbox` never rescues an otherwise-invalid command shape or phase-gated API/artifact combination.
+
+## Bootstrap Acceptance Snapshot
+
+This section is the short answer to “did the derived spec set actually preserve the bootstrap brief?”
+
+| Bootstrap ask | Normalized answer in the spec set |
+|---|---|
+| AOT-only TS/JS → WASM compiler, no JIT | preserved as a hard invariant across all phases |
+| Rust-only implementation, no embedded C/C++ | preserved as a hard invariant across all phases |
+| No tracing/background GC; compile-time memory/ownership decisions | preserved as a hard invariant, with concrete memory-model ownership in [`specs/06-memory.md`](./specs/06-memory.md) |
+| Sandboxing first, policy-controlled execution | preserved, but split honestly into static policy validation, runtime enforcement, and later effect reporting |
+| Static JSON effect visibility | preserved, but normalized into later explicit reporting commands plus policy-comparison workflows rather than a `run --dry` shadow mode |
+| TypeScript superset / stronger inference | preserved under the bounded-inference contract and annotation-required boundary |
+| Aggressive specialization and layout-aware IR | preserved as optimization-direction guidance, with phase-gated delivery |
+| Deno / browser / Node API support | preserved, but split by context and maturity; Phase 1 is Deno-oriented plus the browser-targeted command set, while Node is later |
+| npm ecosystem access | preserved through the pure JS/TS package contract and support ladder, not as an unqualified “all npm works” claim |
+| Embeddability / WIT / C ABI / Component Model | preserved, but split into a Phase-1 base library artifact and a later stable public embedding surface |
+| `eval` and hardest dynamic features | preserved as later compatibility only; not allowed to violate the AOT-only invariant |
+| Lean verification | preserved through the proof-ready/proof-backed split and the proof-boundary manifest discipline |
+| Deno-like CLI and AI-friendly machine output | preserved through the CLI/schema/error chapters |
+
+Verdict:
+- the derived spec set adheres to the bootstrap brief's **directional goals**,
+- and it does so by making the phase boundaries and non-goals explicit instead of overclaiming an everything-at-once MVP.
 
 ## Bootstrap normalization rule
 
@@ -148,11 +175,32 @@ Examples:
 - **“Latest ECMA-262”** → latest published grammar is in scope; draft/proposal semantics remain gated.
 - **“Programmable sandbox policy conditions”** → early policy files remain declarative; executable project policy code is not part of the early contract.
 
+## Bootstrap Traceability Matrix
+
+Use this table when a bootstrap sentence sounds broader than the normalized spec surface.
+
+| Bootstrap phrase | Normalized reading | Primary owner |
+|---|---|---|
+| “support Deno API, Node.js API, and browser API” | support is phase- and command-context-specific rather than one blanket claim | [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| “sandboxing policy passed in when running” | runtime enforcement on `run/test --sandbox`; static validation on `check/build --sandbox` | [`specs/09-sandboxing.md`](./specs/09-sandboxing.md), [`specs/12-cli.md`](./specs/12-cli.md) |
+| “statically run a command and get JSON output of all potential effects” | later explicit effect-report commands and policy comparison, not a hidden `run/test` dry-run lane | [`specs/09-sandboxing.md`](./specs/09-sandboxing.md), [`specs/12-cli.md`](./specs/12-cli.md), [`specs/18-schemas.md`](./specs/18-schemas.md) |
+| “support non node-gyp packages from npm” | support is determined by package shape, host/API fit, command maturity, and support rung | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| “must be embeddable / expose a C API / support WIT” | Phase 1 ships only the base library artifact; stable embedding surfaces are later | [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| “support all features including eval” | parser acceptance/planning does not imply executable support; runtime `eval` stays later compatibility | [`specs/10-runtime.md`](./specs/10-runtime.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| “formally verify implementation details with Lean” | repository claims are limited by the published proof boundary | [`specs/17-verification.md`](./specs/17-verification.md), [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) |
+
 ## Support-claim authoring rule
 
 Prefer support claims in this form:
 
 > **`<thing>` is `<rung>` for `<command/artifact>` in `<availability context>` starting in `<phase/status>`; it is not broader than that.**
+
+This is the canonical **support-claim reading order**:
+1. identify the exact thing being asked for,
+2. identify the support rung being claimed,
+3. identify the command/artifact and effective availability context,
+4. confirm the phase/status in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md),
+5. confirm the owning evidence lane if the question is about shipped support rather than planned shape.
 
 Avoid broad statements like “Kali supports X” until the command, artifact, rung, and context are named.
 
@@ -218,6 +266,13 @@ The default non-browser build context for Phase-1 build artifacts.
 
 A compile/check/build context where the effective `apiSurface` is `browser`. It is not the same thing as a supported standalone browser runtime contract.
 
+### Current-repository-state vs target-contract reading
+
+Spec and plan prose may describe long-term target contracts, while some repository files report the current checked-in state. When those differ:
+- `SPEC.md`, owning chapters, and the maturity matrix define the normative target contract,
+- repository-status summaries should say explicitly when they are describing the current checked-in state,
+- current proof claims always defer to [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md).
+
 ### Browser ambient typing vs mediated capability split
 
 Browser API ambient types may be available independently of Kali-mediated sandbox/effect handling. Ambient typing breadth does not imply that every browser capability is part of Kali's policy model.
@@ -258,6 +313,10 @@ Packages outside the early support envelope: native addons, N-API/binary depende
 
 Kali resolves, checks, and builds against the published package artifacts it installs and links, rather than relying on hidden command-time dependency repair.
 
+### Published-artifact-first package reading
+
+Package support claims are evaluated against the published artifact Kali actually installs and links, not against an idealized source tree or an alternate unpublished build path.
+
 ### Package-support decision order
 
 Read package support in this order:
@@ -281,15 +340,77 @@ Do not collapse those rungs into one broad “supported package” claim.
 
 The later stable public reporting workflow for effects. It remains distinct from runtime sandbox enforcement and from the separate context-free registry-audit surface.
 
+### Effect-surface split
+
+Kali intentionally separates:
+- internal sandbox-oriented effect bookkeeping,
+- the later public effect-report surface,
+- pass/fail policy validation,
+- and context-free registry-audit/security reporting.
+
+### Registry-analysis command split
+
+Kali keeps registry-analysis command families explicit:
+- `package-effects` = single-package registry analysis for effect reporting,
+- `package-audit` = single-package registry analysis for context-free audit/security output.
+
+### Package-effects dual classification
+
+`package-effects` belongs to two stories at once:
+- by input shape it is a registry-analysis command,
+- by output contract it is part of the public effect-report surface.
+
 ### Workflow-owner split
 
 - `run/test --sandbox` enforce at runtime,
 - `check/build --sandbox` validate statically,
 - `effects` / `package-effects` report only.
 
+### Shared flag buckets
+
+Kali distinguishes two shared CLI flag buckets:
+- **presentation/control flags** change how output is presented or wrapped,
+- **semantic/context flags** change the effective analysis, build, runtime, or sandbox context.
+
+### Compile intent
+
+For build-like commands, the compile intent is the artifact role being requested from the one explicit primary source input: executable by default, browser bundle with `--bundle`, or library-oriented with `--lib` / `--capi` / `--component`.
+
+### Analysis context
+
+The analysis context is the subset of effective command-context axes that affect static analysis semantics for a command.
+
+### Default source-graph analysis context (schema v1)
+
+The default analysis context for source-graph commands such as `check` and `effects` when no explicit non-default semantic flags or config overrides are active.
+
+### Inherited analysis context
+
+For commands that do not accept explicit per-invocation semantic flags in schema v1, the inherited analysis context is the analysis context derived from defaults plus discovered config.
+
+### Default inherited analysis context (schema v1)
+
+The default inherited analysis context for registry-analysis commands when no discovered config changes the semantic axes they inherit.
+
+### Registry-analysis context split
+
+Registry-analysis commands are not source-graph commands. Their package selector stays explicit and project-independent even when some semantic analysis axes are inherited from config.
+
+### Registry-analysis independence split
+
+Inherited analysis context may change how a registry-analysis command interprets package code, but it must not silently rewrite the explicit package selector, chosen version, or single-package command shape.
+
+### Context-free registry analysis (schema v1)
+
+A registry-analysis mode whose semantics do not depend on the source-graph analysis context; schema-v1 `package-audit` uses this simpler context-free model.
+
 ### Sandbox-attachment orthogonality
 
 Adding `--sandbox` does not legalize an otherwise-invalid command, API surface, or artifact mode. It only adds the sandbox workflow step to an already-valid underlying command/context pair.
+
+### Effective npm-scriptable install work
+
+`kali install --allow-scripts` is meaningful only when the effective install action includes at least one npm-target install step that can legally run lifecycle hooks. Pure JSR-only, raw-URL-only, or otherwise non-npm work does not satisfy this condition.
 
 ### Proof-boundary manifest
 
@@ -299,6 +420,42 @@ Adding `--sandbox` does not legalize an otherwise-invalid command, API surface, 
 
 - **proof-ready** = the repository publishes the proof boundary manifest and proof-CI discipline;
 - **proof-backed** = the published boundary is non-empty and the repository limits claims to what is actually proved.
+
+### Executable/analyzable source-file class
+
+The source-file class that can serve as a runtime-bearing or build-bearing primary input: ordinary `.ts`, `.tsx`, `.js`, `.jsx`, and related executable module sources defined by the owning CLI/schema chapters.
+
+### Canonical source-file classes
+
+Kali distinguishes at least two source-file classes in schema v1:
+- executable/analyzable source files,
+- declaration-only files.
+
+### Configless project mode
+
+When no `kali.json` is discovered, commands still run against the current working directory as the effective project root with built-in defaults.
+
+### Explicit path boundary rule
+
+Explicitly named source-command file paths must stay inside the effective project root and may not silently cross into a nested child project that has its own `kali.json`.
+
+### Validation-order rule
+
+Command validation proceeds in this order:
+1. command shape and arity,
+2. base command availability,
+3. finer effective-context/profile/feature gates for that otherwise-valid command.
+
+### Command-context axis participation table
+
+Only some effective-context axes participate in each command's semantics.
+
+| Command family | Participating semantic/context axes in schema v1 |
+|---|---|
+| `check`, `effects`, `build`, `run`, `test` | `apiSurface`, runtime profiles, compat features, and command-local semantic selectors |
+| `package-effects` | inherited analysis context only; no explicit per-command `--api` / `--compat` / `--wasm-threads` flag family |
+| `package-audit` | none; context-free registry analysis |
+| `fmt`, `lint`, `init`, `install` | only their command-local semantic selectors |
 
 ### Availability context
 

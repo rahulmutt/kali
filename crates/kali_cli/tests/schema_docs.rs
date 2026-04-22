@@ -244,6 +244,13 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         ("plan/phase-4/02-formal-verification-depth.md", summary),
         ("PLAN-4.2-STATUS.md", summary),
     ];
+    let theorem_inventory_docs = [
+        "specs/16-testing.md",
+        "proofs/BOUNDARY.md",
+        "specs/17-verification.md",
+        "plan/phase-4/02-formal-verification-depth.md",
+        "PLAN-4.2-STATUS.md",
+    ];
 
     for (relative, expected_summary) in summary_docs {
         let text = fs::read_to_string(root.join(relative)).expect("read summary doc");
@@ -251,6 +258,10 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
             text.contains(expected_summary),
             "{relative} is missing the canonical proof-backed summary"
         );
+    }
+
+    for relative in theorem_inventory_docs {
+        let text = fs::read_to_string(root.join(relative)).expect("read theorem inventory doc");
         for theorem in rc_theorem_names {
             assert!(
                 text.contains(theorem),
