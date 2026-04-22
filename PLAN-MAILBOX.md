@@ -453,3 +453,6 @@ Proposed fix:
 
 2026-04-22 resolution note
 - extended the canonical host-predicate context payload with an explicit `executable` detail for `ProcessSpawn`, added sandbox/embedding regressions so the Stage 5.3 programmable-policy lane now covers the process-spawn predicate payload alongside the existing console and thread-budget context details, and updated the Stage 5.3 progress note to mention the process-spawn detail payload alongside the existing host-predicate context and availability coverage
+
+2026-04-22 resolution note
+- documented the stem-specific binding-package sidecar in the root README and refreshed the Stage 5.5 progress note so the later binding workflow now calls out the generated bundle layout alongside the maintained Python helper docs and C-ABI smoke coverage
