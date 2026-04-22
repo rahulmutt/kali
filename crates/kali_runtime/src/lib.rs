@@ -191,7 +191,12 @@ impl RuntimeCtx {
         self
     }
 
-    fn normalized_runtime_profiles(&self) -> Vec<String> {
+    /// Return the canonical runtime-profile vector for the current execution context.
+    ///
+    /// This normalizes the public `runtime_profiles` field so direct API callers
+    /// that mutate the field after construction still see the same deduplicated,
+    /// trimmed, stable ordering that execution and store construction use.
+    pub fn canonical_runtime_profiles(&self) -> Vec<String> {
         normalize_runtime_profiles(self.runtime_profiles.clone())
     }
 
@@ -242,7 +247,7 @@ impl RuntimeCtx {
             })
             .unwrap_or_else(|| StoreLimitsBuilder::new().build());
 
-        let normalized_runtime_profiles = self.normalized_runtime_profiles();
+        let normalized_runtime_profiles = self.canonical_runtime_profiles();
 
         let mut store = Store::new(
             &engine,
