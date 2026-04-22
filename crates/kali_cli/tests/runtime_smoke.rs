@@ -3158,8 +3158,9 @@ fn build_with_profile_data_is_deterministic_across_repeated_invocations() {
     .expect("write profile");
     let out_dir = dir.path().join("out");
 
-    let build = || {
-        let output = Command::new(kali_bin())
+    let build = |json_output: bool| {
+        let mut command = Command::new(kali_bin());
+        command
             .current_dir(dir.path())
             .arg("build")
             .arg("--release")
@@ -3167,9 +3168,12 @@ fn build_with_profile_data_is_deterministic_across_repeated_invocations() {
             .arg(&profile_path)
             .arg("--out-dir")
             .arg(&out_dir)
-            .arg(&source_path)
-            .output()
-            .expect("run kali build with profile");
+            .arg(&source_path);
+        if json_output {
+            command.arg("--output").arg("json");
+        }
+
+        let output = command.output().expect("run kali build with profile");
         assert!(
             output.status.success(),
             "stdout: {}\nstderr: {}",
@@ -3177,16 +3181,36 @@ fn build_with_profile_data_is_deterministic_across_repeated_invocations() {
             String::from_utf8_lossy(&output.stderr)
         );
 
-        fs::read(out_dir.join("math.wasm")).expect("read profiled wasm")
+        (output, fs::read(out_dir.join("math.wasm")).expect("read profiled wasm"))
     };
 
-    let first = build();
-    let second = build();
-
+    let (text_first, first) = build(false);
+    let (text_second, second) = build(false);
+    assert_eq!(
+        text_first.stdout, text_second.stdout,
+        "PGO build output should be deterministic across repeated text-mode invocations"
+    );
     assert_eq!(
         first, second,
         "PGO builds should be deterministic across repeated invocations"
     );
+
+    let (json_first, json_first_wasm) = build(true);
+    let (json_second, json_second_wasm) = build(true);
+    assert_eq!(
+        json_first.stdout, json_second.stdout,
+        "PGO build JSON output should be deterministic across repeated invocations"
+    );
+    assert_eq!(
+        json_first_wasm, json_second_wasm,
+        "PGO builds should be deterministic across repeated JSON invocations"
+    );
+
+    let envelope = parse_json_stdout(&json_first);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["exitCode"], 0);
+    assert!(envelope["payload"].is_object(), "envelope: {envelope:?}");
 }
 
 #[test]

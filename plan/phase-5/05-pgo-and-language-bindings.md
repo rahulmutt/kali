@@ -59,8 +59,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - Added CLI smoke coverage for `kali build --profile` so repeated profile-guided builds stay
   byte-stable across invocations and unsupported profile-data versions fail through the command
   path as well as the lower-level loader.
-- Added JSON-envelope regression coverage for unsupported `build --profile` version mismatches so
-  the machine-readable build error path stays aligned with the text-path PGO rejection.
+- Added JSON-envelope regression coverage for successful `build --profile` runs and unsupported
+  version mismatches so the machine-readable PGO path now stays deterministic across repeated
+  invocations and still rejects bad profile data through the same command contract.
 - Synced the owning CLI and maturity docs so the build-only `--profile` PGO input is now
   documented as an explicit opt-in rather than a hidden implementation detail.
 

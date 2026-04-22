@@ -418,3 +418,9 @@ Proposed fix:
 
 2026-04-22 resolution note
 - the existing semver-style package-bin regressions already cover the help-path and argument-passthrough slices, so the Stage 3.2 historical notes remain accurate without widening the probe into a separate consumer/library regression lane
+
+2026-04-22 follow-up note
+- while hardening the later PGO lane, `kali build --profile` still lacks a JSON-success determinism regression; add one that compares repeated text-mode and JSON-mode invocations, verifies the machine-readable build envelope, and records the new coverage in the Stage 5.5 progress note so the historical plan reflects both success and failure-path PGO evidence
+
+2026-04-22 resolution note
+- added the JSON-success PGO smoke regression so repeated `kali build --profile` runs now compare both text and machine-readable envelopes, and updated the Stage 5.5 progress note to reflect the broader deterministic PGO coverage
