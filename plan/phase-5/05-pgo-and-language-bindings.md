@@ -72,6 +72,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   profile-guided build on a hot-function workload while still asserting the hot-call-site reduction,
   so the stage now records a concrete gain-oriented test in addition to the existing determinism
   and version-gate coverage.
+- Hot branch and layout profile hints now also unlock the release-mode algebraic-identity
+  simplifier, so profile data influences a second optimization decision instead of only widening
+  the hot-function inlining budget and report metadata.
 - Synced the owning CLI and maturity docs so the build-only `--profile` PGO input is now
   documented as an explicit opt-in rather than a hidden implementation detail.
 - Added CLI smoke coverage for `kali build --component --output json --out-dir ...` so the

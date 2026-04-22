@@ -255,7 +255,9 @@ impl Optimizer {
             return;
         }
 
-        if matches!(self.level, OptimizationLevel::ReleaseAdvanced)
+        if (matches!(self.level, OptimizationLevel::ReleaseAdvanced)
+            || (matches!(self.level, OptimizationLevel::Release)
+                && self.profile_has_hot_branch_or_layout_hints()))
             && self.optimize_algebraic_identity(program, id, tracker, &owner)
         {
             return;
@@ -1711,6 +1713,17 @@ impl Optimizer {
             .as_ref()
             .and_then(|profile| profile.sample_weight(ProfileSampleKind::Function, callee_name))
             .is_some_and(|weight| weight >= HOT_FUNCTION_MINIMUM_WEIGHT)
+    }
+
+    fn profile_has_hot_branch_or_layout_hints(&self) -> bool {
+        self.profile_data.as_ref().is_some_and(|profile| {
+            !profile
+                .hot_keys(ProfileSampleKind::Branch, HOT_FUNCTION_MINIMUM_WEIGHT)
+                .is_empty()
+                || !profile
+                    .hot_keys(ProfileSampleKind::Layout, HOT_FUNCTION_MINIMUM_WEIGHT)
+                    .is_empty()
+        })
     }
 
     fn call_signature(&self, program: &LirProgram, node: &LirNode) -> String {

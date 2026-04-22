@@ -41,6 +41,24 @@ fn build_hot_add_program() -> (LirProgram, LirNodeId) {
     )
 }
 
+fn build_short_circuit_program(operator: &str, left: &str, right: &str) -> (LirProgram, LirNodeId) {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let node = builder.alloc_text(LirNodeKind::Value, operator);
+    let lhs = literal(&mut builder, left);
+    let rhs = builder.alloc_text(LirNodeKind::Value, right);
+    builder.node_mut(node).unwrap().children = vec![lhs, rhs];
+    builder.node_mut(root).unwrap().children = vec![node];
+
+    (
+        LirProgram {
+            root,
+            nodes: builder.into_nodes(),
+        },
+        node,
+    )
+}
+
 #[test]
 fn release_constant_folds_binary_expressions() {
     let mut builder = LirBuilder::new();
@@ -160,6 +178,52 @@ fn hot_function_profile_data_expands_inlining_budget() {
         2,
         "inlined hot call should expose the expanded expression tree"
     );
+}
+
+#[test]
+fn hot_branch_profile_data_unlocks_release_identity_simplification() {
+    let (mut cold_program, branch) = build_short_circuit_program("&&", "true", "payload");
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut cold_program);
+    assert_eq!(
+        cold_program.nodes[branch.0 as usize].text.as_deref(),
+        Some("&&")
+    );
+
+    let (mut hot_program, branch) = build_short_circuit_program("&&", "true", "payload");
+    Optimizer::new(OptimizationLevel::Release)
+        .with_profile_data(ProfileData::new(vec![ProfileSample::new(
+            ProfileSampleKind::Branch,
+            "branch:payload:then",
+            8,
+        )]))
+        .optimize_program(&mut hot_program);
+
+    let optimized_branch = &hot_program.nodes[branch.0 as usize];
+    assert_eq!(optimized_branch.kind, LirNodeKind::Value);
+    assert_eq!(optimized_branch.text.as_deref(), Some("payload"));
+}
+
+#[test]
+fn hot_layout_profile_data_unlocks_release_identity_simplification() {
+    let (mut cold_program, branch) = build_short_circuit_program("||", "false", "payload");
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut cold_program);
+    assert_eq!(
+        cold_program.nodes[branch.0 as usize].text.as_deref(),
+        Some("||")
+    );
+
+    let (mut hot_program, branch) = build_short_circuit_program("||", "false", "payload");
+    Optimizer::new(OptimizationLevel::Release)
+        .with_profile_data(ProfileData::new(vec![ProfileSample::new(
+            ProfileSampleKind::Layout,
+            "layout:payload-shape",
+            8,
+        )]))
+        .optimize_program(&mut hot_program);
+
+    let optimized_branch = &hot_program.nodes[branch.0 as usize];
+    assert_eq!(optimized_branch.kind, LirNodeKind::Value);
+    assert_eq!(optimized_branch.text.as_deref(), Some("payload"));
 }
 
 #[test]
