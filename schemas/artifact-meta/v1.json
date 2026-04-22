@@ -41,6 +41,18 @@
     "apiSurface": {
       "type": "string"
     },
+    "runtimeProfiles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "hostContract": {
+      "type": "string"
+    },
+    "runtimeBackend": {
+      "type": "string"
+    },
     "kaliVersion": {
       "type": "string"
     },

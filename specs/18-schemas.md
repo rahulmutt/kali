@@ -853,6 +853,7 @@ Canonical schema-v1 `kind` values:
 Interpretation rule:
 - `source-map` is a valid artifact kind when debug/source-map output is emitted, and browser bundles may emit that companion artifact even when the bundle wrapper itself is the main product; ordinary Phase 1 builds do not need to produce source maps by default
 - when a command emits artifact metadata, it should include `role` whenever that makes the artifact mode clearer (for example distinguishing the default executable `wasm-module` from a `--lib` `wasm-module`)
+- artifact metadata sidecars may also carry provenance fields such as `runtimeProfiles`, `hostContract`, and `runtimeBackend`; these describe the build/execution contract that produced the artifact, not a separate public embedding surface
 
 Simplification rule:
 - build-like commands should use these canonical artifact kinds instead of inventing near-synonyms such as `wasm`, `header`, or `metadata-json`

@@ -16,3 +16,5 @@ The actionable spec decisions that had accumulated here have now been folded int
 ## Mailbox rule going forward
 
 Only keep genuinely unresolved spec follow-ups here. Once a decision is reflected in the owning normative files, remove the prose from this mailbox instead of preserving a second shadow copy.
+
+- [2026-04-22] Stage 5.2 browser/runtime host expansion would benefit from documenting optional `hostContract` and `runtimeBackend` fields on artifact metadata sidecars in `specs/18-schemas.md`. The intended meaning is provenance-only: record the build/execution host contract and runtime backend selection (currently the Kali-hosted Wasmtime baseline) so browser-targeted artifacts can remain explicit about which host produced them without implying standalone browser runtime support.

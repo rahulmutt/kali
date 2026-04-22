@@ -14,7 +14,7 @@ use kali_lir::LirLowerer;
 use kali_mir::MirLowerer;
 use kali_optimize::{OptimizationLevel, Optimizer, ProfileData, PROFILE_DATA_VERSION};
 use kali_parser::Parser;
-use kali_runtime::normalize_runtime_profiles;
+use kali_runtime::{normalize_runtime_profiles, RuntimeBackend, RuntimeHostContract};
 use kali_sandbox::SandboxPolicy;
 use kali_types::TypeContext;
 use serde::Serialize;
@@ -61,6 +61,10 @@ pub struct ArtifactMetadata {
     pub api_surface: String,
     #[serde(rename = "runtimeProfiles")]
     pub runtime_profiles: Vec<String>,
+    #[serde(rename = "hostContract", skip_serializing_if = "Option::is_none")]
+    pub host_contract: Option<String>,
+    #[serde(rename = "runtimeBackend", skip_serializing_if = "Option::is_none")]
+    pub runtime_backend: Option<String>,
     #[serde(rename = "kaliVersion")]
     pub kali_version: String,
     #[serde(rename = "sourceHash")]
@@ -1284,6 +1288,12 @@ pub fn build_artifact_metadata(
         build_mode: build_mode_name(mode).to_string(),
         api_surface: api_surface.to_string(),
         runtime_profiles,
+        host_contract: Some(
+            RuntimeHostContract::KaliHosted
+                .canonical_label()
+                .to_string(),
+        ),
+        runtime_backend: Some(RuntimeBackend::Wasmtime.canonical_label().to_string()),
         kali_version: env!("CARGO_PKG_VERSION").to_string(),
         source_hash,
         exports,
