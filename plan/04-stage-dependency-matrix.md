@@ -23,6 +23,11 @@ For each row, read the columns in this order:
 4. **Repository demo** — the minimum concrete capability that should still be showable.
 5. **Primary evidence** — the lane that should prove the milestone.
 
+Current-repo naming note:
+- the matrix uses logical ownership buckets such as `crates/core` and `crates/runtime` for readability,
+- in the current repository, read those as the mapped fine-grained crates from [`01-repository-layout.md`](./01-repository-layout.md),
+- for example `crates/core` usually means `kali_lexer` / `kali_parser` / `kali_ast` / `kali_types` / `kali_hir` / `kali_mir` / `kali_lir` / `kali_codegen`, while `crates/runtime` includes `kali_runtime` and the host API crates.
+
 ## Phase 1 matrix
 
 | Stage | Hard dependencies | Then opens / parallel window | Primary code areas | Repository demo | Primary evidence |
@@ -83,9 +88,10 @@ For each row, read the columns in this order:
 Use this matrix before opening work on a stage:
 1. verify the hard dependencies are already landed,
 2. keep most code in the listed ownership areas,
-3. decide the exact demo command before coding,
-4. identify the evidence lane that must ship with the change,
-5. update [`03-spec-to-stage-traceability.md`](./03-spec-to-stage-traceability.md) if the scope moves.
+3. map those ownership areas onto the current fine-grained crates before starting,
+4. decide the exact demo command before coding,
+5. identify the evidence lane that must ship with the change,
+6. update [`03-spec-to-stage-traceability.md`](./03-spec-to-stage-traceability.md) if the scope moves.
 
 ## Maintenance rule
 

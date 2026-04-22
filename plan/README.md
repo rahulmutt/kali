@@ -32,6 +32,12 @@ plan/
 └── phase-5/                          # explicitly deferred later-compatibility work
 ```
 
+## Current repository reading note
+
+The plan uses a **logical ownership** vocabulary (`crates/core`, `crates/runtime`, `crates/packages`, and so on) so the roadmap stays readable over time.
+In this repository, those buckets currently map onto finer-grained crates such as `kali_lexer`, `kali_parser`, `kali_codegen`, `kali_runtime`, `kali_npm`, and the host API crates.
+Use [`01-repository-layout.md`](./01-repository-layout.md) whenever you need the exact current-repo mapping.
+
 ## Reading shortcuts
 
 - **What should I build next?** → `../PLAN.md` → phase README → stage file.

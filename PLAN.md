@@ -74,8 +74,9 @@ Total: 27 stage documents, 5 phase index documents, and 6 cross-phase planning g
 
 A more detailed adoption guide for this layout lives in [plan/01-repository-layout.md](./plan/01-repository-layout.md).
 
+The plan assumes a repository layout that keeps normative docs, implementation crates, evidence, and fixtures separate.
 
-The plan assumes a repository layout that keeps normative docs, implementation crates, evidence, and fixtures separate. A sensible long-lived structure is:
+### Logical long-lived structure
 
 ```text
 .
@@ -108,10 +109,47 @@ The plan assumes a repository layout that keeps normative docs, implementation c
     └── packages/
 ```
 
+### Current-workspace-aligned structure
+
+The current repository already uses a finer-grained crate split. The plan should work with that shape instead of forcing an immediate crate merge:
+
+```text
+crates/
+├── kali_cli                     # user-facing binary / top-level dispatch
+├── kali_common                  # shared utilities, spans, IDs, interners, config helpers
+├── kali_error                   # canonical diagnostics and error plumbing
+├── kali_lexer                   # stage 1.2
+├── kali_parser                  # stage 1.3
+├── kali_ast                     # stage 1.3-1.4
+├── kali_types                   # stages 1.4-1.5, then 2.x effect/type depth
+├── kali_hir                     # stage 1.6
+├── kali_mir                     # stage 2.1 canonicalization
+├── kali_lir                     # stages 1.6-1.7
+├── kali_codegen                 # stages 1.7, 1.11, 3.1, 5.5
+├── kali_runtime                 # stages 1.8, 3.2, 3.4, 4.1, 5.x
+├── kali_sandbox                 # stages 1.9, 2.2, 5.3
+├── kali_npm                     # stages 1.10, 3.3, 4.1
+├── kali_fmt                     # stage 1.12
+├── kali_lint                    # stage 1.12
+├── kali_embed                   # stages 1.11, 2.3, 5.5
+├── kali_capi                    # stage 2.3+
+├── kali_optimize                # stage 3.1+
+├── kali_api_web                 # browser-targeted host surface
+├── kali_api_deno                # default standalone/build host surface
+└── kali_api_node                # phase-3 node host surface
+```
+
+This is the recommended practical directory strategy:
+- keep the current fine-grained crates,
+- treat them as implementations of the logical ownership buckets above,
+- add top-level `tests/` and `fixtures/` lanes as the evidence matrix expands,
+- keep `schemas/`, `types/`, `bindings/`, and `proofs/` as first-class companion trees rather than hiding those contracts inside code crates.
+
 Notes:
-- The exact crate names may differ from the current repository state; the important part is the ownership split.
+- The logical ownership split matters more than whether the repo uses eight broad crates or many focused crates.
 - Keep `specs/` and `plan/` as docs-only trees so release claims and implementation sequencing stay reviewable.
 - Keep evidence-producing tests in dedicated top-level directories so each maturity row can point to a concrete lane.
+- Prefer adding a new crate only when it represents a stable subsystem boundary that maps back to an owning spec chapter and a plan stage.
 
 ---
 
@@ -163,6 +201,22 @@ Compaction rule:
 - later-compatibility items documented in the spec but intentionally outside Phases 1-4 are tracked in [Phase 5](#phase-5--later-compatibility--platform-expansion) so the plan set covers the full spec surface without falsely promoting those items into earlier public promises.
 
 ---
+
+## Recommended execution lanes in the current workspace
+
+When turning the spec set into code in the current repository, use these lanes to keep the work incremental and workable:
+
+| Lane | Stages | Main current crates |
+|---|---|---|
+| Frontend acceptance | 1.2-1.5 | `kali_lexer`, `kali_parser`, `kali_ast`, `kali_types`, `kali_error` |
+| Lowering + codegen | 1.6-1.7 | `kali_hir`, `kali_lir`, `kali_codegen`, later `kali_mir` |
+| Runtime + host baseline | 1.8-1.9 | `kali_runtime`, `kali_sandbox`, `kali_api_deno`, `kali_api_web` |
+| Package + build surface | 1.10-1.11 | `kali_npm`, `kali_codegen`, `kali_embed`, host API crates |
+| Workflow + machine contracts | 1.12-1.14 | `kali_cli`, `kali_fmt`, `kali_lint`, `kali_error`, `schemas/`, `proofs/` |
+| Ownership/effects/embedding depth | 2.x | `kali_mir`, `kali_sandbox`, `kali_embed`, `kali_capi` |
+| Optimization + compatibility breadth | 3.x-5.x | `kali_optimize`, `kali_api_node`, `kali_runtime`, `bindings/` |
+
+This lane view is a practical complement to the phase map: it tells contributors where code should accumulate first without changing the normative phase contracts.
 
 ## Implementation strata
 

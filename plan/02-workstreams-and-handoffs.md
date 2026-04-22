@@ -21,14 +21,22 @@ Naming those streams explicitly helps prevent one stream from racing ahead and c
 
 | Stream | Primary areas | First heavy phase | Main outputs |
 |---|---|---|---|
-| Frontend semantics | `crates/core`, parser/checker fixtures | Phase 1 | tokens, AST, names, types, early IR |
-| Lowering and execution | `crates/core`, `crates/runtime` | Phase 1 | HIR/MIR/LIR, wasm, runtime behavior |
-| Sandbox and effects | `crates/sandbox`, `crates/runtime`, schemas | Phase 1 | policy validation, enforcement, later effect reports |
-| Packages and ecosystem fit | `crates/packages`, `crates/core`, host adapters | Phase 1 | install/lock/materialization, package resolution, corpus breadth |
-| Product surface | `crates/cli`, schemas, diagnostics, README/help text | Phase 1 | commands, flags, JSON envelopes, user-facing behavior |
-| Embedding and host integration | `crates/embed`, `crates/runtime`, artifact metadata | Phase 2 | stable library/API/C ABI/component outputs |
-| Verification and evidence | `proofs/`, `tests/`, fixtures, CI wiring | Phase 1 | evidence lanes, proof jobs, determinism gates |
-| Optimization | `crates/optimize`, `crates/core`, benchmarks | Phase 3 | specialization depth, release-mode gains, PGO later |
+| Frontend semantics | `kali_lexer`, `kali_parser`, `kali_ast`, `kali_types`, parser/checker fixtures | Phase 1 | tokens, AST, names, types, early IR |
+| Lowering and execution | `kali_hir`, `kali_lir`, `kali_codegen`, `kali_runtime`, later `kali_mir` | Phase 1 | HIR/MIR/LIR, wasm, runtime behavior |
+| Sandbox and effects | `kali_sandbox`, `kali_runtime`, `schemas/` | Phase 1 | policy validation, enforcement, later effect reports |
+| Packages and ecosystem fit | `kali_npm`, frontend crates, host adapters | Phase 1 | install/lock/materialization, package resolution, corpus breadth |
+| Product surface | `kali_cli`, `kali_error`, `schemas/`, README/help text | Phase 1 | commands, flags, JSON envelopes, user-facing behavior |
+| Embedding and host integration | `kali_embed`, `kali_capi`, `bindings/`, artifact metadata | Phase 2 | stable library/API/C ABI/component outputs |
+| Verification and evidence | `proofs/`, `tests/`, `fixtures/`, CI wiring | Phase 1 | evidence lanes, proof jobs, determinism gates |
+| Optimization | `kali_optimize`, IR/codegen crates, benchmarks | Phase 3 | specialization depth, release-mode gains, PGO later |
+
+## Current workspace lane mapping
+
+To keep the present repository workable, contributors should treat the current fine-grained crates as one of the main guardrails for parallel work:
+- do frontend changes primarily in `kali_lexer` / `kali_parser` / `kali_ast` / `kali_types`,
+- do lowering/runtime changes primarily in `kali_hir` / `kali_lir` / `kali_codegen` / `kali_runtime`,
+- do host-surface widening in the dedicated API crates (`kali_api_deno`, `kali_api_web`, `kali_api_node`),
+- do command-shape and machine-contract changes in `kali_cli`, `kali_error`, and `schemas/` together.
 
 ## Canonical handoff points
 
