@@ -388,3 +388,7 @@ Proposed fix:
 2026-04-22 resolution note
 - widened the Stage 5.4 late host-control smoke coverage so the CLI regression story now includes the process-side member forms (`process.pid`, `process.cwd`, `process.chdir`, and `process.exit`) alongside the existing Deno-side gates
 - updated the Stage 5.4 progress note to record that broader host-control coverage in the historical plan
+
+2026-04-22 resolution note
+- added an embedding regression that exercises the threaded-budget context detail path through `resources.maxThreads` / `activeThreads`, so host-registered predicates now have direct coverage for the later thread-budget vocabulary in addition to the existing console policy cases
+- updated the Stage 5.3 progress note to mention the direct `ThreadSpawn` narrowing regression alongside the existing host-predicate context and availability coverage

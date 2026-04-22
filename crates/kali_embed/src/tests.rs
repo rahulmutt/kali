@@ -1,5 +1,8 @@
 use super::*;
-use std::fs;
+use std::{
+    fs,
+    sync::{Arc, Mutex},
+};
 use tempfile::tempdir;
 
 fn permissive_policy() -> kali_sandbox::SandboxPolicy {
@@ -205,6 +208,48 @@ fn embedding_predicates_do_not_override_declarative_denials() {
     );
     assert!(diagnostic.message.contains("Console output is not allowed"));
     assert!(!diagnostic.message.contains("host-registered predicate"));
+}
+
+#[test]
+fn embedding_predicates_can_inspect_thread_budget_context_details() {
+    let mut policy = permissive_policy();
+    policy.resources.max_threads = Some(3);
+
+    let seen_details = Arc::new(Mutex::new(Vec::<Option<String>>::new()));
+    let seen_details_clone = Arc::clone(&seen_details);
+    let mut ctx = EmbeddingCtx::new();
+    ctx.register_sandbox_predicate(
+        "resources.maxThreads",
+        "deny-busy-thread-budget",
+        move |context| {
+            seen_details_clone
+                .lock()
+                .expect("details mutex")
+                .push(context.details.get("activeThreads").cloned());
+            context
+                .details
+                .get("activeThreads")
+                .is_some_and(|count| count == "0")
+                .into()
+        },
+    )
+    .expect("predicate registration should succeed");
+
+    let diagnostic = ctx
+        .check_operation_with_policy(&policy, HostOperation::ThreadSpawn { active_threads: 1 })
+        .expect_err("predicate should narrow thread creation");
+
+    assert_eq!(
+        diagnostic.code,
+        Some(kali_error::_error_codes::e4::EFFECT_NOT_PERMITTED as u32)
+    );
+    assert!(diagnostic
+        .message
+        .contains("host-registered predicate 'deny-busy-thread-budget'"));
+    assert_eq!(
+        *seen_details.lock().expect("details mutex"),
+        vec![Some(String::from("1"))]
+    );
 }
 
 #[test]
