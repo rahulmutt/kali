@@ -1240,6 +1240,7 @@ dependencies = [
  "kali_lir",
  "kali_mir",
  "kali_parser",
+ "semver",
  "serde",
  "wasm-encoder 0.240.0",
  "wasmparser 0.240.0",

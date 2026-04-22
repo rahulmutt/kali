@@ -5146,34 +5146,6 @@ fn run_executes_semver_style_package_bin_help_path_on_node_api_surface() {
 fn run_executes_semver_style_package_bin_argument_passthrough_on_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/semver");
-    write_semver_style_package_fixture(&package_dir);
-
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("run")
-        .arg("--api")
-        .arg("node")
-        .arg(package_dir.join("bin/semver.js"))
-        .arg("--")
-        .arg("1.2.3")
-        .output()
-        .expect("run kali");
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("3"), "stdout: {stdout}");
-    assert!(
-        !stdout.contains("Usage: semver [options] <version> [<version> [...]]"),
-        "stdout: {stdout}"
-    );
-    assert!(String::from_utf8_lossy(&output.stderr).is_empty());
-}
-
-#[test]
-fn regression_package_bin_entrypoints_using_node_cli_features_fail_with_phase_gated_node_diagnostic(
-) {
-    let dir = tempdir().expect("tempdir");
-    let package_dir = dir.path().join("node_modules/semver");
     fs::create_dir_all(package_dir.join("bin")).expect("create package dir");
     fs::write(
         package_dir.join("package.json"),
@@ -5209,6 +5181,56 @@ fn regression_package_bin_entrypoints_using_node_cli_features_fail_with_phase_ga
     );
     assert!(stderr.contains("CommonJS require()"), "stderr: {stderr}");
     assert!(stderr.contains("Node process global"), "stderr: {stderr}");
+}
+
+#[test]
+fn run_executes_semver_package_consumer_calls_on_the_default_surface() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/semver");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "semver",
+  "version": "7.7.4",
+  "main": "index.js",
+  "exports": "./index.js"
+}"#,
+    )
+    .expect("write package json");
+    fs::write(
+        package_dir.join("index.js"),
+        r#"export function valid(v) { return v; }
+export function satisfies(version, range) { return version === '1.2.3' && range === '^1.0.0'; }
+export function minVersion(range) { return { version: '1.2.3' }; }
+"#,
+    )
+    .expect("write package entry");
+    fs::write(
+        dir.path().join("main.ts"),
+        r#"import { valid, satisfies, minVersion } from 'semver';
+console.log(valid('1.2.3'));
+console.log(satisfies('1.2.3', '^1.0.0'));
+console.log(minVersion('^1.2.3')?.version);
+"#,
+    )
+    .expect("write consumer source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(dir.path().join("main.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "1.2.3\n1\n1.2.3\n", "stdout: {stdout}");
+    assert!(String::from_utf8_lossy(&output.stderr).is_empty());
 }
 
 #[test]

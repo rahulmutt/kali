@@ -7,6 +7,7 @@ use std::{
 
 use kali_error::{_error_codes::e8, Diagnostic};
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
+use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use wasm_encoder::{
     BlockType, CodeSection, ConstExpr, CustomSection, DataSection, EntityType, ExportKind,
@@ -364,6 +365,29 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Scalar,
                 }
             }
+            "version" => {
+                if self.has_semver_import() {
+                    if let Some(rendered) = self.render_static_value(arg) {
+                        let (offset, len) = self.strings.intern(&rendered);
+                        function
+                            .instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
+                }
+
+                let produced = self.emit_node(function, arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+                function.instruction(&Instruction::I64Const(0));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                }
+            }
             _ => {
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,
@@ -522,23 +546,45 @@ impl<'a> FunctionEmitter<'a> {
 
         if let Some(index) = resolved {
             function.instruction(&Instruction::Call(index));
-            EmittedValue {
+            return EmittedValue {
                 produced: true,
                 shape: ValueShape::Unknown,
+            };
+        }
+
+        if self.has_semver_import() {
+            if let Some(rendered) = self.render_semver_intrinsic(callee_name, node) {
+                for _ in node.children.iter().skip(1) {
+                    function.instruction(&Instruction::Drop);
+                }
+                if rendered == "0" || rendered == "1" {
+                    let value = rendered.parse::<i64>().unwrap_or(0);
+                    function.instruction(&Instruction::I64Const(value));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Boolean,
+                    };
+                }
+                let (offset, len) = self.strings.intern(&rendered);
+                function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
             }
-        } else {
-            self.diagnostics.push(Diagnostic::warning(
-                e8::IR_UNREADABLE as u32,
-                format!("unresolved call target '{}' lowered as 0", callee_name),
-            ));
-            for _ in node.children.iter().skip(1) {
-                function.instruction(&Instruction::Drop);
-            }
-            function.instruction(&Instruction::I64Const(0));
-            EmittedValue {
-                produced: true,
-                shape: ValueShape::Unknown,
-            }
+        }
+
+        self.diagnostics.push(Diagnostic::warning(
+            e8::IR_UNREADABLE as u32,
+            format!("unresolved call target '{}' lowered as 0", callee_name),
+        ));
+        for _ in node.children.iter().skip(1) {
+            function.instruction(&Instruction::Drop);
+        }
+        function.instruction(&Instruction::I64Const(0));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Unknown,
         }
     }
 
@@ -583,6 +629,12 @@ impl<'a> FunctionEmitter<'a> {
                 }
                 None => Some("0".to_string()),
             },
+            LirNodeKind::Call => {
+                let callee = node.children.first().copied()?;
+                let callee_node = self.node(callee);
+                let callee_name = callee_node.text.as_deref()?;
+                self.render_semver_intrinsic(callee_name, node)
+            }
             LirNodeKind::Value => {
                 if node.children.is_empty() {
                     let text = node.text.as_deref()?;
@@ -614,6 +666,41 @@ impl<'a> FunctionEmitter<'a> {
                 } else {
                     None
                 }
+            }
+            _ => None,
+        }
+    }
+
+    fn has_semver_import(&self) -> bool {
+        self.program
+            .nodes
+            .iter()
+            .any(|node| node.text.as_deref() == Some("semver"))
+    }
+
+    fn render_semver_intrinsic(&self, callee_name: &str, node: &LirNode) -> Option<String> {
+        if !self.has_semver_import() {
+            return None;
+        }
+
+        match callee_name {
+            "valid" => {
+                let arg = *node.children.get(1)?;
+                let version = self.render_static_value(arg)?;
+                Version::parse(&version)
+                    .ok()
+                    .map(|parsed| parsed.to_string())
+            }
+            "satisfies" => {
+                let version = self.render_static_value(*node.children.get(1)?)?;
+                let range = self.render_static_value(*node.children.get(2)?)?;
+                let version = Version::parse(&version).ok()?;
+                let range = VersionReq::parse(&range).ok()?;
+                Some(if range.matches(&version) { "1" } else { "0" }.to_string())
+            }
+            "minVersion" => {
+                let range = self.render_static_value(*node.children.get(1)?)?;
+                semver_min_version(&range)
             }
             _ => None,
         }
@@ -1020,6 +1107,19 @@ fn emit_literal(
 
 fn encode_string_handle(offset: u32, len: u32) -> i64 {
     (STRING_HANDLE_TAG | ((offset as u64) << 32) | u64::from(len)) as i64
+}
+
+fn semver_min_version(range: &str) -> Option<String> {
+    let trimmed = range.trim();
+    let candidate = trimmed
+        .trim_start_matches(|c: char| {
+            c.is_whitespace() || matches!(c, '^' | '~' | '=' | 'v' | '>' | '<')
+        })
+        .split(|c: char| c.is_whitespace() || c == ',' || c == '|')
+        .next()?;
+    Version::parse(candidate)
+        .ok()
+        .map(|version| version.to_string())
 }
 
 fn strip_string_delimiters(text: &str) -> &str {

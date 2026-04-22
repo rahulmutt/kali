@@ -41,6 +41,9 @@ TypeScript/JavaScript programs.
 - Explicit `--api deno` smoke coverage proves the spelled-out default matches the implicit path,
   and the semver-style Node regression now exercises the `process.argv` help/argument flow through
   the documented `--` split.
+- Added a semver consumer/runtime regression on the default standalone surface so the common
+  `valid` / `satisfies` / `minVersion` package calls now stay observable instead of collapsing to
+  placeholder zeros.
 
 ## Historical stage tasks
 

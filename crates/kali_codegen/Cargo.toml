@@ -11,6 +11,7 @@ kali_lir = { workspace = true }
 serde = { workspace = true }
 wasm-encoder = { workspace = true }
 wasmparser = { workspace = true }
+semver = { workspace = true }
 
 [dev-dependencies]
 kali_common = { workspace = true }
