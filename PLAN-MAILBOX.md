@@ -7,6 +7,9 @@
 # PLAN mailbox
 
 2026-04-22 resolution note
+- clarified the Stage 5.5 PGO plan note so the build-only `--profile` input is now called out as an explicit opt-in in the stage's progress tracking, matching the CLI and maturity docs
+
+2026-04-22 resolution note
 - added late object-model gating for `Proxy`, `WeakMap`, `WeakSet`, and `FinalizationRegistry` in the resolver, plus `proxy-traps` dynamic-reason detection in the effect-analysis path, so Stage 5.4 now records the new later-compatibility evidence alongside the existing host-control gate
 - updated the Stage 5.4 progress note and status to reflect that the stage is now in progress rather than purely planned
 

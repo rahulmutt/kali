@@ -1,5 +1,8 @@
 # SPEC mailbox
 
+2026-04-22 resolution note
+- clarified the build-only `--profile` PGO input in `specs/12-cli.md` and `specs/19-feature-maturity.md` so the public command surface now calls it out as an explicit opt-in rather than a hidden implementation detail
+
 2026-04-22 follow-up note
 - the new CLI build-profile input (`kali build --profile <file>`) should be reflected in the owning CLI and maturity docs so the PGO workflow stays aligned with the public command surface and the `--profile` flag does not remain a hidden implementation detail
 

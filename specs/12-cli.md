@@ -142,7 +142,7 @@ Sandbox-flag clarification:
 Build-mode continuity rule:
 - these three build-mode names are stable from Phase 1 onward
 - later phases deepen what `release` and `release-advanced` actually do, but they should not force users to learn a second generation of optimization-mode names just because MIR/LIR passes became more capable
-- `--profile` is an additive PGO input for `build`; it does not introduce a fourth build mode or alter the stable build-mode vocabulary
+- `--profile` is an explicit build-only additive PGO input for `build`; it does not introduce a fourth build mode or alter the stable build-mode vocabulary
 
 ## Command-Specific Flags
 
@@ -157,7 +157,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--component` | `build` | Select the later Component Model packaging flow over the same exported-library contract; once that Phase-2 flow exists, it emits the linked library core plus the outer `wasm-component` wrapper |
 | `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
 | `--max-specializations N` | `build`, `run`, `test` | Override the specialization fan-out cap upper bound for a single invocation; this is an upper bound, not a promise that the current build mode will spend the full budget, and `--fast` may still skip most user-authored generic specialization entirely |
-| `--profile <file>` | `build` | Load deterministic PGO profile data from a JSON file as an additive optimization input; it does not change the stable `fast` / `release` / `release-advanced` vocabulary |
+| `--profile <file>` | `build` | Load deterministic PGO profile data from a JSON file as an explicit build-only additive optimization input; it does not change the stable `fast` / `release` / `release-advanced` vocabulary |
 | `--fix` | `lint` | Apply only structured, tool-generated safe fixes for lint diagnostics in the selected file/project set |
 | `--check` | `fmt` | Report formatting drift without rewriting files |
 | `--filter <pattern>` | `test` | Run only matching tests |
@@ -290,7 +290,7 @@ Artifact-mode quick summary:
 | `--capi` | library | Phase 2 target | public embedding artifact flow over the same **statically known export surface** |
 | `--component` | library | Phase 2 target | Component Model packaging over the same **statically known export surface** |
 
-`--profile <file>` is the opt-in PGO input for `build`: it loads deterministic profile data, may influence optimization decisions, and leaves the build-mode and artifact-mode selector vocabulary unchanged.
+`--profile <file>` is the explicit build-only opt-in PGO input for `build`: it loads deterministic profile data, may influence optimization decisions, and leaves the build-mode and artifact-mode selector vocabulary unchanged.
 
 Reading rule:
 - this table is a CLI-local summary only
