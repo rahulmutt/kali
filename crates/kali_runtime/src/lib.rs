@@ -181,6 +181,11 @@ impl BrowserRuntimeContract {
     pub const fn host_description_note() -> &'static str {
         "browser runtime host description: real browser host"
     }
+
+    /// Return a stable note that summarizes the future browser runtime contract scope.
+    pub const fn contract_scope_note() -> &'static str {
+        "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness"
+    }
 }
 
 /// Result of executing a WASM module.
@@ -2047,6 +2052,7 @@ pub fn browser_runtime_unavailable_diagnostic(
         .note(format!(
             "supported browser runtime commands: {supported_commands}"
         ))
+        .note(BrowserRuntimeContract::contract_scope_note())
         .note(BrowserRuntimeContract::host_description_note());
     if let Some(context) = context {
         diagnostic = diagnostic.with_context(context);

@@ -47,6 +47,10 @@ fn assert_browser_runtime_rejection_text(text: &str) {
         "stderr: {text}"
     );
     assert!(
+        text.contains("browser runtime contract scope: run and test only"),
+        "stderr: {text}"
+    );
+    assert!(
         text.contains("standalone browser runtime contract"),
         "stderr: {text}"
     );
