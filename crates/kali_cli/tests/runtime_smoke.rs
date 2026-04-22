@@ -182,9 +182,10 @@ fn count_wasm_instructions(bytes: &[u8]) -> usize {
     count
 }
 
-fn split_command_spec(command: &str) -> Vec<String> {
+fn split_command_spec(command: &str) -> Option<Vec<String>> {
     let mut parts = Vec::new();
     let mut current = String::new();
+    let mut token_open = false;
     let mut in_single_quotes = false;
     let mut in_double_quotes = false;
     let mut escaped = false;
@@ -192,6 +193,7 @@ fn split_command_spec(command: &str) -> Vec<String> {
     for ch in command.chars() {
         if escaped {
             current.push(ch);
+            token_open = true;
             escaped = false;
             continue;
         }
@@ -202,33 +204,44 @@ fn split_command_spec(command: &str) -> Vec<String> {
             }
             '\'' if !in_double_quotes => {
                 in_single_quotes = !in_single_quotes;
+                token_open = true;
             }
             '"' if !in_single_quotes => {
                 in_double_quotes = !in_double_quotes;
+                token_open = true;
             }
             ch if ch.is_whitespace() && !in_single_quotes && !in_double_quotes => {
-                if !current.is_empty() {
+                if token_open {
                     parts.push(std::mem::take(&mut current));
+                    token_open = false;
                 }
             }
-            ch => current.push(ch),
+            ch => {
+                current.push(ch);
+                token_open = true;
+            }
         }
     }
 
-    if !current.is_empty() {
+    if escaped || in_single_quotes || in_double_quotes {
+        return None;
+    }
+
+    if token_open {
         parts.push(current);
     }
 
-    parts
+    Some(parts)
 }
 
 fn browser_bundle_harness_command_parts() -> Vec<String> {
     if let Ok(command) = std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND") {
         let command = command.trim();
         if !command.is_empty() {
-            let parts = split_command_spec(command);
-            if !parts.is_empty() {
-                return parts;
+            if let Some(parts) = split_command_spec(command) {
+                if !parts.is_empty() {
+                    return parts;
+                }
             }
         }
     }
@@ -249,7 +262,8 @@ fn browser_bundle_harness_command_parts() -> Vec<String> {
 fn browser_bundle_harness_command_override_supports_quoted_arguments() {
     let parts = split_command_spec(
         r#"browser-wrapper --headless --profile "real browser" 'wrapped runner' escaped\ space"#,
-    );
+    )
+    .expect("split valid browser harness command");
 
     assert_eq!(
         parts,
@@ -262,6 +276,28 @@ fn browser_bundle_harness_command_override_supports_quoted_arguments() {
             "escaped space".to_string(),
         ]
     );
+}
+
+#[test]
+fn browser_bundle_harness_command_override_preserves_empty_quoted_arguments() {
+    let parts = split_command_spec(r#"browser-wrapper "" --flag '' trailing"#)
+        .expect("split browser harness command with empty quoted arguments");
+
+    assert_eq!(
+        parts,
+        vec![
+            "browser-wrapper".to_string(),
+            "".to_string(),
+            "--flag".to_string(),
+            "".to_string(),
+            "trailing".to_string(),
+        ]
+    );
+}
+
+#[test]
+fn browser_bundle_harness_command_override_rejects_unterminated_quotes() {
+    assert_eq!(split_command_spec(r#"browser-wrapper "unterminated"#), None);
 }
 
 fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
