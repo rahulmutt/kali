@@ -158,6 +158,11 @@ impl BrowserRuntimeContract {
     pub const fn diagnostic_hint() -> &'static str {
         "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work."
     }
+
+    /// Return a stable note that names the intended browser runtime host.
+    pub const fn host_description_note() -> &'static str {
+        "browser runtime host description: real browser host"
+    }
 }
 
 /// Result of executing a WASM module.
@@ -2012,7 +2017,8 @@ pub fn browser_runtime_unavailable_diagnostic(
         .note(format!("selected host contract: {contract}"))
         .note(format!(
             "supported browser runtime commands: {supported_commands}"
-        ));
+        ))
+        .note(BrowserRuntimeContract::host_description_note());
     if let Some(context) = context {
         diagnostic = diagnostic.with_context(context);
     }

@@ -43,6 +43,10 @@ fn assert_browser_runtime_rejection_text(text: &str) {
         "stderr: {text}"
     );
     assert!(
+        text.contains("browser runtime host description: real browser host"),
+        "stderr: {text}"
+    );
+    assert!(
         text.contains("standalone browser runtime contract"),
         "stderr: {text}"
     );

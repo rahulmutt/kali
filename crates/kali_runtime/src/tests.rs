@@ -161,6 +161,13 @@ fn browser_runtime_unavailable_diagnostic_formats_command_context() {
             .any(|note| note == "supported browser runtime commands: run, test"),
         "diagnostic: {command_diagnostic:?}"
     );
+    assert!(
+        command_diagnostic
+            .notes
+            .iter()
+            .any(|note| note == BrowserRuntimeContract::host_description_note()),
+        "diagnostic: {command_diagnostic:?}"
+    );
 
     let runtime_diagnostic = browser_runtime_unavailable_diagnostic(None, None);
     assert!(
@@ -193,6 +200,13 @@ fn browser_runtime_unavailable_diagnostic_formats_command_context() {
             .notes
             .iter()
             .any(|note| note == "supported browser runtime commands: run, test"),
+        "diagnostic: {runtime_diagnostic:?}"
+    );
+    assert!(
+        runtime_diagnostic
+            .notes
+            .iter()
+            .any(|note| note == BrowserRuntimeContract::host_description_note()),
         "diagnostic: {runtime_diagnostic:?}"
     );
 }
