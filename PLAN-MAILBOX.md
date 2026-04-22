@@ -468,6 +468,9 @@ Proposed fix:
 - add a `kali build --component --output json --out-dir <dir>` smoke test that asserts the component, WIT, metadata, and binding-package artifacts are emitted into the requested output directory
 - mention the new output-directory coverage in the Stage 5.5 progress note so the historical plan reflects the distribution-layout regression too
 
+2026-04-22 resolution note
+- the requested `build --component --output json --out-dir ...` smoke coverage is already present in `crates/kali_cli/tests/runtime_smoke.rs` as `build_emits_component_artifacts_into_an_explicit_output_directory`, and the Stage 5.5 progress note already records the explicit distribution-directory coverage, so the follow-up lane is closed without extra plan churn
+
 2026-04-22 follow-up note
 - host-registered sandbox predicate denials now carry deterministic capability/resource/detail notes in the sandbox and embedding diagnostics, so the Stage 5.3 progress note should record the machine-readable context payload alongside the existing narrowing behavior and registration-order coverage
 
