@@ -6,6 +6,9 @@ use std::{
     thread,
 };
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 fn compile_wat(wat: &str) -> Vec<u8> {
     wat::parse_str(wat).unwrap_or_else(|error| panic!("valid wat error: {error}\n{wat}"))
 }
@@ -601,6 +604,87 @@ export async function loadWithImports(importObject) {
     assert_eq!(outcome.reported_args, vec!["alpha".to_string()]);
     assert_eq!(outcome.registered_tests, vec!["7".to_string()]);
     assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
+fn browser_bundle_runtime_harness_page_wraps_the_module_body_for_real_browser_hosts() {
+    let page = browser_bundle_runtime_harness_page(
+        "browser-app",
+        false,
+        &["alpha".to_string(), "beta".to_string()],
+        true,
+    );
+
+    assert!(page.starts_with("<!doctype html>"), "page: {page}");
+    assert!(page.contains("<script type=\"module\">"), "page: {page}");
+    assert!(
+        page.contains("const runtimeArgs = [\"alpha\",\"beta\"]"),
+        "page: {page}"
+    );
+    assert!(
+        page.contains("const runRegisteredTests = true;"),
+        "page: {page}"
+    );
+    assert!(page.contains("browser-app/browser-app.js"), "page: {page}");
+}
+
+#[cfg(unix)]
+#[test]
+fn browser_bundle_runtime_execute_checked_uses_html_entrypoint_for_browser_executables() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let bundle_root = tempdir.path().join("browser-app");
+    fs::create_dir_all(&bundle_root).expect("create bundle root");
+
+    fs::write(
+        bundle_root.join("browser-app.wasm"),
+        compile_wat(
+            r#"
+                (module
+                    (func (export "_start")))
+            "#,
+        ),
+    )
+    .expect("write bundle wasm");
+    fs::write(
+        bundle_root.join("browser-app.js"),
+        r#"
+const wasmUrl = new URL('./browser-app.wasm', import.meta.url);
+
+export async function loadWithImports(importObject) {
+  const response = await fetch(wasmUrl);
+  const bytes = await response.arrayBuffer();
+  const { instance } = await WebAssembly.instantiate(bytes, importObject);
+  return instance;
+}
+"#,
+    )
+    .expect("write bundle js");
+
+    let chromium = tempdir.path().join("chromium");
+    fs::write(&chromium, "#!/bin/sh\nexit 0\n").expect("write browser executable shim");
+    let mut permissions = fs::metadata(&chromium).expect("metadata").permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&chromium, permissions).expect("mark browser executable shim executable");
+
+    let command = format!("{} -c true", chromium.display());
+    let outcome = browser_bundle_runtime_execute_checked(
+        Some(command.as_str()),
+        &bundle_root,
+        &[],
+        false,
+        false,
+    )
+    .expect("execute browser bundle runtime harness");
+
+    assert_eq!(outcome.command[0], chromium.display().to_string());
+    assert_eq!(outcome.command[1], "-c");
+    assert_eq!(outcome.command[2], "true");
+    assert!(
+        outcome.command[3].ends_with("browser-bundle-runtime.html"),
+        "command: {:?}",
+        outcome.command
+    );
+    assert_eq!(outcome.status.code(), Some(0));
 }
 
 #[test]

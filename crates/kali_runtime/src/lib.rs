@@ -2363,12 +2363,12 @@ pub fn browser_bundle_harness_script(bundle_dir: &str, allow_subpaths: bool, bod
     )
 }
 
-/// Build a browser-bundle runtime harness script that loads the emitted bundle glue.
+/// Build a browser-bundle runtime harness module that loads the emitted bundle glue.
 ///
 /// The generated module reuses the shared browser-bundle fetch shim, imports the emitted bundle,
 /// and re-instantiates it with the canonical Kali runtime imports so future browser runtime
 /// flows can observe console output and registered tests from the browser-targeted artifact set.
-pub fn browser_bundle_runtime_harness_script(
+pub fn browser_bundle_runtime_harness_module_script(
     bundle_dir: &str,
     allow_subpaths: bool,
     args: &[String],
@@ -2476,6 +2476,50 @@ if (summaryEmissionError !== null) {{
     )
 }
 
+/// Build a browser-host HTML wrapper for the browser-bundle runtime harness.
+pub fn browser_bundle_runtime_harness_page(
+    bundle_dir: &str,
+    allow_subpaths: bool,
+    args: &[String],
+    run_registered_tests: bool,
+) -> String {
+    let module_script = browser_bundle_runtime_harness_module_script(
+        bundle_dir,
+        allow_subpaths,
+        args,
+        run_registered_tests,
+    );
+    format!(
+        r#"<!doctype html>
+<meta charset="utf-8">
+<title>Kali browser bundle runtime harness</title>
+<script type="module">
+{module_script}
+</script>
+"#,
+        module_script = module_script,
+    )
+}
+
+/// Build a browser-bundle runtime harness script that loads the emitted bundle glue.
+///
+/// The generated module reuses the shared browser-bundle fetch shim, imports the emitted bundle,
+/// and re-instantiates it with the canonical Kali runtime imports so future browser runtime
+/// flows can observe console output and registered tests from the browser-targeted artifact set.
+pub fn browser_bundle_runtime_harness_script(
+    bundle_dir: &str,
+    allow_subpaths: bool,
+    args: &[String],
+    run_registered_tests: bool,
+) -> String {
+    browser_bundle_runtime_harness_module_script(
+        bundle_dir,
+        allow_subpaths,
+        args,
+        run_registered_tests,
+    )
+}
+
 /// Execute an emitted browser-targeted bundle through the browser harness.
 ///
 /// The bundle harness is written next to the emitted bundle directory so the shared prelude can
@@ -2506,19 +2550,32 @@ pub fn browser_bundle_runtime_execute_checked(
                     bundle_root
                 ),
             })?;
-    let script_path = current_dir.join("browser-bundle-runtime.mjs");
+    let browser_command = browser_harness_command_parts_checked(command)
+        .map_err(|message| BrowserHarnessError::PreparationFailed { message })?;
+    let use_html_entrypoint = browser_command
+        .first()
+        .is_some_and(|executable| browser_harness_uses_html_entrypoint(executable));
+    let script_name = if use_html_entrypoint {
+        "browser-bundle-runtime.html"
+    } else {
+        "browser-bundle-runtime.mjs"
+    };
+    let script_path = current_dir.join(script_name);
     let summary_path = current_dir.join("browser-bundle-runtime-summary.json");
-    fs::write(
-        &script_path,
+    let script_contents = if use_html_entrypoint {
+        browser_bundle_runtime_harness_page(bundle_dir, allow_subpaths, args, run_registered_tests)
+    } else {
         browser_bundle_runtime_harness_script(
             bundle_dir,
             allow_subpaths,
             args,
             run_registered_tests,
-        ),
-    )
-    .map_err(|error| BrowserHarnessError::PreparationFailed {
-        message: error.to_string(),
+        )
+    };
+    fs::write(&script_path, script_contents).map_err(|error| {
+        BrowserHarnessError::PreparationFailed {
+            message: error.to_string(),
+        }
     })?;
 
     let outcome = browser_harness_run_checked_with_env(
