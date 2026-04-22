@@ -98,4 +98,6 @@ For each newly opened surface:
 
 ## Status
 
-In progress.
+Stage 5.4 is complete.
+
+Any further widening of late host/object compatibility belongs in the owning spec chapters and maturity matrix, not by reopening this closed stage checklist.

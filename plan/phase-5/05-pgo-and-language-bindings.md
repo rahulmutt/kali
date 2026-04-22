@@ -128,4 +128,6 @@ Ensure binding and PGO tooling do not fork the core vocabulary:
 
 ## Status
 
-In progress.
+Stage 5.5 is complete.
+
+Any further widening of PGO or language-binding coverage belongs in the owning spec chapters and maturity matrix, not by reopening this closed stage checklist.

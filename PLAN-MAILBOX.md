@@ -486,3 +486,11 @@ Proposed fix:
 
 2026-04-22 resolution note
 - added a dedicated published soundness helper inventory to the Stage 4.2 status tracker so `KaliCore.Soundness.subst_closed`, `KaliCore.litTy`, and the context lookup helpers are now called out in their own short section alongside the RC snapshot inventory
+
+2026-04-22 resolution note
+- closed Stage 5.4 by marking the late host/object compatibility checklist complete now that the host-control, object-model, Intl, crypto, stream/blob, and browser package-corpus coverage is already in place
+- left the canonical later-compatibility gates unchanged; this is a plan-status update only, not a maturity change
+
+2026-04-22 resolution note
+- closed Stage 5.5 by marking the PGO and language-binding checklist complete now that the deterministic profile-data workflow, profile-guided optimization hook, maintained Python binding helper, and binding-package distribution flow are already in place
+- left the canonical later-compatibility gates unchanged; this is a plan-status update only, not a maturity change
