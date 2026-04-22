@@ -43,8 +43,7 @@ The goal is not to force one exact tree immediately. The goal is to give each ma
 ├── schemas/
 ├── types/
 ├── bindings/
-└── tools/
-    └── scripts/      # repeatable dev/CI helpers when a mise task needs helper scripts
+└── scripts/          # repeatable dev/CI helpers behind canonical mise/CI entrypoints
 ```
 
 ## Current repository alignment
@@ -82,7 +81,7 @@ For this repo, the sensible structure is:
 | `specs/` | normative subsystem contracts | already present before implementation stages start |
 | `plan/` | implementation sequencing and completion gates | already present before implementation stages start |
 | `proofs/` | proof boundary, Lean project, proof artifacts | Stage 1.1 baseline; expands in 2.4 and 4.2 |
-| `crates/kali` / `crates/kali_cli` | binary entrypoint, command dispatch | Stage 1.1 |
+| `crates/kali_cli` | binary entrypoint and top-level command dispatch | Stage 1.1 |
 | `crates/cli` logical bucket (`crates/kali_cli`, parts of `kali_common`) | CLI parsing, output envelopes, config discovery | Stage 1.1; deepens in 1.12 and 1.13 |
 | `crates/core` logical bucket (`kali_lexer`, `kali_parser`, `kali_ast`, `kali_types`, `kali_hir`, `kali_mir`, `kali_lir`, `kali_codegen`) | frontend, checker, lowering, codegen | Stages 1.2-1.7, then 2.1 and 3.1 |
 | `crates/runtime` logical bucket (`kali_runtime`, `kali_api_deno`, `kali_api_web`, later `kali_api_node`) | execution engine, host adapters, runtime scheduling | Stage 1.8; broadens in 3.2, 3.4, 4.1, 5.x |
@@ -93,18 +92,29 @@ For this repo, the sensible structure is:
 | `tests/` | evidence tracks that justify support claims | begins in 1.1, becomes critical in 1.14 |
 | `fixtures/` | reviewable input corpora shared by tests | begins in 1.2, grows every phase |
 | `schemas/`, `types/`, `bindings/` | stable external contracts and generated host-facing surfaces | begin early; deepen in 1.13, 2.3, and 5.5 |
-| `tools/scripts/` | helper automation invoked by `mise` or CI | as needed; should not replace the canonical `mise` entrypoints |
+| `scripts/` | helper automation invoked by `mise` or CI | as needed; should not replace the canonical `mise` entrypoints |
 
 ## Adoption by phase
 
 ### Phase 1
-Create only the areas needed for the MVP critical path and evidence:
-- `crates/kali`
-- `crates/cli`
-- `crates/core`
-- `crates/runtime`
-- `crates/packages`
-- `crates/sandbox`
+In this repository, prefer growing the existing concrete areas needed for the MVP critical path and evidence:
+- `crates/kali_cli`
+- `crates/kali_common`
+- `crates/kali_error`
+- `crates/kali_lexer`
+- `crates/kali_parser`
+- `crates/kali_ast`
+- `crates/kali_types`
+- `crates/kali_hir`
+- `crates/kali_lir`
+- `crates/kali_codegen`
+- `crates/kali_runtime`
+- `crates/kali_api_deno`
+- `crates/kali_sandbox`
+- `crates/kali_npm`
+- `crates/kali_embed`
+- `crates/kali_fmt`
+- `crates/kali_lint`
 - `tests/integration`
 - `tests/conformance`
 - `tests/browser-smoke`
@@ -112,6 +122,8 @@ Create only the areas needed for the MVP critical path and evidence:
 - `fixtures/compiler`
 - `fixtures/runtime`
 - `fixtures/packages`
+- `fixtures/browser`
+- `fixtures/cli`
 
 ### Phase 2
 Add or promote the areas needed for semantic depth and public surfaces:
@@ -125,7 +137,7 @@ Deepen performance and compatibility areas:
 - `crates/optimize`
 - larger package corpus
 - Node-specific and host-expansion fixtures
-- benchmark harness support through `tests/` and `tools/scripts/`
+- benchmark harness support through `tests/` and `scripts/`
 
 ### Phase 4
 Add only the explicitly gated late-compatibility and proof-depth support files required by that phase.
@@ -149,7 +161,7 @@ Use top-level test directories that align with the evidence matrix in [`../specs
 Prefer small, purpose-specific fixtures over giant sample projects with many moving parts.
 
 ### Script helpers are secondary
-If a helper lives in `tools/scripts/`, it should still be invoked through a canonical `mise` task for day-to-day use and CI.
+If a helper lives in `scripts/`, it should still be invoked through a canonical `mise` task for day-to-day use and CI.
 
 ## Suggested growth sequence inside `crates/`
 

@@ -26,6 +26,7 @@ plan/
 ├── 03-spec-to-stage-traceability.md
 ├── 04-stage-dependency-matrix.md
 ├── 05-delivery-increments.md
+├── 06-current-workspace-rollout.md
 ├── phase-1/
 │   ├── README.md
 │   ├── 01-workspace-scaffold.md
@@ -68,7 +69,7 @@ plan/
     └── 05-pgo-and-language-bindings.md
 ```
 
-Total: 27 stage documents, 5 phase index documents, and 6 cross-phase planning guides.
+Total: 27 stage documents, 5 phase index documents, and 7 cross-phase planning guides.
 
 ## Suggested implementation directory structure
 
@@ -163,6 +164,7 @@ Start here, then use the supporting plan docs for the specific planning question
 - [plan/03-spec-to-stage-traceability.md](./plan/03-spec-to-stage-traceability.md) — chapter-by-chapter mapping from the normative spec set to concrete plan stages and evidence lanes
 - [plan/04-stage-dependency-matrix.md](./plan/04-stage-dependency-matrix.md) — stage-by-stage prerequisites, parallel windows, code areas, and demo expectations
 - [plan/05-delivery-increments.md](./plan/05-delivery-increments.md) — higher-level increments that keep the repository usable while stages accumulate
+- [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md) — concrete repository-growth order for the current fine-grained workspace
 
 - Use `SPEC.md` to decide what Kali promises.
 - Use this plan to decide implementation order and dependencies.
@@ -217,6 +219,8 @@ When turning the spec set into code in the current repository, use these lanes t
 | Optimization + compatibility breadth | 3.x-5.x | `kali_optimize`, `kali_api_node`, `kali_runtime`, `bindings/` |
 
 This lane view is a practical complement to the phase map: it tells contributors where code should accumulate first without changing the normative phase contracts.
+
+For a more concrete “what directories and crates should grow next in this exact repository?” view, use [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md). That guide translates the phase/stage roadmap into a repository-growth sequence over the current `kali_*` crates, `schemas/`, `types/`, `bindings/`, `scripts/`, `tests/`, and `fixtures/` trees.
 
 ## Implementation strata
 
@@ -558,6 +562,7 @@ The stage files are the authoritative step-by-step plan, but six cross-phase gui
 - [plan/03-spec-to-stage-traceability.md](./plan/03-spec-to-stage-traceability.md) — a spec-coverage audit map so each normative chapter has an explicit implementation home
 - [plan/04-stage-dependency-matrix.md](./plan/04-stage-dependency-matrix.md) — the exact prerequisite graph and demo/evidence expectations for each stage
 - [plan/05-delivery-increments.md](./plan/05-delivery-increments.md) — the larger implementation slices that should be reviewable, workable, and demoable to users
+- [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md) — the concrete directory/crate growth order for this repository
 
 ## Current post-completion follow-up lanes
 

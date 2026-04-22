@@ -32,7 +32,7 @@ Current-repo naming note:
 
 | Stage | Hard dependencies | Then opens / parallel window | Primary code areas | Repository demo | Primary evidence |
 |---|---|---|---|---|---|
-| 1.1 | none | 1.2 | `crates/kali`, `crates/cli`, `proofs/`, workspace config | `kali --version` | workspace build/test, proof-ready baseline |
+| 1.1 | none | 1.2 | `crates/kali_cli`, `crates/kali_common`, `crates/kali_error`, `proofs/`, workspace config | `kali --version` | workspace build/test, proof-ready baseline |
 | 1.2 | 1.1 | 1.3 | lexer/frontend crates, diagnostics | deterministic token dump or lexer diagnostics | lexer fixtures, diagnostic snapshots |
 | 1.3 | 1.2 | 1.4 | parser/AST crates | parse supported TS/JS into a stable AST form | parser baselines, AST snapshots |
 | 1.4 | 1.3 | 1.5 and package-resolution handoff | name-resolution/import logic, CLI check wiring | `kali check` resolves symbols/imports and reports failures | resolution tests, import fixtures |
@@ -91,7 +91,8 @@ Use this matrix before opening work on a stage:
 3. map those ownership areas onto the current fine-grained crates before starting,
 4. decide the exact demo command before coding,
 5. identify the evidence lane that must ship with the change,
-6. update [`03-spec-to-stage-traceability.md`](./03-spec-to-stage-traceability.md) if the scope moves.
+6. use [`06-current-workspace-rollout.md`](./06-current-workspace-rollout.md) if you need the concrete crate/directory growth order,
+7. update [`03-spec-to-stage-traceability.md`](./03-spec-to-stage-traceability.md) if the scope moves.
 
 ## Maintenance rule
 
