@@ -148,8 +148,10 @@ This section is the short answer to “did the derived spec set actually preserv
 | Static JSON effect visibility | preserved, but normalized into later explicit reporting commands plus policy-comparison workflows rather than a `run --dry` shadow mode |
 | TypeScript superset / stronger inference | preserved under the bounded-inference contract and annotation-required boundary |
 | Aggressive specialization and layout-aware IR | preserved as optimization-direction guidance, with phase-gated delivery |
+| Benchmark suite / Rust-competitive performance aspiration | preserved as a later optimization-evidence lane and benchmarking program, not as a Phase-1 performance guarantee |
 | Deno / browser / Node API support | preserved, but split by context and maturity; Phase 1 is Deno-oriented plus the browser-targeted command set, while Node is later |
 | npm ecosystem access | preserved through the pure JS/TS package contract and support ladder, not as an unqualified “all npm works” claim |
+| Real-package e2e validation (for example `semver` and `@mariozechner/pi-coding-agent`) | preserved as phase-correct package-corpus evidence: representative package probes must assert the right rung and expected outcome for the current host/API maturity, rather than assuming every named package is Phase-1 executable |
 | Embeddability / WIT / C ABI / Component Model | preserved, but split into a Phase-1 base library artifact and a later stable public embedding surface |
 | `eval` and hardest dynamic features | preserved as later compatibility only; not allowed to violate the AOT-only invariant |
 | Lean verification | preserved through the proof-ready/proof-backed split and the proof-boundary manifest discipline |

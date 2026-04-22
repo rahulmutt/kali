@@ -98,6 +98,17 @@ Build-mode clarification:
 - **LTO (Link-Time Optimization)**: Cross-module inlining and dead code elimination
 - **Optional external post-pass**: If users install `wasm-opt`, Kali may invoke it as a separate user-provided tool, but this remains an additive `release-advanced` helper only. Follow the shared **Pure-Rust implementation contract** from [SPEC.md](../SPEC.md): Kali's core optimization pipeline, tests, and feature claims must remain valid without Binaryen or any other external post-pass tool.
 
+## Performance-claim discipline
+
+The bootstrap brief's benchmark and "on par with Rust" aspirations are normalized here as an optimization-evidence program, not as a blanket early-phase performance promise.
+
+Rules:
+- performance claims must name the workload class, build mode, and comparison baseline instead of saying only that Kali is "fast"
+- benchmark wins are evidence for optimization maturity, not a substitute for semantic-correctness evidence
+- the canonical benchmark lane belongs to the testing/evidence program: adapted Computer Language Benchmarks Game workloads and representative real-world regressions should be version-pinned and rerunnable
+- public performance wording should stay phase-correct: Phase 1 may claim stable build-mode vocabulary and deterministic benchmarking hooks, while stronger throughput/latency claims belong to later optimization phases once evidence exists
+- package-oriented benchmark anecdotes must not be used to widen host/API compatibility claims
+
 ## Dynamic Fallback
 
 When specialization is not possible (type unknown, exceeds specialization cap), the compiler falls back to tagged/dynamic representations. See [05 — Intermediate Representations](05-ir.md#value-representation) for the `ValueRepr` enum and NaN-boxing scheme.

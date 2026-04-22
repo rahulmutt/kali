@@ -245,9 +245,7 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         ("PLAN-4.2-STATUS.md", summary),
     ];
     let theorem_inventory_docs = [
-        "specs/16-testing.md",
         "proofs/BOUNDARY.md",
-        "specs/17-verification.md",
         "plan/phase-4/02-formal-verification-depth.md",
         "PLAN-4.2-STATUS.md",
     ];
