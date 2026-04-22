@@ -60,6 +60,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - The shared browser-harness plumbing now also exposes a structured launch-plan helper, so future browser runtime wiring can inspect the resolved executable, harness args, script path, forwarded args, and current working directory before launching instead of rebuilding that command plan ad hoc.
 - The runtime crate now also includes a reusable browser-execution helper that materializes the self-contained harness script into a temp file, launches the configured browser command, and parses the harness summary of registered tests; that keeps the future standalone browser path anchored to one deterministic library entrypoint instead of ad hoc test-only scaffolding.
 - The browser-runtime harness now emits an explicit empty test-summary payload even when no guest tests register, so later `test` plumbing has one deterministic summary envelope to parse instead of relying on a missing-summary special case.
+- The browser-bundle runtime harness now also knows how to import the emitted browser-targeted bundle glue through `loadWithImports`, letting the later browser runtime path observe a custom import bridge and a deterministic registered-test summary over the linked-artifact layout instead of only the raw embedded-WASM helper.
 
 ## Tasks
 

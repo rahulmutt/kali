@@ -2137,7 +2137,7 @@ const bundleBaseUrl = import.meta.url;
 const dynamicImportTargets = new Map([
 {dynamic_import_entries}]);
 
-const importObject = {{
+const defaultImportObject = {{
   "kali:rt": {{
     test_register() {{}},
     args_len() {{ return 0; }},
@@ -2159,7 +2159,19 @@ const importObject = {{
   }}
 }};
 
-async function instantiate() {{
+function mergeImportObject(overrides = {{}}) {{
+  const mergedRt = {{
+    ...defaultImportObject["kali:rt"],
+    ...((overrides["kali:rt"] ?? {{}})),
+  }};
+  return {{
+    ...defaultImportObject,
+    ...overrides,
+    "kali:rt": mergedRt,
+  }};
+}}
+
+async function instantiate(importObject) {{
   if (typeof WebAssembly.instantiateStreaming === "function" && typeof fetch === "function") {{
     try {{
       const response = await fetch(wasmUrl);
@@ -2174,8 +2186,8 @@ async function instantiate() {{
 }}
 
 let wasmMemory = null;
-const instancePromise = instantiate().then((instance) => {{
-  wasmMemory = instance.instance.exports.memory;
+const instancePromise = instantiate(defaultImportObject).then((instance) => {{
+  wasmMemory = instance.instance.exports.memory ?? null;
   return instance.instance;
 }});
 
@@ -2235,6 +2247,12 @@ export async function load() {{
   return await instancePromise;
 }}
 
+export async function loadWithImports(overrides = {{}}) {{
+  const instance = await instantiate(mergeImportObject(overrides));
+  wasmMemory = instance.instance.exports.memory ?? null;
+  return instance.instance;
+}}
+
 export async function loadDynamicImport(specifier) {{
   return await import(resolveDynamicImportTarget(specifier).href);
 }}
@@ -2248,7 +2266,7 @@ const bundleBaseUrl = pathToFileURL(__filename);
 const dynamicImportTargets = new Map([
 {dynamic_import_entries}]);
 
-const importObject = {{
+const defaultImportObject = {{
   "kali:rt": {{
     test_register() {{}},
     args_len() {{ return 0; }},
@@ -2270,7 +2288,19 @@ const importObject = {{
   }}
 }};
 
-async function instantiate() {{
+function mergeImportObject(overrides = {{}}) {{
+  const mergedRt = {{
+    ...defaultImportObject["kali:rt"],
+    ...((overrides["kali:rt"] ?? {{}})),
+  }};
+  return {{
+    ...defaultImportObject,
+    ...overrides,
+    "kali:rt": mergedRt,
+  }};
+}}
+
+async function instantiate(importObject) {{
   if (typeof WebAssembly.instantiateStreaming === "function" && typeof fetch === "function") {{
     try {{
       const response = await fetch(wasmUrl);
@@ -2285,8 +2315,8 @@ async function instantiate() {{
 }}
 
 let wasmMemory = null;
-const instancePromise = instantiate().then((instance) => {{
-  wasmMemory = instance.instance.exports.memory;
+const instancePromise = instantiate(defaultImportObject).then((instance) => {{
+  wasmMemory = instance.instance.exports.memory ?? null;
   return instance.instance;
 }});
 
@@ -2346,11 +2376,17 @@ async function load() {{
   return await instancePromise;
 }}
 
+async function loadWithImports(overrides = {{}}) {{
+  const instance = await instantiate(mergeImportObject(overrides));
+  wasmMemory = instance.instance.exports.memory ?? null;
+  return instance.instance;
+}}
+
 async function loadDynamicImport(specifier) {{
   return await import(resolveDynamicImportTarget(specifier).href);
 }}
 
-const exported = {{ load, loadDynamicImport }};
+const exported = {{ load, loadWithImports, loadDynamicImport }};
 
 "#
         ),

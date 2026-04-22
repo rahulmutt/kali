@@ -317,6 +317,68 @@ fn browser_runtime_harness_script_reports_an_empty_test_summary_when_no_callback
 }
 
 #[test]
+fn browser_bundle_runtime_execute_checked_loads_bundle_exports_and_parses_summary() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let bundle_root = tempdir.path().join("browser-app");
+    fs::create_dir_all(&bundle_root).expect("create bundle root");
+
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "args_len" (func $args_len (result i32)))
+                (import "kali:rt" "test_register" (func $test_register (param i64)))
+                (import "kali:rt" "console_log" (func $console_log (param i64)))
+                (func (export "_start")
+                    i64.const 7
+                    call $test_register
+                    call $args_len
+                    i64.extend_i32_s
+                    call $console_log))
+        "#,
+    );
+    fs::write(bundle_root.join("browser-app.wasm"), &wasm).expect("write bundle wasm");
+    fs::write(
+        bundle_root.join("browser-app.js"),
+        r#"
+const wasmUrl = new URL('./browser-app.wasm', import.meta.url);
+
+export async function loadWithImports(importObject) {
+  const response = await fetch(wasmUrl);
+  const bytes = await response.arrayBuffer();
+  const { instance } = await WebAssembly.instantiate(bytes, importObject);
+  return instance;
+}
+"#,
+    )
+    .expect("write bundle js");
+
+    let outcome = browser_bundle_runtime_execute_checked(
+        Some("node"),
+        &bundle_root,
+        &["alpha".to_string()],
+        false,
+        true,
+    )
+    .expect("execute browser bundle runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert!(outcome.stdout.contains('1'), "stdout: {}", outcome.stdout);
+    assert!(
+        outcome.stdout.contains("\"tests\":[\"7\"]"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert!(
+        outcome.stdout.contains("\"args\":[\"alpha\"]"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.registered_tests, vec!["7".to_string()]);
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
 fn browser_runtime_execution_helper_launches_browser_harness_and_parses_summary() {
     let wasm = compile_wat(
         r#"

@@ -2984,6 +2984,7 @@ fn browser_bundle_js_exposes_runtime_dynamic_import_loader() {
     let bundle_dir = dir.path().join("app");
     let js = fs::read_to_string(bundle_dir.join("app.js")).expect("read bundle js");
     assert!(js.contains("loadDynamicImport"), "bundle js: {js}");
+    assert!(js.contains("loadWithImports"), "bundle js: {js}");
     assert!(js.contains("lazy.ts"), "bundle js: {js}");
 
     assert_browser_bundle_dynamic_import_loader(&bundle_dir, "./lazy.ts");

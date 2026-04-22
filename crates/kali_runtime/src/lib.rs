@@ -2286,6 +2286,134 @@ pub fn browser_bundle_harness_script(bundle_dir: &str, allow_subpaths: bool, bod
     )
 }
 
+/// Build a browser-bundle runtime harness script that loads the emitted bundle glue.
+///
+/// The generated module reuses the shared browser-bundle fetch shim, imports the emitted bundle,
+/// and re-instantiates it with the canonical Kali runtime imports so future browser runtime
+/// flows can observe console output and registered tests from the browser-targeted artifact set.
+pub fn browser_bundle_runtime_harness_script(
+    bundle_dir: &str,
+    allow_subpaths: bool,
+    args: &[String],
+    run_registered_tests: bool,
+) -> String {
+    let args_json = serde_json::to_string(args).expect("serialize browser bundle runtime args");
+    format!(
+        r#"{}const runtimeArgs = {args_json};
+const runRegisteredTests = {run_registered_tests};
+let wasmMemory = null;
+const collectedTests = [];
+
+function formatConsoleValue(val) {{
+  if (typeof val === 'bigint') {{
+    if ((val & 0x8000000000000000n) !== 0n && wasmMemory !== null) {{
+      const offset = Number((val >> 32n) & 0x7fffffffn);
+      const length = Number(val & 0xffffffffn);
+      const bytes = new Uint8Array(wasmMemory.buffer, offset, length);
+      return new TextDecoder().decode(bytes);
+    }}
+    return val.toString();
+  }}
+  return String(val);
+}}
+
+const importObject = {{
+  "kali:rt": {{
+    test_register(val) {{
+      collectedTests.push(formatConsoleValue(val));
+    }},
+    args_len() {{
+      return runtimeArgs.length;
+    }},
+    console_log(val) {{
+      console.log(formatConsoleValue(val));
+    }},
+    console_error(val) {{
+      console.error(formatConsoleValue(val));
+    }},
+    console_warn(val) {{
+      console.warn(formatConsoleValue(val));
+    }},
+  }},
+}};
+
+const bundle = await import(bundleJs.href);
+if (typeof bundle.loadWithImports !== 'function') {{
+  throw new Error('missing loadWithImports helper');
+}}
+const instance = await bundle.loadWithImports(importObject);
+wasmMemory = instance.exports.memory ?? null;
+if (typeof instance.exports._start === 'function') {{
+  await instance.exports._start();
+}}
+if (runRegisteredTests) {{
+  console.log(JSON.stringify({{ args: runtimeArgs, tests: collectedTests }}));
+}}
+"#,
+        browser_bundle_harness_prelude(bundle_dir, allow_subpaths),
+    )
+}
+
+/// Execute an emitted browser-targeted bundle through the browser harness.
+///
+/// The bundle harness is written next to the emitted bundle directory so the shared prelude can
+/// resolve the bundle glue with the expected relative layout.
+pub fn browser_bundle_runtime_execute_checked(
+    command: Option<&str>,
+    bundle_root: impl AsRef<Path>,
+    args: &[String],
+    allow_subpaths: bool,
+    run_registered_tests: bool,
+) -> Result<BrowserRuntimeExecutionOutcome, BrowserHarnessError> {
+    let bundle_root = bundle_root.as_ref();
+    let bundle_dir = bundle_root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| BrowserHarnessError::PreparationFailed {
+            message: format!(
+                "bundle root {:?} does not have a valid directory name",
+                bundle_root
+            ),
+        })?;
+    let current_dir =
+        bundle_root
+            .parent()
+            .ok_or_else(|| BrowserHarnessError::PreparationFailed {
+                message: format!(
+                    "bundle root {:?} does not have a parent directory",
+                    bundle_root
+                ),
+            })?;
+    let script_path = current_dir.join("browser-bundle-runtime.mjs");
+    fs::write(
+        &script_path,
+        browser_bundle_runtime_harness_script(
+            bundle_dir,
+            allow_subpaths,
+            args,
+            run_registered_tests,
+        ),
+    )
+    .map_err(|error| BrowserHarnessError::PreparationFailed {
+        message: error.to_string(),
+    })?;
+
+    let outcome = browser_harness_run_checked(command, &script_path, &[], current_dir)?;
+    let registered_tests = if run_registered_tests {
+        parse_browser_runtime_summary(&outcome.stdout)
+    } else {
+        Vec::new()
+    };
+
+    Ok(BrowserRuntimeExecutionOutcome {
+        command: outcome.command,
+        status: outcome.status,
+        stdout: outcome.stdout,
+        stderr: outcome.stderr,
+        registered_tests,
+    })
+}
+
 /// Build a self-contained browser-runtime harness script from embedded WASM bytes.
 ///
 /// The generated module is intentionally generic: it instantiates the supplied WASM bytes, wires
