@@ -563,7 +563,7 @@ fn scan_tokens_for_effects(
             continue;
         }
 
-        if is_proxy_constructor(tokens, i) {
+        if is_proxy_constructor(tokens, i) || is_proxy_revocable_call(tokens, i) {
             dynamic_reasons.insert("proxy-traps".to_string());
             i += 1;
             continue;
@@ -655,6 +655,32 @@ fn is_proxy_constructor(tokens: &[Token], index: usize) -> bool {
             && matches!(tokens.get(index + 1), Some(token) if token.kind == TokenType::Identifier && token.value == "globalThis")
             && matches!(tokens.get(index + 2).map(|t| t.kind), Some(TokenType::Dot))
             && matches!(tokens.get(index + 3), Some(token) if token.kind == TokenType::Identifier && token.value == "Proxy")
+}
+
+fn is_proxy_revocable_call(tokens: &[Token], index: usize) -> bool {
+    is_proxy_revocable_member_call(tokens, index) || is_global_proxy_revocable_call(tokens, index)
+}
+
+fn is_proxy_revocable_member_call(tokens: &[Token], index: usize) -> bool {
+    matches!(tokens.get(index), Some(token) if token.kind == TokenType::Identifier && token.value == "Proxy")
+        && matches!(tokens.get(index + 1).map(|t| t.kind), Some(TokenType::Dot))
+        && matches!(tokens.get(index + 2), Some(token) if token.kind == TokenType::Identifier && token.value == "revocable")
+        && matches!(
+            tokens.get(index + 3).map(|t| t.kind),
+            Some(TokenType::LeftParen)
+        )
+}
+
+fn is_global_proxy_revocable_call(tokens: &[Token], index: usize) -> bool {
+    matches!(tokens.get(index), Some(token) if token.kind == TokenType::Identifier && token.value == "globalThis")
+        && matches!(tokens.get(index + 1).map(|t| t.kind), Some(TokenType::Dot))
+        && matches!(tokens.get(index + 2), Some(token) if token.kind == TokenType::Identifier && token.value == "Proxy")
+        && matches!(tokens.get(index + 3).map(|t| t.kind), Some(TokenType::Dot))
+        && matches!(tokens.get(index + 4), Some(token) if token.kind == TokenType::Identifier && token.value == "revocable")
+        && matches!(
+            tokens.get(index + 5).map(|t| t.kind),
+            Some(TokenType::LeftParen)
+        )
 }
 
 fn is_console_write_call(tokens: &[Token], index: usize) -> bool {

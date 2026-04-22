@@ -35,6 +35,7 @@ This stage must preserve two guardrails:
 - Declarative policy remains primary: the sandbox check helper applies the declarative decision
   first and only then evaluates host-registered predicates, with deterministic registration order and
   explicit rejection when the predicate registry is disabled.
+- The dynamic-effect analyzer now treats both `new Proxy(...)` and `Proxy.revocable(...)` / `globalThis.Proxy.revocable(...)` as `proxy-traps`, so the proxy semantics slice stays aligned with the later reflective-compatibility boundary in both the sandbox model and the CLI smoke coverage.
 
 ## Tasks
 
@@ -102,4 +103,4 @@ work needed for later proof/evidence expansion:
 
 ## Status
 
-Planned.
+In progress.

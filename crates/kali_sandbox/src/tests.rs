@@ -334,11 +334,13 @@ Deno.lstat('/workspace/input.txt');
 }
 
 #[test]
-fn effect_analysis_marks_proxy_constructor_as_dynamic() {
+fn effect_analysis_marks_proxy_constructor_and_revocable_calls_as_dynamic() {
     let source = write_source_fixture(
         r#"
 new Proxy({}, {});
 new globalThis.Proxy({}, {});
+Proxy.revocable({}, {});
+globalThis.Proxy.revocable({}, {});
 "#,
     );
 

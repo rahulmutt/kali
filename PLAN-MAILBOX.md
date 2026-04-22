@@ -355,3 +355,6 @@ Proposed fix:
 2026-04-22 resolution note
 - added bigint-literal lexer/parser support so browser-bundle crypto smoke fixtures can return `0n` without the lexer splitting the suffix into a stray identifier
 - recorded the new literal coverage in the Stage 1.3 parser/AST notes and the Stage 1.14 evidence-hardening progress note so the plan history matches the regression suite
+2026-04-22 resolution note
+- broadened the proxy dynamic-effect coverage so `Proxy.revocable(...)` and `globalThis.Proxy.revocable(...)` now share the existing `proxy-traps` reason alongside `new Proxy(...)`, and updated the Stage 5.3 progress note so the historical plan records the expanded proxy semantics slice
+- marked Stage 5.3 as in progress so the plan status reflects that the proxy semantics slice now has delivered implementation evidence rather than remaining purely planned
