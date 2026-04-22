@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-22 resolution note
+- added explicit and inherited browser API-surface coverage for `kali effects`, so the public effect-report surface now exercises the browser analysis context that the maturity matrix already documents
+- updated the Stage 2.2 progress note to record that browser-analysis coverage alongside the existing effect-report evidence
+
+2026-04-22 resolution note
 - tightened the Stage 5.2 browser-runtime rejection path so `test` now uses the shared browser-runtime helper instead of a generic one-off gate, and the diagnostic text names the browser API surface explicitly for both `run` and `test`
 - added sandbox-attached browser-gate regressions for `run` and `test` in both text and JSON modes, then updated the Stage 5.2 progress note so the historical plan records the new honesty coverage
 

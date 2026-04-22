@@ -244,11 +244,12 @@ fn main() {
             }
         }
         Commands::Effects {
+            api,
             compat,
             wasm_threads,
             files,
         } => {
-            if let Err(exit_code) = effects_command(files, compat, wasm_threads, &output) {
+            if let Err(exit_code) = effects_command(api, files, compat, wasm_threads, &output) {
                 std::process::exit(exit_code);
             }
         }
@@ -2941,6 +2942,7 @@ fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Res
 }
 
 fn effects_command(
+    api: Option<kali_cli::ApiSurface>,
     files: Vec<String>,
     compat: Vec<String>,
     wasm_threads: bool,
@@ -2950,7 +2952,7 @@ fn effects_command(
         return Err(1);
     };
 
-    let effective_api = match resolve_effective_api_surface(None) {
+    let effective_api = match resolve_effective_api_surface(api) {
         Ok(api) => api,
         Err(diagnostics) => {
             return emit_diagnostics_and_exit(

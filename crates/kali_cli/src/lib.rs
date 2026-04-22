@@ -333,6 +333,9 @@ pub enum Commands {
     #[command(name = "effects")]
     /// Analyze source-file effects
     Effects {
+        /// Select the effective API surface
+        #[arg(long, value_enum)]
+        api: Option<ApiSurface>,
         /// Enable documented compatibility features
         #[arg(long = "compat", value_delimiter = ',')]
         compat: Vec<String>,

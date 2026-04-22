@@ -33,6 +33,9 @@ existing `check/build --sandbox` flows instead of inventing a second sandbox com
 **Status:** Complete. The public reporting surface is implemented and aligned with the current
 schema-v1 command and payload rules.
 
+Progress note:
+- `kali effects` now accepts both explicit `--api browser` and inherited browser API-surface contexts, and the CLI smoke suite pins the same stable effect payload shape under those browser-analysis paths.
+
 ## Historical stage tasks
 
 ### 1. Stabilize the built-in effect vocabulary
