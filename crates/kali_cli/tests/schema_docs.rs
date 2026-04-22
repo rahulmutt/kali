@@ -224,6 +224,16 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
         "releaseAndCollectHeapCellsHavePositiveCount",
     ];
     let soundness_theorem_names = ["KaliCore.Soundness.subst_closed", "KaliCore.litTy"];
+    let context_lookup_theorem_names = [
+        "Context.lookup_remove_head",
+        "Context.lookup_remove_head_other",
+        "Context.lookup_remove_ne",
+    ];
+    let context_lookup_docs = [
+        "proofs/BOUNDARY.md",
+        "plan/phase-4/02-formal-verification-depth.md",
+        "PLAN-4.2-STATUS.md",
+    ];
 
     let summary_docs = [
         ("README.md", summary),
@@ -257,6 +267,16 @@ fn proof_boundary_summary_matches_readme_manifest_and_status_docs() {
             assert!(
                 text.contains(term),
                 "{relative} is missing RC predicate vocabulary term: {term}"
+            );
+        }
+    }
+
+    for relative in context_lookup_docs {
+        let text = fs::read_to_string(root.join(relative)).expect("read context lookup doc");
+        for theorem in context_lookup_theorem_names {
+            assert!(
+                text.contains(theorem),
+                "{relative} is missing context lookup proof-summary theorem name: {theorem}"
             );
         }
     }
