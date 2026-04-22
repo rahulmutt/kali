@@ -65,6 +65,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - The browser-runtime harness now emits an explicit empty test-summary payload even when no guest tests register, so later `test` plumbing has one deterministic summary envelope to parse instead of relying on a missing-summary special case.
 - The browser-bundle runtime harness now also knows how to import the emitted browser-targeted bundle glue through `loadWithImports`, letting the later browser runtime path observe a custom import bridge and a deterministic registered-test summary over the linked-artifact layout instead of only the raw embedded-WASM helper.
 - The browser runtime and browser-bundle harnesses now execute exported `__kali_callback_<id>` test callbacks, report `testsFailed`, and fail nonzero on callback traps so the future browser runtime test path has a realistic callback-execution summary instead of only a registration log.
+- `RuntimeCtx::execute` now also honors an explicitly configured browser harness command for browser API-surface requests, so the browser-requested runtime path can be exercised through the shared browser harness helper when an explicit host command is supplied while still preserving the default browser gate when no harness is configured.
 
 ## Tasks
 

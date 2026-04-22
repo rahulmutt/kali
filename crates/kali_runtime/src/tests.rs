@@ -113,6 +113,90 @@ fn runtime_reports_browser_host_contract_for_browser_api_surface() {
 }
 
 #[test]
+fn browser_requested_runtime_can_execute_with_an_explicit_harness_command() {
+    let runtime = RuntimeCtx::with_host_context_with_api_surface(
+        None,
+        vec!["alpha".to_string(), "beta".to_string()],
+        capture_env(),
+        PathBuf::from("."),
+        "browser",
+    );
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "args_len" (func $args_len (result i32)))
+                (import "kali:rt" "console_log" (func $console_log (param i64)))
+                (memory (export "memory") 1)
+                (func (export "_start")
+                    call $args_len
+                    i64.extend_i32_s
+                    call $console_log))
+            "#,
+    );
+
+    let outcome = execute_browser_runtime(
+        &runtime,
+        &wasm,
+        false,
+        runtime.canonical_runtime_profiles(),
+        "node",
+    )
+    .expect("browser runtime outcome");
+
+    assert_eq!(outcome.exit_code, 0);
+    assert_eq!(outcome.tests_run, 0);
+    assert_eq!(outcome.tests_failed, 0);
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::Wasmtime);
+    assert!(outcome.stdout.contains('2'), "stdout: {}", outcome.stdout);
+}
+
+#[test]
+fn browser_requested_test_runtime_can_execute_registered_callbacks() {
+    let runtime = RuntimeCtx::with_host_context_with_api_surface(
+        None,
+        vec!["gamma".to_string()],
+        capture_env(),
+        PathBuf::from("."),
+        "browser",
+    );
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "test_register" (func $test_register (param i64)))
+                (import "kali:rt" "console_log" (func $console_log (param i64)))
+                (func (export "__kali_callback_7")
+                    i64.const 11
+                    call $console_log)
+                (func (export "_start")
+                    i64.const 7
+                    call $test_register))
+            "#,
+    );
+
+    let outcome = execute_browser_runtime(
+        &runtime,
+        &wasm,
+        true,
+        runtime.canonical_runtime_profiles(),
+        "node",
+    )
+    .expect("browser runtime test outcome");
+
+    assert_eq!(outcome.exit_code, 0);
+    assert_eq!(outcome.tests_run, 1);
+    assert_eq!(outcome.tests_failed, 0);
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::Wasmtime);
+    assert!(
+        outcome.stdout.contains("\"tests\":[\"7\"]"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert!(outcome.stdout.contains("11"), "stdout: {}", outcome.stdout);
+}
+
+#[test]
 fn browser_runtime_contract_documents_the_future_execution_surface() {
     let descriptor = BrowserRuntimeContract::descriptor();
 

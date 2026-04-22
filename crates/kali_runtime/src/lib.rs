@@ -416,23 +416,30 @@ impl RuntimeCtx {
         wasm_bytes: &[u8],
         run_registered_tests: bool,
     ) -> Result<RuntimeOutcome, Vec<Diagnostic>> {
-        match self.host_contract() {
-            RuntimeHostContract::BrowserRequested => {
-                return Err(vec![browser_runtime_unavailable_diagnostic(
-                    None,
-                    Some(browser_runtime_request_context(
-                        DiagnosticContextOrigin::Default,
-                    )),
-                )]);
-            }
-            RuntimeHostContract::KaliHosted => {}
-        }
-
         let normalized_runtime_profiles = self.canonical_runtime_profiles();
         if let Some(diagnostic) =
             self.reject_unavailable_threaded_requests(&normalized_runtime_profiles)
         {
             return Err(vec![diagnostic]);
+        }
+
+        if matches!(self.host_contract(), RuntimeHostContract::BrowserRequested) {
+            if let Some(browser_harness_command) = browser_harness_command_from_env() {
+                return execute_browser_runtime(
+                    self,
+                    wasm_bytes,
+                    run_registered_tests,
+                    normalized_runtime_profiles,
+                    &browser_harness_command,
+                );
+            }
+
+            return Err(vec![browser_runtime_unavailable_diagnostic(
+                None,
+                Some(browser_runtime_request_context(
+                    DiagnosticContextOrigin::Default,
+                )),
+            )]);
         }
 
         let mut config = Config::new();
@@ -618,6 +625,54 @@ impl RuntimeCtx {
             runtime_backend: self.runtime_backend(),
         })
     }
+}
+
+fn browser_harness_command_from_env() -> Option<String> {
+    std::env::var(BROWSER_HARNESS_COMMAND_ENV).ok()
+}
+
+fn execute_browser_runtime(
+    runtime: &RuntimeCtx,
+    wasm_bytes: &[u8],
+    run_registered_tests: bool,
+    normalized_runtime_profiles: Vec<String>,
+    browser_harness_command: &str,
+) -> Result<RuntimeOutcome, Vec<Diagnostic>> {
+    let outcome = browser_runtime_execute_checked(
+        Some(browser_harness_command),
+        wasm_bytes,
+        &runtime.args,
+        &runtime.cwd,
+        run_registered_tests,
+    )
+    .map_err(|error| {
+        vec![runtime_error_diagnostic(format!(
+            "failed to execute browser runtime harness: {}",
+            error
+        ))]
+    })?;
+
+    let tests_run = if run_registered_tests {
+        outcome.tests_run().max(1)
+    } else {
+        0
+    };
+
+    Ok(RuntimeOutcome {
+        exit_code: if outcome.status.success() {
+            0
+        } else {
+            outcome.status.code().unwrap_or(1)
+        },
+        tests_run,
+        tests_failed: outcome.tests_failed,
+        stdout: outcome.stdout,
+        stderr: outcome.stderr,
+        coverage_hits: Vec::new(),
+        runtime_profiles: normalized_runtime_profiles,
+        host_contract: outcome.host_contract,
+        runtime_backend: runtime.runtime_backend(),
+    })
 }
 
 fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(), Diagnostic> {
