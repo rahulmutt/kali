@@ -195,6 +195,84 @@ fn file_reader_reads_blob_and_file_payloads() {
 }
 
 #[test]
+fn blob_and_file_stream_baselines_preserve_bytes() {
+    let blob = Blob::new(
+        ["stream ".as_bytes(), "payload".as_bytes()],
+        Some("text/plain".to_string()),
+    );
+    let file = File::new(
+        "stream.txt",
+        ["stream ".as_bytes(), "payload".as_bytes()],
+        None,
+        9,
+    );
+
+    let blob_stream = blob.stream();
+    assert_eq!(blob_stream.chunks(), vec![b"stream payload".to_vec()]);
+    assert_eq!(blob_stream.bytes(), b"stream payload");
+    assert_eq!(
+        blob_stream.text().expect("blob stream text"),
+        "stream payload"
+    );
+    assert!(!blob_stream.is_closed());
+
+    let file_stream = file.stream();
+    assert_eq!(file_stream.bytes(), b"stream payload");
+    assert_eq!(
+        file_stream.text().expect("file stream text"),
+        "stream payload"
+    );
+}
+
+#[test]
+fn readable_stream_shares_state_and_closing_is_deterministic() {
+    let stream = ReadableStream::from_chunks(["alpha".as_bytes(), "beta".as_bytes()]);
+    let clone = stream.clone();
+
+    clone.append_chunk("gamma");
+    assert_eq!(stream.bytes(), b"alphabetagamma");
+    assert_eq!(
+        clone.chunks(),
+        vec![b"alpha".to_vec(), b"beta".to_vec(), b"gamma".to_vec()]
+    );
+
+    stream.close();
+    clone.append_chunk("delta");
+    assert_eq!(stream.bytes(), b"alphabetagamma");
+    assert!(clone.is_closed());
+    assert!(stream.is_closed());
+}
+
+#[test]
+fn writable_and_transform_streams_share_the_same_backing_state() {
+    let writable = WritableStream::new();
+    writable.write("hello ");
+    writable.write_text("world");
+    assert_eq!(
+        writable.chunks(),
+        vec![b"hello ".to_vec(), b"world".to_vec()]
+    );
+    assert_eq!(writable.text().expect("writable text"), "hello world");
+
+    writable.close();
+    writable.write("!");
+    assert_eq!(writable.bytes(), b"hello world");
+    assert!(writable.is_closed());
+
+    let transform = TransformStream::new();
+    transform.writable().write("left");
+    transform.readable().append_chunk("-right");
+    assert_eq!(transform.readable().bytes(), b"left-right");
+    assert_eq!(transform.writable().bytes(), b"left-right");
+
+    transform.readable().close();
+    transform.writable().write("-ignored");
+    assert_eq!(transform.readable().bytes(), b"left-right");
+    assert!(transform.readable().is_closed());
+    assert!(transform.writable().is_closed());
+}
+
+#[test]
 fn form_data_records_entries_and_preserves_order() {
     let blob = Blob::new(["form payload".as_bytes()], Some("text/plain".to_string()));
     let file = File::new("form.txt", ["file payload".as_bytes()], None, 13);

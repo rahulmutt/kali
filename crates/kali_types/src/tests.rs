@@ -202,6 +202,15 @@ fn test_resolution_allows_browser_stub_globals() {
             expression: Box::new(Expression::Identifier("WebSocket".to_string())),
         }),
         Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("ReadableStream".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("TransformStream".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("WritableStream".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::Identifier("Worker".to_string())),
         }),
         Statement::ExpressionStatement(ExpressionStatement {

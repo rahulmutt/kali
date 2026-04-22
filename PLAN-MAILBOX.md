@@ -435,6 +435,9 @@ Proposed fix:
 2026-04-22 resolution note
 - added the representative PGO benchmark regression that compares the release baseline against the profile-guided build on a hot-function workload, and updated the Stage 5.5 progress note so the later PGO lane now records the gain-oriented coverage alongside the existing determinism and version-gate evidence
 
+2026-04-22 resolution note
+- added deterministic `ReadableStream` / `WritableStream` / `TransformStream` baselines to `kali_api_web`, including blob/file stream adapters and shared-state tests, then updated the Stage 5.4 progress note so the later stream/blob/web-API slice is now recorded alongside the existing host-control, Intl, object-model, and crypto evidence
+
 2026-04-22 follow-up note
 - add a representative PGO benchmark regression that compares the release baseline against the profile-guided build on a hot-function workload, so Stage 5.5 records a concrete gain-oriented test in addition to the existing determinism and version-gate coverage
 

@@ -9,8 +9,9 @@ pub use kali_api_web::{
     performance_now, random_uuid, resolve_url, session_storage, structured_clone, text_decode,
     text_encode, AbortController, AbortSignal, Base64Error, Blob, BroadcastChannel, Crypto,
     CustomEvent, Event, EventTarget, File, FileReader, FileReaderState, FormData, FormDataEntry,
-    FormDataValue, Headers, IndexedDB, IndexedDb, Navigator, Request, Response, Storage,
-    URLSearchParams, WebSocket, WebSocketReadyState, Worker, URL,
+    FormDataValue, Headers, IndexedDB, IndexedDb, Navigator, ReadableStream, Request, Response,
+    Storage, TransformStream, URLSearchParams, WebSocket, WebSocketReadyState, Worker,
+    WritableStream, URL,
 };
 
 use std::{
