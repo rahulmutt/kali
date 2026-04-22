@@ -544,6 +544,39 @@ fn check_rejects_broader_intl_support() {
 }
 
 #[test]
+fn check_rejects_broader_intl_support_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty());
+    assert_eq!(errors[0]["code"], "E5006");
+    assert!(errors[0]["message"]
+        .as_str()
+        .expect("error message")
+        .contains("Intl"));
+}
+
+#[test]
 fn check_discovers_fixture_tree_from_cwd() {
     let output = Command::new(kali_bin())
         .current_dir(fixture_root())
