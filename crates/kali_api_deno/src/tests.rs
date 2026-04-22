@@ -171,6 +171,17 @@ fn runtime_projection_bundles_baseline_context() {
     projection.env_mut().set("HOME", "/workspace/home");
     assert_eq!(projection.env().get("HOME"), Some("/workspace/home"));
     assert_eq!(projection.fs().cwd(), Path::new("/workspace/project"));
+    assert_eq!(projection.pid(), std::process::id());
+    assert_eq!(projection.exit_code(), None);
+
+    projection.chdir("/workspace/project/../workspace/./next");
+    assert_eq!(
+        projection.fs().cwd(),
+        Path::new("/workspace/workspace/next")
+    );
+
+    projection.exit(7);
+    assert_eq!(projection.exit_code(), Some(7));
     assert_eq!(
         projection.permissions().query(DenoPermissionKind::Read),
         Ok(DenoPermissionStatus::Granted)

@@ -292,6 +292,12 @@ impl DenoFs {
         &self.cwd
     }
 
+    /// Update the working-directory view used by relative path resolution.
+    #[allow(dead_code)]
+    pub(crate) fn chdir(&mut self, cwd: impl Into<PathBuf>) {
+        self.cwd = normalize_path(cwd.into());
+    }
+
     fn resolve(&self, path: impl AsRef<Path>) -> PathBuf {
         resolve_path(&self.cwd, path)
     }
@@ -761,6 +767,8 @@ pub struct DenoRuntimeProjection {
     env: DenoEnv,
     fs: DenoFs,
     permissions: DenoPermissions,
+    process_id: u32,
+    exit_code: Option<i32>,
 }
 
 impl DenoRuntimeProjection {
@@ -782,6 +790,8 @@ impl DenoRuntimeProjection {
             env: DenoEnv::new(env),
             fs: DenoFs::new(cwd),
             permissions,
+            process_id: std::process::id(),
+            exit_code: None,
         }
     }
 
@@ -800,6 +810,30 @@ impl DenoRuntimeProjection {
 
     pub fn fs(&self) -> &DenoFs {
         &self.fs
+    }
+
+    /// Host process identifier captured for the compatibility view.
+    #[allow(dead_code)]
+    pub(crate) fn pid(&self) -> u32 {
+        self.process_id
+    }
+
+    /// Record a termination code for the compatibility view.
+    #[allow(dead_code)]
+    pub(crate) fn exit(&mut self, exit_code: i32) {
+        self.exit_code = Some(exit_code);
+    }
+
+    /// Return the recorded termination code, if any.
+    #[allow(dead_code)]
+    pub(crate) fn exit_code(&self) -> Option<i32> {
+        self.exit_code
+    }
+
+    /// Update the working-directory view used by relative path resolution.
+    #[allow(dead_code)]
+    pub(crate) fn chdir(&mut self, cwd: impl Into<PathBuf>) {
+        self.fs.chdir(cwd);
     }
 
     pub fn permissions(&self) -> &DenoPermissions {

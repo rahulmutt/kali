@@ -842,7 +842,10 @@ fn run_rejects_late_object_model_globals() {
         "WeakSet",
         "FinalizationRegistry",
     ] {
-        assert!(stderr.contains(expected), "missing {expected} in stderr: {stderr}");
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
+        );
     }
 }
 
@@ -919,7 +922,10 @@ fn test_rejects_late_object_model_globals() {
         "WeakSet",
         "FinalizationRegistry",
     ] {
-        assert!(stderr.contains(expected), "missing {expected} in stderr: {stderr}");
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
+        );
     }
 }
 
