@@ -437,3 +437,6 @@ Proposed fix:
 
 2026-04-22 follow-up note
 - add a representative PGO benchmark regression that compares the release baseline against the profile-guided build on a hot-function workload, so Stage 5.5 records a concrete gain-oriented test in addition to the existing determinism and version-gate coverage
+
+2026-04-22 resolution note
+- the representative PGO benchmark regression is now present in `crates/kali_optimize/src/tests.rs`, and the Stage 5.5 progress note records the release-baseline-versus-profile-guided comparison explicitly, so the follow-up lane is closed without further plan churn
