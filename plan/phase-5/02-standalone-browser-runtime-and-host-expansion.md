@@ -41,7 +41,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - The browser-runtime rejection helper now also carries a contract-scope note that names `run` / `test` as the only future browser-runtime commands and spells out that entrypoints, stdout/stderr capture, and exit-status mapping belong to the future browser harness, keeping the contract wording centralized across runtime and CLI diagnostics.
 - Added a browser-runtime contract descriptor in `kali_runtime` that records the intended future `run` / `test` command family, the canonical `browser-requested` host label, and the current browser-targeted command-set hint so the stage has a single shared contract definition to build on.
 - The CLI JSON payloads for successful `run` and `test` invocations now carry the canonical `hostContract` label alongside the exit/runtime counters, so machine-readable consumers can read the active execution contract without scraping the diagnostics path.
-- The browser-bundle smoke harness now prefers the installed `bun` runner when available, keeping the emitted-bundle smoke lane on a browser-flavored JS host instead of the previous Node-only fallback while preserving the same deterministic fetch/wasm loading contract.
+- The browser-bundle smoke harness now prefers the installed `bun` runner when available, and it also honors an explicit `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` override so external runners can swap in a real browser wrapper without changing the fixture contract; the emitted-bundle smoke lane still preserves the same deterministic fetch/wasm loading behavior by default.
 
 ## Tasks
 

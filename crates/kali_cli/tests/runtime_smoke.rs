@@ -182,15 +182,24 @@ fn count_wasm_instructions(bytes: &[u8]) -> usize {
     count
 }
 
-fn browser_bundle_harness_command() -> &'static str {
-    static BROWSER_BUNDLE_HARNESS_COMMAND: OnceLock<&'static str> = OnceLock::new();
-    BROWSER_BUNDLE_HARNESS_COMMAND.get_or_init(|| {
-        if Command::new("bun").arg("--version").output().is_ok() {
-            "bun"
-        } else {
-            "node"
+fn browser_bundle_harness_command() -> String {
+    if let Ok(command) = std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND") {
+        let command = command.trim();
+        if !command.is_empty() {
+            return command.to_owned();
         }
-    })
+    }
+
+    static BROWSER_BUNDLE_HARNESS_COMMAND: OnceLock<String> = OnceLock::new();
+    BROWSER_BUNDLE_HARNESS_COMMAND
+        .get_or_init(|| {
+            if Command::new("bun").arg("--version").output().is_ok() {
+                "bun".to_string()
+            } else {
+                "node".to_string()
+            }
+        })
+        .clone()
 }
 
 fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
@@ -230,7 +239,8 @@ console.log(String(result));
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let output = Command::new(browser_bundle_harness_command())
+    let harness_command = browser_bundle_harness_command();
+    let output = Command::new(&harness_command)
         .current_dir(bundle_root)
         .arg(&harness_path)
         .output()
@@ -290,7 +300,8 @@ console.log(String(value));
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let output = Command::new(browser_bundle_harness_command())
+    let harness_command = browser_bundle_harness_command();
+    let output = Command::new(&harness_command)
         .current_dir(bundle_root)
         .arg(&harness_path)
         .output()
