@@ -299,6 +299,14 @@ The deterministic stem-specific embedding bundle index emitted alongside later p
 
 The `build` command's `--profile <file>` input is an explicit opt-in optimization add-on that loads deterministic profile data. It does not create a fourth build mode, does not rename the stable `fast` / `release` / `release-advanced` vocabulary, and does not define a separate artifact family.
 
+### Guest AOT vs host-engine translation split
+
+Kali's no-JIT invariant applies to Kali's guest-language pipeline: TypeScript/JavaScript must be fully compiled to WASM ahead of guest execution. A host WASM engine may still validate, optimize, or cache the emitted WASM as an engine implementation detail; that host-engine work does not count as a second Kali language tier.
+
+### Deno-oriented standalone surface
+
+The early standalone run/test host surface built around the shared Default standalone context and the shipped Deno-oriented API subset. It is the Phase-1 non-browser Kali-hosted execution surface, not a promise that every Deno API member already exists.
+
 ### Feature-gated zero-capable execution budgets
 
 `maxSpawnedProcesses` and `maxThreads` are the two schema-v1 execution-budget axes where `0` is a meaningful explicit deny/tightening value. Positive values on those axes remain gated on the underlying subprocess/thread capability actually existing for the selected command/profile/context; this zero-capable rule does not generalize to unrelated numeric limits such as memory, CPU time, open files, timers, or network-connection caps.
@@ -342,6 +350,18 @@ Do not collapse those rungs into one broad “supported package” claim.
 
 The later stable public reporting workflow for effects. It remains distinct from runtime sandbox enforcement and from the separate context-free registry-audit surface.
 
+### Browser-targeted static sandbox contract
+
+For browser-targeted `check` and `build --bundle`, attached sandbox policy handling is a static compatibility check over Kali's documented browser-applicable mediated subset. It is not Kali-hosted runtime enforcement and does not imply that a deployed browser bundle keeps Kali policy enforcement after handoff to a real browser host.
+
+### Canonical browser-targeted budget compatibility rule
+
+In browser-targeted static sandbox validation, schema-v1 Kali-hosted execution budgets are not treated as post-deployment browser guarantees. Positive `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles` are therefore incompatible in browser-targeted policy validation; `resources.maxSpawnedProcesses` and `resources.maxThreads` may use `0` as explicit deny values under the shared zero-capable rule, but positive values remain unavailable there.
+
+### Canonical browser-applicable mediated subset (schema v1)
+
+The subset of the global schema-v1 sandbox vocabulary that Kali may honestly model for browser-targeted analysis/build flows: the shared Web-baseline capability families Kali mediates statically plus the browser-targeted policy compatibility rules above. Ambient browser/DOM typings outside that subset do not automatically gain one policy key per API.
+
 ### Effect-surface split
 
 Kali intentionally separates:
@@ -367,6 +387,10 @@ Kali keeps registry-analysis command families explicit:
 - `run/test --sandbox` enforce at runtime,
 - `check/build --sandbox` validate statically,
 - `effects` / `package-effects` report only.
+
+### Resolved source graph
+
+The full statically selected module/dependency graph a command actually analyzes, validates, builds, or reports over after config discovery, explicit roots, import resolution, and installed dependency state are applied. Cross-spec rules that mention graph scope refer to this resolved graph, not only to the immediately named root file or package manifest.
 
 ### Shared flag buckets
 
@@ -394,6 +418,10 @@ For commands that do not accept explicit per-invocation semantic flags in schema
 
 The default inherited analysis context for registry-analysis commands when no discovered config changes the semantic axes they inherit.
 
+### Axis-aligned inherited analysis gating
+
+If an inherited analysis-context axis would have produced a maturity or availability gate when passed explicitly, the inherited form must hit that same gate instead of being silently dropped, downgraded, or reinterpreted as fallback behavior.
+
 ### Registry-analysis context split
 
 Registry-analysis commands are not source-graph commands. Their package selector stays explicit and project-independent even when some semantic analysis axes are inherited from config.
@@ -406,6 +434,26 @@ Inherited analysis context may change how a registry-analysis command interprets
 
 A registry-analysis mode whose semantics do not depend on the source-graph analysis context; schema-v1 `package-audit` uses this simpler context-free model.
 
+### Registry-analysis target contract (schema v1)
+
+Schema-v1 registry-analysis commands take exactly one explicit canonical registry package identifier as their primary target. They do not accept raw URLs, local file paths, project discovery in place of that target, or silent expansion into multi-package batch mode.
+
+### Registry-analysis availability boundary
+
+For registry-analysis commands, validate target/flag/output shape first and report malformed usage as command-shape failure. Only well-formed base invocations proceed to the command's own maturity/availability gate.
+
+### JSON-producing mode
+
+A command invocation whose success payload is JSON by contract: either a native-JSON command in its default success mode or any command run with `--output json`.
+
+### Native-JSON command
+
+A command whose default successful stdout payload is already JSON without requiring `--output json`. In schema v1 this applies to `effects` and `package-effects` once those commands are available.
+
+### Envelope-only JSON command
+
+A command whose JSON mode exists only as the standard CLI envelope selected with `--output json`; without that flag its default output is not JSON. In schema v1 this applies to `package-audit`.
+
 ### Sandbox-attachment orthogonality
 
 Adding `--sandbox` does not legalize an otherwise-invalid command, API surface, or artifact mode. It only adds the sandbox workflow step to an already-valid underlying command/context pair.
@@ -413,6 +461,10 @@ Adding `--sandbox` does not legalize an otherwise-invalid command, API surface, 
 ### Effective npm-scriptable install work
 
 `kali install --allow-scripts` is meaningful only when the effective install action includes at least one npm-target install step that can legally run lifecycle hooks. Pure JSR-only, raw-URL-only, or otherwise non-npm work does not satisfy this condition.
+
+### Install-time npm-package hook path
+
+The opt-in installer workflow opened by `kali install --allow-scripts` for npm lifecycle hooks during installation only. It is part of install behavior, not evidence that ordinary package execution/build/runtime support or sandbox semantics were widened.
 
 ### Proof-boundary manifest
 
@@ -426,6 +478,14 @@ Adding `--sandbox` does not legalize an otherwise-invalid command, API surface, 
 ### Executable/analyzable source-file class
 
 The source-file class that can serve as a runtime-bearing or build-bearing primary input: ordinary `.ts`, `.tsx`, `.js`, `.jsx`, and related executable module sources defined by the owning CLI/schema chapters.
+
+### Minimal canonical scaffold contract
+
+`kali init` creates the smallest valid schema-v1 project scaffold for the selected template in the current working directory. It should avoid speculative dependencies, lockfiles, or optional config sections unless the template explicitly needs them.
+
+### Template selection vs build artifact mode split
+
+`kali init --lib` selects a library-oriented project template only. It does not preselect later `build` artifact mode for the project or change the meaning of plain `kali build`.
 
 ### Canonical source-file classes
 
@@ -447,6 +507,22 @@ Command validation proceeds in this order:
 1. command shape and arity,
 2. base command availability,
 3. finer effective-context/profile/feature gates for that otherwise-valid command.
+
+### Canonical browser-surface rejection split
+
+When browser-targeted support is intentionally narrower than generic browser wording suggests, contradictory browser command shapes are invalid usage, while real but not-yet-supported standalone browser contracts are availability-gated. In schema v1 this means browser build-shape contradictions such as non-bundle browser builds stay on the command-shape path, while `run/test --api browser` stay on the availability-gate path.
+
+### Embedding-stability split
+
+Kali separates the Phase-1 base library artifact from the later stable public embedding surface. Early export-oriented builds establish deterministic artifact shape for exact-version consumers without yet claiming stable Rust/WIT/C ABI/component compatibility as a public cross-version contract.
+
+### Observation-only compatibility facades
+
+Compatibility APIs that only reveal already-determined runtime or sandbox state and do not themselves negotiate or widen privileges. In schema v1, query-only permission-observation facades belong here.
+
+### Recognized-but-unavailable compatibility members
+
+API members that Kali intentionally recognizes and diagnoses as documented-but-unavailable compatibility surface rather than pretending they do not exist. They remain on the normal maturity-gating path until a later phase explicitly opens them.
 
 ### Command-context axis participation table
 
