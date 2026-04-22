@@ -520,6 +520,30 @@ fn check_rejects_late_host_control_globals() {
 }
 
 #[test]
+fn check_rejects_broader_intl_support() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("Intl"), "stderr: {stderr}");
+}
+
+#[test]
 fn check_discovers_fixture_tree_from_cwd() {
     let output = Command::new(kali_bin())
         .current_dir(fixture_root())
@@ -2887,7 +2911,10 @@ fn build_with_profile_data_is_deterministic_across_repeated_invocations() {
     let first = build();
     let second = build();
 
-    assert_eq!(first, second, "PGO builds should be deterministic across repeated invocations");
+    assert_eq!(
+        first, second,
+        "PGO builds should be deterministic across repeated invocations"
+    );
 }
 
 #[test]
@@ -2911,7 +2938,10 @@ fn build_rejects_unsupported_pgo_profile_data_version() {
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5009"), "stderr: {stderr}");
-    assert!(stderr.contains("unsupported PGO profile data version"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("unsupported PGO profile data version"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -4487,12 +4517,19 @@ fn effects_command_marks_proxy_constructor_as_dynamic() {
         .output()
         .expect("run kali");
 
-    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["dynamicEffects"], true);
     assert_eq!(json["dynamicReasons"], json!(["proxy-traps"]));
-    assert!(json["effects"].as_array().expect("effects array").is_empty());
+    assert!(json["effects"]
+        .as_array()
+        .expect("effects array")
+        .is_empty());
 }
 
 #[test]

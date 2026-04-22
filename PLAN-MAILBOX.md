@@ -320,3 +320,7 @@ Proposed fix:
 
 2026-04-22 resolution note
 - documented the explicit build-only `--profile` PGO input in the CLI and maturity docs, and updated the Stage 5.5 progress note so the later PGO lane now records the flag as an explicit opt-in build input rather than a hidden implementation detail
+
+2026-04-22 resolution note
+- Stage 5.4 follow-up: align the late Web/Intl breadth story by gating `Intl` (direct `Intl`, `globalThis.Intl`, and member accesses such as `Intl.NumberFormat`) with the canonical `E5006` later-compatibility diagnostic, and add regression coverage alongside the existing Proxy/WeakMap/FinalizationRegistry checks.
+- No spec wording change needed if the implementation stays a rejection/gating alignment; the existing later-compatibility rows in `specs/11-standard-apis.md` and `specs/19-feature-maturity.md` already own the availability claim.

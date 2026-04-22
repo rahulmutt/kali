@@ -728,7 +728,18 @@ impl TypeContext {
             return;
         }
 
-        if matches!(name, "Proxy" | "WeakMap" | "WeakSet" | "FinalizationRegistry") {
+        if name == "Intl" {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "broader Intl support is unavailable until the later web/Intl compatibility path is enabled".to_string(),
+            ));
+            return;
+        }
+
+        if matches!(
+            name,
+            "Proxy" | "WeakMap" | "WeakSet" | "FinalizationRegistry"
+        ) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
@@ -761,6 +772,7 @@ impl TypeContext {
         self.resolve_expression(&expr.object);
         self.resolve_threaded_runtime_member(expr);
         self.resolve_late_host_control_member(expr);
+        self.resolve_late_intl_member(expr);
         self.resolve_late_object_model_member(expr);
     }
 
@@ -805,6 +817,22 @@ impl TypeContext {
                 "late host-control API '{}.{}' is unavailable until the later host-control compatibility path is enabled",
                 object_name, expr.property
             ),
+        ));
+    }
+
+    fn resolve_late_intl_member(&mut self, expr: &MemberExpression) {
+        let Some(object_name) = Self::member_object_name(&expr.object) else {
+            return;
+        };
+
+        if object_name != "globalThis" || expr.property != "Intl" {
+            return;
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "broader Intl support is unavailable until the later web/Intl compatibility path is enabled"
+                .to_string(),
         ));
     }
 

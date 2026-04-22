@@ -334,6 +334,46 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_reports_broader_intl_support_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("Intl".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Intl".to_string(),
+                    })),
+                    property: "NumberFormat".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("globalThis".to_string()),
+                    property: "Intl".to_string(),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 3);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.message.contains("Intl")));
+}
+
+#[test]
 fn test_resolution_reports_late_object_model_globals_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![
@@ -341,22 +381,28 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
             expression: Box::new(Expression::Identifier("Proxy".to_string())),
         }),
         Statement::ExpressionStatement(ExpressionStatement {
-            expression: Box::new(Expression::NewExpression(Box::new(kali_ast::NewExpression {
-                callee: Expression::Identifier("WeakMap".to_string()),
-                args: Vec::new(),
-            }))),
+            expression: Box::new(Expression::NewExpression(Box::new(
+                kali_ast::NewExpression {
+                    callee: Expression::Identifier("WeakMap".to_string()),
+                    args: Vec::new(),
+                },
+            ))),
         }),
         Statement::ExpressionStatement(ExpressionStatement {
-            expression: Box::new(Expression::NewExpression(Box::new(kali_ast::NewExpression {
-                callee: Expression::Identifier("WeakSet".to_string()),
-                args: Vec::new(),
-            }))),
+            expression: Box::new(Expression::NewExpression(Box::new(
+                kali_ast::NewExpression {
+                    callee: Expression::Identifier("WeakSet".to_string()),
+                    args: Vec::new(),
+                },
+            ))),
         }),
         Statement::ExpressionStatement(ExpressionStatement {
-            expression: Box::new(Expression::NewExpression(Box::new(kali_ast::NewExpression {
-                callee: Expression::Identifier("FinalizationRegistry".to_string()),
-                args: Vec::new(),
-            }))),
+            expression: Box::new(Expression::NewExpression(Box::new(
+                kali_ast::NewExpression {
+                    callee: Expression::Identifier("FinalizationRegistry".to_string()),
+                    args: Vec::new(),
+                },
+            ))),
         }),
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
