@@ -253,6 +253,38 @@ fn embedding_predicates_can_inspect_thread_budget_context_details() {
 }
 
 #[test]
+fn embedding_predicates_run_in_registration_order() {
+    let policy = permissive_policy();
+    let log = Arc::new(Mutex::new(Vec::<&'static str>::new()));
+    let mut ctx = EmbeddingCtx::new();
+
+    let first_log = Arc::clone(&log);
+    ctx.register_sandbox_predicate("effects.console", "first", move |_| {
+        first_log.lock().expect("log mutex").push("first");
+        PredicateDecision::allow()
+    })
+    .expect("first predicate registration should succeed");
+
+    let second_log = Arc::clone(&log);
+    ctx.register_sandbox_predicate("effects.console", "second", move |_| {
+        second_log.lock().expect("log mutex").push("second");
+        PredicateDecision::deny("console output is forbidden")
+    })
+    .expect("second predicate registration should succeed");
+
+    let diagnostic = ctx
+        .check_operation_with_policy(&policy, HostOperation::Console)
+        .expect_err("second predicate should reject after first passes");
+
+    assert_eq!(
+        diagnostic.code,
+        Some(kali_error::_error_codes::e4::EFFECT_NOT_PERMITTED as u32)
+    );
+    assert!(diagnostic.message.contains("host-registered predicate 'second'"));
+    assert_eq!(*log.lock().expect("log mutex"), vec!["first", "second"]);
+}
+
+#[test]
 fn embedding_predicate_registration_rejects_when_disabled() {
     let mut ctx = EmbeddingCtx::with_predicate_registration_enabled(false);
     let error = ctx

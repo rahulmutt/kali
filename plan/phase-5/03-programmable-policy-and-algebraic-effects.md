@@ -31,7 +31,8 @@ This stage must preserve two guardrails:
   context so embedding callers can inspect the same capability/subject payload that sandbox
   enforcement uses. The canonical context now also carries host-specific detail for the threaded
   budget path (`resources.maxThreads` / `activeThreads`), and the embedding tests pin that detail
-  through the re-exported context and through a direct `ThreadSpawn` narrowing regression.
+  through the re-exported context, through a direct `ThreadSpawn` narrowing regression, and
+  through registration-order coverage for the embedding façade.
 - Declarative policy remains primary: the sandbox check helper applies the declarative decision
   first and only then evaluates host-registered predicates, with deterministic registration order and
   explicit rejection when the predicate registry is disabled.

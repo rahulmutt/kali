@@ -1,4 +1,8 @@
 2026-04-22 resolution note
+- added embedding regression coverage for deterministic host-predicate registration order in the programmable-policy façade, so the Stage 5.3 plan now reflects the ordered evaluation path in the embedding layer as well as the sandbox registry
+- updated the Stage 5.3 progress note to mention the new registration-order coverage alongside the existing host-predicate context and availability evidence
+
+2026-04-22 resolution note
 - added an explicit availability gate to the embedding-side host-predicate registration façade so disabled contexts now fail with the canonical `E5006` diagnostic instead of silently registering inert predicates
 - updated the Stage 5.3 progress note so the programmable-policy plan records that explicit rejection path alongside the existing host-predicate façade
 
