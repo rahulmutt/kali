@@ -410,6 +410,10 @@ Some schema-v1 workflows intentionally accept only a package identity with no in
 
 Registry dependencies recorded in `kali.json` use exact resolved version strings in schema v1. Broad SemVer ranges are intentionally deferred rather than treated as an alternate manifest mode.
 
+### Stable-release selection rule (schema v1)
+
+For schema-v1 identity-only registry workflows, Kali resolves the target to the latest non-yanked stable published version for that canonical registry package identifier. If no such stable release exists, the workflow fails explicitly instead of silently selecting a prerelease.
+
 ### Raw-URL install staging/pin workflow
 
 An explicit raw-URL install pins and materializes shared lock/cache state for that URL without creating a durable manifest dependency entry. Durable ownership of raw URLs still comes from source imports or `kali.json#imports`, so a later plain `kali install` may prune an unreferenced staged URL.
@@ -470,6 +474,14 @@ Kali distinguishes two shared CLI flag buckets:
 - **presentation/control flags** change how output is presented or wrapped,
 - **semantic/context flags** change the effective analysis, build, runtime, or sandbox context.
 
+### Semantic/context flag surface
+
+A command's semantic/context flag surface is the subset of per-invocation selectors that are allowed to change its effective analysis, build, runtime, or sandbox semantics in schema v1. Commands may intentionally keep that surface smaller than the global shared-flag table.
+
+### JSON-mode selectors
+
+A command's JSON-mode selectors are the output-format controls that choose or refine JSON presentation without changing command semantics, primarily `--output json` and mode-appropriate `--pretty`.
+
 ### Compile intent
 
 For build-like commands, the compile intent is the artifact role being requested from the one explicit primary source input: executable by default, browser bundle with `--bundle`, or library-oriented with `--lib` / `--capi` / `--component`.
@@ -477,6 +489,18 @@ For build-like commands, the compile intent is the artifact role being requested
 ### Analysis context
 
 The analysis context is the subset of effective command-context axes that affect static analysis semantics for a command.
+
+### Source-graph commands
+
+Source-graph commands are the ordinary project/file-graph workflows that analyze, build, execute, or report over a resolved local source/dependency graph. In schema v1 this family is `check`, `effects`, `build`, `run`, and `test`, distinct from registry-analysis commands.
+
+### Hybrid analysis command
+
+A hybrid analysis command accepts an explicit file set when one is provided, but falls back to canonical project discovery when it is invoked without explicit files.
+
+### Set-oriented explicit-file command
+
+A set-oriented explicit-file command treats multiple explicit file arguments as one file set for a single invocation rather than as an error or as separate single-entry runs.
 
 ### Default source-graph analysis context (schema v1)
 
@@ -530,6 +554,10 @@ A command whose JSON mode exists only as the standard CLI envelope selected with
 
 Adding `--sandbox` does not legalize an otherwise-invalid command, API surface, or artifact mode. It only adds the sandbox workflow step to an already-valid underlying command/context pair.
 
+### Package-resolution context
+
+The package-resolution context is the normalized package-edge selection input used during package entry resolution: the effective `apiSurface` plus the module edge kind (`import` vs `require`).
+
 ### Effective npm-scriptable install work
 
 `kali install --allow-scripts` is meaningful only when the effective install action includes at least one npm-target install step that can legally run lifecycle hooks. Pure JSR-only, raw-URL-only, or otherwise non-npm work does not satisfy this condition.
@@ -541,6 +569,14 @@ The opt-in installer workflow opened by `kali install --allow-scripts` for npm l
 ### Proof-boundary manifest
 
 [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) is the published statement of what part of Kali is currently within the proof-backed claim boundary.
+
+### Placeholder proof-boundary manifest
+
+A placeholder proof-boundary manifest is a published `proofs/BOUNDARY.md` that establishes proof-boundary/process discipline but does not yet name a concrete mechanized subsystem/theorem inventory suitable for proof-backed release claims.
+
+### Provisional non-empty proof boundary
+
+A provisional non-empty proof boundary names some modeled subsystem or theorem inventory, but the repository still treats that publication as not yet sufficient for proof-backed release/support wording.
 
 ### Proof-ready vs proof-backed split
 
@@ -572,6 +608,13 @@ Kali distinguishes at least two source-file classes in schema v1:
 ### Configless project mode
 
 When no `kali.json` is discovered, commands still run against the current working directory as the effective project root with built-in defaults.
+
+### Configless install split
+
+Schema-v1 configless install behavior is intentionally narrow:
+- plain `kali install` with no discovered dependency inputs is a no-op success and does not create a placeholder manifest,
+- adding an explicit registry dependency may first create the minimal manifest `{ "schemaVersion": 1 }` at the effective project root,
+- explicit raw-URL staging may create lock/cache state without creating that manifest.
 
 ### Explicit path boundary rule
 
