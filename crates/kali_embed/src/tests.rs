@@ -2,6 +2,47 @@ use super::*;
 use std::fs;
 use tempfile::tempdir;
 
+fn permissive_policy() -> kali_sandbox::SandboxPolicy {
+    kali_sandbox::SandboxPolicy {
+        schema_version: 1,
+        schema_uri: None,
+        effects: kali_sandbox::EffectsPolicy {
+            file_system: kali_sandbox::FileSystemPolicy {
+                read: kali_sandbox::AccessRule::Deny(false),
+                write: kali_sandbox::AccessRule::Deny(false),
+            },
+            network: kali_sandbox::NetworkPolicy {
+                fetch: kali_sandbox::AccessRule::Deny(false),
+                connect: kali_sandbox::AccessRule::Deny(false),
+                listen: kali_sandbox::AccessRule::Deny(false),
+                max_connections: None,
+            },
+            process: kali_sandbox::ProcessPolicy {
+                spawn: kali_sandbox::AccessRule::Deny(false),
+                env_read: kali_sandbox::AccessRule::Deny(false),
+                env_write: kali_sandbox::AccessRule::Deny(false),
+            },
+            timer: kali_sandbox::TimerPolicy {
+                schedule: false,
+                max_timeout_ms: None,
+                max_active_timers: None,
+            },
+            eval: false,
+            random: false,
+            console: true,
+        },
+        resources: kali_sandbox::ResourceLimits {
+            max_memory_mb: None,
+            max_cpu_time_ms: None,
+            max_open_files: None,
+            max_spawned_processes: None,
+            max_threads: None,
+        },
+        base_dir: std::path::PathBuf::from("."),
+        serialized_source: None,
+    }
+}
+
 #[test]
 fn compiles_standalone_artifacts_in_memory() {
     let dir = tempdir().expect("tempdir");
@@ -107,17 +148,61 @@ fn embedding_layer_reexports_the_host_predicate_context() {
 }
 
 #[test]
-fn embedding_layer_reexports_thread_spawn_context_details() {
-    let operation = kali_sandbox::HostOperation::ThreadSpawn { active_threads: 5 };
-    let context = PolicyPredicateContext::from_operation(&operation);
+fn embedding_operation_context_uses_the_resource_alias_and_details() {
+    let operation = HostOperation::ThreadSpawn { active_threads: 5 };
+    let context = OperationContext::from_operation(&operation);
 
     assert_eq!(context.capability, "resources.maxThreads");
-    assert_eq!(context.subject, "5");
+    assert_eq!(context.resource, "5");
     assert_eq!(context.operation, operation);
     assert_eq!(
         context.details.get("activeThreads").map(String::as_str),
         Some("5")
     );
+}
+
+#[test]
+fn embedding_predicates_can_deny_with_a_host_specific_reason() {
+    let policy = permissive_policy();
+    let mut ctx = EmbeddingCtx::new();
+    ctx.register_sandbox_predicate("effects.console", "deny-console", |_| {
+        PredicateDecision::deny("console output is forbidden")
+    });
+
+    let diagnostic = ctx
+        .check_operation_with_policy(&policy, HostOperation::Console)
+        .expect_err("predicate should narrow console access");
+
+    assert_eq!(
+        diagnostic.code,
+        Some(kali_error::_error_codes::e4::EFFECT_NOT_PERMITTED as u32)
+    );
+    assert!(diagnostic
+        .message
+        .contains("host-registered predicate 'deny-console'"));
+    assert!(diagnostic.message.contains("console output is forbidden"));
+}
+
+#[test]
+fn embedding_predicates_do_not_override_declarative_denials() {
+    let mut policy = permissive_policy();
+    policy.effects.console = false;
+
+    let mut ctx = EmbeddingCtx::new();
+    ctx.register_sandbox_predicate("effects.console", "allow-all", |_| {
+        PredicateDecision::allow()
+    });
+
+    let diagnostic = ctx
+        .check_operation_with_policy(&policy, HostOperation::Console)
+        .expect_err("declarative deny should win");
+
+    assert_eq!(
+        diagnostic.code,
+        Some(kali_error::_error_codes::e4::EFFECT_NOT_PERMITTED as u32)
+    );
+    assert!(diagnostic.message.contains("Console output is not allowed"));
+    assert!(!diagnostic.message.contains("host-registered predicate"));
 }
 
 #[test]

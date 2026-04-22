@@ -362,3 +362,7 @@ Proposed fix:
 2026-04-22 resolution note
 - broadened the proxy dynamic-effect coverage so `Proxy.revocable(...)` and `globalThis.Proxy.revocable(...)` now share the existing `proxy-traps` reason alongside `new Proxy(...)`, and updated the Stage 5.3 progress note so the historical plan records the expanded proxy semantics slice
 - marked Stage 5.3 as in progress so the plan status reflects that the proxy semantics slice now has delivered implementation evidence rather than remaining purely planned
+
+2026-04-22 resolution note
+- added the public embedding-side host-predicate registration façade in `kali_embed` (`OperationContext`, `PredicateDecision`, and `EmbeddingCtx::register_sandbox_predicate` / `check_operation_with_policy`), so the Stage 5.3 programmable-policy lane now has a concrete host API layered over the canonical sandbox predicate vocabulary
+- updated the Stage 5.3 plan note to record the new embedding registration surface alongside the existing sandbox predicate context and declarative-first evaluation path
