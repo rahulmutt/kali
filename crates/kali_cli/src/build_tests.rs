@@ -311,3 +311,31 @@ fn component_output_paths_use_source_stem_and_binding_manifest() {
         PathBuf::from("dist/main.binding-package.json")
     );
 }
+
+#[test]
+fn discover_dynamic_import_targets_ignores_comment_and_string_substrings() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    let ghost_path = dir.path().join("ghost.ts");
+    let lazy_path = dir.path().join("lazy.ts");
+    fs::write(&ghost_path, "export const ghost = true;").expect("write ghost chunk");
+    fs::write(&lazy_path, "export const lazy = true;").expect("write lazy chunk");
+    fs::write(
+        &source_path,
+        "const comment = \"import('./ghost.ts')\";\n/* import('./ghost.ts') */\nconst lazy = import('./lazy.ts');\n",
+    )
+    .expect("write source");
+
+    let targets = discover_dynamic_import_targets(
+        &source_path,
+        &fs::read_to_string(&source_path).expect("read source"),
+    )
+    .expect("discover dynamic import targets");
+
+    assert_eq!(targets.len(), 1, "targets: {targets:?}");
+    assert_eq!(targets[0].specifier, "./lazy.ts");
+    assert_eq!(
+        targets[0].target,
+        lazy_path.canonicalize().expect("canonical lazy path")
+    );
+}

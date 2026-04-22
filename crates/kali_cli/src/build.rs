@@ -724,22 +724,32 @@ pub fn discover_dynamic_import_targets(
     source_contents: &str,
 ) -> Result<Vec<DynamicImportTarget>, Vec<Diagnostic>> {
     let lexer = Lexer::new(FileId::new(0), source_contents.to_string());
-    let tokens = lexer.lex_all().tokens;
+    let tokens = lexer
+        .lex_all()
+        .tokens
+        .into_iter()
+        .filter(|token| !matches!(token.kind, TokenType::Comment | TokenType::Eof))
+        .collect::<Vec<_>>();
     let bindings = collect_constant_bindings(&tokens, source_contents);
     let mut targets = Vec::new();
-    let mut search_start = 0usize;
+    let mut index = 0usize;
 
-    while let Some(relative) = source_contents[search_start..].find("import(") {
-        let import_start = search_start + relative + "import(".len();
+    while index + 1 < tokens.len() {
+        if tokens[index].kind != TokenType::Import || tokens[index + 1].kind != TokenType::LeftParen
+        {
+            index += 1;
+            continue;
+        }
+
         if let Some((specifier, next_index)) =
-            parse_static_dynamic_import_specifier(source_contents, import_start, &bindings)
+            parse_static_dynamic_import_specifier(&tokens, index + 1, &bindings)
         {
             if let Some(target) = resolve_dynamic_import_target(source, &specifier) {
                 targets.push(DynamicImportTarget { specifier, target });
             }
-            search_start = next_index;
+            index = next_index;
         } else {
-            search_start = import_start;
+            index += 1;
         }
     }
 
@@ -747,23 +757,35 @@ pub fn discover_dynamic_import_targets(
 }
 
 fn parse_static_dynamic_import_specifier(
-    source_contents: &str,
+    tokens: &[Token],
     index: usize,
     env: &BTreeMap<String, EvalConst>,
 ) -> Option<(String, usize)> {
-    let call_end = find_call_end(source_contents, index)?;
-    let arg_source = &source_contents[index..call_end];
-    let lexer = Lexer::new(FileId::new(1), arg_source.to_string());
-    let mut tokens = lexer.lex_all().tokens;
-    while matches!(tokens.last(), Some(token) if token.kind == TokenType::Eof) {
-        tokens.pop();
-    }
-    let (value, consumed) = parse_constant_expression(&tokens, 0, env)?;
-    if consumed == tokens.len() {
+    let call_end = find_token_call_end(tokens, index)?;
+    let (value, consumed) = parse_constant_expression(&tokens[index + 1..call_end], 0, env)?;
+    if consumed == call_end.saturating_sub(index + 1) {
         Some((value.to_string_value(), call_end + 1))
     } else {
         None
     }
+}
+
+fn find_token_call_end(tokens: &[Token], start: usize) -> Option<usize> {
+    let mut depth = 1i32;
+    for (index, token) in tokens.iter().enumerate().skip(start + 1) {
+        match token.kind {
+            TokenType::LeftParen => depth += 1,
+            TokenType::RightParen => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(index);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    None
 }
 
 fn resolve_dynamic_import_target(source: &Path, specifier: &str) -> Option<PathBuf> {
