@@ -60,6 +60,8 @@ For the full CLI contract, arity, and flag behavior, see [`specs/12-cli.md`](./s
 
 ## Project status
 
+Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.
+
 Phase 1 is the main public surface; see [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) for the exact shipped availability.
 
 ## Documentation
