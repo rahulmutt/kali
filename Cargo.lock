@@ -1172,6 +1172,7 @@ dependencies = [
  "kali_common",
  "kali_error",
  "serde_json",
+ "sha2",
  "url",
 ]
 

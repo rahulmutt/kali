@@ -8,5 +8,6 @@ license.workspace = true
 kali_common = { workspace = true }
 kali_error = { workspace = true }
 getrandom = { workspace = true }
+sha2 = { workspace = true }
 serde_json = { workspace = true }
 url = { workspace = true }

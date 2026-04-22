@@ -10,6 +10,8 @@ use std::{
     },
     time::Instant,
 };
+
+use sha2::{Digest, Sha256, Sha384, Sha512};
 use url::{form_urlencoded, Url};
 
 static TIME_ORIGIN: OnceLock<Instant> = OnceLock::new();
@@ -1146,7 +1148,34 @@ pub fn random_uuid() -> Result<String, getrandom::Error> {
     Ok(uuid)
 }
 
-/// Deterministic Web Crypto facade for the shared randomness subset.
+/// Errors returned by the deterministic Web Crypto helpers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum WebCryptoError {
+    UnsupportedDigestAlgorithm(String),
+}
+
+impl fmt::Display for WebCryptoError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnsupportedDigestAlgorithm(algorithm) => {
+                write!(f, "unsupported Web Crypto digest algorithm '{algorithm}'")
+            }
+        }
+    }
+}
+
+impl std::error::Error for WebCryptoError {}
+
+fn canonicalize_digest_algorithm(name: &str) -> String {
+    name.chars()
+        .filter(|character| {
+            !character.is_ascii_whitespace() && *character != '-' && *character != '_'
+        })
+        .flat_map(char::to_uppercase)
+        .collect()
+}
+
+/// Deterministic Web Crypto facade for the shared randomness and digest subset.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Crypto;
 
@@ -1159,6 +1188,36 @@ impl Crypto {
     /// Generate a v4 UUID string for `crypto.randomUUID()`-style calls.
     pub fn random_uuid(&self) -> Result<String, getrandom::Error> {
         random_uuid()
+    }
+
+    /// Return the deterministic `subtle` helper namespace.
+    pub fn subtle(&self) -> SubtleCrypto {
+        SubtleCrypto
+    }
+}
+
+/// Deterministic Web Crypto `subtle` facade for digest support.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SubtleCrypto;
+
+impl SubtleCrypto {
+    /// Compute a deterministic digest for the provided payload.
+    pub fn digest(
+        &self,
+        algorithm: impl AsRef<str>,
+        data: impl AsRef<[u8]>,
+    ) -> Result<Vec<u8>, WebCryptoError> {
+        let algorithm_name = algorithm.as_ref();
+        let normalized = canonicalize_digest_algorithm(algorithm_name);
+
+        match normalized.as_str() {
+            "SHA256" => Ok(Sha256::digest(data.as_ref()).to_vec()),
+            "SHA384" => Ok(Sha384::digest(data.as_ref()).to_vec()),
+            "SHA512" => Ok(Sha512::digest(data.as_ref()).to_vec()),
+            _ => Err(WebCryptoError::UnsupportedDigestAlgorithm(
+                algorithm_name.trim().to_string(),
+            )),
+        }
     }
 }
 

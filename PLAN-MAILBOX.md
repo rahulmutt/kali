@@ -5,6 +5,10 @@
 - updated the Stage 5.4 progress note and status to reflect that the stage is now in progress rather than purely planned
 
 2026-04-22 resolution note
+- broadened the browser support library with deterministic `crypto.subtle.digest` support for SHA-256/SHA-384/SHA-512, keeping the implementation pure Rust and leaving the broad Web Crypto maturity row unchanged because it already covers the later-compatibility slice
+- updated the Stage 5.4 progress note to record the new digest helper alongside the existing late `Intl`/object-model gating evidence
+
+2026-04-22 resolution note
 - added CLI smoke coverage for `kali build --profile` so repeated profile-guided builds stay byte-stable across invocations and unsupported profile-data versions fail through the command path as well as the lower-level loader
 - updated the Stage 5.5 progress note to record the new command-level profile-data evidence alongside the existing optimizer and binding groundwork
 
