@@ -70,6 +70,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - `RuntimeCtx::execute` now also honors an explicitly configured browser harness command for browser API-surface requests, so the browser-requested runtime path can be exercised through the shared browser harness helper when an explicit host command is supplied while still preserving the default browser gate when no harness is configured.
 - Added browser-runtime package-resolution smoke coverage for both `run --api browser` and `test --api browser`, so the later browser runtime path now has a concrete package-shaped fixture lane in addition to the existing direct-source smoke coverage.
 - The browser-package resolver now also honors an explicit browser API-surface request before a manifest is present, which keeps `run` / `test` package selection aligned with the requested browser contract instead of falling back to the default entrypoint when the later runtime path is exercised from a bare fixture.
+- Added browser-runtime smoke coverage for browser-conditional package exports in both `run` and `test`, so the later browser runtime path now exercises the browser-branch resolution rules as well as the browser-field package shape.
 
 ## Tasks
 

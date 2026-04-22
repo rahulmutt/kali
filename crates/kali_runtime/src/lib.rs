@@ -340,6 +340,17 @@ impl RuntimeCtx {
         self
     }
 
+    /// Return the effective thread budget after combining policy and invocation overrides.
+    ///
+    /// This keeps the runtime-side budget resolution aligned with the sandbox policy helper so
+    /// direct API callers can reason about the same canonical limit that the host state will use.
+    pub fn effective_thread_budget(&self) -> Option<u64> {
+        self.policy
+            .as_ref()
+            .map(|policy| policy.effective_thread_budget(self.max_threads))
+            .unwrap_or(self.max_threads)
+    }
+
     /// Return the canonical runtime-profile vector for the current execution context.
     ///
     /// This normalizes the public `runtime_profiles` field so direct API callers
@@ -482,11 +493,7 @@ impl RuntimeCtx {
                 runtime_profiles: normalized_runtime_profiles.clone(),
                 host_contract: self.host_contract(),
                 runtime_backend: self.runtime_backend(),
-                max_threads: self
-                    .policy
-                    .as_ref()
-                    .map(|policy| policy.effective_thread_budget(self.max_threads))
-                    .unwrap_or(self.max_threads),
+                max_threads: self.effective_thread_budget(),
                 max_spawned_processes: self
                     .policy
                     .as_ref()
