@@ -1,4 +1,8 @@
 2026-04-22 resolution note
+- added CLI smoke coverage for sandbox-attached policies that set positive `resources.maxThreads` on `run` in both text and JSON output, so the Stage 5.1 threaded-profile handoff now records the policy-driven rejection path at the command level as well as in the existing `check` / `test` coverage
+- updated the Stage 5.1 progress note so the historical plan now names `check`, `run`, and `test` alike for the canonical `E5006` thread-budget gate
+
+2026-04-22 resolution note
 - added embedding regression coverage for deterministic host-predicate registration order in the programmable-policy façade, so the Stage 5.3 plan now reflects the ordered evaluation path in the embedding layer as well as the sandbox registry
 - updated the Stage 5.3 progress note to mention the new registration-order coverage alongside the existing host-predicate context and availability evidence
 
