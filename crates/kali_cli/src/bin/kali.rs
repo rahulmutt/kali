@@ -24,7 +24,7 @@ use kali_npm::{
     audit_registry_package, discover_project_root, ensure_project_ready, install_project,
     load_manifest, InstallOptions, ProjectManifest,
 };
-use kali_runtime::RuntimeCtx;
+use kali_runtime::{normalize_runtime_profiles, RuntimeCtx};
 use kali_sandbox::{
     compare_effects_to_policy, effect_report_from_inference, infer_effects_from_roots,
     package_effects_report, EffectAnalysisContext, PackageCoordinate, SandboxPolicy,
@@ -827,17 +827,6 @@ fn normalize_compat_features(features: Vec<String>) -> Vec<String> {
         let feature = feature.trim();
         if !feature.is_empty() {
             normalized.insert(feature.to_string());
-        }
-    }
-    normalized.into_iter().collect()
-}
-
-fn normalize_runtime_profiles(profiles: Vec<String>) -> Vec<String> {
-    let mut normalized = BTreeSet::new();
-    for profile in profiles {
-        let profile = profile.trim();
-        if !profile.is_empty() {
-            normalized.insert(profile.to_string());
         }
     }
     normalized.into_iter().collect()

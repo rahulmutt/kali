@@ -14,6 +14,7 @@ use kali_lir::LirLowerer;
 use kali_mir::MirLowerer;
 use kali_optimize::{OptimizationLevel, Optimizer};
 use kali_parser::Parser;
+use kali_runtime::normalize_runtime_profiles;
 use kali_sandbox::SandboxPolicy;
 use kali_types::TypeContext;
 use serde::Serialize;
@@ -295,7 +296,7 @@ fn incremental_cache_path(
     let Some(project_root) = project_root_for_source(source_path) else {
         return Ok(None);
     };
-    let normalized_runtime_profiles = normalize_runtime_profiles_for_cache(runtime_profiles);
+    let normalized_runtime_profiles = normalize_runtime_profiles(runtime_profiles.to_vec());
     let cache_key = format!(
         "{}-{}-{}-{}-profiles:{}-{}-{}-{}",
         source_hash,
@@ -313,17 +314,6 @@ fn incremental_cache_path(
             .join("incremental")
             .join(format!("{}.wasm", cache_key)),
     ))
-}
-
-fn normalize_runtime_profiles_for_cache(runtime_profiles: &[String]) -> Vec<String> {
-    let mut normalized = BTreeSet::new();
-    for profile in runtime_profiles {
-        let profile = profile.trim();
-        if !profile.is_empty() {
-            normalized.insert(profile.to_string());
-        }
-    }
-    normalized.into_iter().collect()
 }
 
 fn project_root_for_source(source_path: &Path) -> Option<PathBuf> {

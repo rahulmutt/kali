@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-22 resolution note
+- centralized runtime-profile normalization in `kali_runtime` and reused the shared helper from the CLI runtime-profile resolver plus incremental cache-key derivation, so the threaded-profile canonicalization path now lives in one place across the runtime-adjacent callers
+- updated the Stage 5.1 progress note to record the shared-helper rollout alongside the existing runtime-profile validation and preservation coverage
+
+2026-04-22 resolution note
 - added JSON-envelope regressions for `effects --wasm-threads` and inherited `runtimeProfiles = ["wasm-threads"]` so the Stage 5.1 threaded-profile gate now stays machine-readable on the effect-report surface as well as `check` / `run` / `test` / `package-effects`
 - updated the Stage 5.1 progress note to mention the JSON `effects` gate coverage alongside the existing text and JSON smoke coverage on the other later-threaded surfaces
 

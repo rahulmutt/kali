@@ -1697,7 +1697,9 @@ fn register_node_host_imports(
     Ok(())
 }
 
-fn normalize_runtime_profiles(runtime_profiles: Vec<String>) -> Vec<String> {
+/// Normalize runtime-profile inputs into the canonical deterministic order used
+/// across CLI, runtime, and artifact metadata paths.
+pub fn normalize_runtime_profiles(runtime_profiles: Vec<String>) -> Vec<String> {
     let mut normalized = BTreeSet::new();
     for profile in runtime_profiles {
         let profile = profile.trim();
