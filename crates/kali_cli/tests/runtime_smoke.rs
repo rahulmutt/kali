@@ -238,14 +238,13 @@ fn split_command_spec(command: &str) -> Option<Vec<String>> {
     Some(parts)
 }
 
-fn browser_bundle_harness_command_parts() -> Vec<String> {
-    if let Ok(command) = std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND") {
+fn browser_bundle_harness_command_parts_for(command: Option<&str>) -> Vec<String> {
+    if let Some(command) = command {
         let command = command.trim();
         if !command.is_empty() {
-            if let Some(parts) = split_command_spec(command) {
-                if !parts.is_empty() {
-                    return parts;
-                }
+            match split_command_spec(command) {
+                Some(parts) if !parts.is_empty() => return parts,
+                _ => panic!("malformed KALI_BROWSER_BUNDLE_HARNESS_COMMAND override: {command:?}"),
             }
         }
     }
@@ -260,6 +259,14 @@ fn browser_bundle_harness_command_parts() -> Vec<String> {
             }
         })
         .clone()
+}
+
+fn browser_bundle_harness_command_parts() -> Vec<String> {
+    browser_bundle_harness_command_parts_for(
+        std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
+            .ok()
+            .as_deref(),
+    )
 }
 
 #[test]
@@ -307,6 +314,18 @@ fn browser_bundle_harness_command_override_rejects_empty_executable_token() {
 #[test]
 fn browser_bundle_harness_command_override_rejects_unterminated_quotes() {
     assert_eq!(split_command_spec(r#"browser-wrapper "unterminated"#), None);
+}
+
+#[test]
+fn browser_bundle_harness_command_override_rejects_malformed_environment_values() {
+    assert!(std::panic::catch_unwind(|| {
+        browser_bundle_harness_command_parts_for(Some(r#"" --flag"#))
+    })
+    .is_err());
+    assert!(std::panic::catch_unwind(|| {
+        browser_bundle_harness_command_parts_for(Some(r#"browser-wrapper "unterminated"#))
+    })
+    .is_err());
 }
 
 fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
