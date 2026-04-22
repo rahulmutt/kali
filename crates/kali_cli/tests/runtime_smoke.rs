@@ -252,6 +252,32 @@ fn browser_bundle_harness_command_parts() -> Vec<String> {
     )
 }
 
+fn write_browser_runtime_package_fixture(package_dir: &Path, package_name: &str) {
+    fs::create_dir_all(package_dir).expect("create browser package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        format!(
+            r#"{{
+  "name": "{package_name}",
+  "version": "1.0.0",
+  "main": "index.js",
+  "browser": "index.browser.js"
+}}"#,
+        ),
+    )
+    .expect("write browser package json");
+    fs::write(
+        package_dir.join("index.js"),
+        "export default function describe() { return 1; }\n",
+    )
+    .expect("write browser package main entry");
+    fs::write(
+        package_dir.join("index.browser.js"),
+        "export default function describe() { return 0; }\n",
+    )
+    .expect("write browser package browser entry");
+}
+
 #[test]
 fn browser_bundle_harness_command_override_supports_quoted_arguments() {
     let parts = split_command_spec(
@@ -1233,6 +1259,44 @@ fn run_accepts_the_browser_api_surface_when_a_harness_command_is_configured() {
 }
 
 #[test]
+fn run_uses_browser_package_resolution_when_a_harness_command_is_configured() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/browserpkg");
+    write_browser_runtime_package_fixture(&package_dir, "browserpkg");
+
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "import describe from 'browserpkg';\nconsole.log(describe());\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["stdout"], "0\n", "json: {json}");
+}
+
+#[test]
 fn run_accepts_zero_thread_budget_override() {
     let output = Command::new(kali_bin())
         .arg("run")
@@ -1780,6 +1844,40 @@ fn test_accepts_the_browser_api_surface_when_a_harness_command_is_configured() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_uses_browser_package_resolution_when_a_harness_command_is_configured() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/browserpkg");
+    write_browser_runtime_package_fixture(&package_dir, "browserpkg");
+
+    let source_path = dir.path().join("main.test.ts");
+    fs::write(
+        &source_path,
+        "import describe from 'browserpkg';\nconsole.log(describe());\nKali.test('browser package', () => { 1 + 1; });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    assert!(stdout.contains("0"), "stdout: {stdout}");
 }
 
 #[test]
