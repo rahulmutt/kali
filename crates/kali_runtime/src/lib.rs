@@ -33,6 +33,8 @@ pub struct RuntimeCtx {
     pub env: BTreeMap<String, String>,
     /// Current working directory used for relative host-path resolution.
     pub cwd: PathBuf,
+    /// Host process identifier used for late process-control compatibility plumbing.
+    pub process_id: u32,
     /// Selected API surface for the current execution context.
     pub api_surface: String,
     /// Requested runtime profiles for the current execution context.
@@ -44,7 +46,7 @@ pub struct RuntimeCtx {
 }
 
 /// Host-side state owned by the runtime.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct KaliHostState {
     /// Sandbox policy.
     pub policy: Option<SandboxPolicy>,
@@ -54,6 +56,8 @@ pub struct KaliHostState {
     pub env: BTreeMap<String, String>,
     /// Current working directory used for relative host-path resolution.
     pub cwd: PathBuf,
+    /// Host process identifier used for late process-control compatibility plumbing.
+    pub process_id: u32,
     /// Requested runtime profiles for the current execution context.
     pub runtime_profiles: Vec<String>,
     /// Thread budget derived from the active policy and any invocation override.
@@ -138,6 +142,7 @@ impl Default for RuntimeCtx {
             args: Vec::new(),
             env: BTreeMap::new(),
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            process_id: std::process::id(),
             api_surface: "deno".to_string(),
             runtime_profiles: Vec::new(),
             max_threads: None,
@@ -184,6 +189,7 @@ impl RuntimeCtx {
             args,
             env,
             cwd,
+            process_id: std::process::id(),
             api_surface: api_surface.into(),
             runtime_profiles: Vec::new(),
             max_threads: None,
@@ -225,6 +231,11 @@ impl RuntimeCtx {
         } else {
             RuntimeHostContract::KaliHosted
         }
+    }
+
+    /// Return the host process identifier preserved in the execution context.
+    pub fn process_id(&self) -> u32 {
+        self.process_id
     }
 
     fn reject_unavailable_threaded_requests(
@@ -319,6 +330,7 @@ impl RuntimeCtx {
                 args: self.args.clone(),
                 env: self.env.clone(),
                 cwd: self.cwd.clone(),
+                process_id: self.process_id,
                 runtime_profiles: normalized_runtime_profiles.clone(),
                 max_threads: self
                     .policy
@@ -1952,7 +1964,42 @@ fn enforce_operation(state: &mut KaliHostState, op: HostOperation) -> wasmtime::
     }
 }
 
+impl Default for KaliHostState {
+    fn default() -> Self {
+        Self {
+            policy: None,
+            args: Vec::new(),
+            env: BTreeMap::new(),
+            cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            process_id: std::process::id(),
+            runtime_profiles: Vec::new(),
+            max_threads: None,
+            max_spawned_processes: None,
+            stdout: String::new(),
+            stderr: String::new(),
+            pending_timers: BTreeMap::new(),
+            pending_microtasks: VecDeque::new(),
+            cancelled_timers: HashSet::new(),
+            next_timer_id: 0,
+            registered_tests: Vec::new(),
+            coverage_hits: BTreeSet::new(),
+            event_listeners: BTreeMap::new(),
+            store_limits: wasmtime::StoreLimitsBuilder::new().build(),
+            pending_diagnostic: None,
+            active_file_handles: 0,
+            active_network_connections: 0,
+            active_spawned_processes: 0,
+            active_threads: 0,
+        }
+    }
+}
+
 impl KaliHostState {
+    /// Return the host process identifier preserved in the runtime store state.
+    pub fn process_id(&self) -> u32 {
+        self.process_id
+    }
+
     fn schedule_timer(
         &mut self,
         callback_id: i32,

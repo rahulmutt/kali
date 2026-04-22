@@ -20,6 +20,7 @@ fn process_context_tracks_env_and_output() {
     assert_eq!(process.argv_len(), 2);
     assert_eq!(process.argv_at(1), Some("script.js"));
     assert_eq!(process.cwd(), Path::new("/workspace/project"));
+    assert_eq!(process.pid(), std::process::id());
     assert_eq!(process.env_get("HOME"), Some("/tmp/home"));
     assert_eq!(process.env_get("MISSING"), None);
 

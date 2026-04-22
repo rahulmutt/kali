@@ -26,6 +26,7 @@ pub struct NodeProcess {
     argv: Vec<String>,
     env: BTreeMap<String, String>,
     cwd: PathBuf,
+    process_id: u32,
     exit_code: Option<i32>,
     stdout: String,
     stderr: String,
@@ -37,6 +38,7 @@ impl Default for NodeProcess {
             argv: Vec::new(),
             env: BTreeMap::new(),
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            process_id: std::process::id(),
             exit_code: None,
             stdout: String::new(),
             stderr: String::new(),
@@ -55,6 +57,7 @@ impl NodeProcess {
             argv,
             env,
             cwd: cwd.into(),
+            process_id: std::process::id(),
             exit_code: None,
             stdout: String::new(),
             stderr: String::new(),
@@ -69,6 +72,11 @@ impl NodeProcess {
     /// Current working directory.
     pub fn cwd(&self) -> &Path {
         &self.cwd
+    }
+
+    /// Host process identifier associated with the compatibility view.
+    pub fn pid(&self) -> u32 {
+        self.process_id
     }
 
     /// Read a host environment variable from the process view.

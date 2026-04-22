@@ -74,6 +74,19 @@ fn runtime_exposes_arguments() {
 }
 
 #[test]
+fn runtime_context_carries_process_identity() {
+    let runtime = RuntimeCtx::with_host_context(
+        None,
+        Vec::new(),
+        capture_env(),
+        PathBuf::from("."),
+    );
+
+    assert_eq!(runtime.process_id(), std::process::id());
+    assert_eq!(KaliHostState::default().process_id(), std::process::id());
+}
+
+#[test]
 fn runtime_context_carries_runtime_profiles() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno").with_runtime_profiles(vec![
         "beta".to_string(),
