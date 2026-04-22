@@ -45,6 +45,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   profile-fingerprint cache key, so profile-guided builds now stay deterministic across repeated
   invocations as well as inside the optimizer. The CLI now exposes that PGO input as an explicit
   build-only opt-in rather than a hidden implementation detail.
+- Added CLI smoke coverage for `kali build --profile` so repeated profile-guided builds stay
+  byte-stable across invocations and unsupported profile-data versions fail through the command
+  path as well as the lower-level loader.
 
 ## Tasks
 

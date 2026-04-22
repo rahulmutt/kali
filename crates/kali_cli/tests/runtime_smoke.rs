@@ -2846,6 +2846,75 @@ fn build_artifacts_are_deterministic_across_repeated_invocations() {
 }
 
 #[test]
+fn build_with_profile_data_is_deterministic_across_repeated_invocations() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.ts");
+    fs::write(
+        &source_path,
+        "function hot(a, b) { return a + b; } hot(1, 2);",
+    )
+    .expect("write source");
+    let profile_path = dir.path().join("profile.json");
+    fs::write(
+        &profile_path,
+        r#"{"version":1,"samples":[{"kind":"function","key":"hot","weight":8}]}"#,
+    )
+    .expect("write profile");
+    let out_dir = dir.path().join("out");
+
+    let build = || {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("build")
+            .arg("--release")
+            .arg("--profile")
+            .arg(&profile_path)
+            .arg("--out-dir")
+            .arg(&out_dir)
+            .arg(&source_path)
+            .output()
+            .expect("run kali build with profile");
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        fs::read(out_dir.join("math.wasm")).expect("read profiled wasm")
+    };
+
+    let first = build();
+    let second = build();
+
+    assert_eq!(first, second, "PGO builds should be deterministic across repeated invocations");
+}
+
+#[test]
+fn build_rejects_unsupported_pgo_profile_data_version() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log(1);").expect("write source");
+    let profile_path = dir.path().join("profile.json");
+    fs::write(&profile_path, r#"{"version":2,"samples":[]}"#).expect("write profile");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--profile")
+        .arg(&profile_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali build with unsupported profile version");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5009"), "stderr: {stderr}");
+    assert!(stderr.contains("unsupported PGO profile data version"), "stderr: {stderr}");
+}
+
+#[test]
 fn build_uses_inherited_browser_api_surface_for_bundle() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
