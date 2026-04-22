@@ -284,6 +284,35 @@ fn browser_runtime_harness_script_can_publish_registered_test_summary() {
 }
 
 #[test]
+fn browser_runtime_harness_script_reports_an_empty_test_summary_when_no_callbacks_register() {
+    let wasm = compile_wat(
+        r#"
+            (module
+                (func (export "_start")))
+        "#,
+    );
+    let script = browser_runtime_harness_script(&wasm, &["epsilon".to_string()], true);
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let script_path = tempdir.path().join("browser-runtime-empty-tests.mjs");
+    fs::write(&script_path, script).expect("write browser runtime test script");
+
+    let outcome = browser_harness_run_checked(Some("node"), &script_path, &[], tempdir.path())
+        .expect("launch browser runtime harness");
+
+    assert_eq!(outcome.status.code(), Some(0));
+    assert!(
+        outcome.stdout.contains("\"tests\":[]"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert!(
+        outcome.stdout.contains("\"args\":[\"epsilon\"]"),
+        "stdout: {}",
+        outcome.stdout
+    );
+}
+
+#[test]
 fn browser_runtime_execution_helper_launches_browser_harness_and_parses_summary() {
     let wasm = compile_wat(
         r#"

@@ -2353,7 +2353,7 @@ wasmMemory = instance.exports.memory ?? null;
 if (typeof instance.exports._start === 'function') {{
   await instance.exports._start();
 }}
-if (runRegisteredTests && collectedTests.length > 0) {{
+if (runRegisteredTests) {{
   console.log(JSON.stringify({{ args: runtimeArgs, tests: collectedTests }}));
 }}
 "#,
