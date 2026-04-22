@@ -194,6 +194,9 @@ pub enum Commands {
         /// Enable documented compatibility features
         #[arg(long = "compat", value_delimiter = ',')]
         compat: Vec<String>,
+        /// Load deterministic PGO profile data from a JSON file
+        #[arg(long)]
+        profile: Option<PathBuf>,
         /// Source files to build
         files: Vec<String>,
         /// Explicit fast build mode

@@ -12,7 +12,7 @@ use kali_hir::HirLowerer;
 use kali_lexer::{Lexer, Token, TokenType};
 use kali_lir::LirLowerer;
 use kali_mir::MirLowerer;
-use kali_optimize::{OptimizationLevel, Optimizer};
+use kali_optimize::{OptimizationLevel, Optimizer, ProfileData, PROFILE_DATA_VERSION};
 use kali_parser::Parser;
 use kali_runtime::normalize_runtime_profiles;
 use kali_sandbox::SandboxPolicy;
@@ -109,6 +109,47 @@ pub struct CompileOutput {
     pub cache_path: Option<PathBuf>,
 }
 
+pub fn load_profile_data_file(
+    profile_path: impl AsRef<Path>,
+) -> Result<ProfileData, Vec<Diagnostic>> {
+    let profile_path = profile_path.as_ref();
+    let profile_json = fs::read_to_string(profile_path).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            format!(
+                "failed to read PGO profile data '{}': {}",
+                profile_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    let profile_data: ProfileData = serde_json::from_str(&profile_json).map_err(|error| {
+        vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            format!(
+                "failed to parse PGO profile data '{}': {}",
+                profile_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    if !profile_data.is_current_version() {
+        return Err(vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            format!(
+                "unsupported PGO profile data version {} in '{}'; expected {}",
+                profile_data.version,
+                profile_path.display(),
+                PROFILE_DATA_VERSION
+            ),
+        )]);
+    }
+
+    Ok(profile_data.normalized())
+}
+
 pub fn compile_source_file_with_cache_state(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
@@ -118,11 +159,34 @@ pub fn compile_source_file_with_cache_state(
     compat_eval: bool,
     coverage: bool,
 ) -> Result<CompileOutput, Vec<Diagnostic>> {
+    compile_source_file_with_cache_state_and_profile_data(
+        source_path,
+        mode,
+        max_specializations,
+        api_surface,
+        None,
+        runtime_profiles,
+        compat_eval,
+        coverage,
+    )
+}
+
+pub fn compile_source_file_with_cache_state_and_profile_data(
+    source_path: impl AsRef<Path>,
+    mode: BuildMode,
+    max_specializations: usize,
+    api_surface: ApiSurface,
+    profile_data: Option<&ProfileData>,
+    runtime_profiles: &[String],
+    compat_eval: bool,
+    coverage: bool,
+) -> Result<CompileOutput, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
     let runtime_profiles = validate_runtime_profiles(
         runtime_profiles,
         &format!("compile request for '{}'", source_path.display()),
     )?;
+    let profile_data = profile_data.cloned().map(ProfileData::normalized);
 
     if let Some(cache_path) = incremental_cache_path(
         source_path,
@@ -130,6 +194,7 @@ pub fn compile_source_file_with_cache_state(
         max_specializations,
         api_surface,
         &runtime_profiles,
+        profile_data.as_ref(),
         compat_eval,
         coverage,
     )? {
@@ -159,6 +224,7 @@ pub fn compile_source_file_with_cache_state(
             mode,
             max_specializations,
             api_surface,
+            profile_data.as_ref(),
             compat_eval,
             coverage,
         )?;
@@ -179,6 +245,7 @@ pub fn compile_source_file_with_cache_state(
             mode,
             max_specializations,
             api_surface,
+            profile_data.as_ref(),
             compat_eval,
             coverage,
         )?;
@@ -218,11 +285,34 @@ pub fn compile_source_file_with_specialization_cap(
     compat_eval: bool,
     coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    compile_source_file_with_cache_state(
+    compile_source_file_with_specialization_cap_and_profile_data(
         source_path,
         mode,
         max_specializations,
         api_surface,
+        None,
+        runtime_profiles,
+        compat_eval,
+        coverage,
+    )
+}
+
+pub fn compile_source_file_with_specialization_cap_and_profile_data(
+    source_path: impl AsRef<Path>,
+    mode: BuildMode,
+    max_specializations: usize,
+    api_surface: ApiSurface,
+    profile_data: Option<&ProfileData>,
+    runtime_profiles: &[String],
+    compat_eval: bool,
+    coverage: bool,
+) -> Result<Vec<u8>, Vec<Diagnostic>> {
+    compile_source_file_with_cache_state_and_profile_data(
+        source_path,
+        mode,
+        max_specializations,
+        api_surface,
+        profile_data,
         runtime_profiles,
         compat_eval,
         coverage,
@@ -235,6 +325,7 @@ fn compile_source_file_uncached(
     mode: BuildMode,
     max_specializations: usize,
     api_surface: ApiSurface,
+    profile_data: Option<&ProfileData>,
     compat_eval: bool,
     coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
@@ -256,8 +347,13 @@ fn compile_source_file_uncached(
         BuildMode::Release => OptimizationLevel::Release,
         BuildMode::ReleaseAdvanced => OptimizationLevel::ReleaseAdvanced,
     };
-    Optimizer::with_max_specializations(optimization_level, max_specializations)
-        .optimize_program_with_mir(&mut lir, &mir);
+    let optimizer = Optimizer::with_max_specializations(optimization_level, max_specializations);
+    let optimizer = if let Some(profile_data) = profile_data {
+        optimizer.with_profile_data(profile_data.clone())
+    } else {
+        optimizer
+    };
+    optimizer.optimize_program_with_mir(&mut lir, &mir);
 
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations,
@@ -280,6 +376,7 @@ fn incremental_cache_path(
     max_specializations: usize,
     api_surface: ApiSurface,
     runtime_profiles: &[String],
+    profile_data: Option<&ProfileData>,
     compat_eval: bool,
     coverage: bool,
 ) -> Result<Option<PathBuf>, Vec<Diagnostic>> {
@@ -297,13 +394,22 @@ fn incremental_cache_path(
         return Ok(None);
     };
     let normalized_runtime_profiles = normalize_runtime_profiles(runtime_profiles.to_vec());
+    let profile_key = profile_data
+        .map(|profile| {
+            let profile = profile.clone().normalized();
+            let profile_json = serde_json::to_string(&profile).expect("serialize profile data");
+            let profile_hash = Sha256::digest(profile_json.as_bytes());
+            format!("profile:{profile_hash:x}")
+        })
+        .unwrap_or_else(|| "profile:none".to_string());
     let cache_key = format!(
-        "{}-{}-{}-{}-profiles:{}-{}-{}-{}",
+        "{}-{}-{}-{}-profiles:{}-{}-{}-{}-{}",
         source_hash,
         build_mode_name(mode),
         api_surface,
         max_specializations,
         normalized_runtime_profiles.join(","),
+        profile_key,
         compat_eval,
         coverage,
         env!("CARGO_PKG_VERSION")

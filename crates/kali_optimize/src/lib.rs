@@ -14,6 +14,9 @@ pub use profile::{ProfileData, ProfileSample, ProfileSampleKind, PROFILE_DATA_VE
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
 use kali_mir::{LayoutDescriptor, MirBindingKind, MirProgram as MirAnalysisProgram};
 
+/// Minimum recorded weight for a function sample to count as hot in the PGO report.
+const HOT_FUNCTION_MINIMUM_WEIGHT: u64 = 8;
+
 /// Optimization level.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum OptimizationLevel {
@@ -26,6 +29,21 @@ pub enum OptimizationLevel {
 
     #[default]
     Default,
+}
+
+/// Deterministic summary of one optimization run configuration.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OptimizationReport {
+    /// Requested optimization level.
+    pub level: OptimizationLevel,
+    /// Maximum specialization budget configured for the run.
+    pub max_specializations: usize,
+    /// Whether deterministic profile data was attached to the optimizer.
+    pub profile_data_present: bool,
+    /// Whether profile data actually contributed any hot-function inlining hints.
+    pub profile_data_used_for_inlining: bool,
+    /// Hot function keys discovered in the attached profile data.
+    pub hot_function_keys: Vec<String>,
 }
 
 /// Optimizer context.
@@ -65,6 +83,21 @@ impl Optimizer {
         self.profile_data.as_ref()
     }
 
+    /// Return the current deterministic optimization report.
+    pub fn optimization_report(&self) -> OptimizationReport {
+        let hot_function_keys = self.profile_data.as_ref().map_or_else(Vec::new, |profile| {
+            profile.hot_function_keys(HOT_FUNCTION_MINIMUM_WEIGHT)
+        });
+
+        OptimizationReport {
+            level: self.level,
+            max_specializations: self.max_specializations,
+            profile_data_present: self.profile_data.is_some(),
+            profile_data_used_for_inlining: !hot_function_keys.is_empty(),
+            hot_function_keys,
+        }
+    }
+
     /// Attach deterministic profile data to an optimizer.
     pub fn with_profile_data(mut self, profile_data: ProfileData) -> Self {
         self.profile_data = Some(profile_data.normalized());
@@ -74,6 +107,12 @@ impl Optimizer {
     /// Optimize a program in place.
     pub fn optimize_program(&self, program: &mut LirProgram) {
         self.optimize_program_internal(program, true);
+    }
+
+    /// Optimize a program and return a deterministic optimization report.
+    pub fn optimize_program_with_report(&self, program: &mut LirProgram) -> OptimizationReport {
+        self.optimize_program(program);
+        self.optimization_report()
     }
 
     /// Optimize a program using MIR layout metadata to drive additional call-site specialization.
@@ -105,6 +144,16 @@ impl Optimizer {
         if matches!(self.level, OptimizationLevel::ReleaseAdvanced) {
             self.prune_dead_top_level_functions(program);
         }
+    }
+
+    /// Optimize a program using MIR layout metadata and return a deterministic optimization report.
+    pub fn optimize_program_with_mir_and_report(
+        &self,
+        program: &mut LirProgram,
+        mir: &MirAnalysisProgram,
+    ) -> OptimizationReport {
+        self.optimize_program_with_mir(program, mir);
+        self.optimization_report()
     }
 
     fn optimize_program_internal(
@@ -1613,8 +1662,6 @@ impl Optimizer {
     }
 
     fn is_hot_function(&self, callee_name: &str) -> bool {
-        const HOT_FUNCTION_MINIMUM_WEIGHT: u64 = 8;
-
         self.profile_data
             .as_ref()
             .and_then(|profile| profile.sample_weight(ProfileSampleKind::Function, callee_name))

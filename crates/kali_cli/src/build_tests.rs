@@ -1,4 +1,5 @@
 use super::*;
+use kali_optimize::{ProfileSample, ProfileSampleKind};
 use std::fs;
 use tempfile::tempdir;
 use wasmparser::Validator;
@@ -109,6 +110,7 @@ fn incremental_cache_path_includes_runtime_profiles() {
         16,
         ApiSurface::Deno,
         &[],
+        None,
         false,
         false,
     )
@@ -120,6 +122,7 @@ fn incremental_cache_path_includes_runtime_profiles() {
         16,
         ApiSurface::Deno,
         &[" wasm-threads ".to_string(), "wasm-threads".to_string()],
+        None,
         false,
         false,
     )
@@ -131,6 +134,7 @@ fn incremental_cache_path_includes_runtime_profiles() {
         16,
         ApiSurface::Deno,
         &["wasm-threads".to_string()],
+        None,
         false,
         false,
     )
@@ -139,6 +143,79 @@ fn incremental_cache_path_includes_runtime_profiles() {
 
     assert_ne!(base, normalized);
     assert_eq!(normalized, canonical);
+}
+
+#[test]
+fn load_profile_data_file_validates_version_and_normalizes_samples() {
+    let dir = tempdir().expect("tempdir");
+    let profile_path = dir.path().join("profile.json");
+    fs::write(
+        &profile_path,
+        r#"{"version":1,"samples":[{"kind":"function","key":" hot-path ","weight":2},{"kind":"function","key":"hot-path","weight":3}]}"#,
+    )
+    .expect("write profile");
+
+    let profile = load_profile_data_file(&profile_path).expect("profile data");
+    assert!(profile.is_current_version());
+    assert_eq!(
+        profile.samples,
+        vec![ProfileSample::new(
+            ProfileSampleKind::Function,
+            "hot-path",
+            5
+        )]
+    );
+
+    fs::write(&profile_path, r#"{"version":2,"samples":[]}"#).expect("rewrite profile");
+    let error = load_profile_data_file(&profile_path).expect_err("version mismatch should fail");
+    assert!(error
+        .iter()
+        .any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::INVALID_CONFIG as u32)));
+}
+
+#[test]
+fn compile_source_file_with_profile_data_uses_profile_specific_cache_key() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "function hot_add(a, b) { return a + b; } hot_add(1, 2);",
+    )
+    .expect("write source");
+
+    let hot_profile = ProfileData::new(vec![ProfileSample::new(
+        ProfileSampleKind::Function,
+        "hot_add",
+        8,
+    )]);
+
+    let cold = compile_source_file_with_cache_state_and_profile_data(
+        &source_path,
+        BuildMode::Release,
+        16,
+        ApiSurface::Deno,
+        None,
+        &[],
+        false,
+        false,
+    )
+    .expect("cold compile");
+    let hot = compile_source_file_with_cache_state_and_profile_data(
+        &source_path,
+        BuildMode::Release,
+        16,
+        ApiSurface::Deno,
+        Some(&hot_profile),
+        &[],
+        false,
+        false,
+    )
+    .expect("hot compile");
+
+    assert_ne!(cold.cache_path, hot.cache_path);
+    assert_eq!(cold.wasm_bytes, hot.wasm_bytes);
 }
 
 #[test]

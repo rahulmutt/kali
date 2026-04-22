@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-22 resolution note
+- added deterministic optimization-report helpers in `kali_optimize` so callers can distinguish attached profile data from hot-function inlining usage, and added regression coverage for the no-profile, cold-profile, and hot-profile cases
+- wired `--profile` through the CLI build path with version-checked loading and a profile-fingerprint cache key, and updated the Stage 5.5 progress note so the PGO lane now records the explicit report/diagnostic surface alongside the existing profile-data and binding groundwork
+
+2026-04-22 resolution note
 - added deterministic host ABI metadata parsing and compatibility checks to the Python ctypes binding helper, so the Stage 5.5 language-binding lane now validates `cabi-metadata` version windows before exposing exports
 - updated the Stage 5.5 progress note to record the metadata-gated binding path alongside the existing Python wrapper helper
 

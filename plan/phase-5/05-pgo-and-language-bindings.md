@@ -38,6 +38,12 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - Added deterministic host ABI metadata parsing and compatibility checks to the Python ctypes
   helper, so the binding path now validates the generated `cabi-metadata` version window before
   exposing exports.
+- Added deterministic optimization-report helpers in `kali_optimize` so callers can distinguish
+  attached profile data from hot-function inlining usage, and added regression coverage for the
+  no-profile, cold-profile, and hot-profile cases.
+- Wired `--profile` through the CLI build path with version-checked loading and a
+  profile-fingerprint cache key, so profile-guided builds now stay deterministic across repeated
+  invocations as well as inside the optimizer.
 
 ## Tasks
 
