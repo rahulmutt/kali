@@ -2542,12 +2542,28 @@ pub fn browser_bundle_runtime_execute_checked(
     })
 }
 
-/// Build a self-contained browser-runtime harness script from embedded WASM bytes.
-///
-/// The generated module is intentionally generic: it instantiates the supplied WASM bytes, wires
-/// the canonical Kali runtime imports for console/argument handling, and optionally emits a simple
-/// test summary payload for future browser-runtime test plumbing.
-pub fn browser_runtime_harness_script(
+fn browser_harness_uses_html_entrypoint(executable: &str) -> bool {
+    let executable = Path::new(executable)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(executable)
+        .to_ascii_lowercase();
+
+    matches!(
+        executable.as_str(),
+        "chrome"
+            | "chromium"
+            | "chromium-browser"
+            | "google-chrome"
+            | "google-chrome-stable"
+            | "edge"
+            | "msedge"
+    ) || executable.contains("chromium")
+        || executable.contains("google-chrome")
+        || executable.contains("edge")
+}
+
+fn browser_runtime_harness_module_script(
     wasm_bytes: &[u8],
     args: &[String],
     run_registered_tests: bool,
@@ -2667,6 +2683,42 @@ if (summaryEmissionError !== null) {{
     )
 }
 
+/// Build a self-contained browser-runtime harness script from embedded WASM bytes.
+///
+/// The generated module is intentionally generic: it instantiates the supplied WASM bytes, wires
+/// the canonical Kali runtime imports for console/argument handling, and optionally emits a simple
+/// test summary payload for future browser-runtime test plumbing.
+pub fn browser_runtime_harness_script(
+    wasm_bytes: &[u8],
+    args: &[String],
+    run_registered_tests: bool,
+) -> String {
+    browser_runtime_harness_module_script(wasm_bytes, args, run_registered_tests)
+}
+
+/// Build a browser-host HTML wrapper for the self-contained browser-runtime harness.
+///
+/// This wrapper is intended for real browser hosts that can open an HTML entrypoint while still
+/// executing the same browser-friendly module body used by the in-process harness.
+pub fn browser_runtime_harness_page(
+    wasm_bytes: &[u8],
+    args: &[String],
+    run_registered_tests: bool,
+) -> String {
+    let module_script =
+        browser_runtime_harness_module_script(wasm_bytes, args, run_registered_tests);
+    format!(
+        r#"<!doctype html>
+<meta charset="utf-8">
+<title>Kali browser runtime harness</title>
+<script type="module">
+{module_script}
+</script>
+"#,
+        module_script = module_script,
+    )
+}
+
 /// Result of executing a browser-harnessed WASM module.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BrowserRuntimeExecutionOutcome {
@@ -2755,14 +2807,27 @@ pub fn browser_runtime_execute_checked(
     let tempdir = tempdir().map_err(|error| BrowserHarnessError::PreparationFailed {
         message: error.to_string(),
     })?;
-    let script_path = tempdir.path().join("browser-runtime.mjs");
+    let browser_command = browser_harness_command_parts_checked(command)
+        .map_err(|message| BrowserHarnessError::PreparationFailed { message })?;
+    let use_html_entrypoint = browser_command
+        .first()
+        .is_some_and(|executable| browser_harness_uses_html_entrypoint(executable));
+    let script_name = if use_html_entrypoint {
+        "browser-runtime.html"
+    } else {
+        "browser-runtime.mjs"
+    };
+    let script_path = tempdir.path().join(script_name);
     let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &script_path,
-        browser_runtime_harness_script(wasm_bytes, args, run_registered_tests),
-    )
-    .map_err(|error| BrowserHarnessError::PreparationFailed {
-        message: error.to_string(),
+    let script_contents = if use_html_entrypoint {
+        browser_runtime_harness_page(wasm_bytes, args, run_registered_tests)
+    } else {
+        browser_runtime_harness_script(wasm_bytes, args, run_registered_tests)
+    };
+    fs::write(&script_path, script_contents).map_err(|error| {
+        BrowserHarnessError::PreparationFailed {
+            message: error.to_string(),
+        }
     })?;
 
     let outcome = browser_harness_run_checked_with_env(

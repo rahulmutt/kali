@@ -297,6 +297,38 @@ fn browser_harness_command_parts_checked_reports_malformed_overrides() {
 }
 
 #[test]
+fn browser_runtime_harness_page_wraps_the_module_body_for_real_browser_hosts() {
+    let page = browser_runtime_harness_page(
+        &[0x00, 0x61, 0x73, 0x6d],
+        &["alpha".to_string(), "beta".to_string()],
+        true,
+    );
+
+    assert!(page.starts_with("<!doctype html>"), "page: {page}");
+    assert!(page.contains("<script type=\"module\">"), "page: {page}");
+    assert!(
+        page.contains("const runtimeArgs = [\"alpha\",\"beta\"]"),
+        "page: {page}"
+    );
+    assert!(
+        page.contains("const runRegisteredTests = true;"),
+        "page: {page}"
+    );
+    assert!(page.contains("decodeBase64(\""), "page: {page}");
+}
+
+#[test]
+fn browser_harness_uses_html_entrypoint_for_browser_executables() {
+    assert!(browser_harness_uses_html_entrypoint("chromium"));
+    assert!(browser_harness_uses_html_entrypoint(
+        "/usr/bin/google-chrome-stable"
+    ));
+    assert!(browser_harness_uses_html_entrypoint("msedge.exe"));
+    assert!(!browser_harness_uses_html_entrypoint("node"));
+    assert!(!browser_harness_uses_html_entrypoint("bun"));
+}
+
+#[test]
 fn browser_bundle_harness_script_reuses_the_shared_fetch_prelude() {
     let script = browser_bundle_harness_script(
         "browser-app",
