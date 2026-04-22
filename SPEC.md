@@ -166,6 +166,7 @@ This section is the short answer to “did the derived spec set actually preserv
 | AOT-only TS/JS → WASM compiler, no JIT | preserved as a hard invariant across all phases |
 | Rust-only implementation, no embedded C/C++ | preserved as a hard invariant across all phases |
 | No tracing/background GC; compile-time memory/ownership decisions | preserved as a hard invariant, with concrete memory-model ownership in [`specs/06-memory.md`](./specs/06-memory.md) |
+| Latest published ECMA-262 support | preserved as the grammar/semantics target for supported features, while draft proposals remain explicitly gated |
 | Sandboxing first, policy-controlled execution | preserved, but split honestly into static policy validation, runtime enforcement, and later effect reporting |
 | Static JSON effect visibility | preserved, but normalized into later explicit reporting commands plus policy-comparison workflows rather than a `run --dry` shadow mode |
 | TypeScript superset / stronger inference | preserved under the bounded-inference contract and annotation-required boundary |
@@ -173,17 +174,19 @@ This section is the short answer to “did the derived spec set actually preserv
 | Aggressive specialization and layout-aware IR | preserved as optimization-direction guidance, with phase-gated delivery |
 | Fast-path vs advanced-optimization modes | preserved through the stable build-mode vocabulary (`fast`, `release`, `release-advanced`) plus later evidence-backed optimization depth, rather than as an unconditional same-phase throughput promise |
 | Benchmark suite / Rust-competitive performance aspiration | preserved as a later optimization-evidence lane and benchmarking program, not as a Phase-1 performance guarantee |
+| Runtime engine choice (`wasmtime` / `wasmer`) | preserved as a Phase-1 standardized `wasmtime` baseline with later room for alternative pure-Rust engines once they can preserve the same public contract |
 | Deno / browser / Node API support | preserved, but split by context and maturity; Phase 1 is Deno-oriented plus the browser-targeted command set, while Node is later |
 | npm ecosystem access | preserved through the pure JS/TS package contract and support ladder, not as an unqualified “all npm works” claim |
 | Real-package e2e validation (for example `semver` and `@mariozechner/pi-coding-agent`) | preserved as phase-correct package-corpus evidence: representative package probes must assert the right rung and expected outcome for the current host/API maturity, rather than assuming every named package is Phase-1 executable |
 | Embeddability / WIT / C ABI / Component Model | preserved, but split into a Phase-1 base library artifact and a later stable public embedding surface |
 | `eval` and hardest dynamic features | preserved as later compatibility only; not allowed to violate the AOT-only invariant |
 | Lean verification | preserved through the proof-ready/proof-backed split and the proof-boundary manifest discipline; Phase 1 requires the proof-ready baseline, while stronger current-state claims come only from [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) |
-| Deno-like CLI and AI-friendly machine output | preserved through the CLI/schema/error chapters |
+| Excellent diagnostics, AI-parsable failures, and clean CLI ergonomics | preserved through the CLI/schema/error chapters: concise human defaults, versioned JSON envelopes, and explicit verbosity control rather than verbose-by-default output |
 
 Verdict:
 - the derived spec set adheres to the bootstrap brief's **directional goals**,
-- and it does so by making the phase boundaries and non-goals explicit instead of overclaiming an everything-at-once MVP.
+- it intentionally normalizes broad asks into phase-correct contracts instead of overclaiming an everything-at-once MVP,
+- and this snapshot leaves no major bootstrap theme unowned: any remaining breadth questions should be answered through the owning chapter plus [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 
 ## Bootstrap normalization rule
 

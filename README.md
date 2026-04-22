@@ -18,7 +18,7 @@ mise run lean-proofs
 
 ## Use the CLI
 
-Common commands:
+Common Phase-1 commands:
 
 ```bash
 kali init
@@ -27,14 +27,15 @@ kali fmt
 kali lint
 kali check [files...]
 kali build <file>
-kali build --bundle <file>
+kali build --bundle <file>      # browser-targeted build lane
+kali build --lib <file>         # base library artifact for exact-version consumers
 kali run <file> [-- args...]
 kali test [files...]
 ```
 
 Helpful flags you will see often:
 
-- `--api deno|node|browser`
+- `--api deno|node|browser` *(Phase 1 ships the Deno-oriented default plus the browser-targeted `check` / `build --bundle` context; broad `node` support is later)*
 - `--sandbox <policy>`
 - `--output json`
 - `--verbose` / `--quiet`
@@ -51,18 +52,18 @@ For the full CLI contract, arity, and flag behavior, see [`specs/12-cli.md`](./s
 | `fmt` | Format files or a discovered project |
 | `lint` | Run lint diagnostics and optional safe fixes |
 | `check` | Type-check and statically validate source |
-| `build` | Produce executable, library, or bundle artifacts |
+| `build` | Produce executable artifacts, browser bundles, or the Phase-1 base library artifact |
 | `run` | Compile and execute a source file |
 | `test` | Compile and run tests |
-| `effects` | Analyze effect usage and sandbox interactions |
-| `package-effects` | Analyze a single package’s effects |
-| `package-audit` | Audit a package in the later registry-analysis flow |
+| `effects` | Later Phase-2 effect-report command family |
+| `package-effects` | Later Phase-2 single-package effect-report command family |
+| `package-audit` | Later Phase-4 registry-analysis/audit command family |
 
 ## Project status
 
 Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.
 
-Phase 1 is the main public surface; see [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) for the exact shipped availability.
+Phase 1 is the main public surface; later documented commands such as `effects`, `package-effects`, and `package-audit` keep their shape documented without being implied as already shipped. See [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) for exact availability.
 
 ## Documentation
 
