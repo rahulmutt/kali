@@ -193,6 +193,14 @@ fn runtime_rejects_browser_api_surface() {
             .contains("standalone browser runtime contract"),
         "diagnostic: {diagnostic:?}"
     );
+    assert_eq!(
+        diagnostic.context.as_deref(),
+        Some(
+            &DiagnosticContext::new(DiagnosticContextOrigin::Default)
+                .with_effective_value("browser")
+        ),
+        "diagnostic: {diagnostic:?}"
+    );
 }
 
 #[test]
@@ -218,6 +226,14 @@ fn runtime_test_execution_rejects_browser_api_surface() {
         diagnostic
             .message
             .contains("standalone browser runtime contract"),
+        "diagnostic: {diagnostic:?}"
+    );
+    assert_eq!(
+        diagnostic.context.as_deref(),
+        Some(
+            &DiagnosticContext::new(DiagnosticContextOrigin::Default)
+                .with_effective_value("browser")
+        ),
         "diagnostic: {diagnostic:?}"
     );
 }

@@ -32,6 +32,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - The CLI browser-runtime smoke suite now pins that canonical `browser-requested` host label in both text and JSON output for `run` and `test`, keeping the user-facing runtime diagnostics aligned with the new shared label helper.
 - The browser-runtime rejection diagnostic now also carries the selected host contract as a structured note, so machine-readable consumers can recover the same `browser-requested` label without scraping the free-form message.
 - The browser-runtime rejection path now also emits structured `DiagnosticContext` payloads for explicit `--api browser` and inherited browser-config cases, so JSON consumers can tell whether the request came from CLI or manifest selection without scraping prose.
+- Direct `kali_runtime` callers that select the browser API surface now carry a minimal structured diagnostic context too (`origin = default`, `effectiveValue = browser`), so the runtime-layer gate is machine-readable even when the CLI is not the entrypoint.
 - The runtime execution path now threads the selected host contract through successful `RuntimeOutcome` values as well, so later browser backend work has one explicit execution-contract field to reuse without guessing from the API-surface string.
 - The CLI JSON payloads for successful `run` and `test` invocations now carry the canonical `hostContract` label alongside the exit/runtime counters, so machine-readable consumers can read the active execution contract without scraping the diagnostics path.
 

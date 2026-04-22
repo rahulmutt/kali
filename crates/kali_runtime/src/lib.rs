@@ -7,7 +7,7 @@ use kali_api_node::{
 use kali_api_web::{fill_random_values, performance_now, random_uuid};
 use kali_error::{
     _error_codes::{e4, e5},
-    Diagnostic, DiagnosticContext,
+    Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
 };
 use kali_sandbox::{HostOperation, SandboxPolicy};
 use reqwest::blocking;
@@ -299,7 +299,13 @@ impl RuntimeCtx {
     ) -> Result<RuntimeOutcome, Vec<Diagnostic>> {
         match self.host_contract() {
             RuntimeHostContract::BrowserRequested => {
-                return Err(vec![browser_runtime_unavailable_diagnostic(None, None)]);
+                return Err(vec![browser_runtime_unavailable_diagnostic(
+                    None,
+                    Some(
+                        DiagnosticContext::new(DiagnosticContextOrigin::Default)
+                            .with_effective_value("browser"),
+                    ),
+                )]);
             }
             RuntimeHostContract::KaliHosted => {}
         }
