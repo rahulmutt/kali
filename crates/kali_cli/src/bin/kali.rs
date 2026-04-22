@@ -25,7 +25,9 @@ use kali_npm::{
     load_manifest, InstallOptions, ProjectManifest,
 };
 use kali_optimize::ProfileData;
-use kali_runtime::{normalize_runtime_profiles, RuntimeCtx};
+use kali_runtime::{
+    browser_runtime_unavailable_diagnostic, normalize_runtime_profiles, RuntimeCtx,
+};
 use kali_sandbox::{
     compare_effects_to_policy, effect_report_from_inference, infer_effects_from_roots,
     package_effects_report, EffectAnalysisContext, PackageCoordinate, SandboxPolicy,
@@ -945,12 +947,7 @@ fn reject_unavailable_browser_runtime(
         return Ok(());
     }
 
-    let diagnostic = Diagnostic::error(
-        e5::FEATURE_UNAVAILABLE as u32,
-        format!(
-            "{command} does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract"
-        ),
-    );
+    let diagnostic = browser_runtime_unavailable_diagnostic(Some(command));
     emit_diagnostics_and_exit(
         command,
         vec![diagnostic],

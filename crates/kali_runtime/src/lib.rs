@@ -103,6 +103,15 @@ pub struct ScheduledTimer {
     pub repeat_interval: Option<Duration>,
 }
 
+/// The current high-level runtime host contract selected for execution.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RuntimeHostContract {
+    /// The current standalone Kali-hosted runtime contract backed by wasmtime.
+    KaliHosted,
+    /// A browser API-surface request that remains gated until the standalone browser runtime exists.
+    BrowserRequested,
+}
+
 /// Result of executing a WASM module.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RuntimeOutcome {
@@ -209,6 +218,15 @@ impl RuntimeCtx {
         self
     }
 
+    /// Return the current high-level runtime host contract.
+    pub fn host_contract(&self) -> RuntimeHostContract {
+        if self.api_surface == "browser" {
+            RuntimeHostContract::BrowserRequested
+        } else {
+            RuntimeHostContract::KaliHosted
+        }
+    }
+
     fn reject_unavailable_threaded_requests(
         &self,
         normalized_runtime_profiles: &[String],
@@ -254,11 +272,11 @@ impl RuntimeCtx {
         wasm_bytes: &[u8],
         run_registered_tests: bool,
     ) -> Result<RuntimeOutcome, Vec<Diagnostic>> {
-        if self.api_surface == "browser" {
-            return Err(vec![Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "browser API surface is not available in the current runtime contract; Kali does not yet define a standalone browser runtime contract".to_string(),
-            )]);
+        match self.host_contract() {
+            RuntimeHostContract::BrowserRequested => {
+                return Err(vec![browser_runtime_unavailable_diagnostic(None)]);
+            }
+            RuntimeHostContract::KaliHosted => {}
         }
 
         let normalized_runtime_profiles = self.canonical_runtime_profiles();
@@ -1906,6 +1924,16 @@ fn runtime_error_diagnostic(error: impl std::fmt::Display) -> Diagnostic {
     } else {
         Diagnostic::error(e4::UNCAUGHT_ERROR as u32, message)
     }
+}
+
+pub fn browser_runtime_unavailable_diagnostic(command: Option<&str>) -> Diagnostic {
+    let message = match command {
+        Some(command) => format!(
+            "{command} does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract"
+        ),
+        None => "browser API surface is not available in the current runtime contract; Kali does not yet define a standalone browser runtime contract".to_string(),
+    };
+    Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message)
 }
 
 fn enforce_operation(state: &mut KaliHostState, op: HostOperation) -> wasmtime::Result<()> {

@@ -89,6 +89,35 @@ fn runtime_context_carries_runtime_profiles() {
 }
 
 #[test]
+fn runtime_reports_browser_host_contract_for_browser_api_surface() {
+    let runtime = RuntimeCtx::with_api_surface(None, "browser");
+
+    assert_eq!(
+        runtime.host_contract(),
+        RuntimeHostContract::BrowserRequested
+    );
+}
+
+#[test]
+fn browser_runtime_unavailable_diagnostic_formats_command_context() {
+    let command_diagnostic = browser_runtime_unavailable_diagnostic(Some("run"));
+    assert!(
+        command_diagnostic
+            .message
+            .contains("run does not support the browser API surface"),
+        "diagnostic: {command_diagnostic:?}"
+    );
+
+    let runtime_diagnostic = browser_runtime_unavailable_diagnostic(None);
+    assert!(
+        runtime_diagnostic
+            .message
+            .contains("current runtime contract"),
+        "diagnostic: {runtime_diagnostic:?}"
+    );
+}
+
+#[test]
 fn runtime_rejects_browser_api_surface() {
     let runtime = RuntimeCtx::with_api_surface(None, "browser");
     let wasm = compile_wat(
