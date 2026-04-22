@@ -481,12 +481,12 @@ fn proof_check_workflow_is_configured_for_proofs_changes() {
         "proof-check job should verify the Lean proof tree layout"
     );
     assert!(
-        workflow.contains("leanprover/lean4-action@v1"),
+        workflow.contains("leanprover/lean-action@v1"),
         "proof-check job should install the Lean toolchain"
     );
     assert!(
-        workflow.contains("cd proofs && lake build"),
-        "proof-check job should build the proofs workspace"
+        workflow.contains("lake-package-directory: proofs"),
+        "proof-check job should build the proofs workspace from the proofs directory"
     );
 }
 

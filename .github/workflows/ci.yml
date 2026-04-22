@@ -131,10 +131,10 @@ jobs:
         if: steps.proofs.outputs.proofs-changed == 'true'
         run: bash scripts/check-proof-tree.sh
 
-      - name: Install Lean toolchain
+      - name: Install Lean toolchain and build proofs
         if: steps.proofs.outputs.proofs-changed == 'true'
-        uses: leanprover/lean4-action@v1
-
-      - name: Build proofs
-        if: steps.proofs.outputs.proofs-changed == 'true'
-        run: cd proofs && lake build
+        uses: leanprover/lean-action@v1
+        with:
+          build: true
+          auto-config: false
+          lake-package-directory: proofs

@@ -311,7 +311,7 @@ fn tcp_connect_and_listen_round_trip_bytes() {
         assert_eq!(connection.read_to_end().expect("server read"), b"ping");
         connection.write_all(b"pong").expect("server write");
         connection.flush().expect("server flush");
-        connection.shutdown().expect("server shutdown");
+        drop(connection);
     });
 
     let mut client = connect("127.0.0.1", addr.port()).expect("connect");
