@@ -1,0 +1,45 @@
+# Plan Set Guide
+
+This directory is the implementation playbook for Kali.
+
+Use it in this order:
+
+1. [`../PLAN.md`](../PLAN.md) — top-level sequencing, phase map, critical path, and completion gates.
+2. [`00-planning-conventions.md`](./00-planning-conventions.md) — shared rules for stage design, workable-state discipline, and update packets.
+3. [`01-repository-layout.md`](./01-repository-layout.md) — recommended long-lived repository structure and when each area should appear.
+4. [`02-workstreams-and-handoffs.md`](./02-workstreams-and-handoffs.md) — cross-phase streams, ownership boundaries, and safe parallelism.
+5. The relevant phase index under `phase-*/README.md`.
+6. The exact stage document you are implementing.
+
+## Directory map
+
+```text
+plan/
+├── README.md                         # this guide
+├── 00-planning-conventions.md        # shared planning rules
+├── 01-repository-layout.md           # target repository structure + rollout
+├── 02-workstreams-and-handoffs.md    # cross-phase stream coordination
+├── phase-1/                          # MVP compiler/toolchain stages
+├── phase-2/                          # ownership/effects/embedding/verification foundation
+├── phase-3/                          # optimization and compatibility breadth
+├── phase-4/                          # hard dynamic features and proof depth
+└── phase-5/                          # explicitly deferred later-compatibility work
+```
+
+## Reading shortcuts
+
+- **What should I build next?** → `../PLAN.md` → phase README → stage file.
+- **What files/areas should this work touch?** → [`01-repository-layout.md`](./01-repository-layout.md).
+- **Can two streams proceed in parallel?** → `../PLAN.md` plus [`02-workstreams-and-handoffs.md`](./02-workstreams-and-handoffs.md).
+- **What must be true before closing a stage?** → [`00-planning-conventions.md`](./00-planning-conventions.md).
+- **Is the feature publicly shipped yet?** → [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md), not this directory.
+
+## Maintenance rule
+
+The plan set owns implementation order and milestones only.
+
+If a change affects:
+- product behavior or support claims → update `SPEC.md` / `specs/`
+- public availability wording → update `specs/19-feature-maturity.md`
+- current proof-backed status → update `proofs/BOUNDARY.md`
+- implementation sequencing or stage boundaries → update this `plan/` tree

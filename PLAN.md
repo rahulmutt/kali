@@ -19,6 +19,10 @@ After every stage the repository must remain in a workable state:
 
 ```text
 plan/
+├── README.md
+├── 00-planning-conventions.md
+├── 01-repository-layout.md
+├── 02-workstreams-and-handoffs.md
 ├── phase-1/
 │   ├── README.md
 │   ├── 01-workspace-scaffold.md
@@ -61,9 +65,12 @@ plan/
     └── 05-pgo-and-language-bindings.md
 ```
 
-Total: 27 stage documents plus 5 phase index documents.
+Total: 27 stage documents, 5 phase index documents, and 3 cross-phase planning guides.
 
 ## Suggested implementation directory structure
+
+A more detailed adoption guide for this layout lives in [plan/01-repository-layout.md](./plan/01-repository-layout.md).
+
 
 The plan assumes a repository layout that keeps normative docs, implementation crates, evidence, and fixtures separate. A sensible long-lived structure is:
 
@@ -106,6 +113,13 @@ Notes:
 ---
 
 ## How to use this document
+
+Start here, then use the supporting plan docs for the specific planning question:
+- [plan/README.md](./plan/README.md) — quick navigation across the whole plan set
+- [plan/00-planning-conventions.md](./plan/00-planning-conventions.md) — stage-writing rules, workable-state discipline, and completion packets
+- [plan/01-repository-layout.md](./plan/01-repository-layout.md) — target repository shape and when each area should appear
+- [plan/02-workstreams-and-handoffs.md](./plan/02-workstreams-and-handoffs.md) — cross-phase workstreams, ownership boundaries, and parallel-stream handoffs
+
 
 - Use `SPEC.md` to decide what Kali promises.
 - Use this plan to decide implementation order and dependencies.
@@ -197,6 +211,18 @@ Phase-5 interpretation rule:
 - Phase 5 is a **planning bucket for spec-deferred later-compatibility work**.
 - It exists so the plan set tracks all currently documented spec surfaces.
 - It does **not** by itself turn any “Later compatibility” maturity row into a public commitment; `specs/19-feature-maturity.md` still controls actual availability wording.
+
+## Stage-completion packet
+
+Every stage should ship with a small, repeatable completion packet so the repository stays reviewable and phase-correct:
+
+1. **Implementation slice** — code/config/docs for the stage land together.
+2. **Spec-coordination slice** — update the owning chapter plus CLI/error/schema/maturity docs when public behavior changed.
+3. **Evidence slice** — add or extend the test lane that proves the claimed milestone.
+4. **Operator proof** — record the command/demo that shows the stage is workable right now.
+5. **Regression proof** — rerun `cargo test --workspace` and any stage-specific canonical tasks.
+
+Stage files may add more requirements, but they should not skip any of these five packet elements.
 
 ## Workable-state ladder
 
@@ -461,6 +487,15 @@ Phase 5 is complete when:
 - Each later-compatibility surface has explicit evidence matching the exact maturity row that was opened
 - New runtime/backend/embedding breadth does not weaken the core invariants or machine contracts
 - The maturity matrix is updated feature-by-feature rather than with one blanket “Phase 5 support” claim
+
+## Cross-phase planning guides
+
+The stage files are the authoritative step-by-step plan, but three cross-phase guides keep the whole roadmap coherent:
+
+- [plan/README.md](./plan/README.md) — entrypoint and navigation map for the plan set
+- [plan/00-planning-conventions.md](./plan/00-planning-conventions.md) — shared stage vocabulary, readiness rules, and update packets
+- [plan/01-repository-layout.md](./plan/01-repository-layout.md) — repository area ownership and when each area should be introduced
+- [plan/02-workstreams-and-handoffs.md](./plan/02-workstreams-and-handoffs.md) — the frontend/runtime/tooling/evidence workstreams and their handoff contracts
 
 ## Current post-completion follow-up lanes
 
