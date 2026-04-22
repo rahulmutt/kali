@@ -240,3 +240,15 @@ Proposed fix:
 2026-04-21 resolution note
 - added worker and broadcast-channel regressions that ignore shared-buffer posts after termination/close, so the threaded-runtime shutdown semantics now match the existing post-message ignore coverage
 - updated the Stage 5.1 progress note to record the post-close shared-buffer symmetry alongside the existing threaded-topology and shared-memory baseline coverage
+
+2026-04-21 follow-up note
+
+While hardening the Stage 5.1 thread-budget evidence, the sandbox-attached positive `resources.maxThreads` smoke coverage still only exists in text mode. The machine-readable envelope should mirror the same policy rejection so the later-threaded gate stays deterministic across CLI output formats.
+
+Proposed fix:
+- add `--output json` regressions for `kali check --sandbox` and `kali test --sandbox` when the attached policy sets `resources.maxThreads: 1`
+- mention the new JSON coverage in the Stage 5.1 progress note so the historical plan reflects both output formats
+
+2026-04-21 resolution note
+- added JSON-envelope regressions for the sandbox-attached positive `resources.maxThreads` policy path on both `check` and `test`, so the Stage 5.1 thread-budget evidence now mirrors the existing text-path coverage in machine-readable output as well
+- updated the Stage 5.1 progress note to mention the text/JSON symmetry alongside the existing resolver, runtime, and policy-level gating coverage

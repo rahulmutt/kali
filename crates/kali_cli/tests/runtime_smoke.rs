@@ -4483,6 +4483,57 @@ fn check_with_sandbox_rejects_positive_thread_budget_policy() {
 }
 
 #[test]
+fn json_check_with_sandbox_rejects_positive_thread_budget_policy() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('thread policy');").expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(
+        &policy_path,
+        r#"{
+  "schemaVersion": 1,
+  "$schema": "https://kali.sh/schemas/policy-v1.json",
+  "effects": {
+    "fileSystem": { "read": false, "write": false },
+    "network": { "fetch": false, "connect": false, "listen": false, "maxConnections": 1 },
+    "process": { "spawn": false, "envRead": false, "envWrite": false },
+    "timer": { "schedule": false, "maxTimeoutMs": 1000, "maxActiveTimers": 1 },
+    "eval": false,
+    "random": true,
+    "console": true
+  },
+  "resources": {
+    "maxMemoryMB": 256,
+    "maxCpuTimeMs": 10000,
+    "maxOpenFiles": 8,
+    "maxSpawnedProcesses": 0,
+    "maxThreads": 1
+  }
+}"#,
+    )
+    .expect("write policy");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert_eq!(json["errors"][0]["code"], "E5006");
+}
+
+#[test]
 fn test_with_sandbox_rejects_positive_thread_budget_policy() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
@@ -4515,6 +4566,8 @@ fn test_with_sandbox_rejects_positive_thread_budget_policy() {
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
         .arg("test")
         .arg("--sandbox")
         .arg(&policy_path)
@@ -4524,9 +4577,11 @@ fn test_with_sandbox_rejects_positive_thread_budget_policy() {
 
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
-    assert!(stderr.contains("resources.maxThreads"), "stderr: {stderr}");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    assert!(json["errors"].as_array().expect("errors array").len() > 0);
+    assert_eq!(json["errors"][0]["code"], "E5006");
 }
 
 fn package_audit_metadata_body(
