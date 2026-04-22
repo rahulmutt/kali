@@ -1,4 +1,8 @@
 2026-04-22 resolution note
+- added an explicit availability gate to the embedding-side host-predicate registration façade so disabled contexts now fail with the canonical `E5006` diagnostic instead of silently registering inert predicates
+- updated the Stage 5.3 progress note so the programmable-policy plan records that explicit rejection path alongside the existing host-predicate façade
+
+2026-04-22 resolution note
 - added the deterministic binding-package manifest helper and the Python bundle loader for the higher-level language-binding workflow, then updated the Stage 5.5 progress note so the packaging/distribution shape is now explicit alongside the existing Python ctypes helper
 
 2026-04-22 resolution note

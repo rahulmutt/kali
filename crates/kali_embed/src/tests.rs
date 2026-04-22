@@ -167,7 +167,8 @@ fn embedding_predicates_can_deny_with_a_host_specific_reason() {
     let mut ctx = EmbeddingCtx::new();
     ctx.register_sandbox_predicate("effects.console", "deny-console", |_| {
         PredicateDecision::deny("console output is forbidden")
-    });
+    })
+    .expect("predicate registration should succeed");
 
     let diagnostic = ctx
         .check_operation_with_policy(&policy, HostOperation::Console)
@@ -191,7 +192,8 @@ fn embedding_predicates_do_not_override_declarative_denials() {
     let mut ctx = EmbeddingCtx::new();
     ctx.register_sandbox_predicate("effects.console", "allow-all", |_| {
         PredicateDecision::allow()
-    });
+    })
+    .expect("predicate registration should succeed");
 
     let diagnostic = ctx
         .check_operation_with_policy(&policy, HostOperation::Console)
@@ -203,6 +205,25 @@ fn embedding_predicates_do_not_override_declarative_denials() {
     );
     assert!(diagnostic.message.contains("Console output is not allowed"));
     assert!(!diagnostic.message.contains("host-registered predicate"));
+}
+
+#[test]
+fn embedding_predicate_registration_rejects_when_disabled() {
+    let mut ctx = EmbeddingCtx::with_predicate_registration_enabled(false);
+    let error = ctx
+        .register_sandbox_predicate("effects.console", "deny-console", |_| {
+            PredicateDecision::deny("console output is forbidden")
+        })
+        .err()
+        .expect("disabled predicate support should reject registration");
+
+    assert_eq!(
+        error.code,
+        Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(error
+        .message
+        .contains("host-registered sandbox predicates are unavailable"));
 }
 
 #[test]

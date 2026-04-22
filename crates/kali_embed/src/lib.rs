@@ -344,6 +344,7 @@ struct RegisteredPredicate {
 pub struct EmbeddingCtx {
     compiler: KaliCompiler,
     predicates: BTreeMap<String, Vec<RegisteredPredicate>>,
+    predicate_registration_enabled: bool,
 }
 
 impl Default for EmbeddingCtx {
@@ -354,9 +355,15 @@ impl Default for EmbeddingCtx {
 
 impl EmbeddingCtx {
     pub fn new() -> Self {
+        Self::with_predicate_registration_enabled(true)
+    }
+
+    /// Construct an embedding context with explicit host-predicate availability.
+    pub fn with_predicate_registration_enabled(enabled: bool) -> Self {
         Self {
             compiler: KaliCompiler::new(CompilerConfig::default()),
             predicates: BTreeMap::new(),
+            predicate_registration_enabled: enabled,
         }
     }
 
@@ -366,14 +373,21 @@ impl EmbeddingCtx {
         capability: impl Into<String>,
         name: impl Into<String>,
         predicate: impl Fn(&OperationContext) -> PredicateDecision + Send + Sync + 'static,
-    ) -> &mut Self {
+    ) -> Result<&mut Self, Diagnostic> {
+        if !self.predicate_registration_enabled {
+            return Err(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "host-registered sandbox predicates are unavailable in this embedding context",
+            ));
+        }
+
         let capability = capability.into();
         let entry = self.predicates.entry(capability).or_default();
         entry.push(RegisteredPredicate {
             name: name.into(),
             predicate: Arc::new(predicate),
         });
-        self
+        Ok(self)
     }
 
     /// Evaluate a host operation against a declarative policy and the registered predicates.
