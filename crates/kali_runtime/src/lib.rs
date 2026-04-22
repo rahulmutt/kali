@@ -191,6 +191,10 @@ impl RuntimeCtx {
         self
     }
 
+    fn normalized_runtime_profiles(&self) -> Vec<String> {
+        normalize_runtime_profiles(self.runtime_profiles.clone())
+    }
+
     /// Attach an invocation-level spawned-process budget to the current execution context.
     pub fn with_max_spawned_processes(mut self, max_spawned_processes: Option<u64>) -> Self {
         self.max_spawned_processes = max_spawned_processes;
@@ -238,6 +242,8 @@ impl RuntimeCtx {
             })
             .unwrap_or_else(|| StoreLimitsBuilder::new().build());
 
+        let normalized_runtime_profiles = self.normalized_runtime_profiles();
+
         let mut store = Store::new(
             &engine,
             KaliHostState {
@@ -245,7 +251,7 @@ impl RuntimeCtx {
                 args: self.args.clone(),
                 env: self.env.clone(),
                 cwd: self.cwd.clone(),
-                runtime_profiles: self.runtime_profiles.clone(),
+                runtime_profiles: normalized_runtime_profiles.clone(),
                 max_threads: self
                     .policy
                     .as_ref()
@@ -336,7 +342,7 @@ impl RuntimeCtx {
                 stdout: state.stdout.clone(),
                 stderr: state.stderr.clone(),
                 coverage_hits: state.coverage_hits.iter().copied().collect(),
-                runtime_profiles: state.runtime_profiles.clone(),
+                runtime_profiles: normalized_runtime_profiles.clone(),
             });
         }
 
@@ -354,7 +360,7 @@ impl RuntimeCtx {
                 stdout: state.stdout.clone(),
                 stderr: state.stderr.clone(),
                 coverage_hits: state.coverage_hits.iter().copied().collect(),
-                runtime_profiles: state.runtime_profiles.clone(),
+                runtime_profiles: normalized_runtime_profiles.clone(),
             });
         }
 
@@ -383,7 +389,7 @@ impl RuntimeCtx {
             stdout: state.stdout.clone(),
             stderr: state.stderr.clone(),
             coverage_hits: state.coverage_hits.iter().copied().collect(),
-            runtime_profiles: state.runtime_profiles.clone(),
+            runtime_profiles: normalized_runtime_profiles,
         })
     }
 }

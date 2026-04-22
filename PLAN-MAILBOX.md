@@ -256,3 +256,7 @@ Proposed fix:
 2026-04-21 resolution note
 - added JSON-envelope regressions for the sandbox-attached positive `resources.maxThreads` policy path on both `check` and `test`, so the Stage 5.1 thread-budget evidence now mirrors the existing text-path coverage in machine-readable output as well
 - updated the Stage 5.1 progress note to mention the text/JSON symmetry alongside the existing resolver, runtime, and policy-level gating coverage
+
+2026-04-22 resolution note
+- canonicalized runtime-profile emission in `kali_runtime` so store construction and runtime outcomes now normalize the public `runtime_profiles` field even if a direct API caller mutates it after construction
+- recorded the runtime-profile normalization follow-up in the Stage 5.1 progress note so the historical threaded-profile plan stays aligned with the executable contract
