@@ -22,7 +22,7 @@ use kali_fmt::format_source;
 use kali_lint::lint_with_options;
 use kali_npm::{
     audit_registry_package, discover_project_root, ensure_project_ready, install_project,
-    load_manifest, InstallOptions, ProjectManifest,
+    load_manifest, resolve_materialized_import, InstallOptions, ProjectManifest,
 };
 use kali_optimize::ProfileData;
 use kali_runtime::{
@@ -3303,7 +3303,7 @@ fn package_effects_command(target: String, output: &CliOutputOptions) -> Result<
         }
     };
     let project_root = discover_project_root(&cwd).unwrap_or(cwd);
-    let entry_path = match resolve_installed_package_entry(&project_root, &parsed.install_name) {
+    let entry_path = match resolve_materialized_import(&project_root, &parsed.install_name) {
         Some(path) => path,
         None => {
             let diagnostic = Diagnostic::error(
@@ -3866,61 +3866,6 @@ fn is_version_suffixed_package_spec(spec: &str) -> bool {
         Some((name, version)) if !name.is_empty() && !version.is_empty() => true,
         _ => false,
     }
-}
-
-fn resolve_installed_package_entry(project_root: &Path, package_name: &str) -> Option<PathBuf> {
-    let package_dir = project_root.join("node_modules").join(package_name);
-    if !package_dir.exists() {
-        return None;
-    }
-
-    let package_json_path = package_dir.join("package.json");
-    let package_json = fs::read_to_string(package_json_path)
-        .ok()
-        .and_then(|contents| serde_json::from_str::<Value>(&contents).ok())?;
-
-    let candidate = package_json
-        .get("main")
-        .and_then(|value| value.as_str())
-        .or_else(|| package_json.get("module").and_then(|value| value.as_str()))
-        .or_else(|| package_json.get("types").and_then(|value| value.as_str()))
-        .or_else(|| package_json.get("typings").and_then(|value| value.as_str()))
-        .and_then(|path| resolve_package_candidate(&package_dir, path))
-        .or_else(|| resolve_package_candidate(&package_dir, "index.js"))
-        .or_else(|| resolve_package_candidate(&package_dir, "index.mjs"))
-        .or_else(|| resolve_package_candidate(&package_dir, "index.ts"))
-        .or_else(|| resolve_package_candidate(&package_dir, "index.d.ts"))
-        .or_else(|| resolve_package_candidate(&package_dir, "index.d.mts"))
-        .or_else(|| resolve_package_candidate(&package_dir, "index.d.cts"));
-
-    candidate
-}
-
-fn resolve_package_candidate(package_dir: &Path, candidate: &str) -> Option<PathBuf> {
-    let path = package_dir.join(candidate);
-    if path.is_file() {
-        return Some(path);
-    }
-
-    if let Some(ext) = path.extension().and_then(|ext| ext.to_str()) {
-        if matches!(
-            ext,
-            "ts" | "tsx" | "js" | "jsx" | "mts" | "cts" | "mjs" | "cjs"
-        ) {
-            return None;
-        }
-    }
-
-    for extension in [
-        "ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs", "d.ts", "d.mts", "d.cts",
-    ] {
-        let with_ext = package_dir.join(format!("{}.{}", candidate, extension));
-        if with_ext.is_file() {
-            return Some(with_ext);
-        }
-    }
-
-    None
 }
 
 fn find_package_root(entry_path: &Path) -> Option<PathBuf> {
