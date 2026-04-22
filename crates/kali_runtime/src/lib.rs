@@ -2205,14 +2205,17 @@ fn browser_harness_default_command_parts() -> Vec<String> {
 pub fn browser_harness_command_parts_checked(command: Option<&str>) -> Result<Vec<String>, String> {
     if let Some(command) = command {
         let command = command.trim();
-        if !command.is_empty() {
-            match split_command_spec(command) {
-                Some(parts) if !parts.is_empty() => return Ok(parts),
-                _ => {
-                    return Err(format!(
-                        "malformed {BROWSER_HARNESS_COMMAND_ENV} override: {command:?}"
-                    ));
-                }
+        if command.is_empty() {
+            return Err(format!(
+                "malformed {BROWSER_HARNESS_COMMAND_ENV} override: {command:?}"
+            ));
+        }
+        match split_command_spec(command) {
+            Some(parts) if !parts.is_empty() => return Ok(parts),
+            _ => {
+                return Err(format!(
+                    "malformed {BROWSER_HARNESS_COMMAND_ENV} override: {command:?}"
+                ));
             }
         }
     }

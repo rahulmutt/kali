@@ -301,6 +301,10 @@ fn browser_bundle_harness_command_override_rejects_unterminated_quotes() {
 
 #[test]
 fn browser_bundle_harness_command_override_rejects_malformed_environment_values() {
+    assert!(
+        std::panic::catch_unwind(|| { browser_bundle_harness_command_parts_for(Some("")) })
+            .is_err()
+    );
     assert!(std::panic::catch_unwind(|| {
         browser_bundle_harness_command_parts_for(Some(r#"" --flag"#))
     })
