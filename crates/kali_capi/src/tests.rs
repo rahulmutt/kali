@@ -268,3 +268,33 @@ else:
         "python binding helper exited with {status}"
     );
 }
+
+#[test]
+fn python_unittest_smoke_covers_the_binding_helper_package() {
+    if Command::new("python3").arg("--version").output().is_err() {
+        return;
+    }
+
+    let cargo_manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo_root = cargo_manifest_dir
+        .parent()
+        .and_then(|path| path.parent())
+        .expect("repo root");
+    let binding_root = repo_root.join("bindings/python");
+
+    let status = Command::new("python3")
+        .arg("-m")
+        .arg("unittest")
+        .arg("discover")
+        .arg("-s")
+        .arg("tests")
+        .arg("-t")
+        .arg(".")
+        .current_dir(&binding_root)
+        .status()
+        .expect("run python unittest smoke");
+    assert!(
+        status.success(),
+        "python unittest smoke exited with {status}"
+    );
+}

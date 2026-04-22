@@ -26,9 +26,10 @@ The current repo hardening pass also keeps the semver probe honest: the browser-
 smoke harness now has explicit `kali:rt` console shims (`console_log`, `console_error`,
 `console_warn`) so emitted browser bundles instantiate cleanly under the Node-based harness,
 and the regression suite now pins the default-standalone rejection for a semver-style
-`require('../package.json')` package-bin entrypoint. The remaining semver Node-path help/argument
-follow-up stays explicitly documented in the section below rather than being conflated with the
-browser bundle path.
+`require('../package.json')` package-bin entrypoint. The Node-path semver smoke fixture is kept to
+bare package-bin execution under `--api node`, while the remaining help/argument and
+package-json follow-up stays explicitly documented in the section below rather than being
+conflated with the browser bundle path.
 
 ## Historical stage tasks
 

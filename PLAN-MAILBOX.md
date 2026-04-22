@@ -400,3 +400,11 @@ Proposed fix:
 2026-04-22 resolution note
 - added a default-standalone semver package-bin regression that pins the existing `require(../package.json)` gate on the package-json path, leaving the remaining Node-path help/argument follow-up explicitly open
 - updated the Stage 3.2 progress note so it now records the semver package-json rejection alongside the browser-bundle hardening without overclaiming the unfinished Node-path fixture
+
+2026-04-22 resolution note
+- renamed the Node-path semver smoke fixture so it now honestly describes the current bare `--api node` package-bin execution coverage instead of implying guest-argument or package-json support that the runtime path still does not provide
+- updated the Stage 3.2 progress note to say the Node-path fixture is intentionally bare while the help/argument and package-json follow-up remains open
+
+2026-04-22 resolution note
+- added a dedicated Python `unittest` smoke harness under `bindings/python/tests/` and wired it into the Rust workspace test suite, so the maintained non-Rust binding now has first-class end-to-end smoke coverage instead of only ad hoc inline scripts
+- updated the Stage 5.5 progress note to record the new Python smoke harness alongside the existing Python ctypes helper and packaging/distribution metadata

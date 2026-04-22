@@ -4709,7 +4709,7 @@ fn run_executes_package_bin_entrypoints_with_shebangs_after_stripping_the_sheban
 }
 
 #[test]
-fn regression_package_bin_entrypoints_accept_guest_args_after_double_dash() {
+fn run_executes_semver_style_package_bin_on_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/semver");
     fs::create_dir_all(package_dir.join("bin")).expect("create package dir");
