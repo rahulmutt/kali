@@ -396,3 +396,7 @@ Proposed fix:
 2026-04-22 resolution note
 - added an embedding regression that exercises the threaded-budget context detail path through `resources.maxThreads` / `activeThreads`, so host-registered predicates now have direct coverage for the later thread-budget vocabulary in addition to the existing console policy cases
 - updated the Stage 5.3 progress note to mention the direct `ThreadSpawn` narrowing regression alongside the existing host-predicate context and availability coverage
+
+2026-04-22 resolution note
+- added a default-standalone semver package-bin regression that pins the existing `require(../package.json)` gate on the package-json path, leaving the remaining Node-path help/argument follow-up explicitly open
+- updated the Stage 3.2 progress note so it now records the semver package-json rejection alongside the browser-bundle hardening without overclaiming the unfinished Node-path fixture

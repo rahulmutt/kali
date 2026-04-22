@@ -4789,6 +4789,43 @@ fn regression_package_bin_entrypoints_using_node_cli_features_fail_with_phase_ga
 }
 
 #[test]
+fn regression_package_bin_entrypoints_requiring_package_json_still_fail_on_default_surface() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/semver");
+    fs::create_dir_all(package_dir.join("bin")).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "semver",
+  "version": "1.0.0",
+  "bin": {
+    "semver": "bin/semver.js"
+  }
+}"#,
+    )
+    .expect("write package json");
+    fs::write(
+        package_dir.join("bin/semver.js"),
+        "#!/usr/bin/env node\nconst pkg = require('../package.json');\nconsole.log(pkg.version);\n",
+    )
+    .expect("write package bin");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(package_dir.join("bin/semver.js"))
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("npm package bin 'semver'"), "stderr: {stderr}");
+    assert!(stderr.contains("CommonJS require()"), "stderr: {stderr}");
+}
+
+#[test]
 fn effects_command_emits_native_json_payload() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

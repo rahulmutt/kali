@@ -25,8 +25,10 @@ built, run, and tested under Kali without pretending to full Node parity.
 The current repo hardening pass also keeps the semver probe honest: the browser-bundle
 smoke harness now has explicit `kali:rt` console shims (`console_log`, `console_error`,
 `console_warn`) so emitted browser bundles instantiate cleanly under the Node-based harness,
-and the remaining semver node-compatibility gap is now isolated to guest string rendering rather
-than being conflated with the browser bundle path.
+and the regression suite now pins the default-standalone rejection for a semver-style
+`require('../package.json')` package-bin entrypoint. The remaining semver Node-path help/argument
+follow-up stays explicitly documented in the section below rather than being conflated with the
+browser bundle path.
 
 ## Historical stage tasks
 
