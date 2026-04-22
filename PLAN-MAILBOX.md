@@ -479,3 +479,7 @@ Proposed fix:
 
 2026-04-22 resolution note
 - added `run` / `test` smoke coverage for the late object-model gate in both text and JSON output, and updated the Stage 5.4 progress note so the historical plan now records the full `check`, `run`, and `test` command-surface coverage for `Proxy`, `WeakMap`, `WeakSet`, and `FinalizationRegistry`
+
+2026-04-22 resolution note
+- widened the Stage 4.2 proof-boundary summary to surface the Lean context lookup helper lemmas used by the core soundness proof: `Context.lookup_remove_head`, `Context.lookup_remove_head_other`, and `Context.lookup_remove_ne`
+- keep the proof boundary manifest and Stage 4.2 tracker synchronized if those helpers are promoted further or if matching anti-drift assertions are added

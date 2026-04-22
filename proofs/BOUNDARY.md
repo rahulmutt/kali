@@ -32,7 +32,7 @@ Release rule:
 - Type syntax: `Ty`, `LitVal`, the literal-to-type helper `litTy`, and the provisional function/object/union/intersection forms
 - Expression syntax: literals, variables, annotated functions, application, sequencing, conditionals, assignment, throw, and try/catch
 - Runtime model: value predicate and small-step reduction for the bounded typed fragment; the current proof boundary models the closed literals / variables / closed-functions slice plus the application, sequencing, conditional, assignment, and try/catch subfragment that is now mechanised in `KaliCore.Soundness`
-- Claimed theorem inventory: progress and preservation for the widened closed typed core fragment, plus the closed-substitution helper `KaliCore.Soundness.subst_closed` and the literal-to-type helper `KaliCore.litTy`
+- Claimed theorem inventory: progress and preservation for the widened closed typed core fragment, plus the closed-substitution helper `KaliCore.Soundness.subst_closed`, the literal-to-type helper `KaliCore.litTy`, and the context lookup helpers `Context.lookup_remove_head`, `Context.lookup_remove_head_other`, and `Context.lookup_remove_ne`
 - Current proof state: theorem statements are present and the core proof file now compiles, and the mechanised scope now includes bare throw in the lowerable HIR subset while still stopping short of the full Stage 4.2 memory/lowering target
 
 ### Ownership model (`proofs/KaliCore/Safety.lean`)
@@ -49,6 +49,7 @@ Release rule:
 ## Claimed theorems/properties
 - `KaliCore.Soundness.progress` — progress for the widened closed typed core fragment
 - `KaliCore.Soundness.preservation` — preservation for the widened closed typed core fragment
+- `Context.lookup_remove_head`, `Context.lookup_remove_head_other`, `Context.lookup_remove_ne` — context-removal helper lemmas used by the core soundness proof
 - `KaliCore.Safety.noDanglingReference` — mechanised no-dangling-reference theorem for the current RC snapshot model
 - `KaliCore.Safety.liveRefsAreOwnedAndAllocated` — mechanised theorem that well-formed snapshots keep live references anchored in ownership and allocation
 - `KaliCore.Safety.releaseRefLiveRefsAreOwnedAndAllocated`, `releaseRefLiveRefsAreLiveAnnotated`, `releaseAndDecrementLiveRefsAreLiveAnnotated`, `releaseAndCollectLiveRefsAreLiveAnnotated` — mechanised theorem that the pure release helper keeps surviving live references anchored in ownership and allocation
