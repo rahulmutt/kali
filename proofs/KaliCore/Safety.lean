@@ -238,6 +238,35 @@ theorem releaseRefPreservesWellFormedAndLinearMemory (snapshot : RcSnapshot) (re
   · exact releasePreservesWellFormed snapshot ref h
   · exact releaseRefPreservesLinearMemory snapshot ref
 
+/-- The release-only helper preserves well-formedness, the ownership environment, and the
+previously released-reference set. -/
+theorem releaseRefPreservesWellFormedAndOwnershipAndReleasedRefs (snapshot : RcSnapshot)
+    (ref : String) (h : WellFormed snapshot) :
+    WellFormed (releaseRef snapshot ref) ∧
+    (releaseRef snapshot ref).ownership = snapshot.ownership ∧
+    (∀ r, r ∈ snapshot.releasedRefs → r ∈ (releaseRef snapshot ref).releasedRefs) := by
+  constructor
+  · exact releasePreservesWellFormed snapshot ref h
+  · constructor
+    · exact releaseRefPreservesOwnership snapshot ref
+    · exact releaseRefPreservesReleasedRefs snapshot ref
+
+/-- The release-only helper preserves well-formedness together with the ownership environment,
+previously released references, and explicit linear-memory payload. -/
+theorem releaseRefPreservesWellFormedAndOwnershipAndReleasedRefsAndLinearMemory (snapshot : RcSnapshot)
+    (ref : String) (h : WellFormed snapshot) :
+    WellFormed (releaseRef snapshot ref) ∧
+    (releaseRef snapshot ref).ownership = snapshot.ownership ∧
+    (∀ r, r ∈ snapshot.releasedRefs → r ∈ (releaseRef snapshot ref).releasedRefs) ∧
+    (releaseRef snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releasePreservesWellFormed snapshot ref h
+  · constructor
+    · exact releaseRefPreservesOwnership snapshot ref
+    · constructor
+      · exact releaseRefPreservesReleasedRefs snapshot ref
+      · exact releaseRefPreservesLinearMemory snapshot ref
+
 /-- A release-and-decrement step preserves the well-formedness of the remaining
 live set because only the released reference's heap cell is updated. -/
 theorem releaseAndDecrementPreservesWellFormed (snapshot : RcSnapshot) (ref : String)
@@ -931,6 +960,35 @@ theorem releaseAndDecrementPreservesWellFormedAndOwnershipAndLinearMemory (snaps
   · constructor
     · exact releaseAndDecrementPreservesOwnership snapshot ref
     · exact releaseAndDecrementPreservesLinearMemory snapshot ref
+
+/-- The release-and-decrement helper preserves well-formedness, the ownership environment, and the
+previously released-reference set. -/
+theorem releaseAndDecrementPreservesWellFormedAndOwnershipAndReleasedRefs (snapshot : RcSnapshot)
+    (ref : String) (h : WellFormed snapshot) :
+    WellFormed (releaseAndDecrement snapshot ref) ∧
+    (releaseAndDecrement snapshot ref).ownership = snapshot.ownership ∧
+    (∀ r, r ∈ snapshot.releasedRefs → r ∈ (releaseAndDecrement snapshot ref).releasedRefs) := by
+  constructor
+  · exact releaseAndDecrementPreservesWellFormed snapshot ref h
+  · constructor
+    · exact releaseAndDecrementPreservesOwnership snapshot ref
+    · exact releaseAndDecrementPreservesReleasedRefs snapshot ref
+
+/-- The release-and-decrement helper preserves well-formedness, the ownership environment,
+previously released references, and explicit linear-memory payload. -/
+theorem releaseAndDecrementPreservesWellFormedAndOwnershipAndReleasedRefsAndLinearMemory
+    (snapshot : RcSnapshot) (ref : String) (h : WellFormed snapshot) :
+    WellFormed (releaseAndDecrement snapshot ref) ∧
+    (releaseAndDecrement snapshot ref).ownership = snapshot.ownership ∧
+    (∀ r, r ∈ snapshot.releasedRefs → r ∈ (releaseAndDecrement snapshot ref).releasedRefs) ∧
+    (releaseAndDecrement snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndDecrementPreservesWellFormed snapshot ref h
+  · constructor
+    · exact releaseAndDecrementPreservesOwnership snapshot ref
+    · constructor
+      · exact releaseAndDecrementPreservesReleasedRefs snapshot ref
+      · exact releaseAndDecrementPreservesLinearMemory snapshot ref
 
 /-- The local release-and-collect helper preserves well-formedness together with the ownership
 environment and explicit linear-memory payload. -/
