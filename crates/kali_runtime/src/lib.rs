@@ -22,6 +22,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tempfile::tempdir;
+use url::Url;
 use wasmtime::{
     Caller, Config, Engine, Extern, Instance, Linker, Memory, Module, Store, StoreLimitsBuilder,
 };
@@ -2987,7 +2988,19 @@ impl BrowserHarnessInvocation {
 
         let mut harness = Command::new(&executable);
         harness.args(&harness_args);
-        harness.arg(&script);
+        let script_arg = if browser_harness_uses_html_entrypoint(&executable) {
+            Url::from_file_path(&script)
+                .map_err(|_| BrowserHarnessError::PreparationFailed {
+                    message: format!(
+                        "failed to convert browser harness script path {:?} into a file URL",
+                        script
+                    ),
+                })?
+                .to_string()
+        } else {
+            script.to_string_lossy().into_owned()
+        };
+        harness.arg(&script_arg);
         harness.args(&args);
         harness.current_dir(current_dir);
         for &(key, value) in extra_env {
@@ -3098,7 +3111,19 @@ pub fn browser_harness_invocation_checked(
     let mut command = Vec::with_capacity(2 + parts.len() + args.len());
     command.push(executable.clone());
     command.extend(parts.iter().cloned());
-    command.push(script.to_string_lossy().into_owned());
+    let script_arg = if browser_harness_uses_html_entrypoint(&executable) {
+        Url::from_file_path(&script)
+            .map_err(|_| BrowserHarnessError::PreparationFailed {
+                message: format!(
+                    "failed to convert browser harness script path {:?} into a file URL",
+                    script
+                ),
+            })?
+            .to_string()
+    } else {
+        script.to_string_lossy().into_owned()
+    };
+    command.push(script_arg);
     command.extend(args.iter().cloned());
 
     Ok(BrowserHarnessInvocation {

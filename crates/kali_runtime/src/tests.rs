@@ -231,7 +231,12 @@ exit 0
 
     assert_eq!(outcome.command[0], browser.display().to_string());
     assert!(
-        outcome.command[1].ends_with("browser-runtime.html"),
+        outcome.command[1].starts_with("file://"),
+        "command: {:?}",
+        outcome.command
+    );
+    assert!(
+        outcome.command[1].contains("browser-runtime.html"),
         "command: {:?}",
         outcome.command
     );
@@ -755,7 +760,12 @@ export async function loadWithImports(importObject) {
     assert_eq!(outcome.command[1], "-c");
     assert_eq!(outcome.command[2], "true");
     assert!(
-        outcome.command[3].ends_with("browser-bundle-runtime.html"),
+        outcome.command[3].starts_with("file://"),
+        "command: {:?}",
+        outcome.command
+    );
+    assert!(
+        outcome.command[3].contains("browser-bundle-runtime.html"),
         "command: {:?}",
         outcome.command
     );
@@ -827,6 +837,48 @@ fn browser_harness_invocation_checked_builds_a_launch_plan() {
             "node".to_string(),
             "--experimental-fetch".to_string(),
             script.display().to_string(),
+            "alpha".to_string(),
+            "beta".to_string(),
+        ]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn browser_harness_invocation_checked_uses_file_url_for_browser_executables() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let script = tempdir.path().join("browser-harness.html");
+    let args = vec!["alpha".to_string(), "beta".to_string()];
+
+    let invocation = browser_harness_invocation_checked(
+        Some("chromium --headless"),
+        &script,
+        &args,
+        tempdir.path(),
+    )
+    .expect("build browser harness invocation");
+
+    assert_eq!(invocation.executable, "chromium");
+    assert_eq!(invocation.harness_args, vec!["--headless".to_string()]);
+    assert_eq!(invocation.script, script);
+    assert_eq!(invocation.args, args);
+    assert_eq!(invocation.current_dir, tempdir.path());
+    assert!(
+        invocation.command[2].starts_with("file://"),
+        "command: {:?}",
+        invocation.command
+    );
+    assert!(
+        invocation.command[2].contains("browser-harness.html"),
+        "command: {:?}",
+        invocation.command
+    );
+    assert_eq!(
+        invocation.command,
+        vec![
+            invocation.executable.clone(),
+            "--headless".to_string(),
+            invocation.command[2].clone(),
             "alpha".to_string(),
             "beta".to_string(),
         ]

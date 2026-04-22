@@ -1394,6 +1394,7 @@ dependencies = [
  "reqwest",
  "serde_json",
  "tempfile",
+ "url",
  "wasmtime",
  "wat",
 ]
