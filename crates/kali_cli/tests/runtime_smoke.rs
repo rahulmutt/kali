@@ -43,6 +43,10 @@ fn assert_browser_runtime_rejection_text(text: &str) {
         "stderr: {text}"
     );
     assert!(
+        text.contains("current runtime backend: wasmtime"),
+        "stderr: {text}"
+    );
+    assert!(
         text.contains("browser runtime host description: real browser host"),
         "stderr: {text}"
     );
@@ -68,6 +72,37 @@ fn assert_browser_runtime_rejection_message(message: &str) {
     assert!(
         message.contains("standalone browser runtime contract"),
         "message: {message}"
+    );
+}
+
+fn assert_browser_runtime_rejection_notes(notes: &[Value]) {
+    assert!(
+        notes
+            .iter()
+            .any(|note| note.as_str() == Some("selected host contract: browser-requested")),
+        "notes: {notes:?}"
+    );
+    assert!(
+        notes
+            .iter()
+            .any(|note| note.as_str() == Some("current runtime backend: wasmtime")),
+        "notes: {notes:?}"
+    );
+    assert!(
+        notes
+            .iter()
+            .any(|note| note.as_str() == Some("supported browser runtime commands: run, test")),
+        "notes: {notes:?}"
+    );
+    assert!(
+        notes.iter().any(|note| note.as_str() == Some("browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness")),
+        "notes: {notes:?}"
+    );
+    assert!(
+        notes.iter().any(
+            |note| note.as_str() == Some("browser runtime host description: real browser host")
+        ),
+        "notes: {notes:?}"
     );
 }
 
@@ -1447,6 +1482,11 @@ fn json_run_rejects_browser_api_surface_in_phase_one() {
             .as_str()
             .expect("browser rejection message"),
     );
+    assert_browser_runtime_rejection_notes(
+        errors[0]["notes"]
+            .as_array()
+            .expect("browser rejection notes"),
+    );
     assert_eq!(errors[0]["context"]["origin"], "cli");
     assert_eq!(errors[0]["context"]["flag"], "--api");
     assert_eq!(errors[0]["context"]["requestedValue"], "browser");
@@ -1491,6 +1531,11 @@ fn json_run_rejects_inherited_browser_api_surface_in_phase_one() {
         errors[0]["message"]
             .as_str()
             .expect("browser rejection message"),
+    );
+    assert_browser_runtime_rejection_notes(
+        errors[0]["notes"]
+            .as_array()
+            .expect("browser rejection notes"),
     );
     assert_eq!(errors[0]["context"]["origin"], "config");
     assert_eq!(
@@ -1561,6 +1606,11 @@ fn json_run_rejects_browser_api_surface_with_sandbox_in_phase_one() {
         errors[0]["message"]
             .as_str()
             .expect("browser rejection message"),
+    );
+    assert_browser_runtime_rejection_notes(
+        errors[0]["notes"]
+            .as_array()
+            .expect("browser rejection notes"),
     );
 }
 
@@ -5042,6 +5092,11 @@ fn json_test_rejects_browser_api_surface_in_phase_one() {
             .as_str()
             .expect("browser rejection message"),
     );
+    assert_browser_runtime_rejection_notes(
+        errors[0]["notes"]
+            .as_array()
+            .expect("browser rejection notes"),
+    );
     assert_eq!(errors[0]["context"]["origin"], "cli");
     assert_eq!(errors[0]["context"]["flag"], "--api");
     assert_eq!(errors[0]["context"]["requestedValue"], "browser");
@@ -5086,6 +5141,11 @@ fn json_test_rejects_inherited_browser_api_surface_in_phase_one() {
         errors[0]["message"]
             .as_str()
             .expect("browser rejection message"),
+    );
+    assert_browser_runtime_rejection_notes(
+        errors[0]["notes"]
+            .as_array()
+            .expect("browser rejection notes"),
     );
     assert_eq!(errors[0]["context"]["origin"], "config");
     assert_eq!(
@@ -5156,6 +5216,11 @@ fn json_test_rejects_browser_api_surface_with_sandbox_in_phase_one() {
         errors[0]["message"]
             .as_str()
             .expect("browser rejection message"),
+    );
+    assert_browser_runtime_rejection_notes(
+        errors[0]["notes"]
+            .as_array()
+            .expect("browser rejection notes"),
     );
 }
 

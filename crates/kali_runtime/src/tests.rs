@@ -158,6 +158,13 @@ fn browser_runtime_unavailable_diagnostic_formats_command_context() {
         command_diagnostic
             .notes
             .iter()
+            .any(|note| note == "current runtime backend: wasmtime"),
+        "diagnostic: {command_diagnostic:?}"
+    );
+    assert!(
+        command_diagnostic
+            .notes
+            .iter()
             .any(|note| note == "supported browser runtime commands: run, test"),
         "diagnostic: {command_diagnostic:?}"
     );
@@ -200,6 +207,13 @@ fn browser_runtime_unavailable_diagnostic_formats_command_context() {
             .notes
             .iter()
             .any(|note| note == "selected host contract: browser-requested"),
+        "diagnostic: {runtime_diagnostic:?}"
+    );
+    assert!(
+        runtime_diagnostic
+            .notes
+            .iter()
+            .any(|note| note == "current runtime backend: wasmtime"),
         "diagnostic: {runtime_diagnostic:?}"
     );
     assert!(
@@ -250,6 +264,13 @@ fn runtime_rejects_browser_api_surface() {
             .contains("standalone browser runtime contract"),
         "diagnostic: {diagnostic:?}"
     );
+    assert!(
+        diagnostic
+            .notes
+            .iter()
+            .any(|note| note == "current runtime backend: wasmtime"),
+        "diagnostic: {diagnostic:?}"
+    );
     assert_eq!(
         diagnostic.context.as_deref(),
         Some(
@@ -284,6 +305,13 @@ fn runtime_test_execution_rejects_browser_api_surface() {
         diagnostic
             .message
             .contains("standalone browser runtime contract"),
+        "diagnostic: {diagnostic:?}"
+    );
+    assert!(
+        diagnostic
+            .notes
+            .iter()
+            .any(|note| note == "current runtime backend: wasmtime"),
         "diagnostic: {diagnostic:?}"
     );
     assert_eq!(

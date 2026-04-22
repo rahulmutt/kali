@@ -2050,6 +2050,10 @@ pub fn browser_runtime_unavailable_diagnostic(
     let mut diagnostic = Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message)
         .note(format!("selected host contract: {contract}"))
         .note(format!(
+            "current runtime backend: {}",
+            RuntimeBackend::Wasmtime.canonical_label()
+        ))
+        .note(format!(
             "supported browser runtime commands: {supported_commands}"
         ))
         .note(BrowserRuntimeContract::contract_scope_note())
