@@ -626,10 +626,7 @@ impl DenoHttpServer {
             .expect("DenoHttpServer join handle already consumed");
         match handle.join() {
             Ok(result) => result,
-            Err(_) => Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Deno.serve worker panicked",
-            )),
+            Err(_) => Err(std::io::Error::other("Deno.serve worker panicked")),
         }
     }
 }

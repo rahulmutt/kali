@@ -1960,6 +1960,7 @@ pub fn browser_runtime_unavailable_diagnostic(command: Option<&str>) -> Diagnost
         ),
     };
     Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message)
+        .note(format!("selected host contract: {contract}"))
 }
 
 fn enforce_operation(state: &mut KaliHostState, op: HostOperation) -> wasmtime::Result<()> {

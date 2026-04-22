@@ -150,6 +150,7 @@ pub fn load_profile_data_file(
     Ok(profile_data.normalized())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn compile_source_file_with_cache_state(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
@@ -171,6 +172,7 @@ pub fn compile_source_file_with_cache_state(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn compile_source_file_with_cache_state_and_profile_data(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
@@ -297,6 +299,7 @@ pub fn compile_source_file_with_specialization_cap(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn compile_source_file_with_specialization_cap_and_profile_data(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
@@ -370,6 +373,7 @@ fn compile_source_file_uncached(
     Ok(result.wasm_bytes)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn incremental_cache_path(
     source_path: &Path,
     mode: BuildMode,

@@ -1283,7 +1283,9 @@ fn json_run_rejects_browser_api_surface_in_phase_one() {
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
     assert_browser_runtime_rejection_message(
-        errors[0]["message"].as_str().expect("browser rejection message"),
+        errors[0]["message"]
+            .as_str()
+            .expect("browser rejection message"),
     );
 }
 
@@ -1322,7 +1324,9 @@ fn json_run_rejects_inherited_browser_api_surface_in_phase_one() {
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
     assert_browser_runtime_rejection_message(
-        errors[0]["message"].as_str().expect("browser rejection message"),
+        errors[0]["message"]
+            .as_str()
+            .expect("browser rejection message"),
     );
 }
 
@@ -1383,7 +1387,9 @@ fn json_run_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
     assert_browser_runtime_rejection_message(
-        errors[0]["message"].as_str().expect("browser rejection message"),
+        errors[0]["message"]
+            .as_str()
+            .expect("browser rejection message"),
     );
 }
 
@@ -4858,7 +4864,9 @@ fn json_test_rejects_browser_api_surface_in_phase_one() {
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
     assert_browser_runtime_rejection_message(
-        errors[0]["message"].as_str().expect("browser rejection message"),
+        errors[0]["message"]
+            .as_str()
+            .expect("browser rejection message"),
     );
 }
 
@@ -4897,7 +4905,9 @@ fn json_test_rejects_inherited_browser_api_surface_in_phase_one() {
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
     assert_browser_runtime_rejection_message(
-        errors[0]["message"].as_str().expect("browser rejection message"),
+        errors[0]["message"]
+            .as_str()
+            .expect("browser rejection message"),
     );
 }
 
@@ -4958,7 +4968,9 @@ fn json_test_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
     assert_browser_runtime_rejection_message(
-        errors[0]["message"].as_str().expect("browser rejection message"),
+        errors[0]["message"]
+            .as_str()
+            .expect("browser rejection message"),
     );
 }
 
