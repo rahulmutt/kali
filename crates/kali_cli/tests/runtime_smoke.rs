@@ -16,6 +16,7 @@ use std::{
 use serde_json::{json, Value};
 use wasmparser::{Operator, Parser, Payload};
 
+use kali_runtime::split_command_spec;
 use tempfile::tempdir;
 
 fn kali_bin() -> PathBuf {
@@ -224,62 +225,6 @@ fn count_wasm_instructions(bytes: &[u8]) -> usize {
         }
     }
     count
-}
-
-fn split_command_spec(command: &str) -> Option<Vec<String>> {
-    let mut parts = Vec::new();
-    let mut current = String::new();
-    let mut token_open = false;
-    let mut in_single_quotes = false;
-    let mut in_double_quotes = false;
-    let mut escaped = false;
-
-    for ch in command.chars() {
-        if escaped {
-            current.push(ch);
-            token_open = true;
-            escaped = false;
-            continue;
-        }
-
-        match ch {
-            '\\' if !in_single_quotes => {
-                escaped = true;
-            }
-            '\'' if !in_double_quotes => {
-                in_single_quotes = !in_single_quotes;
-                token_open = true;
-            }
-            '"' if !in_single_quotes => {
-                in_double_quotes = !in_double_quotes;
-                token_open = true;
-            }
-            ch if ch.is_whitespace() && !in_single_quotes && !in_double_quotes => {
-                if token_open {
-                    parts.push(std::mem::take(&mut current));
-                    token_open = false;
-                }
-            }
-            ch => {
-                current.push(ch);
-                token_open = true;
-            }
-        }
-    }
-
-    if escaped || in_single_quotes || in_double_quotes {
-        return None;
-    }
-
-    if token_open {
-        parts.push(current);
-    }
-
-    if parts.first().is_some_and(|part| part.is_empty()) {
-        return None;
-    }
-
-    Some(parts)
 }
 
 fn browser_bundle_harness_command_parts_for(command: Option<&str>) -> Vec<String> {

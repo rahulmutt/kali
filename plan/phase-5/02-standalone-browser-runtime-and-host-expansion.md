@@ -46,6 +46,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - The CLI JSON payloads for successful `run` and `test` invocations now carry the canonical `hostContract` label alongside the exit/runtime counters, so machine-readable consumers can read the active execution contract without scraping the diagnostics path.
 - The browser-bundle smoke harness now prefers the installed `bun` runner when available, and it also honors an explicit `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` override so external runners can swap in a real browser wrapper without changing the fixture contract; the emitted-bundle smoke lane still preserves the same deterministic fetch/wasm loading behavior by default. The override now accepts argv-style command strings, preserves empty quoted arguments, rejects unterminated quotes before falling back to the default harness command, and now also treats an empty executable token as malformed, so browser wrappers that need launcher flags can be exercised without a shell-specific wrapper script.
 - The browser-bundle harness override parser now fails closed on malformed command specs instead of quietly reusing the default `bun` / `node` harness, and the browser smoke tests pin that rejection path for both empty executable tokens and unterminated quoted invocations.
+- The browser-bundle harness command-spec splitter now lives in `kali_runtime`, so the browser smoke helpers and future browser-runtime plumbing share one argv-style parsing rule instead of duplicating the shell-like tokenizer locally.
 
 ## Tasks
 
