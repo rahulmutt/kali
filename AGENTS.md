@@ -15,7 +15,7 @@
 **What it owns:**
 - Cross-spec normalization rules and shared vocabulary
 - Phase-1 explicit non-goals and guardrail splits
-- Bootstrap → Phase contract normalization (maps BOOTSTRAP.md aspirations to concrete promises)
+- Bootstrap → Phase contract normalization (maps prompts/bootstrap.md aspirations to concrete promises)
 - Feature maturity matrix and phase contracts
 - Every subsystem's concrete ownership (chapters 01-19)
 - Verification boundary discipline
@@ -55,8 +55,8 @@
 ### How They Work Together
 
 ```
-BOOTSTRAP.md (raw goals)
-        ↓
+prompts/bootstrap.md (raw goals)
+                    ↓
 SPEC.md (normalization → phase contracts)
         ↓
 PLAN.md (implementation stages → workable milestones)
@@ -241,4 +241,4 @@ To find authority on different questions:
 - **Whether something is supported yet?** → SPEC.md → 19-feature-maturity → owning chapter
 - **How a supported thing works?** → Owning chapter first, then SPEC.md for cross-spec terminology
 - **What proof coverage is claimed today?** → `proofs/BOUNDARY.md` (not roadmap prose)
-- **Which document is normative?** → SPEC.md and chapter in specs/ (not BOOTSTRAP.md)
+- **Which document is normative?** → SPEC.md and chapter in specs/ (not prompts/bootstrap.md)

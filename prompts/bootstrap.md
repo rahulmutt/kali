@@ -1,8 +1,16 @@
 # Bootstrap Brief
 
+Reading rule:
+- treat this file as directional input only
+- for normalized product claims, read [`SPEC.md`](../SPEC.md)
+- for shipped availability, read [`specs/19-feature-maturity.md`](../specs/19-feature-maturity.md)
+- for current proof-backed scope, read [`proofs/BOUNDARY.md`](../proofs/BOUNDARY.md)
+
+---
+
 Repository reading note:
 - this file is the original input brief
-- after normalization, [`SPEC.md`](./SPEC.md) is the cross-spec source of truth, [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) owns shipped availability, and [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) owns the current verification-claim boundary
+- after normalization, [`SPEC.md`](../SPEC.md) is the cross-spec source of truth, [`specs/19-feature-maturity.md`](../specs/19-feature-maturity.md) owns shipped availability, and [`proofs/BOUNDARY.md`](../proofs/BOUNDARY.md) owns the current verification-claim boundary
 - when this brief sounds broader than the detailed spec set, read it through that normalized split rather than as a same-phase MVP guarantee
 
 Write a top-level SPEC.md that references specs/*.md to breakdown into logical units the implementation of the following:

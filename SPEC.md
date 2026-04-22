@@ -3,7 +3,7 @@
 `SPEC.md` is the top-level normalization layer for the Kali spec set.
 
 It exists to:
-1. normalize [`BOOTSTRAP.md`](./BOOTSTRAP.md) — the top-level mirror of [`prompts/bootstrap.md`](./prompts/bootstrap.md) — into concrete phase-correct product claims,
+1. normalize [`prompts/bootstrap.md`](./prompts/bootstrap.md) into concrete phase-correct product claims,
 2. define cross-spec rules and shared vocabulary that should not drift,
 3. point readers to the owning chapter for subsystem details.
 
@@ -17,7 +17,7 @@ Detailed subsystem contracts live in [`specs/`](./specs). When this file and an 
 
 Kali uses one explicit ownership split:
 
-- [`BOOTSTRAP.md`](./BOOTSTRAP.md) is the input brief only and mirrors [`prompts/bootstrap.md`](./prompts/bootstrap.md) for top-level spec navigation.
+- [`prompts/bootstrap.md`](./prompts/bootstrap.md) is the input brief only.
 - [`SPEC.md`](./SPEC.md) owns cross-spec normalization, shared vocabulary, and conflict resolution.
 - the owning chapter in [`specs/`](./specs) owns the concrete subsystem contract.
 - [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) owns availability and phase status.
@@ -161,10 +161,10 @@ Verdict:
 
 ## Bootstrap normalization rule
 
-`BOOTSTRAP.md` is directional input, not the post-normalization source of truth.
+`prompts/bootstrap.md` is directional input, not the post-normalization source of truth.
 
 Normalization rules:
-- broad goals in `BOOTSTRAP.md` must be mapped onto explicit phase promises;
+- broad goals in `prompts/bootstrap.md` must be mapped onto explicit phase promises;
 - expensive or wide compatibility asks do not imply same-phase MVP support unless the owning chapter and maturity matrix say so;
 - when goals compete, preserve the stronger safety and determinism constraint first.
 

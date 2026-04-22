@@ -2,7 +2,7 @@
 An ahead-of-time TypeScript/JavaScript compiler and runtime targeting WebAssembly, designed for sandboxed execution, strong static analysis, and AI-friendly tooling.
 
 ## Read this repo in the right order
-- [`BOOTSTRAP.md`](./BOOTSTRAP.md) — original input brief and background, not the post-normalization source of truth
+- [`prompts/bootstrap.md`](./prompts/bootstrap.md) — original input brief and background, not the post-normalization source of truth
 - [`SPEC.md`](./SPEC.md) — normalized cross-spec rules and shared terminology
 - [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) — what is actually shipped in each phase
 - owning chapter in [`specs/`](./specs) — subsystem details
@@ -17,7 +17,7 @@ Shortcuts:
 README scope note:
 - this file is overview-first and intentionally non-normative
 - `SPEC.md` owns shared terminology/normalization, `specs/19-feature-maturity.md` owns shipped availability, owning chapters own subsystem details, and `proofs/BOUNDARY.md` owns the repository's current verification-claim boundary
-- `BOOTSTRAP.md` remains the original brief, not the post-normalization source of truth
+- `prompts/bootstrap.md` remains the original brief, not the post-normalization source of truth
 - when README summary bullets and the detailed specs differ, prefer the specs
 
 ## Hard invariants

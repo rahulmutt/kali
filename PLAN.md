@@ -100,7 +100,7 @@ The spec set is easiest to implement in five broad delivery strata:
 
 | Stratum | Purpose | Primary chapters | Plan ownership |
 |---|---|---|---|
-| Bootstrap normalization + cross-spec rules | Turn `BOOTSTRAP.md` into phase-correct claims and shared vocabulary | `SPEC.md`, `specs/19-feature-maturity.md` | this document sets the delivery sequencing that respects those claims |
+| Bootstrap normalization + cross-spec rules | Turn `prompts/bootstrap.md` into phase-correct claims and shared vocabulary | `SPEC.md`, `specs/19-feature-maturity.md` | this document sets the delivery sequencing that respects those claims |
 | Frontend + semantics | Parse TS/JS, build typed meaning, and enforce the bounded inference contract | `specs/01`-`specs/04` | Phase 1 stages 1.1-1.5 |
 | Lowering + runtime core | Lower through IR, generate WASM, execute safely, and define host/runtime behavior | `specs/05`-`specs/11` | Phase 1 stages 1.6-1.11, then Phase 2 stage 2.1 |
 | Product/tooling surface | CLI, packages, diagnostics, schemas, testing, embedding, verification | `specs/12`-`specs/18` | Phase 1 stages 1.9-1.14, Phase 2+, and later evidence/depth work |
