@@ -7,6 +7,10 @@
 
 - updated the Stage 5.4 progress note to record the direct member-access coverage alongside the existing late host-control, object-model, and browser/WebCrypto breadth evidence
 
+2026-04-22 resolution note
+- added JSON-envelope regression coverage for unsupported `build --profile` version mismatches, so the Stage 5.5 PGO lane now pins the machine-readable failure path in addition to the existing text-path rejection coverage
+- updated the Stage 5.5 progress note to mention the new JSON failure coverage alongside the existing repeated-build determinism and version-gated loader evidence
+
 # PLAN mailbox
 
 2026-04-22 resolution note
