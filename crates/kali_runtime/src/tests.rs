@@ -105,6 +105,10 @@ fn runtime_reports_browser_host_contract_for_browser_api_surface() {
         runtime.host_contract(),
         RuntimeHostContract::BrowserRequested
     );
+    assert!(runtime
+        .host_contract()
+        .canonical_label()
+        .contains("browser"));
 }
 
 #[test]
@@ -119,6 +123,12 @@ fn browser_runtime_unavailable_diagnostic_formats_command_context() {
     assert!(
         command_diagnostic
             .message
+            .contains("selected host contract: browser-requested"),
+        "diagnostic: {command_diagnostic:?}"
+    );
+    assert!(
+        command_diagnostic
+            .message
             .contains("Phase-1 browser-targeted command set"),
         "diagnostic: {command_diagnostic:?}"
     );
@@ -128,6 +138,12 @@ fn browser_runtime_unavailable_diagnostic_formats_command_context() {
         runtime_diagnostic
             .message
             .contains("current runtime contract"),
+        "diagnostic: {runtime_diagnostic:?}"
+    );
+    assert!(
+        runtime_diagnostic
+            .message
+            .contains("selected host contract: browser-requested"),
         "diagnostic: {runtime_diagnostic:?}"
     );
     assert!(
