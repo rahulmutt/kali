@@ -1,5 +1,9 @@
 # PLAN mailbox
 
+2026-04-22 resolution note
+- added a direct runtime-layer browser API-surface gate in `kali_runtime` so `RuntimeCtx::execute` and `RuntimeCtx::execute_tests` now reject `browser` with the canonical feature-unavailable diagnostic before instantiating the native standalone path
+- updated the Stage 5.2 progress note so the historical plan records the runtime-layer honesty check alongside the existing CLI browser gate coverage
+
 2026-04-22 follow-up note
 - added internal release-only and release-and-decrement live-reference ownership/allocation + linear-memory companion lemmas in `proofs/KaliCore/Safety.lean`, and noted that proof-tree factoring in the Stage 4.2 plan/status tracker while keeping the published boundary unchanged
 

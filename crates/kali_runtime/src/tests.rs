@@ -89,6 +89,60 @@ fn runtime_context_carries_runtime_profiles() {
 }
 
 #[test]
+fn runtime_rejects_browser_api_surface() {
+    let runtime = RuntimeCtx::with_api_surface(None, "browser");
+    let wasm = compile_wat(
+        r#"
+            (module
+                (func (export "_start")))
+            "#,
+    );
+
+    let diagnostics = runtime
+        .execute(&wasm)
+        .expect_err("browser runtime should be gated");
+    assert_eq!(diagnostics.len(), 1);
+    let diagnostic = &diagnostics[0];
+    assert_eq!(
+        diagnostic.code,
+        Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(
+        diagnostic
+            .message
+            .contains("standalone browser runtime contract"),
+        "diagnostic: {diagnostic:?}"
+    );
+}
+
+#[test]
+fn runtime_test_execution_rejects_browser_api_surface() {
+    let runtime = RuntimeCtx::with_api_surface(None, "browser");
+    let wasm = compile_wat(
+        r#"
+            (module
+                (func (export "_start")))
+            "#,
+    );
+
+    let diagnostics = runtime
+        .execute_tests(&wasm)
+        .expect_err("browser runtime test path should be gated");
+    assert_eq!(diagnostics.len(), 1);
+    let diagnostic = &diagnostics[0];
+    assert_eq!(
+        diagnostic.code,
+        Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(
+        diagnostic
+            .message
+            .contains("standalone browser runtime contract"),
+        "diagnostic: {diagnostic:?}"
+    );
+}
+
+#[test]
 fn runtime_outcome_carries_runtime_profiles() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno").with_runtime_profiles(vec![
         "wasm-threads".to_string(),

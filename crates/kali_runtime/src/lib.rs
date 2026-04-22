@@ -5,7 +5,10 @@ use kali_api_node::{
     NodeUtil,
 };
 use kali_api_web::{fill_random_values, performance_now, random_uuid};
-use kali_error::{_error_codes::e4, Diagnostic};
+use kali_error::{
+    _error_codes::{e4, e5},
+    Diagnostic,
+};
 use kali_sandbox::{HostOperation, SandboxPolicy};
 use reqwest::blocking;
 use std::{
@@ -221,6 +224,13 @@ impl RuntimeCtx {
         wasm_bytes: &[u8],
         run_registered_tests: bool,
     ) -> Result<RuntimeOutcome, Vec<Diagnostic>> {
+        if self.api_surface == "browser" {
+            return Err(vec![Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "browser API surface is not available in the current runtime contract; Kali does not yet define a standalone browser runtime contract".to_string(),
+            )]);
+        }
+
         let mut config = Config::new();
         config.consume_fuel(true);
         let engine = Engine::new(&config).map_err(|error| {
