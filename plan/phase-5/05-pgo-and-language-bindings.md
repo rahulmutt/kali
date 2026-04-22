@@ -43,7 +43,8 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   no-profile, cold-profile, and hot-profile cases.
 - Wired `--profile` through the CLI build path with version-checked loading and a
   profile-fingerprint cache key, so profile-guided builds now stay deterministic across repeated
-  invocations as well as inside the optimizer.
+  invocations as well as inside the optimizer. The CLI now exposes that PGO input as an explicit
+  build-only opt-in rather than a hidden implementation detail.
 
 ## Tasks
 

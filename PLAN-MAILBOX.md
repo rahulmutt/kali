@@ -309,3 +309,6 @@ Proposed fix:
 2026-04-22 resolution note
 - added late host-control gating for `Deno.pid` / `Deno.cwd` / `Deno.chdir` / `Deno.exit` and the corresponding `process.*` member accesses in the type resolver, so the stage-5.4 follow-up lane now has a canonical `E5006` availability diagnostic instead of a generic property lookup path
 - updated the Stage 5.4 progress note to record the new availability gate coverage alongside the rest of the planned late host/object compatibility work
+
+2026-04-22 resolution note
+- documented the explicit build-only `--profile` PGO input in the CLI and maturity docs, and updated the Stage 5.5 progress note so the later PGO lane now records the flag as an explicit opt-in build input rather than a hidden implementation detail

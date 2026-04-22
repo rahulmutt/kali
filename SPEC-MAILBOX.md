@@ -1,5 +1,8 @@
 # SPEC mailbox
 
+2026-04-22 follow-up note
+- the new CLI build-profile input (`kali build --profile <file>`) should be reflected in the owning CLI and maturity docs so the PGO workflow stays aligned with the public command surface and the `--profile` flag does not remain a hidden implementation detail
+
 2026-04-21 resolution note
 - `specs/16-testing.md` already contains the canonical short summary string in the proof-claim discipline section, so no spec edit was required for that follow-up
 
@@ -70,3 +73,6 @@ Proposed fix:
 
 2026-04-21 resolution note
 - `specs/12-cli.md` and `specs/19-feature-maturity.md` now both describe the `kali run <file> [-- args...]` command shape, so the CLI shape is synchronized across the command chapter and the maturity matrix
+
+2026-04-22 resolution note
+- documented the build-only `--profile` PGO input in `specs/12-cli.md`, added the matching later-compatibility row in `specs/19-feature-maturity.md`, and kept the README build summary aligned so the explicit opt-in PGO flag is no longer a hidden implementation detail

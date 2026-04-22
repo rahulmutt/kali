@@ -142,6 +142,7 @@ Sandbox-flag clarification:
 Build-mode continuity rule:
 - these three build-mode names are stable from Phase 1 onward
 - later phases deepen what `release` and `release-advanced` actually do, but they should not force users to learn a second generation of optimization-mode names just because MIR/LIR passes became more capable
+- `--profile` is an additive PGO input for `build`; it does not introduce a fourth build mode or alter the stable build-mode vocabulary
 
 ## Command-Specific Flags
 
@@ -156,6 +157,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--component` | `build` | Select the later Component Model packaging flow over the same exported-library contract; once that Phase-2 flow exists, it emits the linked library core plus the outer `wasm-component` wrapper |
 | `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
 | `--max-specializations N` | `build`, `run`, `test` | Override the specialization fan-out cap upper bound for a single invocation; this is an upper bound, not a promise that the current build mode will spend the full budget, and `--fast` may still skip most user-authored generic specialization entirely |
+| `--profile <file>` | `build` | Load deterministic PGO profile data from a JSON file as an additive optimization input; it does not change the stable `fast` / `release` / `release-advanced` vocabulary |
 | `--fix` | `lint` | Apply only structured, tool-generated safe fixes for lint diagnostics in the selected file/project set |
 | `--check` | `fmt` | Report formatting drift without rewriting files |
 | `--filter <pattern>` | `test` | Run only matching tests |
@@ -288,6 +290,8 @@ Artifact-mode quick summary:
 | `--capi` | library | Phase 2 target | public embedding artifact flow over the same **statically known export surface** |
 | `--component` | library | Phase 2 target | Component Model packaging over the same **statically known export surface** |
 
+`--profile <file>` is the opt-in PGO input for `build`: it loads deterministic profile data, may influence optimization decisions, and leaves the build-mode and artifact-mode selector vocabulary unchanged.
+
 Reading rule:
 - this table is a CLI-local summary only
 - the canonical artifact-mode matrix and cross-command compile-intent wording still live in [SPEC.md](../SPEC.md), and phase availability still lives in [19 — Feature Maturity](19-feature-maturity.md)
@@ -345,6 +349,7 @@ kali build --sandbox kali.policy.json main.ts # Phase 1: policy-schema/config va
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Phase 1: browser-targeted static policy-schema/config validation only; no automatic browser-runtime enforcement is implied after deployment
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
+kali build --profile pgo-profile.json main.ts # Load deterministic PGO profile data
 ```
 
 Inherited browser-config equivalents are summarized in the shorthand table below so the same bare `kali build ...` spelling does not need to appear twice with two different contexts.
