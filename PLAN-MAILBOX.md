@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-22 resolution note
+- added the deterministic PGO profile-data format and optimizer plumbing in `kali_optimize`, so the Stage 5.5 plan now records the first collection/normalization groundwork for the later PGO lane
+- updated the Stage 5.5 plan file to mark the stage as in progress and to call out the new normalization and JSON round-trip coverage
+
+2026-04-22 resolution note
 - added a direct runtime-layer browser API-surface gate in `kali_runtime` so `RuntimeCtx::execute` and `RuntimeCtx::execute_tests` now reject `browser` with the canonical feature-unavailable diagnostic before instantiating the native standalone path
 - updated the Stage 5.2 progress note so the historical plan records the runtime-layer honesty check alongside the existing CLI browser gate coverage
 

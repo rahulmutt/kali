@@ -27,6 +27,27 @@ fn release_constant_folds_binary_expressions() {
 }
 
 #[test]
+fn optimizer_carries_normalized_profile_data() {
+    let optimizer =
+        Optimizer::new(OptimizationLevel::Release).with_profile_data(ProfileData::new(vec![
+            ProfileSample::new(ProfileSampleKind::Function, " hot-path ", 1),
+            ProfileSample::new(ProfileSampleKind::Function, "hot-path", 2),
+            ProfileSample::new(ProfileSampleKind::Branch, "branch:if-true", 4),
+        ]));
+
+    let profile = optimizer.profile_data().expect("profile data");
+    assert!(profile.is_current_version());
+    assert_eq!(
+        profile.samples,
+        vec![
+            ProfileSample::new(ProfileSampleKind::Function, "hot-path", 3),
+            ProfileSample::new(ProfileSampleKind::Branch, "branch:if-true", 4),
+        ]
+    );
+    assert_eq!(profile.hot_function_keys(3), vec!["hot-path".to_string()]);
+}
+
+#[test]
 fn specialization_cap_limits_distinct_constant_folds() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);

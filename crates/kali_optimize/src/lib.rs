@@ -7,6 +7,10 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
+mod profile;
+
+pub use profile::{ProfileData, ProfileSample, ProfileSampleKind, PROFILE_DATA_VERSION};
+
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
 use kali_mir::{LayoutDescriptor, MirBindingKind, MirProgram as MirAnalysisProgram};
 
@@ -29,6 +33,7 @@ pub enum OptimizationLevel {
 pub struct Optimizer {
     level: OptimizationLevel,
     max_specializations: usize,
+    profile_data: Option<ProfileData>,
 }
 
 impl Optimizer {
@@ -37,6 +42,7 @@ impl Optimizer {
         Self {
             level,
             max_specializations: 16,
+            profile_data: None,
         }
     }
 
@@ -45,12 +51,24 @@ impl Optimizer {
         Self {
             level,
             max_specializations,
+            profile_data: None,
         }
     }
 
     /// Return the configured specialization cap.
     pub fn max_specializations(&self) -> usize {
         self.max_specializations
+    }
+
+    /// Return the normalized profile data used by the optimizer, if any.
+    pub fn profile_data(&self) -> Option<&ProfileData> {
+        self.profile_data.as_ref()
+    }
+
+    /// Attach deterministic profile data to an optimizer.
+    pub fn with_profile_data(mut self, profile_data: ProfileData) -> Self {
+        self.profile_data = Some(profile_data.normalized());
+        self
     }
 
     /// Optimize a program in place.

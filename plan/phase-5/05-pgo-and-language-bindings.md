@@ -21,6 +21,15 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - PGO artifacts, reports, and binding-generation outputs are deterministic and schema-backed where
   they become machine-visible.
 
+## Progress
+
+- Added the first deterministic profile-data format to `kali_optimize`, including stable versioning,
+  normalization, aggregation, and JSON round-trip coverage so the later PGO lane has one canonical
+  collection shape to build on.
+- Wired the optimizer to carry normalized profile data as an explicit optional input, keeping the
+  future profile-guided decision points isolated from the existing release/release-advanced
+  vocabulary.
+
 ## Tasks
 
 ### 1. Profile data collection
@@ -71,4 +80,4 @@ Ensure binding and PGO tooling do not fork the core vocabulary:
 
 ## Status
 
-Planned.
+In progress.

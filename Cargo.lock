@@ -1363,6 +1363,8 @@ dependencies = [
  "kali_error",
  "kali_lir",
  "kali_mir",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
