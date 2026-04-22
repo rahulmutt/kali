@@ -1,5 +1,8 @@
 # PLAN mailbox
 
+2026-04-22 follow-up note
+- added internal release-only and release-and-decrement live-reference ownership/allocation + linear-memory companion lemmas in `proofs/KaliCore/Safety.lean`, and noted that proof-tree factoring in the Stage 4.2 plan/status tracker while keeping the published boundary unchanged
+
 2026-04-22 resolution note
 - added explicit and inherited browser API-surface coverage for `kali effects`, so the public effect-report surface now exercises the browser analysis context that the maturity matrix already documents
 - updated the Stage 2.2 progress note to record that browser-analysis coverage alongside the existing effect-report evidence

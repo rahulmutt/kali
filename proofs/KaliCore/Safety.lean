@@ -940,6 +940,32 @@ theorem releaseAndCollectLiveRefsAreOwnedAndAllocated (snapshot : RcSnapshot) (r
     releaseAndCollectPreservesWellFormed snapshot ref h
   exact liveRefsAreOwnedAndAllocated (releaseAndCollect snapshot ref) hwf r hr
 
+/-- The release-only helper keeps the surviving live references anchored in ownership and allocation while preserving the explicit linear-memory payload. -/
+theorem releaseRefLiveRefsAreOwnedAndAllocatedAndLinearMemory (snapshot : RcSnapshot)
+    (ref : String) (h : WellFormed snapshot) :
+    (∀ r, r ∈ (releaseRef snapshot ref).liveRefs →
+      hasOwnership (releaseRef snapshot ref).ownership r ∧
+      allocated (releaseRef snapshot ref) r) ∧
+    (releaseRef snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · intro r hr
+    have hwf : WellFormed (releaseRef snapshot ref) :=
+      releasePreservesWellFormed snapshot ref h
+    exact liveRefsAreOwnedAndAllocated (releaseRef snapshot ref) hwf r hr
+  · exact releaseRefPreservesLinearMemory snapshot ref
+
+/-- The release-and-decrement helper keeps the surviving live references anchored in ownership and
+allocation while preserving the explicit linear-memory payload. -/
+theorem releaseAndDecrementLiveRefsAreOwnedAndAllocatedAndLinearMemory (snapshot : RcSnapshot)
+    (ref : String) (h : WellFormed snapshot) :
+    (∀ r, r ∈ (releaseAndDecrement snapshot ref).liveRefs →
+      hasOwnership (releaseAndDecrement snapshot ref).ownership r ∧
+      allocated (releaseAndDecrement snapshot ref) r) ∧
+    (releaseAndDecrement snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndDecrementLiveRefsAreOwnedAndAllocated snapshot ref h
+  · exact releaseAndDecrementPreservesLinearMemory snapshot ref
+
 /-- The release-and-collect helper keeps the surviving live references anchored in ownership and
 allocation while preserving the explicit linear-memory payload. -/
 theorem releaseAndCollectLiveRefsAreOwnedAndAllocatedAndLinearMemory (snapshot : RcSnapshot)
