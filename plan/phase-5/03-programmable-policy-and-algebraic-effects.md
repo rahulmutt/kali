@@ -29,11 +29,11 @@ This stage must preserve two guardrails:
 - `kali_sandbox` now exposes a canonical host-predicate context plus a deterministic registration
   registry for embedding-side narrowing predicates, and the public embedding crate re-exports that
   context so embedding callers can inspect the same capability/subject payload that sandbox
-  enforcement uses. The canonical context now also carries host-specific detail for the process-
-  spawn and threaded budget paths (`effects.process.spawn` / `executable`, `resources.maxThreads` /
-  `activeThreads`), and the embedding tests pin that detail through the re-exported context,
-  through direct `ProcessSpawn` and `ThreadSpawn` narrowing regressions, and through
-  registration-order coverage for the embedding façade.
+  enforcement uses. The canonical context now also carries host-specific detail for the `ProcessSpawn`
+  executable payload and the threaded budget path (`effects.process.spawn` / `executable`,
+  `resources.maxThreads` / `activeThreads`), and the embedding tests pin that detail through the
+  re-exported context, through direct `ProcessSpawn` and `ThreadSpawn` narrowing regressions, and
+  through registration-order coverage for the embedding façade.
 - Declarative policy remains primary: the sandbox check helper applies the declarative decision
   first and only then evaluates host-registered predicates, with deterministic registration order and
   explicit rejection when the predicate registry is disabled.
