@@ -112,4 +112,6 @@ unless they are explicitly added in a later stage.
 
 ## Status
 
-Planned.
+Complete.
+
+Any future widening of the threaded runtime profile belongs in the owning spec chapters and maturity matrix, not by reopening this closed stage checklist.

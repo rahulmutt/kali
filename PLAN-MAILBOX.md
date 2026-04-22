@@ -264,3 +264,7 @@ Proposed fix:
 2026-04-22 resolution note
 - canonicalized runtime-profile emission in `kali_runtime` so store construction and runtime outcomes now normalize the public `runtime_profiles` field even if a direct API caller mutates it after construction
 - recorded the runtime-profile normalization follow-up in the Stage 5.1 progress note so the historical threaded-profile plan stays aligned with the executable contract
+
+2026-04-22 resolution note
+- closed the Stage 5.1 plan checklist by marking the threaded runtime-profile stage complete now that the canonical runtime-profile helper, shared validation path, and regression coverage are already in place
+- left the canonical later-compatibility gates unchanged; this is a plan-status update only, not a maturity change
