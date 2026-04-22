@@ -1,4 +1,8 @@
 2026-04-22 resolution note
+- added CLI smoke coverage for inherited duplicate `compilerOptions.runtimeProfiles` entries on `check` in both text and JSON output, so the Stage 5.1 threaded-profile plan now records the shared config-loader rejection path at the command level as well as in the existing build/run/test/package-effects coverage
+- updated the Stage 5.1 progress note to include `check` in the duplicate-runtime-profile smoke list alongside the other CLI surfaces
+
+2026-04-22 resolution note
 - added the benchmark-style PGO regression in `kali_optimize/src/tests.rs`, timing release versus profile-guided optimization on a hot-function workload while still asserting the hot-call-site reduction, so the Stage 5.5 plan now matches the concrete optimizer evidence instead of only the higher-level determinism checks
 
 2026-04-22 resolution note
