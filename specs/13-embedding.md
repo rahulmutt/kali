@@ -36,7 +36,7 @@ Artifact-progression shorthand:
 - `--lib` is the earliest export-oriented build path: Phase 1 emits the core `wasm-module` only, and Phase 2 keeps the same selector but adds the stable default WIT sidecar.
 - `--capi` is not a second export model; it is the Phase-2 C-facing projection of that same **statically known export surface** (`wasm-module` + `wit` + generated exports header + C-ABI metadata).
 - `--component` is likewise packaging over that same **statically known export surface** rather than a different library contract (`wasm-module` + `wit` + outer component wrapper).
-- all three library-oriented selectors share one export-surface gate: if frontend lowering cannot determine one fixed host-callable export set, `--lib` / `--capi` / `--component` all fail on the same canonical `E5011` path instead of diverging into selector-specific fallback rules.
+- all three library-oriented selectors share one export-surface gate: if frontend lowering cannot determine one fixed host-callable export set, `--lib` / `--capi` / `--component` all fail on the same canonical `E5511` path instead of diverging into selector-specific fallback rules.
 - Because plain public `--lib` is the canonical stable default once Phase 2 lands, callers should choose `--component` only when they explicitly want Component Model packaging semantics.
 
 ## Phase 1 — Base library artifact
@@ -97,7 +97,7 @@ Compact Phase-1 support-claim table for library-oriented builds:
 
 API-surface gating simplification for library-oriented embedding builds:
 - `--lib`, `--capi`, and `--component` all reuse the same exported-library contract rather than defining separate host families
-- they also reuse the same **statically known export surface** gate described above, so selector changes do not change the underlying `E5011` boundary
+- they also reuse the same **statically known export surface** gate described above, so selector changes do not change the underlying `E5511` boundary
 - the Phase-1 **base library artifact** is only **buildable for exact-version consumers** in the shared **Deno-oriented build context (schema v1)** from [SPEC.md](../SPEC.md); browser/library combinations stay command-shape contradictions and Node/library combinations stay on the ordinary Node maturity gate
 - in that sentence, `apiSurface = deno` is a build/analysis-context choice (ambient typing, package resolution, and command gating), not a claim that the emitted exported-library interface is itself a Deno-specific public ABI
 - effective `apiSurface = browser` therefore remains a command-shape contradiction for those library-oriented modes in early phases rather than a second browser embedding profile
@@ -174,8 +174,8 @@ Canonical embedding-alignment rule:
 - export-oriented/library flows use `instantiate(...).call(...)` and must not rely on a synthetic executable entry being invented for them
 - export-oriented/library flows remain part of **Kali-hosted execution** from [SPEC.md](../SPEC.md): module instantiation still performs normal top-level initialization, calls through the **statically known export surface** run under the same sandbox/resource envelope as other embedding execution paths, and there is no special unsandboxed "library mode"
 - if a host calls an executable helper on a library-intent module, or tries to treat an executable-intent module as a library without the required **statically known export surface**, that mismatch should fail explicitly rather than being repaired by fallback heuristics
-- export-oriented embedding calls require the same **statically known export surface** as the CLI's library-oriented artifact modes; if Kali cannot determine one fixed host-callable export set after frontend lowering, embedding-facing compile/instantiate flows must fail with the same canonical `E5011` path rather than exposing reflection-based export discovery
-- if a CLI/config/runtime feature is phase-gated (for example `ApiSurface::Node`, `RuntimeProfile::WasmThreads`, or `CompatFeature::Eval`), the embedding API should surface the same canonical `E5006`-style availability failure rather than silently ignoring the request
+- export-oriented embedding calls require the same **statically known export surface** as the CLI's library-oriented artifact modes; if Kali cannot determine one fixed host-callable export set after frontend lowering, embedding-facing compile/instantiate flows must fail with the same canonical `E5511` path rather than exposing reflection-based export discovery
+- if a CLI/config/runtime feature is phase-gated (for example `ApiSurface::Node`, `RuntimeProfile::WasmThreads`, or `CompatFeature::Eval`), the embedding API should surface the same canonical `E5506`-style availability failure rather than silently ignoring the request
 
 ### Custom Host Functions
 ```rust
@@ -235,7 +235,7 @@ Design rules:
 - predicates should be synchronous, deterministic, and side-effect free
 - they should receive normalized metadata such as the capability kind, target path/URL, and requested operation shape rather than raw host handles
 - denial reporting should preserve the canonical Kali diagnostic/error contract, with host-specific predicate detail attached as additional context rather than as an alternate error format
-- if this feature is unavailable in the current phase, embedding APIs should fail with the same canonical availability path (`E5006`) used elsewhere rather than silently registering dead callbacks
+- if this feature is unavailable in the current phase, embedding APIs should fail with the same canonical availability path (`E5506`) used elsewhere rather than silently registering dead callbacks
 
 ## Phase 2 target — C ABI (`kali_capi`)
 
@@ -355,7 +355,7 @@ void kali_value_free(KaliValue* value);
 const KaliError* kali_last_error(const KaliRuntime* runtime);
 const KaliError* kali_global_last_error(void); // for failures before a runtime exists
 const char* kali_error_message(const KaliError* error);
-const char* kali_error_code(const KaliError* error); // stable string code such as "E5006"
+const char* kali_error_code(const KaliError* error); // stable string code such as "E5506"
 const char* kali_error_json(const KaliError* error);
 
 // Effects analysis (Phase 2 target; part of the same stabilized effect-report pipeline
@@ -417,7 +417,7 @@ Artifact-role clarification:
 - `kali build --capi` uses that same core exported-library artifact (`role: primary-library`) plus `wit` (`role: interface-wit`), the generated **program-specific exports header** such as `lib.exports.h` (`role: embedding-header`), the generated `cabi-metadata` file such as `lib.cabi.json` (`kind: cabi-metadata`, `role: embedding-metadata`), and the deterministic stem-specific `binding-package` sidecar manifest for higher-level language bindings
 - `kali build --component` keeps the same linked core library payload (`role: primary-library`) and WIT sidecar (`role: interface-wit`), then adds the outer Component Model wrapper as `kind: wasm-component`, `role: primary-component`, plus the same deterministic stem-specific `binding-package` sidecar manifest
 - library-oriented embedding outputs require the same **statically known export surface** defined in [SPEC.md](../SPEC.md); WIT, generated program-specific exports headers, and component packaging are projections of that same explicit export surface rather than separate reflection-based APIs
-- if that export surface cannot be determined statically, the build must fail with `E5011` instead of synthesizing reflection-based exports for embedding
+- if that export surface cannot be determined statically, the build must fail with `E5511` instead of synthesizing reflection-based exports for embedding
 - that outer component wrapper is packaging over the already-linked core payload, not a second independently linked guest-program graph; this keeps embedding/component outputs aligned with the single-linked-core-payload rule from [SPEC.md](../SPEC.md)
 
 Important distinction:

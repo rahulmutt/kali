@@ -51,17 +51,17 @@ Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 
 Canonical early-phase direct-input arity rule:
 - `run`, `build`, and `effects` each take **exactly one** explicit primary source input in schema v1
-- zero explicit source inputs for those commands is the canonical invalid-usage diagnostic `E5008`
-- more than one explicit source input for those commands is also `E5008` unless a later spec introduces a documented multi-input mode
+- zero explicit source inputs for those commands is the canonical invalid-usage diagnostic `E5508`
+- more than one explicit source input for those commands is also `E5508` unless a later spec introduces a documented multi-input mode
 - `check`, `fmt`, `lint`, and `test` are the canonical **set-oriented explicit-file commands** from [SPEC.md](../SPEC.md): when explicit files are supplied, those paths are treated as one file set rather than as separate single-entry invocations
 
 Canonical install-target and package-argument arity rule:
 - `kali install [target]` accepts **zero or one** explicit install target in early phases
 - that install target may be either a schema-v1 identity-only registry target or a raw URL target
 - `kali package-effects <package>` and `kali package-audit <package>` follow the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
-- passing more than the allowed number of explicit install targets/package arguments is `E5008` rather than permission to invent an undocumented batch mode
-- omitting the required explicit registry-package argument for a registry-analysis command is also `E5008`
-- flags that conceptually modify an explicit registry-package target (for example `kali install --dev`) require that registry target in early phases; using them without one is also `E5008`
+- passing more than the allowed number of explicit install targets/package arguments is `E5508` rather than permission to invent an undocumented batch mode
+- omitting the required explicit registry-package argument for a registry-analysis command is also `E5508`
+- flags that conceptually modify an explicit registry-package target (for example `kali install --dev`) require that registry target in early phases; using them without one is also `E5508`
 
 Canonical input-kind rule:
 - `run`, `build`, `effects`, and discovered `test` entrypoints/primary inputs accept only the shared **executable/analyzable source-file class** from [SPEC.md](../SPEC.md)
@@ -88,8 +88,8 @@ Effective-context validation rule:
 - command validation always runs against the fully merged **effective command context** (built-in defaults, then discovered config, then CLI flags)
 - therefore config-selected values trigger the same maturity/usage checks as explicit flags for the axes that actually participate in that command's semantics; the CLI must not silently "fix up" an inherited participating context by falling back to some other API surface/profile
 - non-participating axes are ignored rather than gated: for example `check` ignores inherited `buildMode`, and `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md)
-- examples: config-selected `apiSurface = node` still causes plain `kali run main.ts` or `kali test` to hit the Node phase gate (`E5006`), and config-selected `apiSurface = browser` still makes plain `kali build main.ts` invalid early-phase usage (`E5008`) until `--bundle` is selected
-- config-selected `apiSurface = browser` also keeps plain `kali run main.ts` and plain `kali test` on the same browser-runtime/test gate as their explicit `--api browser` forms (`E5006`); omitting the flag does not cause a silent fallback to `deno`
+- examples: config-selected `apiSurface = node` still causes plain `kali run main.ts` or `kali test` to hit the Node phase gate (`E5506`), and config-selected `apiSurface = browser` still makes plain `kali build main.ts` invalid early-phase usage (`E5508`) until `--bundle` is selected
+- config-selected `apiSurface = browser` also keeps plain `kali run main.ts` and plain `kali test` on the same browser-runtime/test gate as their explicit `--api browser` forms (`E5506`); omitting the flag does not cause a silent fallback to `deno`
 - follow the canonical validation-order rule from [SPEC.md](../SPEC.md): command-shape/arity first, then base command availability, then finer inherited-context/profile gates inside that command
 
 | Flag | Scope | Description |
@@ -111,7 +111,7 @@ Effective-context validation rule:
 | `--max-open-files N` | execution commands | Override the invocation open-file-handle cap; may only tighten the effective limit relative to config/policy, never widen it |
 | `--max-spawned-processes N` | execution commands | Override the invocation child-process cap; may only tighten the effective limit. `0` is a valid explicit deny/tightening value, and positive values are accepted once subprocess support exists for the selected command/context. |
 | `--max-threads N` | execution commands | Override the invocation thread cap for the threaded runtime profile; may only tighten the effective limit. Follows the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): `0` is a valid explicit deny/tightening value in Phase 1, while positive values stay availability-gated on the same maturity path as the opt-in threaded runtime profile itself. |
-| `--wasm-threads` | `check`, `effects`, `build`, `run`, `test` | Opt into the later threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; before that profile exists, or on unsupported targets, the command must fail with `E5006` |
+| `--wasm-threads` | `check`, `effects`, `build`, `run`, `test` | Opt into the later threaded runtime profile required for `SharedArrayBuffer` / `Atomics`; before that profile exists, or on unsupported targets, the command must fail with `E5506` |
 
 `--fast`, `--release`, and `--release-advanced` are mutually exclusive; config files should use the single `compilerOptions.buildMode` field instead of parallel booleans. `run` and `test` inherit the selected build mode for their internal compile step. Runtime-profile toggles such as `--wasm-threads` map to entries in `compilerOptions.runtimeProfiles` rather than to separate booleans.
 
@@ -137,7 +137,7 @@ Sandbox-flag clarification:
 - follow the SPEC-level guardrail too: attaching `--sandbox` never rescues an otherwise-invalid command shape or phase-gated API/artifact combination; it only adds sandbox handling to a command/context pair that is already valid
 - the canonical default policy filename is `kali.policy.json`, but the flag accepts any explicit policy-file path; relative CLI paths resolve from the current working directory, while top-level `kali.json#sandbox` remains config-relative
 - commands that merely ignore top-level `kali.json#sandbox` still do **not** accept a CLI `--sandbox` flag in early phases
-- therefore `kali effects --sandbox ...`, `kali package-effects --sandbox ...`, `kali package-audit --sandbox ...`, `kali install --sandbox ...`, `kali fmt --sandbox ...`, `kali lint --sandbox ...`, and `kali init --sandbox ...` are all invalid command usage (`E5008`) unless a later spec explicitly adds such a mode
+- therefore `kali effects --sandbox ...`, `kali package-effects --sandbox ...`, `kali package-audit --sandbox ...`, `kali install --sandbox ...`, `kali fmt --sandbox ...`, `kali lint --sandbox ...`, and `kali init --sandbox ...` are all invalid command usage (`E5508`) unless a later spec explicitly adds such a mode
 
 Build-mode continuity rule:
 - these three build-mode names are stable from Phase 1 onward
@@ -170,17 +170,17 @@ Interpretation rule:
 - documenting a command-specific flag here does **not** imply it needs a separate feature-maturity row unless it changes a phase promise or machine-readable contract
 - build artifact-mode flags follow the canonical matrix in [SPEC.md](../SPEC.md): in early phases `--bundle`, `--lib`, `--capi`, and `--component` are one small closed set of mutually exclusive selectors unless a later spec explicitly says one implies another
 - those selectors choose the build's shared **compile intent** from [SPEC.md](../SPEC.md): omitting all four keeps the default executable compile intent, `--bundle` keeps executable compile intent while selecting the browser-targeted output/host-adapter path, and `--lib` / `--capi` / `--component` are the explicit library compile-intent selectors
-- supplying more than one explicit selector from that set (for example `--bundle --lib`, `--bundle --capi`, `--bundle --component`, `--lib --capi`, `--lib --component`, or `--capi --component`) should use the canonical invalid-usage diagnostic `E5008`, not a feature-maturity rejection
-- in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires the **effective API surface** to be `browser`, and `kali build --bundle` under an effective API surface of `deno` or `node` is invalid command usage (`E5008`) rather than a feature-maturity rejection, because the browser bundle mode itself exists but the selected flag/config combination is contradictory
+- supplying more than one explicit selector from that set (for example `--bundle --lib`, `--bundle --capi`, `--bundle --component`, `--lib --capi`, `--lib --component`, or `--capi --component`) should use the canonical invalid-usage diagnostic `E5508`, not a feature-maturity rejection
+- in Phase 1, `--bundle` is the browser packaging selector only: `kali build --bundle ...` requires the **effective API surface** to be `browser`, and `kali build --bundle` under an effective API surface of `deno` or `node` is invalid command usage (`E5508`) rather than a feature-maturity rejection, because the browser bundle mode itself exists but the selected flag/config combination is contradictory
 - in early phases, `--lib`, `--capi`, and `--component` are **library-oriented artifact modes**: non-browser, export-oriented build modes derived from a **statically known export surface** as defined in [SPEC.md](../SPEC.md)
-- those library-oriented modes still obey the ordinary build-command API-surface gates: `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` are `E5008` contradictions because an effective browser API surface is only defined for `--bundle` in Phase 1, while `kali build --lib --api node ...` remains on the same Phase 3 `E5006` path as other early `--api node` builds
+- those library-oriented modes still obey the ordinary build-command API-surface gates: `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...` are `E5508` contradictions because an effective browser API surface is only defined for `--bundle` in Phase 1, while `kali build --lib --api node ...` remains on the same Phase 3 `E5506` path as other early `--api node` builds
 - `--lib` is the **base library artifact** mode; `--capi` and `--component` are later **public embedding artifact flows** over that same exported-library contract rather than unrelated semantics
 - because `--capi` and `--component` already choose exported-library semantics, users should not combine them with `--lib` in early phases; those flags are separate artifact-mode selectors, not additive modifiers
 - WIT sidecars are not a separate artifact-mode selector: under the shared **embedding-stability split** from [SPEC.md](../SPEC.md), Phase 1 plain `--lib` emits the core library `wasm-module`, and once the Phase-2 **public embedding surface** stabilizes, plain public `--lib` becomes the stable **WIT-first** default while `--capi` and `--component` remain explicit projections/packaging choices over that same export surface
 
 Config-array normalization rule:
 - `compilerOptions.runtimeProfiles` and `compat.features` are set-like lists, not ordered pipelines
-- entries should be unique; duplicates are config errors (`E5009`), not something tools silently deduplicate away
+- entries should be unique; duplicates are config errors (`E5509`), not something tools silently deduplicate away
 - unknown entries are diagnosed instead of ignored
 - when those sets are re-emitted in machine-readable payloads such as `analysisContext`, producers should use stable lexical order so caches and diffs do not depend on original config ordering
 
@@ -249,11 +249,11 @@ When a command or flag is rejected due to maturity/availability gating, the CLI 
 
 Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
-- follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): supported early browser shapes are the shared **Phase-1 browser-targeted command set**; wrong browser build shapes use `E5008`, while browser execution/test requests use `E5006` until Kali defines a standalone browser runtime/test contract.
-- `--api node` is phase-gated consistently across `check`, `effects`, `build`, `run`, and `test`; early phases reject it with `E5006` rather than exposing a partial Node surface.
+- follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): supported early browser shapes are the shared **Phase-1 browser-targeted command set**; wrong browser build shapes use `E5508`, while browser execution/test requests use `E5506` until Kali defines a standalone browser runtime/test contract.
+- `--api node` is phase-gated consistently across `check`, `effects`, `build`, `run`, and `test`; early phases reject it with `E5506` rather than exposing a partial Node surface.
 - guest arguments after `--` are forwarded through the invocation-context surface: in the default standalone context they populate `Deno.args`, and in the Node context they populate `process.argv` with the documented executable/source prefix before the guest tail.
 - explicit `--api ...` and inherited `compilerOptions.apiSurface = ...` are equivalent here too: plain `kali run main.ts` and plain `kali run --sandbox kali.policy.json main.ts` must validate against the same effective API surface and therefore hit the same Node/browser execution gates as their explicit `--api node` / `--api browser` forms instead of silently falling back to `deno`.
-- `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5006`.
+- `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5506`.
 - in schema v1, `--compat eval` is the only stable compatibility-feature spelling and it gates both direct `eval` and `Function()`; the CLI should not invent a separate `--compat function-constructor` alias.
 - sandbox permission and compatibility enablement are separate axes: a policy that allows `effects.eval` does **not** implicitly turn on `--compat eval`, and `--compat eval` does **not** bypass a stricter sandbox policy.
 - `--wasm-threads` selects a different runtime profile rather than a small optimization toggle. Until that threaded profile exists, the flag is rejected. After it exists, if the selected target/engine/profile cannot honor it, the command must still reject it explicitly instead of silently dropping thread support.
@@ -305,14 +305,14 @@ Canonical artifact-mode rule:
 - `--bundle` preserves executable compile intent while changing the host adapter/output contract to the browser-targeted bundle path
 - browser bundles emit a source-map companion, and `--format` only applies to that browser-bundle path (`esm` by default, `cjs` for CommonJS interoperability)
 - explicit `--api ...` and inherited `compilerOptions.apiSurface = ...` are equivalent here too: plain `kali build main.ts`, `kali build --sandbox kali.policy.json main.ts`, `kali build --lib lib.ts`, `kali build --capi lib.ts`, and `kali build --component lib.ts` must validate against the same effective API surface as their explicit `--api ...` forms rather than silently falling back
-- for the browser bundle shortcut specifically, the plain spelling `kali build --bundle main.ts` has two canonical outcomes owned by [19 — Feature Maturity](19-feature-maturity.md) — under any effective API surface other than `browser` it is `E5008`, while under an inherited browser API surface it is the supported browser-bundle shortcut
+- for the browser bundle shortcut specifically, the plain spelling `kali build --bundle main.ts` has two canonical outcomes owned by [19 — Feature Maturity](19-feature-maturity.md) — under any effective API surface other than `browser` it is `E5508`, while under an inherited browser API surface it is the supported browser-bundle shortcut
 - `--lib`, `--capi`, and `--component` switch the build to library compile intent
 - reuse the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): `kali init --lib` chooses a project template only and does not change the later default artifact mode of `kali build`
 - WIT sidecars for public library/embedding outputs are an output detail of those artifact modes, not a separate mode flag; once the public embedding surface lands, plain public `--lib` stays the default stable library path while `--component` remains an explicit packaging selector
 - these **library-oriented artifact modes** derive their host-facing surface from a **statically known export surface** as defined in [SPEC.md](../SPEC.md); they do not implicitly expose arbitrary internal declarations just because the source file was compiled in `--lib`/`--capi`/`--component` mode
-- if Kali cannot determine that export surface statically, the library-oriented build fails with `E5011` instead of synthesizing reflection-based exports
-- plain `--lib` is the Phase-1 **base library artifact**: it establishes the exported-library shape early, but only when Kali can determine the required **statically known export surface**; otherwise it fails with `E5011`. Under the shared **embedding-stability split** the stable public embedding/WIT contract remains part of the later Phase-2 **public embedding surface**
-- they also keep the ordinary build-command API-surface semantics: Node-targeted library builds are still phase-gated with `E5006`, while browser-targeted library/embedding combinations are invalid command shapes (`E5008`) until a separate browser-library contract exists
+- if Kali cannot determine that export surface statically, the library-oriented build fails with `E5511` instead of synthesizing reflection-based exports
+- plain `--lib` is the Phase-1 **base library artifact**: it establishes the exported-library shape early, but only when Kali can determine the required **statically known export surface**; otherwise it fails with `E5511`. Under the shared **embedding-stability split** the stable public embedding/WIT contract remains part of the later Phase-2 **public embedding surface**
+- they also keep the ordinary build-command API-surface semantics: Node-targeted library builds are still phase-gated with `E5506`, while browser-targeted library/embedding combinations are invalid command shapes (`E5508`) until a separate browser-library contract exists
 
 `--capi` and the other **public embedding artifact flows** follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): under the shared **embedding-stability split**, Phase 1 ships the base library artifact while the stable public embedding surface is a Phase 2 target.
 
@@ -322,7 +322,7 @@ Sandbox clarification:
 - on `build`, that sandbox step attaches only to the otherwise-valid build lanes from the shared **Phase-1 static policy-validation surface** in [SPEC.md](../SPEC.md); `--sandbox` does not turn `build --api browser ...` into a valid non-bundle browser build or otherwise bypass artifact-mode gating
 - therefore `kali build --lib --sandbox ...` is the same library-oriented build plus static policy validation, while later `--capi --sandbox ...` / `--component --sandbox ...` reuse that same rule once those artifact modes themselves exist
 - `kali build --bundle --api browser --sandbox ...` follows the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md): it is a build-time compatibility check over the documented mediated subset, not automatic runtime sandbox enforcement once the emitted browser bundle is deployed into a real browser host
-- inherited browser config follows the same orthogonality rule: plain `kali build --sandbox kali.policy.json main.ts` under an inherited browser API surface is still the same non-bundle browser-build contradiction as explicit `kali build --api browser --sandbox kali.policy.json main.ts`, and plain library-oriented forms such as `kali build --lib --sandbox ...`, `kali build --capi --sandbox ...`, or `kali build --component --sandbox ...` under an inherited browser API surface are still the same browser-library contradictions as their explicit `--api browser` counterparts, so they stay `E5008` until those browser build shapes exist
+- inherited browser config follows the same orthogonality rule: plain `kali build --sandbox kali.policy.json main.ts` under an inherited browser API surface is still the same non-bundle browser-build contradiction as explicit `kali build --api browser --sandbox kali.policy.json main.ts`, and plain library-oriented forms such as `kali build --lib --sandbox ...`, `kali build --capi --sandbox ...`, or `kali build --component --sandbox ...` under an inherited browser API surface are still the same browser-library contradictions as their explicit `--api browser` counterparts, so they stay `E5508` until those browser build shapes exist
 - companion filenames in the examples below are illustrative basename-derived examples only; the normative machine contract is the emitted artifact list's `kind` + `role` metadata from [specs/18-schemas.md](18-schemas.md), not an exact filename convention
 ```bash
 kali build main.ts                         # → main.wasm (--fast mode, default; artifact: kind=wasm-module, role=primary-executable)
@@ -330,21 +330,21 @@ kali build --release main.ts               # Optimized build
 kali build --release-advanced main.ts      # Aggressively optimized
 kali build --bundle --api browser main.ts  # main.wasm + main.js + main.js.map (artifacts: main.wasm kind=wasm-module role=primary-executable; main.js kind=js-glue role=browser-glue; main.js.map kind=source-map role=debug-source-map)
 kali build --bundle --format cjs --api browser main.ts  # main.wasm + main.cjs + main.cjs.map (CommonJS wrapper; artifacts: main.wasm kind=wasm-module role=primary-executable; main.cjs kind=js-glue role=browser-glue; main.cjs.map kind=source-map role=debug-source-map)
-kali build --bundle --api node main.ts     # Invalid usage (E5008); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
-kali build --api browser main.ts           # Invalid usage (E5008) in early phases; the shared **Phase-1 browser-targeted command set** keeps browser builds on the explicit `--bundle` path
+kali build --bundle --api node main.ts     # Invalid usage (E5508); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
+kali build --api browser main.ts           # Invalid usage (E5508) in early phases; the shared **Phase-1 browser-targeted command set** keeps browser builds on the explicit `--bundle` path
 kali build --api node main.ts              # Phase 3 target: Node API surface is not available early for builds either
 kali build --lib lib.ts                    # Phase-1 base library artifact for exact-version consumers, following the shared library-oriented instantiation rule and embedding-stability split from SPEC.md (kind=wasm-module, role=primary-library; from the Phase 2 target onward the same plain --lib path becomes the stable public WIT-first library contract and adds kind=wit, role=interface-wit by default)
 kali build --lib --sandbox kali.policy.json lib.ts # Same Phase-1 base library artifact plus static policy validation; `--sandbox` does not change library compile intent
 kali build --lib --api node lib.ts         # Phase 3 target: Node API surface remains build-gated for library-oriented modes too
-kali build --lib --api browser lib.ts      # Invalid usage (E5008) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser library artifact modes
+kali build --lib --api browser lib.ts      # Invalid usage (E5508) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser library artifact modes
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + lib.cabi.json (artifacts: wasm-module + wit + c-header + cabi-metadata; roles: primary-library + interface-wit + embedding-header + embedding-metadata; `lib.exports.h` is the program-specific exports header, and `lib.cabi.json` is the generated `cabi-metadata` file, not the host ABI header `kali.h`; see specs/13-embedding.md)
 kali build --capi --sandbox kali.policy.json lib.ts # Phase 2 target: same C-embedding artifact flow plus static policy validation; `--sandbox` stays orthogonal to artifact mode
 kali build --capi --api node lib.ts        # Phase 3 target: still gated by the Node build surface even after the public embedding artifact flow exists
-kali build --capi --api browser lib.ts     # Invalid usage (E5008) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser embedding artifact modes
+kali build --capi --api browser lib.ts     # Invalid usage (E5508) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser embedding artifact modes
 kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit + lib.component.wasm (artifacts: lib.wasm kind=wasm-module role=primary-library; lib.wit kind=wit role=interface-wit; lib.component.wasm kind=wasm-component role=primary-component)
 kali build --component --sandbox kali.policy.json lib.ts # Phase 2 target: same component-oriented packaging path plus static policy validation; `--sandbox` stays orthogonal to artifact mode
 kali build --component --api node lib.ts   # Phase 3 target: still gated by the Node build surface even after component packaging exists
-kali build --component --api browser lib.ts # Invalid usage (E5008) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser component artifact modes
+kali build --component --api browser lib.ts # Invalid usage (E5508) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser component artifact modes
 kali build --sandbox kali.policy.json main.ts # Phase 1: policy-schema/config validation; from the Phase 2 target onward also validate inferred effects
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Phase 1: browser-targeted static policy-schema/config validation only; no automatic browser-runtime enforcement is implied after deployment
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
@@ -360,12 +360,12 @@ Inherited build-context shorthand summary:
 |---|---|---|
 | `deno` (default) | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Supported early executable build path |
 | `node` | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Same Node build gate as explicit `--api node`; no silent fallback to `deno` |
-| `browser` | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Invalid usage (`E5008`): same contradiction as explicit `kali build --api browser ...` until a non-bundle browser build mode exists |
+| `browser` | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Invalid usage (`E5508`): same contradiction as explicit `kali build --api browser ...` until a non-bundle browser build mode exists |
 | `node` | `kali build --lib lib.ts` / `kali build --lib --sandbox kali.policy.json lib.ts` / `kali build --capi lib.ts` / `kali build --component lib.ts` | Same Node build gate as the corresponding explicit `--api node` library-oriented form; `--sandbox` does not create a separate availability path or silent fallback |
-| `browser` | `kali build --lib lib.ts` / `kali build --lib --sandbox kali.policy.json lib.ts` / `kali build --capi lib.ts` / `kali build --component lib.ts` | Invalid usage (`E5008`): same contradiction as the corresponding explicit browser library-oriented form |
-| non-browser (`deno` / `node`) | `kali build --bundle main.ts` | Invalid usage (`E5008`): `--bundle` is browser-only |
+| `browser` | `kali build --lib lib.ts` / `kali build --lib --sandbox kali.policy.json lib.ts` / `kali build --capi lib.ts` / `kali build --component lib.ts` | Invalid usage (`E5508`): same contradiction as the corresponding explicit browser library-oriented form |
+| non-browser (`deno` / `node`) | `kali build --bundle main.ts` | Invalid usage (`E5508`): `--bundle` is browser-only |
 | `browser` | `kali build --bundle main.ts` | Same supported request as explicit `kali build --bundle --api browser main.ts` |
-| non-browser (`deno` / `node`) | `kali build --bundle --sandbox kali.policy.json main.ts` | Invalid usage (`E5008`): `--sandbox` does not change the browser-only meaning of `--bundle` |
+| non-browser (`deno` / `node`) | `kali build --bundle --sandbox kali.policy.json main.ts` | Invalid usage (`E5508`): `--sandbox` does not change the browser-only meaning of `--bundle` |
 | `browser` | `kali build --bundle --sandbox kali.policy.json main.ts` | Same supported request as explicit `kali build --bundle --api browser --sandbox kali.policy.json main.ts` |
 
 This table is only a shorthand; [19 — Feature Maturity](19-feature-maturity.md) remains the availability owner.
@@ -403,7 +403,7 @@ Inherited check-context shorthand:
 
 This table is a CLI reading aid only; [19 — Feature Maturity](19-feature-maturity.md) remains the availability owner.
 
-Declaration-only files are valid explicit file inputs for `check`; `run`, `build`, `effects`, and `test` primary inputs may not be declaration-only, and that input-kind mismatch should use the canonical invalid-entrypoint diagnostic (`E5007`).
+Declaration-only files are valid explicit file inputs for `check`; `run`, `build`, `effects`, and `test` primary inputs may not be declaration-only, and that input-kind mismatch should use the canonical invalid-entrypoint diagnostic (`E5507`).
 
 Checker diagnostics may still carry structured `SuggestedFix` metadata for editors, embedders, and JSON consumers, but schema v1 keeps CLI autofix simpler: `--fix` is lint-only until the checker rewrite contract is mature enough to stabilize across project graphs, config-discovery mode, and overlapping multi-diagnostic edits.
 
@@ -432,7 +432,7 @@ Sandbox-interaction rule:
 - `kali effects` reports inferred effects only; it does **not** accept `--sandbox`
 - effect-vs-policy validation belongs to `kali check --sandbox ...` and `kali build --sandbox ...`
 - rejecting `kali effects --sandbox ...` keeps one canonical policy-validation workflow instead of two overlapping ones
-- that rejection is `E5008`, not a feature-maturity error: the command intentionally has no sandbox-comparison mode
+- that rejection is `E5508`, not a feature-maturity error: the command intentionally has no sandbox-comparison mode
 
 Input-kind and host-selection rules:
 - once available, `kali effects` keeps that schema-v1 direct-input shape: it requires exactly one explicit executable/analyzable source-file analysis root and does not fall back to project-wide discovery
@@ -506,7 +506,7 @@ Canonical discovery rule:
 - default test discovery starts from the canonical project-discovery result, then matches `*.test.*` / `*_test.*` only across the shared **executable/analyzable source-file class** from [SPEC.md](../SPEC.md)
 - declaration-only files are never test entrypoints even if they match the naming pattern
 - if explicit file arguments are supplied to `kali test`, those paths bypass the naming-pattern discovery filter and are treated as one direct explicit test-module set instead
-- each explicit `kali test` file must still belong to the shared **executable/analyzable source-file class**; passing a declaration-only file is the canonical invalid-entrypoint error (`E5007`), not a silent skip
+- each explicit `kali test` file must still belong to the shared **executable/analyzable source-file class**; passing a declaration-only file is the canonical invalid-entrypoint error (`E5507`), not a silent skip
 - `--filter <pattern>` narrows the selected discovered or explicit test cases after module selection; it does not change discovery roots, API-surface gating, sandbox behavior, or file-kind validation
 
 Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run`, and analysis/build commands (`kali check`, `kali effects`, `kali build`) follow the same API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
@@ -528,7 +528,7 @@ kali init --lib                            # Create the minimal library scaffold
 
 Scaffold simplification rules:
 - `kali init` is **current-directory-scoped** in schema v1: it scaffolds the current working directory and does not retarget itself to an ancestor project root discovered above it.
-- if the current working directory already contains `kali.json`, `kali init` fails with `E5008` instead of overwriting the existing project config.
+- if the current working directory already contains `kali.json`, `kali init` fails with `E5508` instead of overwriting the existing project config.
 - if an ancestor directory contains `kali.json` but the current working directory does not, `kali init` may still create a nested child project rooted at the current working directory; later project discovery then treats that child as a separate project boundary.
 - follow the shared **minimal canonical scaffold contract** from [SPEC.md](../SPEC.md): emit only the smallest valid schema-v1 scaffold for the selected template rather than extra example files, lockfiles, dependency state, or placeholder optional sections.
 - reuse the shared **template selection vs build artifact mode split** from [SPEC.md](../SPEC.md): `kali init --lib` selects a project template only and does not switch later plain `kali build` invocations into library mode
@@ -552,11 +552,11 @@ Boundary rule:
 - follow the shared **workflow-owner split** from [SPEC.md](../SPEC.md): `kali install --allow-scripts` stays an install-time hook path only and does not become a second runtime/effect/policy workflow
 - read package support through the shared **published-artifact-first package reading** from [SPEC.md](../SPEC.md): the presence of a repository build pipeline or optional lifecycle metadata does not by itself make a package unsupported if the published artifact Kali installs already contains the ordinary JS/TS files it needs
 - `--allow-scripts` selects the schema-v1 **install-time npm-package hook path** from [SPEC.md](../SPEC.md), not a runtime/API-surface feature
-- plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; an explicit npm target such as `kali install --allow-scripts lodash` is the canonical valid shape, and when that install work is empty the flag should fail with `E5008` instead of silently degenerating into plain `install`
+- plain `kali install --allow-scripts` is valid only when the invocation has non-empty **effective npm-scriptable install work**; an explicit npm target such as `kali install --allow-scripts lodash` is the canonical valid shape, and when that install work is empty the flag should fail with `E5508` instead of silently degenerating into plain `install`
 - that install work is **invocation-scoped**: it covers only the npm package work the current install actually reconciles in a lifecycle-hook-relevant way, including any directly requested npm target and any transitively touched npm dependencies in the same invocation
 - a clean no-op install therefore keeps that install work empty even if the project already depends on npm packages; `--allow-scripts` does not ask Kali to re-run lifecycle hooks just because npm dependencies exist in the lockfile
-- pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5008`) because raw URLs do not expose npm lifecycle hooks
-- pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5008`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
+- pairing `--allow-scripts` with an explicit raw URL install target is invalid command usage (`E5508`) because raw URLs do not expose npm lifecycle hooks
+- pairing `--allow-scripts` with an explicit `jsr:` package target is also invalid command usage (`E5508`) in schema v1 because JSR packages do not participate in npm lifecycle-script execution
 - mixed install graphs are still valid: if one invocation touches npm packages plus JSR packages and/or raw URLs, lifecycle scripts may run only for the npm install-work subset while the non-npm subset stays on the normal script-free path
 - follow the same boundary from [SPEC.md](../SPEC.md): this path does **not** imply `--api node`, does not cause lifecycle scripts to participate in `kali effects`, does not make project `--sandbox` / `kali.json#sandbox` govern install-time hook execution, and does not make the excluded **native/binary/bootstrap-heavy package contract** supported
 - package-compatibility claims for normal `check` / `build` / `run` / `test` remain separate from this narrower opt-in install behavior
@@ -564,20 +564,20 @@ Boundary rule:
 kali install lodash                        # Add/install registry dependency from npm
 kali install jsr:@std/path                 # Add/install registry dependency from JSR
 kali install                               # Materialize all declared dependencies for the project
-kali install --allow-scripts               # Permit lifecycle hooks only when this invocation actually has effective npm-scriptable install work; if that work is empty, this is invalid usage (E5008)
+kali install --allow-scripts               # Permit lifecycle hooks only when this invocation actually has effective npm-scriptable install work; if that work is empty, this is invalid usage (E5508)
 kali install --dev vitest                  # Add/install dev dependency
 kali install --allow-scripts lodash        # Opt into lifecycle scripts for one npm package install; invalid for explicit `jsr:` or raw-URL targets; still not a promise that the excluded native/binary/bootstrap-heavy package contract is supported
 kali install https://deno.land/std/path/mod.ts  # Pin/materialize raw URL dependency
 ```
 
 Argument-kind rules:
-- `kali install [target]` accepts at most one explicit install target in early phases; multiple install targets are invalid command usage (`E5008`)
+- `kali install [target]` accepts at most one explicit install target in early phases; multiple install targets are invalid command usage (`E5508`)
 - an explicit registry install target uses the shared **identity-only registry target** form from [SPEC.md](../SPEC.md): the user supplies one **registry package identifier** such as `lodash`, `@types/node`, or `jsr:@std/path`, not an inline version/range selector
 - adding a registry package through that identity-only form follows the shared **stable-release selection rule (schema v1)** and **exact-version-first registry manifest rule (schema v1)** from [SPEC.md](../SPEC.md): resolve the latest non-yanked stable published version, write `kali.lock` with that concrete version, and record the manifest dependency as that same exact version string
-- if that identity-only lookup finds the package but no acceptable non-yanked stable release, the command fails with `E5001` instead of silently selecting a prerelease or pretending the package was installable under the schema-v1 input form
+- if that identity-only lookup finds the package but no acceptable non-yanked stable release, the command fails with `E6001` instead of silently selecting a prerelease or pretending the package was installable under the schema-v1 input form
 - an explicit registry install target updates `dependencies` or `devDependencies` in `kali.json`, then refreshes `kali.lock` and materialized state
 - in the canonical **configless install split** from [SPEC.md](../SPEC.md), an explicit registry-package add (`kali install <pkg>` or `kali install --dev <pkg>`) first creates the minimal canonical manifest `{ "schemaVersion": 1 }` at the effective project root, then records the dependency there
-- `kali install` does **not** take `--api` in early phases; install is profile-agnostic, so passing `--api ...` is invalid command usage (`E5008`) rather than a request for a second install graph
+- `kali install` does **not** take `--api` in early phases; install is profile-agnostic, so passing `--api ...` is invalid command usage (`E5508`) rather than a request for a second install graph
 - `--dev` is valid only with a **registry install target**; using `--dev` without an explicit registry target or pairing it with a raw URL (`kali install --dev https://...`) is rejected explicitly rather than inventing a second URL-specific manifest bucket
 - a **raw URL install target** pins/materializes that exact URL dependency in `kali.lock` and `.kali/cache/urls/`, but does **not** create a parallel manifest section or silently rewrite source/import-map entries
 - in that same **configless install split**, an explicit raw-URL install may still create `kali.lock` and `.kali/cache/urls/` state at the effective project root, but it must not create a placeholder `kali.json` by itself
@@ -591,10 +591,10 @@ Argument-kind rules:
 
 Determinism rules:
 - `kali install` is the command that updates dependency-owning manifest fields when needed, resolves versions, pins URL imports, and writes `kali.lock`.
-- `kali check`, `effects`, `build`, `run`, and `test` consume existing project-managed dependency state; they must not silently modify dependency-owning parts of `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/` as a side effect. Missing URL-cache materialization is treated the same as missing `node_modules/`: fail with `E5004` and point the user to `kali install`.
-- For `E5004`, "stale" means the current manifest/import graph, lockfile entries, and required materialized artifacts no longer match for the dependency kinds the project actually uses. It does **not** require ad hoc timestamp-based guessing by non-install commands.
-- If dependency state is missing or stale for the dependency source kinds the project actually uses, those non-install commands fail with the canonical `E5004` path and point the user to `kali install`.
-- If a file-accepting non-install command (`check`, `effects`, `build`, `run`, or `test`) is pointed at explicit files outside the current **install-time declaration graph** from [SPEC.md](../SPEC.md) and those files reach additional raw URL imports, the command still fails with `E5004`; explicit targets bypass discovery filtering for command input selection, but they do not retroactively widen that install-owned declaration graph.
+- `kali check`, `effects`, `build`, `run`, and `test` consume existing project-managed dependency state; they must not silently modify dependency-owning parts of `kali.json`, `kali.lock`, `node_modules/`, or `.kali/cache/urls/` as a side effect. Missing URL-cache materialization is treated the same as missing `node_modules/`: fail with `E6004` and point the user to `kali install`.
+- For `E6004`, "stale" means the current manifest/import graph, lockfile entries, and required materialized artifacts no longer match for the dependency kinds the project actually uses. It does **not** require ad hoc timestamp-based guessing by non-install commands.
+- If dependency state is missing or stale for the dependency source kinds the project actually uses, those non-install commands fail with the canonical `E6004` path and point the user to `kali install`.
+- If a file-accepting non-install command (`check`, `effects`, `build`, `run`, or `test`) is pointed at explicit files outside the current **install-time declaration graph** from [SPEC.md](../SPEC.md) and those files reach additional raw URL imports, the command still fails with `E6004`; explicit targets bypass discovery filtering for command input selection, but they do not retroactively widen that install-owned declaration graph.
 - the intended fix is to make those sources part of that **install-time declaration graph** (for example by widening `include` / `exclude` or adding the relevant source/import-map declaration) and then rerun `kali install`; non-install commands must not auto-install or mutate the dependency graph opportunistically.
 - `--allow-scripts` is install-scoped only; it does not loosen later execution/build sandbox rules or request a second pass that re-runs already-settled lifecycle hooks on an otherwise clean install.
 - lifecycle scripts enabled through `--allow-scripts` are outside the normal source-program sandbox/effect-report contract; they are install-time package hooks, not guest-program entrypoints.
@@ -604,8 +604,8 @@ Determinism rules:
 These commands follow the shared **registry-analysis command split** from [SPEC.md](../SPEC.md), and both use the shared **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md): one explicit canonical registry package identifier, stable-release selection for versionless CLI targets, and project-independent analysis that does not mutate project-managed dependency state.
 
 Practical consequences:
-- malformed target forms (missing package, multiple packages, raw URL, or local path) fail with `E5008`
-- if the package identity exists but no acceptable non-yanked stable release exists for that identity-only workflow, the command fails with `E5001`
+- malformed target forms (missing package, multiple packages, raw URL, or local path) fail with `E5508`
+- if the package identity exists but no acceptable non-yanked stable release exists for that identity-only workflow, the command fails with `E6001`
 - current-project `kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/` do not select a different analyzed version
 - `package-effects` may still inherit semantic analysis context from discovered config/defaults once that command exists, but that inherited context changes analysis semantics only; it does not rewrite package identity/version selection
 - turning an analyzed package into a project dependency remains the job of `kali install`
@@ -614,8 +614,8 @@ Quick comparison:
 
 | Command | Availability | Context model | JSON success mode | Canonical early diagnostic boundary |
 |---|---|---|---|---|
-| `package-effects` | Phase 2 target | inherits the shared **inherited analysis context** | schema-v1 **native-JSON command** | malformed target / package-analysis-specific semantic flags / `--sandbox` → `E5008`; well-formed base invocation (including `--pretty`, `--output json`, or both) before Phase 2 → `E5006` |
-| `package-audit` | Phase 4 compatibility | **context-free registry analysis (schema v1)** | schema-v1 **envelope-only JSON command** | malformed target or `--pretty` without `--output json` → `E5008`; well-formed base invocation such as `kali package-audit lodash`, `kali package-audit --output json lodash`, or `kali package-audit --pretty --output json lodash` before Phase 4 opens → `E5006` |
+| `package-effects` | Phase 2 target | inherits the shared **inherited analysis context** | schema-v1 **native-JSON command** | malformed target / package-analysis-specific semantic flags / `--sandbox` → `E5508`; well-formed base invocation (including `--pretty`, `--output json`, or both) before Phase 2 → `E5506` |
+| `package-audit` | Phase 4 compatibility | **context-free registry analysis (schema v1)** | schema-v1 **envelope-only JSON command** | malformed target or `--pretty` without `--output json` → `E5508`; well-formed base invocation such as `kali package-audit lodash`, `kali package-audit --output json lodash`, or `kali package-audit --pretty --output json lodash` before Phase 4 opens → `E5506` |
 
 ### `kali package-effects <package>`
 Analyze effects of one registry package under the canonical schema-v1 registry-analysis rules.
@@ -630,7 +630,7 @@ kali package-effects --pretty --output json lodash # Pretty-printed command enve
 ```
 
 Base-gate clarification:
-- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-effects lodash`, `kali package-effects --pretty lodash`, `kali package-effects --output json lodash`, or `kali package-effects --pretty --output json lodash` reaches the command's own availability gate (`E5006`) until Phase 2 opens
+- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5508`, while a well-formed base invocation such as `kali package-effects lodash`, `kali package-effects --pretty lodash`, `kali package-effects --output json lodash`, or `kali package-effects --pretty --output json lodash` reaches the command's own availability gate (`E5506`) until Phase 2 opens
 - once the base command exists, inherited-context gating follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) rather than a package-analysis-specific shadow matrix
 - practical simplification: schema-v1 `package-effects` keeps a very small **semantic/context flag surface**: the package selector only. Its command-local presentation/output knobs are the usual **JSON-mode selectors** (`--output json`, optionally `--pretty`). Ordinary shared presentation/control flags still follow the shared-flag rules, but package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of forming a second CLI vocabulary
 
@@ -644,7 +644,7 @@ Analysis rule:
 - `kali package-effects <pkg>` follows the shared **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md) and summarizes the statically reachable package graph selected for that package analysis under the active analysis context; it is not just a shallow inspection of the package's top-level manifest
 - it inherits its semantic analysis context through the shared **inherited analysis context** from [SPEC.md](../SPEC.md) rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox` in schema v1; that inherited context changes analysis semantics only and does not alter which package/version was selected
 - in configless mode, that inherited context is just the **default inherited analysis context (schema v1)** from [SPEC.md](../SPEC.md)
-- inherited-context availability follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is unavailable, the command fails with `E5006` rather than silently falling back or dropping inherited analysis axes
+- inherited-context availability follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is unavailable, the command fails with `E5506` rather than silently falling back or dropping inherited analysis axes
 - documentation/examples that need a browser, Node, threaded-profile, or `eval` package-analysis case should therefore use inherited-context examples and tables, not imaginary per-command semantic flags that schema v1 intentionally rejects for `package-effects`
 - representative inherited browser / Node / threaded-profile / compatibility rows stay centralized in [19 — Feature Maturity](19-feature-maturity.md) so the CLI chapter does not grow a second shadow matrix
 - the nested `report.entryPoints` field should name the package-analysis logical root using the same canonical registry identifier spelling the user targeted rather than an opaque tarball URL or cache path
@@ -662,14 +662,14 @@ kali package-audit --pretty --output json lodash # Pretty-print that envelope; p
 ```
 
 Base-gate clarification:
-- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5008`, while a well-formed base invocation such as `kali package-audit lodash`, `kali package-audit --output json lodash`, or `kali package-audit --pretty --output json lodash` reaches the command's own availability gate (`E5006`) until Phase 4 opens
+- follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5508`, while a well-formed base invocation such as `kali package-audit lodash`, `kali package-audit --output json lodash`, or `kali package-audit --pretty --output json lodash` reaches the command's own availability gate (`E5506`) until Phase 4 opens
 - practical simplification: schema-v1 `package-audit` keeps a very small **semantic/context flag surface**: the package selector only. Its command-local presentation/output knobs are the envelope-oriented **JSON-mode selectors** (`--output json`, plus `--pretty` only when JSON mode is already active). Ordinary shared presentation/control flags still follow the shared-flag rules, but package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of growing a second context model
 - output-format flags do not create a second availability path for the command itself
 
 Audit rule:
 - following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command follows the shared **registry-analysis target contract (schema v1)** and is the context-free registry-analysis/security-audit path rather than a second host-context-aware effect/policy command
 - as the `package-audit` half of the shared **registry-analysis command split**, `package-audit` follows **context-free registry analysis (schema v1)** and therefore does **not** inherit the shared **inherited analysis context** or accept package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox`
-- in schema v1 it is an **envelope-only JSON command**, not a **native-JSON command**; because of that envelope-only model, `kali package-audit --pretty <pkg>` without `--output json` is invalid command usage (`E5008`) rather than an implicit request for JSON mode
+- in schema v1 it is an **envelope-only JSON command**, not a **native-JSON command**; because of that envelope-only model, `kali package-audit --pretty <pkg>` without `--output json` is invalid command usage (`E5508`) rather than an implicit request for JSON mode
 - once available, audit findings are reported through the standard envelope `errors` / `warnings` arrays; a clean audit is therefore `success: true` with `payload: null` and no findings rather than a separate payload object
 - follow the schema-owned **Package Audit JSON Output (schema v1)** rule in [specs/18-schemas.md](18-schemas.md) for the exact envelope-only machine-output contract instead of restating it here
 
@@ -691,7 +691,7 @@ Hello, world!
 Structured, parseable, concise (see [specs/15-errors.md](15-errors.md)):
 ```
 $ kali check main.ts
-error[E1001]: Type 'string' is not assignable to type 'number'
+error[E5101]: Type 'string' is not assignable to type 'number'
   --> main.ts:5:10
   |
 5 |   let x: number = "hello";
@@ -712,8 +712,8 @@ Schema-v1 JSON-mode quick matrix:
 | Command family | Default success mode | `--output json` behavior | Plain `--pretty` without `--output json` |
 |---|---|---|---|
 | `effects`, `package-effects` | native JSON payload | wrap that payload in the standard command envelope | valid once the command exists, because success output is already JSON |
-| `package-audit` | non-JSON text/human mode; findings still map to ordinary diagnostics | emit the standard command envelope only (**envelope-only JSON**) | invalid usage (`E5008`) |
-| all other commands with JSON support | non-JSON text/human mode | emit the standard command envelope | invalid usage (`E5008`) |
+| `package-audit` | non-JSON text/human mode; findings still map to ordinary diagnostics | emit the standard command envelope only (**envelope-only JSON**) | invalid usage (`E5508`) |
+| all other commands with JSON support | non-JSON text/human mode | emit the standard command envelope | invalid usage (`E5508`) |
 
 Quiet-mode interaction rule:
 - `--quiet` suppresses extra success/status text, not the command's primary payload
@@ -725,14 +725,14 @@ Pretty-print interaction rule:
 - `--pretty` does **not** opt a command into JSON mode by itself
 - for schema v1 **native-JSON commands**, plain success output is already JSON, so `--pretty` reformats that native payload
 - for any command with `--output json`, including **envelope-only JSON commands** such as `package-audit --output json`, `--pretty` reformats the outer command envelope
-- if a command is not otherwise emitting JSON (for example `kali check --pretty` without `--output json`, or `kali package-audit --pretty lodash` without `--output json`), `--pretty` is invalid command usage (`E5008`) rather than a silent no-op
+- if a command is not otherwise emitting JSON (for example `kali check --pretty` without `--output json`, or `kali package-audit --pretty lodash` without `--output json`), `--pretty` is invalid command usage (`E5508`) rather than a silent no-op
 - `--pretty` changes formatting only; it must not change field names, ordering guarantees, or whether stderr/human diagnostics are emitted outside JSON mode
 - JSON-selection flags do **not** bypass command maturity or create a second command surface: if `kali effects`, `kali package-effects`, or `kali package-audit` is still unavailable in the current phase, invocations such as `--pretty` / `--output json` still fail on the command's normal availability gate after any earlier command-shape checks
 
 Quick JSON-mode shorthand:
 - `kali effects --pretty main.ts` and `kali package-effects --pretty lodash` are valid once those **native-JSON commands** exist, because their default success output is already JSON
 - `kali package-audit --pretty --output json lodash` is the valid envelope-only audit form in schema v1
-- `kali package-audit --pretty lodash` stays invalid (`E5008`) because `package-audit` does not become JSON-producing until `--output json` is present
+- `kali package-audit --pretty lodash` stays invalid (`E5508`) because `package-audit` does not become JSON-producing until `--output json` is present
 
 Feature gating is part of the machine contract too: availability-gate rejections should serialize the same stable diagnostic code and note structure as human output. When the failure depends on merged CLI/config state (for example a config-selected API surface or a contradictory artifact-mode combination), JSON diagnostics should also populate the optional structured `context` metadata from [specs/18-schemas.md](18-schemas.md) so tools can see the effective value without scraping prose.
 
@@ -800,36 +800,36 @@ Configuration simplification rules:
 - `include` / `exclude` filter only the project's own discoverable files; they do not suppress transitive imports/dependencies reached from an accepted entrypoint and they are not a second package-resolution mechanism
 - generated config from `kali init` should prefer these canonical names and should not duplicate them as parallel top-level keys
 - `kali init` should not emit `sandbox`, `compat`, `dependencies`, or other optional sections unless the chosen template or user request actually needs them
-- when schema-v1 registry dependencies are present in `dependencies` / `devDependencies`, their values are exact resolved version strings; broad SemVer ranges are invalid config (`E5009`) rather than a second supported manifest mode
+- when schema-v1 registry dependencies are present in `dependencies` / `devDependencies`, their values are exact resolved version strings; broad SemVer ranges are invalid config (`E5509`) rather than a second supported manifest mode
 - because absence of `sandbox` means “no policy attached” rather than “allow all by explicit policy”, tools should preserve omission when round-tripping minimal configs unless the user intentionally chooses a default policy path
 - precedence is `CLI > kali.json > defaults`, except sandbox-policy restrictions still constrain effective runtime behavior
 
 ## Exit Codes
 
 Interpretation rule:
-- ordinary command diagnostics over otherwise valid command inputs exit with **1**; this includes syntax/type/name errors, import/module/resolution failures, dependency-state failures (`E5001`-`E5006` as applicable), library-export proof failures (`E5011`), compile-time sandbox/effect violations once the Phase 2 target opens, and later registry-audit findings emitted through the standard diagnostic arrays
+- ordinary command diagnostics over otherwise valid command inputs exit with **1**; this includes syntax/type/name errors, package-resolution or dependency-state failures (`E6001`-`E6005` as applicable), feature-gating failures (`E5506`), library-export proof failures (`E5511`), compile-time sandbox/effect violations once the Phase 2 target opens, and later registry-audit findings emitted through the standard diagnostic arrays
 - this same `1` path also covers a **well-formed but context-incompatible** attached policy whose enabled capability/profile is unavailable for the effective command context (for example `effects.eval: true` before `--compat eval` exists, or browser-targeted `check` / `build --bundle` policies that violate the canonical browser-targeted budget rule by setting `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, or `resources.maxOpenFiles`, or by setting positive `resources.maxSpawnedProcesses` / `resources.maxThreads` values)
 - `fmt --check` and lint-style contract failures that report ordinary command diagnostics also exit with **1**
 - runtime sandbox enforcement failures exit with **3**
 - runtime resource exhaustion/fuel/memory-limit failures exit with **4**
-- invalid CLI arguments, invalid config (`E5009`), invalid policy schema/ranges (`E5010`), and command-input/entrypoint-usage mistakes exit with **5**
+- invalid CLI arguments, invalid config (`E5509`), invalid policy schema/ranges (`E5510`), and command-input/entrypoint-usage mistakes exit with **5**
 - malformed/invalid policy files stay on the `5` path; only semantically valid policy files that hit documented feature/profile gating move onto the ordinary diagnostic `1` path
 
 Command-input/entrypoint-usage mistakes include:
 - missing required direct-input arguments for `run`, `build`, or `effects`
 - too many explicit direct-input arguments for those same commands in early phases
 - conflicting artifact-mode selectors for `build` (for example `--bundle --lib` or `--lib --capi`)
-- `E5007` invalid-entrypoint/input-kind cases such as passing a declaration-only file to `run`, `build`, `effects`, or `test`
+- `E5507` invalid-entrypoint/input-kind cases such as passing a declaration-only file to `run`, `build`, `effects`, or `test`
 
 This keeps exit codes simple: command-time failures are separated from runtime enforcement failures.
 
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Ordinary command diagnostic failure (for example syntax, type, name, module/resolution, dependency-state, feature-gating, or library-export-proof failures such as `E5001`-`E5006` and `E5011`, build-time sandbox/effect violations, semantically valid but context-incompatible policy enablement such as browser-targeted budget incompatibilities, later registry-audit findings reported through standard diagnostics, `fmt --check`, and lint contract failures) |
+| 1 | Ordinary command diagnostic failure (for example syntax, type, name, package-resolution/dependency-state, feature-gating, or library-export-proof failures such as `E6001`-`E6005`, `E5506`, and `E5511`, build-time sandbox/effect violations, semantically valid but context-incompatible policy enablement such as browser-targeted budget incompatibilities, later registry-audit findings reported through standard diagnostics, `fmt --check`, and lint contract failures) |
 | 2 | Runtime error (uncaught exception) |
 | 3 | Runtime sandbox violation |
 | 4 | Runtime resource limit exceeded |
-| 5 | Configuration (`E5009`) / malformed or schema-invalid policy file (`E5010`) / CLI usage (`E5008`) / invalid command input or entrypoint (`E5007`) |
+| 5 | Configuration (`E5509`) / malformed or schema-invalid policy file (`E5510`) / CLI usage (`E5508`) / invalid command input or entrypoint (`E5507`) |
 | 126 | Permission denied |
 | 127 | File not found |

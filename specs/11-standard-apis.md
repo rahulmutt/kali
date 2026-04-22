@@ -33,7 +33,7 @@ To keep runtime imports, globals, and package expectations aligned:
 - for the shared **Phase-1 browser-targeted command set** from [SPEC.md](../SPEC.md), `--api browser` means the real browser ambient typing layer, not merely the smaller **Kali-mediated capability subset** used by schema-v1 sandbox/effect contracts; see the **Browser ambient typing vs mediated capability split** in [SPEC.md](../SPEC.md)
 - browser-targeted contexts must not expose process/env/file globals just because the underlying host runtime happens to have them
 - unsupported globals/modules are absent; Kali must not invent dummy shims by default
-- use the canonical `E5006` availability path for **documented command/profile or feature gating** (for example `--api node` before Phase 3, or `run --api browser` in early phases)
+- use the canonical `E5506` availability path for **documented command/profile or feature gating** (for example `--api node` before Phase 3, or `run --api browser` in early phases)
 - use ordinary unresolved-name/type diagnostics when code references a global that simply is not part of the selected ambient surface in an otherwise-supported mode (for example `document` under `--api deno`)
 
 This prevents a common source of drift: host-runtime implementation convenience must not silently widen the language-visible API contract.
@@ -53,9 +53,9 @@ Phase-1 reading aid:
 | Command family / build lane | `deno` | `browser` | `node` |
 |---|---|---|---|
 | `check` | the shared **default source-graph analysis context (schema v1)**; in support-ladder terms this is the ordinary **checkable** path, including the supported static `--sandbox` validation variants and equivalent inherited-config forms | browser-targeted analysis context; in support-ladder terms this is the browser **checkable** path, including the supported static `--sandbox` validation variants and equivalent inherited-config forms | gated |
-| `build` (default executable lane) | the shared **Deno-oriented build context (schema v1)**, including the supported static `--sandbox` validation variants | invalid command shape in early phases; browser executable builds require `--bundle` and therefore stay on the canonical `E5008` contradiction path until that selector is present | gated |
-| `build --bundle` (browser-targeted executable/deploy lane) | invalid command shape in schema v1; `--bundle` is browser-only and stays on the canonical `E5008` contradiction path under a non-browser effective API surface | browser-targeted bundle only; in support-ladder terms this is the browser **deployable-through-host** path, including supported static `--sandbox` variants and equivalent inherited-config forms, and it remains distinct from any standalone browser **executable** contract | invalid command shape in schema v1 too; explicit `--api node` does not create a second maturity-gated bundle lane because `--bundle` is already reserved for browser-targeted output |
-| `build --lib` (export-oriented build lane) | the Phase-1 **base library artifact** path for **exact-version consumers** in the shared **Deno-oriented build context (schema v1)** — but only when Kali can determine a **statically known export surface** — including `build --lib --sandbox`; here, that Deno-oriented build context is the build/analysis default rather than a claim that Phase-1 library outputs expose a Deno-specific public ABI | invalid command shape in early phases; browser/library combinations stay on the canonical `E5008` contradiction path rather than becoming a hidden browser embedding mode | gated |
+| `build` (default executable lane) | the shared **Deno-oriented build context (schema v1)**, including the supported static `--sandbox` validation variants | invalid command shape in early phases; browser executable builds require `--bundle` and therefore stay on the canonical `E5508` contradiction path until that selector is present | gated |
+| `build --bundle` (browser-targeted executable/deploy lane) | invalid command shape in schema v1; `--bundle` is browser-only and stays on the canonical `E5508` contradiction path under a non-browser effective API surface | browser-targeted bundle only; in support-ladder terms this is the browser **deployable-through-host** path, including supported static `--sandbox` variants and equivalent inherited-config forms, and it remains distinct from any standalone browser **executable** contract | invalid command shape in schema v1 too; explicit `--api node` does not create a second maturity-gated bundle lane because `--bundle` is already reserved for browser-targeted output |
+| `build --lib` (export-oriented build lane) | the Phase-1 **base library artifact** path for **exact-version consumers** in the shared **Deno-oriented build context (schema v1)** — but only when Kali can determine a **statically known export surface** — including `build --lib --sandbox`; here, that Deno-oriented build context is the build/analysis default rather than a claim that Phase-1 library outputs expose a Deno-specific public ABI | invalid command shape in early phases; browser/library combinations stay on the canonical `E5508` contradiction path rather than becoming a hidden browser embedding mode | gated |
 | `run`, `test` | the shared **Default standalone context (schema v1)**; in support-ladder terms this is the standalone **executable** path | not yet a standalone browser-runtime/test **executable** contract | gated |
 | later semantic-analysis/reporting reuse (`effects`; inherited-context-only `package-effects`; and later browser-context analysis reuse) | later Deno-oriented analysis/reporting reuse once those commands exist | the same browser-targeted analysis context is reused later without widening the shared **Phase-1 browser-targeted command set** | gated |
 
@@ -64,7 +64,7 @@ Interpretation rules:
 - explicit CLI spellings and equivalent inherited-config forms mean the same effective request once `apiSurface` resolves to `deno`, `browser`, or `node`; inherited config must not silently widen or narrow support
 - practical Phase-1 simplification: browser-targeted support here means only the shared **Phase-1 browser-targeted command set** from [SPEC.md](../SPEC.md); it does **not** mean standalone `run` / `test`, and it does **not** open browser library/embed artifact lanes
 - `browser` in this table means **checkable** / **deployable-through-host** support where noted, not a hidden standalone DOM runtime promise
-- for browser-only artifact selectors such as `build --bundle`, both non-browser columns describe the same schema-v1 contradiction path (`E5008`) rather than two different maturity stories
+- for browser-only artifact selectors such as `build --bundle`, both non-browser columns describe the same schema-v1 contradiction path (`E5508`) rather than two different maturity stories
 - `node` stays gated across these command families until the documented Node subset exists; package-compatibility work must not imply an undocumented partial `--api node` mode earlier
 - the last row is a context-reuse reading aid, not a Phase-1 command-availability claim; exact command maturity still comes from [19 — Feature Maturity](19-feature-maturity.md)
 - registry-analysis commands remain distinct even when they reuse analysis context: later `package-effects` may inherit the same browser/Node analysis context and shared browser package-resolution rule once its own maturity row opens, while `package-audit` remains context-free in schema v1 and is intentionally excluded from the table's last row
@@ -132,7 +132,7 @@ Implementation simplification:
 - that keeps the Deno compatibility story aligned with the sandbox-first model: permission status is observed, not negotiated interactively at runtime
 - Phase 1 therefore keeps one compact split:
   - `Deno.permissions.query(...)` is the only **stable callable path** in the facade
-  - `Deno.permissions.request(...)` / `revoke(...)` remain **recognized-but-unavailable compatibility members** and therefore fail with the canonical availability path (`E5006`) instead of disappearing as ordinary missing properties
+  - `Deno.permissions.request(...)` / `revoke(...)` remain **recognized-but-unavailable compatibility members** and therefore fail with the canonical availability path (`E5506`) instead of disappearing as ordinary missing properties
   - this compatibility-visible rejection is intentional simplification, not a hidden Phase-2/3 promise: unless a future sandbox model explicitly reopens interactive escalation, these members stay documented as unavailable rather than silently graduating into a roadmap lane
 - accepted `query(...)` descriptor names follow the shared **Deno-compatible permission descriptor subset (schema v1)** from [SPEC.md](../SPEC.md); in Phase 1 that effectively means the `read` / `write` / `net` / `env` subset, but each descriptor still projects only the capability slice that actually exists for the active phase/API surface
 
@@ -148,7 +148,7 @@ Phase-1 descriptor projection shorthand:
 - practical consequence: in the Phase 1 standalone contract, `Deno.permissions.query({ name: "env" })` reports only the read-only environment capability state, and `Deno.permissions.query({ name: "net" })` observes the modeled `fetch` capability state only; neither descriptor implies that the broader later-phase mutation/socket/listener surfaces already exist just because the descriptor name is broad
 - Kali's broader schema-v1 capability/effect vocabulary still includes the `timer` family, random, console, and later `eval`, but those are **not** surfaced as synthetic `Deno.permissions.query({ name: ... })` descriptor kinds in schema v1. This keeps the Deno-compat API smaller and avoids implying non-standard Deno permission names.
 - returned states follow the shared **stable permission status subset (schema v1)** from [SPEC.md](../SPEC.md)
-- to keep checker and runtime behavior aligned, unsupported `query(...)` descriptor kinds should also fail with `E5006` rather than degrading into silent `denied`, fake `prompt`, or missing-surface drift
+- to keep checker and runtime behavior aligned, unsupported `query(...)` descriptor kinds should also fail with `E5506` rather than degrading into silent `denied`, fake `prompt`, or missing-surface drift
 - type checking should model that same split: Kali's Deno-compat typing for this facade should expose the shared descriptor subset and stable status subset `"granted" | "denied"` for `query(...)`, while keeping `request()` / `revoke()` in the documented **recognized-but-unavailable compatibility member** lane rather than advertising an implemented interactive permission flow
 
 For host-capability maturity, the canonical source of truth is [specs/19-feature-maturity.md](19-feature-maturity.md). In particular:
@@ -184,7 +184,7 @@ Node compatibility is a **Phase 3 ecosystem target**, not a Phase 1 promise. The
 
 Canonical gating rule:
 - `kali check --api node`, `kali effects --api node`, `kali build --api node`, `kali run --api node`, and `kali test --api node` are all phase-gated until the documented Node subset exists
-- early phases must reject these modes with the canonical `E5006` diagnostic instead of exposing a partial ambient `process`/built-ins surface
+- early phases must reject these modes with the canonical `E5506` diagnostic instead of exposing a partial ambient `process`/built-ins surface
 
 **Phase 3 target subset**
 - `fs`, `fs/promises` — file system operations
@@ -232,8 +232,8 @@ This resolves a common ambiguity: browser-targeted analysis may know about `docu
 **Canonical early-phase rule**:
 - follow the **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md)
 - the only Phase-1 supported browser-targeted paths are the shared **Phase-1 browser-targeted command set** from [SPEC.md](../SPEC.md)
-- browser-targeted build shapes requested outside that canonical boundary use `E5008` rather than `E5006`; examples include `kali build --api browser ...`, `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...`
-- `kali run --api browser ...` and `kali test --api browser ...` use `E5006` in early phases because Kali does not yet define a standalone browser runtime/test contract
+- browser-targeted build shapes requested outside that canonical boundary use `E5508` rather than `E5506`; examples include `kali build --api browser ...`, `kali build --lib --api browser ...`, `kali build --capi --api browser ...`, and `kali build --component --api browser ...`
+- `kali run --api browser ...` and `kali test --api browser ...` use `E5506` in early phases because Kali does not yet define a standalone browser runtime/test contract
 
 **Note**: For supported command/profile combinations, the Phase 1 **Web baseline** APIs are available regardless of `--api` mode. Follow the shared **API-loading rule** from [SPEC.md](../SPEC.md): on analysis/build commands, `--api` chooses ambient typing, package-resolution, and policy/effect-modeling context; on executable commands, it also chooses the runtime host surface. Browser-targeted bundle output is the deployment-host path for the real browser rather than evidence of a hidden Kali browser runtime. Early unsupported command/surface combinations should follow that same split rather than silently falling back.
 

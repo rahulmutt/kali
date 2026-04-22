@@ -136,7 +136,7 @@ Shared artifact-shape rules:
 - plain Phase-1 `--lib` emits only the **base library artifact** (`kind: wasm-module`, `role: primary-library`); that early artifact is for **exact-version consumers** rather than a stable public cross-version embedding contract. Phase 2 promotes that same selector into the stable public library/WIT contract and adds `kind: wit`, `role: interface-wit` by default
 - `--capi` and `--component` are later **public embedding artifact flows** layered on top of that same linked core library payload rather than separate export semantics
 - `--component` adds an outer `wasm-component` wrapper around the same linked core payload; it does not authorize a second independently linked guest graph
-- if Kali cannot determine the required export surface statically for a library-oriented build, fail with `E5011`
+- if Kali cannot determine the required export surface statically for a library-oriented build, fail with `E5511`
 
 Illustrative artifact sets by valid build mode *(reading aid only; filenames are basename-derived examples, while the normative machine contract is the emitted artifact list's `kind` + `role` metadata plus the availability/gating rules in [12 — CLI](12-cli.md), [18 — Schemas](18-schemas.md), and [19 — Feature Maturity](19-feature-maturity.md))*:
 

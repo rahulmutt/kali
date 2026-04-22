@@ -35,7 +35,7 @@ Examples:
 | First-class JavaScript compilation | dedicated `.js` fixtures across `check` / `build` / `run`, JSDoc-hint coverage, and fallback-ladder cases |
 | Host APIs / runtime behavior | integration tests that execute the API path plus sandbox/resource-limit coverage where relevant |
 | Phase-1 browser-targeted command set | browser-targeted `check` coverage, browser-targeted `build --bundle` coverage, and emitted-bundle smoke runs in a real browser harness |
-| Base library artifact (`kali build --lib`) | library-build integration tests, artifact/schema assertions, `E5011` negatives for unknown export surfaces, and deterministic rebuild checks |
+| Base library artifact (`kali build --lib`) | library-build integration tests, artifact/schema assertions, `E5511` negatives for unknown export surfaces, and deterministic rebuild checks |
 | Package compatibility | curated package-corpus results recorded per shipped source-graph command/context and per claimed rung of the shared package-support ladder |
 | Install workflow / opt-in npm lifecycle hooks | install-command integration tests for manifest/lock/materialization updates, hook gating, and invalid raw-URL / JSR combinations |
 | Registry-analysis commands (`package-effects`, `package-audit`) | command-shape negatives, deterministic single-package version-selection tests, context-participation tests, and JSON-contract assertions |
@@ -138,7 +138,7 @@ Mock-only DOM tests are not enough to justify browser-runtime support wording.
 Because Phase 1 explicitly ships `kali build --lib` for **exact-version consumers** when the export surface is statically known, it needs a dedicated evidence lane:
 - positive library-build fixtures
 - deterministic artifact assertions
-- negative `E5011` cases for inputs without a statically known export surface
+- negative `E5511` cases for inputs without a statically known export surface
 - any host-consumption smoke test in this lane must be described as an **exact-version consumer** test, not as cross-version public ABI evidence
 
 ## Proof claim discipline

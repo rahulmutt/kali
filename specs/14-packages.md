@@ -205,7 +205,7 @@ Registry-collision simplification rule:
 Several early schema-v1 workflows intentionally accept the shared **identity-only registry target** form from [SPEC.md](../SPEC.md) instead of an inline version/range selector. To keep those workflows deterministic, they share one resolution rule:
 - **latest non-yanked stable published version** means the highest published SemVer version for that targeted **registry package identifier** that has **no prerelease identifier** and is not yanked
 - those identity-only workflows must fail explicitly rather than silently selecting a prerelease when no non-yanked stable version exists
-- the canonical failure path for that case is `E5001`: the package identity resolved, but no acceptable stable release existed for the schema-v1 identity-only workflow
+- the canonical failure path for that case is `E6001`: the package identity resolved, but no acceptable stable release existed for the schema-v1 identity-only workflow
 
 Schema-v1 uses this rule for:
 - registry-analysis commands such as `kali package-effects <pkg>` and `kali package-audit <pkg>`
@@ -213,7 +213,7 @@ Schema-v1 uses this rule for:
 
 Install simplification:
 - when `kali install <pkg>` or `kali install --dev <pkg>` adds a new manifest entry from that **identity-only registry target** form, it follows the shared **stable-release selection rule (schema v1)** and **exact-version-first registry manifest rule (schema v1)** from [SPEC.md](../SPEC.md)
-- schema-v1 registry dependency values in `kali.json` are therefore exact resolved version strings; broad SemVer ranges are invalid config (`E5009`) rather than an alternate supported manifest mode
+- schema-v1 registry dependency values in `kali.json` are therefore exact resolved version strings; broad SemVer ranges are invalid config (`E5509`) rather than an alternate supported manifest mode
 
 ### Package Resolution
 Follow the common package.json / `exports` / CommonJS-vs-ESM mechanics used by the Node ecosystem, but keep the early-phase Kali rules explicit so browser-targeted, Deno-oriented, and later Node-specific behavior do not drift.
@@ -308,7 +308,7 @@ Canonical `kali.json#imports` matching rules (schema v1):
 - import-map rewrites happen before package resolution; if no import-map entry matches, the original specifier continues into the normal relative/package resolution ladder
 - schema v1 does **not** support wildcard/glob/regex import-map keys or targets; exact and prefix rewrites are the whole stable contract
 
-Simplification rule: for any package-resolution edge case not yet modeled faithfully, prefer an explicit `E5006`/availability failure over bundler-style guesswork. This keeps package behavior deterministic and auditable for sandboxed builds.
+Simplification rule: for any package-resolution edge case not yet modeled faithfully, prefer an explicit `E5506`/availability failure over bundler-style guesswork. This keeps package behavior deterministic and auditable for sandboxed builds.
 
 Practical classifier note:
 - package resolution owns the final module-kind decision for a resolved file edge
@@ -332,13 +332,13 @@ Argument semantics are intentionally simple:
 - adding a registry package through that identity-only CLI form uses the shared **stable-release selection rule (schema v1)** plus the **exact-version-first registry manifest rule (schema v1)** from [SPEC.md](../SPEC.md): resolve the latest non-yanked stable published version, refresh `kali.lock` using that concrete version, and record the manifest dependency as that same exact version string
 - registry install targets therefore mutate `kali.json` (`dependencies` or `devDependencies`) and then refresh lock/materialized state
 - in the canonical **configless install split** from [SPEC.md](../SPEC.md), an explicit registry-package add (`kali install <pkg>` or `kali install --dev <pkg>`) first creates the minimal canonical manifest `{ "schemaVersion": 1 }` at the effective project root, then records the dependency there
-- `--dev` applies only to registry install targets; `kali install --dev https://...` is rejected with `E5008` instead of inventing a raw-URL dev-dependency table
+- `--dev` applies only to registry install targets; `kali install --dev https://...` is rejected with `E5508` instead of inventing a raw-URL dev-dependency table
 - explicit raw-URL installs follow the shared **raw-URL install staging/pin workflow** from [SPEC.md](../SPEC.md): they update shared lock/cache state only, do not invent a second manifest section, and should not rewrite source/import-map declarations implicitly
 - in that same **configless install split**, an explicit raw-URL install may still create `kali.lock` and `.kali/cache/urls/` state at the effective project root, but it must not create a placeholder manifest by itself
 - under that same **raw-URL install staging/pin workflow**, an unreferenced staged URL may disappear on the next plain `kali install`
 - plain `kali install` reconciles the current manifest + import graph with `kali.lock`, `node_modules/`, and `.kali/cache/urls/`, and may prune raw URL entries that are no longer reachable from that graph
 - in that same **configless install split**, plain `kali install` is a no-op success when the effective project root contributes no manifest/import/source dependency inputs, and it must not create a placeholder manifest as a side effect
-- because install is intentionally profile-agnostic in early phases, `kali install` does **not** take `--api`; passing `--api ...` is invalid command usage (`E5008`), not a request for a second install graph
+- because install is intentionally profile-agnostic in early phases, `kali install` does **not** take `--api`; passing `--api ...` is invalid command usage (`E5508`), not a request for a second install graph
 
 Install-graph discovery rule:
 - because `kali install` usually runs without an explicit primary source input, source-level raw URL imports are discovered from the canonical project-discovery result rather than from one ad hoc command-local source root; together with manifest/import-map declarations, this forms the project's **install-time declaration graph** from [SPEC.md](../SPEC.md)
@@ -370,9 +370,9 @@ Canonical `--allow-scripts` triage:
 |---|---|---|
 | `kali install --allow-scripts lodash` (or another explicit npm target) | Valid opt-in path | The invocation has non-empty **effective npm-scriptable install work** if it reaches the normal npm install path |
 | plain `kali install --allow-scripts` with non-empty **effective npm-scriptable install work** in the shared **install-time declaration graph** | Valid opt-in path | Hooks may run only for the npm subset the current install actually reconciles |
-| plain `kali install --allow-scripts` when that effective npm install work is empty | Invalid usage (`E5008`) | The flag must not silently degenerate into plain `install` when the current invocation has no hook-relevant npm work |
-| `kali install --allow-scripts jsr:@std/path` | Invalid usage (`E5008`) | JSR packages do not participate in npm lifecycle-script execution in schema v1 |
-| `kali install --allow-scripts https://...` | Invalid usage (`E5008`) | Raw URLs do not expose an npm lifecycle-script surface |
+| plain `kali install --allow-scripts` when that effective npm install work is empty | Invalid usage (`E5508`) | The flag must not silently degenerate into plain `install` when the current invocation has no hook-relevant npm work |
+| `kali install --allow-scripts jsr:@std/path` | Invalid usage (`E5508`) | JSR packages do not participate in npm lifecycle-script execution in schema v1 |
+| `kali install --allow-scripts https://...` | Invalid usage (`E5508`) | Raw URLs do not expose an npm lifecycle-script surface |
 | mixed install work (npm + JSR and/or raw URLs) | Valid, but npm-only hook execution | Lifecycle scripts may run only for the npm install-work subset while the rest stays on the normal script-free path |
 | package in the excluded **native/binary/bootstrap-heavy package contract** | Still unsupported | `--allow-scripts` is an installer escape hatch, not a package-shape promotion mechanism |
 
@@ -458,7 +458,7 @@ Practical consequence:
 - `kali install` does not take `--api` in early phases, and `compilerOptions.apiSurface` does not cause `install` to write a different lockfile for the same manifest/import graph.
 - changing `--api` between `deno` and the shared **Phase-1 browser-targeted command set** affects which already-installed package entry files are chosen at command time, not whether the project is considered installed.
 - lockfile/cache state belongs to the effective discovered project root; invoking commands from a subdirectory of the same project should still use that one shared `kali.lock`, `node_modules/`, and `.kali/` state rather than inventing nested installs.
-- if a later file-accepting non-install command (`check`, `effects`, `build`, `run`, or `test`) points at explicit files outside the current **install-time declaration graph** from [SPEC.md](../SPEC.md) and those files reach additional raw URL imports, the command should fail with `E5004` and tell the user to rerun `kali install` after updating the project's discoverable sources or import map.
+- if a later file-accepting non-install command (`check`, `effects`, `build`, `run`, or `test`) points at explicit files outside the current **install-time declaration graph** from [SPEC.md](../SPEC.md) and those files reach additional raw URL imports, the command should fail with `E6004` and tell the user to rerun `kali install` after updating the project's discoverable sources or import map.
 - this is intentional: explicit file targets bypass discovery filtering for command input selection, but they do not retroactively redefine that **install-time declaration graph**, which owns raw URL lock/cache state.
 
 ## Deterministic Install & Resolution Contract
@@ -468,7 +468,7 @@ This chapter follows the top-level [canonical dependency-management mutability r
 To keep package behavior predictable across `install`, `check`, `effects`, `build`, `run`, and `test`, Kali uses one simple rule set:
 - `kali install` is the command that updates dependency-owning manifest fields in `kali.json` when needed, resolves dependency versions, writes `kali.lock`, and refreshes materialized dependency stores.
 - `kali check`, `effects`, `build`, `run`, and `test` consume the existing declaration + lock + materialized dependency state; they must not silently re-resolve packages or mutate project-managed dependency state as a side effect.
-- If the project's current **install-time declaration graph** from [SPEC.md](../SPEC.md) requires materialized state that is missing or stale, non-install commands fail with `E5004` and tell the user to run `kali install`.
+- If the project's current **install-time declaration graph** from [SPEC.md](../SPEC.md) requires materialized state that is missing or stale, non-install commands fail with `E6004` and tell the user to run `kali install`.
 - Here, "stale" means the current declared dependency graph, the corresponding `kali.lock` entries, and the required materialized artifacts no longer agree. Non-install commands should not try to infer staleness from arbitrary mtimes or repair it opportunistically.
 - `node_modules/` is the materialized tree for registry packages (npm/JSR), while `.kali/cache/urls/` is the materialized cache for raw URL imports; `kali.lock` is the canonical reproducibility record for both.
 - When declaration inputs, `kali.lock`, and the required materialized dependency state disagree, `kali install` is responsible for reconciling them. Other commands should fail clearly rather than guessing which source of truth to trust.
@@ -498,7 +498,7 @@ URL imports are cached in `.kali/cache/urls/`. Integrity is verified against the
 Early-phase simplification:
 - a URL import used by source code participates in the same lockfile discipline as registry packages
 - URL-only projects may therefore have an empty or absent `node_modules/` tree without being considered uninstalled
-- non-install commands do **not** repair or repopulate missing URL materialization on the fly; a missing `.kali/cache/urls/` entry is treated as missing dependency state and should fail with `E5004`
+- non-install commands do **not** repair or repopulate missing URL materialization on the fly; a missing `.kali/cache/urls/` entry is treated as missing dependency state and should fail with `E6004`
 - refreshing or first-time pinning of URL dependencies belongs to `kali install` or another explicit dependency-management workflow, not to ordinary compilation
 
 ### Import Maps
@@ -603,7 +603,7 @@ Registry-analysis summary:
 Shared target-selection rule:
 - both commands follow the shared **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md)
 - practical expansion of that shared term here: use one explicit canonical registry package identifier (`lodash`, `@scope/name`, `jsr:@std/path`), resolve versionless CLI targets through the shared **stable-release selection rule (schema v1)**, and keep the analysis project-independent from current manifest/lock/install state
-- if that identity-only package lookup finds the package but no acceptable non-yanked stable release exists, the canonical failure path is `E5001`
+- if that identity-only package lookup finds the package but no acceptable non-yanked stable release exists, the canonical failure path is `E6001`
 - promoting a package from "analyzed" to "installed dependency" remains the responsibility of `kali install`
 - later `package-effects` may still inherit the shared **inherited analysis context**, but that inherited context is semantic-analysis input only and must not blur the shared target-selection/project-independence rule above
 - raw URL dependencies are analyzed through the ordinary project workflow (`kali install` + `kali effects` / `check` / `build`) because their durable declaration source is the source/import-map graph, not a registry package coordinate
@@ -623,7 +623,7 @@ Package-effects rule:
 - the nested shared effect report includes `analysisContext` so the chosen `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` travel with the report instead of living only in ambient CLI/config state
 - in configless project mode, that inherited context is just the **default inherited analysis context (schema v1)** from [SPEC.md](../SPEC.md)
 - if that inherited context resolves to `apiSurface = browser`, `package-effects` reuses the same browser-targeted analysis/package-resolution context as other browser analysis commands (including the shared browser `exports` / `package.json#browser` handling) without widening the exact **Phase-1 browser-targeted command set** into an early standalone browser runtime promise
-- inherited-context availability follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is unavailable, the command fails with `E5006` rather than silently falling back to a smaller one
+- inherited-context availability follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is unavailable, the command fails with `E5506` rather than silently falling back to a smaller one
 - representative inherited browser / Node / threaded-profile / compatibility rows stay centralized in [19 — Feature Maturity](19-feature-maturity.md) rather than being re-listed here
 - as a schema-v1 **native-JSON command**, `package-effects --pretty` reformats the native payload and `package-effects --output json` wraps that same payload in the standard CLI command envelope; those formatting switches change presentation only and do not create a second availability path or a third package-effects-only outer format
 

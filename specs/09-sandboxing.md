@@ -20,8 +20,8 @@ Command-behavior simplification:
 |---|---|---|
 | `run`, `test` | Attach policy, validate schema/ranges, and enforce it during **Kali-hosted execution** | Yes, for the documented Kali-hosted capability/resource contract |
 | `check`, `build` | Static validation only: Phase 1 validates policy-schema/config over the shared **Phase-1 static policy-validation surface** from [SPEC.md](../SPEC.md); starting in the Phase 2 target window, that same path also checks inferred effects against policy. This row applies only to otherwise-valid `check`/`build` shapes; if the effective `apiSurface` is `browser`, it narrows to the browser-facing members of that same shared surface under the shared **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md) rather than creating a second sandbox workflow or repairing unsupported browser build modes. | No |
-| `effects`, `package-effects` | No sandbox-comparison mode; `--sandbox` is invalid usage (`E5008`) | N/A |
-| `package-audit` | No sandbox mode; `--sandbox` is invalid usage (`E5008`) because this remains the separate context-free registry-analysis/security-audit workflow | N/A |
+| `effects`, `package-effects` | No sandbox-comparison mode; `--sandbox` is invalid usage (`E5508`) | N/A |
+| `package-audit` | No sandbox mode; `--sandbox` is invalid usage (`E5508`) because this remains the separate context-free registry-analysis/security-audit workflow | N/A |
 
 This table is a reading aid only. The normative command-shape and phase-gating rules still live in [specs/12-cli.md](12-cli.md), [specs/19-feature-maturity.md](19-feature-maturity.md), and the shared terminology in [SPEC.md](../SPEC.md).
 
@@ -192,8 +192,8 @@ Availability rule for policy validation:
 - this avoids a misleading policy that appears more permissive than the runtime/compiler can really honor
 
 Diagnostic boundary:
-- use `E5010` when the policy file itself is malformed (unknown keys, wrong types, invalid matcher shapes, invalid numeric ranges)
-- use `E5006` when the policy is well-formed but tries to enable a real capability/profile that is unavailable in the effective command/profile/API-surface context
+- use `E5510` when the policy file itself is malformed (unknown keys, wrong types, invalid matcher shapes, invalid numeric ranges)
+- use `E5506` when the policy is well-formed but tries to enable a real capability/profile that is unavailable in the effective command/profile/API-surface context
 - use `E9007` for the Phase-2 compile-time inferred-effect-vs-policy rejection path when the policy is well-formed but the analyzed source graph still exceeds it
 - this keeps policy validation aligned with [specs/15-errors.md](15-errors.md) and the CLI exit-code rules in [specs/12-cli.md](12-cli.md)
 
@@ -409,4 +409,4 @@ Use the CLI chapter for command shape and the maturity matrix for availability; 
 
 Consistency rule:
 - `effects` is the reporting workflow, `check/build --sandbox` is the static validation/comparison workflow, and `run/test --sandbox` is the runtime-enforcement workflow
-- `effects --sandbox` remains invalid usage (`E5008`) rather than a second place to compare policy against inferred effects
+- `effects --sandbox` remains invalid usage (`E5508`) rather than a second place to compare policy against inferred effects

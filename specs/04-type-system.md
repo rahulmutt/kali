@@ -252,7 +252,7 @@ Phase-1 contents of the strict bundle:
 Rules for `strict: false`:
 - Kali may downgrade selected strictness diagnostics to warnings or accept conservative fallback types such as `unknown` where the program can still be compiled faithfully
 - Kali must not use `strict: false` as permission to silently enable unsupported language/runtime features
-- Kali must not weaken sandbox/effect diagnostics, ownership safety checks, or canonical `E5006` feature-availability failures
+- Kali must not weaken sandbox/effect diagnostics, ownership safety checks, or canonical `E5506` feature-availability failures
 - the JavaScript fallback ladder from this chapter remains the same; `strict` is not a separate JS-vs-TS mode switch
 
 Future schema revisions may split this bundle into named sub-options only when there is clear ecosystem value and the behavior can be specified without reintroducing ambiguous checker modes.

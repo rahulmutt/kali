@@ -61,7 +61,7 @@ Used by commands that opt into `--output json`.
 - `stdout: string`
 - `stderr: string`
 - `timings: PhaseTiming[]`
-- `exitCode: number` — canonical process exit code for the command invocation when the caller needs it in-band; when present it follows the exit-code mapping from [12 — CLI](12-cli.md), so ordinary compile/check/build semantic failures (including library-export-proof failures such as `E5011`) still report `1`
+- `exitCode: number` — canonical process exit code for the command invocation when the caller needs it in-band; when present it follows the exit-code mapping from [12 — CLI](12-cli.md), so ordinary compile/check/build semantic failures (including library-export-proof failures such as `E5511`) still report `1`
 
 ### Notes
 - `payload` holds command-specific structured data
@@ -128,7 +128,7 @@ Required fields:
 ```json
 {
   "severity": "error",
-  "code": "E1001",
+  "code": "E5101",
   "message": "Type 'string' is not assignable to type 'number'",
   "file": "src/main.ts",
   "span": {
@@ -225,7 +225,7 @@ Optional fields:
 - `effectiveValue: object | array | string | number | boolean | null` — normalized effective value that the command actually validated against
 
 Interpretation rules:
-- this field exists primarily for AI/tooling-friendly diagnostics such as `E5006` and `E5008`, where the failure often depends on the merged command/config state or the resulting **availability context** rather than only the source span
+- this field exists primarily for AI/tooling-friendly diagnostics such as `E5506` and `E5508`, where the failure often depends on the merged command/config state or the resulting **availability context** rather than only the source span
 - populate it only when the command/config selection materially contributes to the diagnostic; ordinary type/syntax errors usually do not need it
 - when a discovered config value caused the failure, prefer `origin: "config"` plus `configPath` so tools do not have to scrape prose notes to learn that the user omitted the CLI flag but inherited the effective value
 - when an explicit CLI flag caused the failure, prefer `origin: "cli"` plus `flag`
@@ -511,7 +511,7 @@ Interpretation rules:
 - schema v1 intentionally keeps that nested `analysisContext` to the same three participating semantic axes shown above — `apiSurface`, `runtimeProfiles`, and `compatFeatures` — so tools do not infer that `buildMode` or `sandbox` participate in `package-effects`
 - as the analysis-context-aware half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md), `kali package-effects` inherits that analysis context through the shared **inherited analysis context** rather than introducing a second package-analysis-only flag family; the schema records the chosen context, regardless of how it was selected
 - inherited-context maturity follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md) rather than a package-only shadow rule set
-- the recorded context reflects the command's successfully selected analysis mode; it does **not** relax feature-maturity rules, so an inherited context that is still unavailable for package analysis still causes `E5006` instead of producing a report under a fallback surface
+- the recorded context reflects the command's successfully selected analysis mode; it does **not** relax feature-maturity rules, so an inherited context that is still unavailable for package analysis still causes `E5506` instead of producing a report under a fallback surface
 - `entryPoints` names the package-analysis logical roots and, in schema-v1 CLI package analysis, should contain exactly one logical root because `kali package-effects <package>` follows the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
 - that one root label should use the same canonical registry package identifier spelling the user targeted (`lodash`, `@types/node`, `jsr:@std/path`) rather than a tarball URL, cache path, or opaque internal package handle
 - the summarized effects still cover the command's full analysis graph for that one package root, not only the top-level `package.json` metadata file
@@ -655,7 +655,7 @@ Interpretation rules:
 - the canonical effect-reporting and sandbox-agnostic command classes from [SPEC.md](../SPEC.md) ignore top-level `sandbox` rather than treating it as an error or as an implicit request to perform policy validation
 - in particular, `package-effects` still ignores `sandbox` even though it inherits the other semantic analysis axes, and `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md)
 - `compat.features` is the config equivalent of CLI `--compat`; entries use the same canonical feature names, are order-insensitive, and should be unique
-- both `compilerOptions.runtimeProfiles` and `compat.features` follow the same schema-v1 validation rule: unknown entries and duplicate entries are config errors (`E5009`), not values tools silently ignore or deduplicate away
+- both `compilerOptions.runtimeProfiles` and `compat.features` follow the same schema-v1 validation rule: unknown entries and duplicate entries are config errors (`E5509`), not values tools silently ignore or deduplicate away
 - when **valid** set-like arrays such as `compilerOptions.runtimeProfiles` or `compat.features` are normalized in on-disk config, normalization should preserve semantics without reordering entries unnecessarily; preserving first-seen order for minimal user-file churn is preferred even though the arrays are semantically unordered
 - machine-emitted payloads that report those sets back out again (for example `analysisContext` in effect/package-effect JSON) should instead use stable lexical order so caches and diffs do not depend on original input ordering
 - the effective project config is the nearest `kali.json` found by searching the current working directory and then its ancestors; if none exists, commands run configless from the current working directory

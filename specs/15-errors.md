@@ -16,7 +16,7 @@ Ownership rule:
 
 ### Default (Human)
 ```
-error[E1001]: Type 'string' is not assignable to type 'number'
+error[E5101]: Type 'string' is not assignable to type 'number'
   --> src/main.ts:5:10
   |
 5 |   let x: number = "hello";
@@ -43,90 +43,101 @@ Terminology note:
 
 ## Error Code Ranges
 
+Canonical cross-spec registry:
+- **E5xxx** — checker-facing diagnostics, including type checking, syntax/name analysis, runtime/effect semantics, feature availability, and command/input/config validation.
+- **E6xxx** — package management diagnostics, including package identity lookup, module/package resolution, and dependency materialization/install-state failures.
+- **E9xxx** — sandbox / policy diagnostics.
+
+Expanded public ranges used in schema v1:
+
 | Range | Category |
 |-------|----------|
 | E0xxx | Internal compiler errors |
-| E1xxx | Type errors |
-| E2xxx | Syntax errors |
-| E3xxx | Name resolution errors |
-| E4xxx | Effect-system and runtime sandbox violations |
-| E5xxx | Import/module/package resolution, feature availability, and CLI/input-shape errors |
-| E6xxx | Runtime execution failures |
+| E51xx | Type errors |
+| E52xx | Syntax errors |
+| E53xx | Name resolution errors |
+| E54xx | Effect-system and runtime sandbox semantics |
+| E55xx | Feature availability, command/input-shape, and config/policy-shape errors |
+| E6xxx | Package management, module/package resolution, and dependency materialization |
 | E7xxx | Memory/ownership errors |
+| E8xxx | Runtime execution failures |
 | E9xxx | Sandbox-policy and compile-time policy-validation diagnostics |
 | W1xxx | Type warnings |
 | W2xxx | Style/lint diagnostics |
 | W3xxx | Performance warnings |
 
 Range clarification:
-- Kali intentionally uses both `E4xxx` and `E9xxx` in the broader sandbox/effect story.
-- `E4xxx` is the runtime/effect-semantics side (for example a capability use denied during execution).
+- Kali intentionally uses both `E54xx` and `E9xxx` in the broader sandbox/effect story.
+- `E54xx` is the runtime/effect-semantics side (for example a capability use denied during execution).
 - `E9xxx` is the policy-validation side (for example compile-time inferred-effect-vs-policy rejection on sandbox-attached `check` / `build`).
 - Keep that split explicit so policy-schema/availability failures do not drift into ad hoc runtime-only wording.
+- Package-management failures use the `E6xxx` family even when they surface during non-install commands, so install/materialization issues stay distinct from checker and command-shape failures.
 
 ## Error Categories
 
-### Type Errors (E1xxx)
-- `E1001`: Type mismatch (assignment, argument, return)
-- `E1002`: Property does not exist on type
-- `E1003`: Cannot invoke non-function type
-- `E1004`: Missing required property
-- `E1005`: Argument count mismatch
-- `E1006`: Generic constraint not satisfied
-- `E1007`: Cannot use 'as' to convert between unrelated types
-- `E1008`: Effect type mismatch
-- `E1009`: Purity violation (side effect in pure function)
+### Type Errors (E51xx)
+- `E5101`: Type mismatch (assignment, argument, return)
+- `E5102`: Property does not exist on type
+- `E5103`: Cannot invoke non-function type
+- `E5104`: Missing required property
+- `E5105`: Argument count mismatch
+- `E5106`: Generic constraint not satisfied
+- `E5107`: Cannot use 'as' to convert between unrelated types
+- `E5108`: Effect type mismatch
+- `E5109`: Purity violation (side effect in pure function)
 
-### Syntax Errors (E2xxx)
-- `E2001`: Unexpected token
-- `E2002`: Unterminated string literal
-- `E2003`: Invalid regular expression
-- `E2004`: Duplicate parameter name
-- `E2005`: Invalid assignment target
+### Syntax Errors (E52xx)
+- `E5201`: Unexpected token
+- `E5202`: Unterminated string literal
+- `E5203`: Invalid regular expression
+- `E5204`: Duplicate parameter name
+- `E5205`: Invalid assignment target
 
-### Name Resolution Errors (E3xxx)
-- `E3001`: Undefined variable or reference
-- `E3002`: Duplicate declaration in same scope
-- `E3003`: Cannot access before initialization (TDZ)
-- `E3004`: Export not found in module
+### Name Resolution Errors (E53xx)
+- `E5301`: Undefined variable or reference
+- `E5302`: Duplicate declaration in same scope
+- `E5303`: Cannot access before initialization (TDZ)
+- `E5304`: Export not found in module
 
-### Sandbox, Effects, and Policy Errors (E4xxx / E9xxx)
+### Sandbox, Effects, and Policy Errors (E54xx / E9xxx)
 Runtime/effect side:
-- `E4001`: Effect not permitted by sandbox policy during runtime enforcement
-- `E4002`: API call not permitted
-- `E4003`: Resource limit exceeded (compile-time provable)
-- `E4004`: Dynamic effect detected (cannot statically verify)
-- `E4008`: Dynamic import target is not in the linked graph or cannot be resolved statically
+- `E5401`: Effect not permitted by sandbox policy during runtime enforcement
+- `E5402`: API call not permitted
+- `E5403`: Resource limit exceeded (compile-time provable)
+- `E5404`: Dynamic effect detected (cannot statically verify)
+- `E5408`: Dynamic import target is not in the linked graph or cannot be resolved statically
 
 Policy-validation side:
 - `E9007`: Inferred effect not permitted by the active sandbox policy during compile-time `check` / `build --sandbox` validation
 
-### Import/Module/Availability/Command-Input Errors (E5xxx)
-- `E5001`: Module/package not found or no selectable stable release
-- `E5002`: Circular dependency detected
-- `E5003`: Invalid module specifier
-- `E5004`: Dependency state not installed or not materialized for the current lockfile
-- `E5005`: Ambiguous resolution or registry-path conflict
-- `E5006`: Feature unavailable in current phase, API surface, command/profile, or target configuration
-- `E5007`: Invalid primary command input kind for the selected command
-- `E5008`: Invalid CLI usage or flag/arity combination for the selected command
-- `E5009`: Invalid project configuration
-- `E5010`: Invalid sandbox policy file
-- `E5011`: Cannot determine a statically known export surface for a library-oriented build
+### Package-Management Diagnostics (E6xxx)
+- `E6001`: Module/package not found or no selectable stable release
+- `E6002`: Circular dependency detected
+- `E6003`: Invalid module specifier
+- `E6004`: Dependency state not installed or not materialized for the current lockfile
+- `E6005`: Ambiguous resolution or registry-path conflict
 
-Quick boundary table for the most common E5xxx choice:
+### Availability, Command, and Config Diagnostics (E55xx)
+- `E5506`: Feature unavailable in current phase, API surface, command/profile, or target configuration
+- `E5507`: Invalid primary command input kind for the selected command
+- `E5508`: Invalid CLI usage or flag/arity combination for the selected command
+- `E5509`: Invalid project configuration
+- `E5510`: Invalid sandbox policy file
+- `E5511`: Cannot determine a statically known export surface for a library-oriented build
+
+Quick boundary table for the most common `E6xxx` / `E55xx` choice:
 
 | If the problem is primarily... | Use | Why |
 |---|---|---|
-| missing/stale lock/materialized dependency state | `E5004` | install/materialization state is missing or out of sync |
-| a real documented feature/profile/context that exists in the spec but is unavailable here | `E5006` | this is availability gating, not malformed usage |
-| the supplied primary input kind is wrong for an otherwise valid command shape | `E5007` | this is an input-kind mismatch |
-| CLI/config usage shape is contradictory or malformed before a meaningful availability check | `E5008` | this is command-shape/arity/output-mode misuse |
-| `kali.json` itself is malformed or semantically invalid | `E5009` | config schema/content failure |
-| `kali.policy.json` itself is malformed or semantically invalid | `E5010` | policy schema/content failure |
-| a library-oriented build is otherwise valid but Kali cannot prove one fixed export surface | `E5011` | export-surface determination failure |
+| missing/stale lock/materialized dependency state | `E6004` | install/materialization state is missing or out of sync |
+| a real documented feature/profile/context that exists in the spec but is unavailable here | `E5506` | this is availability gating, not malformed usage |
+| the supplied primary input kind is wrong for an otherwise valid command shape | `E5507` | this is an input-kind mismatch |
+| CLI/config usage shape is contradictory or malformed before a meaningful availability check | `E5508` | this is command-shape/arity/output-mode misuse |
+| `kali.json` itself is malformed or semantically invalid | `E5509` | config schema/content failure |
+| `kali.policy.json` itself is malformed or semantically invalid | `E5510` | policy schema/content failure |
+| a library-oriented build is otherwise valid but Kali cannot prove one fixed export surface | `E5511` | export-surface determination failure |
 
-Use `E5004` for dependency-state problems such as:
+Use `E6004` for dependency-state problems such as:
 - project dependency inputs (`kali.json` registry dependencies, `kali.json#imports`, or source-level raw URL imports from the install-time project discovery set) have not been installed/materialized yet
 - `kali.lock`, `node_modules/`, or `.kali/cache/urls/` is missing/stale for the dependency kinds the project uses
 - the current declared dependency graph, lockfile entries, and required materialized artifacts no longer agree
@@ -134,14 +145,14 @@ Use `E5004` for dependency-state problems such as:
 - the resolver needs explicit dependency installation/synchronization instead of silently re-resolving during `check`, `effects`, `build`, `run`, or `test`
 
 Clarification:
-- for `E5004`, "stale" is a **declaration/lock/materialization mismatch**, not a vague timestamp heuristic
+- for `E6004`, "stale" is a **declaration/lock/materialization mismatch**, not a vague timestamp heuristic
 - non-install commands should fail clearly and point to `kali install`; they should not repair dependency-owning manifest fields, lock state, or materialized dependency state as a side effect
 
-Use `E5001` for module/package-not-found-or-no-selectable-stable-release problems such as:
+Use `E6001` for module/package-not-found-or-no-selectable-stable-release problems such as:
 - a referenced module or package cannot be found under the documented resolution rules
 - an identity-only registry-target workflow (`kali install <pkg>`, `kali install --dev <pkg>`, `kali package-effects <pkg>`, `kali package-audit <pkg>`) found the package identity, but no non-yanked stable release exists to satisfy the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md)
 
-Use `E5005` for resolution ambiguity problems such as:
+Use `E6005` for resolution ambiguity problems such as:
 - two candidate package/module edges remaining equally valid after applying the documented resolution rules
 - a manifest/import setup that would require two distinct registry identities to collapse onto the same early-phase `node_modules` package path
 - any other situation where Kali cannot pick one faithful resolution target without inventing extra precedence rules not defined by the spec
@@ -157,25 +168,25 @@ Terminology rule:
 
 Example:
 ```
-error[E5006]: feature unavailable in current phase: --api node
+error[E5506]: feature unavailable in current phase: --api node
   --> <cli>:1:1
   |
   = note: Node.js API compatibility is a Phase 3 target
   = help: use --api deno for Phase 1, or enable the documented later-phase compatibility path
 ```
 
-Use `E5006` for cases such as:
+Use `E5506` for cases such as:
 - `--api node` before the documented Node subset is implemented, including `kali check --api node` and `kali check --api node main.ts`
-- `eval` / `Function()` when the active availability context does not permit that compatibility path yet — both ordinary source use without effective `--compat eval` and an explicit `--compat eval` request before the Phase-4 path exists stay on `E5006`
+- `eval` / `Function()` when the active availability context does not permit that compatibility path yet — both ordinary source use without effective `--compat eval` and an explicit `--compat eval` request before the Phase-4 path exists stay on `E5506`
 - dynamic `require()` in early phases
 - **recognized-but-unavailable compatibility members** from [SPEC.md](../SPEC.md), such as Phase-1 `Deno.permissions.request()` / `revoke()` (these stay on the compatibility-member path, not the ordinary missing-property/type-error path)
 - `Deno.permissions.query(...)` asked to evaluate a descriptor kind that Kali intentionally does not support in the current phase/API surface (for example an early-phase `ffi`/`sys`-style permission descriptor)
 - `run --api browser` in early phases where browser support is limited to the shared **Phase-1 browser-targeted command set** and there is still no standalone browser runtime contract
 - plain `kali run main.ts` or `kali run --sandbox kali.policy.json main.ts` under an inherited `compilerOptions.apiSurface = browser` or `compilerOptions.apiSurface = node`, because effective-context inheritance must not silently fall back to `deno`
 - plain `kali check`, `kali check main.ts`, or `kali check --sandbox kali.policy.json` under an inherited `compilerOptions.apiSurface = node`, because inherited checking contexts must hit the same Node availability gate as explicit `--api node` forms instead of silently falling back to `deno`
-- before the base `kali effects` command is available, plain `kali effects main.ts` and the command's well-formed JSON-formatting forms (`kali effects --pretty main.ts`, `kali effects --output json main.ts`, `kali effects --pretty --output json main.ts`) still report the command-family availability gate (`E5006`) even if discovered config already selects an inherited browser/Node/runtime-profile/compatibility context; formatting selectors and config inheritance must not silently simplify the request into some smaller ad hoc mode
-- once `kali effects` itself exists, inherited context stays axis-aligned with the corresponding explicit flags: inherited `compilerOptions.apiSurface = browser` behaves like explicit `--api browser` rather than a fallback to `deno`, while inherited `compilerOptions.apiSurface = node`, `compilerOptions.runtimeProfiles = ["wasm-threads"]`, or `compat.features = ["eval"]` continue to hit the same `E5006` gates as their explicit forms until those later contexts actually ship
-- more generally, any participating **source-graph command** (`check`, `effects`, `build`, `run`, `test`) under an inherited `compilerOptions.runtimeProfiles = ["wasm-threads"]` or `compat.features = ["eval"]` must hit the same `E5006` availability gate as the corresponding explicit `--wasm-threads` / `--compat eval` request instead of silently ignoring the inherited profile/compat selection
+- before the base `kali effects` command is available, plain `kali effects main.ts` and the command's well-formed JSON-formatting forms (`kali effects --pretty main.ts`, `kali effects --output json main.ts`, `kali effects --pretty --output json main.ts`) still report the command-family availability gate (`E5506`) even if discovered config already selects an inherited browser/Node/runtime-profile/compatibility context; formatting selectors and config inheritance must not silently simplify the request into some smaller ad hoc mode
+- once `kali effects` itself exists, inherited context stays axis-aligned with the corresponding explicit flags: inherited `compilerOptions.apiSurface = browser` behaves like explicit `--api browser` rather than a fallback to `deno`, while inherited `compilerOptions.apiSurface = node`, `compilerOptions.runtimeProfiles = ["wasm-threads"]`, or `compat.features = ["eval"]` continue to hit the same `E5506` gates as their explicit forms until those later contexts actually ship
+- more generally, any participating **source-graph command** (`check`, `effects`, `build`, `run`, `test`) under an inherited `compilerOptions.runtimeProfiles = ["wasm-threads"]` or `compat.features = ["eval"]` must hit the same `E5506` availability gate as the corresponding explicit `--wasm-threads` / `--compat eval` request instead of silently ignoring the inherited profile/compat selection
 - plain `kali test` or `kali test --sandbox kali.policy.json` under an inherited `compilerOptions.apiSurface = browser` or `compilerOptions.apiSurface = node`, for the same reason
 - plain `kali build main.ts` or `kali build --sandbox kali.policy.json main.ts` under an inherited `compilerOptions.apiSurface = node`, because inherited build contexts must not silently fall back to `deno`
 - plain `kali build --lib lib.ts`, `kali build --lib --sandbox kali.policy.json lib.ts`, and later plain `kali build --capi lib.ts` / `kali build --component lib.ts` under an inherited `compilerOptions.apiSurface = node`, for the same inherited-context reason
@@ -187,62 +198,62 @@ Use `E5006` for cases such as:
 
 Boundary clarification:
 - follow the shared **support-claim reading order** from [SPEC.md](../SPEC.md): command shape first, then the intended support rung, then the resulting **availability context**
-- use `E5006` when the requested feature is real but unavailable in the current **availability context**
-- use `E5008` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it, or `kali build --api browser` without `--bundle` while browser builds are bundle-only)
-- follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): wrong browser build shape (`build --api browser` without the required artifact mode, or browser + library-oriented build modes) is `E5008`, while requesting a browser execution/test contract that does not exist yet (`run --api browser`, `test --api browser`) is `E5006`
+- use `E5506` when the requested feature is real but unavailable in the current **availability context**
+- use `E5508` instead when the user combines otherwise-valid flags into a contradictory command shape (for example `kali build --bundle --api node`, where browser bundle mode exists but the selected API surface conflicts with it, or `kali build --api browser` without `--bundle` while browser builds are bundle-only)
+- follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): wrong browser build shape (`build --api browser` without the required artifact mode, or browser + library-oriented build modes) is `E5508`, while requesting a browser execution/test contract that does not exist yet (`run --api browser`, `test --api browser`) is `E5506`
 - follow the canonical validation-order rule from [SPEC.md](../SPEC.md): diagnostics report the outermost failing gate first — command-shape contradictions before maturity gates, and a command's own availability gate before narrower inherited-context/profile gates inside that command
-- this applies to registry-analysis commands too: follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md) instead of re-deciding the `E5008`-before-`E5006` split per command; output-format selectors such as `--output json` also do not create a second availability path for otherwise well-formed `package-effects` / `package-audit` requests
-- practical shortcut: `kali package-effects --pretty lodash` is still on the `E5006` side because `package-effects` is a well-formed **native-JSON command** shape once that command exists, while `kali package-audit --pretty lodash` stays on the `E5008` side because schema v1's envelope-only audit mode requires `--output json` before `--pretty` is meaningful
+- this applies to registry-analysis commands too: follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md) instead of re-deciding the `E5508`-before-`E5506` split per command; output-format selectors such as `--output json` also do not create a second availability path for otherwise well-formed `package-effects` / `package-audit` requests
+- practical shortcut: `kali package-effects --pretty lodash` is still on the `E5506` side because `package-effects` is a well-formed **native-JSON command** shape once that command exists, while `kali package-audit --pretty lodash` stays on the `E5508` side because schema v1's envelope-only audit mode requires `--output json` before `--pretty` is meaningful
 - maturity-matrix rows that name the *earliest fully supported phase* for a combined command/context shape do not override this precedence rule; for example, `kali build --capi --api node ...` may be summarized as a Phase 3 combination while still reporting the `--capi` gate first in Phase 1
-- a well-formed policy file that is semantically incompatible with the selected **availability context** still falls on the `E5006` side of this boundary
-- malformed project config should use `E5009`; malformed policy JSON, unknown policy fields, or invalid policy numeric/path/pattern shapes should use `E5010`; export-surface determination failures for library-oriented builds should use `E5011`
+- a well-formed policy file that is semantically incompatible with the selected **availability context** still falls on the `E5506` side of this boundary
+- malformed project config should use `E5509`; malformed policy JSON, unknown policy fields, or invalid policy numeric/path/pattern shapes should use `E5510`; export-surface determination failures for library-oriented builds should use `E5511`
 - the same rule applies when the triggering value came from discovered config rather than a literal CLI flag; diagnostics should explain the effective value instead of pretending no selection was made
 - in JSON mode, prefer filling structured diagnostic `context` metadata (`origin`, `configPath`/`flag`, and `effectiveValue` when useful) in addition to any human-oriented prose notes
 
 Clarification:
-- use `E5006` for **documented availability gating**
+- use `E5506` for **documented availability gating**
 - use ordinary type/name diagnostics instead when user code simply references a global that is not present in the selected ambient surface (for example `document` under `--api deno` should normally be a regular unresolved-name/type error, not a feature-maturity error)
 
 ### Canonical Invalid-Entrypoint Diagnostic
 
-Use `E5007` when the user passes a file/input kind that the selected command fundamentally cannot treat as its required primary source input, even though the file itself may still be meaningful elsewhere in the toolchain.
+Use `E5507` when the user passes a file/input kind that the selected command fundamentally cannot treat as its required primary source input, even though the file itself may still be meaningful elsewhere in the toolchain.
 
 Boundary rule:
-- `E5007` is for **input-kind mismatch** (for example a declaration-only file passed where an executable/analyzable runtime entrypoint or other command-required primary source input is required)
-- follow the shared **validation-order rule** from [SPEC.md](../SPEC.md): use `E5007` only after the command itself is available and the overall command shape is otherwise valid
-- missing required inputs, too many explicit direct-input arguments, conflicting build artifact-mode selectors (for example `--bundle --lib`), or other command-usage/arity mistakes should use the canonical CLI-usage diagnostic `E5008` instead of overloading `E5007`
-- in the CLI exit-code model, those command-usage cases and `E5007` both typically exit with code `5`, even though `E5007` remains the structured diagnostic for the input-kind mismatch case
+- `E5507` is for **input-kind mismatch** (for example a declaration-only file passed where an executable/analyzable runtime entrypoint or other command-required primary source input is required)
+- follow the shared **validation-order rule** from [SPEC.md](../SPEC.md): use `E5507` only after the command itself is available and the overall command shape is otherwise valid
+- missing required inputs, too many explicit direct-input arguments, conflicting build artifact-mode selectors (for example `--bundle --lib`), or other command-usage/arity mistakes should use the canonical CLI-usage diagnostic `E5508` instead of overloading `E5507`
+- in the CLI exit-code model, those command-usage cases and `E5507` both typically exit with code `5`, even though `E5507` remains the structured diagnostic for the input-kind mismatch case
 
 Example:
 ```
-error[E5007]: invalid primary input for command 'run': declaration-only file
+error[E5507]: invalid primary input for command 'run': declaration-only file
   --> types.d.ts:1:1
   |
   = note: declaration files participate in type checking and ambient typing, but they are not valid executable or analyzable primary inputs for this command
   = help: use 'kali check types.d.ts' to validate declarations, or pass an executable source file to 'kali run'
 ```
 
-Use `E5007` for cases such as:
+Use `E5507` for cases such as:
 - `kali run types.d.ts`
 - `kali build defs.d.mts`
 - `kali test foo.test.d.ts`
-- `kali effects defs.d.cts` *(once `kali effects` itself is available; before that, the command-family availability gate still reports `E5006` first)*
+- `kali effects defs.d.cts` *(once `kali effects` itself is available; before that, the command-family availability gate still reports `E5506` first)*
 - any other direct command input where the selected command requires an executable/analyzable runtime entrypoint or other command-required primary source input but the supplied file is declaration-only
 
 Clarification:
-- `E5007` is about **input-kind mismatch**, not phase gating or general CLI misuse
-- module-resolution issues inside an otherwise valid program still use the ordinary `E5001`-`E5005` family
+- `E5507` is about **input-kind mismatch**, not phase gating or general CLI misuse
+- module-resolution issues inside an otherwise valid program still use the ordinary `E6001`-`E6005` family
 
 ### Canonical Invalid-Config Diagnostic
 
-Use `E5009` when the discovered `kali.json` is malformed or semantically invalid independent of the command's source inputs.
+Use `E5509` when the discovered `kali.json` is malformed or semantically invalid independent of the command's source inputs.
 
 Boundary rule:
-- `E5009` is for **project configuration shape/content errors**, not for CLI-usage mistakes and not for a well-formed config that merely selects a phase-gated feature
-- if the config is structurally valid but its effective value selects an unavailable documented feature in the resulting **availability context**, use `E5006` instead
-- if the config is valid but combines values into an impossible command shape for the selected invocation, use `E5008`
+- `E5509` is for **project configuration shape/content errors**, not for CLI-usage mistakes and not for a well-formed config that merely selects a phase-gated feature
+- if the config is structurally valid but its effective value selects an unavailable documented feature in the resulting **availability context**, use `E5506` instead
+- if the config is valid but combines values into an impossible command shape for the selected invocation, use `E5508`
 
-Use `E5009` for cases such as:
+Use `E5509` for cases such as:
 - malformed `kali.json`
 - unknown config keys or wrong value types in `kali.json`
 - duplicate/invalid entries in set-like config arrays such as `compilerOptions.runtimeProfiles` or `compat.features`
@@ -251,13 +262,13 @@ Use `E5009` for cases such as:
 
 ### Canonical Invalid-Policy Diagnostic
 
-Use `E5010` when an attached `kali.policy.json` is malformed or violates the documented policy schema.
+Use `E5510` when an attached `kali.policy.json` is malformed or violates the documented policy schema.
 
 Boundary rule:
-- `E5010` is for **policy-file syntax/schema/shape/range errors**, not for a well-formed policy that requests a real but unavailable capability/profile
-- if the policy is well-formed but tries to enable a feature that is phase-gated or unavailable in the effective command context, use `E5006`
+- `E5510` is for **policy-file syntax/schema/shape/range errors**, not for a well-formed policy that requests a real but unavailable capability/profile
+- if the policy is well-formed but tries to enable a feature that is phase-gated or unavailable in the effective command context, use `E5506`
 
-Use `E5010` for cases such as:
+Use `E5510` for cases such as:
 - malformed `kali.policy.json`
 - unknown policy keys or wrong value types
 - invalid allowlist entry shapes or invalid path/URL matcher syntax under the schema-v1 matcher rules
@@ -265,54 +276,54 @@ Use `E5010` for cases such as:
 
 ### Canonical Export-Surface Diagnostic
 
-Use `E5011` when a library compile-intent build is selected but Kali cannot determine one **statically known export surface** for that build.
+Use `E5511` when a library compile-intent build is selected but Kali cannot determine one **statically known export surface** for that build.
 
 Boundary rule:
-- `E5011` is for **export-surface determination failure** on a library compile-intent build, not for phase gating and not for contradictory CLI usage
-- use `E5006` when the requested library-oriented mode itself is unavailable in the current phase/profile/API surface
-- use `E5008` when the command shape is contradictory before export analysis even begins (for example `kali build --lib --api browser ...`)
-- once a library-oriented mode is otherwise valid, failing to determine one fixed export surface is an `E5011` semantic build rejection rather than a maturity error
+- `E5511` is for **export-surface determination failure** on a library compile-intent build, not for phase gating and not for contradictory CLI usage
+- use `E5506` when the requested library-oriented mode itself is unavailable in the current phase/profile/API surface
+- use `E5508` when the command shape is contradictory before export analysis even begins (for example `kali build --lib --api browser ...`)
+- once a library-oriented mode is otherwise valid, failing to determine one fixed export surface is an `E5511` semantic build rejection rather than a maturity error
 
 Example:
 ```
-error[E5011]: cannot determine a statically known export surface for library-oriented build
+error[E5511]: cannot determine a statically known export surface for library-oriented build
   --> lib.cjs:1:1
   |
   = note: CommonJS exports vary dynamically across execution paths
   = help: rewrite the module to one fixed export set, or use an executable-oriented build mode instead
 ```
 
-Use `E5011` for cases such as:
+Use `E5511` for cases such as:
 - dynamic CommonJS export mutation that prevents one fixed export set from being determined for `--lib`, `--capi`, or `--component`
 - reflection-heavy export assembly that would require Kali to synthesize host-visible exports it cannot justify from static analysis
 - any other library-oriented build where Kali would otherwise need reflective export discovery instead of the required explicit export surface
 
 ### Canonical Invalid-Usage Diagnostic
 
-Use `E5008` when the command line itself is malformed for the selected command, even though the requested feature may otherwise exist.
+Use `E5508` when the command line itself is malformed for the selected command, even though the requested feature may otherwise exist.
 
 Boundary rule:
-- `E5008` is for **CLI/config usage shape errors**, not language/runtime maturity gating and not malformed config/policy files
-- use the shared **support-claim reading order** from [SPEC.md](../SPEC.md): if the request fails before a meaningful availability check exists, it belongs on the `E5008` / `E5007` side rather than on `E5006`
-- use `E5006` when the user asked for a documented feature that exists in the spec set but is unavailable in the current **availability context**
-- use `E5007` when the problem is the supplied input kind rather than the overall command shape
-- use `E5009` / `E5010` for malformed config / policy files respectively, and `E5011` for library-export proof failures
-- output-format flags still obey the shared **JSON-producing mode** rule from [SPEC.md](../SPEC.md): `--pretty` without active JSON output is `E5008`, and `--output json` never creates a second command-availability path
+- `E5508` is for **CLI/config usage shape errors**, not language/runtime maturity gating and not malformed config/policy files
+- use the shared **support-claim reading order** from [SPEC.md](../SPEC.md): if the request fails before a meaningful availability check exists, it belongs on the `E5508` / `E5507` side rather than on `E5506`
+- use `E5506` when the user asked for a documented feature that exists in the spec set but is unavailable in the current **availability context**
+- use `E5507` when the problem is the supplied input kind rather than the overall command shape
+- use `E5509` / `E5510` for malformed config / policy files respectively, and `E5511` for library-export proof failures
+- output-format flags still obey the shared **JSON-producing mode** rule from [SPEC.md](../SPEC.md): `--pretty` without active JSON output is `E5508`, and `--output json` never creates a second command-availability path
 - shorthand: `--pretty` alone is valid for **native-JSON commands** such as `kali effects` / `kali package-effects` once those commands exist, but not for **envelope-only JSON commands** such as schema-v1 `package-audit`
-- config-derived contradictions count too: if discovered config makes the effective command shape impossible (for example `apiSurface = browser` for plain early-phase `kali build main.ts` without `--bundle`), the diagnostic is still `E5008`
+- config-derived contradictions count too: if discovered config makes the effective command shape impossible (for example `apiSurface = browser` for plain early-phase `kali build main.ts` without `--bundle`), the diagnostic is still `E5508`
 
 Example:
 ```
-error[E5008]: invalid command usage: conflicting build artifact modes '--bundle' and '--lib'
+error[E5508]: invalid command usage: conflicting build artifact modes '--bundle' and '--lib'
   --> <cli>:1:1
   |
   = help: choose exactly one artifact mode: default executable, --bundle, --lib, --capi, or --component
 ```
 
-Use `E5008` for cases such as:
+Use `E5508` for cases such as:
 
 Registry-analysis shorthand:
-- any violation of the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md) is also `E5008`
+- any violation of the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md) is also `E5508`
 - follow the canonical **shared flag buckets**, **semantic/context flag surface**, and **JSON-mode selectors** terms from [SPEC.md](../SPEC.md): schema-v1 `package-effects` and `package-audit` keep the package selector as their semantic/context flag surface, may still accept their documented JSON/output selectors, and continue to allow ordinary shared presentation/control flags under the shared CLI rules. Package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` are invalid usage unless a later spec adds them
 
 Examples:
@@ -367,15 +378,15 @@ Examples:
 - other command-local flag/arity combinations that the CLI contract rejects independently of feature maturity
 
 Clarification:
-- `E5008` is for **invalid command shape**, not unsupported language/runtime semantics
+- `E5508` is for **invalid command shape**, not unsupported language/runtime semantics
 - commands should still emit the normal versioned diagnostic/envelope structure in JSON mode rather than printing ad hoc usage text only
 - where config caused the invalid shape, the help text should name the relevant config path (for example `compilerOptions.apiSurface`) so the user can fix either the config or the command line
 - in JSON mode, prefer including that same information in structured diagnostic `context` metadata instead of leaving it only in prose notes/help text
 
-### Runtime Errors (E6xxx)
-- `E6001`: Uncaught exception
-- `E6002`: Stack overflow
-- `E6003`: Out of memory
+### Runtime Errors (E8xxx)
+- `E8001`: Uncaught exception
+- `E8002`: Stack overflow
+- `E8003`: Out of memory
 
 ### Memory/Ownership Errors (E7xxx)
 - `E7001`: Value used after move
@@ -417,7 +428,7 @@ Default output shows just what's needed to fix the issue:
 
 No ASCII art, progress bars, or decorative elements in default mode.
 
-For unsupported features, prefer one stable code (`E5006`) with a short note naming the required phase/status from [specs/19-feature-maturity.md](19-feature-maturity.md).
+For unsupported features, prefer one stable code (`E5506`) with a short note naming the required phase/status from [specs/19-feature-maturity.md](19-feature-maturity.md).
 
 ### Rich for Humans
 With `--verbose` or in interactive terminals:
@@ -438,7 +449,7 @@ With `--verbose` or in interactive terminals:
 ```rust
 struct Diagnostic {
     severity: Severity,          // Error, Warning, Info, Hint
-    code: DiagnosticCode,        // E1001, W3002, etc.
+    code: DiagnosticCode,        // E5101, E6004, E5506, W3002, etc.
     file: FileId,                // Source file
     span: Span,                  // Internal byte-offset span
     message: String,             // Primary message
