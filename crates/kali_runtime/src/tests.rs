@@ -207,6 +207,19 @@ fn browser_harness_command_parts_checked_reports_malformed_overrides() {
 }
 
 #[test]
+fn browser_bundle_harness_script_reuses_the_shared_fetch_prelude() {
+    let script = browser_bundle_harness_script(
+        "browser-app",
+        false,
+        "const mod = await import(bundleJs.href);\nconsole.log(typeof mod);\n",
+    );
+    assert!(script.contains("const bundleJs = new URL('./browser-app/browser-app.js'"));
+    assert!(script.contains("const wasmUrl = new URL('./browser-app/browser-app.wasm'"));
+    assert!(script.contains("console.log(typeof mod);"));
+    assert!(script.contains("globalThis.fetch = async (input) => {"));
+}
+
+#[test]
 fn browser_harness_run_checked_launches_command_and_captures_output() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let script = tempdir.path().join("browser-harness.mjs");

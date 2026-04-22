@@ -2223,6 +2223,64 @@ pub fn browser_harness_command_parts_for(command: Option<&str>) -> Vec<String> {
     browser_harness_command_parts_checked(command).unwrap_or_else(|error| panic!("{error}"))
 }
 
+/// Build the shared browser-bundle smoke harness prelude.
+///
+/// The generated snippet installs a deterministic `fetch` shim that can resolve the
+/// emitted `.wasm` file alongside the bundle glue, so higher-level browser-harness
+/// callers only need to append the command-specific body that exercises the exports.
+pub fn browser_bundle_harness_prelude(bundle_dir: &str, allow_subpaths: bool) -> String {
+    if allow_subpaths {
+        format!(
+            r#"import fs from 'node:fs/promises';
+import {{ fileURLToPath }} from 'node:url';
+
+const bundleJs = new URL('./{bundle_dir}/{bundle_dir}.js', import.meta.url);
+const bundleRoot = new URL('./{bundle_dir}/', import.meta.url);
+
+globalThis.fetch = async (input) => {{
+  const url = input instanceof URL ? input : new URL(String(input));
+  if (url.href.startsWith(bundleRoot.href) && url.pathname.endsWith('.wasm')) {{
+    const bytes = await fs.readFile(fileURLToPath(url));
+    return new Response(bytes, {{ headers: {{ 'content-type': 'application/wasm' }} }});
+  }}
+  throw new Error(`unexpected fetch ${{String(input)}}`);
+}};
+
+"#,
+            bundle_dir = bundle_dir,
+        )
+    } else {
+        format!(
+            r#"import fs from 'node:fs/promises';
+import {{ fileURLToPath }} from 'node:url';
+
+const bundleJs = new URL('./{bundle_dir}/{bundle_dir}.js', import.meta.url);
+const wasmUrl = new URL('./{bundle_dir}/{bundle_dir}.wasm', import.meta.url);
+
+globalThis.fetch = async (input) => {{
+  const url = input instanceof URL ? input : new URL(String(input));
+  if (url.href === wasmUrl.href) {{
+    const bytes = await fs.readFile(fileURLToPath(url));
+    return new Response(bytes, {{ headers: {{ 'content-type': 'application/wasm' }} }});
+  }}
+  throw new Error(`unexpected fetch ${{String(input)}}`);
+}};
+
+"#,
+            bundle_dir = bundle_dir,
+        )
+    }
+}
+
+/// Build a complete browser-bundle harness script from the shared prelude and a body snippet.
+pub fn browser_bundle_harness_script(bundle_dir: &str, allow_subpaths: bool, body: &str) -> String {
+    format!(
+        "{}{}",
+        browser_bundle_harness_prelude(bundle_dir, allow_subpaths),
+        body
+    )
+}
+
 /// A deterministic browser-harness execution result.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BrowserHarnessOutcome {

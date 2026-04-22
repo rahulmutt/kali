@@ -23,6 +23,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 ## Progress
 
 - Added a reusable browser-harness execution helper in `kali_runtime` that launches the configured command, appends the script entrypoint plus args, and returns deterministic stdout/stderr/exit-status capture for future browser runtime wiring and the existing smoke harnesses.
+- Factored the shared browser-bundle smoke harness prelude into a reusable `kali_runtime` script generator so future browser runtime wiring and the current browser-bundle smoke tests can build on one deterministic fetch/wasm bootstrap instead of duplicating the prelude inline.
 - The browser-runtime contract metadata now exposes a structured descriptor helper in `kali_runtime`, and the shared browser-runtime rejection diagnostics now consume that descriptor so the command-family wording, host label, host description, and future command scope stay centralized instead of being hand-written in each call site.
 - The browser-runtime contract metadata now exposes a reusable supported-commands note helper, and the shared browser-runtime rejection diagnostics now consume that helper so the command-family wording stays centralized with the later contract descriptor instead of being hand-written in each call site.
 - The browser-runtime contract now also exposes a centralized summary note, and the CLI/runtime browser-gate diagnostics reuse it so the later-compatibility wording stays aligned across the direct runtime rejection path and the user-facing smoke tests.

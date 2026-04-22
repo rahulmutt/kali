@@ -320,31 +320,19 @@ fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = format!(
-        r#"import fs from 'node:fs/promises';
-import {{ fileURLToPath }} from 'node:url';
-
-const bundleJs = new URL('./{bundle_dir}/{bundle_dir}.js', import.meta.url);
-const wasmUrl = new URL('./{bundle_dir}/{bundle_dir}.wasm', import.meta.url);
-
-globalThis.fetch = async (input) => {{
-  const url = input instanceof URL ? input : new URL(String(input));
-  if (url.href === wasmUrl.href) {{
-    const bytes = await fs.readFile(fileURLToPath(url));
-    return new Response(bytes, {{ headers: {{ 'content-type': 'application/wasm' }} }});
-  }}
-  throw new Error(`unexpected fetch ${{String(input)}}`);
-}};
-
-const mod = await import(bundleJs.href);
+    let harness = kali_runtime::browser_bundle_harness_script(
+        bundle_dir,
+        false,
+        &format!(
+            r#"const mod = await import(bundleJs.href);
 const result = await mod.{export_name}(1n, 2n);
 if (result !== 0n) {{
   throw new Error(`unexpected result ${{result}}`);
 }}
 console.log(String(result));
 "#,
-        bundle_dir = bundle_dir,
-        export_name = export_name,
+            export_name = export_name,
+        ),
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
@@ -376,23 +364,11 @@ fn assert_browser_bundle_dynamic_import_loader(bundle_root: &Path, specifier: &s
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-dynamic-import-smoke.mjs");
-    let harness = format!(
-        r#"import fs from 'node:fs/promises';
-import {{ fileURLToPath }} from 'node:url';
-
-const bundleJs = new URL('./{bundle_dir}/{bundle_dir}.js', import.meta.url);
-const bundleRoot = new URL('./{bundle_dir}/', import.meta.url);
-
-globalThis.fetch = async (input) => {{
-  const url = input instanceof URL ? input : new URL(String(input));
-  if (url.href.startsWith(bundleRoot.href) && url.pathname.endsWith('.wasm')) {{
-    const bytes = await fs.readFile(fileURLToPath(url));
-    return new Response(bytes, {{ headers: {{ 'content-type': 'application/wasm' }} }});
-  }}
-  throw new Error(`unexpected fetch ${{String(input)}}`);
-}};
-
-const mod = await import(bundleJs.href);
+    let harness = kali_runtime::browser_bundle_harness_script(
+        bundle_dir,
+        true,
+        &format!(
+            r#"const mod = await import(bundleJs.href);
 if (typeof mod.loadDynamicImport !== 'function') {{
   throw new Error('missing loadDynamicImport helper');
 }}
@@ -406,8 +382,8 @@ if (value !== 0n) {{
 }}
 console.log(String(value));
 "#,
-        bundle_dir = bundle_dir,
-        specifier = serde_json::to_string(specifier).expect("serialize specifier"),
+            specifier = serde_json::to_string(specifier).expect("serialize specifier"),
+        ),
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
