@@ -1939,11 +1939,14 @@ fn runtime_error_diagnostic(error: impl std::fmt::Display) -> Diagnostic {
 }
 
 pub fn browser_runtime_unavailable_diagnostic(command: Option<&str>) -> Diagnostic {
+    let hint = "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.";
     let message = match command {
         Some(command) => format!(
-            "{command} does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract"
+            "{command} does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract. {hint}"
         ),
-        None => "browser API surface is not available in the current runtime contract; Kali does not yet define a standalone browser runtime contract".to_string(),
+        None => format!(
+            "browser API surface is not available in the current runtime contract; Kali does not yet define a standalone browser runtime contract. {hint}"
+        ),
     };
     Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message)
 }

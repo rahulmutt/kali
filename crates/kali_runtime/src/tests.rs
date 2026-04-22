@@ -116,12 +116,24 @@ fn browser_runtime_unavailable_diagnostic_formats_command_context() {
             .contains("run does not support the browser API surface"),
         "diagnostic: {command_diagnostic:?}"
     );
+    assert!(
+        command_diagnostic
+            .message
+            .contains("Phase-1 browser-targeted command set"),
+        "diagnostic: {command_diagnostic:?}"
+    );
 
     let runtime_diagnostic = browser_runtime_unavailable_diagnostic(None);
     assert!(
         runtime_diagnostic
             .message
             .contains("current runtime contract"),
+        "diagnostic: {runtime_diagnostic:?}"
+    );
+    assert!(
+        runtime_diagnostic
+            .message
+            .contains("Phase-1 browser-targeted command set"),
         "diagnostic: {runtime_diagnostic:?}"
     );
 }

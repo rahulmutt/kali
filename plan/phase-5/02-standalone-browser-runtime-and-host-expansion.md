@@ -27,6 +27,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - Added CLI smoke coverage for both explicit and inherited browser API surfaces on `run` and `test`, including JSON-envelope regressions for the unsupported browser gate, so the phase-one browser runtime boundary stays honest until the standalone browser harness exists. The `run` browser-gate regression now also exercises the documented `--` guest-argument separator, and new sandbox-attached browser-gate regressions pin that `--sandbox` does not relax the `run` / `test` browser availability split.
 - The runtime layer now mirrors that honesty check directly: direct `kali_runtime` callers that select the `browser` API surface are rejected with the same feature-unavailable diagnostic instead of falling through into the native standalone execution path.
 - Browser-runtime unavailability now comes from one shared runtime helper, and the runtime exposes an explicit host-contract discriminator so the CLI and runtime stay aligned on the current wasmtime baseline versus a browser-requested contract boundary.
+- The browser-runtime rejection diagnostic now also points users back at the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) so the later-compatibility gate is actionable instead of only refusing the unsupported runtime shape.
 
 ## Tasks
 
