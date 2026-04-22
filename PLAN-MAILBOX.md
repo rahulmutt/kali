@@ -1,4 +1,7 @@
 2026-04-22 resolution note
+- added browser-bundle smoke coverage for `crypto.subtle.digest` and `crypto.randomUUID`, then updated the Stage 5.4 progress note so the later Web Crypto breadth slice is now pinned at the deployable-through-host boundary as well as in the direct API and package-corpus paths
+
+2026-04-22 resolution note
 
 - tightened the Stage 5.4 Intl gating so `Intl.NumberFormat`-style member chains now hit the canonical `E5006` later-compatibility diagnostic directly, instead of relying only on the outer `Intl` identifier/member root
 
