@@ -20,6 +20,7 @@ After every stage the repository must remain in a workable state:
 ```text
 plan/
 ├── phase-1/
+│   ├── README.md
 │   ├── 01-workspace-scaffold.md
 │   ├── 02-lexer.md
 │   ├── 03-parser-and-ast.md
@@ -35,20 +36,24 @@ plan/
 │   ├── 13-diagnostics-and-schemas.md
 │   └── 14-evidence-hardening.md
 ├── phase-2/
+│   ├── README.md
 │   ├── 01-mir-and-ownership.md
 │   ├── 02-public-effect-reporting.md
 │   ├── 03-public-embedding-surface.md
 │   ├── 04-lean-model-foundation.md
 │   └── 05-test-coverage-and-reporting.md
 ├── phase-3/
+│   ├── README.md
 │   ├── 01-optimization-and-specialization.md
 │   ├── 02-node-compatibility.md
 │   ├── 03-ecosystem-breadth.md
 │   └── 04-host-capability-expansion.md
 ├── phase-4/
+│   ├── README.md
 │   ├── 01-dynamic-compatibility.md
 │   └── 02-formal-verification-depth.md
 └── phase-5/
+    ├── README.md
     ├── 01-threaded-runtime-profile.md
     ├── 02-standalone-browser-runtime-and-host-expansion.md
     ├── 03-programmable-policy-and-algebraic-effects.md
@@ -56,7 +61,7 @@ plan/
     └── 05-pgo-and-language-bindings.md
 ```
 
-Total: 27 stage documents across 5 phases.
+Total: 27 stage documents plus 5 phase index documents.
 
 ---
 
@@ -74,6 +79,12 @@ Each stage document should define:
 - Tasks
 - Out of scope
 - Definition of done or status
+
+Each phase index document should define:
+- the phase objective and what changes in that phase,
+- the stage ordering and safe parallelism inside the phase,
+- the main spec chapters that phase is implementing,
+- the phase exit gate and evidence expectations.
 
 ---
 
@@ -111,6 +122,14 @@ This stratum view is for implementation planning only. It does not change normat
 ---
 
 ## Phase map
+
+For quick navigation, start with the phase index that matches the stream you are working on:
+- [Phase 1 index](./plan/phase-1/README.md)
+- [Phase 2 index](./plan/phase-2/README.md)
+- [Phase 3 index](./plan/phase-3/README.md)
+- [Phase 4 index](./plan/phase-4/README.md)
+- [Phase 5 index](./plan/phase-5/README.md)
+
 
 | Phase | Focus | Workable outcome |
 |---|---|---|
@@ -185,6 +204,8 @@ That is why standalone browser runtime work is deferred to Phase 5 instead of be
 
 ## Phase 1 — Core Compiler & Toolchain MVP
 
+Phase index: [plan/phase-1/README.md](./plan/phase-1/README.md)
+
 **Goal:** deliver an end-to-end TypeScript/JavaScript → WebAssembly toolchain with checking, execution, build artifacts, sandboxing, package installation, workflow commands, and evidence hardening.
 
 **Critical path:** `1.1 → 1.8`
@@ -235,6 +256,8 @@ Phase 1 is complete when:
 
 ## Phase 2 — Ownership, Effects & Public Embedding
 
+Phase index: [plan/phase-2/README.md](./plan/phase-2/README.md)
+
 **Goal:** add MIR-backed ownership semantics, public effect reporting, stable embedding outputs, the Lean verification foundation, and the stable function-coverage reporting contract required by `kali test --coverage`.
 
 **Dependency shape:** `2.1` is the main prerequisite; `2.2`, `2.3`, most of `2.4`, and the machine-readable half of `2.5` build on it.
@@ -265,6 +288,8 @@ Phase 2 is complete when:
 
 ## Phase 3 — Specialization, Optimization & Ecosystem Breadth
 
+Phase index: [plan/phase-3/README.md](./plan/phase-3/README.md)
+
 **Goal:** improve performance and broaden compatibility without changing the core invariants.
 
 **Ordering:** `3.1` first, then `3.2` and `3.4` may proceed in parallel; `3.3` consumes the stronger package/browser/runtime breadth once those foundations are in place.
@@ -293,6 +318,8 @@ Phase 3 is complete when:
 
 ## Phase 4 — Dynamic Compatibility & Deep Verification
 
+Phase index: [plan/phase-4/README.md](./plan/phase-4/README.md)
+
 **Goal:** add the hardest phase-promised dynamic features and move from proof-ready/proof-foundational work to a proof-backed published boundary.
 
 **Dependency shape:** `4.2` depends on the Lean foundation from `2.4`; `4.1` depends on the runtime, package, and optimization work from Phases 1-3.
@@ -317,6 +344,8 @@ Phase 4 is complete when:
 ---
 
 ## Phase 5 — Later Compatibility & Platform Expansion
+
+Phase index: [plan/phase-5/README.md](./plan/phase-5/README.md)
 
 **Goal:** track and implement the spec surfaces intentionally marked as later compatibility or future work, without retroactively widening earlier promises.
 
