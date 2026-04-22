@@ -260,11 +260,15 @@ fn browser_runtime_harness_script_executes_wasm_and_bridges_console_output() {
 }
 
 #[test]
-fn browser_runtime_harness_script_can_publish_registered_test_summary() {
+fn browser_runtime_harness_script_executes_registered_callbacks_and_reports_zero_failures() {
     let wasm = compile_wat(
         r#"
             (module
                 (import "kali:rt" "test_register" (func $test_register (param i64)))
+                (import "kali:rt" "console_log" (func $console_log (param i64)))
+                (func (export "__kali_callback_7")
+                    i64.const 11
+                    call $console_log)
                 (func (export "_start")
                     i64.const 7
                     call $test_register))
@@ -285,9 +289,54 @@ fn browser_runtime_harness_script_can_publish_registered_test_summary() {
         outcome.stdout
     );
     assert!(
+        outcome.stdout.contains("\"testsFailed\":0"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert!(outcome.stdout.contains("11"), "stdout: {}", outcome.stdout);
+    assert!(
         outcome.stdout.contains("\"args\":[\"gamma\"]"),
         "stdout: {}",
         outcome.stdout
+    );
+}
+
+#[test]
+fn browser_runtime_harness_script_reports_failed_callbacks_and_nonzero_exit() {
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "test_register" (func $test_register (param i64)))
+                (func (export "__kali_callback_7")
+                    unreachable)
+                (func (export "_start")
+                    i64.const 7
+                    call $test_register))
+        "#,
+    );
+    let script = browser_runtime_harness_script(&wasm, &["delta".to_string()], true);
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let script_path = tempdir.path().join("browser-runtime-tests-failed.mjs");
+    fs::write(&script_path, script).expect("write browser runtime test script");
+
+    let outcome = browser_harness_run_checked(Some("node"), &script_path, &[], tempdir.path())
+        .expect("launch browser runtime harness");
+
+    assert_ne!(outcome.status.code(), Some(0));
+    assert!(
+        outcome.stdout.contains("\"tests\":[\"7\"]"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":1"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert!(
+        outcome.stderr.contains("browser runtime test failures: 1"),
+        "stderr: {}",
+        outcome.stderr
     );
 }
 
@@ -314,6 +363,11 @@ fn browser_runtime_harness_script_reports_an_empty_test_summary_when_no_callback
         outcome.stdout
     );
     assert!(
+        outcome.stdout.contains("\"testsFailed\":0"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert!(
         outcome.stdout.contains("\"args\":[\"epsilon\"]"),
         "stdout: {}",
         outcome.stdout
@@ -332,6 +386,9 @@ fn browser_bundle_runtime_execute_checked_loads_bundle_exports_and_parses_summar
                 (import "kali:rt" "args_len" (func $args_len (result i32)))
                 (import "kali:rt" "test_register" (func $test_register (param i64)))
                 (import "kali:rt" "console_log" (func $console_log (param i64)))
+                (func (export "__kali_callback_7")
+                    i64.const 11
+                    call $console_log)
                 (func (export "_start")
                     i64.const 7
                     call $test_register
@@ -367,7 +424,13 @@ export async function loadWithImports(importObject) {
 
     assert_eq!(outcome.command[0], "node");
     assert_eq!(outcome.status.code(), Some(0));
-    assert!(outcome.stdout.contains('1'), "stdout: {}", outcome.stdout);
+    assert!(outcome.stdout.contains("11"), "stdout: {}", outcome.stdout);
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":0"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.tests_failed, 0);
     assert!(
         outcome.stdout.contains("\"tests\":[\"7\"]"),
         "stdout: {}",
@@ -391,6 +454,9 @@ fn browser_runtime_execution_helper_launches_browser_harness_and_parses_summary(
             (module
                 (import "kali:rt" "test_register" (func $test_register (param i64)))
                 (import "kali:rt" "console_log" (func $console_log (param i64)))
+                (func (export "__kali_callback_7")
+                    i64.const 11
+                    call $console_log)
                 (func (export "_start")
                     i64.const 7
                     call $test_register
@@ -413,6 +479,7 @@ fn browser_runtime_execution_helper_launches_browser_harness_and_parses_summary(
     assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
     assert!(outcome.stdout.contains('5'), "stdout: {}", outcome.stdout);
     assert_eq!(outcome.reported_args, vec!["delta".to_string()]);
+    assert_eq!(outcome.tests_failed, 0);
     assert_eq!(outcome.registered_tests, vec!["7".to_string()]);
     assert_eq!(outcome.tests_run(), 1);
 }

@@ -2306,6 +2306,7 @@ pub fn browser_bundle_runtime_harness_script(
 const runRegisteredTests = {run_registered_tests};
 let wasmMemory = null;
 const collectedTests = [];
+let registeredTestFailures = 0;
 
 function formatConsoleValue(val) {{
   if (typeof val === 'bigint') {{
@@ -2350,7 +2351,23 @@ if (typeof instance.exports._start === 'function') {{
   await instance.exports._start();
 }}
 if (runRegisteredTests) {{
-  console.log(JSON.stringify({{ args: runtimeArgs, tests: collectedTests }}));
+  for (const callbackId of collectedTests) {{
+    const callbackName = `__kali_callback_${{callbackId}}`;
+    const callback = instance.exports[callbackName];
+    if (typeof callback !== 'function') {{
+      throw new Error(`missing browser runtime test callback: ${{callbackName}}`);
+    }}
+    try {{
+      await callback();
+    }} catch (error) {{
+      registeredTestFailures += 1;
+      console.error(error instanceof Error ? error.stack ?? error.message : String(error));
+    }}
+  }}
+  console.log(JSON.stringify({{ args: runtimeArgs, tests: collectedTests, testsFailed: registeredTestFailures }}));
+  if (registeredTestFailures > 0) {{
+    throw new Error(`browser runtime test failures: ${{registeredTestFailures}}`);
+  }}
 }}
 "#,
         browser_bundle_harness_prelude(bundle_dir, allow_subpaths),
@@ -2416,6 +2433,7 @@ pub fn browser_bundle_runtime_execute_checked(
         host_contract: RuntimeHostContract::BrowserRequested,
         reported_args: summary.args,
         registered_tests: summary.tests,
+        tests_failed: summary.tests_failed,
     })
 }
 
@@ -2437,6 +2455,7 @@ const runRegisteredTests = {run_registered_tests};
 const runtimeWasm = decodeBase64("{wasm_base64}");
 let wasmMemory = null;
 const collectedTests = [];
+let registeredTestFailures = 0;
 
 function decodeBase64(base64) {{
   const binary = typeof atob === 'function'
@@ -2490,7 +2509,23 @@ if (typeof instance.exports._start === 'function') {{
   await instance.exports._start();
 }}
 if (runRegisteredTests) {{
-  console.log(JSON.stringify({{ args: runtimeArgs, tests: collectedTests }}));
+  for (const callbackId of collectedTests) {{
+    const callbackName = `__kali_callback_${{callbackId}}`;
+    const callback = instance.exports[callbackName];
+    if (typeof callback !== 'function') {{
+      throw new Error(`missing browser runtime test callback: ${{callbackName}}`);
+    }}
+    try {{
+      await callback();
+    }} catch (error) {{
+      registeredTestFailures += 1;
+      console.error(error instanceof Error ? error.stack ?? error.message : String(error));
+    }}
+  }}
+  console.log(JSON.stringify({{ args: runtimeArgs, tests: collectedTests, testsFailed: registeredTestFailures }}));
+  if (registeredTestFailures > 0) {{
+    throw new Error(`browser runtime test failures: ${{registeredTestFailures}}`);
+  }}
 }}
 "#,
         args_json = args_json,
@@ -2517,6 +2552,8 @@ pub struct BrowserRuntimeExecutionOutcome {
     pub reported_args: Vec<String>,
     /// Test callbacks registered by the guest and reported by the browser harness summary.
     pub registered_tests: Vec<String>,
+    /// Test callbacks that failed inside the browser harness summary.
+    pub tests_failed: usize,
 }
 
 impl BrowserRuntimeExecutionOutcome {
@@ -2530,6 +2567,7 @@ impl BrowserRuntimeExecutionOutcome {
 struct BrowserRuntimeSummary {
     args: Vec<String>,
     tests: Vec<String>,
+    tests_failed: usize,
 }
 
 fn parse_browser_runtime_summary(stdout: &str) -> BrowserRuntimeSummary {
@@ -2554,6 +2592,10 @@ fn parse_browser_runtime_summary(stdout: &str) -> BrowserRuntimeSummary {
                     .iter()
                     .filter_map(|value| value.as_str().map(ToOwned::to_owned))
                     .collect(),
+                tests_failed: value
+                    .get("testsFailed")
+                    .and_then(|value| value.as_u64())
+                    .unwrap_or(0) as usize,
             })
         })
         .unwrap_or_default()
@@ -2594,6 +2636,7 @@ pub fn browser_runtime_execute_checked(
         host_contract: RuntimeHostContract::BrowserRequested,
         reported_args: summary.args,
         registered_tests: summary.tests,
+        tests_failed: summary.tests_failed,
     })
 }
 
