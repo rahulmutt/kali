@@ -40,6 +40,27 @@ fn binding_package_manifest_orders_glue_deterministically() {
 }
 
 #[test]
+fn python_binding_package_metadata_is_present() {
+    let cargo_manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo_root = cargo_manifest_dir
+        .parent()
+        .and_then(|path| path.parent())
+        .expect("repo root");
+    let pyproject_path = repo_root.join("bindings/python/pyproject.toml");
+    let readme_path = repo_root.join("bindings/python/README.md");
+
+    let pyproject = fs::read_to_string(&pyproject_path).expect("read python pyproject");
+    assert!(pyproject.contains("name = \"kali-capi\""));
+    assert!(pyproject.contains("version = \"0.1.0\""));
+    assert!(pyproject.contains("build-backend = \"setuptools.build_meta\""));
+    assert!(pyproject.contains("include = [\"kali_capi*\"]"));
+
+    let readme = fs::read_to_string(&readme_path).expect("read python binding readme");
+    assert!(readme.contains("kali_capi"));
+    assert!(readme.contains("deterministic Python ctypes bindings for Kali's stable C ABI"));
+}
+
+#[test]
 fn header_generation_produces_c_compatible_prototypes() {
     let header = generate_header("lib", &[Export::new("add", 2), Export::new("1bad-name", 0)]);
 
