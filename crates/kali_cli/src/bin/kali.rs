@@ -2091,6 +2091,7 @@ const dynamicImportTargets = new Map([
 const importObject = {{
   "kali:rt": {{
     test_register() {{}},
+    args_len() {{ return 0; }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{
         console.log(formatConsoleValue(val));
@@ -2201,6 +2202,7 @@ const dynamicImportTargets = new Map([
 const importObject = {{
   "kali:rt": {{
     test_register() {{}},
+    args_len() {{ return 0; }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{
         console.log(formatConsoleValue(val));

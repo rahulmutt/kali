@@ -25,6 +25,9 @@
 # PLAN mailbox
 
 2026-04-22 resolution note
+- lowered `process.argv.length` through the Node codegen path by threading runtime argv length into the `kali:rt args_len` import and adding Node/browser bundle import shims so the semver smoke can distinguish help-path and argument-passthrough runs consistently
+
+2026-04-22 resolution note
 - emitted the stem-specific binding-package sidecar from `build --capi` and added CLI smoke coverage for the generated binding-package manifest companion, so the Stage 5.5 binding workflow now carries the package manifest in the actual build output instead of only in the helper library
 - updated the Stage 5.5 progress note to call out the manifest sidecar and the new smoke coverage alongside the existing Python binding scaffold
 

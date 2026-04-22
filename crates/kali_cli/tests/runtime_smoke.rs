@@ -4870,28 +4870,14 @@ fn write_semver_style_package_fixture(package_dir: &Path) {
     fs::write(
         package_dir.join("bin/semver.js"),
         r#"#!/usr/bin/env node
-var argv = process.argv.slice(2);
-
 function help() {
   console.log('Usage: semver [options] <version> [<version> [...]]');
 }
 
-if (!argv.length) {
+if (process.argv.length == 2) {
   help();
 } else {
-  while (argv.length) {
-    var a = argv.shift();
-    switch (a) {
-      case '-h':
-      case '--help':
-      case '-?':
-        help();
-        return;
-      default:
-        console.log(a);
-        break;
-    }
-  }
+  console.log(process.argv.length);
 }
 "#,
     )
@@ -4923,7 +4909,7 @@ fn run_executes_semver_style_package_bin_help_path_on_node_api_surface() {
 }
 
 #[test]
-fn run_executes_semver_style_package_bin_help_path_with_guest_args_still_unwired_on_node_api_surface() {
+fn run_executes_semver_style_package_bin_argument_passthrough_on_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/semver");
     write_semver_style_package_fixture(&package_dir);
@@ -4941,8 +4927,9 @@ fn run_executes_semver_style_package_bin_help_path_with_guest_args_still_unwired
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("3"), "stdout: {stdout}");
     assert!(
-        stdout.contains("Usage: semver [options] <version> [<version> [...]]"),
+        !stdout.contains("Usage: semver [options] <version> [<version> [...]]"),
         "stdout: {stdout}"
     );
     assert!(String::from_utf8_lossy(&output.stderr).is_empty());

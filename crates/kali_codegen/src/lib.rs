@@ -18,8 +18,9 @@ const TEST_REGISTER_IMPORT_INDEX: u32 = 0;
 const CONSOLE_LOG_IMPORT_INDEX: u32 = 1;
 const CONSOLE_ERROR_IMPORT_INDEX: u32 = 2;
 const CONSOLE_WARN_IMPORT_INDEX: u32 = 3;
-const COVERAGE_HIT_IMPORT_INDEX: u32 = 4;
-const FUNCTION_INDEX_OFFSET: u32 = 4;
+const ARGS_LEN_IMPORT_INDEX: u32 = 4;
+const COVERAGE_HIT_IMPORT_INDEX: u32 = 5;
+const FUNCTION_INDEX_OFFSET: u32 = 5;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
 /// WASM code generator context.
@@ -344,6 +345,15 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "length" => {
+                if self.is_process_argv(arg) {
+                    function.instruction(&Instruction::Call(ARGS_LEN_IMPORT_INDEX));
+                    function.instruction(&Instruction::I64ExtendI32U);
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+
                 let produced = self.emit_node(function, arg, true);
                 if produced.produced {
                     function.instruction(&Instruction::Drop);
@@ -590,7 +600,11 @@ impl<'a> FunctionEmitter<'a> {
                         _ => None,
                     }
                 } else if node.text.as_deref().is_some_and(|text| text == "length") {
-                    self.render_length(&node.children[0])
+                    if self.is_process_argv(node.children[0]) {
+                        None
+                    } else {
+                        self.render_length(&node.children[0])
+                    }
                 } else if node.text.is_none() {
                     if node.children.len() == 1 {
                         self.render_static_value(node.children[0])
@@ -603,6 +617,24 @@ impl<'a> FunctionEmitter<'a> {
             }
             _ => None,
         }
+    }
+
+    fn is_process_argv(&self, id: LirNodeId) -> bool {
+        let node = self.node(id);
+        if node.text.as_deref() != Some("argv") || node.children.len() != 1 {
+            return false;
+        }
+
+        let object = self.node(node.children[0]);
+        if object.text.as_deref() == Some("process") {
+            return true;
+        }
+
+        object.text.as_deref() == Some("globalThis")
+            && object
+                .children
+                .first()
+                .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
     }
 
     fn render_length(&self, id: &LirNodeId) -> Option<String> {
@@ -732,11 +764,13 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let mut type_section = TypeSection::new();
     type_section.ty().function(vec![ValType::I32], Vec::new());
     type_section.ty().function(vec![ValType::I64], Vec::new());
+    type_section.ty().function(Vec::new(), vec![ValType::I32]);
     let mut import_section = ImportSection::new();
     import_section.import("kali:rt", "test_register", EntityType::Function(0));
     import_section.import("kali:rt", "console_log", EntityType::Function(1));
     import_section.import("kali:rt", "console_error", EntityType::Function(1));
     import_section.import("kali:rt", "console_warn", EntityType::Function(1));
+    import_section.import("kali:rt", "args_len", EntityType::Function(2));
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
     }
@@ -748,7 +782,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         let type_index = if let Some(&idx) = function_types.get(&key) {
             idx
         } else {
-            let idx = function_types.len() as u32 + 2;
+            let idx = function_types.len() as u32 + 3;
             let params = vec![ValType::I64; function.params.len()];
             let results = if function.result {
                 vec![ValType::I64]
