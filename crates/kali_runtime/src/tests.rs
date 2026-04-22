@@ -155,6 +155,31 @@ fn split_command_spec_supports_shell_like_quoting() {
 }
 
 #[test]
+fn browser_harness_command_parts_exposes_override_and_default_selection() {
+    let override_parts = browser_harness_command_parts_for(Some(
+        r#"browser-wrapper --headless --profile "real browser" 'wrapped runner' escaped\ space"#,
+    ));
+    assert_eq!(
+        override_parts,
+        vec![
+            "browser-wrapper".to_string(),
+            "--headless".to_string(),
+            "--profile".to_string(),
+            "real browser".to_string(),
+            "wrapped runner".to_string(),
+            "escaped space".to_string(),
+        ]
+    );
+
+    let default_parts = browser_harness_command_parts();
+    assert!(
+        !default_parts.is_empty(),
+        "default browser harness command should not be empty"
+    );
+    assert!(matches!(default_parts[0].as_str(), "bun" | "node"));
+}
+
+#[test]
 fn split_command_spec_rejects_malformed_inputs() {
     assert_eq!(split_command_spec(r#"" --flag"#), None);
     assert_eq!(split_command_spec(r#"browser-wrapper "unterminated"#), None);

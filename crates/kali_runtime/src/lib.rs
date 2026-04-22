@@ -15,6 +15,8 @@ use std::{
     collections::{BTreeMap, BTreeSet, HashSet, VecDeque},
     fs,
     path::{Path, PathBuf},
+    process::Command,
+    sync::OnceLock,
     thread,
     time::{Duration, Instant},
 };
@@ -152,6 +154,9 @@ impl RuntimeBackend {
 /// execution surface without claiming the runtime itself is available yet.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct BrowserRuntimeContract;
+
+/// Environment variable used to override the browser harness command.
+pub const BROWSER_HARNESS_COMMAND_ENV: &str = "KALI_BROWSER_BUNDLE_HARNESS_COMMAND";
 
 impl BrowserRuntimeContract {
     /// The command family the future browser runtime contract will own.
@@ -2139,6 +2144,43 @@ pub fn split_command_spec(command: &str) -> Option<Vec<String>> {
     }
 
     Some(parts)
+}
+
+fn browser_harness_default_command_parts() -> Vec<String> {
+    static BROWSER_HARNESS_COMMAND: OnceLock<Vec<String>> = OnceLock::new();
+    BROWSER_HARNESS_COMMAND
+        .get_or_init(|| {
+            if Command::new("bun").arg("--version").output().is_ok() {
+                vec!["bun".to_string()]
+            } else {
+                vec!["node".to_string()]
+            }
+        })
+        .clone()
+}
+
+/// Return the command used by browser smoke or future browser-runtime harnesses.
+///
+/// The helper accepts the same argv-style shell subset as [`split_command_spec`]
+/// and falls back to the deterministic default host command when no override is
+/// supplied.
+pub fn browser_harness_command_parts_for(command: Option<&str>) -> Vec<String> {
+    if let Some(command) = command {
+        let command = command.trim();
+        if !command.is_empty() {
+            match split_command_spec(command) {
+                Some(parts) if !parts.is_empty() => return parts,
+                _ => panic!("malformed {BROWSER_HARNESS_COMMAND_ENV} override: {command:?}"),
+            }
+        }
+    }
+
+    browser_harness_default_command_parts()
+}
+
+/// Return the effective browser harness command using the configured environment override.
+pub fn browser_harness_command_parts() -> Vec<String> {
+    browser_harness_command_parts_for(std::env::var(BROWSER_HARNESS_COMMAND_ENV).ok().as_deref())
 }
 
 fn enforce_operation(state: &mut KaliHostState, op: HostOperation) -> wasmtime::Result<()> {

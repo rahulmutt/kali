@@ -7,7 +7,7 @@ use std::{
     process::Command,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
-        Arc, OnceLock,
+        Arc,
     },
     thread,
     time::{Duration, Instant},
@@ -236,30 +236,11 @@ fn count_wasm_instructions(bytes: &[u8]) -> usize {
 }
 
 fn browser_bundle_harness_command_parts_for(command: Option<&str>) -> Vec<String> {
-    if let Some(command) = command {
-        let command = command.trim();
-        if !command.is_empty() {
-            match split_command_spec(command) {
-                Some(parts) if !parts.is_empty() => return parts,
-                _ => panic!("malformed KALI_BROWSER_BUNDLE_HARNESS_COMMAND override: {command:?}"),
-            }
-        }
-    }
-
-    static BROWSER_BUNDLE_HARNESS_COMMAND: OnceLock<Vec<String>> = OnceLock::new();
-    BROWSER_BUNDLE_HARNESS_COMMAND
-        .get_or_init(|| {
-            if Command::new("bun").arg("--version").output().is_ok() {
-                vec!["bun".to_string()]
-            } else {
-                vec!["node".to_string()]
-            }
-        })
-        .clone()
+    kali_runtime::browser_harness_command_parts_for(command)
 }
 
 fn browser_bundle_harness_command_parts() -> Vec<String> {
-    browser_bundle_harness_command_parts_for(
+    kali_runtime::browser_harness_command_parts_for(
         std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
             .ok()
             .as_deref(),
