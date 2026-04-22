@@ -22,6 +22,8 @@ without weakening the hard invariants or blurring the package-support ladder.
 
 **Status:** Complete for the documented Phase-3 breadth milestone.
 
+- Added a semver package-corpus regression so the Phase-3 breadth lane now includes a real pure-JS package on the default standalone library-consumption path, with check/build/run evidence for the canonical `valid` / `satisfies` / `minVersion` consumer shape.
+
 ## Historical stage tasks
 
 ### 1. Package corpus expansion

@@ -45,6 +45,36 @@ fn write_stub_package(root: &Path, name: &str, body: &str) {
     fs::write(package_dir.join("index.js"), body).expect("write package entry");
 }
 
+fn write_semver_style_package(root: &Path) {
+    fs::create_dir_all(root.join("bin")).expect("create package bin dir");
+    fs::write(
+        root.join("package.json"),
+        r#"{
+  "name": "semver",
+  "version": "7.7.4",
+  "main": "index.js",
+  "exports": "./index.js",
+  "bin": {
+    "semver": "bin/semver.js"
+  }
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        root.join("index.js"),
+        r#"export function valid(v) { return v; }
+export function satisfies(version, range) { return version === '1.2.3' && range === '^1.0.0'; }
+export function minVersion(range) { return { version: '1.2.3' }; }
+"#,
+    )
+    .expect("write package entry");
+    fs::write(
+        root.join("bin/semver.js"),
+        "#!/usr/bin/env node\nconst pkg = require('../package.json');\nconsole.log(pkg.version);\n",
+    )
+    .expect("write package bin");
+}
+
 fn write_web_baseline_interop_source(path: &Path, package: &str) {
     fs::write(
         path,
@@ -1795,6 +1825,50 @@ fn utility_corpus_packages_with_string_exports_remain_executable_on_the_default_
             String::from_utf8_lossy(&run.stderr)
         );
     }
+}
+
+#[test]
+fn utility_corpus_semver_style_package_remains_checkable_buildable_and_executable_on_the_default_standalone_surface(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/semver");
+    write_semver_style_package(&package_dir);
+    write_types_stub_package(dir.path(), "semver");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"import { valid, satisfies, minVersion } from 'semver';
+console.log(valid('1.2.3'));
+console.log(satisfies('1.2.3', '^1.0.0'));
+console.log(minVersion('^1.2.3')?.version);
+"#,
+    )
+    .expect("write semver source");
+
+    let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+    assert!(
+        check.status.success(),
+        "semver corpus package should be checkable on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+    assert!(
+        build.status.success(),
+        "semver corpus package should be buildable on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+    assert!(
+        run.status.success(),
+        "semver corpus package should stay executable on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "1.2.3\n1\n1.2.3\n");
 }
 
 #[test]
