@@ -139,6 +139,8 @@ impl RuntimeHostContract {
 pub enum RuntimeBackend {
     /// The current canonical pure-Rust Wasmtime backend.
     Wasmtime,
+    /// A browser-harnessed backend selected when the later browser runtime path executes.
+    BrowserHarness,
 }
 
 impl RuntimeBackend {
@@ -146,6 +148,7 @@ impl RuntimeBackend {
     pub const fn canonical_label(self) -> &'static str {
         match self {
             Self::Wasmtime => "wasmtime",
+            Self::BrowserHarness => "browser-harness",
         }
     }
 }
@@ -681,7 +684,7 @@ fn execute_browser_runtime(
         coverage_hits: Vec::new(),
         runtime_profiles: normalized_runtime_profiles,
         host_contract: outcome.host_contract,
-        runtime_backend: runtime.runtime_backend(),
+        runtime_backend: RuntimeBackend::BrowserHarness,
     })
 }
 

@@ -147,7 +147,8 @@ fn browser_requested_runtime_can_execute_with_an_explicit_harness_command() {
     assert_eq!(outcome.tests_run, 0);
     assert_eq!(outcome.tests_failed, 0);
     assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
-    assert_eq!(outcome.runtime_backend, RuntimeBackend::Wasmtime);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert_eq!(outcome.runtime_backend.canonical_label(), "browser-harness");
     assert!(outcome.stdout.contains('2'), "stdout: {}", outcome.stdout);
 }
 
@@ -187,7 +188,8 @@ fn browser_requested_test_runtime_can_execute_registered_callbacks() {
     assert_eq!(outcome.tests_run, 1);
     assert_eq!(outcome.tests_failed, 0);
     assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
-    assert_eq!(outcome.runtime_backend, RuntimeBackend::Wasmtime);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert_eq!(outcome.runtime_backend.canonical_label(), "browser-harness");
     assert!(outcome.stdout.contains("11"), "stdout: {}", outcome.stdout);
 }
 
