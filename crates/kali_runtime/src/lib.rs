@@ -21,6 +21,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use tempfile::tempdir;
 use wasmtime::{
     Caller, Config, Engine, Extern, Instance, Linker, Memory, Module, Store, StoreLimitsBuilder,
 };
@@ -2362,6 +2363,87 @@ if (runRegisteredTests && collectedTests.length > 0) {{
     )
 }
 
+/// Result of executing a browser-harnessed WASM module.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BrowserRuntimeExecutionOutcome {
+    /// The fully resolved command line used to launch the harness, including the script path and
+    /// any trailing entrypoint arguments.
+    pub command: Vec<String>,
+    /// The harness process exit status.
+    pub status: std::process::ExitStatus,
+    /// Captured harness stdout.
+    pub stdout: String,
+    /// Captured harness stderr.
+    pub stderr: String,
+    /// Test callbacks registered by the guest and reported by the browser harness summary.
+    pub registered_tests: Vec<String>,
+}
+
+impl BrowserRuntimeExecutionOutcome {
+    /// Return the number of registered guest tests reported by the harness summary.
+    pub fn tests_run(&self) -> usize {
+        self.registered_tests.len()
+    }
+}
+
+fn parse_browser_runtime_summary(stdout: &str) -> Vec<String> {
+    stdout
+        .lines()
+        .rev()
+        .find_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                return None;
+            }
+
+            let value = serde_json::from_str::<serde_json::Value>(trimmed).ok()?;
+            let tests = value.get("tests")?.as_array()?;
+            Some(
+                tests
+                    .iter()
+                    .filter_map(|value| value.as_str().map(ToOwned::to_owned))
+                    .collect(),
+            )
+        })
+        .unwrap_or_default()
+}
+
+/// Execute a WASM module through the browser harness and capture the resulting summary.
+pub fn browser_runtime_execute_checked(
+    command: Option<&str>,
+    wasm_bytes: &[u8],
+    args: &[String],
+    current_dir: impl AsRef<Path>,
+    run_registered_tests: bool,
+) -> Result<BrowserRuntimeExecutionOutcome, BrowserHarnessError> {
+    let tempdir = tempdir().map_err(|error| BrowserHarnessError::PreparationFailed {
+        message: error.to_string(),
+    })?;
+    let script_path = tempdir.path().join("browser-runtime.mjs");
+    fs::write(
+        &script_path,
+        browser_runtime_harness_script(wasm_bytes, args, run_registered_tests),
+    )
+    .map_err(|error| BrowserHarnessError::PreparationFailed {
+        message: error.to_string(),
+    })?;
+
+    let outcome = browser_harness_run_checked(command, &script_path, &[], current_dir)?;
+    let registered_tests = if run_registered_tests {
+        parse_browser_runtime_summary(&outcome.stdout)
+    } else {
+        Vec::new()
+    };
+
+    Ok(BrowserRuntimeExecutionOutcome {
+        command: outcome.command,
+        status: outcome.status,
+        stdout: outcome.stdout,
+        stderr: outcome.stderr,
+        registered_tests,
+    })
+}
+
 /// A deterministic browser-harness launch plan.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BrowserHarnessInvocation {
@@ -2440,6 +2522,11 @@ pub enum BrowserHarnessError {
         /// The malformed override value.
         value: String,
     },
+    /// Browser-runtime harness preparation failed before launch.
+    PreparationFailed {
+        /// The preparation error message.
+        message: String,
+    },
     /// The harness command could not be launched.
     LaunchFailed {
         /// The executable that failed to launch.
@@ -2458,6 +2545,9 @@ impl std::fmt::Display for BrowserHarnessError {
         match self {
             Self::MalformedOverride { env_var, value } => {
                 write!(f, "malformed {env_var} override: {value:?}")
+            }
+            Self::PreparationFailed { message } => {
+                write!(f, "failed to prepare browser harness execution: {message}")
             }
             Self::LaunchFailed {
                 executable,

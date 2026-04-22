@@ -57,6 +57,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - Browser-harness launch failures now preserve the fully resolved command vector in the error payload and surface it in the diagnostic text, so later browser-host wiring can recover the exact launch plan that failed instead of only seeing the executable name and script path.
 - Build artifact metadata sidecars now carry explicit `hostContract` / `runtimeBackend` provenance fields alongside the existing `apiSurface` / `runtimeProfiles` axes, keeping browser-targeted bundle outputs explicit about the current Kali-hosted Wasmtime producer without implying that standalone browser execution is already available.
 - The shared browser-harness plumbing now also exposes a structured launch-plan helper, so future browser runtime wiring can inspect the resolved executable, harness args, script path, forwarded args, and current working directory before launching instead of rebuilding that command plan ad hoc.
+- The runtime crate now also includes a reusable browser-execution helper that materializes the self-contained harness script into a temp file, launches the configured browser command, and parses the harness summary of registered tests; that keeps the future standalone browser path anchored to one deterministic library entrypoint instead of ad hoc test-only scaffolding.
 
 ## Tasks
 

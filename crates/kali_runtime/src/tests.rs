@@ -284,6 +284,37 @@ fn browser_runtime_harness_script_can_publish_registered_test_summary() {
 }
 
 #[test]
+fn browser_runtime_execution_helper_launches_browser_harness_and_parses_summary() {
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "test_register" (func $test_register (param i64)))
+                (import "kali:rt" "console_log" (func $console_log (param i64)))
+                (func (export "_start")
+                    i64.const 7
+                    call $test_register
+                    i64.const 5
+                    call $console_log))
+        "#,
+    );
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let outcome = browser_runtime_execute_checked(
+        Some("node"),
+        &wasm,
+        &["delta".to_string()],
+        tempdir.path(),
+        true,
+    )
+    .expect("execute browser runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert!(outcome.stdout.contains('5'), "stdout: {}", outcome.stdout);
+    assert_eq!(outcome.registered_tests, vec!["7".to_string()]);
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
 fn browser_harness_invocation_checked_builds_a_launch_plan() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let script = tempdir.path().join("browser-harness.mjs");
