@@ -72,6 +72,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - Added browser-runtime package-resolution smoke coverage for both `run --api browser` and `test --api browser`, so the later browser runtime path now has a concrete package-shaped fixture lane in addition to the existing direct-source smoke coverage.
 - The browser-package resolver now also honors an explicit browser API-surface request before a manifest is present, which keeps `run` / `test` package selection aligned with the requested browser contract instead of falling back to the default entrypoint when the later runtime path is exercised from a bare fixture.
 - Added browser-runtime smoke coverage for browser-conditional package exports in both `run` and `test`, so the later browser runtime path now exercises the browser-branch resolution rules as well as the browser-field package shape.
+- Added browser-runtime package-corpus smoke coverage for browser-field and browser-condition fixtures under the configured harness command, so the browser-executable rung now has an explicit package evidence lane in addition to the browser-targeted check/build corpus.
 
 ## Tasks
 
