@@ -13,6 +13,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 use serde_json::{json, Value};
 use wasmparser::{Operator, Parser, Payload};
 
@@ -1291,6 +1294,69 @@ fn run_accepts_the_browser_api_surface_when_a_harness_command_is_configured() {
             .expect("stdout")
             .contains("browser run"),
         "json: {json}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn run_uses_browser_entrypoint_for_browser_like_executables() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('browser run');").expect("write source");
+
+    let browser = dir.path().join("chromium");
+    let browser_log = dir.path().join("browser-shim-args.txt");
+    fs::write(
+        &browser,
+        r#"#!/bin/sh
+printf '%s\n' "$@" > "$KALI_BROWSER_SHIM_LOG"
+printf '{"args":[],"tests":[],"testsFailed":0}\n' > "$KALI_BROWSER_HARNESS_SUMMARY_FILE"
+printf 'browser run\n'
+exit 0
+"#,
+    )
+    .expect("write browser shim");
+    let mut permissions = fs::metadata(&browser).expect("metadata").permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&browser, permissions).expect("mark browser shim executable");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(
+            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            format!("{} --headless", browser.display()),
+        )
+        .env("KALI_BROWSER_SHIM_LOG", &browser_log)
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert_eq!(json["stdout"], "browser run\n", "json: {json}");
+
+    let browser_args = fs::read_to_string(&browser_log).expect("browser shim args");
+    assert!(browser_args.contains("--headless"), "args: {browser_args}");
+    assert!(browser_args.contains("file://"), "args: {browser_args}");
+    assert!(
+        browser_args.contains("browser-runtime.html"),
+        "args: {browser_args}"
     );
 }
 
