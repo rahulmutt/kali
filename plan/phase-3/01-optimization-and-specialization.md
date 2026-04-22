@@ -25,9 +25,9 @@ types are statically known.
 - `kali_optimize` is wired into the build pipeline, and both `release` and
   `release-advanced` now run real deterministic optimization passes.
 - The delivered optimization set includes constant folding, branch elimination, basic-block
-  common-subexpression elimination for pure value/literal subtrees, small-function inlining,
-  aggressive dead-code pruning, MIR-aware call-site specialization, and incremental compilation
-  reuse via `.kali-cache/incremental/`.
+  common-subexpression elimination for pure value/literal subtrees — including canonical reuse
+  for duplicate literal nodes — small-function inlining, aggressive dead-code pruning,
+  MIR-aware call-site specialization, and incremental compilation reuse via `.kali-cache/incremental/`.
 - `compilerOptions.maxSpecializations` is now honored alongside the existing CLI override across
   `build`, `run`, and `test`, so the specialization cap is resolved consistently from manifest or
   invocation context before optimization runs.
@@ -39,7 +39,8 @@ types are statically known.
   bodies, including cache-before-budget reuse and deeper specialization inside already-specialized
   wrappers.
 - Regression and benchmark coverage now tracks `fast` vs `release` vs `release-advanced`, nested
-  specialization depth, cross-owner reuse, and re-export-chain specialization behavior.
+  specialization depth, cross-owner reuse, re-export-chain specialization behavior, and duplicate
+  literal/value canonicalization in the CSE lane.
 
 ## Status
 

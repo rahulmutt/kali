@@ -485,6 +485,28 @@ fn release_eliminates_duplicate_pure_expressions_within_basic_blocks() {
 }
 
 #[test]
+fn release_eliminates_duplicate_literals_within_basic_blocks() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let first = literal(&mut builder, "42");
+    let second = literal(&mut builder, "42");
+    builder.node_mut(root).unwrap().children = vec![first, second];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let root_children = &program.nodes[root.0 as usize].children;
+    assert_eq!(root_children.len(), 2);
+    assert_eq!(root_children[0], root_children[1]);
+    let canonical = &program.nodes[root_children[0].0 as usize];
+    assert_eq!(canonical.kind, LirNodeKind::Literal);
+    assert_eq!(canonical.text.as_deref(), Some("42"));
+}
+
+#[test]
 fn release_specializes_const_object_property_access() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
