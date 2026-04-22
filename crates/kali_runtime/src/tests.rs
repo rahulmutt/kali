@@ -269,7 +269,11 @@ fn browser_harness_command_parts_exposes_override_and_default_selection() {
         !default_parts.is_empty(),
         "default browser harness command should not be empty"
     );
-    assert!(matches!(default_parts[0].as_str(), "bun" | "node"));
+    assert!(
+        matches!(default_parts[0].as_str(), "bun" | "node")
+            || browser_harness_uses_html_entrypoint(&default_parts[0]),
+        "default browser harness command should prefer a browser executable when one is available"
+    );
 }
 
 #[test]
@@ -327,8 +331,32 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
         "/usr/bin/google-chrome-stable"
     ));
     assert!(browser_harness_uses_html_entrypoint("msedge.exe"));
+    assert!(browser_harness_uses_html_entrypoint("firefox"));
     assert!(!browser_harness_uses_html_entrypoint("node"));
     assert!(!browser_harness_uses_html_entrypoint("bun"));
+}
+
+#[test]
+fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("chromium"),
+        Some(vec!["chromium".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("/usr/bin/google-chrome-stable"),
+        Some(vec![
+            "google-chrome-stable".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("firefox"),
+        Some(vec!["firefox".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("node"),
+        None
+    );
 }
 
 #[test]

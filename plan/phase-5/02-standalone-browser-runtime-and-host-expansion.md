@@ -23,6 +23,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 ## Progress
 
 - Added a reusable browser-harness execution helper in `kali_runtime` that launches the configured command, appends the script entrypoint plus args, and returns deterministic stdout/stderr/exit-status capture for future browser runtime wiring and the existing smoke harnesses.
+- The browser-harness default command chooser now prefers browser-like executables when they are present on `PATH`, so a real browser host can be used automatically in environments that provide one instead of only falling back to the bun/node smoke harness.
 - `kali run --api browser` and `kali test --api browser` now flow through that configured browser harness command when it is present, so the later browser-runtime path is reachable from the user-facing CLI instead of only from lower-level runtime tests.
 - The browser-harness execution outcome now also carries the requested host-contract label (`browser-requested`) so the future browser-runtime contract has one explicit machine-readable selector to reuse alongside the captured command, output, and summary fields.
 - Browser harness command selection now fails closed on an explicit empty override value instead of silently falling back to the default host command, keeping malformed `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` inputs honest for the later browser-runtime path.

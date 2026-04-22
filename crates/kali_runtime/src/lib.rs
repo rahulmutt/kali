@@ -2258,10 +2258,62 @@ pub fn split_command_spec(command: &str) -> Option<Vec<String>> {
     Some(parts)
 }
 
+fn browser_harness_command_parts_for_browser_executable(executable: &str) -> Option<Vec<String>> {
+    let executable = Path::new(executable)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(executable)
+        .to_ascii_lowercase();
+
+    let mut parts = Vec::with_capacity(2);
+    match executable.as_str() {
+        "chrome"
+        | "chromium"
+        | "chromium-browser"
+        | "google-chrome"
+        | "google-chrome-stable"
+        | "edge"
+        | "msedge"
+        | "firefox"
+        | "firefox-esr" => {
+            parts.push(executable);
+            parts.push("--headless".to_string());
+            Some(parts)
+        }
+        _ => None,
+    }
+}
+
+fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
+    const CANDIDATES: &[&str] = &[
+        "chromium",
+        "chromium-browser",
+        "google-chrome",
+        "google-chrome-stable",
+        "msedge",
+        "edge",
+        "firefox",
+        "firefox-esr",
+    ];
+
+    for candidate in CANDIDATES {
+        if Command::new(candidate).arg("--version").output().is_ok() {
+            if let Some(parts) = browser_harness_command_parts_for_browser_executable(candidate) {
+                return Some(parts);
+            }
+        }
+    }
+
+    None
+}
+
 fn browser_harness_default_command_parts() -> Vec<String> {
     static BROWSER_HARNESS_COMMAND: OnceLock<Vec<String>> = OnceLock::new();
     BROWSER_HARNESS_COMMAND
         .get_or_init(|| {
+            if let Some(parts) = browser_harness_default_browser_command_parts() {
+                return parts;
+            }
             if Command::new("bun").arg("--version").output().is_ok() {
                 vec!["bun".to_string()]
             } else {
@@ -2600,24 +2652,11 @@ pub fn browser_bundle_runtime_execute_checked(
 }
 
 fn browser_harness_uses_html_entrypoint(executable: &str) -> bool {
-    let executable = Path::new(executable)
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or(executable)
-        .to_ascii_lowercase();
-
-    matches!(
-        executable.as_str(),
-        "chrome"
-            | "chromium"
-            | "chromium-browser"
-            | "google-chrome"
-            | "google-chrome-stable"
-            | "edge"
-            | "msedge"
-    ) || executable.contains("chromium")
+    browser_harness_command_parts_for_browser_executable(executable).is_some()
+        || executable.contains("chromium")
         || executable.contains("google-chrome")
         || executable.contains("edge")
+        || executable.contains("firefox")
 }
 
 fn browser_runtime_harness_module_script(
