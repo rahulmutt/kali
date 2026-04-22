@@ -296,10 +296,13 @@ impl PolicyPredicateRegistry {
 
         for predicate in predicates {
             if !(predicate.predicate)(context) {
-                return Err(sandbox_violation(format!(
-                    "host-registered predicate '{}' rejected {} for subject '{}'",
-                    predicate.name, context.capability, context.subject
-                )));
+                return Err(host_predicate_violation(
+                    format!(
+                        "host-registered predicate '{}' rejected {} for subject '{}'",
+                        predicate.name, context.capability, context.subject
+                    ),
+                    context,
+                ));
             }
         }
 
@@ -741,6 +744,21 @@ fn unavailable_capability(name: &str) -> Diagnostic {
             name
         ),
     )
+}
+
+fn host_predicate_violation(
+    message: impl Into<String>,
+    context: &PolicyPredicateContext,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::error(e4::EFFECT_NOT_PERMITTED as u32, message.into())
+        .note(format!("capability: {}", context.capability))
+        .note(format!("subject: {}", context.subject));
+
+    for (key, value) in &context.details {
+        diagnostic = diagnostic.note(format!("detail {}: {}", key, value));
+    }
+
+    diagnostic
 }
 
 fn sandbox_violation(message: impl Into<String>) -> Diagnostic {

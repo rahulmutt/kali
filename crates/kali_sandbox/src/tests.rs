@@ -162,6 +162,14 @@ fn registered_predicates_run_after_declarative_allowance() {
         .message
         .contains("host-registered predicate 'deny-stdout'"));
     assert!(diagnostic.message.contains("effects.console"));
+    assert!(diagnostic
+        .notes
+        .iter()
+        .any(|note| note == "capability: effects.console"));
+    assert!(diagnostic
+        .notes
+        .iter()
+        .any(|note| note == "subject: stdout"));
 }
 
 #[test]
@@ -228,6 +236,15 @@ fn registered_predicates_can_inspect_host_specific_context_details() {
     assert!(diagnostic
         .message
         .contains("host-registered predicate 'deny-nonzero-threads'"));
+    assert!(diagnostic
+        .notes
+        .iter()
+        .any(|note| note == "capability: resources.maxThreads"));
+    assert!(diagnostic.notes.iter().any(|note| note == "subject: 1"));
+    assert!(diagnostic
+        .notes
+        .iter()
+        .any(|note| note == "detail activeThreads: 1"));
     assert_eq!(
         *seen_details.lock().expect("details mutex"),
         vec![Some(String::from("1"))]

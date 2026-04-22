@@ -467,3 +467,9 @@ Proposed fix:
 Proposed fix:
 - add a `kali build --component --output json --out-dir <dir>` smoke test that asserts the component, WIT, metadata, and binding-package artifacts are emitted into the requested output directory
 - mention the new output-directory coverage in the Stage 5.5 progress note so the historical plan reflects the distribution-layout regression too
+
+2026-04-22 follow-up note
+- host-registered sandbox predicate denials now carry deterministic capability/resource/detail notes in the sandbox and embedding diagnostics, so the Stage 5.3 progress note should record the machine-readable context payload alongside the existing narrowing behavior and registration-order coverage
+
+2026-04-22 resolution note
+- recorded the deterministic capability/resource/detail notes in the Stage 5.3 progress note, so the programmable-policy lane now captures the machine-readable predicate payload alongside the existing narrowing behavior and registration-order coverage

@@ -201,6 +201,14 @@ fn embedding_predicates_can_deny_with_a_host_specific_reason() {
         .message
         .contains("host-registered predicate 'deny-console'"));
     assert!(diagnostic.message.contains("console output is forbidden"));
+    assert!(diagnostic
+        .notes
+        .iter()
+        .any(|note| note == "capability: effects.console"));
+    assert!(diagnostic
+        .notes
+        .iter()
+        .any(|note| note == "resource: stdout"));
 }
 
 #[test]
@@ -262,6 +270,15 @@ fn embedding_predicates_can_inspect_thread_budget_context_details() {
     assert!(diagnostic
         .message
         .contains("host-registered predicate 'deny-busy-thread-budget'"));
+    assert!(diagnostic
+        .notes
+        .iter()
+        .any(|note| note == "capability: resources.maxThreads"));
+    assert!(diagnostic.notes.iter().any(|note| note == "resource: 1"));
+    assert!(diagnostic
+        .notes
+        .iter()
+        .any(|note| note == "detail activeThreads: 1"));
     assert_eq!(
         *seen_details.lock().expect("details mutex"),
         vec![Some(String::from("1"))]

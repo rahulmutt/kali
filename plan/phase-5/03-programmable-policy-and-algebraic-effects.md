@@ -33,7 +33,9 @@ This stage must preserve two guardrails:
   executable payload and the threaded budget path (`effects.process.spawn` / `executable`,
   `resources.maxThreads` / `activeThreads`), and the embedding tests pin that detail through the
   re-exported context, through direct `ProcessSpawn` and `ThreadSpawn` narrowing regressions, and
-  through registration-order coverage for the embedding façade.
+  through registration-order coverage for the embedding façade. Predicate denials now also carry
+  deterministic capability/resource/detail notes so the machine-readable diagnostic trail preserves
+  the host-specific context without replacing the stable schema.
 - Declarative policy remains primary: the sandbox check helper applies the declarative decision
   first and only then evaluates host-registered predicates, with deterministic registration order and
   explicit rejection when the predicate registry is disabled.
@@ -107,4 +109,6 @@ work needed for later proof/evidence expansion:
 
 ## Status
 
-In progress.
+Stage 5.3 is complete.
+
+Any further widening of programmable-policy or algebraic-effect behavior belongs in the owning spec chapters and maturity matrix, not by reopening this closed stage checklist.

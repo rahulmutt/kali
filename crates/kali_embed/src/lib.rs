@@ -434,13 +434,21 @@ fn predicate_violation(name: &str, context: &OperationContext, reason: &str) -> 
         format!(": {}", reason)
     };
 
-    Diagnostic::error(
+    let mut diagnostic = Diagnostic::error(
         e4::EFFECT_NOT_PERMITTED as u32,
         format!(
             "host-registered predicate '{}' rejected {} for resource '{}'{}",
             name, context.capability, context.resource, reason_suffix
         ),
     )
+    .note(format!("capability: {}", context.capability))
+    .note(format!("resource: {}", context.resource));
+
+    for (key, value) in &context.details {
+        diagnostic = diagnostic.note(format!("detail {}: {}", key, value));
+    }
+
+    diagnostic
 }
 
 fn temporary_source_path(module_name: &str) -> PathBuf {
