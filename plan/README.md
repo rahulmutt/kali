@@ -8,8 +8,9 @@ Use it in this order:
 2. [`00-planning-conventions.md`](./00-planning-conventions.md) — shared rules for stage design, workable-state discipline, and update packets.
 3. [`01-repository-layout.md`](./01-repository-layout.md) — recommended long-lived repository structure and when each area should appear.
 4. [`02-workstreams-and-handoffs.md`](./02-workstreams-and-handoffs.md) — cross-phase streams, ownership boundaries, and safe parallelism.
-5. The relevant phase index under `phase-*/README.md`.
-6. The exact stage document you are implementing.
+5. [`03-spec-to-stage-traceability.md`](./03-spec-to-stage-traceability.md) — spec-chapter-to-stage mapping and evidence ownership.
+6. The relevant phase index under `phase-*/README.md`.
+7. The exact stage document you are implementing.
 
 ## Directory map
 
@@ -19,6 +20,7 @@ plan/
 ├── 00-planning-conventions.md        # shared planning rules
 ├── 01-repository-layout.md           # target repository structure + rollout
 ├── 02-workstreams-and-handoffs.md    # cross-phase stream coordination
+├── 03-spec-to-stage-traceability.md  # spec chapter -> stage/evidence mapping
 ├── phase-1/                          # MVP compiler/toolchain stages
 ├── phase-2/                          # ownership/effects/embedding/verification foundation
 ├── phase-3/                          # optimization and compatibility breadth
@@ -31,6 +33,7 @@ plan/
 - **What should I build next?** → `../PLAN.md` → phase README → stage file.
 - **What files/areas should this work touch?** → [`01-repository-layout.md`](./01-repository-layout.md).
 - **Can two streams proceed in parallel?** → `../PLAN.md` plus [`02-workstreams-and-handoffs.md`](./02-workstreams-and-handoffs.md).
+- **Which stage owns a given spec chapter or maturity row?** → [`03-spec-to-stage-traceability.md`](./03-spec-to-stage-traceability.md).
 - **What must be true before closing a stage?** → [`00-planning-conventions.md`](./00-planning-conventions.md).
 - **Is the feature publicly shipped yet?** → [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md), not this directory.
 

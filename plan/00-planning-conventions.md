@@ -142,6 +142,16 @@ Recommended commit-message style:
 - `feat: open browser bundle artifacts [stage 1.11]`
 - `docs: refine implementation roadmap and workstream guides`
 
+## Traceability maintenance rule
+
+When plan structure changes, keep [`03-spec-to-stage-traceability.md`](./03-spec-to-stage-traceability.md) in sync so every normative chapter still has an explicit implementation home and evidence lane.
+
+At minimum, update traceability when:
+- a stage is split or merged,
+- a later phase absorbs work previously assigned elsewhere,
+- a new user-visible command family appears,
+- or a maturity row changes promotion prerequisites.
+
 ## Anti-overclaim checklist
 
 Before merging plan changes, check:

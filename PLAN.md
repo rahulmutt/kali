@@ -23,6 +23,7 @@ plan/
 ├── 00-planning-conventions.md
 ├── 01-repository-layout.md
 ├── 02-workstreams-and-handoffs.md
+├── 03-spec-to-stage-traceability.md
 ├── phase-1/
 │   ├── README.md
 │   ├── 01-workspace-scaffold.md
@@ -65,7 +66,7 @@ plan/
     └── 05-pgo-and-language-bindings.md
 ```
 
-Total: 27 stage documents, 5 phase index documents, and 3 cross-phase planning guides.
+Total: 27 stage documents, 5 phase index documents, and 4 cross-phase planning guides.
 
 ## Suggested implementation directory structure
 
@@ -119,7 +120,7 @@ Start here, then use the supporting plan docs for the specific planning question
 - [plan/00-planning-conventions.md](./plan/00-planning-conventions.md) — stage-writing rules, workable-state discipline, and completion packets
 - [plan/01-repository-layout.md](./plan/01-repository-layout.md) — target repository shape and when each area should appear
 - [plan/02-workstreams-and-handoffs.md](./plan/02-workstreams-and-handoffs.md) — cross-phase workstreams, ownership boundaries, and parallel-stream handoffs
-
+- [plan/03-spec-to-stage-traceability.md](./plan/03-spec-to-stage-traceability.md) — chapter-by-chapter mapping from the normative spec set to concrete plan stages and evidence lanes
 
 - Use `SPEC.md` to decide what Kali promises.
 - Use this plan to decide implementation order and dependencies.
@@ -490,12 +491,13 @@ Phase 5 is complete when:
 
 ## Cross-phase planning guides
 
-The stage files are the authoritative step-by-step plan, but three cross-phase guides keep the whole roadmap coherent:
+The stage files are the authoritative step-by-step plan, but four cross-phase guides keep the whole roadmap coherent:
 
 - [plan/README.md](./plan/README.md) — entrypoint and navigation map for the plan set
 - [plan/00-planning-conventions.md](./plan/00-planning-conventions.md) — shared stage vocabulary, readiness rules, and update packets
 - [plan/01-repository-layout.md](./plan/01-repository-layout.md) — repository area ownership and when each area should be introduced
 - [plan/02-workstreams-and-handoffs.md](./plan/02-workstreams-and-handoffs.md) — the frontend/runtime/tooling/evidence workstreams and their handoff contracts
+- [plan/03-spec-to-stage-traceability.md](./plan/03-spec-to-stage-traceability.md) — a spec-coverage audit map so each normative chapter has an explicit implementation home
 
 ## Current post-completion follow-up lanes
 
