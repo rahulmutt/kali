@@ -32,6 +32,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - Added the first profile-guided optimization hook by widening the inlining budget for hot
   functions recorded in profile data, so the later PGO lane now influences a concrete optimization
   decision instead of remaining collection-only plumbing.
+- Added a maintained Python ctypes binding helper over the generated Kali C ABI header, giving the
+  later language-binding lane one concrete non-Rust wrapper surface to preserve alongside the
+  stable ABI metadata and export layout.
 
 ## Tasks
 
