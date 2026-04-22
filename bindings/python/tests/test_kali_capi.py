@@ -129,6 +129,65 @@ class KaliCapiSmokeTests(unittest.TestCase):
             self.assertEqual(binding.zero(), 7)
             self.assertEqual(binding._library.calls, [("add", 2, 3), ("zero",)])
 
+    def test_binding_package_with_stem_specific_manifest_is_auto_discovered(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            header_path = root / "sample.h"
+            metadata_path = root / "sample.cabi.json"
+            manifest_path = root / "sample.binding-package.json"
+
+            header_path.write_text(
+                "\n".join(
+                    [
+                        "#include <stdint.h>",
+                        "extern int32_t add(int32_t arg0, int32_t arg1);",
+                        "extern int32_t zero(void);",
+                    ]
+                )
+                + "\n"
+            )
+            metadata_path.write_text(
+                json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "kind": "cabi-metadata",
+                        "hostAbiVersion": 2,
+                        "minHostAbiVersion": 2,
+                        "artifacts": {
+                            "exportsHeader": "sample.h",
+                            "metadata": "sample.cabi.json",
+                            "wasmModule": "sample.capi.wasm",
+                            "wit": "sample.wit",
+                        },
+                    },
+                    sort_keys=True,
+                )
+            )
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "kind": "binding-package",
+                        "moduleName": "sample",
+                        "hostAbiVersion": 2,
+                        "minHostAbiVersion": 2,
+                        "artifacts": {
+                            "exportsHeader": "sample.h",
+                            "glue": ["shim.py"],
+                            "library": "sample.capi.wasm",
+                            "metadata": "sample.cabi.json",
+                        },
+                    },
+                    sort_keys=True,
+                )
+            )
+            (root / "sample.capi.wasm").write_bytes(b"")
+
+            binding = KaliCAPI.from_binding_package(DummyLibrary(), root)
+            self.assertEqual(binding.add(2, 3), 5)
+            self.assertEqual(binding.zero(), 7)
+            self.assertEqual(binding._library.calls, [("add", 2, 3), ("zero",)])
+
     def test_incompatible_binding_package_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

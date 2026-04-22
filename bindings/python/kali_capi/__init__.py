@@ -227,6 +227,27 @@ def load_binding_package_manifest(path: str | Path) -> BindingPackageManifest:
     return parse_binding_package_manifest(Path(path).read_text())
 
 
+def _resolve_binding_package_manifest_path(
+    bundle_root: Path,
+    manifest_name: str,
+) -> Path:
+    explicit_manifest_path = bundle_root / manifest_name
+    if explicit_manifest_path.exists():
+        return explicit_manifest_path
+
+    if manifest_name != "binding-package.json":
+        raise FileNotFoundError(explicit_manifest_path)
+
+    discovered_manifests = tuple(sorted(bundle_root.glob("*.binding-package.json")))
+    if not discovered_manifests:
+        raise FileNotFoundError(explicit_manifest_path)
+    if len(discovered_manifests) > 1:
+        raise ValueError(
+            "binding package manifest is ambiguous; pass manifest_name explicitly"
+        )
+    return discovered_manifests[0]
+
+
 def ensure_compatible_metadata(
     metadata: CabiMetadata,
     available_host_abi_version: int = HOST_ABI_VERSION,
@@ -314,8 +335,9 @@ class KaliCAPI:
         available_host_abi_version: int = HOST_ABI_VERSION,
     ) -> "KaliCAPI":
         bundle_root = Path(bundle_root)
+        manifest_path = _resolve_binding_package_manifest_path(bundle_root, manifest_name)
         manifest = ensure_compatible_binding_package_manifest(
-            load_binding_package_manifest(bundle_root / manifest_name),
+            load_binding_package_manifest(manifest_path),
             available_host_abi_version=available_host_abi_version,
         )
         header_text = (bundle_root / manifest.artifacts["exportsHeader"]).read_text()

@@ -24,13 +24,13 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 ## Progress
 
 - The public C-ABI helper now also emits a deterministic stem-specific binding-package manifest
-  sidecar for higher-level language bindings, and the maintained Python wrapper can load that
-  bundle layout directly while preserving the same host-ABI compatibility check. The Python binding
-  now also has explicit packaging metadata (`bindings/python/pyproject.toml` plus `README.md`) and
-  regression coverage for the distributable package scaffold, and the C-ABI smoke coverage now
-  pins the manifest file alongside the generated header and metadata outputs, so the
-  package/distribution shape stays explicit for the later binding workflow instead of limiting the
-  stage to header-only glue.
+  sidecar for higher-level language bindings, and the maintained Python wrapper can auto-discover
+  that generated bundle layout directly while preserving the same host-ABI compatibility check.
+  The Python binding now also has explicit packaging metadata (`bindings/python/pyproject.toml`
+  plus `README.md`) and regression coverage for both the generic package scaffold and the
+  stem-specific generated bundle, and the C-ABI smoke coverage now pins the manifest file alongside
+  the generated header and metadata outputs, so the package/distribution shape stays explicit for
+  the later binding workflow instead of limiting the stage to header-only glue.
 - Added the first deterministic profile-data format to `kali_optimize`, including stable versioning,
   normalization, aggregation, and JSON round-trip coverage so the later PGO lane has one canonical
   collection shape to build on.

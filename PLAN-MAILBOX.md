@@ -447,3 +447,6 @@ Proposed fix:
 
 2026-04-22 resolution note
 - the representative PGO benchmark regression is now present in `crates/kali_optimize/src/tests.rs`, and the Stage 5.5 progress note records the release-baseline-versus-profile-guided comparison explicitly, so the follow-up lane is closed without further plan churn
+
+2026-04-22 resolution note
+- taught the maintained Python binding helper to auto-discover the generated stem-specific `*.binding-package.json` layout used by `build --capi`, and added direct regression coverage for that generated bundle shape so Stage 5.5 now reflects the actual packaging workflow instead of only the legacy generic manifest name

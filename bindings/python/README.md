@@ -20,5 +20,9 @@ binding = KaliCAPI.from_binding_package(
 )
 ```
 
+`from_binding_package()` looks for an explicit `binding-package.json` first and then
+falls back to a single stem-specific `*.binding-package.json` manifest in the bundle
+root, which matches the generated Kali layout.
+
 The package is intentionally small and deterministic so the binding workflow can be
 reproduced from the generated C ABI header, metadata, and manifest files.

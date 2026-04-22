@@ -198,6 +198,90 @@ assert binding._library.calls == [("add", 2, 3), ("zero",)]
 }
 
 #[test]
+fn python_binding_auto_discovers_stem_specific_binding_package_manifest() {
+    if Command::new("python3").arg("--version").output().is_err() {
+        return;
+    }
+
+    let cargo_manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo_root = cargo_manifest_dir
+        .parent()
+        .and_then(|path| path.parent())
+        .expect("repo root");
+    let binding_root = repo_root.join("bindings/python");
+    let temp_root = std::env::temp_dir().join(format!(
+        "kali_capi_python_binding_{}_discover_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("monotonic time")
+            .as_nanos()
+    ));
+    fs::create_dir_all(&temp_root).expect("temp dir");
+
+    let header = generate_header("sample", &[Export::new("add", 2), Export::new("zero", 0)]);
+    let metadata = generate_metadata("sample.capi.wasm", "sample.wit", "sample.exports.h");
+    let header_path = temp_root.join("sample.h");
+    let metadata_path = temp_root.join("sample.cabi.json");
+    let script_path = temp_root.join("exercise_discovered_binding.py");
+    fs::write(&header_path, header).expect("write header fixture");
+    fs::write(&metadata_path, metadata.to_string()).expect("write metadata fixture");
+
+    let script = format!(
+        r#"from pathlib import Path
+import sys
+
+sys.path.insert(0, r"{}")
+from kali_capi import KaliCAPI
+
+class DummyLibrary:
+    def __init__(self):
+        self.calls = []
+
+    def add(self, left, right):
+        self.calls.append(("add", left, right))
+        return left + right
+
+    def zero(self):
+        self.calls.append(("zero",))
+        return 7
+
+binding = KaliCAPI.from_binding_package(DummyLibrary(), Path(r"{}"))
+assert binding.add(2, 3) == 5
+assert binding.zero() == 7
+assert binding._library.calls == [("add", 2, 3), ("zero",)]
+"#,
+        binding_root.display(),
+        temp_root.display(),
+    );
+    fs::write(&script_path, script).expect("write python exercise script");
+
+    let binding_manifest = generate_binding_package_manifest(
+        "sample",
+        "sample.capi.wasm",
+        "sample.cabi.json",
+        "sample.h",
+        &vec!["support.py".to_string(), "shim.py".to_string()],
+    );
+    fs::write(
+        temp_root.join("sample.binding-package.json"),
+        binding_manifest.to_string(),
+    )
+    .expect("write binding manifest fixture");
+    fs::write(temp_root.join("sample.capi.wasm"), b"").expect("write library placeholder");
+
+    let status = Command::new("python3")
+        .arg(&script_path)
+        .current_dir(repo_root)
+        .status()
+        .expect("run python binding test");
+    assert!(
+        status.success(),
+        "python binding helper auto-discovery exited with {status}"
+    );
+}
+
+#[test]
 fn python_binding_rejects_incompatible_host_abi_metadata() {
     if Command::new("python3").arg("--version").output().is_err() {
         return;
