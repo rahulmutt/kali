@@ -93,31 +93,47 @@ fn optimization_report_distinguishes_profile_usage_states() {
     assert!(no_profile.hot_function_keys.is_empty());
 
     let cold_profile = Optimizer::new(OptimizationLevel::Release)
-        .with_profile_data(ProfileData::new(vec![ProfileSample::new(
-            ProfileSampleKind::Function,
-            "cold-path",
-            7,
-        )]))
+        .with_profile_data(ProfileData::new(vec![
+            ProfileSample::new(ProfileSampleKind::Function, "cold-path", 7),
+            ProfileSample::new(ProfileSampleKind::Branch, "branch:cold", 7),
+            ProfileSample::new(ProfileSampleKind::Layout, "layout:cold", 7),
+        ]))
         .optimization_report();
     assert_eq!(cold_profile.level, OptimizationLevel::Release);
     assert!(cold_profile.profile_data_present);
     assert!(!cold_profile.profile_data_used_for_inlining);
+    assert!(!cold_profile.profile_data_used_for_branching);
+    assert!(!cold_profile.profile_data_used_for_layout_specialization);
     assert!(cold_profile.hot_function_keys.is_empty());
+    assert!(cold_profile.hot_branch_keys.is_empty());
+    assert!(cold_profile.hot_layout_keys.is_empty());
 
     let hot_profile = Optimizer::with_max_specializations(OptimizationLevel::ReleaseAdvanced, 32)
         .with_profile_data(ProfileData::new(vec![
             ProfileSample::new(ProfileSampleKind::Function, "beta-hot", 8),
             ProfileSample::new(ProfileSampleKind::Function, "alpha-hot", 9),
             ProfileSample::new(ProfileSampleKind::Function, "beta-hot", 1),
+            ProfileSample::new(ProfileSampleKind::Branch, "branch:alpha-hot:then", 8),
+            ProfileSample::new(ProfileSampleKind::Layout, "layout:point", 9),
         ]))
         .optimization_report();
     assert_eq!(hot_profile.level, OptimizationLevel::ReleaseAdvanced);
     assert_eq!(hot_profile.max_specializations, 32);
     assert!(hot_profile.profile_data_present);
     assert!(hot_profile.profile_data_used_for_inlining);
+    assert!(hot_profile.profile_data_used_for_branching);
+    assert!(hot_profile.profile_data_used_for_layout_specialization);
     assert_eq!(
         hot_profile.hot_function_keys,
         vec!["alpha-hot".to_string(), "beta-hot".to_string()]
+    );
+    assert_eq!(
+        hot_profile.hot_branch_keys,
+        vec!["branch:alpha-hot:then".to_string()]
+    );
+    assert_eq!(
+        hot_profile.hot_layout_keys,
+        vec!["layout:point".to_string()]
     );
 }
 

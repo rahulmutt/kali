@@ -87,11 +87,14 @@ impl ProfileData {
 
     /// Return all function hot paths that meet the minimum recorded weight.
     pub fn hot_function_keys(&self, minimum_weight: u64) -> Vec<String> {
+        self.hot_keys(ProfileSampleKind::Function, minimum_weight)
+    }
+
+    /// Return all hot paths for the requested sample kind that meet the minimum recorded weight.
+    pub fn hot_keys(&self, kind: ProfileSampleKind, minimum_weight: u64) -> Vec<String> {
         self.samples
             .iter()
-            .filter(|sample| {
-                sample.kind == ProfileSampleKind::Function && sample.weight >= minimum_weight
-            })
+            .filter(|sample| sample.kind == kind && sample.weight >= minimum_weight)
             .map(|sample| sample.key.clone())
             .collect()
     }
@@ -195,6 +198,25 @@ mod tests {
         assert_eq!(
             profile.hot_function_keys(1),
             vec!["hot".to_string(), "warm".to_string()]
+        );
+    }
+
+    #[test]
+    fn profile_data_hot_keys_filter_by_kind() {
+        let profile = ProfileData::new(vec![
+            ProfileSample::new(ProfileSampleKind::Function, "hot", 9),
+            ProfileSample::new(ProfileSampleKind::Branch, "branch:0", 8),
+            ProfileSample::new(ProfileSampleKind::Layout, "layout:point", 7),
+            ProfileSample::new(ProfileSampleKind::Branch, "branch:1", 3),
+        ]);
+
+        assert_eq!(
+            profile.hot_keys(ProfileSampleKind::Branch, 4),
+            vec!["branch:0".to_string()]
+        );
+        assert_eq!(
+            profile.hot_keys(ProfileSampleKind::Layout, 1),
+            vec!["layout:point".to_string()]
         );
     }
 

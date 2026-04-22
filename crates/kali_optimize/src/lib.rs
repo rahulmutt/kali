@@ -42,8 +42,16 @@ pub struct OptimizationReport {
     pub profile_data_present: bool,
     /// Whether profile data actually contributed any hot-function inlining hints.
     pub profile_data_used_for_inlining: bool,
+    /// Whether profile data contributed any hot-branch hints.
+    pub profile_data_used_for_branching: bool,
+    /// Whether profile data contributed any hot-layout hints.
+    pub profile_data_used_for_layout_specialization: bool,
     /// Hot function keys discovered in the attached profile data.
     pub hot_function_keys: Vec<String>,
+    /// Hot branch keys discovered in the attached profile data.
+    pub hot_branch_keys: Vec<String>,
+    /// Hot layout keys discovered in the attached profile data.
+    pub hot_layout_keys: Vec<String>,
 }
 
 /// Optimizer context.
@@ -88,13 +96,23 @@ impl Optimizer {
         let hot_function_keys = self.profile_data.as_ref().map_or_else(Vec::new, |profile| {
             profile.hot_function_keys(HOT_FUNCTION_MINIMUM_WEIGHT)
         });
+        let hot_branch_keys = self.profile_data.as_ref().map_or_else(Vec::new, |profile| {
+            profile.hot_keys(ProfileSampleKind::Branch, HOT_FUNCTION_MINIMUM_WEIGHT)
+        });
+        let hot_layout_keys = self.profile_data.as_ref().map_or_else(Vec::new, |profile| {
+            profile.hot_keys(ProfileSampleKind::Layout, HOT_FUNCTION_MINIMUM_WEIGHT)
+        });
 
         OptimizationReport {
             level: self.level,
             max_specializations: self.max_specializations,
             profile_data_present: self.profile_data.is_some(),
             profile_data_used_for_inlining: !hot_function_keys.is_empty(),
+            profile_data_used_for_branching: !hot_branch_keys.is_empty(),
+            profile_data_used_for_layout_specialization: !hot_layout_keys.is_empty(),
             hot_function_keys,
+            hot_branch_keys,
+            hot_layout_keys,
         }
     }
 
