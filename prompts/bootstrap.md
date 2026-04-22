@@ -42,3 +42,8 @@ Write a top-level SPEC.md that references specs/*.md to breakdown into logical u
 - Design the CLI output for AI agent consumption - don't be too verbose (add verbosity as a separate flag) on successes and for failures provide just enough detail to make AI loops token-efficient.
 - Take inspiration in language / type system design from languages like Haskell, Idris, Agda, Lean. At the same time aim for a pragmatic and ergonomic language like Rust.
 - Add support for WIT / WebAssembly Component Model (make it a default if it is sensible to do) and keep the interfaces well integrated with sandboxing and Kali-specific.
+
+- Should have a behnchmark suite adapted from the Node.js / JavaScript submissions to the [Computer Language Benchmarks Game](https://benchmarksgame-team.pages.debian.net/benchmarksgame/index.html) and adapt the JavaScript examples to TypeScript and use Kali-specific optimizations to be on par with Rust performance on those benchmarks.
+- Should have e2e tests that verify that the following npm binaries run and simple commands work:
+  - [semver](https://www.npmjs.com/package/semver)
+  - [pi-coding-agnet](https://www.npmjs.com/package/@mariozechner/pi-coding-agent)
