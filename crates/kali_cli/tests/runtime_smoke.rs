@@ -1279,6 +1279,7 @@ fn run_accepts_the_browser_api_surface_when_a_harness_command_is_configured() {
     assert_eq!(json["exitCode"], 0);
     assert_eq!(json["payload"]["exitCode"], 0);
     assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     assert!(
         json["stdout"]
             .as_str()
@@ -1323,6 +1324,7 @@ fn run_uses_browser_package_resolution_when_a_harness_command_is_configured() {
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
     assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     assert_eq!(json["stdout"], "0\n", "json: {json}");
 }
 
@@ -2291,6 +2293,7 @@ fn test_reports_function_coverage_in_json_output() {
     assert_eq!(json["command"], "test");
     assert_eq!(json["exitCode"], 0);
     assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
     assert_eq!(json["payload"]["coverage"]["mode"], "function");
     assert!(
         json["payload"]["coverage"]["summary"]["functionsTotal"]
@@ -4918,6 +4921,7 @@ fn json_run_emits_a_command_envelope() {
     assert_eq!(json["exitCode"], 0);
     assert_eq!(json["payload"]["exitCode"], 0);
     assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
     assert_eq!(json["stdout"], "");
     assert_eq!(json["stderr"], "");
 }
@@ -4946,6 +4950,7 @@ fn json_test_emits_a_command_envelope() {
     assert_eq!(json["payload"]["passed"], 1);
     assert_eq!(json["payload"]["failed"], 0);
     assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
     assert_eq!(json["stdout"], "");
     assert_eq!(json["stderr"], "");
 }

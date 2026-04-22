@@ -380,7 +380,13 @@ impl RuntimeCtx {
 
     /// Return the canonical runtime backend for the current execution context.
     pub fn runtime_backend(&self) -> RuntimeBackend {
-        RuntimeBackend::Wasmtime
+        if matches!(self.host_contract(), RuntimeHostContract::BrowserRequested)
+            && browser_harness_command_from_env().is_some()
+        {
+            RuntimeBackend::BrowserHarness
+        } else {
+            RuntimeBackend::Wasmtime
+        }
     }
 
     /// Return the host process identifier preserved in the execution context.

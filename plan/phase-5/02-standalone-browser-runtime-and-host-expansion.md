@@ -73,6 +73,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - The browser-package resolver now also honors an explicit browser API-surface request before a manifest is present, which keeps `run` / `test` package selection aligned with the requested browser contract instead of falling back to the default entrypoint when the later runtime path is exercised from a bare fixture.
 - Added browser-runtime smoke coverage for browser-conditional package exports in both `run` and `test`, so the later browser runtime path now exercises the browser-branch resolution rules as well as the browser-field package shape.
 - Added browser-runtime package-corpus smoke coverage for browser-field and browser-condition fixtures under the configured harness command, so the browser-executable rung now has an explicit package evidence lane in addition to the browser-targeted check/build corpus.
+- The `run` and `test` JSON payloads now carry the canonical `runtimeBackend` provenance label alongside `hostContract`, so browser-harness executions report `browser-harness` explicitly and the native path continues to report `wasmtime` through the same machine-readable envelope.
 
 ## Tasks
 
@@ -143,4 +144,4 @@ Extend package and API coverage for the standalone browser runtime path:
 
 ## Status
 
-Planned.
+In progress.

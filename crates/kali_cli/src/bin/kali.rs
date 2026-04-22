@@ -2555,6 +2555,7 @@ fn run_command(
                     "exitCode": outcome.exit_code,
                     "runtimeMs": start.elapsed().as_millis(),
                     "hostContract": runtime.host_contract().canonical_label(),
+                    "runtimeBackend": runtime.runtime_backend().canonical_label(),
                 });
                 print_envelope(
                     "run",
@@ -2851,6 +2852,7 @@ fn test_command(
                 "skipped": 0,
                 "runtimeMs": start.elapsed().as_millis(),
                 "hostContract": runtime.host_contract().canonical_label(),
+                "runtimeBackend": runtime.runtime_backend().canonical_label(),
                 "coverage": {
                     "mode": "function",
                     "files": coverage_reports,
@@ -2870,6 +2872,7 @@ fn test_command(
                 "skipped": 0,
                 "runtimeMs": start.elapsed().as_millis(),
                 "hostContract": runtime.host_contract().canonical_label(),
+                "runtimeBackend": runtime.runtime_backend().canonical_label(),
             })
         };
         let success = diagnostics.is_empty();
