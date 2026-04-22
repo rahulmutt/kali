@@ -36,6 +36,33 @@ fn parse_json_stdout(output: &std::process::Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("valid json stdout")
 }
 
+fn assert_browser_runtime_rejection_text(text: &str) {
+    assert!(text.contains("browser API surface"), "stderr: {text}");
+    assert!(
+        text.contains("selected host contract: browser-requested"),
+        "stderr: {text}"
+    );
+    assert!(
+        text.contains("standalone browser runtime contract"),
+        "stderr: {text}"
+    );
+}
+
+fn assert_browser_runtime_rejection_message(message: &str) {
+    assert!(
+        message.contains("browser API surface"),
+        "message: {message}"
+    );
+    assert!(
+        message.contains("selected host contract: browser-requested"),
+        "message: {message}"
+    );
+    assert!(
+        message.contains("standalone browser runtime contract"),
+        "message: {message}"
+    );
+}
+
 fn start_registry_metadata_server(
     body: &'static str,
 ) -> (
@@ -1201,6 +1228,7 @@ fn run_rejects_browser_api_surface_in_phase_one() {
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert_browser_runtime_rejection_text(&stderr);
 }
 
 #[test]
@@ -1230,6 +1258,7 @@ fn run_rejects_inherited_browser_api_surface_in_phase_one() {
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert_browser_runtime_rejection_text(&stderr);
 }
 
 #[test]
@@ -1253,6 +1282,9 @@ fn json_run_rejects_browser_api_surface_in_phase_one() {
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
+    assert_browser_runtime_rejection_message(
+        errors[0]["message"].as_str().expect("browser rejection message"),
+    );
 }
 
 #[test]
@@ -1289,6 +1321,9 @@ fn json_run_rejects_inherited_browser_api_surface_in_phase_one() {
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
+    assert_browser_runtime_rejection_message(
+        errors[0]["message"].as_str().expect("browser rejection message"),
+    );
 }
 
 #[test]
@@ -1314,11 +1349,7 @@ fn run_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
-    assert!(stderr.contains("browser API surface"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("standalone browser runtime contract"),
-        "stderr: {stderr}"
-    );
+    assert_browser_runtime_rejection_text(&stderr);
 }
 
 #[test]
@@ -1351,12 +1382,8 @@ fn json_run_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
-    assert!(
-        errors[0]["message"]
-            .as_str()
-            .expect("browser rejection message")
-            .contains("standalone browser runtime contract"),
-        "errors: {errors:?}"
+    assert_browser_runtime_rejection_message(
+        errors[0]["message"].as_str().expect("browser rejection message"),
     );
 }
 
@@ -4776,6 +4803,7 @@ fn test_rejects_browser_api_surface_in_phase_one() {
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert_browser_runtime_rejection_text(&stderr);
 }
 
 #[test]
@@ -4805,6 +4833,7 @@ fn test_rejects_inherited_browser_api_surface_in_phase_one() {
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert_browser_runtime_rejection_text(&stderr);
 }
 
 #[test]
@@ -4828,6 +4857,9 @@ fn json_test_rejects_browser_api_surface_in_phase_one() {
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
+    assert_browser_runtime_rejection_message(
+        errors[0]["message"].as_str().expect("browser rejection message"),
+    );
 }
 
 #[test]
@@ -4864,6 +4896,9 @@ fn json_test_rejects_inherited_browser_api_surface_in_phase_one() {
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
+    assert_browser_runtime_rejection_message(
+        errors[0]["message"].as_str().expect("browser rejection message"),
+    );
 }
 
 #[test]
@@ -4889,11 +4924,7 @@ fn test_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5006"), "stderr: {stderr}");
-    assert!(stderr.contains("browser API surface"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("standalone browser runtime contract"),
-        "stderr: {stderr}"
-    );
+    assert_browser_runtime_rejection_text(&stderr);
 }
 
 #[test]
@@ -4926,12 +4957,8 @@ fn json_test_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
     assert_eq!(errors[0]["code"], "E5006");
-    assert!(
-        errors[0]["message"]
-            .as_str()
-            .expect("browser rejection message")
-            .contains("standalone browser runtime contract"),
-        "errors: {errors:?}"
+    assert_browser_runtime_rejection_message(
+        errors[0]["message"].as_str().expect("browser rejection message"),
     );
 }
 

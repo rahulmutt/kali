@@ -29,6 +29,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - Browser-runtime unavailability now comes from one shared runtime helper, and the runtime exposes an explicit host-contract discriminator so the CLI and runtime stay aligned on the current wasmtime baseline versus a browser-requested contract boundary.
 - The browser-runtime rejection diagnostic now also points users back at the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) so the later-compatibility gate is actionable instead of only refusing the unsupported runtime shape.
 - Added a canonical runtime-host label helper in `kali_runtime` so browser-runtime diagnostics and future browser-harness logging can reuse one stable contract label (`browser-requested`) instead of inventing a second browser-only wording path.
+- The CLI browser-runtime smoke suite now pins that canonical `browser-requested` host label in both text and JSON output for `run` and `test`, keeping the user-facing runtime diagnostics aligned with the new shared label helper.
 
 ## Tasks
 
