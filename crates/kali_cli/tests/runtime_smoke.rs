@@ -182,24 +182,86 @@ fn count_wasm_instructions(bytes: &[u8]) -> usize {
     count
 }
 
-fn browser_bundle_harness_command() -> String {
-    if let Ok(command) = std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND") {
-        let command = command.trim();
-        if !command.is_empty() {
-            return command.to_owned();
+fn split_command_spec(command: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut in_single_quotes = false;
+    let mut in_double_quotes = false;
+    let mut escaped = false;
+
+    for ch in command.chars() {
+        if escaped {
+            current.push(ch);
+            escaped = false;
+            continue;
+        }
+
+        match ch {
+            '\\' if !in_single_quotes => {
+                escaped = true;
+            }
+            '\'' if !in_double_quotes => {
+                in_single_quotes = !in_single_quotes;
+            }
+            '"' if !in_single_quotes => {
+                in_double_quotes = !in_double_quotes;
+            }
+            ch if ch.is_whitespace() && !in_single_quotes && !in_double_quotes => {
+                if !current.is_empty() {
+                    parts.push(std::mem::take(&mut current));
+                }
+            }
+            ch => current.push(ch),
         }
     }
 
-    static BROWSER_BUNDLE_HARNESS_COMMAND: OnceLock<String> = OnceLock::new();
+    if !current.is_empty() {
+        parts.push(current);
+    }
+
+    parts
+}
+
+fn browser_bundle_harness_command_parts() -> Vec<String> {
+    if let Ok(command) = std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND") {
+        let command = command.trim();
+        if !command.is_empty() {
+            let parts = split_command_spec(command);
+            if !parts.is_empty() {
+                return parts;
+            }
+        }
+    }
+
+    static BROWSER_BUNDLE_HARNESS_COMMAND: OnceLock<Vec<String>> = OnceLock::new();
     BROWSER_BUNDLE_HARNESS_COMMAND
         .get_or_init(|| {
             if Command::new("bun").arg("--version").output().is_ok() {
-                "bun".to_string()
+                vec!["bun".to_string()]
             } else {
-                "node".to_string()
+                vec!["node".to_string()]
             }
         })
         .clone()
+}
+
+#[test]
+fn browser_bundle_harness_command_override_supports_quoted_arguments() {
+    let parts = split_command_spec(
+        r#"browser-wrapper --headless --profile "real browser" 'wrapped runner' escaped\ space"#,
+    );
+
+    assert_eq!(
+        parts,
+        vec![
+            "browser-wrapper".to_string(),
+            "--headless".to_string(),
+            "--profile".to_string(),
+            "real browser".to_string(),
+            "wrapped runner".to_string(),
+            "escaped space".to_string(),
+        ]
+    );
 }
 
 fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
@@ -239,9 +301,11 @@ console.log(String(result));
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let harness_command = browser_bundle_harness_command();
-    let output = Command::new(&harness_command)
+    let mut harness_command = browser_bundle_harness_command_parts();
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
         .current_dir(bundle_root)
+        .args(&harness_command)
         .arg(&harness_path)
         .output()
         .expect("run browser bundle harness");
@@ -300,9 +364,11 @@ console.log(String(value));
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let harness_command = browser_bundle_harness_command();
-    let output = Command::new(&harness_command)
+    let mut harness_command = browser_bundle_harness_command_parts();
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
         .current_dir(bundle_root)
+        .args(&harness_command)
         .arg(&harness_path)
         .output()
         .expect("run browser bundle harness");
