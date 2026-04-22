@@ -2689,6 +2689,18 @@ fn resolve_package_entry(
     package_json: &PackageJson,
     browser_context: bool,
 ) -> Option<PackageResolutionOutcome> {
+    if let Some(exports) = &package_json.exports {
+        if let Some(path) = resolve_package_exports(package_dir, exports, "", browser_context) {
+            return Some(apply_browser_rewrite(
+                package_dir,
+                package_json,
+                path,
+                true,
+                browser_context,
+            ));
+        }
+    }
+
     if let Some(main) = &package_json.main {
         if let Some(path) = resolve_package_file(package_dir, main) {
             return Some(apply_browser_rewrite(
@@ -2725,6 +2737,19 @@ fn resolve_package_subpath(
     subpath: &str,
     browser_context: bool,
 ) -> Option<PackageResolutionOutcome> {
+    if let Some(exports) = &package_json.exports {
+        if let Some(path) = resolve_package_exports(package_dir, exports, subpath, browser_context)
+        {
+            return Some(apply_browser_rewrite(
+                package_dir,
+                package_json,
+                path,
+                false,
+                browser_context,
+            ));
+        }
+    }
+
     let joined = package_dir.join(subpath);
     if joined.is_file() {
         return Some(apply_browser_rewrite(
@@ -2743,18 +2768,6 @@ fn resolve_package_subpath(
             false,
             browser_context,
         ));
-    }
-
-    if let Some(exports) = &package_json.exports {
-        if let Some(path) = resolve_package_exports(package_dir, exports, subpath) {
-            return Some(apply_browser_rewrite(
-                package_dir,
-                package_json,
-                path,
-                false,
-                browser_context,
-            ));
-        }
     }
 
     None
@@ -2803,6 +2816,7 @@ fn resolve_package_exports(
     package_dir: &Path,
     exports: &serde_json::Value,
     subpath: &str,
+    browser_context: bool,
 ) -> Option<PathBuf> {
     match exports {
         serde_json::Value::String(path) => resolve_package_file(package_dir, path),
@@ -2814,7 +2828,9 @@ fn resolve_package_exports(
             };
 
             if let Some(value) = map.get(&requested_key).or_else(|| map.get(".")) {
-                if let Some(path) = resolve_package_exports_target(package_dir, value, None) {
+                if let Some(path) =
+                    resolve_package_exports_target(package_dir, value, None, browser_context)
+                {
                     return Some(path);
                 }
             }
@@ -2837,9 +2853,12 @@ fn resolve_package_exports(
             );
 
             for (_, capture, value) in pattern_matches {
-                if let Some(path) =
-                    resolve_package_exports_target(package_dir, value, Some(capture))
-                {
+                if let Some(path) = resolve_package_exports_target(
+                    package_dir,
+                    value,
+                    Some(capture),
+                    browser_context,
+                ) {
                     return Some(path);
                 }
             }
@@ -2854,6 +2873,7 @@ fn resolve_package_exports_target(
     package_dir: &Path,
     value: &serde_json::Value,
     capture: Option<&str>,
+    browser_context: bool,
 ) -> Option<PathBuf> {
     match value {
         serde_json::Value::String(path) => {
@@ -2861,7 +2881,13 @@ fn resolve_package_exports_target(
             resolve_package_file(package_dir, &candidate)
         }
         serde_json::Value::Object(branches) => {
-            for branch in ["deno", "browser", "import", "require", "default"] {
+            let branch_order: &[&str] = if browser_context {
+                &["browser", "import", "require", "default"]
+            } else {
+                &["deno", "import", "require", "default"]
+            };
+
+            for &branch in branch_order {
                 if let Some(branch_value) = branches.get(branch) {
                     if let Some(path) = branch_value
                         .as_str()

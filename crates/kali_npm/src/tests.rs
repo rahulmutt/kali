@@ -280,6 +280,50 @@ fn browser_replacement_maps_rewrite_selected_subpaths() {
 }
 
 #[test]
+fn exports_take_precedence_over_legacy_entry_fields_and_respect_browser_conditions() {
+    let dir = tempdir().unwrap();
+    let package_dir = dir.path().join("node_modules/widget");
+    fs::create_dir_all(&package_dir).unwrap();
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "widget",
+  "main": "legacy.js",
+  "exports": {
+    ".": {
+      "deno": "./entry.deno.js",
+      "browser": "./entry.browser.js",
+      "default": "./entry.default.js"
+    }
+  }
+}"#,
+    )
+    .unwrap();
+    fs::write(package_dir.join("legacy.js"), "export default 'legacy';").unwrap();
+    fs::write(package_dir.join("entry.deno.js"), "export default 'deno';").unwrap();
+    fs::write(
+        package_dir.join("entry.browser.js"),
+        "export default 'browser';",
+    )
+    .unwrap();
+    fs::write(
+        package_dir.join("entry.default.js"),
+        "export default 'default';",
+    )
+    .unwrap();
+
+    let resolved_deno = resolve_materialized_import(dir.path(), "widget");
+    assert_eq!(resolved_deno.unwrap(), package_dir.join("entry.deno.js"));
+
+    let resolved_browser =
+        resolve_materialized_import_with_browser_context(dir.path(), "widget", true);
+    assert_eq!(
+        resolved_browser.unwrap(),
+        package_dir.join("entry.browser.js")
+    );
+}
+
+#[test]
 fn manifest_registry_collisions_are_rejected_before_install() {
     let manifest = ProjectManifest {
         dependencies: BTreeMap::from([("@scope/name".to_string(), "1.0.0".to_string())]),
