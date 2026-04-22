@@ -355,6 +355,7 @@ fn runtime_outcome_carries_runtime_profiles() {
         vec!["alpha".to_string(), "beta".to_string()]
     );
     assert_eq!(outcome.host_contract, RuntimeHostContract::KaliHosted);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::Wasmtime);
 }
 
 #[test]

@@ -62,6 +62,8 @@ pub struct KaliHostState {
     pub runtime_profiles: Vec<String>,
     /// High-level host contract selected for the current execution context.
     pub host_contract: RuntimeHostContract,
+    /// Canonical runtime backend selected for the current execution context.
+    pub runtime_backend: RuntimeBackend,
     /// Thread budget derived from the active policy and any invocation override.
     pub max_threads: Option<u64>,
     /// Spawn budget derived from the active policy and any invocation override.
@@ -128,6 +130,22 @@ impl RuntimeHostContract {
     }
 }
 
+/// Canonical runtime backend label for the current execution host.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RuntimeBackend {
+    /// The current canonical pure-Rust Wasmtime backend.
+    Wasmtime,
+}
+
+impl RuntimeBackend {
+    /// Return a stable, human-readable label for the selected runtime backend.
+    pub const fn canonical_label(self) -> &'static str {
+        match self {
+            Self::Wasmtime => "wasmtime",
+        }
+    }
+}
+
 /// Canonical metadata for the later standalone browser runtime contract.
 ///
 /// The contract is intentionally declarative for now: it documents the intended
@@ -184,6 +202,8 @@ pub struct RuntimeOutcome {
     pub runtime_profiles: Vec<String>,
     /// High-level host contract selected for the execution.
     pub host_contract: RuntimeHostContract,
+    /// Canonical runtime backend selected for the execution.
+    pub runtime_backend: RuntimeBackend,
 }
 
 impl Default for RuntimeCtx {
@@ -282,6 +302,11 @@ impl RuntimeCtx {
         } else {
             RuntimeHostContract::KaliHosted
         }
+    }
+
+    /// Return the canonical runtime backend for the current execution context.
+    pub fn runtime_backend(&self) -> RuntimeBackend {
+        RuntimeBackend::Wasmtime
     }
 
     /// Return the host process identifier preserved in the execution context.
@@ -389,6 +414,7 @@ impl RuntimeCtx {
                 process_id: self.process_id,
                 runtime_profiles: normalized_runtime_profiles.clone(),
                 host_contract: self.host_contract(),
+                runtime_backend: self.runtime_backend(),
                 max_threads: self
                     .policy
                     .as_ref()
@@ -481,6 +507,7 @@ impl RuntimeCtx {
                 coverage_hits: state.coverage_hits.iter().copied().collect(),
                 runtime_profiles: normalized_runtime_profiles.clone(),
                 host_contract: self.host_contract(),
+                runtime_backend: self.runtime_backend(),
             });
         }
 
@@ -500,6 +527,7 @@ impl RuntimeCtx {
                 coverage_hits: state.coverage_hits.iter().copied().collect(),
                 runtime_profiles: normalized_runtime_profiles.clone(),
                 host_contract: self.host_contract(),
+                runtime_backend: self.runtime_backend(),
             });
         }
 
@@ -530,6 +558,7 @@ impl RuntimeCtx {
             coverage_hits: state.coverage_hits.iter().copied().collect(),
             runtime_profiles: normalized_runtime_profiles,
             host_contract: self.host_contract(),
+            runtime_backend: self.runtime_backend(),
         })
     }
 }
@@ -2057,6 +2086,7 @@ impl Default for KaliHostState {
             process_id: std::process::id(),
             runtime_profiles: Vec::new(),
             host_contract: RuntimeHostContract::KaliHosted,
+            runtime_backend: RuntimeBackend::Wasmtime,
             max_threads: None,
             max_spawned_processes: None,
             stdout: String::new(),
@@ -2079,6 +2109,11 @@ impl Default for KaliHostState {
 }
 
 impl KaliHostState {
+    /// Return the canonical runtime backend preserved in the runtime store state.
+    pub fn runtime_backend(&self) -> RuntimeBackend {
+        self.runtime_backend
+    }
+
     /// Return the host process identifier preserved in the runtime store state.
     pub fn process_id(&self) -> u32 {
         self.process_id
