@@ -14,6 +14,7 @@ use kali_cli::{
     ApiSurface,
 };
 use kali_error::{_error_codes::e5, _error_codes::e8, Diagnostic};
+pub use kali_sandbox::{HostPredicate, PolicyPredicateContext, PolicyPredicateRegistry};
 
 /// Compiler configuration for the embedding API.
 #[derive(Debug, Clone, PartialEq, Eq)]

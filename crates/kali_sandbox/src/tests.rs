@@ -2,6 +2,7 @@ use super::*;
 use std::{
     fs,
     path::PathBuf,
+    sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -127,6 +128,137 @@ fn policy_rejects_unavailable_capabilities() {
         .diagnostics
         .iter()
         .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+}
+
+#[test]
+fn predicate_registry_rejects_when_disabled() {
+    let policy = valid_policy();
+    let registry = PolicyPredicateRegistry::disabled();
+
+    let diagnostic = policy
+        .check_operation_with_predicates(HostOperation::Console, &registry)
+        .expect_err("disabled predicate registry should reject evaluation");
+
+    assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    assert!(diagnostic
+        .message
+        .contains("host-registered sandbox predicates"));
+}
+
+#[test]
+fn registered_predicates_run_after_declarative_allowance() {
+    let policy = valid_policy();
+    let mut registry = PolicyPredicateRegistry::enabled();
+    registry.register("effects.console", "deny-stdout", |context| {
+        context.subject != "stdout"
+    });
+
+    let diagnostic = policy
+        .check_operation_with_predicates(HostOperation::Console, &registry)
+        .expect_err("predicate should narrow console access");
+
+    assert_eq!(diagnostic.code, Some(e4::EFFECT_NOT_PERMITTED as u32));
+    assert!(diagnostic
+        .message
+        .contains("host-registered predicate 'deny-stdout'"));
+    assert!(diagnostic.message.contains("effects.console"));
+}
+
+#[test]
+fn predicate_context_records_thread_spawn_details() {
+    let operation = HostOperation::ThreadSpawn { active_threads: 3 };
+    let context = PolicyPredicateContext::from_operation(&operation);
+
+    assert_eq!(context.capability, "resources.maxThreads");
+    assert_eq!(context.subject, "3");
+    assert_eq!(context.operation, operation);
+    assert_eq!(
+        context.details.get("activeThreads").map(String::as_str),
+        Some("3")
+    );
+}
+
+#[test]
+fn registered_predicates_can_inspect_host_specific_context_details() {
+    let mut policy = valid_policy();
+    policy.resources.max_threads = Some(2);
+
+    let seen_details = Arc::new(Mutex::new(Vec::<Option<String>>::new()));
+    let mut registry = PolicyPredicateRegistry::enabled();
+    let seen_details_clone = Arc::clone(&seen_details);
+    registry.register(
+        "resources.maxThreads",
+        "deny-nonzero-threads",
+        move |context| {
+            seen_details_clone
+                .lock()
+                .expect("details mutex")
+                .push(context.details.get("activeThreads").cloned());
+            context
+                .details
+                .get("activeThreads")
+                .is_some_and(|count| count == "0")
+        },
+    );
+
+    let diagnostic = policy
+        .check_operation_with_predicates(
+            HostOperation::ThreadSpawn { active_threads: 1 },
+            &registry,
+        )
+        .expect_err("predicate should narrow thread creation");
+
+    assert_eq!(diagnostic.code, Some(e4::EFFECT_NOT_PERMITTED as u32));
+    assert!(diagnostic
+        .message
+        .contains("host-registered predicate 'deny-nonzero-threads'"));
+    assert_eq!(
+        *seen_details.lock().expect("details mutex"),
+        vec![Some(String::from("1"))]
+    );
+}
+
+#[test]
+fn declarative_denials_stay_primary_over_predicates() {
+    let mut policy = valid_policy();
+    policy.effects.console = false;
+
+    let mut registry = PolicyPredicateRegistry::enabled();
+    registry.register("effects.console", "allow-all", |_| true);
+
+    let diagnostic = policy
+        .check_operation_with_predicates(HostOperation::Console, &registry)
+        .expect_err("declarative deny should win");
+
+    assert_eq!(diagnostic.code, Some(e4::EFFECT_NOT_PERMITTED as u32));
+    assert!(diagnostic.message.contains("Console output is not allowed"));
+    assert!(!diagnostic.message.contains("host-registered predicate"));
+}
+
+#[test]
+fn registered_predicates_run_in_registration_order() {
+    let policy = valid_policy();
+    let log = Arc::new(Mutex::new(Vec::<&'static str>::new()));
+    let mut registry = PolicyPredicateRegistry::enabled();
+
+    let first_log = Arc::clone(&log);
+    registry.register("effects.console", "first", move |_| {
+        first_log.lock().expect("log mutex").push("first");
+        true
+    });
+
+    let second_log = Arc::clone(&log);
+    registry.register("effects.console", "second", move |_| {
+        second_log.lock().expect("log mutex").push("second");
+        false
+    });
+
+    let diagnostic = policy
+        .check_operation_with_predicates(HostOperation::Console, &registry)
+        .expect_err("second predicate should reject after first passes");
+
+    assert_eq!(diagnostic.code, Some(e4::EFFECT_NOT_PERMITTED as u32));
+    assert_eq!(*log.lock().expect("log mutex"), vec!["first", "second"]);
 }
 
 #[test]

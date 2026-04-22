@@ -24,6 +24,18 @@ This stage must preserve two guardrails:
 - If algebraic effects are enabled, they integrate with the existing effect-report and lowering
   pipeline instead of creating a disconnected second effect system.
 
+## Progress
+
+- `kali_sandbox` now exposes a canonical host-predicate context plus a deterministic registration
+  registry for embedding-side narrowing predicates, and the public embedding crate re-exports that
+  context so embedding callers can inspect the same capability/subject payload that sandbox
+  enforcement uses. The canonical context now also carries host-specific detail for the threaded
+  budget path (`resources.maxThreads` / `activeThreads`), and the embedding tests pin that detail
+  through the re-exported context.
+- Declarative policy remains primary: the sandbox check helper applies the declarative decision
+  first and only then evaluates host-registered predicates, with deterministic registration order and
+  explicit rejection when the predicate registry is disabled.
+
 ## Tasks
 
 ### 1. Host-registered predicate API

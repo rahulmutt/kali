@@ -279,3 +279,9 @@ Proposed fix:
 2026-04-22 resolution note
 - closed the Stage 5.1 plan checklist by marking the threaded runtime-profile stage complete now that the canonical runtime-profile helper, shared validation path, and regression coverage are already in place
 - left the canonical later-compatibility gates unchanged; this is a plan-status update only, not a maturity change
+
+2026-04-22 resolution note
+- added the Stage 5.3 progress note and the new embedding-side host-predicate API groundwork in `kali_sandbox` / `kali_embed`, so the programmable-policy plan now records the canonical predicate context, deterministic registration order, and declarative-first evaluation path
+
+2026-04-22 resolution note
+- extended the host-predicate coverage with deterministic `resources.maxThreads` / `activeThreads` context details, plus matching sandbox and embedding regressions, so the Stage 5.3 plan note now pins the host-specific detail payload in addition to the shared capability/subject context

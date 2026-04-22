@@ -8,6 +8,7 @@ license.workspace = true
 kali_common = { workspace = true }
 kali_error = { workspace = true }
 kali_cli = { workspace = true }
+kali_sandbox = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3.10"

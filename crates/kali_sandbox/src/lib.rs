@@ -1,8 +1,10 @@
 //! Sandbox and policy system for the Kali compiler.
 
 use std::{
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 pub mod effects;
@@ -121,7 +123,7 @@ pub enum AccessRule {
 }
 
 /// Host operations checked against the policy.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HostOperation {
     Console,
     Random,
@@ -161,6 +163,147 @@ pub enum HostOperation {
         key: String,
     },
     Eval,
+}
+
+/// Canonical context payload observed by host-registered narrowing predicates.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PolicyPredicateContext {
+    /// Canonical capability name from the sandbox vocabulary.
+    pub capability: String,
+    /// Subject string associated with the host operation.
+    pub subject: String,
+    /// Host operation being evaluated.
+    pub operation: HostOperation,
+    /// Deterministic extra details for host-specific predicate logic.
+    pub details: BTreeMap<String, String>,
+}
+
+impl PolicyPredicateContext {
+    /// Create the canonical predicate context for one host operation.
+    pub fn from_operation(operation: &HostOperation) -> Self {
+        let mut details = BTreeMap::new();
+        let (capability, subject) = match operation {
+            HostOperation::Console => ("effects.console", "stdout".to_string()),
+            HostOperation::Random => ("effects.random", "random".to_string()),
+            HostOperation::FileRead { path } => {
+                ("effects.fileSystem.read", path.display().to_string())
+            }
+            HostOperation::FileWrite { path } => {
+                ("effects.fileSystem.write", path.display().to_string())
+            }
+            HostOperation::NetworkFetch { url } => ("effects.network.fetch", url.clone()),
+            HostOperation::NetworkConnect { target } => ("effects.network.connect", target.clone()),
+            HostOperation::NetworkListen { target } => ("effects.network.listen", target.clone()),
+            HostOperation::EnvironmentRead { key } => ("effects.process.envRead", key.clone()),
+            HostOperation::EnvironmentWrite { key } => ("effects.process.envWrite", key.clone()),
+            HostOperation::TimerSchedule {
+                delay_ms,
+                active_timers,
+            } => {
+                details.insert("activeTimers".to_string(), active_timers.to_string());
+                details.insert("delayMs".to_string(), delay_ms.to_string());
+                ("effects.timer.schedule", delay_ms.to_string())
+            }
+            HostOperation::ProcessSpawn { executable } => {
+                ("effects.process.spawn", executable.clone())
+            }
+            HostOperation::ThreadSpawn { active_threads } => {
+                details.insert("activeThreads".to_string(), active_threads.to_string());
+                ("resources.maxThreads", active_threads.to_string())
+            }
+            HostOperation::ProcessEnvWrite { key } => ("effects.process.envWrite", key.clone()),
+            HostOperation::Eval => ("effects.eval", "eval".to_string()),
+        };
+
+        Self {
+            capability: capability.to_string(),
+            subject,
+            operation: operation.clone(),
+            details,
+        }
+    }
+}
+
+/// Deterministic host-registered narrowing predicate registry.
+#[derive(Clone)]
+pub struct PolicyPredicateRegistry {
+    enabled: bool,
+    predicates: BTreeMap<String, Vec<RegisteredPredicate>>,
+}
+
+#[derive(Clone)]
+struct RegisteredPredicate {
+    name: String,
+    predicate: HostPredicate,
+}
+
+/// Host predicate function used by the embedding narrowing layer.
+pub type HostPredicate = Arc<dyn Fn(&PolicyPredicateContext) -> bool + Send + Sync + 'static>;
+
+impl Default for PolicyPredicateRegistry {
+    fn default() -> Self {
+        Self::enabled()
+    }
+}
+
+impl PolicyPredicateRegistry {
+    /// Create an enabled predicate registry.
+    pub fn enabled() -> Self {
+        Self {
+            enabled: true,
+            predicates: BTreeMap::new(),
+        }
+    }
+
+    /// Create a disabled registry that deterministically rejects predicate evaluation.
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            predicates: BTreeMap::new(),
+        }
+    }
+
+    /// Return whether host-registered predicate evaluation is enabled.
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Register a deterministic narrowing predicate for one canonical capability name.
+    pub fn register(
+        &mut self,
+        capability: impl Into<String>,
+        name: impl Into<String>,
+        predicate: impl Fn(&PolicyPredicateContext) -> bool + Send + Sync + 'static,
+    ) -> &mut Self {
+        let capability = capability.into();
+        let entry = self.predicates.entry(capability).or_default();
+        entry.push(RegisteredPredicate {
+            name: name.into(),
+            predicate: Arc::new(predicate),
+        });
+        self
+    }
+
+    fn evaluate(&self, context: &PolicyPredicateContext) -> Result<(), Diagnostic> {
+        if !self.enabled {
+            return Err(unavailable_capability("host-registered sandbox predicates"));
+        }
+
+        let Some(predicates) = self.predicates.get(&context.capability) else {
+            return Ok(());
+        };
+
+        for predicate in predicates {
+            if !(predicate.predicate)(context) {
+                return Err(sandbox_violation(format!(
+                    "host-registered predicate '{}' rejected {} for subject '{}'",
+                    predicate.name, context.capability, context.subject
+                )));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Policy validation results.
@@ -437,6 +580,21 @@ impl SandboxPolicy {
                 }
             }
         }
+    }
+
+    /// Check a host operation against the current policy and a host-registered predicate registry.
+    ///
+    /// Declarative policy remains primary: this first applies the declarative allow/deny decision
+    /// and then runs any registered narrowing predicates against the canonical operation context.
+    /// Predicates may reject additional operations but cannot authorize a declaratively denied one.
+    pub fn check_operation_with_predicates(
+        &self,
+        op: HostOperation,
+        predicates: &PolicyPredicateRegistry,
+    ) -> Result<(), Diagnostic> {
+        let context = PolicyPredicateContext::from_operation(&op);
+        self.check_operation(op)?;
+        predicates.evaluate(&context)
     }
 
     /// Return the policy as exact input bytes when available, or canonical JSON otherwise.

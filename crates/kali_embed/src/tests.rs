@@ -91,6 +91,36 @@ fn embedding_context_uses_the_stable_compiler_api() {
 }
 
 #[test]
+fn embedding_layer_reexports_the_host_predicate_context() {
+    let operation = kali_sandbox::HostOperation::Console;
+    let context = PolicyPredicateContext::from_operation(&operation);
+
+    assert_eq!(context.capability, "effects.console");
+    assert_eq!(context.subject, "stdout");
+    assert_eq!(context.operation, operation);
+    assert!(context.details.is_empty());
+
+    let mut registry = PolicyPredicateRegistry::enabled();
+    registry.register("effects.console", "deny-stdout", |ctx| {
+        ctx.subject != "stdout"
+    });
+}
+
+#[test]
+fn embedding_layer_reexports_thread_spawn_context_details() {
+    let operation = kali_sandbox::HostOperation::ThreadSpawn { active_threads: 5 };
+    let context = PolicyPredicateContext::from_operation(&operation);
+
+    assert_eq!(context.capability, "resources.maxThreads");
+    assert_eq!(context.subject, "5");
+    assert_eq!(context.operation, operation);
+    assert_eq!(
+        context.details.get("activeThreads").map(String::as_str),
+        Some("5")
+    );
+}
+
+#[test]
 fn compiler_rejects_threaded_runtime_profiles_in_the_current_phase() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

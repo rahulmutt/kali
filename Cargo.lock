@@ -1260,6 +1260,7 @@ dependencies = [
  "kali_cli",
  "kali_common",
  "kali_error",
+ "kali_sandbox",
  "tempfile",
 ]
 
