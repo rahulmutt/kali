@@ -563,6 +563,12 @@ fn scan_tokens_for_effects(
             continue;
         }
 
+        if is_proxy_constructor(tokens, i) {
+            dynamic_reasons.insert("proxy-traps".to_string());
+            i += 1;
+            continue;
+        }
+
         if is_console_write_call(tokens, i) {
             effects.push(observed_effect(file, token, source, "Console.Write", None));
             i += 1;
@@ -640,6 +646,15 @@ fn is_eval_call(tokens: &[Token], index: usize) -> bool {
 fn is_function_constructor(tokens: &[Token], index: usize) -> bool {
     matches!(tokens.get(index), Some(token) if token.kind == TokenType::New)
         && matches!(tokens.get(index + 1), Some(token) if token.kind == TokenType::Identifier && token.value == "Function")
+}
+
+fn is_proxy_constructor(tokens: &[Token], index: usize) -> bool {
+    matches!(tokens.get(index), Some(token) if token.kind == TokenType::New)
+        && matches!(tokens.get(index + 1), Some(token) if token.kind == TokenType::Identifier && token.value == "Proxy")
+        || matches!(tokens.get(index), Some(token) if token.kind == TokenType::New)
+            && matches!(tokens.get(index + 1), Some(token) if token.kind == TokenType::Identifier && token.value == "globalThis")
+            && matches!(tokens.get(index + 2).map(|t| t.kind), Some(TokenType::Dot))
+            && matches!(tokens.get(index + 3), Some(token) if token.kind == TokenType::Identifier && token.value == "Proxy")
 }
 
 fn is_console_write_call(tokens: &[Token], index: usize) -> bool {

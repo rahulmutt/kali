@@ -23,6 +23,7 @@ with explicit evidence and no hidden semantic weakening.
 ## Progress
 
 - The type resolver now issues the canonical `E5006` availability diagnostic for late host-control member accesses such as `Deno.pid`, `Deno.cwd`, `Deno.chdir`, `Deno.exit`, `process.pid`, `process.cwd`, `process.chdir`, and `process.exit`, including the `globalThis.`-qualified forms that appear in browser/Node-style source. CLI smoke coverage now pins the Deno-side `check` rejection path so the availability gate is visible both in resolver tests and in the user-facing command surface.
+- The object-model gate now also rejects direct and `globalThis.`-qualified `Proxy`, `WeakMap`, `WeakSet`, and `FinalizationRegistry` uses with the same canonical `E5006` shape, and the effect-analysis path marks `new Proxy(...)` as `proxy-traps` so the later compatibility boundary stays visible in both checking and machine-readable analysis output.
 
 ## Tasks
 
@@ -91,4 +92,4 @@ For each newly opened surface:
 
 ## Status
 
-Planned.
+In progress.

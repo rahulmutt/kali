@@ -334,6 +334,31 @@ Deno.lstat('/workspace/input.txt');
 }
 
 #[test]
+fn effect_analysis_marks_proxy_constructor_as_dynamic() {
+    let source = write_source_fixture(
+        r#"
+new Proxy({}, {});
+new globalThis.Proxy({}, {});
+"#,
+    );
+
+    let inference = infer_effects_from_roots(&[source.clone()], EffectAnalysisContext::new("deno"))
+        .expect("infer effects");
+
+    assert_eq!(inference.dynamic_reasons, vec!["proxy-traps"]);
+    assert!(inference.effects.is_empty(), "unexpected observed effects: {inference:?}");
+
+    let report = effect_report_from_inference(
+        vec![source.display().to_string()],
+        EffectAnalysisContext::new("deno"),
+        inference,
+    );
+
+    assert!(report.dynamic_effects);
+    assert_eq!(report.dynamic_reasons, vec!["proxy-traps"]);
+}
+
+#[test]
 fn effect_reports_normalize_analysis_context_axes() {
     let mut context = EffectAnalysisContext::new("deno");
     context.runtime_profiles = vec![

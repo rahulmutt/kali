@@ -4475,6 +4475,27 @@ console.log("hello");
 }
 
 #[test]
+fn effects_command_marks_proxy_constructor_as_dynamic() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "new Proxy({}, {});\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["dynamicEffects"], true);
+    assert_eq!(json["dynamicReasons"], json!(["proxy-traps"]));
+    assert!(json["effects"].as_array().expect("effects array").is_empty());
+}
+
+#[test]
 fn effects_uses_explicit_browser_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

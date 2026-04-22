@@ -1,6 +1,10 @@
 # PLAN mailbox
 
 2026-04-22 resolution note
+- added late object-model gating for `Proxy`, `WeakMap`, `WeakSet`, and `FinalizationRegistry` in the resolver, plus `proxy-traps` dynamic-reason detection in the effect-analysis path, so Stage 5.4 now records the new later-compatibility evidence alongside the existing host-control gate
+- updated the Stage 5.4 progress note and status to reflect that the stage is now in progress rather than purely planned
+
+2026-04-22 resolution note
 - added CLI smoke coverage for `kali build --profile` so repeated profile-guided builds stay byte-stable across invocations and unsupported profile-data versions fail through the command path as well as the lower-level loader
 - updated the Stage 5.5 progress note to record the new command-level profile-data evidence alongside the existing optimizer and binding groundwork
 
