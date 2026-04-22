@@ -280,7 +280,9 @@ fn embedding_predicates_run_in_registration_order() {
         diagnostic.code,
         Some(kali_error::_error_codes::e4::EFFECT_NOT_PERMITTED as u32)
     );
-    assert!(diagnostic.message.contains("host-registered predicate 'second'"));
+    assert!(diagnostic
+        .message
+        .contains("host-registered predicate 'second'"));
     assert_eq!(*log.lock().expect("log mutex"), vec!["first", "second"]);
 }
 

@@ -408,3 +408,7 @@ Proposed fix:
 2026-04-22 resolution note
 - added a dedicated Python `unittest` smoke harness under `bindings/python/tests/` and wired it into the Rust workspace test suite, so the maintained non-Rust binding now has first-class end-to-end smoke coverage instead of only ad hoc inline scripts
 - updated the Stage 5.5 progress note to record the new Python smoke harness alongside the existing Python ctypes helper and packaging/distribution metadata
+
+2026-04-22 resolution note
+- added run/test CLI smoke coverage for `globalThis.SharedArrayBuffer` and `globalThis.Atomics` in both text and JSON output, so the Stage 5.1 threaded-global evidence now spans the execution commands as well as the checking path
+- updated the Stage 5.1 progress note to record the broader command-surface coverage alongside the existing resolver-level gate and thread-budget evidence
