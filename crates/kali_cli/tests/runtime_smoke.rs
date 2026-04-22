@@ -7,7 +7,7 @@ use std::{
     process::Command,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
-        Arc,
+        Arc, OnceLock,
     },
     thread,
     time::{Duration, Instant},
@@ -174,6 +174,17 @@ fn count_wasm_instructions(bytes: &[u8]) -> usize {
     count
 }
 
+fn browser_bundle_harness_command() -> &'static str {
+    static BROWSER_BUNDLE_HARNESS_COMMAND: OnceLock<&'static str> = OnceLock::new();
+    BROWSER_BUNDLE_HARNESS_COMMAND.get_or_init(|| {
+        if Command::new("bun").arg("--version").output().is_ok() {
+            "bun"
+        } else {
+            "node"
+        }
+    })
+}
+
 fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
     let bundle_dir = bundle_root
         .file_name()
@@ -211,11 +222,11 @@ console.log(String(result));
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let output = Command::new("node")
+    let output = Command::new(browser_bundle_harness_command())
         .current_dir(bundle_root)
         .arg(&harness_path)
         .output()
-        .expect("run node browser harness");
+        .expect("run browser bundle harness");
 
     assert!(
         output.status.success(),
@@ -271,11 +282,11 @@ console.log(String(value));
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let output = Command::new("node")
+    let output = Command::new(browser_bundle_harness_command())
         .current_dir(bundle_root)
         .arg(&harness_path)
         .output()
-        .expect("run node browser harness");
+        .expect("run browser bundle harness");
 
     assert!(
         output.status.success(),
