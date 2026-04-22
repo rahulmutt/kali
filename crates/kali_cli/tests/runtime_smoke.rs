@@ -3181,7 +3181,10 @@ fn build_with_profile_data_is_deterministic_across_repeated_invocations() {
             String::from_utf8_lossy(&output.stderr)
         );
 
-        (output, fs::read(out_dir.join("math.wasm")).expect("read profiled wasm"))
+        (
+            output,
+            fs::read(out_dir.join("math.wasm")).expect("read profiled wasm"),
+        )
     };
 
     let (text_first, first) = build(false);

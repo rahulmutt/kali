@@ -424,3 +424,9 @@ Proposed fix:
 
 2026-04-22 resolution note
 - added the JSON-success PGO smoke regression so repeated `kali build --profile` runs now compare both text and machine-readable envelopes, and updated the Stage 5.5 progress note to reflect the broader deterministic PGO coverage
+
+2026-04-22 resolution note
+- added the representative PGO benchmark regression that compares the release baseline against the profile-guided build on a hot-function workload, and updated the Stage 5.5 progress note so the later PGO lane now records the gain-oriented coverage alongside the existing determinism and version-gate evidence
+
+2026-04-22 follow-up note
+- add a representative PGO benchmark regression that compares the release baseline against the profile-guided build on a hot-function workload, so Stage 5.5 records a concrete gain-oriented test in addition to the existing determinism and version-gate coverage

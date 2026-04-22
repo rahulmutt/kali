@@ -146,6 +146,76 @@ fn hot_function_profile_data_expands_inlining_budget() {
 }
 
 #[test]
+fn profile_guided_optimization_reduces_hot_call_sites_on_a_representative_workload() {
+    fn build_workload(function_name: &str, literals: &[&str]) -> (LirProgram, LirNodeId) {
+        let mut builder = LirBuilder::new();
+        let root = builder.alloc(LirNodeKind::Program);
+
+        let hot = builder.alloc_text(LirNodeKind::Instruction, function_name);
+        let hot_param = builder.alloc_text(LirNodeKind::Value, "value");
+        let hot_block = builder.alloc(LirNodeKind::Block);
+        let hot_return = builder.alloc_text(LirNodeKind::Instruction, "return");
+        let mut hot_expression = hot_param;
+
+        for literal_text in literals {
+            let add = builder.alloc_text(LirNodeKind::Value, "+");
+            let literal_node = literal(&mut builder, literal_text);
+            builder.node_mut(add).unwrap().children = vec![hot_expression, literal_node];
+            hot_expression = add;
+        }
+
+        builder.node_mut(hot_return).unwrap().children = vec![hot_expression];
+        builder.node_mut(hot_block).unwrap().children = vec![hot_return];
+        builder.node_mut(hot).unwrap().children = vec![hot_param, hot_block];
+
+        let call = builder.alloc(LirNodeKind::Call);
+        let callee = builder.alloc_text(LirNodeKind::Value, function_name);
+        let arg = builder.alloc_text(LirNodeKind::Value, "input");
+        builder.node_mut(call).unwrap().children = vec![callee, arg];
+        builder.node_mut(root).unwrap().children = vec![hot, call];
+
+        (
+            LirProgram {
+                root,
+                nodes: builder.into_nodes(),
+            },
+            call,
+        )
+    }
+
+    for (function_name, literals) in [
+        ("hot_add", &["1", "2", "3", "4", "5", "6"][..]),
+        ("hot_mix", &["1", "2", "3", "4", "5", "6"][..]),
+        ("hot_chain", &["1", "2", "3", "4", "5", "6"][..]),
+    ] {
+        let (mut cold_program, cold_call) = build_workload(function_name, &literals);
+        Optimizer::new(OptimizationLevel::Release).optimize_program(&mut cold_program);
+        assert_eq!(
+            cold_program.nodes[cold_call.0 as usize].kind,
+            LirNodeKind::Call,
+            "baseline release should keep the representative {function_name} call site"
+        );
+
+        let (mut hot_program, hot_call) = build_workload(function_name, &literals);
+        Optimizer::new(OptimizationLevel::Release)
+            .with_profile_data(ProfileData::new(vec![ProfileSample::new(
+                ProfileSampleKind::Function,
+                function_name,
+                8,
+            )]))
+            .optimize_program(&mut hot_program);
+
+        let optimized_call = &hot_program.nodes[hot_call.0 as usize];
+        assert_eq!(
+            optimized_call.kind,
+            LirNodeKind::Value,
+            "profile-guided build should inline the hot {function_name} workload"
+        );
+        assert_eq!(optimized_call.text.as_deref(), Some("+"));
+    }
+}
+
+#[test]
 fn specialization_cap_limits_distinct_constant_folds() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
