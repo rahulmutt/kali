@@ -209,6 +209,36 @@ impl RuntimeCtx {
         self
     }
 
+    fn reject_unavailable_threaded_requests(
+        &self,
+        normalized_runtime_profiles: &[String],
+    ) -> Option<Diagnostic> {
+        let mut unavailable = Vec::new();
+
+        if normalized_runtime_profiles
+            .iter()
+            .any(|profile| profile == "wasm-threads")
+        {
+            unavailable.push("runtimeProfiles[wasm-threads]");
+        }
+
+        if self.max_threads.is_some_and(|count| count > 0) {
+            unavailable.push("resources.maxThreads");
+        }
+
+        if unavailable.is_empty() {
+            return None;
+        }
+
+        Some(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "selected threaded request(s) {:?} are unavailable in the current runtime contract; Kali does not yet define the opt-in threaded runtime profile",
+                unavailable
+            ),
+        ))
+    }
+
     /// Execute a WASM module.
     pub fn execute(&self, wasm_bytes: &[u8]) -> Result<RuntimeOutcome, Vec<Diagnostic>> {
         self.execute_inner(wasm_bytes, false)
@@ -229,6 +259,13 @@ impl RuntimeCtx {
                 e5::FEATURE_UNAVAILABLE as u32,
                 "browser API surface is not available in the current runtime contract; Kali does not yet define a standalone browser runtime contract".to_string(),
             )]);
+        }
+
+        let normalized_runtime_profiles = self.canonical_runtime_profiles();
+        if let Some(diagnostic) =
+            self.reject_unavailable_threaded_requests(&normalized_runtime_profiles)
+        {
+            return Err(vec![diagnostic]);
         }
 
         let mut config = Config::new();
@@ -256,8 +293,6 @@ impl RuntimeCtx {
                     .build()
             })
             .unwrap_or_else(|| StoreLimitsBuilder::new().build());
-
-        let normalized_runtime_profiles = self.canonical_runtime_profiles();
 
         let mut store = Store::new(
             &engine,

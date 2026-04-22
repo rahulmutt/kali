@@ -76,15 +76,15 @@ fn runtime_exposes_arguments() {
 #[test]
 fn runtime_context_carries_runtime_profiles() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno").with_runtime_profiles(vec![
-        "wasm-threads".to_string(),
-        "wasm-threads".to_string(),
+        "beta".to_string(),
+        "beta".to_string(),
         "alpha".to_string(),
     ]);
 
     assert_eq!(runtime.api_surface, "deno");
     assert_eq!(
         runtime.runtime_profiles,
-        vec!["alpha".to_string(), "wasm-threads".to_string()]
+        vec!["alpha".to_string(), "beta".to_string()]
     );
 }
 
@@ -143,10 +143,61 @@ fn runtime_test_execution_rejects_browser_api_surface() {
 }
 
 #[test]
+fn runtime_rejects_threaded_runtime_profile_requests() {
+    let runtime = RuntimeCtx::with_api_surface(None, "deno")
+        .with_runtime_profiles(vec!["wasm-threads".to_string()]);
+    let wasm = compile_wat(
+        r#"
+            (module
+                (func (export "_start")))
+            "#,
+    );
+
+    let diagnostics = runtime
+        .execute(&wasm)
+        .expect_err("threaded runtime profile should be gated in this phase");
+    assert_eq!(diagnostics.len(), 1);
+    let diagnostic = &diagnostics[0];
+    assert_eq!(
+        diagnostic.code,
+        Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(
+        diagnostic.message.contains("runtimeProfiles[wasm-threads]"),
+        "diagnostic: {diagnostic:?}"
+    );
+}
+
+#[test]
+fn runtime_rejects_positive_thread_budget_requests() {
+    let runtime = RuntimeCtx::with_api_surface(None, "deno").with_max_threads(Some(1));
+    let wasm = compile_wat(
+        r#"
+            (module
+                (func (export "_start")))
+            "#,
+    );
+
+    let diagnostics = runtime
+        .execute_tests(&wasm)
+        .expect_err("positive thread budgets should be gated in this phase");
+    assert_eq!(diagnostics.len(), 1);
+    let diagnostic = &diagnostics[0];
+    assert_eq!(
+        diagnostic.code,
+        Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(
+        diagnostic.message.contains("resources.maxThreads"),
+        "diagnostic: {diagnostic:?}"
+    );
+}
+
+#[test]
 fn runtime_outcome_carries_runtime_profiles() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno").with_runtime_profiles(vec![
-        "wasm-threads".to_string(),
-        "wasm-threads".to_string(),
+        "beta".to_string(),
+        "beta".to_string(),
         "alpha".to_string(),
     ]);
 
@@ -160,7 +211,7 @@ fn runtime_outcome_carries_runtime_profiles() {
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(
         outcome.runtime_profiles,
-        vec!["alpha".to_string(), "wasm-threads".to_string()]
+        vec!["alpha".to_string(), "beta".to_string()]
     );
 }
 
@@ -168,9 +219,9 @@ fn runtime_outcome_carries_runtime_profiles() {
 fn runtime_execute_normalizes_profiles_from_public_field_mutation() {
     let mut runtime = RuntimeCtx::with_api_surface(None, "deno");
     runtime.runtime_profiles = vec![
-        " wasm-threads ".to_string(),
+        " beta ".to_string(),
         "alpha".to_string(),
-        "wasm-threads".to_string(),
+        "beta".to_string(),
         "alpha".to_string(),
     ];
 
@@ -184,7 +235,7 @@ fn runtime_execute_normalizes_profiles_from_public_field_mutation() {
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(
         outcome.runtime_profiles,
-        vec!["alpha".to_string(), "wasm-threads".to_string()]
+        vec!["alpha".to_string(), "beta".to_string()]
     );
 }
 
@@ -192,9 +243,9 @@ fn runtime_execute_normalizes_profiles_from_public_field_mutation() {
 fn runtime_execute_tests_normalizes_profiles_from_public_field_mutation() {
     let mut runtime = RuntimeCtx::with_api_surface(None, "deno");
     runtime.runtime_profiles = vec![
-        " wasm-threads ".to_string(),
+        " beta ".to_string(),
         "alpha".to_string(),
-        "wasm-threads".to_string(),
+        "beta".to_string(),
         "alpha".to_string(),
     ];
 
@@ -209,15 +260,15 @@ fn runtime_execute_tests_normalizes_profiles_from_public_field_mutation() {
     assert_eq!(outcome.tests_run, 1);
     assert_eq!(
         outcome.runtime_profiles,
-        vec!["alpha".to_string(), "wasm-threads".to_string()]
+        vec!["alpha".to_string(), "beta".to_string()]
     );
 }
 
 #[test]
 fn runtime_test_outcome_carries_runtime_profiles() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno").with_runtime_profiles(vec![
-        "wasm-threads".to_string(),
-        "wasm-threads".to_string(),
+        "beta".to_string(),
+        "beta".to_string(),
         "alpha".to_string(),
     ]);
 
@@ -232,7 +283,7 @@ fn runtime_test_outcome_carries_runtime_profiles() {
     assert_eq!(outcome.tests_run, 1);
     assert_eq!(
         outcome.runtime_profiles,
-        vec!["alpha".to_string(), "wasm-threads".to_string()]
+        vec!["alpha".to_string(), "beta".to_string()]
     );
 }
 
