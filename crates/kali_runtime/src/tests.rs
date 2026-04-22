@@ -191,6 +191,21 @@ fn split_command_spec_rejects_malformed_inputs() {
 }
 
 #[test]
+fn browser_harness_command_parts_checked_reports_malformed_overrides() {
+    let empty_executable = browser_harness_command_parts_checked(Some(r#"" --flag"#))
+        .expect_err("empty executable token should be rejected");
+    assert!(empty_executable.contains("KALI_BROWSER_BUNDLE_HARNESS_COMMAND"));
+    assert!(empty_executable.contains(r#"" --flag"#));
+
+    let unterminated =
+        browser_harness_command_parts_checked(Some(r#"browser-wrapper "unterminated"#))
+            .expect_err("unterminated quotes should be rejected");
+    assert!(unterminated.contains("KALI_BROWSER_BUNDLE_HARNESS_COMMAND"));
+    assert!(unterminated.contains("browser-wrapper"));
+    assert!(unterminated.contains("unterminated"));
+}
+
+#[test]
 fn browser_runtime_unavailable_diagnostic_formats_command_context() {
     let command_diagnostic = browser_runtime_unavailable_diagnostic(Some("run"), None);
     assert!(

@@ -2197,18 +2197,30 @@ fn browser_harness_default_command_parts() -> Vec<String> {
 /// The helper accepts the same argv-style shell subset as [`split_command_spec`]
 /// and falls back to the deterministic default host command when no override is
 /// supplied.
-pub fn browser_harness_command_parts_for(command: Option<&str>) -> Vec<String> {
+pub fn browser_harness_command_parts_checked(command: Option<&str>) -> Result<Vec<String>, String> {
     if let Some(command) = command {
         let command = command.trim();
         if !command.is_empty() {
             match split_command_spec(command) {
-                Some(parts) if !parts.is_empty() => return parts,
-                _ => panic!("malformed {BROWSER_HARNESS_COMMAND_ENV} override: {command:?}"),
+                Some(parts) if !parts.is_empty() => return Ok(parts),
+                _ => {
+                    return Err(format!(
+                        "malformed {BROWSER_HARNESS_COMMAND_ENV} override: {command:?}"
+                    ));
+                }
             }
         }
     }
 
-    browser_harness_default_command_parts()
+    Ok(browser_harness_default_command_parts())
+}
+
+/// Return the command used by browser smoke or future browser-runtime harnesses.
+///
+/// This convenience wrapper preserves the historical infallible shape for tests
+/// and other call sites that expect a guaranteed command vector.
+pub fn browser_harness_command_parts_for(command: Option<&str>) -> Vec<String> {
+    browser_harness_command_parts_checked(command).unwrap_or_else(|error| panic!("{error}"))
 }
 
 /// Return the effective browser harness command using the configured environment override.
