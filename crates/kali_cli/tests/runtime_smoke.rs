@@ -4854,16 +4854,13 @@ fn run_executes_package_bin_entrypoints_with_shebangs_after_stripping_the_sheban
     assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n");
 }
 
-#[test]
-fn run_executes_semver_style_package_bin_on_node_api_surface() {
-    let dir = tempdir().expect("tempdir");
-    let package_dir = dir.path().join("node_modules/semver");
+fn write_semver_style_package_fixture(package_dir: &Path) {
     fs::create_dir_all(package_dir.join("bin")).expect("create package dir");
     fs::write(
         package_dir.join("package.json"),
         r#"{
   "name": "semver",
-  "version": "1.0.0",
+  "version": "1.2.3",
   "bin": {
     "semver": "bin/semver.js"
   }
@@ -4872,9 +4869,64 @@ fn run_executes_semver_style_package_bin_on_node_api_surface() {
     .expect("write package json");
     fs::write(
         package_dir.join("bin/semver.js"),
-        "#!/usr/bin/env node\nconsole.log('ok');\n",
+        r#"#!/usr/bin/env node
+var argv = process.argv.slice(2);
+
+function help() {
+  console.log('Usage: semver [options] <version> [<version> [...]]');
+}
+
+if (!argv.length) {
+  help();
+} else {
+  while (argv.length) {
+    var a = argv.shift();
+    switch (a) {
+      case '-h':
+      case '--help':
+      case '-?':
+        help();
+        return;
+      default:
+        console.log(a);
+        break;
+    }
+  }
+}
+"#,
     )
-    .expect("write package bin");
+    .expect("write semver bin");
+}
+
+#[test]
+fn run_executes_semver_style_package_bin_help_path_on_node_api_surface() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/semver");
+    write_semver_style_package_fixture(&package_dir);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("node")
+        .arg(package_dir.join("bin/semver.js"))
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Usage: semver [options] <version> [<version> [...]]"),
+        "stdout: {stdout}"
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).is_empty());
+}
+
+#[test]
+fn run_executes_semver_style_package_bin_help_path_with_guest_args_still_unwired_on_node_api_surface() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/semver");
+    write_semver_style_package_fixture(&package_dir);
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -4888,7 +4940,11 @@ fn run_executes_semver_style_package_bin_on_node_api_surface() {
         .expect("run kali");
 
     assert!(output.status.success());
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Usage: semver [options] <version> [<version> [...]]"),
+        "stdout: {stdout}"
+    );
     assert!(String::from_utf8_lossy(&output.stderr).is_empty());
 }
 

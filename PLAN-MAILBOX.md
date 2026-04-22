@@ -412,3 +412,6 @@ Proposed fix:
 2026-04-22 resolution note
 - added run/test CLI smoke coverage for `globalThis.SharedArrayBuffer` and `globalThis.Atomics` in both text and JSON output, so the Stage 5.1 threaded-global evidence now spans the execution commands as well as the checking path
 - updated the Stage 5.1 progress note to record the broader command-surface coverage alongside the existing resolver-level gate and thread-budget evidence
+
+2026-04-22 follow-up note
+- the semver Node-path probe still needs the real help-path and argument-passthrough regression so the Stage 3.2 historical notes can stop describing the fixture as a bare package-bin execution case
