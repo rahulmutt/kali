@@ -26,6 +26,7 @@ Examples:
 - `run/test --sandbox`, the **Phase-1 static policy-validation surface**, and the **Phase-1 browser-targeted command set** need positive Phase-1 coverage.
 - Before their maturity rows open, `kali effects`, `kali package-effects`, `kali package-audit`, inferred-effect-vs-policy rejection on `check/build --sandbox`, stable public embedding flows (`--capi`, `--component`, stable public `--lib` + WIT), and wider proof claims stay negative/gated.
 - Once those rows are open, the same surfaces must move to positive evidence in their matching lanes instead of lingering as historical negative tests.
+- Current-repository-state shortcut: the public effect-reporting surface, the built-in effect-vs-policy validation path, the stable public embedding flows (`--lib` + WIT, `--capi`, `--component`), `kali package-audit`, and proof-backed claims for the published boundary should now be read as **positive-evidence** lanes, not as Phase-1-era gated examples.
 
 ## Evidence matrix
 

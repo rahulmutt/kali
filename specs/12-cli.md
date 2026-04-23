@@ -412,6 +412,10 @@ Checker diagnostics may still carry structured `SuggestedFix` metadata for edito
 Output static effect analysis as JSON.
 
 Status: Phase 2 target. This section documents a **defined command family** in schema v1; in Phase 1 the command remains unavailable while the internal effect infrastructure stabilizes. JSON-formatting selectors do not create an earlier path: before the command itself ships, `kali effects --pretty ...`, `kali effects --output json ...`, and `kali effects --pretty --output json ...` stay on the same base command gate as plain `kali effects ...`.
+
+Current-repository-state note:
+- `kali effects` is live in the current repository for its documented Phase-2 surface.
+- The Phase-2 label here still marks the **earliest support contract**; current availability remains owned by [19 — Feature Maturity](19-feature-maturity.md).
 ```bash
 kali effects main.ts                       # Compact effect report JSON to stdout (default source-graph analysis context)
 kali effects --api browser main.ts         # Browser-targeted effect analysis once the Phase 2 command exists
@@ -622,6 +626,10 @@ Quick comparison:
 Analyze effects of one registry package under the canonical schema-v1 registry-analysis rules.
 
 Status: **Phase 2 target**. This section documents a **defined command family** in schema v1; before Phase 2, if package-level analysis is unavailable, the CLI should report that clearly instead of returning partial ad hoc output.
+
+Current-repository-state note:
+- `kali package-effects` is live in the current repository for its documented Phase-2 surface.
+- The Phase-2 label here still marks the **earliest support contract**; current availability remains owned by [19 — Feature Maturity](19-feature-maturity.md).
 ```bash
 kali package-effects lodash                # Analyze npm package
 kali package-effects jsr:@std/path         # Analyze JSR package
@@ -655,6 +663,10 @@ Analysis rule:
 Security audit for one registry package under the canonical schema-v1 registry-analysis rules.
 
 Status: **Phase 4 compatibility**. This section also documents a **defined command family** in schema v1; it should not block Phase 1-2 compiler/runtime delivery, and if unavailable in earlier phases the CLI should fail clearly rather than implying a partial security guarantee.
+
+Current-repository-state note:
+- `kali package-audit` is live in the current repository for its documented Phase-4 surface.
+- The Phase-4 label here still marks the **earliest support contract**; current availability remains owned by [19 — Feature Maturity](19-feature-maturity.md).
 ```bash
 kali package-audit lodash                  # Audit specific npm package
 kali package-audit jsr:@std/path           # Audit specific JSR package
