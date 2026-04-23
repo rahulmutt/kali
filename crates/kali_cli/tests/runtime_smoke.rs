@@ -8925,6 +8925,45 @@ fn package_audit_rejects_package_analysis_specific_flags() {
 }
 
 #[test]
+fn package_audit_rejects_compat_feature_surface() {
+    let output = Command::new(kali_bin())
+        .arg("package-audit")
+        .arg("--compat")
+        .arg("eval")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept package-analysis-specific flags"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn package_audit_rejects_wasm_threads_runtime_profile() {
+    let output = Command::new(kali_bin())
+        .arg("package-audit")
+        .arg("--wasm-threads")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept package-analysis-specific flags"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn package_audit_rejects_browser_api_surface() {
     let output = Command::new(kali_bin())
         .arg("package-audit")
