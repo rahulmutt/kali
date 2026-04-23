@@ -1706,6 +1706,12 @@ fn run_accepts_the_browser_api_surface_when_a_harness_command_is_configured() {
 }
 
 #[cfg(unix)]
+fn shell_quote_path(path: &Path) -> String {
+    let rendered = path.to_string_lossy().replace('\'', "'\\''");
+    format!("'{}'", rendered)
+}
+
+#[cfg(unix)]
 fn run_browser_entrypoint_smoke(browser_name: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -1717,7 +1723,7 @@ fn run_browser_entrypoint_smoke(browser_name: &str) {
     let browser_log = dir.path().join(format!("{browser_name}-args.txt"));
     let command = format!(
         r#"{} -c 'printf "%s\n" "$@" > "$KALI_BROWSER_SHIM_LOG"; printf "{{\"args\":[],\"tests\":[],\"testsFailed\":0}}\n" > "$KALI_BROWSER_HARNESS_SUMMARY_FILE"; printf "browser run\n"; exit 0' _ --headless"#,
-        browser.display()
+        shell_quote_path(&browser)
     );
 
     let output = Command::new(kali_bin())
@@ -1790,6 +1796,14 @@ fn run_uses_browser_entrypoint_for_edge_beta_executables() {
 #[test]
 fn run_uses_browser_entrypoint_for_msedge_canary_executables() {
     run_browser_entrypoint_smoke("msedge-canary");
+}
+
+#[cfg(unix)]
+#[test]
+fn run_uses_browser_entrypoint_for_brave_browser_stable_executables() {
+    for browser_name in ["brave-browser-stable", "brave browser stable"] {
+        run_browser_entrypoint_smoke(browser_name);
+    }
 }
 
 #[test]
