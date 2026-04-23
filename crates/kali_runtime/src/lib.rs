@@ -2279,7 +2279,8 @@ fn browser_harness_normalized_executable_name(executable: &str) -> String {
         .to_ascii_lowercase();
 
     executable
-        .strip_suffix(".exe")
+        .strip_suffix(".desktop")
+        .or_else(|| executable.strip_suffix(".exe"))
         .or_else(|| executable.strip_suffix(".cmd"))
         .or_else(|| executable.strip_suffix(".bat"))
         .or_else(|| executable.strip_suffix(".com"))
