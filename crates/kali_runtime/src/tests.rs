@@ -25,6 +25,18 @@ fn wat_assert_buffer_eq(start: i32, expected: &str) -> String {
     checks
 }
 
+#[cfg(unix)]
+fn browser_exit_status(code: i32) -> std::process::ExitStatus {
+    use std::os::unix::process::ExitStatusExt;
+    std::process::ExitStatus::from_raw(code << 8)
+}
+
+#[cfg(windows)]
+fn browser_exit_status(code: i32) -> std::process::ExitStatus {
+    use std::os::windows::process::ExitStatusExt;
+    std::process::ExitStatus::from_raw(code as u32)
+}
+
 #[test]
 fn runtime_executes_modules_with_console_host_imports() {
     let wasm = compile_wat(
@@ -647,6 +659,24 @@ fn browser_runtime_harness_summary_file_capture_is_deterministic() {
         "summary: {}",
         summary
     );
+}
+
+#[test]
+fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_unparseable() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let summary_path = tempdir.path().join("browser-runtime-summary.json");
+    fs::write(&summary_path, "not-json").expect("write malformed summary file");
+    let outcome = BrowserHarnessOutcome {
+        command: vec!["node".to_string()],
+        status: browser_exit_status(0),
+        stdout: r#"{"args":["zeta"],"tests":["7"],"testsFailed":0}"#.to_string(),
+        stderr: String::new(),
+    };
+
+    let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
+    assert_eq!(summary.args, vec!["zeta".to_string()]);
+    assert_eq!(summary.tests, vec!["7".to_string()]);
+    assert_eq!(summary.tests_failed, 0);
 }
 
 #[test]

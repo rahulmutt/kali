@@ -2892,34 +2892,34 @@ struct BrowserRuntimeSummary {
 }
 
 fn parse_browser_runtime_summary(stdout: &str) -> BrowserRuntimeSummary {
-    stdout
-        .lines()
-        .rev()
-        .find_map(|line| {
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
-                return None;
-            }
+    parse_browser_runtime_summary_opt(stdout).unwrap_or_default()
+}
 
-            let value = serde_json::from_str::<serde_json::Value>(trimmed).ok()?;
-            let args = value.get("args")?.as_array()?;
-            let tests = value.get("tests")?.as_array()?;
-            Some(BrowserRuntimeSummary {
-                args: args
-                    .iter()
-                    .filter_map(|value| value.as_str().map(ToOwned::to_owned))
-                    .collect(),
-                tests: tests
-                    .iter()
-                    .filter_map(|value| value.as_str().map(ToOwned::to_owned))
-                    .collect(),
-                tests_failed: value
-                    .get("testsFailed")
-                    .and_then(|value| value.as_u64())
-                    .unwrap_or(0) as usize,
-            })
+fn parse_browser_runtime_summary_opt(stdout: &str) -> Option<BrowserRuntimeSummary> {
+    stdout.lines().rev().find_map(|line| {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+
+        let value = serde_json::from_str::<serde_json::Value>(trimmed).ok()?;
+        let args = value.get("args")?.as_array()?;
+        let tests = value.get("tests")?.as_array()?;
+        Some(BrowserRuntimeSummary {
+            args: args
+                .iter()
+                .filter_map(|value| value.as_str().map(ToOwned::to_owned))
+                .collect(),
+            tests: tests
+                .iter()
+                .filter_map(|value| value.as_str().map(ToOwned::to_owned))
+                .collect(),
+            tests_failed: value
+                .get("testsFailed")
+                .and_then(|value| value.as_u64())
+                .unwrap_or(0) as usize,
         })
-        .unwrap_or_default()
+    })
 }
 
 fn browser_runtime_summary_for_outcome(
@@ -2927,7 +2927,8 @@ fn browser_runtime_summary_for_outcome(
     outcome: &BrowserHarnessOutcome,
 ) -> BrowserRuntimeSummary {
     match fs::read_to_string(summary_path) {
-        Ok(text) => parse_browser_runtime_summary(&text),
+        Ok(text) => parse_browser_runtime_summary_opt(&text)
+            .unwrap_or_else(|| parse_browser_runtime_summary(&outcome.stdout)),
         Err(_) => parse_browser_runtime_summary(&outcome.stdout),
     }
 }
