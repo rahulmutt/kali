@@ -46,7 +46,9 @@ counting placeholder with deterministic compile-time ownership decisions: `stack
   time without reconstructing the filter logic themselves. Added explicit module-scope convenience
   helpers for borrowed lifetimes and thread-boundary profiles, together with regression coverage for
   a non-empty module-scope summary so downstream consumers no longer need to spell the internal
-  `"module"` sentinel when they want the root-scope view.
+  `"module"` sentinel when they want the root-scope view. The MIR crate now also publishes the canonical
+  layout/representation fingerprint helper, and the layout-aware optimization pass reuses that shared
+  fingerprinting logic instead of carrying a duplicate private signature routine.
 
 ## Tasks
 

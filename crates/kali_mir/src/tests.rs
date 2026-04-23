@@ -456,6 +456,38 @@ fn test_binding_thread_boundary_entry_uses_scope_and_disposition() {
 }
 
 #[test]
+fn test_layout_fingerprints_are_deterministic_and_reusable() {
+    let closure = LayoutDescriptor::Closure {
+        captures: vec!["z".to_string(), "a".to_string()],
+    };
+    assert_eq!(closure.fingerprint(), "Closure(captures=a|z)");
+
+    let structure = LayoutDescriptor::Struct {
+        fields: vec![
+            (
+                "beta".to_string(),
+                Box::new(LayoutDescriptor::scalar("number")),
+            ),
+            ("alpha".to_string(), Box::new(LayoutDescriptor::TaggedVal)),
+        ],
+    };
+    assert_eq!(
+        structure.fingerprint(),
+        "Struct(beta:Scalar(number),alpha:TaggedVal)"
+    );
+
+    let binding = MirBinding {
+        name: "value".to_string(),
+        kind: MirBindingKind::Local,
+        ownership: OwnershipClass::Stack,
+        layout: closure,
+        escapes: false,
+        captured_by: Vec::new(),
+    };
+    assert_eq!(binding.layout_fingerprint(), "Closure(captures=a|z)");
+}
+
+#[test]
 fn test_object_literal_values_escape_without_treating_keys_as_identifiers() {
     let hir = HirLoweringResult {
         root: HirNodeId::new(0),

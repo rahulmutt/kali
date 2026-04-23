@@ -133,6 +133,34 @@ impl LayoutDescriptor {
     fn scalar(name: impl Into<String>) -> Self {
         Self::Scalar(name.into())
     }
+
+    /// Return the canonical layout/representation fingerprint for this descriptor.
+    ///
+    /// The fingerprint is intentionally deterministic and only includes properties
+    /// that materially change generated code shape or correctness.
+    pub fn fingerprint(&self) -> String {
+        match self {
+            LayoutDescriptor::Scalar(name) => format!("Scalar({name})"),
+            LayoutDescriptor::Struct { fields } => {
+                let mut parts = Vec::with_capacity(fields.len());
+                for (field, layout) in fields {
+                    parts.push(format!("{}:{}", field, layout.fingerprint()));
+                }
+                format!("Struct({})", parts.join(","))
+            }
+            LayoutDescriptor::Array { element, length } => format!(
+                "Array(length={:?},element={})",
+                length,
+                element.fingerprint()
+            ),
+            LayoutDescriptor::Closure { captures } => {
+                let mut captures = captures.clone();
+                captures.sort();
+                format!("Closure(captures={})", captures.join("|"))
+            }
+            LayoutDescriptor::TaggedVal => "TaggedVal".to_string(),
+        }
+    }
 }
 
 /// MIR binding classification.
@@ -195,6 +223,11 @@ impl MirBinding {
     /// Whether this binding must remain thread-local.
     pub fn is_thread_local(&self) -> bool {
         self.ownership.is_thread_local()
+    }
+
+    /// Return the canonical layout/representation fingerprint for this binding.
+    pub fn layout_fingerprint(&self) -> String {
+        self.layout.fingerprint()
     }
 }
 

@@ -1818,7 +1818,7 @@ impl MirLayoutSignature {
     fn from_descriptor(descriptor: &LayoutDescriptor) -> Self {
         Self {
             kind: MirLayoutClass::from_descriptor(descriptor),
-            fingerprint: layout_descriptor_signature(descriptor),
+            fingerprint: descriptor.fingerprint(),
         }
     }
 
@@ -1900,7 +1900,7 @@ impl MirSpecializationPlan {
     fn tagged_layout_signature() -> MirLayoutSignature {
         MirLayoutSignature {
             kind: MirLayoutClass::TaggedVal,
-            fingerprint: layout_descriptor_signature(&LayoutDescriptor::TaggedVal),
+            fingerprint: LayoutDescriptor::TaggedVal.fingerprint(),
         }
     }
 }
@@ -1914,30 +1914,6 @@ impl MirLayoutClass {
             LayoutDescriptor::Closure { .. } => MirLayoutClass::Closure,
             LayoutDescriptor::TaggedVal => MirLayoutClass::TaggedVal,
         }
-    }
-}
-
-fn layout_descriptor_signature(descriptor: &LayoutDescriptor) -> String {
-    match descriptor {
-        LayoutDescriptor::Scalar(name) => format!("Scalar({name})"),
-        LayoutDescriptor::Struct { fields } => {
-            let mut parts = Vec::with_capacity(fields.len());
-            for (field, layout) in fields {
-                parts.push(format!("{}:{}", field, layout_descriptor_signature(layout)));
-            }
-            format!("Struct({})", parts.join(","))
-        }
-        LayoutDescriptor::Array { element, length } => format!(
-            "Array(length={:?},element={})",
-            length,
-            layout_descriptor_signature(element)
-        ),
-        LayoutDescriptor::Closure { captures } => {
-            let mut captures = captures.clone();
-            captures.sort();
-            format!("Closure(captures={})", captures.join("|"))
-        }
-        LayoutDescriptor::TaggedVal => "TaggedVal".to_string(),
     }
 }
 
