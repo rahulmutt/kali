@@ -8154,6 +8154,71 @@ fn package_effects_tracks_eval_compatibility_from_manifest() {
 }
 
 #[test]
+fn package_effects_emits_json_envelope_under_quiet_eval_context() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/evalpkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "evalpkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        package_dir.join("index.js"),
+        "eval('1 + 2');\nconsole.log('package eval');\n",
+    )
+    .expect("write package entry");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compat": {
+    "features": ["eval"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("--quiet")
+        .arg("--output")
+        .arg("json")
+        .arg("evalpkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["package"]["name"], "evalpkg");
+    assert_eq!(
+        json["payload"]["report"]["analysisContext"]["compatFeatures"],
+        json!(["eval"])
+    );
+    assert_eq!(json["payload"]["report"]["dynamicEffects"], true);
+    assert_eq!(json["payload"]["report"]["dynamicReasons"], json!(["eval"]));
+    let kinds = json["payload"]["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Eval"), "effects: {kinds:?}");
+}
+
+#[test]
 fn package_effects_rejects_package_analysis_specific_flags() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/flagpkg");

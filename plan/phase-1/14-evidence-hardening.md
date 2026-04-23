@@ -25,6 +25,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 ## Progress
 
 - Added a dedicated determinism smoke lane in `scripts/check-determinism.sh` plus a matching `mise` task and CI job, so the repeated-build evidence is now exercised as an explicit repository workflow instead of living only inside the larger runtime smoke suite.
+- Added a `package-effects` quiet-mode regression for inherited `eval` compatibility so the JSON envelope path now stays pinned even when dynamic-analysis metadata is inherited from `kali.json`.
 - Added phase-gated placeholders for later surfaces (`effects`, `package-effects`, `package-audit`, `build --capi`, `build --component`, and `run`/`test` API-surface selection) so the evidence suite can assert unavailability with the canonical `E5506` path instead of plain unknown-command parsing.
 - Added dedicated node-API-surface rejection coverage for the Phase-1 command surface so the package-corpus and runtime smoke lanes now pin the Node availability gate across both explicit and inherited contexts instead of leaving those expectations only in the CLI parser tests.
 - Added explicit `package-audit` rejections for inherited-looking package-analysis inputs (`--compat eval` and `--wasm-threads`) so the registry-analysis gate now pins the command's context-free contract beyond just the `--api` and `--sandbox` cases.
