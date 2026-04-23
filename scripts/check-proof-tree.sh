@@ -34,6 +34,20 @@ if ! diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${actual_
   exit 1
 fi
 
+mapfile -t expected_roots < <(
+  printf '%s\n' "${expected_files[@]}" \
+    | awk -F/ 'NF > 1 { print $1 }' \
+    | sort -u
+)
+mapfile -t actual_roots < <(
+  sed -n 's/^lean_lib[[:space:]]\+\([A-Za-z0-9_][A-Za-z0-9_]*\).*/\1/p' lakefile.lean | sort -u
+)
+
+if ! diff -u <(printf '%s\n' "${expected_roots[@]}") <(printf '%s\n' "${actual_roots[@]}"); then
+  echo "proof lakefile roots do not match the proof source directories"
+  exit 1
+fi
+
 for file in "${expected_files[@]}"; do
   case "$file" in
     BOUNDARY.md|lean-toolchain)
@@ -47,6 +61,3 @@ for file in "${expected_files[@]}"; do
       ;;
   esac
 done
-
-grep -Fq 'lean_lib KaliCore' lakefile.lean
-grep -Fq 'lean_lib KaliIR' lakefile.lean

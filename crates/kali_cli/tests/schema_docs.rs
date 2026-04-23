@@ -298,6 +298,22 @@ fn proof_check_workflow_is_configured_for_proofs_changes() {
 }
 
 #[test]
+fn proof_check_script_verifies_lake_roots_against_proof_sources() {
+    let root = repo_root();
+    let script = fs::read_to_string(root.join("scripts/check-proof-tree.sh"))
+        .expect("read proof tree script");
+
+    assert!(
+        script.contains("proof lakefile roots do not match the proof source directories"),
+        "proof tree script should reject mismatched lake roots"
+    );
+    assert!(
+        script.contains("sed -n 's/^lean_lib[[:space:]]\\+\\([A-Za-z0-9_][A-Za-z0-9_]*\\).*/\\1/p' lakefile.lean"),
+        "proof tree script should extract lean_lib roots from the lakefile"
+    );
+}
+
+#[test]
 fn proof_boundary_manifest_tracks_the_actual_proof_sources() {
     let root = repo_root();
     let boundary = fs::read_to_string(root.join("proofs/BOUNDARY.md")).expect("read boundary");
