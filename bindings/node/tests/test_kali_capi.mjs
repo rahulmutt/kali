@@ -13,13 +13,16 @@ import {
   bindingPackageManifestSummary,
   cabiMetadataSummary,
   discoverBindingPackageManifestPath,
+  discoverBindingPackageManifestPathWithName,
   discoverMetadataPath,
   discoverMetadataPathWithName,
   ensureCompatibleBindingPackageManifest,
   ensureCompatibleMetadata,
   loadBindingPackageManifestFromRoot,
+  loadBindingPackageManifestFromRootWithName,
   loadBindingPackageManifestSummary,
   loadBindingPackageManifestSummaryFromRoot,
+  loadBindingPackageManifestSummaryFromRootWithName,
   loadMetadata,
   loadMetadataFromRoot,
   loadMetadataFromRootWithName,
@@ -200,6 +203,10 @@ test('binding package manifests sort glue paths and auto-discover single manifes
 
   const resolvedManifestPath = discoverBindingPackageManifestPath(tempRoot);
   assert.equal(resolvedManifestPath, manifestPath);
+  assert.equal(
+    discoverBindingPackageManifestPathWithName(tempRoot, 'sample.binding-package.json'),
+    manifestPath,
+  );
 
   const manifest = loadBindingPackageManifestFromRoot(tempRoot);
   const metadata = loadMetadata(metadataPath);
@@ -288,6 +295,14 @@ test('binding package manifests sort glue paths and auto-discover single manifes
   });
   assert.deepEqual(loadBindingPackageManifestSummary(manifestPath), summary);
   assert.deepEqual(loadBindingPackageManifestSummaryFromRoot(tempRoot), summary);
+  assert.deepEqual(
+    loadBindingPackageManifestFromRootWithName(tempRoot, 'sample.binding-package.json'),
+    manifest,
+  );
+  assert.deepEqual(
+    loadBindingPackageManifestSummaryFromRootWithName(tempRoot, 'sample.binding-package.json'),
+    summary,
+  );
   assert.deepEqual(ensureCompatibleBindingPackageManifest(manifest), manifest);
   assert.deepEqual(ensureCompatibleMetadata(metadata), metadata);
 
@@ -496,6 +511,8 @@ test('node binding helper module is requireable from the package root', () => {
   assert.equal(typeof nodeBinding.KaliCAPI.fromBindingPackage, 'function');
   assert.equal(typeof nodeBinding.parseExports, 'function');
   assert.equal(typeof nodeBinding.bindingPackageManifestSummary, 'function');
+  assert.equal(typeof nodeBinding.loadBindingPackageManifestFromRootWithName, 'function');
+  assert.equal(typeof nodeBinding.loadBindingPackageManifestSummaryFromRootWithName, 'function');
 });
 
 test('node binding helper module is requireable from the explicit CommonJS entrypoint', () => {
@@ -503,5 +520,6 @@ test('node binding helper module is requireable from the explicit CommonJS entry
   assert.equal(nodeBinding.HOST_ABI_VERSION, 2);
   assert.equal(typeof nodeBinding.KaliCAPI.fromBindingPackage, 'function');
   assert.equal(typeof nodeBinding.loadBindingPackageManifestFromRoot, 'function');
+  assert.equal(typeof nodeBinding.loadBindingPackageManifestFromRootWithName, 'function');
   assert.equal(typeof nodeBinding.bindingPackageManifestSummary, 'function');
 });

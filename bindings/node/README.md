@@ -55,11 +55,14 @@ wrappers can discover the generated artifact layout without reimplementing the
 manifest and metadata parsing rules. `loadBindingPackageManifestFromRoot()`
 and `KaliCAPI.fromBindingPackage()` both resolve the generated manifest from a
 bundle root, validate the companion metadata, and bind the exported entrypoints
-onto an existing library object. `discoverMetadataPath()` / `loadMetadataFromRoot()`
-and their `...WithName()` variants provide the same bundle-root discovery path
-for the generated `cabi-metadata` sidecar, while `bindingPackageManifestSummary()`
-projects the normalized manifest into a compact summary object for callers that
-want one stable provenance snapshot. `loadBindingPackageManifestSummary()` /
+onto an existing library object. `discoverBindingPackageManifestPath()` and
+`loadBindingPackageManifestFromRoot()` now also have explicit `...WithName()`
+variants for callers that need to target one stem-specific bundle directly;
+`discoverMetadataPath()` / `loadMetadataFromRoot()` and their `...WithName()`
+variants provide the same bundle-root discovery path for the generated
+`cabi-metadata` sidecar, while `bindingPackageManifestSummary()` projects the
+normalized manifest into a compact summary object for callers that want one
+stable provenance snapshot. `loadBindingPackageManifestSummary()` /
 `loadBindingPackageManifestSummaryFromRoot()` and `loadMetadataSummary()` /
 `loadMetadataSummaryFromRoot()` perform the same load-and-project step in one
 call. `cabiMetadataSummary()` keeps the companion metadata projection

@@ -325,6 +325,10 @@ function discoverBindingPackageManifestPath(bundleRoot, manifestName = 'binding-
   return join(bundleRoot, candidates[0]);
 }
 
+function discoverBindingPackageManifestPathWithName(bundleRoot, manifestName) {
+  return discoverBindingPackageManifestPath(bundleRoot, manifestName);
+}
+
 function ensureCompatibleMetadata(metadata, availableHostAbiVersion = HOST_ABI_VERSION) {
   if (!isInt(availableHostAbiVersion)) {
     throw new Error('availableHostAbiVersion must be an integer');
@@ -343,8 +347,16 @@ function loadBindingPackageManifestFromRoot(bundleRoot, manifestName = 'binding-
   return loadBindingPackageManifest(discoverBindingPackageManifestPath(bundleRoot, manifestName));
 }
 
+function loadBindingPackageManifestFromRootWithName(bundleRoot, manifestName) {
+  return loadBindingPackageManifestFromRoot(bundleRoot, manifestName);
+}
+
 function loadBindingPackageManifestSummaryFromRoot(bundleRoot, manifestName = 'binding-package.json') {
   return bindingPackageManifestSummary(loadBindingPackageManifestFromRoot(bundleRoot, manifestName));
+}
+
+function loadBindingPackageManifestSummaryFromRootWithName(bundleRoot, manifestName) {
+  return loadBindingPackageManifestSummaryFromRoot(bundleRoot, manifestName);
 }
 
 function bindingPackageManifestSummary(manifest) {
@@ -490,14 +502,17 @@ module.exports = {
   HOST_ABI_VERSION,
   KaliCAPI,
   discoverBindingPackageManifestPath,
+  discoverBindingPackageManifestPathWithName,
   ensureCompatibleBindingPackageManifest,
   ensureCompatibleMetadata,
   discoverMetadataPath,
   discoverMetadataPathWithName,
   loadBindingPackageManifest,
   loadBindingPackageManifestFromRoot,
+  loadBindingPackageManifestFromRootWithName,
   loadBindingPackageManifestSummary,
   loadBindingPackageManifestSummaryFromRoot,
+  loadBindingPackageManifestSummaryFromRootWithName,
   loadMetadata,
   loadMetadataFromRoot,
   loadMetadataFromRootWithName,
