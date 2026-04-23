@@ -432,6 +432,89 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_reports_permission_escalation_members_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("Deno".to_string()),
+                        property: "permissions".to_string(),
+                    })),
+                    property: "request".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("Deno".to_string()),
+                        property: "permissions".to_string(),
+                    })),
+                    property: "revoke".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::MemberExpression(Box::new(
+                            kali_ast::MemberExpression {
+                                object: Expression::Identifier("globalThis".to_string()),
+                                property: "Deno".to_string(),
+                            },
+                        )),
+                        property: "permissions".to_string(),
+                    })),
+                    property: "request".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::MemberExpression(Box::new(
+                            kali_ast::MemberExpression {
+                                object: Expression::Identifier("globalThis".to_string()),
+                                property: "Deno".to_string(),
+                            },
+                        )),
+                        property: "permissions".to_string(),
+                    })),
+                    property: "revoke".to_string(),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 4);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    for expected in [
+        "Deno.permissions.request",
+        "Deno.permissions.revoke",
+        "globalThis.Deno.permissions.request",
+        "globalThis.Deno.permissions.revoke",
+    ] {
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.message.contains(expected)),
+            "missing {expected} in {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_resolution_reports_broader_intl_support_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![
