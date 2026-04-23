@@ -6015,6 +6015,11 @@ fn build_emits_capi_artifacts_and_header_compiles() {
     assert_eq!(metadata["schemaVersion"], 1);
     assert_eq!(metadata["kind"], "cabi-metadata");
     assert_eq!(metadata["hostAbiVersion"], 2);
+    assert_eq!(metadata["minHostAbiVersion"], 2);
+    assert_eq!(metadata["runtimeProfiles"], serde_json::json!([]));
+    assert_eq!(metadata["maxSpecializations"], 16);
+    assert_eq!(metadata["hostContract"], "kali-hosted");
+    assert_eq!(metadata["runtimeBackend"], "wasmtime");
     assert_eq!(metadata["artifacts"]["wasmModule"], "lib.capi.wasm");
     assert_eq!(metadata["artifacts"]["wit"], "lib.wit");
     assert_eq!(metadata["artifacts"]["exportsHeader"], "lib.h");

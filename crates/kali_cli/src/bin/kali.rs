@@ -9,7 +9,7 @@
 use clap::Parser;
 use kali_capi::{
     arity_from_signature, generate_binding_package_manifest, generate_header,
-    generate_metadata as generate_capi_metadata, Export as CApiExport,
+    generate_metadata_with_provenance as generate_capi_metadata, Export as CApiExport,
 };
 use kali_cli::{
     build, discover_source_files, discover_test_files, init, is_declaration_only_source_file,
@@ -27,7 +27,8 @@ use kali_npm::{
 use kali_optimize::ProfileData;
 use kali_runtime::{
     browser_runtime_request_context, browser_runtime_unavailable_diagnostic,
-    normalize_runtime_profiles, RuntimeCtx, BROWSER_HARNESS_COMMAND_ENV,
+    normalize_runtime_profiles, RuntimeBackend, RuntimeCtx, RuntimeHostContract,
+    BROWSER_HARNESS_COMMAND_ENV,
 };
 use kali_sandbox::{
     compare_effects_to_policy, effect_report_from_inference, infer_effects_from_roots,
@@ -1522,6 +1523,10 @@ fn build_capi_artifact(
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("lib.h"),
+        runtime_profiles,
+        max_specializations,
+        Some(RuntimeHostContract::KaliHosted.canonical_label()),
+        Some(RuntimeBackend::Wasmtime.canonical_label()),
     );
 
     fs::write(

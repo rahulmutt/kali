@@ -61,6 +61,55 @@ pub fn generate_metadata(
     })
 }
 
+/// Generate the canonical C ABI metadata payload with build provenance.
+pub fn generate_metadata_with_provenance(
+    wasm_module_path: impl AsRef<str>,
+    wit_path: impl AsRef<str>,
+    exports_header_path: impl AsRef<str>,
+    runtime_profiles: &[String],
+    max_specializations: usize,
+    host_contract: Option<&str>,
+    runtime_backend: Option<&str>,
+) -> Value {
+    let mut runtime_profiles: Vec<_> = runtime_profiles.iter().map(String::as_str).collect();
+    runtime_profiles.sort();
+    runtime_profiles.dedup();
+
+    let mut metadata = serde_json::Map::new();
+    metadata.insert("schemaVersion".to_string(), Value::from(1));
+    metadata.insert("kind".to_string(), Value::from("cabi-metadata"));
+    metadata.insert("hostAbiVersion".to_string(), Value::from(HOST_ABI_VERSION));
+    metadata.insert(
+        "minHostAbiVersion".to_string(),
+        Value::from(HOST_ABI_VERSION),
+    );
+    metadata.insert(
+        "runtimeProfiles".to_string(),
+        Value::Array(runtime_profiles.into_iter().map(Value::from).collect()),
+    );
+    metadata.insert(
+        "maxSpecializations".to_string(),
+        Value::from(max_specializations),
+    );
+    if let Some(host_contract) = host_contract {
+        metadata.insert("hostContract".to_string(), Value::from(host_contract));
+    }
+    if let Some(runtime_backend) = runtime_backend {
+        metadata.insert("runtimeBackend".to_string(), Value::from(runtime_backend));
+    }
+
+    metadata.insert(
+        "artifacts".to_string(),
+        json!({
+            "wasmModule": wasm_module_path.as_ref(),
+            "wit": wit_path.as_ref(),
+            "exportsHeader": exports_header_path.as_ref(),
+        }),
+    );
+
+    Value::Object(metadata)
+}
+
 /// Generate a deterministic packaging manifest for higher-level language bindings.
 pub fn generate_binding_package_manifest(
     module_name: impl AsRef<str>,
