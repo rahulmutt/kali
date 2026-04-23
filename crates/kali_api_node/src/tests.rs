@@ -247,24 +247,32 @@ fn fs_helpers_round_trip_files_and_directories() {
         .expect("write text");
     fs.write_file("nested/beta.bin", [0, 1, 2])
         .expect("write file");
+    fs.rename("nested/alpha.txt", "nested/renamed.txt")
+        .expect("rename file");
 
-    assert_eq!(
-        fs.read_text_file("nested/alpha.txt").expect("read text"),
-        "alpha"
-    );
     assert_eq!(
         fs.read_file("nested/beta.bin").expect("read file"),
         vec![0, 1, 2]
     );
     assert_eq!(
+        fs.read_text_file("nested/renamed.txt").expect("read text"),
+        "alpha"
+    );
+    assert_eq!(
         fs.readdir("nested").expect("readdir"),
-        vec!["alpha.txt".to_string(), "beta.bin".to_string()]
+        vec!["beta.bin".to_string(), "renamed.txt".to_string()]
     );
 
-    let stat = fs.stat("nested/alpha.txt").expect("stat");
+    let stat = fs.stat("nested/renamed.txt").expect("stat");
     assert!(stat.is_file());
     assert!(!stat.is_dir());
+    assert!(!stat.is_symlink());
     assert_eq!(stat.len(), 5);
+
+    let lstat = fs.lstat("nested/renamed.txt").expect("lstat");
+    assert!(lstat.is_file());
+    assert!(!lstat.is_dir());
+    assert!(!lstat.is_symlink());
 
     fs.remove("nested/beta.bin", false).expect("remove file");
     fs.remove("nested", true).expect("remove dir");
@@ -281,24 +289,32 @@ fn fs_promises_helpers_match_sync_helpers() {
         .expect("write text");
     fs.write_file("nested/beta.bin", [0, 1, 2])
         .expect("write file");
+    fs.rename("nested/alpha.txt", "nested/renamed.txt")
+        .expect("rename file");
 
-    assert_eq!(
-        fs.read_text_file("nested/alpha.txt").expect("read text"),
-        "alpha"
-    );
     assert_eq!(
         fs.read_file("nested/beta.bin").expect("read file"),
         vec![0, 1, 2]
     );
     assert_eq!(
+        fs.read_text_file("nested/renamed.txt").expect("read text"),
+        "alpha"
+    );
+    assert_eq!(
         fs.readdir("nested").expect("readdir"),
-        vec!["alpha.txt".to_string(), "beta.bin".to_string()]
+        vec!["beta.bin".to_string(), "renamed.txt".to_string()]
     );
 
-    let stat = fs.stat("nested/alpha.txt").expect("stat");
+    let stat = fs.stat("nested/renamed.txt").expect("stat");
     assert!(stat.is_file());
     assert!(!stat.is_dir());
+    assert!(!stat.is_symlink());
     assert_eq!(stat.len(), 5);
+
+    let lstat = fs.lstat("nested/renamed.txt").expect("lstat");
+    assert!(lstat.is_file());
+    assert!(!lstat.is_dir());
+    assert!(!lstat.is_symlink());
 
     fs.remove("nested/beta.bin", false).expect("remove file");
     fs.remove("nested", true).expect("remove dir");
@@ -364,10 +380,14 @@ fn os_and_url_helpers_expose_expected_views() {
 
 #[test]
 fn runtime_projection_bundles_common_node_surfaces() {
+    let dir = tempdir().expect("tempdir");
+    let nested = dir.path().join("nested");
+    std::fs::create_dir(&nested).expect("create nested dir");
+
     let mut projection = NodeRuntimeProjection::from_host_context(
         vec!["node".into(), "script.js".into()],
         BTreeMap::from([(String::from("HOME"), String::from("/tmp/home"))]),
-        "/workspace/project",
+        dir.path(),
     );
 
     assert_eq!(
@@ -376,12 +396,24 @@ fn runtime_projection_bundles_common_node_surfaces() {
     );
     assert_eq!(projection.process().argv_len(), 2);
     assert_eq!(projection.process().env_get("HOME"), Some("/tmp/home"));
-    assert_eq!(projection.fs().cwd(), Path::new("/workspace/project"));
+    assert_eq!(projection.fs().cwd(), dir.path());
     assert!(!projection.os().platform().is_empty());
     assert_eq!(projection.url(), NodeUrl);
     assert_eq!(projection.util(), NodeUtil);
     assert_eq!(projection.assert(), NodeAssert);
     assert_eq!(projection.child_process(), NodeChildProcess);
+
+    projection.chdir("nested");
+    assert_eq!(projection.process().cwd(), nested.as_path());
+    assert_eq!(projection.fs().cwd(), nested.as_path());
+    projection
+        .fs()
+        .write_text_file("relative.txt", "ok")
+        .expect("write via chdir");
+    assert_eq!(
+        std::fs::read_to_string(nested.join("relative.txt")).expect("read via chdir"),
+        "ok"
+    );
 
     projection.process_mut().write_stdout("ok");
     assert_eq!(projection.process().stdout(), "ok");

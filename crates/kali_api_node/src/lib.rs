@@ -39,7 +39,7 @@ impl Default for NodeProcess {
             argv: Vec::new(),
             argv0: String::from("node"),
             env: BTreeMap::new(),
-            cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            cwd: normalize_path(std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))),
             process_id: std::process::id(),
             exit_code: None,
             stdout: String::new(),
@@ -63,7 +63,7 @@ impl NodeProcess {
             argv,
             argv0,
             env,
-            cwd: cwd.into(),
+            cwd: normalize_path(cwd.into()),
             process_id: std::process::id(),
             exit_code: None,
             stdout: String::new(),
@@ -84,6 +84,11 @@ impl NodeProcess {
     /// Current working directory.
     pub fn cwd(&self) -> &Path {
         &self.cwd
+    }
+
+    /// Change the working directory tracked by the process view.
+    pub fn chdir(&mut self, path: impl AsRef<Path>) {
+        self.cwd = resolve_path(&self.cwd, path);
     }
 
     /// Host process identifier associated with the compatibility view.
@@ -542,6 +547,14 @@ impl NodeRuntimeProjection {
         &mut self.process
     }
 
+    /// Change the working directory for the full Node compatibility projection.
+    pub fn chdir(&mut self, path: impl AsRef<Path>) {
+        self.process.chdir(path);
+        let cwd = self.process.cwd().to_path_buf();
+        self.fs = NodeFs::new(cwd.clone());
+        self.fs_promises = NodeFsPromises::new(cwd);
+    }
+
     pub fn fs(&self) -> &NodeFs {
         &self.fs
     }
@@ -819,6 +832,14 @@ impl NodeFs {
         Ok(entries)
     }
 
+    pub fn rename(
+        &self,
+        from: impl AsRef<Path>,
+        to: impl AsRef<Path>,
+    ) -> Result<(), std::io::Error> {
+        fs::rename(self.resolve(from), self.resolve(to))
+    }
+
     pub fn remove(&self, path: impl AsRef<Path>, recursive: bool) -> Result<(), std::io::Error> {
         let resolved = self.resolve(path);
         let metadata = fs::metadata(&resolved)?;
@@ -835,6 +856,12 @@ impl NodeFs {
 
     pub fn stat(&self, path: impl AsRef<Path>) -> Result<NodeFsMetadata, std::io::Error> {
         Ok(NodeFsMetadata::from_metadata(&fs::metadata(
+            self.resolve(path),
+        )?))
+    }
+
+    pub fn lstat(&self, path: impl AsRef<Path>) -> Result<NodeFsMetadata, std::io::Error> {
+        Ok(NodeFsMetadata::from_metadata(&fs::symlink_metadata(
             self.resolve(path),
         )?))
     }
@@ -893,12 +920,24 @@ impl NodeFsPromises {
         self.fs.readdir(path)
     }
 
+    pub fn rename(
+        &self,
+        from: impl AsRef<Path>,
+        to: impl AsRef<Path>,
+    ) -> Result<(), std::io::Error> {
+        self.fs.rename(from, to)
+    }
+
     pub fn remove(&self, path: impl AsRef<Path>, recursive: bool) -> Result<(), std::io::Error> {
         self.fs.remove(path, recursive)
     }
 
     pub fn stat(&self, path: impl AsRef<Path>) -> Result<NodeFsMetadata, std::io::Error> {
         self.fs.stat(path)
+    }
+
+    pub fn lstat(&self, path: impl AsRef<Path>) -> Result<NodeFsMetadata, std::io::Error> {
+        self.fs.lstat(path)
     }
 
     pub fn exists(&self, path: impl AsRef<Path>) -> bool {
@@ -911,6 +950,7 @@ impl NodeFsPromises {
 pub struct NodeFsMetadata {
     is_file: bool,
     is_dir: bool,
+    is_symlink: bool,
     len: u64,
     readonly: bool,
 }
@@ -920,6 +960,7 @@ impl NodeFsMetadata {
         Self {
             is_file: metadata.is_file(),
             is_dir: metadata.is_dir(),
+            is_symlink: metadata.file_type().is_symlink(),
             len: metadata.len(),
             readonly: metadata.permissions().readonly(),
         }
@@ -931,6 +972,10 @@ impl NodeFsMetadata {
 
     pub fn is_dir(&self) -> bool {
         self.is_dir
+    }
+
+    pub fn is_symlink(&self) -> bool {
+        self.is_symlink
     }
 
     pub fn len(&self) -> u64 {
