@@ -5735,6 +5735,7 @@ fn build_emits_capi_artifacts_and_header_compiles() {
     .expect("parse binding package manifest json");
     assert_eq!(binding_package["schemaVersion"], 1);
     assert_eq!(binding_package["kind"], "binding-package");
+    assert_eq!(binding_package["maxSpecializations"], 16);
     assert_eq!(
         binding_package["moduleName"],
         source_path.display().to_string()
@@ -5813,6 +5814,7 @@ fn build_emits_component_artifacts_and_valid_component_bytes() {
     .expect("parse binding package manifest json");
     assert_eq!(binding_package["schemaVersion"], 1);
     assert_eq!(binding_package["kind"], "binding-package");
+    assert_eq!(binding_package["maxSpecializations"], 16);
     assert_eq!(
         binding_package["artifacts"]["library"],
         "lib.component.wasm"

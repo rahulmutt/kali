@@ -65,6 +65,7 @@ pub fn generate_binding_package_manifest(
     library_path: impl AsRef<str>,
     metadata_path: impl AsRef<str>,
     exports_header_path: impl AsRef<str>,
+    max_specializations: usize,
     glue_paths: &[String],
 ) -> Value {
     let mut glue_paths: Vec<_> = glue_paths.iter().map(String::as_str).collect();
@@ -77,6 +78,7 @@ pub fn generate_binding_package_manifest(
         "moduleName": module_name.as_ref(),
         "hostAbiVersion": HOST_ABI_VERSION,
         "minHostAbiVersion": HOST_ABI_VERSION,
+        "maxSpecializations": max_specializations,
         "artifacts": {
             "library": library_path.as_ref(),
             "metadata": metadata_path.as_ref(),

@@ -1536,6 +1536,7 @@ fn build_capi_artifact(
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("lib.h"),
+        max_specializations,
         &[
             "bindings/python/README.md".to_string(),
             "bindings/python/kali_capi/__init__.py".to_string(),
@@ -1688,6 +1689,7 @@ fn build_component_artifact(
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("lib.wit"),
+        max_specializations,
         &[
             "bindings/python/README.md".to_string(),
             "bindings/python/kali_capi/__init__.py".to_string(),

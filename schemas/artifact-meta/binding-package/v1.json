@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kali-lang.org/schemas/artifact-meta/binding-package/v1",
+  "title": "Kali Binding Package Manifest v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "moduleName",
+    "hostAbiVersion",
+    "artifacts"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "kind": {
+      "const": "binding-package"
+    },
+    "moduleName": {
+      "type": "string"
+    },
+    "hostAbiVersion": {
+      "type": "integer"
+    },
+    "minHostAbiVersion": {
+      "type": "integer"
+    },
+    "maxSpecializations": {
+      "type": "integer"
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "library",
+        "metadata",
+        "exportsHeader",
+        "glue"
+      ],
+      "properties": {
+        "library": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "string"
+        },
+        "exportsHeader": {
+          "type": "string"
+        },
+        "glue": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

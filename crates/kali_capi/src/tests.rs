@@ -22,6 +22,7 @@ fn binding_package_manifest_orders_and_deduplicates_glue_deterministically() {
         "sample.capi.wasm",
         "sample.cabi.json",
         "sample.h",
+        8,
         &[
             "support.py".to_string(),
             "shim.py".to_string(),
@@ -34,6 +35,7 @@ fn binding_package_manifest_orders_and_deduplicates_glue_deterministically() {
     assert_eq!(manifest["moduleName"], "sample");
     assert_eq!(manifest["hostAbiVersion"], HOST_ABI_VERSION);
     assert_eq!(manifest["minHostAbiVersion"], HOST_ABI_VERSION);
+    assert_eq!(manifest["maxSpecializations"], 8);
     assert_eq!(manifest["artifacts"]["library"], "sample.capi.wasm");
     assert_eq!(manifest["artifacts"]["metadata"], "sample.cabi.json");
     assert_eq!(manifest["artifacts"]["exportsHeader"], "sample.h");
@@ -181,6 +183,7 @@ assert binding._library.calls == [("add", 2, 3), ("zero",)]
         "sample.capi.wasm",
         "sample.cabi.json",
         "sample.h",
+        8,
         &["support.py".to_string(), "shim.py".to_string()],
     );
     fs::write(
@@ -265,6 +268,7 @@ assert binding._library.calls == [("add", 2, 3), ("zero",)]
         "sample.capi.wasm",
         "sample.cabi.json",
         "sample.h",
+        8,
         &["support.py".to_string(), "shim.py".to_string()],
     );
     fs::write(

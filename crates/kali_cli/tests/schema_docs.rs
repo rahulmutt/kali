@@ -21,6 +21,7 @@ fn schema_documents_exist_and_parse() {
         "schemas/artifact-meta/lib-wit/v1.json",
         "schemas/artifact-meta/capi/v1.json",
         "schemas/artifact-meta/component/v1.json",
+        "schemas/artifact-meta/binding-package/v1.json",
         "schemas/result/check/v1.json",
         "schemas/result/build/v1.json",
         "schemas/result/run/v1.json",
@@ -108,6 +109,32 @@ fn core_schema_documents_match_current_cli_contracts() {
             "missing artifact metadata property: {property}"
         );
     }
+
+    let binding_package: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/artifact-meta/binding-package/v1.json"))
+            .expect("read binding package schema"),
+    )
+    .expect("parse binding package schema");
+    assert_eq!(
+        binding_package["properties"]["kind"]["const"],
+        "binding-package"
+    );
+    for property in [
+        "moduleName",
+        "hostAbiVersion",
+        "minHostAbiVersion",
+        "maxSpecializations",
+    ] {
+        assert!(
+            binding_package["properties"].get(property).is_some(),
+            "missing binding package schema property: {property}"
+        );
+    }
+    assert!(binding_package["properties"]["artifacts"]["required"]
+        .as_array()
+        .expect("binding package required array")
+        .iter()
+        .any(|value| value == "glue"));
 }
 
 #[test]

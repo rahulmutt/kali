@@ -22,6 +22,7 @@ stabilise the public Rust embedding API in `kali_embed`.
 
 ## Progress
 
+- 2026-04-23: binding-package manifests emitted by `kali build --capi` and `kali build --component` now carry deterministic `maxSpecializations` provenance, and the new binding-package schema document keeps that sidecar shape explicit for downstream tooling.
 - 2026-04-18: `kali_embed` now also accepts raw source text through a stable
   `compile_lib_source` convenience entry point, so the embedding surface can
   produce a library artifact + WIT sidecar without requiring callers to manage
