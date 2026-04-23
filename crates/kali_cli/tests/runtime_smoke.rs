@@ -7928,6 +7928,63 @@ console.log("hello");
 }
 
 #[test]
+fn effects_command_emits_pretty_json_envelope_under_quiet() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"
+fetch("https://api.example.com/data");
+console.log("hello");
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--quiet")
+        .arg("--pretty")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).trim().is_empty(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("\n  \"schemaVersion\""), "stdout: {stdout}");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["schemaVersion"], 1);
+    assert_eq!(
+        json["payload"]["entryPoints"],
+        json!([source_path.display().to_string()])
+    );
+    assert_eq!(json["payload"]["dynamicEffects"], false);
+    assert_eq!(json["payload"]["dynamicReasons"], json!([]));
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"));
+    assert!(kinds.contains(&"Network.Fetch"));
+}
+
+#[test]
 fn effects_command_is_deterministic_across_repeated_json_envelope_invocations() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
