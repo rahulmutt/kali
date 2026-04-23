@@ -782,10 +782,13 @@ impl TypeContext {
             return;
         }
 
+        if self.resolve_late_object_model_member(expr) {
+            return;
+        }
+
         self.resolve_expression(&expr.object);
         self.resolve_threaded_runtime_member(expr);
         self.resolve_late_host_control_member(expr);
-        self.resolve_late_object_model_member(expr);
     }
 
     fn resolve_threaded_runtime_member(&mut self, expr: &MemberExpression) {
@@ -859,20 +862,34 @@ impl TypeContext {
         true
     }
 
-    fn resolve_late_object_model_member(&mut self, expr: &MemberExpression) {
+    fn resolve_late_object_model_member(&mut self, expr: &MemberExpression) -> bool {
+        if matches!(
+            Self::member_access_name(expr).as_deref(),
+            Some("Proxy.revocable") | Some("globalThis.Proxy.revocable")
+        ) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "late object-model API '{}' is unavailable until the later object-model compatibility path is enabled",
+                    Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone())
+                ),
+            ));
+            return true;
+        }
+
         if !matches!(
             expr.property.as_str(),
             "Proxy" | "WeakMap" | "WeakSet" | "FinalizationRegistry"
         ) {
-            return;
+            return false;
         }
 
         let Some(object_name) = Self::member_object_name(&expr.object) else {
-            return;
+            return false;
         };
 
         if object_name != "globalThis" {
-            return;
+            return false;
         }
 
         self.diagnostics.push(Diagnostic::error(
@@ -882,6 +899,7 @@ impl TypeContext {
                 Self::member_access_name(expr).unwrap_or_else(|| format!("{}.{}", object_name, expr.property))
             ),
         ));
+        true
     }
 
     fn member_access_name(expr: &MemberExpression) -> Option<String> {

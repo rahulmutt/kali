@@ -1228,6 +1228,73 @@ fn check_rejects_late_object_model_globals_in_json() {
 }
 
 #[test]
+fn run_rejects_late_object_model_revocable_calls() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {});",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("Proxy.revocable"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("globalThis.Proxy.revocable"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn run_rejects_late_object_model_revocable_calls_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {});",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_eq!(errors.len(), 2);
+    assert!(errors.iter().all(|error| error["code"] == "E5506"));
+    let messages = errors
+        .iter()
+        .map(|error| error["message"].as_str().expect("error message"))
+        .collect::<Vec<_>>();
+    assert!(messages
+        .iter()
+        .any(|message| message.contains("Proxy.revocable")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains("globalThis.Proxy.revocable")));
+}
+
+#[test]
 fn run_rejects_late_object_model_globals() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

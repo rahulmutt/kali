@@ -583,6 +583,47 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_reports_proxy_revocable_member_access_as_late_object_model_api() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Proxy".to_string()),
+                    property: "revocable".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Proxy".to_string(),
+                    })),
+                    property: "revocable".to_string(),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Proxy.revocable")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("globalThis.Proxy.revocable")));
+}
+
+#[test]
 fn test_resolution_allows_node_builtin_imports_in_node_context() {
     let mut ctx = TypeContext::with_base_path_and_api_surface(".", "node");
     assert!(ctx.is_defined("process"));
