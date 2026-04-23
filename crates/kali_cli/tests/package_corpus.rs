@@ -397,6 +397,36 @@ fn write_browser_condition_exports_package(
     .expect("write package subpath require");
 }
 
+fn write_browser_and_deno_condition_package(
+    root: &Path,
+    name: &str,
+    browser_body: &str,
+    deno_body: &str,
+) {
+    let package_dir = root.join("node_modules").join(name);
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        format!(
+            r#"{{
+  "name": "{}",
+  "exports": {{
+    ".": {{
+      "browser": "./index.browser.js",
+      "deno": "./index.deno.js",
+      "default": "./index.deno.js"
+    }}
+  }}
+}}"#,
+            name
+        ),
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.browser.js"), browser_body)
+        .expect("write package browser entry");
+    fs::write(package_dir.join("index.deno.js"), deno_body).expect("write package deno entry");
+}
+
 fn write_browser_replacement_map_package(
     root: &Path,
     name: &str,
@@ -1681,6 +1711,45 @@ fn browser_runtime_corpus_packages_remain_testable_on_the_browser_surface_when_a
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
         assert!(stdout.contains("0"), "stdout: {stdout}");
     }
+}
+
+#[test]
+fn browser_runtime_corpus_packages_prefer_browser_condition_over_deno_condition_on_the_browser_surface_when_a_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("browser"));
+    write_browser_and_deno_condition_package(
+        dir.path(),
+        "browser-deno",
+        "export default function describe() { return 0; }\n",
+        "export default function describe() { return 1; }\n",
+    );
+    write_types_stub_package(dir.path(), "browser-deno");
+    let source_path = dir.path().join("main.test.ts");
+    fs::write(
+        &source_path,
+        "import describe from 'browser-deno';\nconsole.log(describe());\nKali.test('browser vs deno package', () => { 1 + 1; });\n",
+    )
+    .expect("write browser/deno runtime source");
+
+    let test = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(source_path.to_str().unwrap())
+        .output()
+        .expect("run kali");
+    assert!(
+        test.status.success(),
+        "browser runtime package browser-deno should prefer the browser condition over deno on the browser surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    assert!(stdout.contains("0"), "stdout: {stdout}");
 }
 
 #[test]
