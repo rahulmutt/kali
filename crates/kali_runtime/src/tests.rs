@@ -355,6 +355,14 @@ fn browser_harness_recognizes_common_display_name_aliases() {
         "google-chrome-headless-shell",
         "brave browser",
         "brave browser nightly",
+        "msedge-beta",
+        "msedge-canary",
+        "msedge-dev",
+        "msedge-insider",
+        "edge-beta",
+        "edge-canary",
+        "edge-dev",
+        "edge-insider",
         "microsoft edge canary",
         "microsoft edge dev",
         "microsoft edge insider",
@@ -451,6 +459,14 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
         "google-chrome-headless-shell"
     ));
     assert!(browser_harness_uses_html_entrypoint("msedge.exe"));
+    assert!(browser_harness_uses_html_entrypoint("msedge-beta"));
+    assert!(browser_harness_uses_html_entrypoint("msedge-canary"));
+    assert!(browser_harness_uses_html_entrypoint("msedge-dev"));
+    assert!(browser_harness_uses_html_entrypoint("msedge-insider"));
+    assert!(browser_harness_uses_html_entrypoint("edge-beta"));
+    assert!(browser_harness_uses_html_entrypoint("edge-canary"));
+    assert!(browser_harness_uses_html_entrypoint("edge-dev"));
+    assert!(browser_harness_uses_html_entrypoint("edge-insider"));
     assert!(browser_harness_uses_html_entrypoint("brave-browser.exe"));
     assert!(browser_harness_uses_html_entrypoint("chrome.cmd"));
     assert!(browser_harness_uses_html_entrypoint("google-chrome-dev"));
@@ -552,6 +568,38 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
             "google-chrome-headless-shell".to_string(),
             "--headless".to_string()
         ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("msedge-beta"),
+        Some(vec!["msedge-beta".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("msedge-canary"),
+        Some(vec!["msedge-canary".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("msedge-dev"),
+        Some(vec!["msedge-dev".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("msedge-insider"),
+        Some(vec!["msedge-insider".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("edge-beta"),
+        Some(vec!["edge-beta".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("edge-canary"),
+        Some(vec!["edge-canary".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("edge-dev"),
+        Some(vec!["edge-dev".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("edge-insider"),
+        Some(vec!["edge-insider".to_string(), "--headless".to_string()])
     );
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("microsoft-edge-canary"),
