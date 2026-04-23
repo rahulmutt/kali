@@ -6,6 +6,7 @@ import { test } from 'node:test';
 
 import {
   HOST_ABI_VERSION,
+  KaliCAPI,
   discoverBindingPackageManifestPath,
   ensureCompatibleBindingPackageManifest,
   ensureCompatibleMetadata,
@@ -147,6 +148,80 @@ test('binding package helpers reject incompatible host ABI metadata', () => {
   );
 
   assert.throws(() => ensureCompatibleBindingPackageManifest(manifest), /incompatible/);
+});
+
+test('node binding helper module binds exports from headers and manifests', () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), 'kali-capi-node-bind-'));
+  const manifestPath = join(tempRoot, 'sample.binding-package.json');
+  const headerPath = join(tempRoot, 'sample.h');
+  const metadataPath = join(tempRoot, 'sample.cabi.json');
+
+  writeFileSync(
+    manifestPath,
+    JSON.stringify({
+      schemaVersion: 1,
+      kind: 'binding-package',
+      moduleName: 'sample',
+      hostAbiVersion: HOST_ABI_VERSION,
+      artifacts: {
+        glue: ['support.js'],
+        library: 'sample.capi.wasm',
+        metadata: 'sample.cabi.json',
+        exportsHeader: 'sample.h',
+      },
+    }),
+  );
+  writeFileSync(
+    headerPath,
+    [
+      '#ifndef KALI_CAPI_GENERATED_H',
+      '#define KALI_CAPI_GENERATED_H',
+      '#include <stdint.h>',
+      'extern int32_t add(int32_t arg0, int32_t arg1);',
+      'extern int32_t zero(void);',
+      '#endif',
+    ].join('\n'),
+  );
+  writeFileSync(
+    metadataPath,
+    JSON.stringify({
+      schemaVersion: 1,
+      kind: 'cabi-metadata',
+      hostAbiVersion: HOST_ABI_VERSION,
+      artifacts: {
+        exportsHeader: 'sample.h',
+        wasmModule: 'sample.capi.wasm',
+        wit: 'sample.wit',
+      },
+    }),
+  );
+
+  const library = {
+    total: 0,
+    add(left, right) {
+      this.total += left + right;
+      return this.total;
+    },
+    zero() {
+      this.total += 1;
+      return this.total;
+    },
+  };
+
+  const binding = KaliCAPI.fromBindingPackage(library, tempRoot);
+  assert.deepEqual(binding.exports, [
+    { name: 'add', arity: 2 },
+    { name: 'zero', arity: 0 },
+  ]);
+  assert.equal(binding.add(2, 3), 5);
+  assert.equal(binding.zero(), 6);
+  assert.equal(library.total, 6);
+  assert.deepEqual(binding._exports, [
+    { name: 'add', arity: 2 },
+    { name: 'zero', arity: 0 },
+  ]);
+
+  rmSync(tempRoot, { recursive: true, force: true });
 });
 
 test('node binding helper module is importable from the package root', () => {

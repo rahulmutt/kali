@@ -28,11 +28,12 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   same bundle index so the generated layout stays aligned across the exported-library wrappers.
   The maintained Python wrapper can auto-discover that generated bundle layout directly while
   preserving the same host-ABI compatibility check. The maintained Node ESM helper now mirrors
-  the same manifest/metadata discovery rules over the stable C ABI, so the later binding lane has
-  more than one non-Rust smoke path to prove the packaging contract. The root README now calls out
-  the generated sidecar flow alongside the maintained Python helper docs, so the package/
-  distribution shape stays explicit for the later binding workflow instead of limiting the stage to
-  header-only glue. The Python binding now also has explicit packaging metadata
+  the same manifest/metadata discovery rules over the stable C ABI, and now also exposes a small
+  `KaliCAPI` wrapper that binds generated exports onto an existing library object, so the later
+  binding lane has more than one non-Rust smoke path to prove the packaging contract. The root
+  README now calls out the generated sidecar flow alongside the maintained Python helper docs, so
+  the package/distribution shape stays explicit for the later binding workflow instead of limiting
+  the stage to header-only glue. The Python binding now also has explicit packaging metadata
   (`bindings/python/pyproject.toml` plus `README.md`) and regression coverage for both the generic
   package scaffold and the stem-specific generated bundle, and the C-ABI smoke coverage now pins
   the manifest file alongside the generated header and metadata outputs.

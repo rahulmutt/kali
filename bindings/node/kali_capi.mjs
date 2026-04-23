@@ -221,3 +221,69 @@ export function ensureCompatibleBindingPackageManifest(
 
   return manifest;
 }
+
+export class KaliCAPI {
+  constructor(library, exports) {
+    this._library = library;
+    this._exports = Object.freeze([...exports]);
+    this._bindExports();
+  }
+
+  static fromHeader(library, headerText) {
+    return new KaliCAPI(library, parseExports(headerText));
+  }
+
+  static fromHeaderAndMetadata(
+    library,
+    headerText,
+    metadataText,
+    { availableHostAbiVersion = HOST_ABI_VERSION } = {},
+  ) {
+    ensureCompatibleMetadata(
+      parseMetadata(metadataText),
+      availableHostAbiVersion,
+    );
+    return new KaliCAPI(library, parseExports(headerText));
+  }
+
+  static fromBindingPackage(
+    library,
+    bundleRoot,
+    {
+      manifestName = 'binding-package.json',
+      availableHostAbiVersion = HOST_ABI_VERSION,
+    } = {},
+  ) {
+    const resolvedBundleRoot = typeof bundleRoot === 'string' ? bundleRoot : bundleRoot?.toString();
+    if (typeof resolvedBundleRoot !== 'string' || resolvedBundleRoot.length === 0) {
+      throw new Error('bundleRoot must be a non-empty path string');
+    }
+    const manifestPath = discoverBindingPackageManifestPath(resolvedBundleRoot, manifestName);
+    const manifest = ensureCompatibleBindingPackageManifest(
+      loadBindingPackageManifest(manifestPath),
+      availableHostAbiVersion,
+    );
+    const headerText = readFileSync(join(resolvedBundleRoot, manifest.artifacts.exportsHeader), 'utf8');
+    const metadataText = readFileSync(join(resolvedBundleRoot, manifest.artifacts.metadata), 'utf8');
+    return KaliCAPI.fromHeaderAndMetadata(
+      library,
+      headerText,
+      metadataText,
+      { availableHostAbiVersion },
+    );
+  }
+
+  get exports() {
+    return this._exports;
+  }
+
+  _bindExports() {
+    for (const exportEntry of this._exports) {
+      const functionValue = this._library[exportEntry.name];
+      if (typeof functionValue !== 'function') {
+        throw new Error(`library is missing export ${exportEntry.name}`);
+      }
+      this[exportEntry.name] = functionValue.bind(this._library);
+    }
+  }
+}
