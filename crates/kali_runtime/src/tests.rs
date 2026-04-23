@@ -1012,6 +1012,42 @@ fn browser_runtime_summary_prefers_the_last_json_line_from_stdout() {
 }
 
 #[test]
+fn browser_runtime_summary_prefers_the_last_json_line_from_a_noisy_summary_file() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let summary_path = tempdir.path().join("browser-runtime-summary.json");
+    fs::write(
+        &summary_path,
+        [
+            "summary log line\n",
+            r#"{"args":["ignored"],"tests":["1"],"testsFailed":4,"hostContract":"kali-hosted","runtimeBackend":"wasmtime"}"#,
+            "\nsummary trailing noise\n",
+            r#"{"args":["zeta"],"tests":["7"],"testsFailed":0,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
+        ]
+        .concat(),
+    )
+    .expect("write noisy summary file");
+    let outcome = BrowserHarnessOutcome {
+        command: vec!["node".to_string()],
+        status: browser_exit_status(0),
+        stdout: r#"{"args":["stdout"],"tests":["stdout"],"testsFailed":3,"hostContract":"kali-hosted","runtimeBackend":"wasmtime"}"#.to_string(),
+        stderr: String::new(),
+    };
+
+    let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
+    assert_eq!(summary.args, vec!["zeta".to_string()]);
+    assert_eq!(summary.tests, vec!["7".to_string()]);
+    assert_eq!(summary.tests_failed, 0);
+    assert_eq!(
+        summary.host_contract,
+        Some(RuntimeHostContract::BrowserRequested)
+    );
+    assert_eq!(
+        summary.runtime_backend,
+        Some(RuntimeBackend::BrowserHarness)
+    );
+}
+
+#[test]
 fn browser_bundle_runtime_execute_checked_loads_bundle_exports_and_parses_summary() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let bundle_root = tempdir.path().join("browser-app");
