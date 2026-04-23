@@ -115,6 +115,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - The Rust helper now also exposes the same explicit manifest-name load path as the Python and
   Node helpers, so callers can opt into stem-specific bundle discovery without reimplementing the
   root/manifest split.
+- Added Rust-side C ABI metadata load/summary helpers in `kali_capi`, so the maintained helper
+  surface now mirrors the existing Python loader for `cabi-metadata` sidecars and can project the
+  metadata into a normalized summary without duplicating parsing logic.
 - The maintained Python and Node binding helpers now also surface the normalized runtime
   provenance tuple (`runtime_profiles`, `host_contract`, and `runtime_backend`) alongside
   `max_specializations`, so higher-level callers can inspect the exact build context that produced

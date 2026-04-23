@@ -48,6 +48,71 @@ fn metadata_generation_with_provenance_keeps_optional_fields_deterministic() {
 }
 
 #[test]
+fn cabi_metadata_helpers_load_and_summarize_generated_payloads() {
+    let temp_root = std::env::temp_dir().join(format!(
+        "kali_capi_metadata_{}_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("monotonic time")
+            .as_nanos()
+    ));
+    fs::create_dir_all(&temp_root).expect("temp dir");
+
+    let metadata_path = temp_root.join("sample.cabi.json");
+    let metadata = generate_metadata_with_provenance(
+        "sample.capi.wasm",
+        "sample.wit",
+        "sample.h",
+        &[
+            "wasm-threads".to_string(),
+            "fiber-threads".to_string(),
+            "wasm-threads".to_string(),
+        ],
+        8,
+        Some("kali-hosted"),
+        Some("wasmtime"),
+    );
+    fs::write(&metadata_path, metadata.to_string()).expect("write cabi metadata");
+
+    let loaded = load_metadata(&metadata_path).expect("load cabi metadata");
+    assert_eq!(loaded["schemaVersion"], 1);
+    assert_eq!(loaded["kind"], "cabi-metadata");
+    assert_eq!(loaded["hostAbiVersion"], HOST_ABI_VERSION);
+    assert_eq!(loaded["minHostAbiVersion"], HOST_ABI_VERSION);
+    assert_eq!(
+        loaded["runtimeProfiles"],
+        serde_json::json!(["fiber-threads", "wasm-threads"])
+    );
+    assert_eq!(loaded["maxSpecializations"], 8);
+    assert_eq!(loaded["hostContract"], "kali-hosted");
+    assert_eq!(loaded["runtimeBackend"], "wasmtime");
+    assert_eq!(loaded["artifacts"]["wasmModule"], "sample.capi.wasm");
+    assert_eq!(loaded["artifacts"]["wit"], "sample.wit");
+    assert_eq!(loaded["artifacts"]["exportsHeader"], "sample.h");
+
+    let summary = cabi_metadata_summary(&loaded).expect("summarize cabi metadata");
+    assert_eq!(summary["schemaVersion"], 1);
+    assert_eq!(summary["kind"], "cabi-metadata");
+    assert_eq!(summary["hostAbiVersion"], HOST_ABI_VERSION);
+    assert_eq!(summary["minHostAbiVersion"], HOST_ABI_VERSION);
+    assert_eq!(summary["maxSpecializations"], 8);
+    assert_eq!(
+        summary["runtimeProfiles"],
+        serde_json::json!(["fiber-threads", "wasm-threads"])
+    );
+    assert_eq!(summary["hostContract"], "kali-hosted");
+    assert_eq!(summary["runtimeBackend"], "wasmtime");
+    assert_eq!(summary["artifacts"]["wasmModule"], "sample.capi.wasm");
+    assert_eq!(summary["artifacts"]["wit"], "sample.wit");
+    assert_eq!(summary["artifacts"]["exportsHeader"], "sample.h");
+
+    let loaded_summary =
+        load_metadata_summary(&metadata_path).expect("load and summarize cabi metadata");
+    assert_eq!(loaded_summary, summary);
+}
+
+#[test]
 fn binding_package_manifest_orders_and_deduplicates_glue_deterministically() {
     let manifest = generate_binding_package_manifest(
         "sample",

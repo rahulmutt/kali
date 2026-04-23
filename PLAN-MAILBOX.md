@@ -10,7 +10,8 @@ This mailbox is for **temporary planning follow-ups** only. Once a decision is r
 No open plan-mailbox items.
 
 The 2026-04-21 and 2026-04-22 follow-ups were incorporated into the plan set, including the main
-Phase 5 status updates and the Stage 4.2 / Stage 2.5 historical plan alignment work.
+Phase 5 status updates, the Stage 4.2 / Stage 2.5 historical plan alignment work, and the new
+Rust-side C ABI metadata helper note in the Stage 5.5 progress record.
 
 ## Incorporated highlights
 
