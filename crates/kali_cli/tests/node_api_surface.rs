@@ -7,18 +7,6 @@ fn kali_bin() -> PathBuf {
         .expect("CARGO_BIN_EXE_kali not set")
 }
 
-fn assert_node_api_rejected(name: &str, mut command: Command) {
-    let output = command.output().expect("run kali");
-    assert!(!output.status.success(), "{name} unexpectedly succeeded");
-    assert_eq!(output.status.code(), Some(5), "{name} exit code");
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "{name} stderr: {stderr}");
-    assert!(
-        stderr.contains("API surface 'node' is unavailable in this phase"),
-        "{name} stderr: {stderr}"
-    );
-}
-
 fn assert_node_api_succeeds(name: &str, mut command: Command, expected_stdout: &str) {
     let output = command.output().expect("run kali");
     assert!(
@@ -31,39 +19,51 @@ fn assert_node_api_succeeds(name: &str, mut command: Command, expected_stdout: &
 }
 
 #[test]
-fn explicit_node_api_surface_is_rejected_for_phase1_check_and_build_commands() {
+fn explicit_node_api_surface_is_supported_for_phase1_check_and_build_commands() {
     let dir = tempdir().expect("tempdir");
-    let check_file = dir.path().join("main.ts");
-    fs::write(&check_file, "import 'node:path';\nconst answer = 1;\n").expect("write check file");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "import 'node:path';\nconsole.log('Checked 1 file(s)');\n",
+    )
+    .expect("write source");
 
-    for (name, args) in [
-        (
-            "check",
-            vec!["check", "--api", "node", check_file.to_str().unwrap()],
-        ),
-        (
-            "build",
-            vec!["build", "--api", "node", check_file.to_str().unwrap()],
-        ),
-        (
-            "effects",
-            vec!["effects", "--api", "node", check_file.to_str().unwrap()],
-        ),
-    ] {
-        let mut command = Command::new(kali_bin());
-        command.current_dir(dir.path());
-        for arg in args {
-            command.arg(arg);
-        }
-        assert_node_api_rejected(name, command);
-    }
+    let mut check = Command::new(kali_bin());
+    check
+        .current_dir(dir.path())
+        .args(["check", "--api", "node", source_path.to_str().unwrap()]);
+    assert_node_api_succeeds("check", check, "Checked 1 file(s)");
+
+    let mut build = Command::new(kali_bin());
+    build
+        .current_dir(dir.path())
+        .args(["build", "--api", "node", source_path.to_str().unwrap()]);
+    let output = build.output().expect("run kali");
+    assert!(
+        output.status.success(),
+        "build stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("Built executable artifact at"),
+        "build stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert!(
+        source_path.with_file_name("main.wasm").exists(),
+        "expected build artifact"
+    );
 }
 
 #[test]
-fn inherited_node_api_surface_is_rejected_for_phase1_check_and_build_commands() {
+fn inherited_node_api_surface_is_supported_for_phase1_check_and_build_commands() {
     let dir = tempdir().expect("tempdir");
-    let check_file = dir.path().join("main.ts");
-    fs::write(&check_file, "import 'node:path';\nconst answer = 1;\n").expect("write check file");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "import 'node:path';\nconsole.log('Checked 1 file(s)');\n",
+    )
+    .expect("write source");
     fs::write(
         dir.path().join("kali.json"),
         r#"{
@@ -75,18 +75,33 @@ fn inherited_node_api_surface_is_rejected_for_phase1_check_and_build_commands() 
     )
     .expect("write manifest");
 
-    for (name, args) in [
-        ("check", vec!["check", check_file.to_str().unwrap()]),
-        ("build", vec!["build", check_file.to_str().unwrap()]),
-        ("effects", vec!["effects", check_file.to_str().unwrap()]),
-    ] {
-        let mut command = Command::new(kali_bin());
-        command.current_dir(dir.path());
-        for arg in args {
-            command.arg(arg);
-        }
-        assert_node_api_rejected(name, command);
-    }
+    let mut check = Command::new(kali_bin());
+    check
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(source_path.to_str().unwrap());
+    assert_node_api_succeeds("check", check, "Checked 1 file(s)");
+
+    let mut build = Command::new(kali_bin());
+    build
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(source_path.to_str().unwrap());
+    let output = build.output().expect("run kali");
+    assert!(
+        output.status.success(),
+        "build stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("Built executable artifact at"),
+        "build stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert!(
+        source_path.with_file_name("main.wasm").exists(),
+        "expected build artifact"
+    );
 }
 
 #[test]

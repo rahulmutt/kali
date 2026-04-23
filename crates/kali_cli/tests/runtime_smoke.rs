@@ -751,7 +751,7 @@ fn json_check_uses_explicit_browser_api_surface_with_sandbox() {
 }
 
 #[test]
-fn check_rejects_node_api_surface() {
+fn check_accepts_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -772,17 +772,12 @@ console.log('ok');
         .expect("run kali");
 
     assert!(
-        !output.status.success(),
-        "stdout: {}",
-        String::from_utf8_lossy(&output.stdout)
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("API surface 'node' is unavailable in this phase"),
-        "stderr: {stderr}"
-    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Checked 1 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -975,14 +970,10 @@ fn test_rejects_threaded_runtime_globals() {
 }
 
 #[test]
-fn check_rejects_late_host_control_globals() {
+fn check_accepts_node_api_surface_with_human_output() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(
-        &source_path,
-        "Deno.pid; globalThis.Deno.pid; globalThis.Deno.cwd; Deno.chdir('/tmp'); globalThis.Deno.chdir('/tmp'); globalThis.Deno.exit(0); process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir('/tmp'); globalThis.process.chdir('/tmp'); globalThis.process.exit(0);",
-    )
-    .expect("write source");
+    fs::write(&source_path, "import 'node:path';\nconsole.log('ok');\n").expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -993,25 +984,21 @@ fn check_rejects_late_host_control_globals() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
-        stderr.contains("API surface 'node' is unavailable in this phase"),
-        "stderr: {stderr}"
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
     );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Checked 1 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
-fn check_rejects_late_host_control_globals_in_json() {
+fn check_accepts_node_api_surface_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(
-        &source_path,
-        "Deno.pid; globalThis.Deno.pid; globalThis.Deno.cwd; Deno.chdir('/tmp'); globalThis.Deno.chdir('/tmp'); globalThis.Deno.exit(0); process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir('/tmp'); globalThis.process.chdir('/tmp'); globalThis.process.exit(0);",
-    )
-    .expect("write source");
+    fs::write(&source_path, "import 'node:path';\nconsole.log('ok');\n").expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -1024,18 +1011,18 @@ fn check_rejects_late_host_control_globals_in_json() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 1);
-    assert_eq!(errors[0]["code"], "E5506");
-    assert!(errors[0]["message"]
-        .as_str()
-        .expect("error message")
-        .contains("API surface 'node' is unavailable in this phase"));
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["filesChecked"], 1);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -5489,7 +5476,7 @@ fn build_rejects_bundle_format_without_bundle() {
 }
 
 #[test]
-fn build_rejects_explicit_node_api_surface() {
+fn build_accepts_explicit_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -5510,16 +5497,18 @@ console.log(1);
         .expect("run kali");
 
     assert!(
-        !output.status.success(),
-        "stdout: {}",
-        String::from_utf8_lossy(&output.stdout)
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stderr.contains("API surface 'node' is unavailable in this phase"),
-        "stderr: {stderr}"
+        stdout.contains("Built executable artifact at"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        source_path.with_file_name("main.wasm").exists(),
+        "expected build artifact"
     );
 }
 

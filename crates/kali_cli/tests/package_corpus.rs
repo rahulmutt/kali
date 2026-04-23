@@ -2887,13 +2887,11 @@ export default function dotenv() {
             ["check", "--api", "node", source_path.to_str().unwrap()],
         );
         assert!(
-            !check.status.success(),
-            "node package {package} should stay gated on Node checking\nstdout: {}\nstderr: {}",
+            check.status.success(),
+            "node package {package} should check on the Node surface\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&check.stdout),
             String::from_utf8_lossy(&check.stderr)
         );
-        let check_stderr = String::from_utf8_lossy(&check.stderr);
-        assert!(check_stderr.contains("E5506"), "stderr: {check_stderr}");
 
         let run = run_kali(
             dir.path(),

@@ -334,12 +334,6 @@ fn check_command(
         }
     };
 
-    if let Err(exit_code) =
-        reject_unavailable_node_api_surface("check", effective_api, output, None, None)
-    {
-        return Err(exit_code);
-    }
-
     if fix {
         let diagnostic = Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
@@ -548,12 +542,6 @@ fn build_command(
             "`kali build` without `--bundle` is not valid for the browser API surface",
         );
         return emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
-    }
-
-    if let Err(exit_code) =
-        reject_unavailable_node_api_surface("build", effective_api, output, None, None)
-    {
-        return Err(exit_code);
     }
 
     let effective_runtime_profiles = match resolve_effective_runtime_profiles(wasm_threads) {

@@ -251,7 +251,7 @@ When a command or flag is rejected due to maturity/availability gating, the CLI 
 Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
 - follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): supported early browser shapes are the shared **Phase-1 browser-targeted command set**; wrong browser build shapes use `E5508`, while browser execution/test requests use `E5506` until Kali defines a standalone browser runtime/test contract.
-- `--api node` is phase-gated consistently across `check`, `effects`, and `build`, while `run` / `test` now accept the documented Node execution subset instead of rejecting the surface wholesale.
+- `--api node` is supported for `check`, `build`, `run`, and `test` on the documented Node-compatible subset, while `effects` and the package-analysis commands still gate that surface explicitly.
 - guest arguments after `--` are forwarded through the invocation-context surface: in the default standalone context they populate `Deno.args`, and in the Node context they populate `process.argv` with the documented executable/source prefix before the guest tail.
 - explicit `--api ...` and inherited `compilerOptions.apiSurface = ...` are equivalent here too: plain `kali run main.ts` and plain `kali run --sandbox kali.policy.json main.ts` must validate against the same effective API surface and therefore hit the same Node/browser execution gates as their explicit `--api node` / `--api browser` forms instead of silently falling back to `deno`.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5506`.
@@ -313,7 +313,7 @@ Canonical artifact-mode rule:
 - these **library-oriented artifact modes** derive their host-facing surface from a **statically known export surface** as defined in [SPEC.md](../SPEC.md); they do not implicitly expose arbitrary internal declarations just because the source file was compiled in `--lib`/`--capi`/`--component` mode
 - if Kali cannot determine that export surface statically, the library-oriented build fails with `E5511` instead of synthesizing reflection-based exports
 - plain `--lib` is the Phase-1 **base library artifact**: it establishes the exported-library shape early, but only when Kali can determine the required **statically known export surface**; otherwise it fails with `E5511`. Under the shared **embedding-stability split** the stable public embedding/WIT contract remains part of the later Phase-2 **public embedding surface**
-- they also keep the ordinary build-command API-surface semantics: Node-targeted library builds are still phase-gated with `E5506`, while browser-targeted library/embedding combinations are invalid command shapes (`E5508`) until a separate browser-library contract exists
+- they also keep the ordinary build-command API-surface semantics: Node-targeted library builds now participate in the documented Node build subset, while browser-targeted library/embedding combinations are still invalid command shapes (`E5508`) until a separate browser-library contract exists
 
 `--capi` and the other **public embedding artifact flows** follow the embedding maturity rules in [specs/19-feature-maturity.md](19-feature-maturity.md): under the shared **embedding-stability split**, Phase 1 ships the base library artifact while the stable public embedding surface is a Phase 2 target.
 
@@ -333,18 +333,18 @@ kali build --bundle --api browser main.ts  # main.wasm + main.js + main.js.map (
 kali build --bundle --format cjs --api browser main.ts  # main.wasm + main.cjs + main.cjs.map (CommonJS wrapper; artifacts: main.wasm kind=wasm-module role=primary-executable; main.cjs kind=js-glue role=browser-glue; main.cjs.map kind=source-map role=debug-source-map)
 kali build --bundle --api node main.ts     # Invalid usage (E5508); --bundle is the browser-only artifact mode, so pairing it with a non-browser API surface is contradictory
 kali build --api browser main.ts           # Invalid usage (E5508) in early phases; the shared **Phase-1 browser-targeted command set** keeps browser builds on the explicit `--bundle` path
-kali build --api node main.ts              # Phase 3 target: Node API surface is not available early for builds either
+kali build --api node main.ts              # Supported Node build subset for the documented build surface
 kali build --lib lib.ts                    # Phase-1 base library artifact for exact-version consumers, following the shared library-oriented instantiation rule and embedding-stability split from SPEC.md (kind=wasm-module, role=primary-library; from the Phase 2 target onward the same plain --lib path becomes the stable public WIT-first library contract and adds kind=wit, role=interface-wit by default)
 kali build --lib --sandbox kali.policy.json lib.ts # Same Phase-1 base library artifact plus static policy validation; `--sandbox` does not change library compile intent
-kali build --lib --api node lib.ts         # Phase 3 target: Node API surface remains build-gated for library-oriented modes too
+kali build --lib --api node lib.ts         # Supported Node build subset for the documented library-oriented surface
 kali build --lib --api browser lib.ts      # Invalid usage (E5508) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser library artifact modes
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + lib.cabi.json (artifacts: wasm-module + wit + c-header + cabi-metadata; roles: primary-library + interface-wit + embedding-header + embedding-metadata; `lib.exports.h` is the program-specific exports header, and `lib.cabi.json` is the generated `cabi-metadata` file, not the host ABI header `kali.h`; see specs/13-embedding.md)
 kali build --capi --sandbox kali.policy.json lib.ts # Phase 2 target: same C-embedding artifact flow plus static policy validation; `--sandbox` stays orthogonal to artifact mode
-kali build --capi --api node lib.ts        # Phase 3 target: still gated by the Node build surface even after the public embedding artifact flow exists
+kali build --capi --api node lib.ts        # Supported Node build subset for the documented C-embedding surface
 kali build --capi --api browser lib.ts     # Invalid usage (E5508) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser embedding artifact modes
 kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit + lib.component.wasm (artifacts: lib.wasm kind=wasm-module role=primary-library; lib.wit kind=wit role=interface-wit; lib.component.wasm kind=wasm-component role=primary-component)
 kali build --component --sandbox kali.policy.json lib.ts # Phase 2 target: same component-oriented packaging path plus static policy validation; `--sandbox` stays orthogonal to artifact mode
-kali build --component --api node lib.ts   # Phase 3 target: still gated by the Node build surface even after component packaging exists
+kali build --component --api node lib.ts   # Supported Node build subset for the documented component-packaging surface
 kali build --component --api browser lib.ts # Invalid usage (E5508) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser component artifact modes
 kali build --sandbox kali.policy.json main.ts # Phase 1: policy-schema/config validation; from the Phase 2 target onward also validate inferred effects
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Phase 1: browser-targeted static policy-schema/config validation only; no automatic browser-runtime enforcement is implied after deployment
@@ -360,9 +360,9 @@ Inherited build-context shorthand summary:
 | Effective `apiSurface` | Plain command spelling | Result |
 |---|---|---|
 | `deno` (default) | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Supported early executable build path |
-| `node` | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Same Node build gate as explicit `--api node`; no silent fallback to `deno` |
+| `node` | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Supported Node build subset when `compilerOptions.apiSurface = node` or `--api node` is selected; no silent fallback to `deno` |
 | `browser` | `kali build main.ts` / `kali build --sandbox kali.policy.json main.ts` | Invalid usage (`E5508`): same contradiction as explicit `kali build --api browser ...` until a non-bundle browser build mode exists |
-| `node` | `kali build --lib lib.ts` / `kali build --lib --sandbox kali.policy.json lib.ts` / `kali build --capi lib.ts` / `kali build --component lib.ts` | Same Node build gate as the corresponding explicit `--api node` library-oriented form; `--sandbox` does not create a separate availability path or silent fallback |
+| `node` | `kali build --lib lib.ts` / `kali build --lib --sandbox kali.policy.json lib.ts` / `kali build --capi lib.ts` / `kali build --component lib.ts` | Same supported Node build subset as the corresponding explicit `--api node` library-oriented form; `--sandbox` does not create a separate availability path or silent fallback |
 | `browser` | `kali build --lib lib.ts` / `kali build --lib --sandbox kali.policy.json lib.ts` / `kali build --capi lib.ts` / `kali build --component lib.ts` | Invalid usage (`E5508`): same contradiction as the corresponding explicit browser library-oriented form |
 | non-browser (`deno` / `node`) | `kali build --bundle main.ts` | Invalid usage (`E5508`): `--bundle` is browser-only |
 | `browser` | `kali build --bundle main.ts` | Same supported request as explicit `kali build --bundle --api browser main.ts` |
@@ -381,25 +381,25 @@ kali check types.d.ts                      # Validate a declaration-only file di
 kali check --api browser                   # Browser-targeted project-discovery analysis context
 kali check --api browser main.ts           # Browser-targeted analysis context for an explicit file set (no standalone DOM runtime implied)
 kali check --api browser src/a.ts src/b.ts # Same browser-targeted analysis context over an explicit multi-file set
-kali check --api node                      # Phase 3 target: Node API surface is phase-gated for project-discovery checking too
-kali check --api node main.ts              # Phase 3 target: same Node analysis gate for an explicit file set
+kali check --api node                      # Node API surface is supported for project-discovery checking on the documented Node subset
+kali check --api node main.ts              # Same supported Node analysis subset for an explicit file set
 kali check --sandbox kali.policy.json      # Phase 1: project-wide check + policy-schema/config validation over the command's resolved source graph; from the Phase 2 target onward, effect-vs-policy validation uses that same scope
 kali check --api browser --sandbox kali.policy.json # Same browser-targeted validation path over the command's resolved source graph
 kali check --sandbox kali.policy.json main.ts # Same validation, but scoped to the explicit file set
 kali check --sandbox kali.policy.json src/a.ts src/b.ts # Same rule with multiple explicit files; --sandbox does not turn check into a direct-input command
 kali check --api browser --sandbox kali.policy.json src/a.ts src/b.ts # Same browser-targeted validation path over an explicit multi-file set
 ```
-`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`, `--api node`, and `--sandbox`: API-surface selection changes only the analysis context, and the shared **sandbox-attachment orthogonality** rule from [SPEC.md](../SPEC.md) keeps `check` from turning into a direct-input command. When `--sandbox` is attached, validation still ranges over the same **resolved source graph** from [SPEC.md](../SPEC.md); it is not a root-file-only check. Inherited browser-config equivalents are summarized in the shorthand table below so the same bare `kali check ...` spelling does not need to appear twice with two different contexts.
+`kali check` is the hybrid analysis command: it accepts explicit file inputs, and without them it falls back to the canonical project-discovery result. That remains true under `--api browser`, `--api node`, and `--sandbox`: API-surface selection changes only the analysis context, and the shared **sandbox-attachment orthogonality** rule from [SPEC.md](../SPEC.md) keeps `check` from turning into a direct-input command. When `--sandbox` is attached, validation still ranges over the same **resolved source graph** from [SPEC.md](../SPEC.md); it is not a root-file-only check. Inherited browser- and Node-config equivalents are summarized in the shorthand table below so the same bare `kali check ...` spelling does not need to appear twice with two different contexts.
 
 Inherited check-context shorthand:
 
 | Effective `apiSurface` | Command spelling | Result |
 |---|---|---|
 | `deno` (default) | `kali check [files...]` | Supported standalone/default analysis context |
-| `node` | `kali check [files...]` | Same Node analysis gate as explicit `kali check --api node [files...]`; no silent fallback to `deno` |
+| `node` | `kali check [files...]` | Same supported Node analysis subset as explicit `kali check --api node [files...]`; no silent fallback to `deno` |
 | `browser` | `kali check [files...]` | Same browser-targeted request as explicit `kali check --api browser [files...]` |
 | `deno` (default) | `kali check --sandbox kali.policy.json [files...]` | Supported standalone/default policy-validation request |
-| `node` | `kali check --sandbox kali.policy.json [files...]` | Same Node policy-validation gate as explicit `kali check --api node --sandbox kali.policy.json [files...]`; no silent fallback to `deno` |
+| `node` | `kali check --sandbox kali.policy.json [files...]` | Same supported Node policy-validation subset as explicit `kali check --api node --sandbox kali.policy.json [files...]`; no silent fallback to `deno` |
 | `browser` | `kali check --sandbox kali.policy.json [files...]` | Same browser-targeted static policy-validation request as explicit `kali check --api browser --sandbox kali.policy.json [files...]` |
 
 This table is a CLI reading aid only; [19 — Feature Maturity](19-feature-maturity.md) remains the availability owner.
@@ -444,7 +444,7 @@ Input-kind and host-selection rules:
 - `kali effects` accepts only the shared **executable/analyzable source-file class** from [SPEC.md](../SPEC.md); declaration-only files are type inputs, not effect-report primary inputs
 - unless overridden by CLI/config, `kali effects` uses the shared **default source-graph analysis context (schema v1)** from [SPEC.md](../SPEC.md)
 - `--api browser` follows the same browser API-surface analysis context as `kali check --api browser`; in Phase 2 this extends browser-targeted analysis to `effects` without implying standalone browser execution
-- `--api node` remains phase-gated until the documented Node surface exists
+- `--api node` is supported for the documented Node-compatible check/build/run/test subset, while `effects` and package-analysis commands keep their own explicit gates until their rows open
 - `--compat ...` affects effect analysis too: enabled compatibility paths such as `eval` change the reported effect set/dynamic reasons only when that compatibility feature is actually implemented for the selected phase/profile
 - explicit flags and inherited config are equivalent here too: plain `kali effects main.ts` must validate against the full effective analysis context, so inherited `compilerOptions.apiSurface = browser|node`, inherited `compilerOptions.runtimeProfiles = ["wasm-threads"]`, or inherited `compat.features = ["eval"]` must hit the same gates as the corresponding explicit `--api ...`, `--wasm-threads`, or `--compat eval` forms instead of silently falling back to a simpler analysis mode
 
