@@ -29,10 +29,11 @@ and the regression suite now pins both the default-standalone rejection for a se
 `require('../package.json')` package-bin entrypoint, the Node-path help-path smoke for a
 `semver/bin/semver.js`-shaped fixture, and a Node-path package-json/version plus guest-argument
 count smoke on the documented Node surface. The codegen/runtime path now keeps
-`process.argv.length` wired to the invocation args, and the Node compatibility helper now also
-records a deterministic `argv0` projection from the host launch vector, so the semver probe and
-related package-bin cases stay anchored to the actual package-binary shape with both no-arg and
-guest-arg coverage.
+`process.argv.length` wired to the invocation args, the Node compatibility helper now also
+records a deterministic `argv0` projection from the host launch vector, and the helper test suite
+now pins that projection directly through `NodeRuntimeProjection::from_host_context`, so the
+semver probe and related package-bin cases stay anchored to the actual package-binary shape with
+both no-arg and guest-arg coverage.
 
 ## Historical stage tasks
 

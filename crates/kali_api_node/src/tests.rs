@@ -38,6 +38,17 @@ fn process_context_tracks_env_and_output() {
 }
 
 #[test]
+fn runtime_projection_preserves_host_argv0_projection() {
+    let projection = NodeRuntimeProjection::from_host_context(
+        vec!["node".into(), "script.js".into()],
+        BTreeMap::new(),
+        "/workspace/project",
+    );
+
+    assert_eq!(projection.process().argv0(), "node");
+}
+
+#[test]
 fn default_process_context_uses_node_as_argv0() {
     let process = NodeProcess::default();
 
