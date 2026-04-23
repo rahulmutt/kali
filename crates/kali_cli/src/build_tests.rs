@@ -242,6 +242,32 @@ fn build_artifact_metadata_preserves_runtime_profiles() {
 }
 
 #[test]
+fn build_artifact_metadata_serializes_runtime_provenance_fields() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "const main = 1;").expect("write source");
+
+    let metadata = build_artifact_metadata(
+        &source_path,
+        "component",
+        BuildMode::ReleaseAdvanced,
+        "browser",
+        &["wasm-threads".to_string()],
+        24,
+        None,
+    )
+    .expect("build metadata");
+
+    let json: serde_json::Value = serde_json::from_slice(&serialize_artifact_metadata(&metadata))
+        .expect("serialize metadata");
+
+    assert_eq!(json["runtimeProfiles"], serde_json::json!(["wasm-threads"]));
+    assert_eq!(json["maxSpecializations"], 24);
+    assert_eq!(json["hostContract"], "kali-hosted");
+    assert_eq!(json["runtimeBackend"], "wasmtime");
+}
+
+#[test]
 fn build_artifact_metadata_rejects_duplicate_runtime_profiles() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
