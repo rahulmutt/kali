@@ -33,7 +33,9 @@ count smoke on the documented Node surface. The codegen/runtime path now keeps
 records a deterministic `argv0` projection from the host launch vector, and the helper test suite
 now pins that projection directly through `NodeRuntimeProjection::from_host_context`, so the
 semver probe and related package-bin cases stay anchored to the actual package-binary shape with
-both no-arg and guest-arg coverage.
+both no-arg and guest-arg coverage. The package-corpus lane now also carries an inherited-node
+`semver/bin/semver.js` executable regression, so the documented Node support rung is exercised in
+corpus evidence as well as in the direct runtime smoke suite.
 
 ## Historical stage tasks
 

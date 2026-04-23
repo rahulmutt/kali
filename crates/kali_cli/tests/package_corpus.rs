@@ -1989,6 +1989,27 @@ console.log(minVersion('^1.2.3')?.version);
 }
 
 #[test]
+fn node_runner_corpus_semver_style_package_bin_remains_executable_on_the_node_surface() {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("node"));
+    let package_dir = dir.path().join("node_modules/semver");
+    write_semver_style_package(&package_dir);
+
+    let run = run_kali(
+        dir.path(),
+        ["run", package_dir.join("bin/semver.js").to_str().unwrap()],
+    );
+    assert!(
+        run.status.success(),
+        "semver corpus package bin should stay executable on the Node surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&run.stderr), "");
+    assert!(!run.stdout.is_empty(), "stdout should not be empty");
+}
+
+#[test]
 fn utility_corpus_packages_with_pattern_exports_remain_executable_on_the_default_standalone_surface(
 ) {
     for (package, subpath) in [
