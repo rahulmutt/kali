@@ -956,6 +956,144 @@ fn check_rejects_broader_intl_support_in_json() {
 }
 
 #[test]
+fn run_rejects_broader_intl_support() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("Intl"), "stderr: {stderr}");
+    assert!(stderr.contains("globalThis.Intl"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("globalThis.Intl.NumberFormat"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn run_rejects_broader_intl_support_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty());
+    assert!(errors.iter().all(|error| error["code"] == "E5006"));
+    let messages = errors
+        .iter()
+        .map(|error| error["message"].as_str().expect("error message"))
+        .collect::<Vec<_>>();
+    assert!(messages.iter().any(|message| message.contains("Intl")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains("globalThis.Intl")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains("globalThis.Intl.NumberFormat")));
+}
+
+#[test]
+fn test_rejects_broader_intl_support() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("Intl"), "stderr: {stderr}");
+    assert!(stderr.contains("globalThis.Intl"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("globalThis.Intl.NumberFormat"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_rejects_broader_intl_support_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty());
+    assert!(errors.iter().all(|error| error["code"] == "E5006"));
+    let messages = errors
+        .iter()
+        .map(|error| error["message"].as_str().expect("error message"))
+        .collect::<Vec<_>>();
+    assert!(messages.iter().any(|message| message.contains("Intl")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains("globalThis.Intl")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains("globalThis.Intl.NumberFormat")));
+}
+
+#[test]
 fn check_rejects_late_object_model_globals() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
