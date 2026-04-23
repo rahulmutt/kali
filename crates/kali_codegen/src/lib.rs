@@ -8,7 +8,7 @@ use std::{
 
 use kali_error::{
     _error_codes::{e3, e8},
-    Diagnostic,
+    Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
 };
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
 use semver::{Version, VersionReq};
@@ -190,9 +190,15 @@ impl<'a> FunctionEmitter<'a> {
             ),
         };
 
-        let mut diagnostic = Diagnostic::warning(e3::UNDEFINED_IDENTIFIER as u32, message).note(
-            "name resolution should resolve this before codegen; the fallback emits a zero placeholder and should remain a compatibility escape hatch only",
-        );
+        let mut diagnostic = Diagnostic::warning(e3::UNDEFINED_IDENTIFIER as u32, message)
+            .with_context(
+                DiagnosticContext::new(DiagnosticContextOrigin::Source)
+                    .with_requested_value(name)
+                    .with_effective_value("zero placeholder compatibility fallback"),
+            )
+            .note(
+                "name resolution should resolve this before codegen; the fallback emits a zero placeholder and should remain a compatibility escape hatch only",
+            );
         if let Some(source_path) = &self.source_path {
             diagnostic = diagnostic.note(format!("source path: {}", source_path.display()));
         }

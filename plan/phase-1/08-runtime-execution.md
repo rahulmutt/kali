@@ -44,6 +44,9 @@ TypeScript/JavaScript programs.
 - Added a semver consumer/runtime regression on the default standalone surface so the common
   `valid` / `satisfies` / `minVersion` package calls now stay observable with exact stdout instead
   of collapsing to placeholder zeros.
+- The unresolved imported bindings/call-target fallback diagnostics now also carry structured
+  source-context metadata, keeping the compatibility escape hatch machine-readable without changing
+  the existing fallback behavior.
 - The semver probe follow-up still tracks the unresolved imported bindings/call-target placeholder
   fallback explicitly so that gap remains visible in the stage notes instead of being implied by
   the codegen path alone.

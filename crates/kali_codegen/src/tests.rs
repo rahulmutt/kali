@@ -288,6 +288,12 @@ fn unresolved_identifier_lowering_attaches_a_guidance_note() {
                 && diagnostic
                     .message
                     .contains("zero placeholder compatibility fallback")
+                && diagnostic.context.as_deref().is_some_and(|context| {
+                    context.origin == kali_error::DiagnosticContextOrigin::Source
+                        && context.requested_value.as_deref() == Some("missing_value")
+                        && context.effective_value.as_deref()
+                            == Some("zero placeholder compatibility fallback")
+                })
                 && diagnostic
                     .notes
                     .iter()
@@ -322,6 +328,12 @@ fn unresolved_call_target_lowering_attaches_a_guidance_note() {
                 && diagnostic
                     .message
                     .contains("zero placeholder compatibility fallback")
+                && diagnostic.context.as_deref().is_some_and(|context| {
+                    context.origin == kali_error::DiagnosticContextOrigin::Source
+                        && context.requested_value.as_deref() == Some("missing_fn")
+                        && context.effective_value.as_deref()
+                            == Some("zero placeholder compatibility fallback")
+                })
                 && diagnostic
                     .notes
                     .iter()
