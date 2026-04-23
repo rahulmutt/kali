@@ -25,9 +25,11 @@ __all__ = [
     "CabiMetadata",
     "Export",
     "KaliCAPI",
+    "discover_binding_package_manifest_path",
     "ensure_compatible_binding_package_manifest",
     "ensure_compatible_metadata",
     "load_binding_package_manifest",
+    "load_binding_package_manifest_from_root",
     "load_library",
     "load_metadata",
     "parse_binding_package_manifest",
@@ -227,10 +229,13 @@ def load_binding_package_manifest(path: str | Path) -> BindingPackageManifest:
     return parse_binding_package_manifest(Path(path).read_text())
 
 
-def _resolve_binding_package_manifest_path(
-    bundle_root: Path,
-    manifest_name: str,
+def discover_binding_package_manifest_path(
+    bundle_root: str | Path,
+    manifest_name: str = "binding-package.json",
 ) -> Path:
+    """Discover the generated binding package manifest within a bundle root."""
+
+    bundle_root = Path(bundle_root)
     explicit_manifest_path = bundle_root / manifest_name
     if explicit_manifest_path.exists():
         return explicit_manifest_path
@@ -246,6 +251,17 @@ def _resolve_binding_package_manifest_path(
             "binding package manifest is ambiguous; pass manifest_name explicitly"
         )
     return discovered_manifests[0]
+
+
+def load_binding_package_manifest_from_root(
+    bundle_root: str | Path,
+    manifest_name: str = "binding-package.json",
+) -> BindingPackageManifest:
+    """Discover and load a generated binding package manifest from a bundle root."""
+
+    return load_binding_package_manifest(
+        discover_binding_package_manifest_path(bundle_root, manifest_name)
+    )
 
 
 def ensure_compatible_metadata(
@@ -335,9 +351,8 @@ class KaliCAPI:
         available_host_abi_version: int = HOST_ABI_VERSION,
     ) -> "KaliCAPI":
         bundle_root = Path(bundle_root)
-        manifest_path = _resolve_binding_package_manifest_path(bundle_root, manifest_name)
         manifest = ensure_compatible_binding_package_manifest(
-            load_binding_package_manifest(manifest_path),
+            load_binding_package_manifest_from_root(bundle_root, manifest_name),
             available_host_abi_version=available_host_abi_version,
         )
         header_text = (bundle_root / manifest.artifacts["exportsHeader"]).read_text()

@@ -29,7 +29,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   The manifest generator now also normalizes glue-path order and removes duplicate entries so the
   generated sidecar stays stable even when callers pass repeated helper paths. The maintained
   Python wrapper can auto-discover that generated bundle layout directly while preserving the same
-  host-ABI compatibility check. The maintained Node ESM helper now mirrors the same manifest/metadata
+  host-ABI compatibility check, and both the Python and Node helpers now expose public
+  bundle-root manifest loaders so higher-level binding code can reuse the same discovery rules
+  without duplicating them. The maintained Node ESM helper now mirrors the same manifest/metadata
   discovery rules over the stable C ABI, and now also exposes a small `KaliCAPI` wrapper that binds
   generated exports onto an existing library object, so the later binding lane has more than one
   non-Rust smoke path to prove the packaging contract. The root README now calls out the generated

@@ -205,6 +205,10 @@ export function ensureCompatibleMetadata(metadata, availableHostAbiVersion = HOS
   return metadata;
 }
 
+export function loadBindingPackageManifestFromRoot(bundleRoot, manifestName = 'binding-package.json') {
+  return loadBindingPackageManifest(discoverBindingPackageManifestPath(bundleRoot, manifestName));
+}
+
 export function ensureCompatibleBindingPackageManifest(
   manifest,
   availableHostAbiVersion = HOST_ABI_VERSION,

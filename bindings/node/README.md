@@ -18,6 +18,7 @@ import {
   KaliCAPI,
   discoverBindingPackageManifestPath,
   loadBindingPackageManifest,
+  loadBindingPackageManifestFromRoot,
   loadMetadata,
   parseExports,
 } from './kali_capi.mjs';
@@ -28,8 +29,9 @@ console.log(binding.exports);
 
 The helper keeps the binding workflow small and deterministic so higher-level
 wrappers can discover the generated artifact layout without reimplementing the
-manifest and metadata parsing rules. `KaliCAPI.fromBindingPackage()` loads the
-manifest, validates the companion metadata, and binds the exported entrypoints
+manifest and metadata parsing rules. `loadBindingPackageManifestFromRoot()`
+and `KaliCAPI.fromBindingPackage()` both resolve the generated manifest from a
+bundle root, validate the companion metadata, and bind the exported entrypoints
 onto an existing library object.
 
 Run the smoke tests with:

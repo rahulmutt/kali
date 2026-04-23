@@ -12,9 +12,11 @@ from kali_capi import (  # noqa: E402
     BindingPackageManifest,
     Export,
     KaliCAPI,
+    discover_binding_package_manifest_path,
     ensure_compatible_binding_package_manifest,
     ensure_compatible_metadata,
     load_binding_package_manifest,
+    load_binding_package_manifest_from_root,
     load_metadata,
     parse_exports,
 )
@@ -104,7 +106,10 @@ class KaliCapiSmokeTests(unittest.TestCase):
             )
             self.assertEqual(ensure_compatible_metadata(metadata), metadata)
 
-            manifest = load_binding_package_manifest(manifest_path)
+            discovered = discover_binding_package_manifest_path(root)
+            self.assertEqual(discovered, manifest_path)
+
+            manifest = load_binding_package_manifest_from_root(root)
             self.assertEqual(
                 manifest,
                 BindingPackageManifest(
@@ -182,6 +187,9 @@ class KaliCapiSmokeTests(unittest.TestCase):
                 )
             )
             (root / "sample.capi.wasm").write_bytes(b"")
+
+            manifest = load_binding_package_manifest_from_root(root)
+            self.assertEqual(manifest.artifacts["glue"], ("shim.py",))
 
             binding = KaliCAPI.from_binding_package(DummyLibrary(), root)
             self.assertEqual(binding.add(2, 3), 5)

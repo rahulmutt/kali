@@ -10,7 +10,7 @@ import {
   discoverBindingPackageManifestPath,
   ensureCompatibleBindingPackageManifest,
   ensureCompatibleMetadata,
-  loadBindingPackageManifest,
+  loadBindingPackageManifestFromRoot,
   loadMetadata,
   parseBindingPackageManifest,
   parseExports,
@@ -92,7 +92,7 @@ test('binding package manifests sort glue paths and auto-discover single manifes
   const resolvedManifestPath = discoverBindingPackageManifestPath(tempRoot);
   assert.equal(resolvedManifestPath, manifestPath);
 
-  const manifest = loadBindingPackageManifest(resolvedManifestPath);
+  const manifest = loadBindingPackageManifestFromRoot(tempRoot);
   const metadata = loadMetadata(metadataPath);
 
   assert.deepEqual(manifest, {

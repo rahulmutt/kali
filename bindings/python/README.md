@@ -12,17 +12,22 @@ It provides deterministic Python ctypes bindings for Kali's stable C ABI.
 
 ```python
 from pathlib import Path
-from kali_capi import KaliCAPI
+from kali_capi import (
+    KaliCAPI,
+    load_binding_package_manifest_from_root,
+)
 
+manifest = load_binding_package_manifest_from_root(Path("dist/binding-package"))
 binding = KaliCAPI.from_binding_package(
     library,
     Path("dist/binding-package"),
 )
 ```
 
-`from_binding_package()` looks for an explicit `binding-package.json` first and then
-falls back to a single stem-specific `*.binding-package.json` manifest in the bundle
-root, which matches the generated Kali layout.
+`load_binding_package_manifest_from_root()` and `from_binding_package()` both
+look for an explicit `binding-package.json` first and then fall back to a single
+stem-specific `*.binding-package.json` manifest in the bundle root, which matches
+the generated Kali layout.
 
 The package is intentionally small and deterministic so the binding workflow can be
 reproduced from the generated C ABI header, metadata, and manifest files.
