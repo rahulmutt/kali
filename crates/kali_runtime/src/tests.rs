@@ -475,6 +475,7 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
     assert!(browser_harness_uses_html_entrypoint(
         "microsoft-edge.desktop.cmd"
     ));
+    assert!(browser_harness_uses_html_entrypoint("chrome.ps1"));
     assert!(browser_harness_uses_html_entrypoint("google-chrome-dev"));
     assert!(browser_harness_uses_html_entrypoint("brave-browser-dev"));
     assert!(browser_harness_uses_html_entrypoint(
@@ -653,6 +654,12 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
     assert_eq!(
         browser_harness_command_parts_for_browser_executable(
             "C:/Program Files/Google/Chrome/Application/chrome.cmd"
+        ),
+        Some(vec!["chrome".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable(
+            "C:/Program Files/Google/Chrome/Application/chrome.ps1"
         ),
         Some(vec!["chrome".to_string(), "--headless".to_string()])
     );

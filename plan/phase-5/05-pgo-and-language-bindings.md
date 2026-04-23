@@ -49,7 +49,10 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   specialization budget that the CLI emits. The binding-package manifest sidecar now also carries
   the normalized runtime provenance tuple (`runtimeProfiles`, `hostContract`, and
   `runtimeBackend`) alongside the specialization cap, keeping the later binding workflow aligned
-  with the same build context that produced the exported artifacts. The build-metadata regression
+  with the same build context that produced the exported artifacts. The maintained binding helpers
+  now also expose bundle-summary loaders that combine the manifest summary with the companion
+  `cabi-metadata` summary in one deterministic shape, keeping the manifest and metadata projections
+  aligned for higher-level callers that want one bundle-level provenance snapshot. The build-metadata regression
   suite now also pins serialized runtime provenance on the artifact sidecars (`runtimeProfiles`,
   `maxSpecializations`, `profileDataHash`, `hostContract`, and `runtimeBackend`), keeping the emitted JSON contract
   explicit across the build kinds that feed the later binding and PGO lanes. The C-ABI JSON-envelope

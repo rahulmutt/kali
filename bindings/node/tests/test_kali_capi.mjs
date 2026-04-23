@@ -10,6 +10,7 @@ const require = createRequire(import.meta.url);
 import {
   HOST_ABI_VERSION,
   KaliCAPI,
+  bindingPackageBundleSummary,
   bindingPackageManifestSummary,
   cabiMetadataSummary,
   discoverBindingPackageManifestPath,
@@ -20,6 +21,9 @@ import {
   ensureCompatibleMetadata,
   loadBindingPackageManifestFromRoot,
   loadBindingPackageManifestFromRootWithName,
+  loadBindingPackageBundleSummary,
+  loadBindingPackageBundleSummaryFromRoot,
+  loadBindingPackageBundleSummaryFromRootWithName,
   loadBindingPackageManifestSummary,
   loadBindingPackageManifestSummaryFromRoot,
   loadBindingPackageManifestSummaryFromRootWithName,
@@ -313,6 +317,18 @@ test('binding package manifests sort glue paths and auto-discover single manifes
   );
   assert.deepEqual(ensureCompatibleBindingPackageManifest(manifest), manifest);
   assert.deepEqual(ensureCompatibleMetadata(metadata), metadata);
+
+  const bundleSummary = loadBindingPackageBundleSummary(manifestPath);
+  assert.deepEqual(bundleSummary, {
+    manifest: summary,
+    metadata: metadataSummary,
+  });
+  assert.deepEqual(loadBindingPackageBundleSummaryFromRoot(tempRoot), bundleSummary);
+  assert.deepEqual(
+    loadBindingPackageBundleSummaryFromRootWithName(tempRoot, 'sample.binding-package.json'),
+    bundleSummary,
+  );
+  assert.deepEqual(bindingPackageBundleSummary(manifest, metadata), bundleSummary);
 
   rmSync(tempRoot, { recursive: true, force: true });
 });

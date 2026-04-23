@@ -37,14 +37,17 @@ projects that normalized manifest into a compact summary object for callers that
 want one stable provenance snapshot. `load_binding_package_manifest_summary()` /
 `load_binding_package_manifest_summary_from_root()` and their `..._with_name()`
 variants, plus `load_metadata_summary()` / `load_metadata_summary_from_root()`,
-perform the same load-and-project step in one call. `cabi_metadata_summary()`
-keeps the companion metadata projection normalized, preserving the optional
-runtime provenance fields — including `profileDataHash` when PGO metadata is
-present — when the compiler emits those values. The resulting `KaliCAPI`
-wrapper also exposes the bundle's `max_specializations` provenance plus the
-normalized runtime provenance tuple (`runtime_profiles`, `host_contract`, and
-`runtime_backend`) when the manifest publishes it, so callers can inspect the
-same deterministic specialization and runtime context that the CLI emitted. The
+perform the same load-and-project step in one call. `binding_package_bundle_summary()`
+and the matching `load_binding_package_bundle_summary()` / `..._from_root()` /
+`..._with_name()` helpers combine the manifest summary with the companion
+metadata summary in one deterministic bundle view. `cabi_metadata_summary()` keeps
+the companion metadata projection normalized, preserving the optional runtime
+provenance fields — including `profileDataHash` when PGO metadata is present —
+when the compiler emits those values. The resulting `KaliCAPI` wrapper also
+exposes the bundle's `max_specializations` provenance plus the normalized runtime
+provenance tuple (`runtime_profiles`, `host_contract`, and `runtime_backend`)
+when the manifest publishes it, so callers can inspect the same deterministic
+specialization and runtime context that the CLI emitted. The
 `from_header_and_metadata()` helper preserves that same provenance tuple when
 callers only have a header plus a `cabi-metadata` sidecar, keeping the direct and
 manifest-backed helper flows aligned.

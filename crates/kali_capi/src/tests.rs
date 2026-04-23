@@ -339,6 +339,24 @@ fn binding_package_manifest_helpers_load_discover_and_summarize_manifests() {
     ));
     fs::create_dir_all(&temp_root).expect("temp dir");
 
+    let mut explicit_metadata = generate_metadata_with_provenance(
+        "sample.capi.wasm",
+        "sample.wit",
+        "sample.h",
+        &[
+            "wasm-threads".to_string(),
+            "fiber-threads".to_string(),
+            "wasm-threads".to_string(),
+        ],
+        8,
+        Some("kali-hosted"),
+        Some("wasmtime"),
+    );
+    explicit_metadata["profileDataHash"] = serde_json::json!("sha256:sample-profile");
+    let explicit_metadata_path = temp_root.join("sample.cabi.json");
+    fs::write(&explicit_metadata_path, explicit_metadata.to_string())
+        .expect("write explicit metadata");
+
     let explicit_manifest = generate_binding_package_manifest(
         "sample",
         "sample.capi.wasm",
@@ -391,6 +409,21 @@ fn binding_package_manifest_helpers_load_discover_and_summarize_manifests() {
         serde_json::json!(["shim.py", "support.py"])
     );
 
+    let loaded_bundle_summary = load_binding_package_bundle_summary(&explicit_manifest_path)
+        .expect("load and summarize explicit bundle");
+    assert_eq!(loaded_bundle_summary["manifest"], loaded_summary);
+    assert_eq!(
+        loaded_bundle_summary["metadata"],
+        cabi_metadata_summary(
+            &load_metadata(&explicit_metadata_path).expect("load explicit metadata")
+        )
+        .expect("summarize explicit metadata")
+    );
+    assert_eq!(
+        loaded_bundle_summary["metadata"]["profileDataHash"],
+        "sha256:sample-profile"
+    );
+
     let loaded_summary_from_path = load_binding_package_manifest_summary(&explicit_manifest_path)
         .expect("load and summarize explicit manifest");
     assert_eq!(loaded_summary_from_path, loaded_summary);
@@ -398,6 +431,26 @@ fn binding_package_manifest_helpers_load_discover_and_summarize_manifests() {
     let loaded_summary_from_root = load_binding_package_manifest_summary_from_root(&temp_root)
         .expect("discover, load, and summarize explicit manifest");
     assert_eq!(loaded_summary_from_root, loaded_summary);
+
+    let loaded_bundle_summary_from_root = load_binding_package_bundle_summary_from_root(&temp_root)
+        .expect("discover, load, and summarize explicit bundle");
+    assert_eq!(loaded_bundle_summary_from_root, loaded_bundle_summary);
+
+    let stem_metadata_path = temp_root.join("sample.cabi.json");
+    fs::write(
+        &stem_metadata_path,
+        generate_metadata_with_provenance(
+            "sample.capi.wasm",
+            "sample.wit",
+            "sample.h",
+            &[],
+            8,
+            Some("kali-hosted"),
+            Some("wasmtime"),
+        )
+        .to_string(),
+    )
+    .expect("write stem metadata");
 
     let stem_manifest_path = temp_root.join("sample.binding-package.json");
     fs::write(
@@ -440,6 +493,20 @@ fn binding_package_manifest_helpers_load_discover_and_summarize_manifests() {
     assert_eq!(
         loaded_summary_from_stem,
         binding_package_manifest_summary(&loaded_stem).expect("summarize stem manifest")
+    );
+
+    let loaded_bundle_summary_from_stem = load_binding_package_bundle_summary_from_root_with_name(
+        &temp_root,
+        "sample.binding-package.json",
+    )
+    .expect("discover, load, and summarize explicit stem-specific bundle");
+    assert_eq!(
+        loaded_bundle_summary_from_stem["manifest"],
+        loaded_summary_from_stem
+    );
+    assert_eq!(
+        loaded_bundle_summary_from_stem["metadata"]["runtimeProfiles"],
+        serde_json::json!([])
     );
 }
 

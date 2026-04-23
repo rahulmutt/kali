@@ -3,6 +3,7 @@ import core from './kali_capi.core.cjs';
 export const HOST_ABI_VERSION = core.HOST_ABI_VERSION;
 export const KaliCAPI = core.KaliCAPI;
 export const bindingPackageManifestSummary = core.bindingPackageManifestSummary;
+export const bindingPackageBundleSummary = core.bindingPackageBundleSummary;
 export const cabiMetadataSummary = core.cabiMetadataSummary;
 export const discoverBindingPackageManifestPath = core.discoverBindingPackageManifestPath;
 export const discoverBindingPackageManifestPathWithName = core.discoverBindingPackageManifestPathWithName;
@@ -16,6 +17,9 @@ export const loadBindingPackageManifestFromRootWithName = core.loadBindingPackag
 export const loadBindingPackageManifestSummary = core.loadBindingPackageManifestSummary;
 export const loadBindingPackageManifestSummaryFromRoot = core.loadBindingPackageManifestSummaryFromRoot;
 export const loadBindingPackageManifestSummaryFromRootWithName = core.loadBindingPackageManifestSummaryFromRootWithName;
+export const loadBindingPackageBundleSummary = core.loadBindingPackageBundleSummary;
+export const loadBindingPackageBundleSummaryFromRoot = core.loadBindingPackageBundleSummaryFromRoot;
+export const loadBindingPackageBundleSummaryFromRootWithName = core.loadBindingPackageBundleSummaryFromRootWithName;
 export const loadMetadata = core.loadMetadata;
 export const loadMetadataFromRoot = core.loadMetadataFromRoot;
 export const loadMetadataFromRootWithName = core.loadMetadataFromRootWithName;

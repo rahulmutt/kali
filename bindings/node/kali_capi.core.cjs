@@ -1,5 +1,5 @@
 const { readFileSync, existsSync, readdirSync } = require('node:fs');
-const { join } = require('node:path');
+const { dirname, join } = require('node:path');
 
 const HOST_ABI_VERSION = 2;
 
@@ -369,6 +369,34 @@ function loadBindingPackageManifestSummaryFromRootWithName(bundleRoot, manifestN
   return loadBindingPackageManifestSummaryFromRoot(bundleRoot, manifestName);
 }
 
+function bindingPackageBundleSummary(manifest, metadata) {
+  return Object.freeze({
+    manifest: bindingPackageManifestSummary(manifest),
+    metadata: cabiMetadataSummary(metadata),
+  });
+}
+
+function loadBindingPackageBundleSummary(path) {
+  const manifestPath = typeof path === 'string' ? path : path?.toString();
+  if (typeof manifestPath !== 'string' || manifestPath.length === 0) {
+    throw new Error('manifestPath must be a non-empty path string');
+  }
+
+  const manifest = loadBindingPackageManifest(manifestPath);
+  const metadata = loadMetadata(join(dirname(manifestPath), manifest.artifacts.metadata));
+  return bindingPackageBundleSummary(manifest, metadata);
+}
+
+function loadBindingPackageBundleSummaryFromRoot(bundleRoot, manifestName = 'binding-package.json') {
+  return loadBindingPackageBundleSummary(
+    discoverBindingPackageManifestPath(bundleRoot, manifestName),
+  );
+}
+
+function loadBindingPackageBundleSummaryFromRootWithName(bundleRoot, manifestName) {
+  return loadBindingPackageBundleSummaryFromRoot(bundleRoot, manifestName);
+}
+
 function bindingPackageManifestSummary(manifest) {
   const summary = {
     moduleName: manifest.moduleName,
@@ -542,6 +570,9 @@ module.exports = {
   loadBindingPackageManifestSummary,
   loadBindingPackageManifestSummaryFromRoot,
   loadBindingPackageManifestSummaryFromRootWithName,
+  loadBindingPackageBundleSummary,
+  loadBindingPackageBundleSummaryFromRoot,
+  loadBindingPackageBundleSummaryFromRootWithName,
   loadMetadata,
   loadMetadataFromRoot,
   loadMetadataFromRootWithName,
@@ -550,6 +581,7 @@ module.exports = {
   loadMetadataSummaryFromRootWithName,
   parseBindingPackageManifest,
   bindingPackageManifestSummary,
+  bindingPackageBundleSummary,
   cabiMetadataSummary,
   parseExports,
   parseMetadata,

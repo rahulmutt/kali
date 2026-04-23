@@ -12,6 +12,7 @@ from kali_capi import (  # noqa: E402
     BindingPackageManifest,
     Export,
     KaliCAPI,
+    binding_package_bundle_summary,
     binding_package_manifest_summary,
     cabi_metadata_summary,
     discover_binding_package_manifest_path,
@@ -23,6 +24,9 @@ from kali_capi import (  # noqa: E402
     load_binding_package_manifest,
     load_binding_package_manifest_from_root,
     load_binding_package_manifest_from_root_with_name,
+    load_binding_package_bundle_summary,
+    load_binding_package_bundle_summary_from_root,
+    load_binding_package_bundle_summary_from_root_with_name,
     load_binding_package_manifest_summary,
     load_binding_package_manifest_summary_from_root,
     load_binding_package_manifest_summary_from_root_with_name,
@@ -150,11 +154,43 @@ class KaliCapiSmokeTests(unittest.TestCase):
                 },
             )
             self.assertEqual(load_metadata_summary(metadata_path), cabi_metadata_summary(metadata))
+            self.assertEqual(
+                load_binding_package_bundle_summary(root / "sample.binding-package.json"),
+                {
+                    "manifest": binding_package_manifest_summary(
+                        load_binding_package_manifest_from_root(root)
+                    ),
+                    "metadata": cabi_metadata_summary(metadata),
+                },
+            )
+            self.assertEqual(
+                load_binding_package_bundle_summary_from_root(root),
+                load_binding_package_bundle_summary(root / "sample.binding-package.json"),
+            )
+            self.assertEqual(
+                load_binding_package_bundle_summary_from_root_with_name(
+                    root, "sample.binding-package.json"
+                ),
+                load_binding_package_bundle_summary(root / "sample.binding-package.json"),
+            )
+            self.assertEqual(
+                load_binding_package_bundle_summary_from_root_with_name(
+                    root, "sample.binding-package.json"
+                ),
+                load_binding_package_bundle_summary(root / "sample.binding-package.json"),
+            )
 
             discovered = discover_binding_package_manifest_path(root)
             self.assertEqual(discovered, manifest_path)
 
             manifest = load_binding_package_manifest_from_root(root)
+            self.assertEqual(
+                binding_package_bundle_summary(manifest, metadata),
+                {
+                    "manifest": binding_package_manifest_summary(manifest),
+                    "metadata": cabi_metadata_summary(metadata),
+                },
+            )
             self.assertEqual(
                 manifest,
                 BindingPackageManifest(
