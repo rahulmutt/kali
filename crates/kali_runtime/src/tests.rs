@@ -498,6 +498,10 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
     assert!(browser_harness_uses_html_entrypoint(
         "firefox-developer-edition"
     ));
+    assert!(browser_harness_uses_html_entrypoint("librewolf"));
+    assert!(browser_harness_uses_html_entrypoint("waterfox"));
+    assert!(browser_harness_uses_html_entrypoint("zen-browser"));
+    assert!(browser_harness_uses_html_entrypoint("thorium-browser"));
     assert!(!browser_harness_uses_html_entrypoint("node"));
     assert!(!browser_harness_uses_html_entrypoint("bun"));
 }
@@ -651,6 +655,25 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
         browser_harness_command_parts_for_browser_executable(
             "/opt/Thorium Browser/thorium-browser.com"
         ),
+        Some(vec![
+            "thorium-browser".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("librewolf"),
+        Some(vec!["librewolf".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("waterfox"),
+        Some(vec!["waterfox".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("zen-browser"),
+        Some(vec!["zen-browser".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("thorium-browser"),
         Some(vec![
             "thorium-browser".to_string(),
             "--headless".to_string()
