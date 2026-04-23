@@ -2034,6 +2034,51 @@ console.log(zod());
 }
 
 #[test]
+fn utility_corpus_plimit_style_package_remains_checkable_buildable_and_executable_on_the_default_standalone_surface(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_module_only_package(
+        dir.path(),
+        "p-limit",
+        "export default function pLimit() { return 0; }\n",
+    );
+    write_types_stub_package(dir.path(), "p-limit");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"import pLimit from 'p-limit';
+console.log(pLimit());
+"#,
+    )
+    .expect("write p-limit source");
+
+    let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+    assert!(
+        check.status.success(),
+        "p-limit corpus package should be checkable on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+    assert!(
+        build.status.success(),
+        "p-limit corpus package should be buildable on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+    assert!(
+        run.status.success(),
+        "p-limit corpus package should stay executable on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+}
+
+#[test]
 fn node_runner_corpus_semver_style_package_bin_remains_executable_on_the_node_surface() {
     let dir = tempdir().expect("tempdir");
     write_manifest(dir.path(), Some("node"));

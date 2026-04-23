@@ -23,6 +23,7 @@ without weakening the hard invariants or blurring the package-support ladder.
 **Status:** Complete for the documented Phase-3 breadth milestone.
 
 - Added a semver package-corpus regression so the Phase-3 breadth lane now includes a real pure-JS package on the default standalone library-consumption path, with check/build/run evidence for the canonical `valid` / `satisfies` / `minVersion` consumer shape.
+- Added a `p-limit` package-corpus regression so the default standalone corpus now exercises another common ESM default-export utility shape alongside semver and zod.
 - Hardened browser bundle dynamic-import discovery so raw `import(` substrings inside comments and strings no longer create spurious chunk targets; only real dynamic-import syntax now drives the browser bundle chunk graph.
 - Aligned browser/package exports resolution with the documented condition ladder so `exports` now takes precedence over legacy entry fields and browser-context branch selection prefers the `browser` condition over deno-only branches when both are published.
 
