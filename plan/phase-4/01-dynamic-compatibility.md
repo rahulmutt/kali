@@ -24,6 +24,8 @@ This stage does **not** own the later host/object-model breadth tracked in Phase
 
 ## Progress
 
+- `kali package-audit` now has a regression that proves inherited browser/runtime manifest settings do not alter the command's context-free registry-analysis semantics.
+
 **Status:** Complete for the documented Phase-4 compatibility milestone.
 
 ## Historical stage tasks
