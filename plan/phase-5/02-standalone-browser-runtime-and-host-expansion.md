@@ -23,6 +23,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 ## Progress
 
 - Centralized the browser-launcher alias list behind one shared runtime constant so both the default browser-command chooser and the executable-name classifier stay in sync, and extended the browser shim coverage to exercise the `.com` normalization path as part of the existing alias tests.
+- Added CLI-level browser-entrypoint smoke coverage for `edge-beta` and `msedge-canary` shims so the later browser-runtime path stays honest across additional Chromium/Edge spellings at the command boundary, not only in lower-level alias-unit tests.
 - Added Mullvad Browser alias coverage (`mullvad-browser` and `mullvad browser` / `.app` normalization) so the later browser-runtime harness stays honest for another common privacy-browser launcher family without changing the contract boundary.
 - The browser-launcher normalizer now also strips macOS `.app` bundle suffixes before alias matching, so desktop-style browser app bundles classify the same way as their underlying executable names and stay covered by the browser-alias tests.
 - The browser launcher normalizer now also strips common `.desktop` wrapper spellings before alias matching, so explicit browser-harness overrides that point at desktop-entry launchers classify the same way as the underlying executable name and stay covered by the browser-alias tests.

@@ -1638,6 +1638,18 @@ fn run_uses_browser_entrypoint_for_command_wrapped_executables() {
     run_browser_entrypoint_smoke("chromium.command");
 }
 
+#[cfg(unix)]
+#[test]
+fn run_uses_browser_entrypoint_for_edge_beta_executables() {
+    run_browser_entrypoint_smoke("edge-beta");
+}
+
+#[cfg(unix)]
+#[test]
+fn run_uses_browser_entrypoint_for_msedge_canary_executables() {
+    run_browser_entrypoint_smoke("msedge-canary");
+}
+
 #[test]
 fn run_uses_browser_package_resolution_when_a_harness_command_is_configured() {
     let dir = tempdir().expect("tempdir");
