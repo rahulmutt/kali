@@ -347,7 +347,9 @@ fn browser_harness_recognizes_common_display_name_aliases() {
     for executable in [
         "google chrome",
         "google chrome beta",
+        "google chrome canary",
         "brave browser",
+        "microsoft edge canary",
         "microsoft edge dev",
         "firefox developer edition",
         "librewolf",
@@ -419,6 +421,7 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
     assert!(browser_harness_uses_html_entrypoint(
         "/usr/bin/google-chrome-stable"
     ));
+    assert!(browser_harness_uses_html_entrypoint("google chrome canary"));
     assert!(browser_harness_uses_html_entrypoint("msedge.exe"));
     assert!(browser_harness_uses_html_entrypoint("brave-browser.exe"));
     assert!(browser_harness_uses_html_entrypoint("chrome.cmd"));
@@ -452,6 +455,20 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
         Some(vec!["brave-browser".to_string(), "--headless".to_string()])
     );
     assert_eq!(
+        browser_harness_command_parts_for_browser_executable("google chrome canary"),
+        Some(vec![
+            "google chrome canary".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("microsoft-edge-canary"),
+        Some(vec![
+            "microsoft-edge-canary".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
         browser_harness_command_parts_for_browser_executable(
             "C:/Program Files/Microsoft/Edge/Application/msedge.exe"
         ),
@@ -462,6 +479,15 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
             "C:/Program Files/Google/Chrome/Application/chrome.cmd"
         ),
         Some(vec!["chrome".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable(
+            "C:/Program Files/Google/Chrome/Application/google-chrome-canary.exe"
+        ),
+        Some(vec![
+            "google-chrome-canary".to_string(),
+            "--headless".to_string()
+        ])
     );
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("firefox"),

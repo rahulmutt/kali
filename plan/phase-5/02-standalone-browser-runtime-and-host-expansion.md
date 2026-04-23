@@ -22,6 +22,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 
 ## Progress
 
+- Expanded browser-launcher alias coverage to include canary-channel variants (`google-chrome-canary`, `google chrome canary`, `microsoft-edge-canary`, `microsoft edge canary`) alongside the existing stable/beta/dev display-name set, keeping the HTML-entrypoint and headless-launch selection honest for real-world browser shims as well as direct browser binaries.
 - Expanded browser-launcher alias coverage to include common browser display-name variants (`google chrome`, `brave browser`, `microsoft edge`, `firefox developer edition`, and related family names) alongside the existing Firefox Nightly / Firefox Developer Edition support, keeping the HTML-entrypoint and headless-launch selection honest for real-world browser shims as well as direct browser binaries.
 - Expanded browser-launcher alias coverage to include Firefox Nightly and Firefox Developer Edition executables in the shared browser harness, keeping the HTML-entrypoint and headless-launch selection honest for common Firefox-derived shims as well as direct browser binaries.
 - Added explicit browser-launcher alias coverage for Windows-style shell wrappers (`.cmd` / `.bat`) in the browser harness tests, keeping the HTML-entrypoint and headless-launch selection honest for executable shims as well as direct browser binaries.

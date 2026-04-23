@@ -2285,10 +2285,12 @@ fn browser_harness_is_browser_executable_name(executable: &str) -> bool {
             | "google-chrome"
             | "google-chrome-stable"
             | "google-chrome-beta"
+            | "google-chrome-canary"
             | "google-chrome-unstable"
             | "google chrome"
             | "google chrome stable"
             | "google chrome beta"
+            | "google chrome canary"
             | "google chrome unstable"
             | "brave"
             | "brave-browser"
@@ -2304,10 +2306,12 @@ fn browser_harness_is_browser_executable_name(executable: &str) -> bool {
             | "microsoft-edge"
             | "microsoft-edge-stable"
             | "microsoft-edge-beta"
+            | "microsoft-edge-canary"
             | "microsoft-edge-dev"
             | "microsoft edge"
             | "microsoft edge stable"
             | "microsoft edge beta"
+            | "microsoft edge canary"
             | "microsoft edge dev"
             | "firefox"
             | "firefox-esr"
@@ -2339,10 +2343,12 @@ fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
         "google-chrome",
         "google-chrome-stable",
         "google-chrome-beta",
+        "google-chrome-canary",
         "google-chrome-unstable",
         "google chrome",
         "google chrome stable",
         "google chrome beta",
+        "google chrome canary",
         "google chrome unstable",
         "brave-browser",
         "brave",
@@ -2358,10 +2364,12 @@ fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
         "microsoft-edge",
         "microsoft-edge-stable",
         "microsoft-edge-beta",
+        "microsoft-edge-canary",
         "microsoft-edge-dev",
         "microsoft edge",
         "microsoft edge stable",
         "microsoft edge beta",
+        "microsoft edge canary",
         "microsoft edge dev",
         "firefox",
         "firefox-esr",
