@@ -107,6 +107,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - Added CLI smoke coverage that drives `run --api browser` through a browser-like executable shim, confirming the browser runtime path preserves the `file://` HTML entrypoint and deterministic summary capture at the user-facing boundary as well as in the lower-level runtime helper tests.
 - Hardened the runtime-helper browser-entrypoint regression to use a shell-backed browser-like executable shim, avoiding temp-file execution races while keeping the HTML-entrypoint routing coverage intact.
 - Expanded the browser-harness alias regressions to cover additional privacy/community browser shims (`librewolf`, `waterfox`, `zen-browser`, and `thorium-browser`) so the browser host chooser stays honest across more real-world executable names without changing the later browser contract.
+- Hardened browser launcher normalization so layered wrapper suffixes like `.desktop`, `.app`, `.exe`, `.cmd`, `.bat`, and `.com` are stripped repeatedly before alias matching; wrapped names such as `Google Chrome.app.exe` and `microsoft-edge.desktop.cmd` now classify the same way as their base executables in the browser harness.
 
 ## Tasks
 

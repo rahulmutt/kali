@@ -463,7 +463,13 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
     ));
     assert!(browser_harness_uses_html_entrypoint("Google Chrome.app"));
     assert!(browser_harness_uses_html_entrypoint(
+        "Google Chrome.app.exe"
+    ));
+    assert!(browser_harness_uses_html_entrypoint(
         "C:/Program Files/Google/Chrome/Application/google-chrome.desktop"
+    ));
+    assert!(browser_harness_uses_html_entrypoint(
+        "microsoft-edge.desktop.cmd"
     ));
     assert!(browser_harness_uses_html_entrypoint("google-chrome-dev"));
     assert!(browser_harness_uses_html_entrypoint("brave-browser-dev"));
