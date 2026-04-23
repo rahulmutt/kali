@@ -47,7 +47,7 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   `runtimeBackend`) alongside the specialization cap, keeping the later binding workflow aligned
   with the same build context that produced the exported artifacts. The build-metadata regression
   suite now also pins serialized runtime provenance on the artifact sidecars (`runtimeProfiles`,
-  `maxSpecializations`, `hostContract`, and `runtimeBackend`), keeping the emitted JSON contract
+  `maxSpecializations`, `profileDataHash`, `hostContract`, and `runtimeBackend`), keeping the emitted JSON contract
   explicit across the build kinds that feed the later binding and PGO lanes. The C-ABI JSON-envelope
   regression now also exercises the `build --capi --output json` path and checks the generated
   binding-package manifest through that machine-readable contract, keeping the later language-

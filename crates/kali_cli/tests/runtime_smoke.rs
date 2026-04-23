@@ -19,10 +19,11 @@ use std::os::unix::fs::symlink;
 use base64::Engine;
 use flate2::{write::GzEncoder, Compression};
 use serde_json::{json, Value};
-use sha2::{Digest, Sha512};
+use sha2::{Digest, Sha256, Sha512};
 use tar::Builder;
 use wasmparser::{Operator, Parser, Payload};
 
+use kali_optimize::{ProfileData, ProfileSample, ProfileSampleKind};
 use kali_runtime::split_command_spec;
 use tempfile::tempdir;
 
@@ -48,6 +49,7 @@ fn assert_artifact_metadata_provenance(
     metadata: &Value,
     artifact_kind: &str,
     expected_max_specializations: usize,
+    expected_profile_data_hash: Option<&str>,
 ) {
     assert_eq!(metadata["schemaVersion"], 1);
     assert_eq!(metadata["artifactKind"], artifact_kind);
@@ -55,6 +57,11 @@ fn assert_artifact_metadata_provenance(
     assert_eq!(metadata["maxSpecializations"], expected_max_specializations);
     assert_eq!(metadata["hostContract"], "kali-hosted");
     assert_eq!(metadata["runtimeBackend"], "wasmtime");
+
+    match expected_profile_data_hash {
+        Some(expected) => assert_eq!(metadata["profileDataHash"], expected),
+        None => assert!(metadata.get("profileDataHash").is_none()),
+    }
 }
 
 fn assert_browser_runtime_rejection_text(text: &str) {
@@ -3086,7 +3093,7 @@ fn build_embeds_sandbox_policy_custom_section_for_library_artifact() {
 
     let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
         .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "lib", 16);
+    assert_artifact_metadata_provenance(&metadata, "lib", 16, None);
     assert_embeds_policy_custom_section(&wasm_path, &policy_path);
 }
 
@@ -3126,7 +3133,7 @@ fn build_emits_library_artifacts_and_metadata() {
 
     let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
         .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "lib", 4);
+    assert_artifact_metadata_provenance(&metadata, "lib", 4, None);
     let exports = metadata["exports"].as_array().expect("exports array");
     assert!(exports.iter().any(|entry| entry["name"] == "add"));
 
@@ -3354,7 +3361,7 @@ fn build_emits_browser_bundle_artifacts() {
 
     let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
         .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16);
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
     assert_browser_bundle_executes(&bundle_dir, "greet");
@@ -3399,7 +3406,7 @@ fn build_embeds_sandbox_policy_custom_section_for_browser_bundle_artifact() {
 
     let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
         .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16);
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
     assert_embeds_policy_custom_section(&wasm_path, &policy_path);
 }
@@ -3487,7 +3494,7 @@ fn build_emits_browser_bundle_crypto_web_apis() {
         &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
     )
     .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16);
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
     assert_browser_bundle_executes(&bundle_dir, "digestSmoke");
@@ -3841,7 +3848,7 @@ fn build_emits_browser_bundle_cjs_artifacts() {
 
     let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
         .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16);
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
     let envelope = parse_json_stdout(&output);
@@ -4353,8 +4360,29 @@ fn build_with_profile_data_is_deterministic_across_repeated_invocations() {
     assert_eq!(envelope["exitCode"], 0);
     assert!(envelope["payload"].is_object(), "envelope: {envelope:?}");
 
+    let profile_data = ProfileData::new(vec![ProfileSample::new(
+        ProfileSampleKind::Function,
+        "hot",
+        8,
+    )]);
+    let expected_profile_data_hash = {
+        let normalized = profile_data.clone().normalized();
+        let profile_json = serde_json::to_vec(&normalized).expect("serialize profile data");
+        format!("sha256-{:x}", Sha256::digest(profile_json))
+    };
+
     let metadata: Value = serde_json::from_slice(&json_first_meta).expect("parse metadata");
-    assert_artifact_metadata_provenance(&metadata, "lib", 24);
+    assert_artifact_metadata_provenance(
+        &metadata,
+        "lib",
+        24,
+        Some(expected_profile_data_hash.as_str()),
+    );
+    assert_eq!(metadata["profileDataHash"], expected_profile_data_hash);
+    assert_eq!(
+        envelope["payload"]["profileDataHash"],
+        expected_profile_data_hash
+    );
 }
 
 #[test]

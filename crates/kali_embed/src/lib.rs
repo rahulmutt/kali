@@ -141,6 +141,7 @@ impl KaliCompiler {
             &runtime_profiles,
             16,
             None,
+            None,
         )
         .map_err(CompileError::from)?;
         build::append_metadata_section(&mut wasm_bytes, &metadata).map_err(CompileError::from)?;
@@ -171,6 +172,7 @@ impl KaliCompiler {
             &self.config.api_surface.to_string(),
             &runtime_profiles,
             16,
+            None,
             Some(exports.clone()),
         )
         .map_err(CompileError::from)?;
@@ -225,6 +227,7 @@ impl KaliCompiler {
                 &self.config.api_surface.to_string(),
                 &runtime_profiles,
                 16,
+                None,
                 Some(exports.clone()),
             )
             .map_err(CompileError::from)?;

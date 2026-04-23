@@ -349,7 +349,7 @@ kali build --sandbox kali.policy.json main.ts # Phase 1: policy-schema/config va
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Phase 1: browser-targeted static policy-schema/config validation only; no automatic browser-runtime enforcement is implied after deployment
 kali build --validate-ir main.ts           # Run IR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
-kali build --profile pgo-profile.json main.ts # Load deterministic PGO profile data
+kali build --profile pgo-profile.json main.ts # Load deterministic PGO profile data and record its normalized hash in build metadata sidecars and JSON output
 ```
 
 Inherited browser-config equivalents are summarized in the shorthand table below so the same bare `kali build ...` spelling does not need to appear twice with two different contexts.

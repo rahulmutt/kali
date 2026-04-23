@@ -101,6 +101,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     for property in [
         "runtimeProfiles",
         "maxSpecializations",
+        "profileDataHash",
         "hostContract",
         "runtimeBackend",
     ] {

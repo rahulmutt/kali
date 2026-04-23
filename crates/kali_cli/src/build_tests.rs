@@ -1,5 +1,6 @@
 use super::*;
-use kali_optimize::{ProfileSample, ProfileSampleKind};
+use kali_optimize::{ProfileData, ProfileSample, ProfileSampleKind};
+use sha2::{Digest, Sha256};
 use std::fs;
 use tempfile::tempdir;
 use wasmparser::Validator;
@@ -337,6 +338,7 @@ fn build_artifact_metadata_preserves_runtime_profiles() {
         &runtime_profiles,
         16,
         None,
+        None,
     )
     .expect("build metadata");
 
@@ -358,6 +360,7 @@ fn build_artifact_metadata_serializes_runtime_provenance_fields() {
         &["wasm-threads".to_string()],
         24,
         None,
+        None,
     )
     .expect("build metadata");
 
@@ -368,6 +371,45 @@ fn build_artifact_metadata_serializes_runtime_provenance_fields() {
     assert_eq!(json["maxSpecializations"], 24);
     assert_eq!(json["hostContract"], "kali-hosted");
     assert_eq!(json["runtimeBackend"], "wasmtime");
+    assert!(json.get("profileDataHash").is_none());
+}
+
+#[test]
+fn build_artifact_metadata_records_profile_data_hash() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "const main = 1;").expect("write source");
+
+    let profile_data = ProfileData::new(vec![
+        ProfileSample::new(ProfileSampleKind::Function, "hot", 4),
+        ProfileSample::new(ProfileSampleKind::Branch, "branch:hot", 3),
+    ]);
+    let expected_hash = {
+        let normalized = profile_data.clone().normalized();
+        let profile_json = serde_json::to_vec(&normalized).expect("serialize profile data");
+        format!("sha256-{:x}", Sha256::digest(profile_json))
+    };
+
+    let metadata = build_artifact_metadata(
+        &source_path,
+        "component",
+        BuildMode::Release,
+        "deno",
+        &[],
+        16,
+        Some(&profile_data),
+        None,
+    )
+    .expect("build metadata");
+
+    assert_eq!(
+        metadata.profile_data_hash.as_deref(),
+        Some(expected_hash.as_str())
+    );
+
+    let json: serde_json::Value = serde_json::from_slice(&serialize_artifact_metadata(&metadata))
+        .expect("serialize metadata");
+    assert_eq!(json["profileDataHash"], expected_hash);
 }
 
 #[test]
@@ -384,6 +426,7 @@ fn build_artifact_metadata_rejects_duplicate_runtime_profiles() {
         "deno",
         &runtime_profiles,
         16,
+        None,
         None,
     )
     .expect_err("duplicate runtime profiles should fail");
@@ -408,6 +451,7 @@ fn build_artifact_metadata_rejects_unknown_runtime_profiles() {
         "deno",
         &runtime_profiles,
         16,
+        None,
         None,
     )
     .expect_err("unknown runtime profiles should fail");

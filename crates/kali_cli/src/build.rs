@@ -71,6 +71,8 @@ pub struct ArtifactMetadata {
     pub kali_version: String,
     #[serde(rename = "sourceHash")]
     pub source_hash: String,
+    #[serde(rename = "profileDataHash", skip_serializing_if = "Option::is_none")]
+    pub profile_data_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exports: Option<Vec<LibraryExport>>,
 }
@@ -154,6 +156,15 @@ pub fn load_profile_data_file(
     }
 
     Ok(profile_data.normalized())
+}
+
+fn profile_data_hash(profile_data: Option<&ProfileData>) -> Option<String> {
+    profile_data.map(|profile_data| {
+        let normalized = profile_data.clone().normalized();
+        let profile_json = serde_json::to_vec(&normalized).expect("serialize profile data");
+        let profile_hash = Sha256::digest(profile_json);
+        format!("sha256-{profile_hash:x}")
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1027,6 +1038,7 @@ pub fn build_source_file(
         runtime_profiles,
         max_specializations,
         None,
+        None,
     )?;
     append_metadata_section(&mut wasm_bytes, &metadata)?;
 
@@ -1262,6 +1274,7 @@ pub fn validate_runtime_profiles(
     Ok(normalized.into_iter().collect())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_artifact_metadata(
     source_path: &Path,
     artifact_kind: &str,
@@ -1269,6 +1282,7 @@ pub fn build_artifact_metadata(
     api_surface: &str,
     runtime_profiles: &[String],
     max_specializations: usize,
+    profile_data: Option<&ProfileData>,
     exports: Option<Vec<LibraryExport>>,
 ) -> Result<ArtifactMetadata, Vec<Diagnostic>> {
     let source_hash = source_hash_for_file(source_path).map_err(|error| {
@@ -1303,6 +1317,7 @@ pub fn build_artifact_metadata(
         runtime_backend: Some(RuntimeBackend::Wasmtime.canonical_label().to_string()),
         kali_version: env!("CARGO_PKG_VERSION").to_string(),
         source_hash,
+        profile_data_hash: profile_data_hash(profile_data),
         exports,
     })
 }
