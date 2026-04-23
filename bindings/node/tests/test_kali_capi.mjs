@@ -15,6 +15,8 @@ import {
   ensureCompatibleBindingPackageManifest,
   ensureCompatibleMetadata,
   loadBindingPackageManifestFromRoot,
+  loadBindingPackageManifestSummary,
+  loadBindingPackageManifestSummaryFromRoot,
   loadMetadata,
   parseBindingPackageManifest,
   parseExports,
@@ -134,6 +136,8 @@ test('binding package manifests sort glue paths and auto-discover single manifes
       metadata: 'sample.cabi.json',
     },
   });
+  assert.deepEqual(loadBindingPackageManifestSummary(manifestPath), summary);
+  assert.deepEqual(loadBindingPackageManifestSummaryFromRoot(tempRoot), summary);
   assert.deepEqual(ensureCompatibleBindingPackageManifest(manifest), manifest);
   assert.deepEqual(ensureCompatibleMetadata(metadata), metadata);
 

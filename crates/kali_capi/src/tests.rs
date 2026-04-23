@@ -157,6 +157,14 @@ fn binding_package_manifest_helpers_load_discover_and_summarize_manifests() {
         serde_json::json!(["shim.py", "support.py"])
     );
 
+    let loaded_summary_from_path = load_binding_package_manifest_summary(&explicit_manifest_path)
+        .expect("load and summarize explicit manifest");
+    assert_eq!(loaded_summary_from_path, loaded_summary);
+
+    let loaded_summary_from_root = load_binding_package_manifest_summary_from_root(&temp_root)
+        .expect("discover, load, and summarize explicit manifest");
+    assert_eq!(loaded_summary_from_root, loaded_summary);
+
     let stem_manifest_path = temp_root.join("sample.binding-package.json");
     fs::write(
         &stem_manifest_path,
@@ -189,6 +197,16 @@ fn binding_package_manifest_helpers_load_discover_and_summarize_manifests() {
     assert_eq!(loaded_stem["runtimeProfiles"], serde_json::json!([]));
     assert_eq!(loaded_stem["hostContract"], "kali-hosted");
     assert_eq!(loaded_stem["runtimeBackend"], "wasmtime");
+
+    let loaded_summary_from_stem = load_binding_package_manifest_summary_from_root_with_name(
+        &temp_root,
+        "sample.binding-package.json",
+    )
+    .expect("discover, load, and summarize explicit stem-specific manifest");
+    assert_eq!(
+        loaded_summary_from_stem,
+        binding_package_manifest_summary(&loaded_stem).expect("summarize stem manifest")
+    );
 }
 
 #[test]

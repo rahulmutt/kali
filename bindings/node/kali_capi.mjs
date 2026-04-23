@@ -10,6 +10,8 @@ export const loadBindingPackageManifest = core.loadBindingPackageManifest;
 export const loadBindingPackageManifestFromRoot = core.loadBindingPackageManifestFromRoot;
 export const loadMetadata = core.loadMetadata;
 export const parseBindingPackageManifest = core.parseBindingPackageManifest;
+export const loadBindingPackageManifestSummary = core.loadBindingPackageManifestSummary;
+export const loadBindingPackageManifestSummaryFromRoot = core.loadBindingPackageManifestSummaryFromRoot;
 export const parseExports = core.parseExports;
 export const parseMetadata = core.parseMetadata;
 

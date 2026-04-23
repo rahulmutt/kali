@@ -57,13 +57,15 @@ and `KaliCAPI.fromBindingPackage()` both resolve the generated manifest from a
 bundle root, validate the companion metadata, and bind the exported entrypoints
 onto an existing library object. `bindingPackageManifestSummary()` projects the
 normalized manifest into a compact summary object for callers that want one
-stable provenance snapshot. The resulting `KaliCAPI` instance also carries the
-manifest's `maxSpecializations` provenance plus the normalized runtime
-provenance tuple (`runtimeProfiles`, `hostContract`, and `runtimeBackend`) when
-the bundle publishes them, so higher-level callers can inspect the same
-specialization and runtime context that the CLI emitted. Both module systems
-expose the same helper surface, so binding consumers can choose ESM or CommonJS
-without changing the artifact contract.
+stable provenance snapshot, and `loadBindingPackageManifestSummary()` /
+`loadBindingPackageManifestSummaryFromRoot()` perform the same load-and-project
+step in one call. The resulting `KaliCAPI` instance also carries the manifest's
+`maxSpecializations` provenance plus the normalized runtime provenance tuple
+(`runtimeProfiles`, `hostContract`, and `runtimeBackend`) when the bundle
+publishes them, so higher-level callers can inspect the same specialization and
+runtime context that the CLI emitted. Both module systems expose the same helper
+surface, so binding consumers can choose ESM or CommonJS without changing the
+artifact contract.
 
 Run the smoke tests with:
 

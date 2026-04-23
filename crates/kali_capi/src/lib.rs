@@ -279,11 +279,24 @@ pub fn load_binding_package_manifest(path: impl AsRef<Path>) -> Result<Value, St
     parse_binding_package_manifest(&raw)
 }
 
+/// Load and summarize the generated binding package manifest from disk.
+pub fn load_binding_package_manifest_summary(path: impl AsRef<Path>) -> Result<Value, String> {
+    let manifest = load_binding_package_manifest(path)?;
+    binding_package_manifest_summary(&manifest)
+}
+
 /// Discover and load the generated binding package manifest from a bundle root.
 pub fn load_binding_package_manifest_from_root(
     bundle_root: impl AsRef<Path>,
 ) -> Result<Value, String> {
     load_binding_package_manifest_from_root_with_name(bundle_root, "binding-package.json")
+}
+
+/// Discover, load, and summarize the generated binding package manifest from a bundle root.
+pub fn load_binding_package_manifest_summary_from_root(
+    bundle_root: impl AsRef<Path>,
+) -> Result<Value, String> {
+    load_binding_package_manifest_summary_from_root_with_name(bundle_root, "binding-package.json")
 }
 
 /// Discover and load a specific generated binding package manifest name from a bundle root.
@@ -293,6 +306,15 @@ pub fn load_binding_package_manifest_from_root_with_name(
 ) -> Result<Value, String> {
     let path = discover_binding_package_manifest_path_with_name(bundle_root, manifest_name)?;
     load_binding_package_manifest(path)
+}
+
+/// Discover, load, and summarize a specific generated binding package manifest name from a bundle root.
+pub fn load_binding_package_manifest_summary_from_root_with_name(
+    bundle_root: impl AsRef<Path>,
+    manifest_name: impl AsRef<str>,
+) -> Result<Value, String> {
+    let manifest = load_binding_package_manifest_from_root_with_name(bundle_root, manifest_name)?;
+    binding_package_manifest_summary(&manifest)
 }
 
 /// Project a normalized binding package manifest into a compact summary object.

@@ -18,6 +18,8 @@ from kali_capi import (  # noqa: E402
     ensure_compatible_metadata,
     load_binding_package_manifest,
     load_binding_package_manifest_from_root,
+    load_binding_package_manifest_summary,
+    load_binding_package_manifest_summary_from_root,
     load_metadata,
     parse_exports,
 )
@@ -154,6 +156,14 @@ class KaliCapiSmokeTests(unittest.TestCase):
                         "metadata": "sample.cabi.json",
                     },
                 },
+            )
+            self.assertEqual(
+                load_binding_package_manifest_summary(manifest_path),
+                binding_package_manifest_summary(manifest),
+            )
+            self.assertEqual(
+                load_binding_package_manifest_summary_from_root(root),
+                binding_package_manifest_summary(manifest),
             )
 
             binding = KaliCAPI.from_binding_package(DummyLibrary(), root)

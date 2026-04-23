@@ -29,7 +29,9 @@ __all__ = [
     "ensure_compatible_binding_package_manifest",
     "ensure_compatible_metadata",
     "load_binding_package_manifest",
+    "load_binding_package_manifest_summary",
     "load_binding_package_manifest_from_root",
+    "load_binding_package_manifest_summary_from_root",
     "load_library",
     "load_metadata",
     "parse_binding_package_manifest",
@@ -256,6 +258,12 @@ def load_binding_package_manifest(path: str | Path) -> BindingPackageManifest:
     return parse_binding_package_manifest(Path(path).read_text())
 
 
+def load_binding_package_manifest_summary(path: str | Path) -> dict[str, object]:
+    """Load and summarize the generated binding package manifest from disk."""
+
+    return binding_package_manifest_summary(load_binding_package_manifest(path))
+
+
 def discover_binding_package_manifest_path(
     bundle_root: str | Path,
     manifest_name: str = "binding-package.json",
@@ -288,6 +296,17 @@ def load_binding_package_manifest_from_root(
 
     return load_binding_package_manifest(
         discover_binding_package_manifest_path(bundle_root, manifest_name)
+    )
+
+
+def load_binding_package_manifest_summary_from_root(
+    bundle_root: str | Path,
+    manifest_name: str = "binding-package.json",
+) -> dict[str, object]:
+    """Discover, load, and summarize a generated binding package manifest from a bundle root."""
+
+    return binding_package_manifest_summary(
+        load_binding_package_manifest_from_root(bundle_root, manifest_name)
     )
 
 

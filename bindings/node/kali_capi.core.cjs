@@ -191,6 +191,10 @@ function loadBindingPackageManifest(path) {
   return parseBindingPackageManifest(readFileSync(path, 'utf8'));
 }
 
+function loadBindingPackageManifestSummary(path) {
+  return bindingPackageManifestSummary(loadBindingPackageManifest(path));
+}
+
 function discoverBindingPackageManifestPath(bundleRoot, manifestName = 'binding-package.json') {
   const explicitPath = join(bundleRoot, manifestName);
   if (existsSync(explicitPath)) {
@@ -232,6 +236,10 @@ function ensureCompatibleMetadata(metadata, availableHostAbiVersion = HOST_ABI_V
 
 function loadBindingPackageManifestFromRoot(bundleRoot, manifestName = 'binding-package.json') {
   return loadBindingPackageManifest(discoverBindingPackageManifestPath(bundleRoot, manifestName));
+}
+
+function loadBindingPackageManifestSummaryFromRoot(bundleRoot, manifestName = 'binding-package.json') {
+  return bindingPackageManifestSummary(loadBindingPackageManifestFromRoot(bundleRoot, manifestName));
 }
 
 function bindingPackageManifestSummary(manifest) {
@@ -384,6 +392,8 @@ module.exports = {
   loadMetadata,
   parseBindingPackageManifest,
   bindingPackageManifestSummary,
+  loadBindingPackageManifestSummary,
+  loadBindingPackageManifestSummaryFromRoot,
   parseExports,
   parseMetadata,
 };
