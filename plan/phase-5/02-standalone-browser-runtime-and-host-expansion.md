@@ -22,6 +22,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 
 ## Progress
 
+- Added explicit browser-launcher alias coverage for Windows-style shell wrappers (`.cmd` / `.bat`) in the browser harness tests, keeping the HTML-entrypoint and headless-launch selection honest for executable shims as well as direct browser binaries.
 - Added a reusable browser-harness execution helper in `kali_runtime` that launches the configured command, appends the script entrypoint plus args, and returns deterministic stdout/stderr/exit-status capture for future browser runtime wiring and the existing smoke harnesses.
 - Browser-harness launches now convert browser-executable entrypoints into `file://` URLs before handing them to the host process, so the browser contract has a more realistic real-browser launch path while non-browser harnesses continue to use raw filesystem paths.
 - The browser-harness default command chooser now prefers browser-like executables when they are present on `PATH`, so a real browser host can be used automatically in environments that provide one instead of only falling back to the bun/node smoke harness. The launcher detection now also recognizes a broader set of browser-family aliases and `.exe`-suffixed entrypoints, keeping the browser-host shortcut honest across common Chromium/Edge/Firefox/Brave/Vivaldi/Opera names instead of only the smallest baseline set.

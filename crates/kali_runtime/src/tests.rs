@@ -384,6 +384,10 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
     ));
     assert!(browser_harness_uses_html_entrypoint("msedge.exe"));
     assert!(browser_harness_uses_html_entrypoint("brave-browser.exe"));
+    assert!(browser_harness_uses_html_entrypoint("chrome.cmd"));
+    assert!(browser_harness_uses_html_entrypoint(
+        "C:/Program Files/Google/Chrome/Application/chrome.bat"
+    ));
     assert!(browser_harness_uses_html_entrypoint("firefox"));
     assert!(!browser_harness_uses_html_entrypoint("node"));
     assert!(!browser_harness_uses_html_entrypoint("bun"));
@@ -411,6 +415,12 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
             "C:/Program Files/Microsoft/Edge/Application/msedge.exe"
         ),
         Some(vec!["msedge".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable(
+            "C:/Program Files/Google/Chrome/Application/chrome.cmd"
+        ),
+        Some(vec!["chrome".to_string(), "--headless".to_string()])
     );
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("firefox"),
