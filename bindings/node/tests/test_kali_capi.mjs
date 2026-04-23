@@ -476,6 +476,7 @@ test('node binding helper module binds exports from headers and manifests', () =
       schemaVersion: 1,
       kind: 'cabi-metadata',
       hostAbiVersion: HOST_ABI_VERSION,
+      profileDataHash: 'sha256:sample-profile',
       artifacts: {
         exportsHeader: 'sample.h',
         wasmModule: 'sample.capi.wasm',
@@ -521,6 +522,7 @@ test('node binding helper module binds exports from headers and manifests', () =
   assert.deepEqual(binding.runtimeProfiles, []);
   assert.equal(binding.hostContract, 'kali-hosted');
   assert.equal(binding.runtimeBackend, 'wasmtime');
+  assert.equal(binding.profileDataHash, 'sha256:sample-profile');
   assert.equal(binding.add(2, 3), 5);
   assert.equal(binding.zero(), 6);
   assert.equal(library.total, 6);
@@ -533,6 +535,7 @@ test('node binding helper module binds exports from headers and manifests', () =
   assert.deepEqual(namedBinding.runtimeProfiles, binding.runtimeProfiles);
   assert.equal(namedBinding.hostContract, binding.hostContract);
   assert.equal(namedBinding.runtimeBackend, binding.runtimeBackend);
+  assert.equal(namedBinding.profileDataHash, binding.profileDataHash);
   assert.equal(namedBinding.add(2, 3), 5);
   assert.equal(namedBinding.zero(), 6);
 
@@ -599,6 +602,7 @@ test('node header-and-metadata bindings preserve metadata provenance', () => {
       runtimeProfiles: ['wasm-threads', 'fiber-threads', 'wasm-threads'],
       hostContract: 'browser-requested',
       runtimeBackend: 'browser-harness',
+      profileDataHash: 'sha256:sample-profile',
       artifacts: {
         exportsHeader: 'sample.h',
         wasmModule: 'sample.capi.wasm',
@@ -610,6 +614,7 @@ test('node header-and-metadata bindings preserve metadata provenance', () => {
   assert.deepEqual(binding.runtimeProfiles, ['fiber-threads', 'wasm-threads']);
   assert.equal(binding.hostContract, 'browser-requested');
   assert.equal(binding.runtimeBackend, 'browser-harness');
+  assert.equal(binding.profileDataHash, 'sha256:sample-profile');
   assert.equal(binding.add(2, 3), 5);
   assert.equal(library.total, 5);
 });

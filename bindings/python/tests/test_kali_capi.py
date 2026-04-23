@@ -376,6 +376,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
                         "kind": "cabi-metadata",
                         "hostAbiVersion": 2,
                         "minHostAbiVersion": 2,
+                        "profileDataHash": "sha256:sample-profile",
                         "artifacts": {
                             "exportsHeader": "sample.h",
                             "metadata": "sample.cabi.json",
@@ -419,6 +420,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
             self.assertEqual(binding.runtime_profiles, ())
             self.assertEqual(binding.host_contract, "kali-hosted")
             self.assertEqual(binding.runtime_backend, "wasmtime")
+            self.assertEqual(binding.profile_data_hash, "sha256:sample-profile")
             self.assertEqual(binding.add(2, 3), 5)
             self.assertEqual(binding.zero(), 7)
             self.assertEqual(binding._library.calls, [("add", 2, 3), ("zero",)])
@@ -533,6 +535,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
                 "runtimeProfiles": ["wasm-threads", "fiber-threads", "wasm-threads"],
                 "hostContract": "browser-requested",
                 "runtimeBackend": "browser-harness",
+                "profileDataHash": "sha256:sample-profile",
                 "minHostAbiVersion": 2,
                 "artifacts": {
                     "exportsHeader": "sample.h",
@@ -585,6 +588,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
             self.assertEqual(binding.runtime_profiles, ("fiber-threads", "wasm-threads"))
             self.assertEqual(binding.host_contract, "browser-requested")
             self.assertEqual(binding.runtime_backend, "browser-harness")
+            self.assertEqual(binding.profile_data_hash, "sha256:sample-profile")
             self.assertEqual(binding.add(4, 5), 9)
 
             with self.assertRaises(ValueError):

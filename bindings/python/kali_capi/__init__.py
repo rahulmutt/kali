@@ -605,6 +605,7 @@ class KaliCAPI:
         runtime_profiles: Sequence[str] = (),
         host_contract: str = "kali-hosted",
         runtime_backend: str = "wasmtime",
+        profile_data_hash: str | None = None,
     ):
         self._library = library
         self._exports = tuple(exports)
@@ -612,6 +613,7 @@ class KaliCAPI:
         self._runtime_profiles = tuple(runtime_profiles)
         self._host_contract = host_contract
         self._runtime_backend = runtime_backend
+        self._profile_data_hash = profile_data_hash
         self._bind_exports()
 
     @classmethod
@@ -638,6 +640,7 @@ class KaliCAPI:
             metadata.runtime_profiles or (),
             metadata.host_contract or "kali-hosted",
             metadata.runtime_backend or "wasmtime",
+            metadata.profile_data_hash,
         )
 
     @classmethod
@@ -656,7 +659,7 @@ class KaliCAPI:
         )
         header_text = (bundle_root / manifest.artifacts["exportsHeader"]).read_text()
         metadata_text = (bundle_root / manifest.artifacts["metadata"]).read_text()
-        ensure_compatible_metadata(
+        metadata = ensure_compatible_metadata(
             parse_metadata(metadata_text),
             available_host_abi_version=available_host_abi_version,
         )
@@ -667,6 +670,7 @@ class KaliCAPI:
             manifest.runtime_profiles,
             manifest.host_contract,
             manifest.runtime_backend,
+            metadata.profile_data_hash,
         )
 
     @classmethod
@@ -708,6 +712,10 @@ class KaliCAPI:
     @property
     def runtime_backend(self) -> str:
         return self._runtime_backend
+
+    @property
+    def profile_data_hash(self) -> str | None:
+        return self._profile_data_hash
 
     def _bind_exports(self) -> None:
         for export in self._exports:

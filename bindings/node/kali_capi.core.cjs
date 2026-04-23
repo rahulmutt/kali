@@ -445,6 +445,7 @@ class KaliCAPI {
     runtimeProfiles = [],
     hostContract = 'kali-hosted',
     runtimeBackend = 'wasmtime',
+    profileDataHash = null,
   ) {
     this._library = library;
     this._exports = Object.freeze([...exports]);
@@ -452,6 +453,7 @@ class KaliCAPI {
     this._runtimeProfiles = Object.freeze([...runtimeProfiles]);
     this._hostContract = hostContract;
     this._runtimeBackend = runtimeBackend;
+    this._profileDataHash = profileDataHash;
     this._bindExports();
   }
 
@@ -476,6 +478,7 @@ class KaliCAPI {
       metadata.runtimeProfiles ?? [],
       metadata.hostContract ?? 'kali-hosted',
       metadata.runtimeBackend ?? 'wasmtime',
+      metadata.profileDataHash ?? null,
     );
   }
 
@@ -498,7 +501,7 @@ class KaliCAPI {
     );
     const headerText = readFileSync(join(resolvedBundleRoot, manifest.artifacts.exportsHeader), 'utf8');
     const metadataText = readFileSync(join(resolvedBundleRoot, manifest.artifacts.metadata), 'utf8');
-    ensureCompatibleMetadata(
+    const metadata = ensureCompatibleMetadata(
       parseMetadata(metadataText),
       availableHostAbiVersion,
     );
@@ -509,6 +512,7 @@ class KaliCAPI {
       manifest.runtimeProfiles ?? [],
       manifest.hostContract ?? 'kali-hosted',
       manifest.runtimeBackend ?? 'wasmtime',
+      metadata.profileDataHash ?? null,
     );
   }
 
@@ -542,6 +546,10 @@ class KaliCAPI {
 
   get runtimeBackend() {
     return this._runtimeBackend;
+  }
+
+  get profileDataHash() {
+    return this._profileDataHash;
   }
 
   _bindExports() {
