@@ -551,6 +551,10 @@ Phase 5 is complete when:
 - New runtime/backend/embedding breadth does not weaken the core invariants or machine contracts
 - The maturity matrix is updated feature-by-feature rather than with one blanket “Phase 5 support” claim
 
+Current repository note:
+- the phase-5 stage docs are now closed and serve as historical implementation guidance
+- any later-compatibility widening should land through the owning spec chapters and maturity matrix instead of reopening the closed plan checklist
+
 ## Cross-phase planning guides
 
 The stage files are the authoritative step-by-step plan, but six cross-phase guides keep the whole roadmap coherent:

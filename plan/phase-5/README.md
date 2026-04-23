@@ -61,3 +61,7 @@ Phase 5 is complete only when each later-compatibility feature:
 - updates its owning CLI/schema/error/maturity docs where required,
 - preserves the hard invariants and deterministic machine contracts,
 - is promoted in the maturity matrix one surface at a time rather than through a blanket claim.
+
+Current repository note:
+- all stage documents in this phase are now closed, so this README is historical implementation guidance rather than an open work queue
+- any future widening of later-compatibility surfaces should be reflected in the owning spec chapters and maturity matrix, not by reopening these stage checklists
