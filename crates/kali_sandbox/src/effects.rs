@@ -165,6 +165,10 @@ pub fn effect_report_from_inference(
         .collect::<Vec<_>>();
     effect_groups.sort_by(|a, b| a.kind.cmp(&b.kind));
 
+    let mut dynamic_reasons = dynamic_reasons;
+    dynamic_reasons.sort();
+    dynamic_reasons.dedup();
+
     EffectReport {
         schema_version: 1,
         analysis_context: context,

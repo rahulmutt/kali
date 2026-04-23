@@ -400,7 +400,7 @@ globalThis.Proxy.revocable({}, {});
 }
 
 #[test]
-fn effect_reports_normalize_analysis_context_axes() {
+fn effect_reports_normalize_dynamic_reasons_and_analysis_context_axes() {
     let mut context = EffectAnalysisContext::new("deno");
     context.runtime_profiles = vec![
         "wasm-threads".to_string(),
@@ -414,10 +414,16 @@ fn effect_reports_normalize_analysis_context_axes() {
         context,
         EffectInference {
             effects: Vec::new(),
-            dynamic_reasons: Vec::new(),
+            dynamic_reasons: vec![
+                "proxy-traps".to_string(),
+                "eval".to_string(),
+                "proxy-traps".to_string(),
+            ],
         },
     );
 
+    assert_eq!(report.dynamic_reasons, vec!["eval", "proxy-traps"]);
+    assert!(report.dynamic_effects);
     assert_eq!(
         report.analysis_context.runtime_profiles,
         vec!["alpha", "wasm-threads"]
