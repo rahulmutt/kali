@@ -24,7 +24,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 
 ## Progress
 
-- Added a dedicated determinism smoke lane in `scripts/check-determinism.sh` plus a matching `mise` task and CI job, so the repeated-build evidence is now exercised as an explicit repository workflow instead of living only inside the larger runtime smoke suite.
+- Added a dedicated determinism smoke lane in `scripts/check-determinism.sh` plus a matching `mise` task and CI job, so the repeated-build evidence is now exercised as an explicit repository workflow instead of living only inside the larger runtime smoke suite. The lane now also pins the `effects`, `package-effects`, and `package-audit` repeated-invocation envelopes, keeping the later public reporting surfaces deterministic alongside the build artifacts.
 - Added a package-effects flag-family regression so the inherited-analysis lane now rejects `--api`, `--compat`, `--wasm-threads`, and `--sandbox` with the canonical package-analysis-specific `E5508` message instead of only pinning a single stray flag.
 - Added a package-effects orthogonality regression that keeps inherited browser analysis context aligned with a top-level sandbox path in JSON output, so the registry-analysis effect-report lane now pins the browser-resolution and sandbox-attachment axes together instead of only checking them independently.
 - Added inherited-context regressions for `kali effects` so the public effect-report lane now pins both inherited `compat.features = ["eval"]` payload preservation and inherited Node API-surface rejection instead of only covering the explicit-flag path.
