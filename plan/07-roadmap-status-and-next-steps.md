@@ -26,7 +26,7 @@ Recent hardening:
 - browser-targeted static policy-validation coverage now exercises inherited browser API surfaces for both `check` and `build --bundle`, including the sandbox-attached variants that keep the browser-targeted command set aligned with inherited config
 - the top-level CLI spine now has a dedicated `kali --version` smoke test, keeping the entrypoint contract pinned alongside the other command-shape regressions
 - the global `--pretty` gate and the `package-audit --pretty` path now report the canonical `E5508` CLI-usage diagnostic, keeping the shared command-shape code aligned with `specs/15-errors.md`
-- the documented Node execution subset is now live for `run` / `test`, and the package-corpus smoke lane exercises representative Node-package runtime cases while `check` / `build` / `effects` stay gated explicitly
+- the documented Node execution subset is now live for `run` / `test`, and the package-corpus smoke lane exercises representative Node-package runtime cases across explicit and inherited `apiSurface=node` paths while `check` / `build` / `effects` stay gated explicitly
 
 ### Priority A — finish the Phase-1 critical path
 

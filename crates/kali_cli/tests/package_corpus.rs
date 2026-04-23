@@ -2907,3 +2907,77 @@ export default function dotenv() {
         );
     }
 }
+
+#[test]
+fn node_runner_corpus_packages_with_inherited_api_surface_remain_executable_on_the_node_surface() {
+    for (package, subpath) in [
+        ("vitest", "config"),
+        ("jest", "globals"),
+        ("mocha", "reporter"),
+        ("ava", "config"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("node"));
+        write_export_map_package(
+            dir.path(),
+            package,
+            &format!(
+                "import assert from \"node:assert\";\nexport default function root() {{ assert.ok(true); return '{package}:root'; }}\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "import assert from \"node:assert\";\nexport default function subpath() {{ assert.ok(true); return '{package}:{subpath}'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+
+        let run_source = dir.path().join("main.ts");
+        fs::write(
+            &run_source,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write inherited node run source");
+
+        let run = run_kali(dir.path(), ["run", run_source.to_str().unwrap()]);
+        assert!(
+            run.status.success(),
+            "node package {package} with exports map should execute on the inherited Node surface\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        let run_stdout = String::from_utf8_lossy(&run.stdout);
+        assert_eq!(run_stdout.trim(), "0", "stdout: {run_stdout}");
+
+        let test_source = dir
+            .path()
+            .join("tests")
+            .join(format!("{}.test.ts", package));
+        fs::create_dir_all(test_source.parent().expect("test dir")).expect("create test dir");
+        fs::write(
+            &test_source,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nKali.test('{package} corpus', () => {{\n  console.log(root(), subpath());\n}});\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write inherited node test source");
+
+        let test = run_kali(dir.path(), ["test", test_source.to_str().unwrap()]);
+        assert!(
+            test.status.success(),
+            "node package {package} with exports map should be testable on the inherited Node surface\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let test_stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
+    }
+}
