@@ -590,6 +590,17 @@ fn write_valid_policy(path: &Path) {
     .expect("write policy");
 }
 
+fn write_invalid_policy_schema(path: &Path) {
+    fs::write(
+        path,
+        r#"{
+  "schemaVersion": 1,
+  "unknown": true
+}"#,
+    )
+    .expect("write invalid policy");
+}
+
 #[test]
 fn check_accepts_a_resolved_file() {
     let dir = tempdir().expect("tempdir");
@@ -3314,6 +3325,58 @@ fn build_embeds_sandbox_policy_custom_section() {
     );
 
     assert_embeds_policy_custom_section(&dir.path().join("main.wasm"), &policy_path);
+}
+
+#[test]
+fn check_with_sandbox_rejects_invalid_policy_schema() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, "console.log('policy check');").expect("write source");
+    write_invalid_policy_schema(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5510"), "stderr: {stderr}");
+    assert!(stderr.contains("unknown field"), "stderr: {stderr}");
+}
+
+#[test]
+fn build_with_sandbox_rejects_invalid_policy_schema() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, "1 + 2;").expect("write source");
+    write_invalid_policy_schema(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5510"), "stderr: {stderr}");
+    assert!(stderr.contains("unknown field"), "stderr: {stderr}");
+    assert!(
+        !dir.path().join("main.wasm").exists(),
+        "build should not emit an artifact when policy validation fails"
+    );
 }
 
 fn assert_embeds_policy_custom_section(artifact_path: &Path, policy_path: &Path) {

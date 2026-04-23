@@ -151,8 +151,8 @@ at execution time.
 
 Policy files are declarative JSON/TOML only. The spec explicitly prohibits executable project
 policy code in Phase 1. Enforce this: if the policy parser encounters a `code` or `script` key
-it does not recognise, emit `E9003` (schema validation error) rather than attempting to execute
-it.
+it does not recognise, emit `E5510` (invalid sandbox policy file) rather than attempting to
+execute it.
 
 ### 8. Tests
 
@@ -164,7 +164,7 @@ it.
   - `kali run --sandbox fixtures/deny-read.json fixtures/readfile.ts` → exits 1 with `E4001`.
 - **Static validation integration tests**:
   - `kali check --sandbox fixtures/valid.json fixtures/app.ts` → exits 0.
-  - `kali check --sandbox fixtures/bad-schema.json fixtures/app.ts` → exits 1 with `E9003`.
+  - `kali check --sandbox fixtures/bad-schema.json fixtures/app.ts` → exits 1 with `E5510`.
 - **Resource limit tests**: programs that exceed `memoryMb` trap with `E4003`.
 
 ## Out of Scope

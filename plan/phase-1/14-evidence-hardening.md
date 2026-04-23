@@ -61,6 +61,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added JSON-output coverage for the remaining browser build-shape contradictions (`kali build --api browser` and `kali build --bundle --api node`) so the command-shape vs availability split stays pinned across both human and machine-readable envelopes.
 - Added sandbox artifact coverage that now asserts the embedded `kali:policy` custom section matches the source policy bytes exactly, not just the presence of the section.
 - Added explicit sandbox-policy custom-section coverage for the Phase-1 library artifact and browser-bundle artifact outputs, so the `kali:policy` embedding contract stays pinned across the documented static policy-validation build lanes.
+- Added invalid sandbox-policy schema regressions for `check --sandbox` and `build --sandbox`, confirming malformed policy files fail early with `E5510` instead of reaching runtime or artifact emission.
 - Added positive `run --sandbox` and `test --sandbox` regressions so the evidence suite now proves benign sandboxed workloads still complete normally under the canonical deny-by-default policy shape.
 - Added a Node-based browser-bundle execution smoke harness that imports the generated ESM bundle, resolves the emitted WASM, and exercises the exported wrapper for both explicit and inherited browser API-surface builds.
 - Added explicit `--api browser` + `--bundle` + `--sandbox` browser-bundle regressions in both human and JSON output so the browser-targeted build lane now pins the explicit-flag path alongside the inherited-config path.
@@ -182,7 +183,7 @@ Complete coverage of the `kali install` edge cases defined in `specs/16-testing.
 - `run/test --sandbox` negative: program violates `allow.net` → `E4004`, exit 1.
 - `run/test --sandbox` negative: program violates `allow.read` → `E4004`, exit 1.
 - `check/build --sandbox` with a valid policy file → exits 0.
-- `check/build --sandbox` with an invalid policy file → `E9003`, exit 1.
+- `check/build --sandbox` with an invalid policy file → `E5510`, exit 1.
 - `build --sandbox <policy> <file>` → artifact carries `kali:policy` section; assert section
   content matches the input policy file exactly.
 
