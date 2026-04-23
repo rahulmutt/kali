@@ -2904,6 +2904,38 @@ fn test_reports_function_coverage_in_json_output() {
 }
 
 #[test]
+fn test_reports_function_coverage_in_pretty_json_output() {
+    let output = Command::new(kali_bin())
+        .arg("test")
+        .arg("--pretty")
+        .arg("--output")
+        .arg("json")
+        .arg("--coverage")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("\n  \"schemaVersion\""), "stdout: {stdout}");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["coverage"]["mode"], "function");
+    assert!(
+        json["payload"]["coverage"]["summary"]["functionsTotal"]
+            .as_u64()
+            .expect("functionsTotal")
+            >= 1
+    );
+}
+
+#[test]
 fn test_reports_function_coverage_in_json_output_under_quiet() {
     let output = Command::new(kali_bin())
         .arg("test")
