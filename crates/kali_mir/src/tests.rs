@@ -250,6 +250,33 @@ fn test_thread_boundary_profiles_split_shareable_and_local_bindings() {
 }
 
 #[test]
+fn test_thread_boundary_profile_merges_duplicate_entries_with_shared_precedence() {
+    let profile = ThreadBoundaryProfile {
+        bindings: vec![
+            ThreadBoundaryBinding {
+                scope: "outer".to_string(),
+                name: "value".to_string(),
+                disposition: ThreadBoundaryDisposition::LocalOnly,
+            },
+            ThreadBoundaryBinding {
+                scope: "outer".to_string(),
+                name: "value".to_string(),
+                disposition: ThreadBoundaryDisposition::SharedOnly,
+            },
+        ],
+    }
+    .finalize();
+
+    assert_eq!(profile.bindings.len(), 1);
+    assert_eq!(profile.bindings[0].scope, "outer");
+    assert_eq!(profile.bindings[0].name, "value");
+    assert_eq!(
+        profile.bindings[0].disposition,
+        ThreadBoundaryDisposition::SharedOnly
+    );
+}
+
+#[test]
 fn test_binding_thread_boundary_entry_uses_scope_and_disposition() {
     let binding = MirBinding {
         name: "value".to_string(),

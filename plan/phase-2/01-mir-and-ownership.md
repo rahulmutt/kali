@@ -34,7 +34,10 @@ counting placeholder with deterministic compile-time ownership decisions: `stack
   the ownership model records not just who captured a value but also which values each closure
   environment needs to carry. The ownership analyzer now also distinguishes non-escaping closure
   captures from escaping ones, so borrowed lifetimes remain borrowed when a nested closure stays
-  local instead of being forced into shared-heap ownership.
+  local instead of being forced into shared-heap ownership. The thread-boundary profile now
+  deterministically merges duplicate scope/name entries and preserves the shareable disposition when
+  a binding is observed through both local and shared flows, keeping the later threaded-profile
+  handoff stable even when analysis data is combined from multiple passes.
 
 ## Tasks
 

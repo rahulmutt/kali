@@ -48,16 +48,30 @@ impl ThreadBoundaryProfile {
         });
     }
 
-    fn finalize(mut self) -> Self {
-        self.bindings.sort_by(|left, right| {
-            left.scope
-                .cmp(&right.scope)
-                .then_with(|| left.name.cmp(&right.name))
-                .then_with(|| left.disposition.cmp(&right.disposition))
-        });
-        self.bindings
-            .dedup_by(|left, right| left.scope == right.scope && left.name == right.name);
-        self
+    fn finalize(self) -> Self {
+        let mut merged: BTreeMap<(String, String), ThreadBoundaryDisposition> = BTreeMap::new();
+        for binding in self.bindings {
+            let key = (binding.scope, binding.name);
+            merged
+                .entry(key)
+                .and_modify(|existing| {
+                    if matches!(binding.disposition, ThreadBoundaryDisposition::SharedOnly) {
+                        *existing = ThreadBoundaryDisposition::SharedOnly;
+                    }
+                })
+                .or_insert(binding.disposition);
+        }
+
+        Self {
+            bindings: merged
+                .into_iter()
+                .map(|((scope, name), disposition)| ThreadBoundaryBinding {
+                    scope,
+                    name,
+                    disposition,
+                })
+                .collect(),
+        }
     }
 }
 
