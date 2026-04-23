@@ -20,22 +20,9 @@ built, run, and tested under Kali without pretending to full Node parity.
 
 ## Progress
 
-**Status:** Complete for the Phase-3 subset.
+**Status:** Complete for the historical Phase-3 target, but the current repo hardening pass keeps the Node surface phase-gated again so the implementation matches the maturity matrix.
 
-The current repo hardening pass also keeps the semver probe honest: the browser-bundle
-smoke harness now has explicit `kali:rt` console shims (`console_log`, `console_error`,
-`console_warn`) so emitted browser bundles instantiate cleanly under the Node-based harness,
-and the regression suite now pins both the default-standalone rejection for a semver-style
-`require('../package.json')` package-bin entrypoint, the Node-path help-path smoke for a
-`semver/bin/semver.js`-shaped fixture, and a Node-path package-json/version plus guest-argument
-count smoke on the documented Node surface. The codegen/runtime path now keeps
-`process.argv.length` wired to the invocation args, the Node compatibility helper now also
-records a deterministic `argv0` projection from the host launch vector, and the helper test suite
-now pins that projection directly through `NodeRuntimeProjection::from_host_context`, so the
-semver probe and related package-bin cases stay anchored to the actual package-binary shape with
-both no-arg and guest-arg coverage. The package-corpus lane now also carries an inherited-node
-`semver/bin/semver.js` executable regression, so the documented Node support rung is exercised in
-corpus evidence as well as in the direct runtime smoke suite.
+The current regression suite now pins `E5506` for explicit and inherited `--api node` requests across `check`, `build`, `run`, `test`, and `effects`, and the inherited-node `package-effects` probe is likewise held at the same gate. The semver-style package-bin coverage now lives in the negative gating lane for the Node path, while `package-audit` continues to ignore inherited Node context as a context-free registry-analysis command. The browser-bundle smoke harness still keeps the shared `kali:rt` console shims (`console_log`, `console_error`, `console_warn`) in place so emitted browser bundles instantiate cleanly under the Node-based harness.
 
 ## Historical stage tasks
 

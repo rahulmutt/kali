@@ -1,6 +1,6 @@
 # PLAN mailbox
 
-_Last cleaned: 2026-04-22_
+_Last cleaned: 2026-04-23_
 
 This mailbox is for **temporary planning follow-ups** only. Once a decision is reflected in
 `PLAN.md` or `plan/**/*.md`, remove it from here.

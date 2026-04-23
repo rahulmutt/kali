@@ -660,7 +660,7 @@ fn check_uses_inherited_browser_api_surface() {
 }
 
 #[test]
-fn check_accepts_node_api_surface() {
+fn check_rejects_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -681,10 +681,16 @@ console.log('ok');
         .expect("run kali");
 
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("API surface 'node' is unavailable in this phase"),
+        "stderr: {stderr}"
     );
 }
 
@@ -897,28 +903,13 @@ fn check_rejects_late_host_control_globals() {
         .expect("run kali");
 
     assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    for expected in [
-        "Deno.pid",
-        "globalThis.Deno.pid",
-        "globalThis.Deno.cwd",
-        "Deno.chdir",
-        "globalThis.Deno.chdir",
-        "globalThis.Deno.exit",
-        "process.pid",
-        "globalThis.process.pid",
-        "globalThis.process.cwd",
-        "process.chdir",
-        "globalThis.process.chdir",
-        "globalThis.process.exit",
-    ] {
-        assert!(
-            stderr.contains(expected),
-            "missing {expected} in stderr: {stderr}"
-        );
-    }
+    assert!(
+        stderr.contains("API surface 'node' is unavailable in this phase"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -943,36 +934,17 @@ fn check_rejects_late_host_control_globals_in_json() {
         .expect("run kali");
 
     assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(output.status.code(), Some(5));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 12);
-    assert!(errors.iter().all(|error| error["code"] == "E5506"));
-    let messages = errors
-        .iter()
-        .map(|error| error["message"].as_str().expect("error message"))
-        .collect::<Vec<_>>();
-    for expected in [
-        "Deno.pid",
-        "globalThis.Deno.pid",
-        "globalThis.Deno.cwd",
-        "Deno.chdir",
-        "globalThis.Deno.chdir",
-        "globalThis.Deno.exit",
-        "process.pid",
-        "globalThis.process.pid",
-        "globalThis.process.cwd",
-        "process.chdir",
-        "globalThis.process.chdir",
-        "globalThis.process.exit",
-    ] {
-        assert!(
-            messages.iter().any(|message| message.contains(expected)),
-            "missing {expected} in {messages:?}"
-        );
-    }
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0]["code"], "E5506");
+    assert!(errors[0]["message"]
+        .as_str()
+        .expect("error message")
+        .contains("API surface 'node' is unavailable in this phase"));
 }
 
 #[test]
@@ -4760,7 +4732,7 @@ fn build_rejects_bundle_format_without_bundle() {
 }
 
 #[test]
-fn build_accepts_explicit_node_api_surface() {
+fn build_rejects_explicit_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -4781,13 +4753,17 @@ console.log(1);
         .expect("run kali");
 
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
     );
-
-    assert!(source_path.with_file_name("main.wasm").exists());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("API surface 'node' is unavailable in this phase"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -5934,7 +5910,7 @@ fn install_dev_requires_an_explicit_registry_target() {
 }
 
 #[test]
-fn run_accepts_node_api_surface() {
+fn run_rejects_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -5955,15 +5931,21 @@ fn run_accepts_node_api_surface() {
         .expect("run kali");
 
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("API surface 'node' is unavailable in this phase"),
+        "stderr: {stderr}"
     );
 }
 
 #[test]
-fn test_accepts_node_api_surface() {
+fn test_rejects_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_dir = dir.path().join("tests");
     fs::create_dir_all(&source_dir).expect("create test dir");
@@ -5988,12 +5970,17 @@ Kali.test('node', () => {
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok"), "stdout: {stdout}");
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("API surface 'node' is unavailable in this phase"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -6757,7 +6744,7 @@ console.log(process.argv.length);
 }
 
 #[test]
-fn run_executes_semver_style_package_bin_help_path_on_node_api_surface() {
+fn run_rejects_semver_style_package_bin_help_path_on_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/semver");
     write_semver_style_package_fixture(&package_dir);
@@ -6771,17 +6758,18 @@ fn run_executes_semver_style_package_bin_help_path_on_node_api_surface() {
         .output()
         .expect("run kali");
 
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
-        stdout.contains("Usage: semver [options] <version> [<version> [...]]"),
-        "stdout: {stdout}"
+        stderr.contains("API surface 'node' is unavailable in this phase"),
+        "stderr: {stderr}"
     );
-    assert!(String::from_utf8_lossy(&output.stderr).is_empty());
 }
 
 #[test]
-fn run_executes_semver_style_package_bin_argument_passthrough_on_node_api_surface() {
+fn run_rejects_semver_style_package_bin_argument_passthrough_on_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/semver");
     fs::create_dir_all(package_dir.join("bin")).expect("create package dir");
@@ -6822,7 +6810,7 @@ fn run_executes_semver_style_package_bin_argument_passthrough_on_node_api_surfac
 }
 
 #[test]
-fn run_executes_semver_style_package_bin_package_json_require_on_node_api_surface() {
+fn run_rejects_semver_style_package_bin_package_json_require_on_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/semver");
     write_semver_package_json_probe_fixture(&package_dir);
@@ -6838,13 +6826,14 @@ fn run_executes_semver_style_package_bin_package_json_require_on_node_api_surfac
         .output()
         .expect("run kali");
 
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
+        stderr.contains("API surface 'node' is unavailable in this phase"),
+        "stderr: {stderr}"
     );
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "1.0.0\n3\n");
-    assert!(String::from_utf8_lossy(&output.stderr).is_empty());
 }
 
 #[test]
@@ -7142,7 +7131,7 @@ fn effects_uses_inherited_browser_api_surface() {
 }
 
 #[test]
-fn effects_uses_explicit_node_api_surface() {
+fn effects_rejects_explicit_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "console.log('node');").expect("write source");
@@ -7157,21 +7146,17 @@ fn effects_uses_explicit_node_api_surface() {
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["analysisContext"]["apiSurface"], "node");
-    assert_eq!(json["dynamicEffects"], false);
-    let kinds = json["effects"]
-        .as_array()
-        .expect("effects array")
-        .iter()
-        .map(|entry| entry["kind"].as_str().expect("kind string"))
-        .collect::<Vec<_>>();
-    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("API surface 'node' is unavailable in this phase"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -7757,7 +7742,7 @@ fn package_effects_rejects_inherited_wasm_threads_runtime_profile() {
 }
 
 #[test]
-fn package_effects_uses_inherited_node_api_surface() {
+fn package_effects_rejects_inherited_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
     fs::create_dir_all(&package_dir).expect("create package dir");
@@ -7790,21 +7775,17 @@ fn package_effects_uses_inherited_node_api_surface() {
         .expect("run kali");
 
     assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
     );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["package"]["name"], "purepkg");
-    assert_eq!(json["report"]["analysisContext"]["apiSurface"], "node");
-    let kinds = json["report"]["effects"]
-        .as_array()
-        .expect("effects array")
-        .iter()
-        .map(|entry| entry["kind"].as_str().expect("kind string"))
-        .collect::<Vec<_>>();
-    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("API surface 'node' is unavailable in this phase"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -8361,6 +8342,110 @@ fn package_audit_ignores_inherited_node_context() {
         stdout.contains("no security findings were computed"),
         "stdout: {stdout}"
     );
+}
+
+#[test]
+fn package_audit_ignores_inherited_browser_context_in_json_output() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--output")
+        .arg("json")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"], serde_json::Value::Null);
+    assert!(json["stdout"]
+        .as_str()
+        .expect("stdout string")
+        .contains("no security findings were computed"));
+    assert_eq!(json["warnings"], serde_json::Value::Array(vec![]));
+    assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
+}
+
+#[test]
+fn package_audit_ignores_inherited_node_context_in_json_output() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--output")
+        .arg("json")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"], serde_json::Value::Null);
+    assert!(json["stdout"]
+        .as_str()
+        .expect("stdout string")
+        .contains("no security findings were computed"));
+    assert_eq!(json["warnings"], serde_json::Value::Array(vec![]));
+    assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
 }
 
 #[test]

@@ -307,6 +307,12 @@ fn check_command(
         }
     };
 
+    if let Err(exit_code) =
+        reject_unavailable_node_api_surface("check", effective_api, output, None, None)
+    {
+        return Err(exit_code);
+    }
+
     if fix {
         let diagnostic = Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
@@ -515,6 +521,12 @@ fn build_command(
             "`kali build` without `--bundle` is not valid for the browser API surface",
         );
         return emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
+    }
+
+    if let Err(exit_code) =
+        reject_unavailable_node_api_surface("build", effective_api, output, None, None)
+    {
+        return Err(exit_code);
     }
 
     let effective_runtime_profiles = match resolve_effective_runtime_profiles(wasm_threads) {
@@ -977,6 +989,36 @@ fn reject_unavailable_browser_runtime(
         command,
         vec![diagnostic],
         1,
+        output,
+        source_path,
+        source_contents,
+    )
+}
+
+fn reject_unavailable_node_api_surface(
+    command: &str,
+    api_surface: kali_cli::ApiSurface,
+    output: &CliOutputOptions,
+    source_path: Option<&Path>,
+    source_contents: Option<&str>,
+) -> Result<(), i32> {
+    if !matches!(api_surface, kali_cli::ApiSurface::Node) {
+        return Ok(());
+    }
+
+    let diagnostic = Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        "API surface 'node' is unavailable in this phase".to_string(),
+    )
+    .note("the Phase-3 Node compatibility surface is not yet shipped")
+    .with_suggestion(
+        "use the default Deno-oriented surface or wait for the documented Node compatibility target",
+    );
+
+    emit_diagnostics_and_exit(
+        command,
+        vec![diagnostic],
+        5,
         output,
         source_path,
         source_contents,
@@ -2491,6 +2533,12 @@ fn run_command(
         return Err(exit_code);
     }
 
+    if let Err(exit_code) =
+        reject_unavailable_node_api_surface("run", effective_api, output, None, None)
+    {
+        return Err(exit_code);
+    }
+
     let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
     let effective_compat = match resolve_effective_compat_features(compat) {
@@ -2666,6 +2714,12 @@ fn test_command(
         None,
         None,
     ) {
+        return Err(exit_code);
+    }
+
+    if let Err(exit_code) =
+        reject_unavailable_node_api_surface("test", effective_api, output, None, None)
+    {
         return Err(exit_code);
     }
 
@@ -3272,6 +3326,15 @@ fn effects_command(
     ) {
         return Err(exit_code);
     }
+    if let Err(exit_code) = reject_unavailable_node_api_surface(
+        "effects",
+        effective_api,
+        output,
+        Some(&source),
+        fs::read_to_string(&source).ok().as_deref(),
+    ) {
+        return Err(exit_code);
+    }
     let context = analysis_context_for_api(
         effective_api,
         effective_runtime_profiles,
@@ -3436,6 +3499,11 @@ fn package_effects_command(
             );
         }
     };
+    if let Err(exit_code) =
+        reject_unavailable_node_api_surface("package-effects", effective_api, output, None, None)
+    {
+        return Err(exit_code);
+    }
     let effective_runtime_profiles = match resolve_effective_runtime_profiles(false) {
         Ok(profiles) => profiles,
         Err(diagnostics) => {

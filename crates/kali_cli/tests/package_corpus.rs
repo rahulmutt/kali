@@ -2125,7 +2125,7 @@ console.log(ms());
 }
 
 #[test]
-fn node_runner_corpus_semver_style_package_bin_remains_executable_on_the_node_surface() {
+fn node_runner_corpus_semver_style_package_bin_is_rejected_on_the_node_surface() {
     let dir = tempdir().expect("tempdir");
     write_manifest(dir.path(), Some("node"));
     let package_dir = dir.path().join("node_modules/semver");
@@ -2133,16 +2133,25 @@ fn node_runner_corpus_semver_style_package_bin_remains_executable_on_the_node_su
 
     let run = run_kali(
         dir.path(),
-        ["run", package_dir.join("bin/semver.js").to_str().unwrap()],
+        [
+            "run",
+            "--api",
+            "node",
+            package_dir.join("bin/semver.js").to_str().unwrap(),
+        ],
     );
     assert!(
-        run.status.success(),
-        "semver corpus package bin should stay executable on the Node surface\nstdout: {}\nstderr: {}",
+        !run.status.success(),
+        "semver corpus package bin should stay gated on the Node surface\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&run.stdout),
         String::from_utf8_lossy(&run.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&run.stderr), "");
-    assert!(!run.stdout.is_empty(), "stdout should not be empty");
+    let stderr = String::from_utf8_lossy(&run.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("Node compatibility surface is not yet shipped"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -2597,7 +2606,7 @@ fn deno_host_corpus_packages_remain_executable_on_the_default_standalone_surface
 }
 
 #[test]
-fn node_runner_corpus_packages_require_the_node_context_but_remain_executable_there() {
+fn node_runner_corpus_packages_remain_gated_on_the_node_surface() {
     for package in ["vitest", "jest", "mocha", "ava"] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
@@ -2628,17 +2637,22 @@ export default assert;
             ["test", "--api", "node", test_path.to_str().unwrap()],
         );
         assert!(
-            test.status.success(),
-            "node package {package} should execute under the Node context\nstdout: {}\nstderr: {}",
+            !test.status.success(),
+            "node package {package} should stay gated on the Node surface\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&test.stdout),
             String::from_utf8_lossy(&test.stderr)
+        );
+        let stderr = String::from_utf8_lossy(&test.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("Node compatibility surface is not yet shipped"),
+            "stderr: {stderr}"
         );
     }
 }
 
 #[test]
-fn node_runner_corpus_packages_with_exports_maps_require_the_node_context_but_remain_executable_there(
-) {
+fn node_runner_corpus_packages_with_exports_maps_remain_gated_on_the_node_surface() {
     for (package, subpath) in [
         ("vitest", "config"),
         ("jest", "globals"),
@@ -2682,17 +2696,22 @@ fn node_runner_corpus_packages_with_exports_maps_require_the_node_context_but_re
             ["test", "--api", "node", test_path.to_str().unwrap()],
         );
         assert!(
-            test.status.success(),
-            "node package {package} with exports map should execute under the Node context\nstdout: {}\nstderr: {}",
+            !test.status.success(),
+            "node package {package} with exports map should stay gated on the Node surface\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&test.stdout),
             String::from_utf8_lossy(&test.stderr)
+        );
+        let stderr = String::from_utf8_lossy(&test.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("Node compatibility surface is not yet shipped"),
+            "stderr: {stderr}"
         );
     }
 }
 
 #[test]
-fn node_runner_corpus_packages_with_mixed_format_entries_require_the_node_context_but_remain_executable_there(
-) {
+fn node_runner_corpus_packages_with_mixed_format_entries_remain_gated_on_the_node_surface() {
     for (package, subpath) in [
         ("vitest", "config"),
         ("jest", "globals"),
@@ -2745,16 +2764,22 @@ fn node_runner_corpus_packages_with_mixed_format_entries_require_the_node_contex
             ["test", "--api", "node", test_path.to_str().unwrap()],
         );
         assert!(
-            test.status.success(),
-            "node mixed-format package {package} should execute under the Node context\nstdout: {}\nstderr: {}",
+            !test.status.success(),
+            "node mixed-format package {package} should stay gated on the Node surface\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&test.stdout),
             String::from_utf8_lossy(&test.stderr)
+        );
+        let stderr = String::from_utf8_lossy(&test.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("Node compatibility surface is not yet shipped"),
+            "stderr: {stderr}"
         );
     }
 }
 
 #[test]
-fn node_assuming_corpus_packages_require_the_node_context_but_remain_executable_there() {
+fn node_assuming_corpus_packages_remain_gated_on_the_node_surface() {
     for (package, body) in [
         (
             "axios",
@@ -2809,10 +2834,16 @@ export default function dotenv() {
             ["check", "--api", "node", source_path.to_str().unwrap()],
         );
         assert!(
-            check.status.success(),
-            "node package {package} should check under the Node context\nstdout: {}\nstderr: {}",
+            !check.status.success(),
+            "node package {package} should stay gated on the Node context\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&check.stdout),
             String::from_utf8_lossy(&check.stderr)
+        );
+        let check_stderr = String::from_utf8_lossy(&check.stderr);
+        assert!(check_stderr.contains("E5506"), "stderr: {check_stderr}");
+        assert!(
+            check_stderr.contains("Node compatibility surface is not yet shipped"),
+            "stderr: {check_stderr}"
         );
 
         let run = run_kali(
@@ -2820,10 +2851,16 @@ export default function dotenv() {
             ["run", "--api", "node", source_path.to_str().unwrap()],
         );
         assert!(
-            run.status.success(),
-            "node package {package} should execute under the Node context\nstdout: {}\nstderr: {}",
+            !run.status.success(),
+            "node package {package} should stay gated on the Node context\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr)
+        );
+        let run_stderr = String::from_utf8_lossy(&run.stderr);
+        assert!(run_stderr.contains("E5506"), "stderr: {run_stderr}");
+        assert!(
+            run_stderr.contains("Node compatibility surface is not yet shipped"),
+            "stderr: {run_stderr}"
         );
     }
 }
