@@ -8,7 +8,7 @@
 
 use clap::Parser;
 use kali_capi::{
-    arity_from_signature, generate_binding_package_manifest, generate_header,
+    arity_from_signature, generate_binding_package_manifest_with_provenance, generate_header,
     generate_metadata_with_provenance as generate_capi_metadata, Export as CApiExport,
 };
 use kali_cli::{
@@ -1614,7 +1614,7 @@ fn build_capi_artifact(
         )]
     })?;
 
-    let binding_package_json = generate_binding_package_manifest(
+    let binding_package_json = generate_binding_package_manifest_with_provenance(
         &source.display().to_string(),
         output_path
             .file_name()
@@ -1630,6 +1630,8 @@ fn build_capi_artifact(
             .unwrap_or("lib.h"),
         runtime_profiles,
         max_specializations,
+        Some(RuntimeHostContract::KaliHosted.canonical_label()),
+        Some(RuntimeBackend::Wasmtime.canonical_label()),
         &[
             "bindings/python/README.md".to_string(),
             "bindings/python/kali_capi/__init__.py".to_string(),
@@ -1769,7 +1771,7 @@ fn build_component_artifact(
         )]
     })?;
 
-    let binding_package_json = generate_binding_package_manifest(
+    let binding_package_json = generate_binding_package_manifest_with_provenance(
         &source.display().to_string(),
         output_path
             .file_name()
@@ -1785,6 +1787,8 @@ fn build_component_artifact(
             .unwrap_or("lib.wit"),
         runtime_profiles,
         max_specializations,
+        Some(RuntimeHostContract::KaliHosted.canonical_label()),
+        Some(RuntimeBackend::Wasmtime.canonical_label()),
         &[
             "bindings/python/README.md".to_string(),
             "bindings/python/kali_capi/__init__.py".to_string(),

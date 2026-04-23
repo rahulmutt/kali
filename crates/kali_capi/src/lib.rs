@@ -111,13 +111,15 @@ pub fn generate_metadata_with_provenance(
 }
 
 /// Generate a deterministic packaging manifest for higher-level language bindings.
-pub fn generate_binding_package_manifest(
+pub fn generate_binding_package_manifest_with_provenance(
     module_name: impl AsRef<str>,
     library_path: impl AsRef<str>,
     metadata_path: impl AsRef<str>,
     exports_header_path: impl AsRef<str>,
     runtime_profiles: &[String],
     max_specializations: usize,
+    host_contract: Option<&str>,
+    runtime_backend: Option<&str>,
     glue_paths: &[String],
 ) -> Value {
     let mut runtime_profiles: Vec<_> = runtime_profiles.iter().map(String::as_str).collect();
@@ -128,23 +130,63 @@ pub fn generate_binding_package_manifest(
     glue_paths.sort();
     glue_paths.dedup();
 
-    json!({
-        "schemaVersion": 1,
-        "kind": "binding-package",
-        "moduleName": module_name.as_ref(),
-        "hostAbiVersion": HOST_ABI_VERSION,
-        "minHostAbiVersion": HOST_ABI_VERSION,
-        "runtimeProfiles": runtime_profiles,
-        "hostContract": "kali-hosted",
-        "runtimeBackend": "wasmtime",
-        "maxSpecializations": max_specializations,
-        "artifacts": {
+    let mut manifest = serde_json::Map::new();
+    manifest.insert("schemaVersion".to_string(), Value::from(1));
+    manifest.insert("kind".to_string(), Value::from("binding-package"));
+    manifest.insert("moduleName".to_string(), Value::from(module_name.as_ref()));
+    manifest.insert("hostAbiVersion".to_string(), Value::from(HOST_ABI_VERSION));
+    manifest.insert(
+        "minHostAbiVersion".to_string(),
+        Value::from(HOST_ABI_VERSION),
+    );
+    manifest.insert(
+        "runtimeProfiles".to_string(),
+        Value::Array(runtime_profiles.into_iter().map(Value::from).collect()),
+    );
+    if let Some(host_contract) = host_contract {
+        manifest.insert("hostContract".to_string(), Value::from(host_contract));
+    }
+    if let Some(runtime_backend) = runtime_backend {
+        manifest.insert("runtimeBackend".to_string(), Value::from(runtime_backend));
+    }
+    manifest.insert(
+        "maxSpecializations".to_string(),
+        Value::from(max_specializations),
+    );
+    manifest.insert(
+        "artifacts".to_string(),
+        json!({
             "library": library_path.as_ref(),
             "metadata": metadata_path.as_ref(),
             "exportsHeader": exports_header_path.as_ref(),
             "glue": glue_paths,
-        },
-    })
+        }),
+    );
+
+    Value::Object(manifest)
+}
+
+/// Generate a deterministic packaging manifest for higher-level language bindings.
+pub fn generate_binding_package_manifest(
+    module_name: impl AsRef<str>,
+    library_path: impl AsRef<str>,
+    metadata_path: impl AsRef<str>,
+    exports_header_path: impl AsRef<str>,
+    runtime_profiles: &[String],
+    max_specializations: usize,
+    glue_paths: &[String],
+) -> Value {
+    generate_binding_package_manifest_with_provenance(
+        module_name,
+        library_path,
+        metadata_path,
+        exports_header_path,
+        runtime_profiles,
+        max_specializations,
+        Some("kali-hosted"),
+        Some("wasmtime"),
+        glue_paths,
+    )
 }
 
 /// Parse and validate generated C ABI metadata.

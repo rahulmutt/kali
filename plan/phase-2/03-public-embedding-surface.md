@@ -23,6 +23,7 @@ stabilise the public Rust embedding API in `kali_embed`.
 ## Progress
 
 - 2026-04-23: `kali build --capi` now threads the same deterministic provenance tuple (`runtimeProfiles`, `maxSpecializations`, `hostContract`, and `runtimeBackend`) into the emitted `cabi-metadata` sidecar that the later binding workflows already consume, so the C-ABI metadata now mirrors the broader embedding-side provenance contract alongside the existing binding-package manifest coverage.
+- 2026-04-23: the shared `kali_capi` binding-package manifest generator now accepts explicit host/runtime provenance labels instead of hard-coding them internally, and the CLI build paths now pass through the same `kali-hosted` / `wasmtime` contract labels that the metadata sidecars already record. That keeps the higher-level binding manifest aligned with the build-context provenance tuple without relying on a second ad hoc helper path.
 - 2026-04-23: binding-package manifests emitted by `kali build --capi` and `kali build --component` now carry deterministic `maxSpecializations` provenance, and the new binding-package schema document keeps that sidecar shape explicit for downstream tooling.
 - 2026-04-18: `kali_embed` now also accepts raw source text through a stable
   `compile_lib_source` convenience entry point, so the embedding surface can

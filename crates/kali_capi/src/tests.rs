@@ -249,6 +249,42 @@ fn binding_package_manifest_orders_and_deduplicates_glue_deterministically() {
 }
 
 #[test]
+fn binding_package_manifest_with_provenance_uses_explicit_contract_labels() {
+    let manifest = generate_binding_package_manifest_with_provenance(
+        "sample",
+        "sample.capi.wasm",
+        "sample.cabi.json",
+        "sample.h",
+        &[
+            "wasm-threads".to_string(),
+            "fiber-threads".to_string(),
+            "wasm-threads".to_string(),
+        ],
+        8,
+        Some("browser-requested"),
+        Some("browser-harness"),
+        &[
+            "support.py".to_string(),
+            "shim.py".to_string(),
+            "support.py".to_string(),
+        ],
+    );
+
+    assert_eq!(manifest["schemaVersion"], 1);
+    assert_eq!(manifest["kind"], "binding-package");
+    assert_eq!(manifest["hostContract"], "browser-requested");
+    assert_eq!(manifest["runtimeBackend"], "browser-harness");
+    assert_eq!(
+        manifest["runtimeProfiles"],
+        serde_json::json!(["fiber-threads", "wasm-threads"])
+    );
+    assert_eq!(
+        manifest["artifacts"]["glue"],
+        serde_json::json!(["shim.py", "support.py"])
+    );
+}
+
+#[test]
 fn python_binding_package_metadata_is_present() {
     let cargo_manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let repo_root = cargo_manifest_dir
