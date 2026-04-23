@@ -24,6 +24,7 @@ pub fn node_api_init() {}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NodeProcess {
     argv: Vec<String>,
+    argv0: String,
     env: BTreeMap<String, String>,
     cwd: PathBuf,
     process_id: u32,
@@ -36,6 +37,7 @@ impl Default for NodeProcess {
     fn default() -> Self {
         Self {
             argv: Vec::new(),
+            argv0: String::from("node"),
             env: BTreeMap::new(),
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
             process_id: std::process::id(),
@@ -53,8 +55,13 @@ impl NodeProcess {
         env: BTreeMap<String, String>,
         cwd: impl Into<PathBuf>,
     ) -> Self {
+        let argv0 = argv
+            .first()
+            .cloned()
+            .unwrap_or_else(|| String::from("node"));
         Self {
             argv,
+            argv0,
             env,
             cwd: cwd.into(),
             process_id: std::process::id(),
@@ -67,6 +74,11 @@ impl NodeProcess {
     /// Command-line arguments.
     pub fn argv(&self) -> &[String] {
         &self.argv
+    }
+
+    /// Original `argv[0]` value associated with the process view.
+    pub fn argv0(&self) -> &str {
+        &self.argv0
     }
 
     /// Current working directory.

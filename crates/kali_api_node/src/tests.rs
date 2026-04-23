@@ -17,6 +17,7 @@ fn process_context_tracks_env_and_output() {
     );
 
     assert_eq!(process.argv(), &["node", "script.js"]);
+    assert_eq!(process.argv0(), "node");
     assert_eq!(process.argv_len(), 2);
     assert_eq!(process.argv_at(1), Some("script.js"));
     assert_eq!(process.cwd(), Path::new("/workspace/project"));
@@ -34,6 +35,14 @@ fn process_context_tracks_env_and_output() {
 
     process.exit(3);
     assert_eq!(process.exit_code(), Some(3));
+}
+
+#[test]
+fn default_process_context_uses_node_as_argv0() {
+    let process = NodeProcess::default();
+
+    assert_eq!(process.argv0(), "node");
+    assert!(process.argv().is_empty());
 }
 
 #[test]
