@@ -168,6 +168,48 @@ fn test_borrowed_lifetime_reports_are_deterministic() {
 }
 
 #[test]
+fn test_borrowed_lifetime_reports_collapse_exact_duplicates() {
+    let binding = MirBinding {
+        name: "value".to_string(),
+        kind: MirBindingKind::Local,
+        ownership: OwnershipClass::Borrowed,
+        layout: LayoutDescriptor::scalar("number"),
+        escapes: false,
+        captured_by: vec!["inner".to_string()],
+    };
+
+    let function = MirFunction {
+        name: Some("dup".to_string()),
+        kind: MirFunctionKind::Function,
+        bindings: vec![binding.clone(), binding.clone()],
+    };
+
+    assert_eq!(
+        function.borrowed_lifetimes("dup"),
+        vec![BorrowedLifetime {
+            scope: "dup".to_string(),
+            name: "value".to_string(),
+            captured_by: vec!["inner".to_string()],
+        }]
+    );
+
+    let program = MirProgram {
+        root: MirNodeId::new(0),
+        nodes: Vec::new(),
+        functions: vec![function.clone(), function],
+    };
+
+    assert_eq!(
+        program.borrowed_lifetimes(),
+        vec![BorrowedLifetime {
+            scope: "dup".to_string(),
+            name: "value".to_string(),
+            captured_by: vec!["inner".to_string()],
+        }]
+    );
+}
+
+#[test]
 fn test_call_arguments_escape_to_unknown_callees() {
     let mir = analyze("const answer = 1; sink(answer);");
     let module = mir.module_scope().expect("module scope");

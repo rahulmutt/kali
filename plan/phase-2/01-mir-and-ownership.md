@@ -36,10 +36,12 @@ counting placeholder with deterministic compile-time ownership decisions: `stack
   captures from escaping ones, so borrowed lifetimes remain borrowed when a nested closure stays
   local instead of being forced into shared-heap ownership. The ownership API now also surfaces
   deterministic borrowed-lifetime summaries at both the binding and program scope so later passes
-  can consume the same lifetime metadata without widening the public surface. The thread-boundary
-  profile now deterministically merges duplicate scope/name entries and preserves the shareable
-  disposition when a binding is observed through both local and shared flows, keeping the later
-  threaded-profile handoff stable even when analysis data is combined from multiple passes.
+  can consume the same lifetime metadata without widening the public surface, and those summaries
+  now collapse exact duplicate projections deterministically when callers materialize repeated MIR
+  bindings or program entries. The thread-boundary profile now deterministically merges duplicate
+  scope/name entries and preserves the shareable disposition when a binding is observed through both
+  local and shared flows, keeping the later threaded-profile handoff stable even when analysis data
+  is combined from multiple passes.
 
 ## Tasks
 

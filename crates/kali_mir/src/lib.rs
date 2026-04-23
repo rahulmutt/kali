@@ -210,13 +210,12 @@ impl MirFunction {
     /// Return borrowed-lifetime summaries for the borrowed bindings in this scope.
     pub fn borrowed_lifetimes(&self, scope: impl Into<String>) -> Vec<BorrowedLifetime> {
         let scope = scope.into();
-        let mut borrowed = self
+        let borrowed = self
             .bindings
             .iter()
             .filter_map(|binding| binding.borrowed_lifetime(scope.clone()))
-            .collect::<Vec<_>>();
-        borrowed.sort_by(|a, b| a.scope.cmp(&b.scope).then_with(|| a.name.cmp(&b.name)));
-        borrowed
+            .collect::<BTreeSet<_>>();
+        borrowed.into_iter().collect()
     }
 
     /// Return the thread-boundary profile for this function scope.
@@ -351,7 +350,7 @@ impl MirProgram {
 
     /// Return borrowed-lifetime summaries for the whole MIR program.
     pub fn borrowed_lifetimes(&self) -> Vec<BorrowedLifetime> {
-        let mut borrowed = Vec::new();
+        let mut borrowed = BTreeSet::new();
         for function in &self.functions {
             let scope = function
                 .name
@@ -359,8 +358,7 @@ impl MirProgram {
                 .unwrap_or_else(|| "module".to_string());
             borrowed.extend(function.borrowed_lifetimes(scope));
         }
-        borrowed.sort_by(|a, b| a.scope.cmp(&b.scope).then_with(|| a.name.cmp(&b.name)));
-        borrowed
+        borrowed.into_iter().collect()
     }
 
     /// Return the thread-boundary profile for the whole MIR program.
