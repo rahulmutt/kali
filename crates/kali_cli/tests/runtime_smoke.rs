@@ -7108,6 +7108,59 @@ fn check_with_sandbox_rejects_phase_three_deno_host_effects() {
 }
 
 #[test]
+fn run_with_sandbox_allows_a_benign_program() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('sandbox ok');").expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "sandbox ok\n");
+}
+
+#[test]
+fn test_with_sandbox_allows_a_benign_test_program() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(&source_path, "Kali.test('sandbox ok', () => { 1 + 1; });").expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn check_with_sandbox_rejects_positive_thread_budget_policy() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
