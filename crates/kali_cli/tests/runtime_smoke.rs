@@ -9075,6 +9075,39 @@ fn package_audit_rejects_package_analysis_specific_flags() {
 }
 
 #[test]
+fn package_audit_rejects_package_analysis_specific_flags_in_json_output() {
+    let dir = tempdir().expect("tempdir");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&policy_path, "{\n  \"schemaVersion\": 1\n}\n").expect("write policy");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("package-audit")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert!(!json["success"].as_bool().expect("success boolean"));
+    assert_eq!(json["errors"][0]["code"], "E5008");
+    assert!(
+        json["errors"][0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("package-analysis-specific flags"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn package_audit_rejects_compat_feature_surface() {
     let output = Command::new(kali_bin())
         .arg("package-audit")

@@ -32,6 +32,7 @@ This stage does **not** own the later host/object-model breadth tracked in Phase
 - Added deterministic stable-release selection coverage for `package-audit` so the command keeps preferring the latest stable version over prereleases while still reporting the selected version in the summary payload.
 - Added an explicit browser-only inherited-context regression for `kali package-audit` so the context-free registry-analysis boundary stays pinned even when `compilerOptions.apiSurface = browser` is selected in the surrounding project manifest.
 - Added a companion inherited-manifest regression showing `kali package-audit` also ignores `compat.features = ["eval"]` and `compilerOptions.runtimeProfiles = ["wasm-threads"]`, keeping the registry-analysis command context-free even when later dynamic/threaded knobs are present in `kali.json`.
+- Added a JSON-envelope regression for `kali package-audit --sandbox`, so the package-analysis-specific flag gate now stays explicit even on the envelope-only machine-output path.
 - The effect-analysis smoke suite now also pins `--compat eval` across both source-graph `effects` output and inherited-manifest `package-effects` output, keeping the dynamic-compatibility boundary aligned with the effect-report surface rather than only with `check` / `run` / `test`.
 
 **Status:** Complete for the documented Phase-4 compatibility milestone.
