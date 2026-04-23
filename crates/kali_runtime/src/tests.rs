@@ -7,7 +7,7 @@ use std::{
 };
 
 #[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{symlink, PermissionsExt};
 
 fn compile_wat(wat: &str) -> Vec<u8> {
     wat::parse_str(wat).unwrap_or_else(|error| panic!("valid wat error: {error}\n{wat}"))
@@ -792,10 +792,7 @@ export async function loadWithImports(importObject) {
     .expect("write bundle js");
 
     let chromium = tempdir.path().join("chromium");
-    fs::write(&chromium, "#!/bin/sh\nexit 0\n").expect("write browser executable shim");
-    let mut permissions = fs::metadata(&chromium).expect("metadata").permissions();
-    permissions.set_mode(0o755);
-    fs::set_permissions(&chromium, permissions).expect("mark browser executable shim executable");
+    symlink("/bin/sh", &chromium).expect("link browser executable shim to /bin/sh");
 
     let command = format!("{} -c true", chromium.display());
     let outcome = browser_bundle_runtime_execute_checked(
