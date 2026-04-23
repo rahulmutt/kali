@@ -349,10 +349,12 @@ fn browser_harness_recognizes_common_display_name_aliases() {
         "chrome-beta",
         "chrome-canary",
         "chrome-headless-shell",
+        "chromium-browser",
         "google chrome",
         "google chrome beta",
         "google chrome canary",
         "google-chrome-headless-shell",
+        "google-chrome-stable",
         "brave browser",
         "brave browser nightly",
         "msedge-beta",
@@ -366,8 +368,12 @@ fn browser_harness_recognizes_common_display_name_aliases() {
         "microsoft edge canary",
         "microsoft edge dev",
         "microsoft edge insider",
+        "microsoft edge stable",
         "firefox beta",
+        "firefox-esr",
         "firefox developer edition",
+        "opera-stable",
+        "vivaldi-stable",
         "vivaldi snapshot",
         "opera beta",
         "opera developer",
@@ -451,10 +457,12 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
         "chrome-headless-shell"
     ));
     assert!(browser_harness_uses_html_entrypoint("chromium"));
+    assert!(browser_harness_uses_html_entrypoint("chromium-browser"));
     assert!(browser_harness_uses_html_entrypoint(
         "/usr/bin/google-chrome-stable"
     ));
     assert!(browser_harness_uses_html_entrypoint("google chrome canary"));
+    assert!(browser_harness_uses_html_entrypoint("google-chrome-stable"));
     assert!(browser_harness_uses_html_entrypoint(
         "google-chrome-headless-shell"
     ));
@@ -478,6 +486,9 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
         "microsoft-edge-insider"
     ));
     assert!(browser_harness_uses_html_entrypoint("firefox-beta"));
+    assert!(browser_harness_uses_html_entrypoint("firefox-esr"));
+    assert!(browser_harness_uses_html_entrypoint("opera-stable"));
+    assert!(browser_harness_uses_html_entrypoint("vivaldi-stable"));
     assert!(browser_harness_uses_html_entrypoint("vivaldi-snapshot"));
     assert!(browser_harness_uses_html_entrypoint(
         "C:/Program Files/Google/Chrome/Application/chrome.bat"
