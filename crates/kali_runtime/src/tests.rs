@@ -7,7 +7,7 @@ use std::{
 };
 
 #[cfg(unix)]
-use std::os::unix::fs::{symlink, PermissionsExt};
+use std::os::unix::fs::symlink;
 
 fn compile_wat(wat: &str) -> Vec<u8> {
     wat::parse_str(wat).unwrap_or_else(|error| panic!("valid wat error: {error}\n{wat}"))
@@ -213,17 +213,7 @@ fn browser_requested_test_runtime_can_execute_registered_callbacks() {
 fn browser_runtime_execution_helper_uses_html_entrypoint_for_browser_executables() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let browser = tempdir.path().join("firefox");
-    fs::write(
-        &browser,
-        r#"#!/bin/sh
-printf '%s\n' '{"args":[],"tests":["7"],"testsFailed":0}' > "$KALI_BROWSER_HARNESS_SUMMARY_FILE"
-exit 0
-"#,
-    )
-    .expect("write browser executable shim");
-    let mut permissions = fs::metadata(&browser).expect("metadata").permissions();
-    permissions.set_mode(0o755);
-    fs::set_permissions(&browser, permissions).expect("mark browser executable shim executable");
+    symlink("/bin/sh", &browser).expect("link browser executable shim to /bin/sh");
 
     let wasm = compile_wat(
         r#"
@@ -231,7 +221,13 @@ exit 0
                 (func (export "_start")))
             "#,
     );
-    let browser_command = browser.display().to_string();
+    let browser_command = format!(
+        r#"{} -c 'cat <<EOF > "$KALI_BROWSER_HARNESS_SUMMARY_FILE"
+{{"args":[],"tests":["7"],"testsFailed":0}}
+EOF
+exit 0'"#,
+        browser.display()
+    );
     let outcome = browser_runtime_execute_checked(
         Some(browser_command.as_str()),
         &wasm,
@@ -242,13 +238,19 @@ exit 0
     .expect("execute browser runtime harness through browser executable");
 
     assert_eq!(outcome.command[0], browser.display().to_string());
+    assert_eq!(outcome.command[1], "-c");
     assert!(
-        outcome.command[1].starts_with("file://"),
+        outcome.command[2].contains("cat <<EOF"),
         "command: {:?}",
         outcome.command
     );
     assert!(
-        outcome.command[1].contains("browser-runtime.html"),
+        outcome.command[3].starts_with("file://"),
+        "command: {:?}",
+        outcome.command
+    );
+    assert!(
+        outcome.command[3].contains("browser-runtime.html"),
         "command: {:?}",
         outcome.command
     );

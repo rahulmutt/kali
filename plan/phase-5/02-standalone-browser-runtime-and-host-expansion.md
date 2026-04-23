@@ -83,6 +83,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - The browser-bundle runtime harness now also opens an HTML entrypoint for browser-like executables instead of always forcing the Node-style module path, keeping the standalone browser-host bridge aligned with the browser-runtime entrypoint selection that already exists for direct WASM execution.
 - Added a browser-runtime regression that exercises a browser-named executable shim and proves the direct `browser-runtime` path switches to the HTML entrypoint for browser executables as well, so the real-browser harness selection is now covered on both the bundle and direct runtime paths.
 - Added CLI smoke coverage that drives `run --api browser` through a browser-like executable shim, confirming the browser runtime path preserves the `file://` HTML entrypoint and deterministic summary capture at the user-facing boundary as well as in the lower-level runtime helper tests.
+- Hardened the runtime-helper browser-entrypoint regression to use a shell-backed browser-like executable shim, avoiding temp-file execution races while keeping the HTML-entrypoint routing coverage intact.
 
 ## Tasks
 
