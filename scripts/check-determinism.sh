@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+export CARGO_TERM_COLOR=${CARGO_TERM_COLOR:-always}
+
+run_exact_test() {
+  local test_name=$1
+  cargo test -p kali_cli --test runtime_smoke "$test_name" -- --exact
+}
+
+run_exact_test build_artifacts_are_deterministic_across_repeated_invocations
+run_exact_test build_with_profile_data_is_deterministic_across_repeated_invocations
+run_exact_test test_reports_function_coverage_is_deterministic_across_repeated_runs

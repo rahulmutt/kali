@@ -4,3 +4,7 @@ rust = "1.95.0"
 [tasks.lean-proofs]
 description = "Build the Lean proofs through devenv"
 run = "devenv shell -- bash -lc 'cd proofs && lake build'"
+
+[tasks.determinism]
+description = "Run the Phase-1 determinism smoke lane"
+run = "bash scripts/check-determinism.sh"
