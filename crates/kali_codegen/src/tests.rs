@@ -278,6 +278,7 @@ fn unresolved_identifier_lowering_attaches_a_guidance_note() {
         compat_eval: false,
         coverage: false,
     });
+    ctx.source_path = Some(std::path::PathBuf::from("src/missing_value.ts"));
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
     assert!(
@@ -298,6 +299,10 @@ fn unresolved_identifier_lowering_attaches_a_guidance_note() {
                     .notes
                     .iter()
                     .any(|note| note.contains("fallback emits a zero placeholder"))
+                && diagnostic
+                    .notes
+                    .iter()
+                    .any(|note| note.contains("source path: "))
         }),
         "expected an unresolved-identifier diagnostic on the lowering path: {:?}",
         result.diagnostics
@@ -318,6 +323,7 @@ fn unresolved_call_target_lowering_attaches_a_guidance_note() {
         compat_eval: false,
         coverage: false,
     });
+    ctx.source_path = Some(std::path::PathBuf::from("src/missing_fn.ts"));
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
     assert!(
@@ -338,6 +344,10 @@ fn unresolved_call_target_lowering_attaches_a_guidance_note() {
                     .notes
                     .iter()
                     .any(|note| note.contains("fallback emits a zero placeholder"))
+                && diagnostic
+                    .notes
+                    .iter()
+                    .any(|note| note.contains("source path: "))
         }),
         "expected an unresolved-call diagnostic on the lowering path: {:?}",
         result.diagnostics

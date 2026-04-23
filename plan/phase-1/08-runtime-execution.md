@@ -45,11 +45,12 @@ TypeScript/JavaScript programs.
   `valid` / `satisfies` / `minVersion` package calls now stay observable with exact stdout instead
   of collapsing to placeholder zeros.
 - The unresolved imported bindings/call-target fallback diagnostics now also carry structured
-  source-context metadata, keeping the compatibility escape hatch machine-readable without changing
-  the existing fallback behavior.
-- The semver probe follow-up still tracks the unresolved imported bindings/call-target placeholder
-  fallback explicitly so that gap remains visible in the stage notes instead of being implied by
-  the codegen path alone.
+  source-context metadata, and the regression suite now asserts the source-path note alongside the
+  requested/effective context so the compatibility escape hatch stays machine-readable without
+  changing the existing fallback behavior.
+- The semver probe follow-up now tracks that structured source-context coverage explicitly so the
+  remaining compatibility gap stays visible in the stage notes instead of being implied by the
+  codegen path alone.
 
 ## Historical stage tasks
 
