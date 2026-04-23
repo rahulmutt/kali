@@ -391,6 +391,11 @@ fn browser_harness_command_parts_checked_reports_malformed_overrides() {
     assert!(empty_executable.contains("KALI_BROWSER_BUNDLE_HARNESS_COMMAND"));
     assert!(empty_executable.contains(r#"" --flag"#));
 
+    let flag_only = browser_harness_command_parts_checked(Some("--headless"))
+        .expect_err("flag-only command should be rejected");
+    assert!(flag_only.contains("KALI_BROWSER_BUNDLE_HARNESS_COMMAND"));
+    assert!(flag_only.contains("--headless"));
+
     let unterminated =
         browser_harness_command_parts_checked(Some(r#"browser-wrapper "unterminated"#))
             .expect_err("unterminated quotes should be rejected");

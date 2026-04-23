@@ -2446,7 +2446,14 @@ pub fn browser_harness_command_parts_checked(command: Option<&str>) -> Result<Ve
             ));
         }
         match split_command_spec(command) {
-            Some(parts) if !parts.is_empty() => return Ok(parts),
+            Some(parts) if !parts.is_empty() => {
+                if parts.first().is_some_and(|part| part.starts_with('-')) {
+                    return Err(format!(
+                        "malformed {BROWSER_HARNESS_COMMAND_ENV} override: {command:?}"
+                    ));
+                }
+                return Ok(parts);
+            }
             _ => {
                 return Err(format!(
                     "malformed {BROWSER_HARNESS_COMMAND_ENV} override: {command:?}"
