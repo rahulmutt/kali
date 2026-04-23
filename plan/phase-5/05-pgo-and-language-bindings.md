@@ -104,6 +104,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - Added Rust-side binding-package manifest discovery/load helpers in `kali_capi`, mirroring the
   deterministic root-manifest and stem-specific discovery rules already exercised by the Python and
   Node helpers so future embedding and packaging code can reuse one shared contract from Rust as well.
+- The Rust helper now also exposes the same explicit manifest-name load path as the Python and
+  Node helpers, so callers can opt into stem-specific bundle discovery without reimplementing the
+  root/manifest split.
 
 ## Tasks
 

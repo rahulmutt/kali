@@ -222,7 +222,15 @@ pub fn load_binding_package_manifest(path: impl AsRef<Path>) -> Result<Value, St
 pub fn load_binding_package_manifest_from_root(
     bundle_root: impl AsRef<Path>,
 ) -> Result<Value, String> {
-    let path = discover_binding_package_manifest_path(bundle_root)?;
+    load_binding_package_manifest_from_root_with_name(bundle_root, "binding-package.json")
+}
+
+/// Discover and load a specific generated binding package manifest name from a bundle root.
+pub fn load_binding_package_manifest_from_root_with_name(
+    bundle_root: impl AsRef<Path>,
+    manifest_name: impl AsRef<str>,
+) -> Result<Value, String> {
+    let path = discover_binding_package_manifest_path_with_name(bundle_root, manifest_name)?;
     load_binding_package_manifest(path)
 }
 

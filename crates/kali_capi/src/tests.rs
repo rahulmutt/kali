@@ -138,6 +138,15 @@ fn binding_package_manifest_helpers_load_and_discover_manifests() {
         discover_binding_package_manifest_path_with_name(&temp_root, "sample.binding-package.json")
             .expect("discover explicit stem-specific manifest");
     assert_eq!(explicit_stem, stem_manifest_path);
+
+    let loaded_stem = load_binding_package_manifest_from_root_with_name(
+        &temp_root,
+        "sample.binding-package.json",
+    )
+    .expect("load explicit stem-specific manifest");
+    assert_eq!(loaded_stem["kind"], "binding-package");
+    assert_eq!(loaded_stem["moduleName"], "sample");
+    assert_eq!(loaded_stem["maxSpecializations"], 8);
 }
 
 #[test]
