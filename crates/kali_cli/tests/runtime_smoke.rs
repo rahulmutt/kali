@@ -7081,6 +7081,55 @@ console.log("hello");
 }
 
 #[test]
+fn effects_command_emits_native_json_payload_under_quiet() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"
+fetch("https://api.example.com/data");
+console.log("hello");
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--quiet")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).trim().is_empty(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(
+        json["entryPoints"],
+        json!([source_path.display().to_string()])
+    );
+    assert_eq!(json["dynamicEffects"], false);
+    assert_eq!(json["dynamicReasons"], json!([]));
+    let kinds = json["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"));
+    assert!(kinds.contains(&"Network.Fetch"));
+}
+
+#[test]
 fn effects_rejects_sandbox_flag_as_invalid_usage() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

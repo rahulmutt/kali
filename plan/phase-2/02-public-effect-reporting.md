@@ -42,6 +42,7 @@ Progress note:
 - The reusable effect-report payload now canonicalizes `dynamicReasons` deterministically before emission, so manually assembled or merged inference payloads still serialize with stable ordering and duplicate suppression.
 - `kali effects --sandbox` now rejects through the canonical `E5508` invalid-usage path instead of falling through to raw parser errors, keeping the reporting-only command boundary explicit for the source-graph effect-report surface.
 - Package-analysis-specific flags (`--api`, `--compat`, `--wasm-threads`, and `--sandbox`) now reject on `kali package-effects` and `kali package-audit` through the canonical `E5008` invalid-usage path instead of falling through to raw parser errors, keeping the inherited-only registry-analysis contract explicit in both commands.
+- Added quiet-mode regression coverage for `kali effects` so the native-JSON effect-report surface now stays machine-readable without emitting stray human output when `--quiet` is selected, matching the existing `package-effects` / `package-audit` presentation discipline.
 
 ## Historical stage tasks
 
