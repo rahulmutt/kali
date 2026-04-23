@@ -8945,6 +8945,38 @@ fn package_audit_rejects_browser_api_surface() {
 }
 
 #[test]
+fn package_audit_rejects_node_api_surface() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--api")
+        .arg("node")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "registry server should not be queried"
+    );
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept package-analysis-specific flags"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn package_audit_command_emits_json_envelope() {
     let (registry_url, hits, stop, handle) =
         start_registry_metadata_server(package_audit_metadata_body(None, false));
