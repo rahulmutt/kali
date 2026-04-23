@@ -143,6 +143,14 @@ pub struct MirBinding {
     pub captured_by: Vec<String>,
 }
 
+/// Deterministic borrowed-lifetime summary for a MIR binding.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+pub struct BorrowedLifetime {
+    pub scope: String,
+    pub name: String,
+    pub captured_by: Vec<String>,
+}
+
 impl MirBinding {
     /// Return the canonical thread-boundary disposition for this binding.
     pub fn thread_boundary_disposition(&self) -> ThreadBoundaryDisposition {
@@ -156,6 +164,15 @@ impl MirBinding {
             name: self.name.clone(),
             disposition: self.thread_boundary_disposition(),
         }
+    }
+
+    /// Return the borrowed-lifetime summary for this binding when it is borrowed.
+    pub fn borrowed_lifetime(&self, scope: impl Into<String>) -> Option<BorrowedLifetime> {
+        matches!(self.ownership, OwnershipClass::Borrowed).then(|| BorrowedLifetime {
+            scope: scope.into(),
+            name: self.name.clone(),
+            captured_by: self.captured_by.clone(),
+        })
     }
 
     /// Whether this binding may cross thread boundaries in the later threaded profile.
@@ -188,6 +205,18 @@ pub struct MirFunction {
 impl MirFunction {
     pub fn binding(&self, name: &str) -> Option<&MirBinding> {
         self.bindings.iter().find(|binding| binding.name == name)
+    }
+
+    /// Return borrowed-lifetime summaries for the borrowed bindings in this scope.
+    pub fn borrowed_lifetimes(&self, scope: impl Into<String>) -> Vec<BorrowedLifetime> {
+        let scope = scope.into();
+        let mut borrowed = self
+            .bindings
+            .iter()
+            .filter_map(|binding| binding.borrowed_lifetime(scope.clone()))
+            .collect::<Vec<_>>();
+        borrowed.sort_by(|a, b| a.scope.cmp(&b.scope).then_with(|| a.name.cmp(&b.name)));
+        borrowed
     }
 
     /// Return the thread-boundary profile for this function scope.
@@ -318,6 +347,20 @@ impl MirProgram {
         self.functions
             .iter()
             .find(|function| function.name.as_deref() == Some(name))
+    }
+
+    /// Return borrowed-lifetime summaries for the whole MIR program.
+    pub fn borrowed_lifetimes(&self) -> Vec<BorrowedLifetime> {
+        let mut borrowed = Vec::new();
+        for function in &self.functions {
+            let scope = function
+                .name
+                .clone()
+                .unwrap_or_else(|| "module".to_string());
+            borrowed.extend(function.borrowed_lifetimes(scope));
+        }
+        borrowed.sort_by(|a, b| a.scope.cmp(&b.scope).then_with(|| a.name.cmp(&b.name)));
+        borrowed
     }
 
     /// Return the thread-boundary profile for the whole MIR program.

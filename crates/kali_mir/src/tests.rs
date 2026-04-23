@@ -119,6 +119,55 @@ fn test_non_escaping_closure_captures_stay_borrowed() {
 }
 
 #[test]
+fn test_borrowed_lifetime_reports_are_deterministic() {
+    let mir = analyze(
+        "function alpha(x) { return x; } function beta(y) { function inner() { return y; } inner(); return y; }",
+    );
+
+    let module = mir.module_scope().expect("module scope");
+    let alpha_binding = module.binding("alpha").expect("alpha binding");
+    assert!(alpha_binding.borrowed_lifetime("module").is_none());
+
+    let alpha = mir.function("alpha").expect("alpha function");
+    let alpha_param = alpha.binding("x").expect("alpha param");
+    assert_eq!(
+        alpha_param.borrowed_lifetime("alpha"),
+        Some(BorrowedLifetime {
+            scope: "alpha".to_string(),
+            name: "x".to_string(),
+            captured_by: Vec::new(),
+        })
+    );
+
+    let beta = mir.function("beta").expect("beta function");
+    let beta_param = beta.binding("y").expect("beta param");
+    assert_eq!(
+        beta_param.borrowed_lifetime("beta"),
+        Some(BorrowedLifetime {
+            scope: "beta".to_string(),
+            name: "y".to_string(),
+            captured_by: vec!["inner".to_string()],
+        })
+    );
+
+    assert_eq!(
+        mir.borrowed_lifetimes(),
+        vec![
+            BorrowedLifetime {
+                scope: "alpha".to_string(),
+                name: "x".to_string(),
+                captured_by: Vec::new(),
+            },
+            BorrowedLifetime {
+                scope: "beta".to_string(),
+                name: "y".to_string(),
+                captured_by: vec!["inner".to_string()],
+            },
+        ]
+    );
+}
+
+#[test]
 fn test_call_arguments_escape_to_unknown_callees() {
     let mir = analyze("const answer = 1; sink(answer);");
     let module = mir.module_scope().expect("module scope");
