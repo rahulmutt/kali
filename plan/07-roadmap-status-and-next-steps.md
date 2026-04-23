@@ -72,6 +72,8 @@ After Phase 1 is complete, move in this order:
 | can two streams proceed in parallel? | [`02-workstreams-and-handoffs.md`](./02-workstreams-and-handoffs.md) | `../PLAN.md` + relevant phase README |
 | which stage owns a spec chapter or maturity row? | [`03-spec-to-stage-traceability.md`](./03-spec-to-stage-traceability.md) | exact stage file |
 | what exact prerequisites and demo should one stage satisfy? | [`04-stage-dependency-matrix.md`](./04-stage-dependency-matrix.md) | exact stage file |
+| what checklist should gate stage closure? | [`09-stage-acceptance-checklists.md`](./09-stage-acceptance-checklists.md) | [`00-planning-conventions.md`](./00-planning-conventions.md) + exact stage file |
+| which cross-spec risks need extra hardening? | [`10-risk-register.md`](./10-risk-register.md) | relevant phase README + exact stage file |
 | whether something is publicly shipped | [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md) | owning spec chapter |
 | what is proof-backed today | [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md) | [`../specs/17-verification.md`](../specs/17-verification.md) |
 

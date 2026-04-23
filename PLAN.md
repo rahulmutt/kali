@@ -230,6 +230,20 @@ For quick navigation:
 | 4 | Dynamic compatibility and proof-backed depth | gated dynamic features, `package-audit`, and proof-backed published-boundary claims |
 | 5 | Deferred platform/runtime expansion | threads, standalone browser runtime, programmable policy extensions, late object-model breadth, PGO, and language bindings |
 
+### Recommended staffing split after the critical path
+
+After stage `1.8`, use the parallel window deliberately instead of opening every stream with the same weight.
+A practical split is:
+
+| Stream | Main stages | Shared owners that must stay synchronized |
+|---|---|---|
+| Runtime policy stream | `1.9`, later `2.2`, `3.4`, `5.3` | `specs/09`, `specs/12`, `specs/18`, `specs/19` |
+| Package and artifact stream | `1.10`, `1.11`, later `2.3`, `3.3` | `specs/08`, `specs/11`, `specs/13`, `specs/14`, `specs/18`, `specs/19` |
+| Workflow and machine-contract stream | `1.12`, `1.13`, later `2.5` | `specs/12`, `specs/15`, `specs/18`, `specs/19` |
+| Evidence and verification stream | `1.14`, later `2.4`, `4.2` | `specs/16`, `specs/17`, `proofs/BOUNDARY.md`, `specs/19` |
+
+The critical-path frontend/lowering/runtime owners should keep final review on any change that affects stage workability for the entire repo.
+
 ---
 
 ## Recommended implementation batches
@@ -247,6 +261,18 @@ For active execution, group the roadmap into these repository-safe batches:
 | B6 — Breadth expansion | 3.1-5.5 | widens optimization and compatibility one support rung at a time | every widened surface has explicit evidence and an updated maturity row when needed |
 
 Use [plan/09-stage-acceptance-checklists.md](./plan/09-stage-acceptance-checklists.md) before closing a batch and [plan/10-risk-register.md](./plan/10-risk-register.md) when deciding where extra hardening is required.
+
+### Promotion checkpoints between batches
+
+Do not advance between major batches until the earlier batch has cleared its promotion check:
+
+| From | To | Promotion check |
+|---|---|---|
+| B1 | B2 | `kali check` is deterministic on explicit TS/JS fixtures and diagnostic snapshots are stable |
+| B2 | B3 | `kali build`, `kali run`, and `kali test` all work on local fixtures in the default standalone context |
+| B3 | B4 | sandbox, install, build-artifact, workflow, and JSON-output workstreams no longer fight over CLI/schema owners |
+| B4 | B5 | Phase-1 evidence lanes pass and the repo is supportable rather than only demoable |
+| B5 | B6 | MIR/ownership, effect reporting, embedding, proof foundation, and coverage are all coherent enough to widen breadth safely |
 
 ---
 

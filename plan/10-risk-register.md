@@ -18,6 +18,8 @@ It is a planning aid, not a second spec. Public behavior is still owned by `SPEC
 
 ## Active risks
 
+Use the `First stages affected` column as the earliest point where the mitigation must already be part of the implementation packet, not as permission to ignore the risk before then.
+
 | ID | Risk | Level | First stages affected | Required mitigation |
 |---|---|---|---|---|
 | R1 | Spec wording drifts from implementation order, causing support overclaims | High | pre-1.1 onward | always route availability wording through `specs/19-feature-maturity.md`; keep `PLAN.md` sequencing-only |
@@ -131,6 +133,18 @@ It is a planning aid, not a second spec. Public behavior is still owned by `SPEC
 - add negative tests proving the default path still rejects unsupported forms
 - pair runtime work with CLI/schema/error updates so the gating is visible
 
+## Risk ownership by implementation stream
+
+| Stream | Primary risks to watch first |
+|---|---|
+| Frontend + checker | `R1`, `R2`, `R3`, `R7` |
+| Lowering + runtime | `R3`, `R4`, `R5`, `R7`, `R10`, `R11` |
+| Packages + artifacts | `R1`, `R4`, `R6`, `R7`, `R9` |
+| Workflow + machine contracts | `R1`, `R7`, `R8`, `R12` |
+| Evidence + proofs | `R6`, `R8`, `R12` |
+
+Use this table when staffing the post-`1.8` parallel window so every stream knows which risks it owns by default.
+
 ## Review triggers
 
 Do an explicit risk review when any of these happen:
@@ -144,3 +158,5 @@ Do an explicit risk review when any of these happen:
 ## Practical rule
 
 If a change intersects a **High** risk area, do not treat it as a normal isolated implementation task. Ship it as a coordinated packet across code, docs, evidence, and maturity/proof owners.
+
+If two or more **High** risks intersect in the same change, prefer reducing scope or splitting the work into smaller stage-aligned packets before merging.

@@ -44,6 +44,19 @@ Every stage should satisfy all of the following:
 - any relevant `mise` task for the stage passes
 - no previously claimed surface regresses
 
+## Batch-promotion checklist
+
+Use this condensed gate before promoting work from one major batch to the next:
+
+| Batch boundary | Minimum close-out proof |
+|---|---|
+| planning baseline → frontend spine | command/diagnostic/schema owners are stable enough that frontend work will not redefine them ad hoc |
+| frontend spine → end-to-end local execution | `kali check` is deterministic and fixture-backed for explicit local inputs |
+| end-to-end local execution → Phase-1 product parallel zone | `kali build`, `kali run`, and `kali test` form a repeatable local demo loop |
+| Phase-1 product parallel zone → evidence closure | shared CLI/error/schema/maturity owners are aligned across sandbox, package, artifact, and workflow streams |
+| Phase-1 evidence closure → Phase-2 semantic stabilization | evidence proves the shipped Phase-1 surface, not only isolated demos |
+| Phase-2 stabilization → breadth phases | MIR/ownership, effects, embedding, proof foundation, and coverage are all settled enough to support widening |
+
 ## Additional checklist by stage family
 
 ### Frontend stages
@@ -65,11 +78,24 @@ Every stage should satisfy all of the following:
 - support claims name the exact rung and context
 - unsupported contexts fail honestly through the documented gate
 - browser-targeted evidence is separate from standalone runtime evidence
+- package-install success is not used as a proxy for buildable or executable support
+- Node-path work does not widen browser or Deno-oriented claims by implication
 
 ### Verification stages
 - proof-ready vs proof-backed wording stays honest
 - `proofs/BOUNDARY.md` remains the single owner of the published proof boundary
 - proof-related summary docs do not overstate coverage
+
+## High-risk review triggers
+
+Require an explicit cross-owner review before closing a stage when any of these are true:
+- the change widens browser or Node wording
+- the change adds or changes a JSON-producing mode
+- the change touches both runtime behavior and CLI shape
+- the change moves a package to a higher support rung
+- the change modifies proof or verification wording
+
+Use [`10-risk-register.md`](./10-risk-register.md) to identify which mitigations must ship with the stage.
 
 ## Exit-criteria handoff rule
 

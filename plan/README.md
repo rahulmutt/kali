@@ -61,6 +61,7 @@ Use [`01-repository-layout.md`](./01-repository-layout.md) and [`06-current-work
 - **What is the shortest path for a fresh implementation push from the current specs?** → [`08-fresh-implementation-roadmap.md`](./08-fresh-implementation-roadmap.md)
 - **What must be true before closing a stage?** → [`00-planning-conventions.md`](./00-planning-conventions.md) + [`09-stage-acceptance-checklists.md`](./09-stage-acceptance-checklists.md)
 - **Which risks should shape the implementation packet and extra hardening work?** → [`10-risk-register.md`](./10-risk-register.md)
+- **Which document should I use for batch promotion decisions?** → [`../PLAN.md`](../PLAN.md) batch checkpoints + [`09-stage-acceptance-checklists.md`](./09-stage-acceptance-checklists.md)
 - **Is the feature publicly shipped yet?** → [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md), not this directory
 
 ## Maintenance rule
