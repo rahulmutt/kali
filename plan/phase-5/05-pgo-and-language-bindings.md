@@ -118,6 +118,10 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - Added Rust-side C ABI metadata load/summary helpers in `kali_capi`, so the maintained helper
   surface now mirrors the existing Python loader for `cabi-metadata` sidecars and can project the
   metadata into a normalized summary without duplicating parsing logic.
+- The binding-package summary helpers in Rust, Python, and Node now normalize their runtime
+  provenance tuple and generated glue list on projection as well as on load, so callers get the
+  same deterministic summary even when they hand the helper an already-materialized but
+  unnormalized manifest object.
 - The maintained Python and Node binding helpers now also surface the normalized runtime
   provenance tuple (`runtime_profiles`, `host_contract`, and `runtime_backend`) alongside
   `max_specializations`, so higher-level callers can inspect the exact build context that produced

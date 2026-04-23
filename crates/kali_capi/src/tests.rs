@@ -336,6 +336,38 @@ fn binding_package_manifest_parsing_normalizes_string_lists() {
 }
 
 #[test]
+fn binding_package_manifest_summary_normalizes_string_lists() {
+    let manifest = serde_json::json!({
+        "schemaVersion": 1,
+        "kind": "binding-package",
+        "moduleName": "sample",
+        "hostAbiVersion": HOST_ABI_VERSION,
+        "minHostAbiVersion": HOST_ABI_VERSION,
+        "maxSpecializations": 8,
+        "runtimeProfiles": ["wasm-threads", "fiber-threads", "wasm-threads"],
+        "hostContract": "kali-hosted",
+        "runtimeBackend": "wasmtime",
+        "artifacts": {
+            "exportsHeader": "sample.h",
+            "glue": ["z.py", "a.py", "z.py"],
+            "library": "sample.capi.wasm",
+            "metadata": "sample.cabi.json"
+        }
+    });
+
+    let summary = binding_package_manifest_summary(&manifest).expect("summarize manifest");
+
+    assert_eq!(
+        summary["runtimeProfiles"],
+        serde_json::json!(["fiber-threads", "wasm-threads"])
+    );
+    assert_eq!(
+        summary["artifacts"]["glue"],
+        serde_json::json!(["a.py", "z.py"])
+    );
+}
+
+#[test]
 fn binding_package_manifest_parsing_rejects_non_integer_max_specializations() {
     let error = parse_binding_package_manifest(
         r#"{

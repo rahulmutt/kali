@@ -157,6 +157,43 @@ class KaliCapiSmokeTests(unittest.TestCase):
                     },
                 },
             )
+            normalized_summary = binding_package_manifest_summary(
+                BindingPackageManifest(
+                    schema_version=1,
+                    kind="binding-package",
+                    module_name="sample",
+                    host_abi_version=2,
+                    min_host_abi_version=2,
+                    max_specializations=8,
+                    runtime_profiles=("wasm-threads", "fiber-threads", "wasm-threads"),
+                    host_contract="kali-hosted",
+                    runtime_backend="wasmtime",
+                    artifacts={
+                        "exportsHeader": "sample.h",
+                        "glue": ("z.py", "a.py", "z.py"),
+                        "library": "sample.capi.wasm",
+                        "metadata": "sample.cabi.json",
+                    },
+                )
+            )
+            self.assertEqual(
+                normalized_summary,
+                {
+                    "moduleName": "sample",
+                    "hostAbiVersion": 2,
+                    "minHostAbiVersion": 2,
+                    "runtimeProfiles": ["fiber-threads", "wasm-threads"],
+                    "hostContract": "kali-hosted",
+                    "runtimeBackend": "wasmtime",
+                    "maxSpecializations": 8,
+                    "artifacts": {
+                        "exportsHeader": "sample.h",
+                        "glue": ["a.py", "z.py"],
+                        "library": "sample.capi.wasm",
+                        "metadata": "sample.cabi.json",
+                    },
+                },
+            )
             self.assertEqual(
                 load_binding_package_manifest_summary(manifest_path),
                 binding_package_manifest_summary(manifest),

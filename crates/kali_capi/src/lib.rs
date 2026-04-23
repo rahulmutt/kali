@@ -575,9 +575,10 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
     let exports_header = artifacts.get("exportsHeader").cloned().ok_or_else(|| {
         "binding package manifest summary field 'artifacts.exportsHeader' is missing".to_string()
     })?;
-    let glue = artifacts.get("glue").cloned().ok_or_else(|| {
+    let glue = artifacts.get("glue").ok_or_else(|| {
         "binding package manifest summary field 'artifacts.glue' is missing".to_string()
     })?;
+    let glue = normalize_string_list_value(glue, "binding package", "artifacts.glue")?;
     let library = artifacts.get("library").cloned().ok_or_else(|| {
         "binding package manifest summary field 'artifacts.library' is missing".to_string()
     })?;
@@ -595,10 +596,12 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
         .get("minHostAbiVersion")
         .cloned()
         .unwrap_or_else(|| host_abi_version.clone());
-    let runtime_profiles = manifest
-        .get("runtimeProfiles")
-        .cloned()
-        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let runtime_profiles = match manifest.get("runtimeProfiles") {
+        Some(runtime_profiles) => {
+            normalize_string_list_value(runtime_profiles, "binding package", "runtimeProfiles")?
+        }
+        None => Value::Array(Vec::new()),
+    };
     let host_contract = manifest
         .get("hostContract")
         .cloned()

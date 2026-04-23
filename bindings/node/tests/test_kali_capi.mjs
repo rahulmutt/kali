@@ -136,6 +136,39 @@ test('binding package manifests sort glue paths and auto-discover single manifes
       metadata: 'sample.cabi.json',
     },
   });
+
+  const normalizedSummary = bindingPackageManifestSummary({
+    schemaVersion: 1,
+    kind: 'binding-package',
+    moduleName: 'sample',
+    hostAbiVersion: HOST_ABI_VERSION,
+    minHostAbiVersion: HOST_ABI_VERSION,
+    maxSpecializations: 8,
+    runtimeProfiles: ['wasm-threads', 'fiber-threads', 'wasm-threads'],
+    hostContract: 'kali-hosted',
+    runtimeBackend: 'wasmtime',
+    artifacts: {
+      exportsHeader: 'sample.h',
+      glue: ['z.js', 'a.js', 'z.js'],
+      library: 'sample.capi.wasm',
+      metadata: 'sample.cabi.json',
+    },
+  });
+  assert.deepEqual(normalizedSummary, {
+    moduleName: 'sample',
+    hostAbiVersion: HOST_ABI_VERSION,
+    minHostAbiVersion: HOST_ABI_VERSION,
+    runtimeProfiles: ['fiber-threads', 'wasm-threads'],
+    hostContract: 'kali-hosted',
+    runtimeBackend: 'wasmtime',
+    maxSpecializations: 8,
+    artifacts: {
+      exportsHeader: 'sample.h',
+      glue: ['a.js', 'z.js'],
+      library: 'sample.capi.wasm',
+      metadata: 'sample.cabi.json',
+    },
+  });
   assert.deepEqual(loadBindingPackageManifestSummary(manifestPath), summary);
   assert.deepEqual(loadBindingPackageManifestSummaryFromRoot(tempRoot), summary);
   assert.deepEqual(ensureCompatibleBindingPackageManifest(manifest), manifest);
