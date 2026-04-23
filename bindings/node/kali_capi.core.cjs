@@ -100,13 +100,44 @@ function parseMetadata(metadataText) {
     'exportsHeader',
   ]);
 
-  return Object.freeze({
+  const maxSpecializations = Object.prototype.hasOwnProperty.call(payload, 'maxSpecializations')
+    ? requireInt(payload, 'maxSpecializations', 'cabi metadata')
+    : undefined;
+
+  const runtimeProfiles = Object.prototype.hasOwnProperty.call(payload, 'runtimeProfiles')
+    ? requireStringList(payload.runtimeProfiles, 'cabi metadata', 'runtimeProfiles')
+    : undefined;
+
+  const hostContract = Object.prototype.hasOwnProperty.call(payload, 'hostContract')
+    ? requireStr(payload, 'hostContract', 'cabi metadata')
+    : undefined;
+
+  const runtimeBackend = Object.prototype.hasOwnProperty.call(payload, 'runtimeBackend')
+    ? requireStr(payload, 'runtimeBackend', 'cabi metadata')
+    : undefined;
+
+  const metadata = {
     schemaVersion,
     kind,
     hostAbiVersion,
     minHostAbiVersion,
     artifacts,
-  });
+  };
+
+  if (maxSpecializations !== undefined) {
+    metadata.maxSpecializations = maxSpecializations;
+  }
+  if (runtimeProfiles !== undefined) {
+    metadata.runtimeProfiles = runtimeProfiles;
+  }
+  if (hostContract !== undefined) {
+    metadata.hostContract = hostContract;
+  }
+  if (runtimeBackend !== undefined) {
+    metadata.runtimeBackend = runtimeBackend;
+  }
+
+  return Object.freeze(metadata);
 }
 
 function parseBindingPackageManifest(manifestText) {
@@ -185,6 +216,35 @@ function parseBindingPackageManifest(manifestText) {
 
 function loadMetadata(path) {
   return parseMetadata(readFileSync(path, 'utf8'));
+}
+
+function cabiMetadataSummary(metadata) {
+  const summary = {
+    schemaVersion: metadata.schemaVersion,
+    kind: metadata.kind,
+    hostAbiVersion: metadata.hostAbiVersion,
+    minHostAbiVersion: metadata.minHostAbiVersion,
+    artifacts: Object.fromEntries(Object.entries(metadata.artifacts).sort(([left], [right]) => left.localeCompare(right))),
+  };
+
+  if (Object.prototype.hasOwnProperty.call(metadata, 'runtimeProfiles')) {
+    summary.runtimeProfiles = Object.freeze([...(new Set(metadata.runtimeProfiles ?? []))].sort());
+  }
+  if (Object.prototype.hasOwnProperty.call(metadata, 'hostContract')) {
+    summary.hostContract = metadata.hostContract;
+  }
+  if (Object.prototype.hasOwnProperty.call(metadata, 'runtimeBackend')) {
+    summary.runtimeBackend = metadata.runtimeBackend;
+  }
+  if (Object.prototype.hasOwnProperty.call(metadata, 'maxSpecializations')) {
+    summary.maxSpecializations = metadata.maxSpecializations;
+  }
+
+  return Object.freeze(summary);
+}
+
+function loadMetadataSummary(path) {
+  return cabiMetadataSummary(loadMetadata(path));
 }
 
 function loadBindingPackageManifest(path) {
@@ -390,8 +450,10 @@ module.exports = {
   loadBindingPackageManifest,
   loadBindingPackageManifestFromRoot,
   loadMetadata,
+  loadMetadataSummary,
   parseBindingPackageManifest,
   bindingPackageManifestSummary,
+  cabiMetadataSummary,
   loadBindingPackageManifestSummary,
   loadBindingPackageManifestSummaryFromRoot,
   parseExports,

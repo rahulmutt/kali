@@ -13,6 +13,7 @@ from kali_capi import (  # noqa: E402
     Export,
     KaliCAPI,
     binding_package_manifest_summary,
+    cabi_metadata_summary,
     discover_binding_package_manifest_path,
     ensure_compatible_binding_package_manifest,
     ensure_compatible_metadata,
@@ -21,6 +22,7 @@ from kali_capi import (  # noqa: E402
     load_binding_package_manifest_summary,
     load_binding_package_manifest_summary_from_root,
     load_metadata,
+    load_metadata_summary,
     parse_exports,
 )
 
@@ -63,10 +65,13 @@ class KaliCapiSmokeTests(unittest.TestCase):
                         "kind": "cabi-metadata",
                         "hostAbiVersion": 2,
                         "minHostAbiVersion": 2,
+                        "maxSpecializations": 8,
+                        "runtimeProfiles": ["wasm-threads", "fiber-threads", "wasm-threads"],
+                        "hostContract": "kali-hosted",
+                        "runtimeBackend": "wasmtime",
                         "artifacts": {
                             "exportsHeader": "sample.h",
-                            "metadata": "sample.cabi.json",
-                            "wasmModule": "sample.capi.wasm",
+                                "wasmModule": "sample.capi.wasm",
                             "wit": "sample.wit",
                         },
                     },
@@ -101,6 +106,10 @@ class KaliCapiSmokeTests(unittest.TestCase):
             metadata = load_metadata(metadata_path)
             self.assertEqual(metadata.host_abi_version, 2)
             self.assertEqual(metadata.min_host_abi_version, 2)
+            self.assertEqual(metadata.max_specializations, 8)
+            self.assertEqual(metadata.runtime_profiles, ("fiber-threads", "wasm-threads"))
+            self.assertEqual(metadata.host_contract, "kali-hosted")
+            self.assertEqual(metadata.runtime_backend, "wasmtime")
             self.assertEqual(
                 metadata.artifacts,
                 {
@@ -110,6 +119,25 @@ class KaliCapiSmokeTests(unittest.TestCase):
                 },
             )
             self.assertEqual(ensure_compatible_metadata(metadata), metadata)
+            self.assertEqual(
+                cabi_metadata_summary(metadata),
+                {
+                    "schemaVersion": 1,
+                    "kind": "cabi-metadata",
+                    "hostAbiVersion": 2,
+                    "minHostAbiVersion": 2,
+                    "runtimeProfiles": ["fiber-threads", "wasm-threads"],
+                    "hostContract": "kali-hosted",
+                    "runtimeBackend": "wasmtime",
+                    "maxSpecializations": 8,
+                    "artifacts": {
+                        "exportsHeader": "sample.h",
+                        "wasmModule": "sample.capi.wasm",
+                        "wit": "sample.wit",
+                    },
+                },
+            )
+            self.assertEqual(load_metadata_summary(metadata_path), cabi_metadata_summary(metadata))
 
             discovered = discover_binding_package_manifest_path(root)
             self.assertEqual(discovered, manifest_path)

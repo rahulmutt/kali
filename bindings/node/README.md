@@ -59,7 +59,10 @@ onto an existing library object. `bindingPackageManifestSummary()` projects the
 normalized manifest into a compact summary object for callers that want one
 stable provenance snapshot, and `loadBindingPackageManifestSummary()` /
 `loadBindingPackageManifestSummaryFromRoot()` perform the same load-and-project
-step in one call. The resulting `KaliCAPI` instance also carries the manifest's
+step in one call. `cabiMetadataSummary()` and `loadMetadataSummary()` provide
+the same deterministic projection for the companion `cabi-metadata` sidecar,
+preserving the optional runtime provenance fields when the compiler emits
+those values. The resulting `KaliCAPI` instance also carries the manifest's
 `maxSpecializations` provenance plus the normalized runtime provenance tuple
 (`runtimeProfiles`, `hostContract`, and `runtimeBackend`) when the bundle
 publishes them, so higher-level callers can inspect the same specialization and

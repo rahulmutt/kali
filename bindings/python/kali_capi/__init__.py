@@ -34,8 +34,10 @@ __all__ = [
     "load_binding_package_manifest_summary_from_root",
     "load_library",
     "load_metadata",
+    "load_metadata_summary",
     "parse_binding_package_manifest",
     "binding_package_manifest_summary",
+    "cabi_metadata_summary",
     "parse_exports",
     "parse_metadata",
 ]
@@ -63,6 +65,10 @@ class CabiMetadata:
     host_abi_version: int
     min_host_abi_version: int
     artifacts: dict[str, str]
+    max_specializations: int | None = None
+    runtime_profiles: tuple[str, ...] | None = None
+    host_contract: str | None = None
+    runtime_backend: str | None = None
 
 
 @dataclass(frozen=True)
@@ -163,12 +169,33 @@ def parse_metadata(metadata_text: str) -> CabiMetadata:
         raise ValueError("cabi metadata field 'minHostAbiVersion' must be an integer")
 
     artifacts = _require_artifacts(payload.get("artifacts"))
+
+    max_specializations = payload.get("maxSpecializations")
+    if max_specializations is not None and not _is_int(max_specializations):
+        raise ValueError("cabi metadata field 'maxSpecializations' must be an integer")
+
+    runtime_profiles = payload.get("runtimeProfiles")
+    if runtime_profiles is not None:
+        runtime_profiles = _require_string_list(runtime_profiles, field_name="runtimeProfiles")
+
+    host_contract = payload.get("hostContract")
+    if host_contract is not None and not isinstance(host_contract, str):
+        raise ValueError("cabi metadata field 'hostContract' must be a string")
+
+    runtime_backend = payload.get("runtimeBackend")
+    if runtime_backend is not None and not isinstance(runtime_backend, str):
+        raise ValueError("cabi metadata field 'runtimeBackend' must be a string")
+
     return CabiMetadata(
         schema_version=schema_version,
         kind=kind,
         host_abi_version=host_abi_version,
         min_host_abi_version=int(min_host_abi_version),
         artifacts=artifacts,
+        max_specializations=int(max_specializations) if max_specializations is not None else None,
+        runtime_profiles=runtime_profiles,
+        host_contract=host_contract,
+        runtime_backend=runtime_backend,
     )
 
 
@@ -250,6 +277,33 @@ def load_metadata(path: str | Path) -> CabiMetadata:
     """Load generated C ABI metadata from disk."""
 
     return parse_metadata(Path(path).read_text())
+
+
+def cabi_metadata_summary(metadata: CabiMetadata) -> dict[str, object]:
+    """Project generated C ABI metadata into a compact deterministic summary."""
+
+    summary: dict[str, object] = {
+        "schemaVersion": metadata.schema_version,
+        "kind": metadata.kind,
+        "hostAbiVersion": metadata.host_abi_version,
+        "minHostAbiVersion": metadata.min_host_abi_version,
+        "artifacts": dict(sorted(metadata.artifacts.items())),
+    }
+    if metadata.runtime_profiles is not None:
+        summary["runtimeProfiles"] = list(sorted(set(metadata.runtime_profiles)))
+    if metadata.host_contract is not None:
+        summary["hostContract"] = metadata.host_contract
+    if metadata.runtime_backend is not None:
+        summary["runtimeBackend"] = metadata.runtime_backend
+    if metadata.max_specializations is not None:
+        summary["maxSpecializations"] = metadata.max_specializations
+    return summary
+
+
+def load_metadata_summary(path: str | Path) -> dict[str, object]:
+    """Load and summarize generated C ABI metadata from disk."""
+
+    return cabi_metadata_summary(load_metadata(path))
 
 
 def load_binding_package_manifest(path: str | Path) -> BindingPackageManifest:

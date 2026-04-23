@@ -11,6 +11,7 @@ import {
   HOST_ABI_VERSION,
   KaliCAPI,
   bindingPackageManifestSummary,
+  cabiMetadataSummary,
   discoverBindingPackageManifestPath,
   ensureCompatibleBindingPackageManifest,
   ensureCompatibleMetadata,
@@ -18,6 +19,7 @@ import {
   loadBindingPackageManifestSummary,
   loadBindingPackageManifestSummaryFromRoot,
   loadMetadata,
+  loadMetadataSummary,
   parseBindingPackageManifest,
   parseExports,
   parseMetadata,
@@ -36,6 +38,10 @@ test('parses generated exports and cabi metadata deterministically', () => {
     schemaVersion: 1,
     kind: 'cabi-metadata',
     hostAbiVersion: HOST_ABI_VERSION,
+    maxSpecializations: 8,
+    runtimeProfiles: ['wasm-threads', 'fiber-threads', 'wasm-threads'],
+    hostContract: 'kali-hosted',
+    runtimeBackend: 'wasmtime',
     artifacts: {
       exportsHeader: 'sample.h',
       wasmModule: 'sample.capi.wasm',
@@ -53,6 +59,25 @@ test('parses generated exports and cabi metadata deterministically', () => {
     kind: 'cabi-metadata',
     hostAbiVersion: HOST_ABI_VERSION,
     minHostAbiVersion: HOST_ABI_VERSION,
+    maxSpecializations: 8,
+    runtimeProfiles: ['fiber-threads', 'wasm-threads'],
+    hostContract: 'kali-hosted',
+    runtimeBackend: 'wasmtime',
+    artifacts: {
+      exportsHeader: 'sample.h',
+      wasmModule: 'sample.capi.wasm',
+      wit: 'sample.wit',
+    },
+  });
+  assert.deepEqual(cabiMetadataSummary(parseMetadata(metadata)), {
+    schemaVersion: 1,
+    kind: 'cabi-metadata',
+    hostAbiVersion: HOST_ABI_VERSION,
+    minHostAbiVersion: HOST_ABI_VERSION,
+    maxSpecializations: 8,
+    runtimeProfiles: ['fiber-threads', 'wasm-threads'],
+    hostContract: 'kali-hosted',
+    runtimeBackend: 'wasmtime',
     artifacts: {
       exportsHeader: 'sample.h',
       wasmModule: 'sample.capi.wasm',
@@ -89,6 +114,10 @@ test('binding package manifests sort glue paths and auto-discover single manifes
       schemaVersion: 1,
       kind: 'cabi-metadata',
       hostAbiVersion: HOST_ABI_VERSION,
+      maxSpecializations: 8,
+      runtimeProfiles: ['wasm-threads', 'fiber-threads', 'wasm-threads'],
+      hostContract: 'kali-hosted',
+      runtimeBackend: 'wasmtime',
       artifacts: {
         exportsHeader: 'sample.h',
         wasmModule: 'sample.capi.wasm',
@@ -102,6 +131,7 @@ test('binding package manifests sort glue paths and auto-discover single manifes
 
   const manifest = loadBindingPackageManifestFromRoot(tempRoot);
   const metadata = loadMetadata(metadataPath);
+  const metadataSummary = loadMetadataSummary(metadataPath);
   const summary = bindingPackageManifestSummary(manifest);
 
   assert.deepEqual(manifest, {
@@ -119,6 +149,21 @@ test('binding package manifests sort glue paths and auto-discover single manifes
       glue: ['a.js', 'z.js'],
       library: 'sample.capi.wasm',
       metadata: 'sample.cabi.json',
+    },
+  });
+  assert.deepEqual(metadataSummary, {
+    schemaVersion: 1,
+    kind: 'cabi-metadata',
+    hostAbiVersion: HOST_ABI_VERSION,
+    minHostAbiVersion: HOST_ABI_VERSION,
+    maxSpecializations: 8,
+    runtimeProfiles: ['fiber-threads', 'wasm-threads'],
+    hostContract: 'kali-hosted',
+    runtimeBackend: 'wasmtime',
+    artifacts: {
+      exportsHeader: 'sample.h',
+      wasmModule: 'sample.capi.wasm',
+      wit: 'sample.wit',
     },
   });
   assert.deepEqual(summary, {
