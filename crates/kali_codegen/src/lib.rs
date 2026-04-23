@@ -302,7 +302,7 @@ impl<'a> FunctionEmitter<'a> {
 
                     self.diagnostics.push(Diagnostic::warning(
                         e8::IR_UNREADABLE as u32,
-                        format!("unresolved identifier '{}' lowered as 0", text),
+                        format!("unresolved identifier '{}' lowered as placeholder 0", text),
                     ));
                     function.instruction(&Instruction::I64Const(0));
                     EmittedValue {
@@ -594,7 +594,10 @@ impl<'a> FunctionEmitter<'a> {
 
         self.diagnostics.push(Diagnostic::warning(
             e8::IR_UNREADABLE as u32,
-            format!("unresolved call target '{}' lowered as 0", callee_name),
+            format!(
+                "unresolved call target '{}' lowered as placeholder 0",
+                callee_name
+            ),
         ));
         for _ in node.children.iter().skip(1) {
             function.instruction(&Instruction::Drop);

@@ -42,8 +42,8 @@ TypeScript/JavaScript programs.
   and the semver-style Node regression now exercises the `process.argv` help/argument flow through
   the documented `--` split.
 - Added a semver consumer/runtime regression on the default standalone surface so the common
-  `valid` / `satisfies` / `minVersion` package calls now stay observable instead of collapsing to
-  placeholder zeros.
+  `valid` / `satisfies` / `minVersion` package calls now stay observable with exact stdout instead
+  of collapsing to placeholder zeros.
 
 ## Historical stage tasks
 
@@ -136,8 +136,9 @@ while broader CommonJS lowering gaps remain tracked explicitly.
   another primary source input; the CLI now treats everything after `--` as guest arguments, and
   the regression suite covers both the no-args help path and the argument-flow path.
 - A small consumer program importing `semver` built and ran, but produced incorrect runtime output,
-  showing that the package-execution path is still allowing unresolved or mis-lowered imported
-  functionality to reach execution instead of preserving real package semantics or failing earlier.
+  showing that the package-execution path once allowed unresolved or mis-lowered imported
+  functionality to reach execution instead of preserving real package semantics or failing earlier;
+  the current regression suite now pins the correct stdout for that consumer.
 
 ### Systematic fix plan
 
