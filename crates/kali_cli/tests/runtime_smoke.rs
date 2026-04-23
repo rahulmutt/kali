@@ -2611,6 +2611,65 @@ fn test_reports_function_coverage_in_deterministic_file_order() {
 }
 
 #[test]
+fn test_reports_function_coverage_is_deterministic_across_repeated_runs() {
+    let dir = tempdir().expect("tempdir");
+    let first_path = dir.path().join("z.test.ts");
+    let second_path = dir.path().join("a.test.ts");
+    fs::write(
+        &first_path,
+        r#"Kali.test("z", () => {
+    1 + 1;
+});
+"#,
+    )
+    .expect("write first test file");
+    fs::write(
+        &second_path,
+        r#"Kali.test("a", () => {
+    2 + 2;
+});
+"#,
+    )
+    .expect("write second test file");
+
+    let run = || {
+        Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("test")
+            .arg("--output")
+            .arg("json")
+            .arg("--coverage")
+            .arg(&first_path)
+            .arg(&second_path)
+            .output()
+            .expect("run kali")
+    };
+
+    let first = run();
+    let second = run();
+
+    assert!(
+        first.status.success(),
+        "first stdout: {}\nfirst stderr: {}",
+        String::from_utf8_lossy(&first.stdout),
+        String::from_utf8_lossy(&first.stderr)
+    );
+    assert!(
+        second.status.success(),
+        "second stdout: {}\nsecond stderr: {}",
+        String::from_utf8_lossy(&second.stdout),
+        String::from_utf8_lossy(&second.stderr)
+    );
+
+    let first_json = parse_json_stdout(&first);
+    let second_json = parse_json_stdout(&second);
+    assert_eq!(
+        first_json["payload"]["coverage"], second_json["payload"]["coverage"],
+        "coverage output should stay identical across repeated runs"
+    );
+}
+
+#[test]
 fn test_reports_function_coverage_respects_filter_selection() {
     let dir = tempdir().expect("tempdir");
     let keep = dir.path().join("math.test.ts");

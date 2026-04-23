@@ -25,6 +25,7 @@ optional coverage object instead of inventing a second runner or a separate ad h
 - Added human-output and JSON-output regression coverage for the new function-level reporting path so `kali test --coverage` stays deterministic in both presentation modes.
 - Normalized per-file coverage rows relative to the effective project root, sorted them deterministically before emission, and kept multi-file coverage runs stable regardless of input order — including the reversed explicit file-input regression case — so the historical progress note now explicitly records the normalized/sorted per-file coverage output contract for JSON consumers, not just the stable totals.
 - Added a filter-aware coverage regression so `kali test --coverage --filter ...` now has command-level evidence that the coverage payload only reports the selected test files instead of widening to the full discovered set.
+- Added a repeated-run JSON regression so identical `kali test --coverage` invocations now have evidence that the normalized coverage payload stays byte-for-byte stable across consecutive runs.
 - Kept ordinary `kali test` lean by making the coverage instrumentation opt-in at compile time.
 - Aligned the `kali test --coverage` CLI help text with the stable function-coverage contract so the user-facing flag description now matches the shipped semantics.
 
