@@ -139,6 +139,7 @@ Recommended substreams:
 
 Current progress note:
 - sandbox-agnostic `init`, `fmt`, and `lint` plus profile-agnostic `install` now reject `--sandbox` / `--api` through the canonical `E5508` path instead of Clap's generic unexpected-argument failure, so the workflow-command packet stays aligned with the documented CLI contract
+- package-audit now also keeps its schema-v1 envelope stable under inherited `compat.features = ["eval"]` in JSON output, reinforcing the F4e machine-contract boundary for the context-free registry-audit command
 
 **Shared coordination files**
 - `specs/12-cli.md`
