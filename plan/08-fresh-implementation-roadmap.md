@@ -74,6 +74,9 @@ Implement Kali in these packets, in order.
 - canonical command-dispatch placeholders
 - proof-ready repository hygiene
 
+Current progress note:
+- the top-level `kali --version` entrypoint is now pinned by a dedicated smoke test, so the F1 command spine stays regression-covered even as later product work widens the CLI surface
+
 ### F2 — Frontend acceptance
 
 **Primary code areas**
