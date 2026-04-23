@@ -28,6 +28,7 @@ types are statically known.
   common-subexpression elimination for pure value/literal subtrees — including canonical reuse
   for duplicate literal nodes — small-function inlining, aggressive dead-code pruning,
   MIR-aware call-site specialization, and incremental compilation reuse via `.kali-cache/incremental/`.
+- Added incremental-cache invalidation coverage so source edits now assert a cache miss and distinct artifact bytes, keeping the content-hash cache key contract evidence-backed.
 - `compilerOptions.maxSpecializations` is now honored alongside the existing CLI override across
   `build`, `run`, and `test`, so the specialization cap is resolved consistently from manifest or
   invocation context before optimization runs.

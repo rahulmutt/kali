@@ -75,6 +75,60 @@ fn compile_source_file_uses_incremental_cache_on_repeat_builds() {
 }
 
 #[test]
+fn compile_source_file_invalidates_incremental_cache_when_source_changes() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log(1);").expect("write initial source");
+
+    let first = compile_source_file_with_cache_state(
+        &source_path,
+        BuildMode::Release,
+        16,
+        ApiSurface::Deno,
+        &[],
+        false,
+        false,
+    )
+    .expect("first compile");
+    let first_cache_path = first
+        .cache_path
+        .clone()
+        .expect("cache path should be recorded for project-root builds");
+
+    fs::write(&source_path, "console.log(2);").expect("rewrite source");
+
+    let second = compile_source_file_with_cache_state(
+        &source_path,
+        BuildMode::Release,
+        16,
+        ApiSurface::Deno,
+        &[],
+        false,
+        false,
+    )
+    .expect("second compile after source change");
+
+    assert!(
+        !second.cache_hit,
+        "source edits must invalidate the incremental cache"
+    );
+    assert_ne!(
+        first_cache_path.as_path(),
+        second
+            .cache_path
+            .as_ref()
+            .expect("cache path should still be recorded after source changes")
+            .as_path(),
+        "source hash should be part of the cache key"
+    );
+    assert_ne!(
+        first.wasm_bytes, second.wasm_bytes,
+        "changing the source should produce a distinct artifact"
+    );
+}
+
+#[test]
 fn compile_source_file_with_cache_state_rejects_invalid_runtime_profiles() {
     let dir = tempdir().expect("tempdir");
     fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
