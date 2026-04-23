@@ -251,6 +251,41 @@ fn incremental_cache_path_separates_build_modes() {
 }
 
 #[test]
+fn incremental_cache_path_separates_specialization_budgets() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log(1);").expect("write source");
+
+    let narrow = incremental_cache_path(
+        &source_path,
+        BuildMode::Release,
+        8,
+        ApiSurface::Deno,
+        &[],
+        None,
+        false,
+        false,
+    )
+    .expect("narrow cache path")
+    .expect("narrow cache path should exist");
+    let wide = incremental_cache_path(
+        &source_path,
+        BuildMode::Release,
+        32,
+        ApiSurface::Deno,
+        &[],
+        None,
+        false,
+        false,
+    )
+    .expect("wide cache path")
+    .expect("wide cache path should exist");
+
+    assert_ne!(narrow, wide);
+}
+
+#[test]
 fn load_profile_data_file_validates_version_and_normalizes_samples() {
     let dir = tempdir().expect("tempdir");
     let profile_path = dir.path().join("profile.json");

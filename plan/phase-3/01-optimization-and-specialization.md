@@ -30,6 +30,7 @@ types are statically known.
   MIR-aware call-site specialization, and incremental compilation reuse via `.kali-cache/incremental/`.
 - Added incremental-cache invalidation coverage so source edits now assert a cache miss and distinct artifact bytes, keeping the content-hash cache key contract evidence-backed.
 - Added build-mode separation coverage for incremental cache keys so `fast`, `release`, and `release-advanced` no longer share a cache path when the rest of the invocation context is identical.
+- Added specialization-budget separation coverage for incremental cache keys so differing `compilerOptions.maxSpecializations` values no longer share a cache path when the rest of the invocation context is identical.
 - `compilerOptions.maxSpecializations` is now honored alongside the existing CLI override across
   `build`, `run`, and `test`, so the specialization cap is resolved consistently from manifest or
   invocation context before optimization runs.
