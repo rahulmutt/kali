@@ -1020,6 +1020,7 @@ fn browser_corpus_packages_with_browser_replacement_maps_remain_checkable_and_de
         ("react", "jsx-runtime"),
         ("preact", "hooks"),
         ("vue", "runtime-dom"),
+        ("@reduxjs/toolkit", "query"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
