@@ -37,6 +37,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added a dedicated Linux runtime-smoke CI lane for the browser smoke, determinism, and negative-gating regressions, plus a nightly package-corpus lane that runs the heavier corpus suite outside the per-commit path.
 - Added parser/lexer regression coverage for the semver probe's optional-chaining and multiline-template cases so `minVersion(... )?.version` and multi-line template bodies stay covered by the evidence suite.
 - Added a default-surface semver consumer smoke test so `valid`, `satisfies`, and `minVersion` now stay covered by an end-to-end package/runtime regression with exact stdout assertions instead of only by package-bin probes.
+- Refined codegen fallback guidance so unresolved imported bindings/call targets keep an explicit placeholder-fallback note instead of leaving that behavior implicit, and kept regression coverage on the warning path.
 - Added a zod package-corpus regression so another widely used pure JS/TS package now exercises the default standalone check/build/run lane with deterministic output.
 - Added a Node-path semver package-bin smoke that exercises `require('../package.json').version` and guest-argument counting on the documented Node subset, so the semver probe now covers both the package-json loading slice and the argument passthrough slice directly.
 - Added negative `kali build --lib` coverage for sources without a statically known export surface so the Phase-1 base-library evidence lane keeps enforcing `E5011`.

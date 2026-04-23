@@ -282,13 +282,15 @@ fn unresolved_identifier_lowering_attaches_a_guidance_note() {
 
     assert!(
         result.diagnostics.iter().any(|diagnostic| {
-            diagnostic.message.contains("lowered as placeholder 0")
+            diagnostic
+                .message
+                .contains("placeholder 0 compatibility fallback")
                 && diagnostic
                     .notes
                     .iter()
                     .any(|note| note.contains("fallback emits a zero placeholder"))
         }),
-        "expected a guidance note on the unresolved-identifier diagnostic: {:?}",
+        "expected a guidance note on the unresolved-identifier lowering path: {:?}",
         result.diagnostics
     );
 
@@ -311,13 +313,15 @@ fn unresolved_call_target_lowering_attaches_a_guidance_note() {
 
     assert!(
         result.diagnostics.iter().any(|diagnostic| {
-            diagnostic.message.contains("lowered as placeholder 0")
+            diagnostic
+                .message
+                .contains("placeholder 0 compatibility fallback")
                 && diagnostic
                     .notes
                     .iter()
                     .any(|note| note.contains("fallback emits a zero placeholder"))
         }),
-        "expected a guidance note on the unresolved-call diagnostic: {:?}",
+        "expected a guidance note on the unresolved-call lowering path: {:?}",
         result.diagnostics
     );
 

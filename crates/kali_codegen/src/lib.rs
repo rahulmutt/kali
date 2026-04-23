@@ -303,9 +303,14 @@ impl<'a> FunctionEmitter<'a> {
                     self.diagnostics.push(
                         Diagnostic::warning(
                             e8::IR_UNREADABLE as u32,
-                            format!("unresolved identifier '{}' lowered as placeholder 0", text),
+                            format!(
+                                "unresolved identifier '{}' lowered through a placeholder 0 compatibility fallback",
+                                text
+                            ),
                         )
-                        .note("name resolution should resolve this before codegen; the fallback emits a zero placeholder"),
+                        .note(
+                            "name resolution should resolve this before codegen; the fallback emits a zero placeholder and should remain a compatibility escape hatch only",
+                        ),
                     );
                     function.instruction(&Instruction::I64Const(0));
                     EmittedValue {
@@ -599,11 +604,13 @@ impl<'a> FunctionEmitter<'a> {
             Diagnostic::warning(
                 e8::IR_UNREADABLE as u32,
                 format!(
-                    "unresolved call target '{}' lowered as placeholder 0",
+                    "unresolved call target '{}' lowered through a placeholder 0 compatibility fallback",
                     callee_name
                 ),
             )
-            .note("name resolution should resolve this before codegen; the fallback emits a zero placeholder"),
+            .note(
+                "name resolution should resolve this before codegen; the fallback emits a zero placeholder and should remain a compatibility escape hatch only",
+            ),
         );
         for _ in node.children.iter().skip(1) {
             function.instruction(&Instruction::Drop);

@@ -45,8 +45,8 @@ TypeScript/JavaScript programs.
   `valid` / `satisfies` / `minVersion` package calls now stay observable with exact stdout instead
   of collapsing to placeholder zeros.
 - The semver probe follow-up still tracks the unresolved imported bindings/call-target placeholder
-  fallback explicitly so that gap remains visible in the stage notes instead of being implied by the
-  codegen path alone.
+  fallback explicitly so that gap remains visible in the stage notes instead of being implied by
+  the codegen path alone.
 
 ## Historical stage tasks
 
