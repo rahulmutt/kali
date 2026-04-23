@@ -715,6 +715,42 @@ fn check_uses_inherited_browser_api_surface_with_sandbox() {
 }
 
 #[test]
+fn json_check_uses_explicit_browser_api_surface_with_sandbox() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('browser sandbox ok');").expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["filesChecked"], 1);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+}
+
+#[test]
 fn check_rejects_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

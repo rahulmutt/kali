@@ -139,6 +139,7 @@ Recommended substreams:
 
 Current progress note:
 - sandbox-agnostic `init`, `fmt`, and `lint` plus profile-agnostic `install` now reject `--sandbox` / `--api` through the canonical `E5508` path instead of Clap's generic unexpected-argument failure, so the workflow-command packet stays aligned with the documented CLI contract
+- the browser-targeted `check` lane now also has explicit `--api browser` + `--sandbox` JSON-envelope coverage, keeping the F4a/F4e handoff honest in schema-v1 output as well as human output
 - package-audit now also keeps its schema-v1 envelope stable under inherited `compat.features = ["eval"]` in JSON output, reinforcing the F4e machine-contract boundary for the context-free registry-audit command
 - package-effects now also has repeated-invocation determinism coverage in both native JSON and envelope modes, keeping the inherited-context registry-analysis sibling pinned across back-to-back runs. The shared determinism lane now also exercises the repeated-invocation envelopes for `effects` and `package-audit`, so the stable reporting surfaces stay pinned alongside the artifact outputs.
 - the source-graph `effects` command now has matching pretty-JSON, envelope, repeated-invocation, and quiet-mode pretty JSON envelope smoke coverage, so the F4e machine-contract packet keeps pace with the registry-analysis hardening
