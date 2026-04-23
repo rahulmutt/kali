@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createRequire } from 'node:module';
 import { test } from 'node:test';
+
+const require = createRequire(import.meta.url);
 
 import {
   HOST_ABI_VERSION,
@@ -289,5 +292,18 @@ test('node binding helper module is importable from the package root', () => {
     readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
   );
   assert.equal(packageJson.type, 'module');
-  assert.equal(packageJson.exports, './kali_capi.mjs');
+  assert.deepEqual(packageJson.exports, {
+    '.': {
+      import: './kali_capi.mjs',
+      require: './kali_capi.cjs',
+    },
+    './package.json': './package.json',
+  });
+});
+
+test('node binding helper module is requireable from the package root', () => {
+  const nodeBinding = require('..');
+  assert.equal(nodeBinding.HOST_ABI_VERSION, 2);
+  assert.equal(typeof nodeBinding.KaliCAPI.fromBindingPackage, 'function');
+  assert.equal(typeof nodeBinding.parseExports, 'function');
 });

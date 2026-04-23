@@ -90,6 +90,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - Added CLI smoke coverage for `kali build --component --output json --out-dir ...` so the
   component flow now pins the stem-specific binding-package sidecar in an explicit distribution
   directory as well as the source-adjacent default layout.
+- Split the maintained Node binding into shared core logic plus explicit ESM and CommonJS entrypoints,
+  so the stable C ABI helper is now consumable through either module system while preserving the same
+  deterministic manifest and metadata contract.
 
 ## Tasks
 

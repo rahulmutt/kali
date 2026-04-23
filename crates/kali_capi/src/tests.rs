@@ -400,11 +400,13 @@ fn javascript_binding_package_metadata_is_present() {
     let package_json = fs::read_to_string(&package_json_path).expect("read node package json");
     assert!(package_json.contains("\"name\": \"kali-capi-node\""));
     assert!(package_json.contains("\"type\": \"module\""));
-    assert!(package_json.contains("\"exports\": \"./kali_capi.mjs\""));
+    assert!(package_json.contains("\"import\": \"./kali_capi.mjs\""));
+    assert!(package_json.contains("\"require\": \"./kali_capi.cjs\""));
 
     let readme = fs::read_to_string(&readme_path).expect("read node binding readme");
     assert!(readme.contains("kali_capi Node binding helper"));
     assert!(readme.contains("deterministic helpers for generated C headers"));
+    assert!(readme.contains("ESM `import` and CommonJS `require` entrypoints"));
 }
 
 #[test]
