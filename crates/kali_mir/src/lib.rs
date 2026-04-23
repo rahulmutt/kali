@@ -360,6 +360,16 @@ impl MirProgram {
             .find(|function| function.name.as_deref() == Some(name))
     }
 
+    /// Return borrowed-lifetime summaries for the module scope.
+    pub fn module_borrowed_lifetimes(&self) -> Vec<BorrowedLifetime> {
+        self.borrowed_lifetimes_in_scope("module")
+    }
+
+    /// Return the thread-boundary profile for the module scope.
+    pub fn module_thread_boundary_profile(&self) -> ThreadBoundaryProfile {
+        self.thread_boundary_profile_in_scope("module")
+    }
+
     /// Return borrowed-lifetime summaries for the whole MIR program.
     pub fn borrowed_lifetimes(&self) -> Vec<BorrowedLifetime> {
         let mut borrowed = BTreeSet::new();

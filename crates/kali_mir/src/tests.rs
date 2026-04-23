@@ -230,8 +230,16 @@ fn test_scope_filtered_mir_summaries_stay_deterministic() {
         }]
     );
     assert!(mir.borrowed_lifetimes_in_scope("module").is_empty());
+    assert_eq!(
+        mir.module_borrowed_lifetimes(),
+        mir.borrowed_lifetimes_in_scope("module")
+    );
 
     let beta_profile = mir.thread_boundary_profile_in_scope("beta");
+    assert_eq!(
+        mir.module_thread_boundary_profile().bindings,
+        mir.thread_boundary_profile_in_scope("module").bindings
+    );
     assert!(beta_profile
         .bindings
         .iter()
@@ -239,6 +247,37 @@ fn test_scope_filtered_mir_summaries_stay_deterministic() {
     assert_eq!(beta_profile.bindings.len(), 2);
     assert_eq!(beta_profile.bindings[0].name, "beta");
     assert_eq!(beta_profile.bindings[1].name, "y");
+}
+
+#[test]
+fn test_module_scope_summary_helpers_cover_borrowed_bindings() {
+    let mir = analyze("const answer = 1; function inner() { return answer; } inner();");
+
+    assert_eq!(
+        mir.module_borrowed_lifetimes(),
+        vec![BorrowedLifetime {
+            scope: "module".to_string(),
+            name: "answer".to_string(),
+            captured_by: vec!["inner".to_string()],
+        }]
+    );
+
+    let profile = mir.module_thread_boundary_profile();
+    assert_eq!(
+        profile.bindings,
+        vec![
+            ThreadBoundaryBinding {
+                scope: "module".to_string(),
+                name: "answer".to_string(),
+                disposition: ThreadBoundaryDisposition::LocalOnly,
+            },
+            ThreadBoundaryBinding {
+                scope: "module".to_string(),
+                name: "inner".to_string(),
+                disposition: ThreadBoundaryDisposition::LocalOnly,
+            },
+        ]
+    );
 }
 
 #[test]

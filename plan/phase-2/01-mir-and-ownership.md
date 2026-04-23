@@ -43,7 +43,10 @@ counting placeholder with deterministic compile-time ownership decisions: `stack
   local and shared flows, keeping the later threaded-profile handoff stable even when analysis data
   is combined from multiple passes. Program-level MIR summary helpers now also expose scope-filtered
   borrowed-lifetime and thread-boundary projections so later consumers can inspect one scope at a
-  time without reconstructing the filter logic themselves.
+  time without reconstructing the filter logic themselves. Added explicit module-scope convenience
+  helpers for borrowed lifetimes and thread-boundary profiles, together with regression coverage for
+  a non-empty module-scope summary so downstream consumers no longer need to spell the internal
+  `"module"` sentinel when they want the root-scope view.
 
 ## Tasks
 
