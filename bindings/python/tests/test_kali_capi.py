@@ -15,14 +15,17 @@ from kali_capi import (  # noqa: E402
     binding_package_manifest_summary,
     cabi_metadata_summary,
     discover_binding_package_manifest_path,
+    discover_binding_package_manifest_path_with_name,
     discover_metadata_path,
     discover_metadata_path_with_name,
     ensure_compatible_binding_package_manifest,
     ensure_compatible_metadata,
     load_binding_package_manifest,
     load_binding_package_manifest_from_root,
+    load_binding_package_manifest_from_root_with_name,
     load_binding_package_manifest_summary,
     load_binding_package_manifest_summary_from_root,
+    load_binding_package_manifest_summary_from_root_with_name,
     load_metadata,
     load_metadata_from_root,
     load_metadata_from_root_with_name,
@@ -426,8 +429,26 @@ class KaliCapiSmokeTests(unittest.TestCase):
                 discover_binding_package_manifest_path(root, "beta.binding-package.json"),
                 beta_manifest_path,
             )
+            self.assertEqual(
+                discover_binding_package_manifest_path_with_name(
+                    root, "beta.binding-package.json"
+                ),
+                beta_manifest_path,
+            )
 
             manifest = load_binding_package_manifest_from_root(root, "alpha.binding-package.json")
+            self.assertEqual(
+                load_binding_package_manifest_from_root_with_name(
+                    root, "alpha.binding-package.json"
+                ),
+                manifest,
+            )
+            self.assertEqual(
+                load_binding_package_manifest_summary_from_root_with_name(
+                    root, "alpha.binding-package.json"
+                ),
+                binding_package_manifest_summary(manifest),
+            )
             self.assertEqual(
                 manifest,
                 BindingPackageManifest(

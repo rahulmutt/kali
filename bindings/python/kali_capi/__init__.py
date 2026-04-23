@@ -26,6 +26,7 @@ __all__ = [
     "Export",
     "KaliCAPI",
     "discover_binding_package_manifest_path",
+    "discover_binding_package_manifest_path_with_name",
     "discover_metadata_path",
     "discover_metadata_path_with_name",
     "ensure_compatible_binding_package_manifest",
@@ -33,7 +34,9 @@ __all__ = [
     "load_binding_package_manifest",
     "load_binding_package_manifest_summary",
     "load_binding_package_manifest_from_root",
+    "load_binding_package_manifest_from_root_with_name",
     "load_binding_package_manifest_summary_from_root",
+    "load_binding_package_manifest_summary_from_root_with_name",
     "load_library",
     "load_metadata",
     "load_metadata_from_root",
@@ -423,6 +426,15 @@ def discover_binding_package_manifest_path(
     return discovered_manifests[0]
 
 
+def discover_binding_package_manifest_path_with_name(
+    bundle_root: str | Path,
+    manifest_name: str,
+) -> Path:
+    """Discover a specific generated binding package manifest name from a bundle root."""
+
+    return discover_binding_package_manifest_path(bundle_root, manifest_name)
+
+
 def load_binding_package_manifest_from_root(
     bundle_root: str | Path,
     manifest_name: str = "binding-package.json",
@@ -434,6 +446,15 @@ def load_binding_package_manifest_from_root(
     )
 
 
+def load_binding_package_manifest_from_root_with_name(
+    bundle_root: str | Path,
+    manifest_name: str,
+) -> BindingPackageManifest:
+    """Discover and load a specific generated binding package manifest name from a bundle root."""
+
+    return load_binding_package_manifest_from_root(bundle_root, manifest_name)
+
+
 def load_binding_package_manifest_summary_from_root(
     bundle_root: str | Path,
     manifest_name: str = "binding-package.json",
@@ -443,6 +464,15 @@ def load_binding_package_manifest_summary_from_root(
     return binding_package_manifest_summary(
         load_binding_package_manifest_from_root(bundle_root, manifest_name)
     )
+
+
+def load_binding_package_manifest_summary_from_root_with_name(
+    bundle_root: str | Path,
+    manifest_name: str,
+) -> dict[str, object]:
+    """Discover, load, and summarize a specific generated binding package manifest name from a bundle root."""
+
+    return load_binding_package_manifest_summary_from_root(bundle_root, manifest_name)
 
 
 def binding_package_manifest_summary(

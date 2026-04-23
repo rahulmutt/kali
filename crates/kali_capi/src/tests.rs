@@ -657,9 +657,12 @@ from kali_capi import (
     BindingPackageManifest,
     Export,
     KaliCAPI,
+    discover_binding_package_manifest_path_with_name,
     ensure_compatible_binding_package_manifest,
     ensure_compatible_metadata,
     load_binding_package_manifest,
+    load_binding_package_manifest_from_root_with_name,
+    load_binding_package_manifest_summary_from_root_with_name,
     load_metadata,
     parse_exports,
 )
@@ -678,7 +681,8 @@ assert metadata.artifacts == {{
 }}
 assert ensure_compatible_metadata(metadata) == metadata
 
-manifest = load_binding_package_manifest(Path(r"{}"))
+manifest_root = Path(r"{}")
+manifest = load_binding_package_manifest(manifest_root)
 assert isinstance(manifest, BindingPackageManifest)
 assert manifest.host_abi_version == HOST_ABI_VERSION
 assert manifest.min_host_abi_version == HOST_ABI_VERSION
@@ -689,6 +693,23 @@ assert manifest.runtime_backend == "wasmtime"
 assert manifest.artifacts["glue"] == ("shim.py", "support.py")
 assert manifest.artifacts["library"] == "sample.capi.wasm"
 assert ensure_compatible_binding_package_manifest(manifest) == manifest
+assert discover_binding_package_manifest_path_with_name(Path(r"{}"), "binding-package.json") == manifest_root
+assert load_binding_package_manifest_from_root_with_name(Path(r"{}"), "binding-package.json") == manifest
+assert load_binding_package_manifest_summary_from_root_with_name(Path(r"{}"), "binding-package.json") == {{
+    "moduleName": "sample",
+    "hostAbiVersion": HOST_ABI_VERSION,
+    "minHostAbiVersion": HOST_ABI_VERSION,
+    "runtimeProfiles": [],
+    "hostContract": "kali-hosted",
+    "runtimeBackend": "wasmtime",
+    "maxSpecializations": 8,
+    "artifacts": {{
+        "exportsHeader": "sample.h",
+        "glue": ["shim.py", "support.py"],
+        "library": "sample.capi.wasm",
+        "metadata": "sample.cabi.json",
+    }},
+}}
 
 class DummyLibrary:
     def __init__(self):
@@ -715,6 +736,9 @@ assert binding._library.calls == [("add", 2, 3), ("zero",)]
         header_path.display(),
         metadata_path.display(),
         temp_root.join("binding-package.json").display(),
+        temp_root.display(),
+        temp_root.display(),
+        temp_root.display(),
         temp_root.display(),
     );
     fs::write(&script_path, script).expect("write python exercise script");
