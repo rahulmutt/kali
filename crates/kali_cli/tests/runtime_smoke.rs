@@ -2699,6 +2699,39 @@ fn init_scaffolds_application_project() {
 }
 
 #[test]
+fn init_scaffolds_nested_child_project() {
+    let parent = tempdir().expect("tempdir");
+    fs::write(parent.path().join("kali.json"), "{}\n").expect("parent manifest");
+
+    let child = parent.path().join("nested");
+    fs::create_dir(&child).expect("child dir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(&child)
+        .arg("init")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(child.join("kali.json").exists());
+    assert!(child.join("main.ts").exists());
+    assert!(parent.path().join("kali.json").exists());
+
+    let manifest = fs::read_to_string(child.join("kali.json")).expect("manifest");
+    assert!(
+        manifest.contains("\"schemaVersion\": 1"),
+        "manifest: {manifest}"
+    );
+    let source = fs::read_to_string(child.join("main.ts")).expect("source");
+    assert!(source.contains("Hello, world!"), "source: {source}");
+}
+
+#[test]
 fn init_scaffolds_library_project() {
     let dir = tempdir().expect("tempdir");
 
