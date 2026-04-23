@@ -8379,6 +8379,32 @@ fn package_audit_metadata_body(
     )
 }
 
+fn package_audit_metadata_body_with_multiple_findings() -> &'static str {
+    Box::leak(
+        json!({
+            "versions": {
+                "1.0.0": {
+                    "name": "lodash",
+                    "version": "1.0.0",
+                    "main": "native.node",
+                    "exports": "./native.node",
+                    "bin": "./native.node",
+                    "gypfile": true,
+                    "scripts": {
+                        "postinstall": "echo ok"
+                    },
+                    "dist": {
+                        "tarball": "http://127.0.0.1:0/lodash.tgz",
+                        "integrity": "sha512-demo"
+                    }
+                }
+            }
+        })
+        .to_string()
+        .into_boxed_str(),
+    )
+}
+
 #[test]
 fn package_audit_command_emits_envelope() {
     let (registry_url, hits, stop, handle) =
@@ -9027,4 +9053,64 @@ fn package_audit_command_reports_error_findings() {
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0]["code"], "E6004");
     assert_eq!(json["warnings"], serde_json::Value::Array(vec![]));
+}
+
+#[test]
+fn package_audit_command_sorts_multiple_findings_deterministically() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body_with_multiple_findings());
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--output")
+        .arg("json")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        !output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["payload"], serde_json::Value::Null);
+    assert!(json["stdout"]
+        .as_str()
+        .expect("stdout string")
+        .contains("4 error(s), 1 warning(s)"));
+
+    let errors = json["errors"].as_array().expect("errors array");
+    let messages: Vec<_> = errors
+        .iter()
+        .map(|error| {
+            error["message"]
+                .as_str()
+                .expect("error message")
+                .to_string()
+        })
+        .collect();
+    let mut sorted_messages = messages.clone();
+    sorted_messages.sort();
+    assert_eq!(
+        messages, sorted_messages,
+        "errors should be emitted in deterministic order"
+    );
+    assert_eq!(errors.len(), 4);
+    assert_eq!(
+        json["warnings"].as_array().expect("warnings array").len(),
+        1
+    );
 }

@@ -3615,6 +3615,31 @@ fn package_effects_command(
     emit_native_json_payload("package-effects", &payload, output)
 }
 
+fn sort_package_audit_findings(findings: &mut [Diagnostic]) {
+    findings.sort_by(|left, right| {
+        let left_rank = match left.severity {
+            kali_error::Severity::Error => 0u8,
+            kali_error::Severity::Warning => 1,
+            kali_error::Severity::Info => 2,
+        };
+        let right_rank = match right.severity {
+            kali_error::Severity::Error => 0u8,
+            kali_error::Severity::Warning => 1,
+            kali_error::Severity::Info => 2,
+        };
+
+        left_rank
+            .cmp(&right_rank)
+            .then_with(|| {
+                left.code
+                    .unwrap_or(u32::MAX)
+                    .cmp(&right.code.unwrap_or(u32::MAX))
+            })
+            .then_with(|| left.message.cmp(&right.message))
+            .then_with(|| left.notes.cmp(&right.notes))
+    });
+}
+
 fn package_audit_command(
     target: String,
     preview: bool,
@@ -3673,8 +3698,9 @@ fn package_audit_command(
         registry,
         name,
         version,
-        findings,
+        mut findings,
     } = audit;
+    sort_package_audit_findings(&mut findings);
     let has_errors = findings.iter().any(|diagnostic| diagnostic.is_error());
     let summary = if findings.is_empty() {
         format!(
