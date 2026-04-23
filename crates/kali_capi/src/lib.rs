@@ -218,6 +218,14 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
         }
     }
 
+    if let Some(max_specializations) = manifest.get("maxSpecializations") {
+        if max_specializations.as_u64().is_none() {
+            return Err(
+                "binding package field 'maxSpecializations' must be an integer".to_string(),
+            );
+        }
+    }
+
     if let Some(artifacts) = manifest.get_mut("artifacts").and_then(Value::as_object_mut) {
         let glue = artifacts
             .get("glue")

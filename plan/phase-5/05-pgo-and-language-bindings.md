@@ -117,6 +117,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - The Rust `kali_capi` manifest loader now canonicalizes `runtimeProfiles` and `artifacts.glue` on
   load as well, so the maintained helper surfaces stay aligned on the same deterministic string-list
   normalization instead of relying solely on the generator side to produce sorted unique arrays.
+- The Rust binding-package manifest parser now also validates the optional `maxSpecializations`
+  provenance field, matching the Python and Node helper contracts so higher-level callers get the
+  same integer validation regardless of which maintained binding path reads the manifest.
 
 ## Tasks
 

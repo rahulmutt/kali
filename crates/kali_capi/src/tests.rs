@@ -198,6 +198,31 @@ fn binding_package_manifest_parsing_normalizes_string_lists() {
 }
 
 #[test]
+fn binding_package_manifest_parsing_rejects_non_integer_max_specializations() {
+    let error = parse_binding_package_manifest(
+        r#"{
+            "schemaVersion": 1,
+            "kind": "binding-package",
+            "moduleName": "sample",
+            "hostAbiVersion": 2,
+            "maxSpecializations": "eight",
+            "artifacts": {
+                "library": "sample.capi.wasm",
+                "metadata": "sample.cabi.json",
+                "exportsHeader": "sample.h",
+                "glue": []
+            }
+        }"#,
+    )
+    .expect_err("invalid maxSpecializations should fail");
+
+    assert!(
+        error.contains("maxSpecializations"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
 fn binding_package_manifest_helpers_reject_ambiguous_auto_discovery() {
     let temp_root = std::env::temp_dir().join(format!(
         "kali_capi_binding_manifest_{}_ambiguous_{}",
