@@ -28,9 +28,10 @@ binding = KaliCAPI.from_binding_package(
 look for an explicit `binding-package.json` first and then fall back to a single
 stem-specific `*.binding-package.json` manifest in the bundle root, which matches
 the generated Kali layout. The resulting `KaliCAPI` wrapper also exposes the
-bundle's `max_specializations` provenance when the manifest publishes it, so
-callers can inspect the same deterministic specialization budget that the CLI
-emitted.
+bundle's `max_specializations` provenance plus the normalized runtime provenance
+tuple (`runtime_profiles`, `host_contract`, and `runtime_backend`) when the
+manifest publishes it, so callers can inspect the same deterministic
+specialization and runtime context that the CLI emitted.
 
 The package is intentionally small and deterministic so the binding workflow can be
 reproduced from the generated C ABI header, metadata, and manifest files.

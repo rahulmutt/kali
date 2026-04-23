@@ -71,6 +71,7 @@ test('binding package manifests sort glue paths and auto-discover single manifes
       moduleName: 'sample',
       hostAbiVersion: HOST_ABI_VERSION,
       maxSpecializations: 8,
+      runtimeProfiles: ['wasm-threads', 'fiber-threads', 'wasm-threads'],
       artifacts: {
         glue: ['z.js', 'a.js'],
         library: 'sample.capi.wasm',
@@ -106,6 +107,9 @@ test('binding package manifests sort glue paths and auto-discover single manifes
     hostAbiVersion: HOST_ABI_VERSION,
     minHostAbiVersion: HOST_ABI_VERSION,
     maxSpecializations: 8,
+    runtimeProfiles: ['fiber-threads', 'wasm-threads'],
+    hostContract: 'kali-hosted',
+    runtimeBackend: 'wasmtime',
     artifacts: {
       exportsHeader: 'sample.h',
       glue: ['a.js', 'z.js'],
@@ -171,6 +175,9 @@ test('binding package manifests reject ambiguous auto-discovery and honor explic
     hostAbiVersion: HOST_ABI_VERSION,
     minHostAbiVersion: HOST_ABI_VERSION,
     maxSpecializations: 8,
+    runtimeProfiles: [],
+    hostContract: 'kali-hosted',
+    runtimeBackend: 'wasmtime',
     artifacts: {
       exportsHeader: 'alpha.h',
       glue: ['alpha.js'],
@@ -284,6 +291,9 @@ test('node binding helper module binds exports from headers and manifests', () =
     { name: 'zero', arity: 0 },
   ]);
   assert.equal(binding.maxSpecializations, 8);
+  assert.deepEqual(binding.runtimeProfiles, []);
+  assert.equal(binding.hostContract, 'kali-hosted');
+  assert.equal(binding.runtimeBackend, 'wasmtime');
   assert.equal(binding.add(2, 3), 5);
   assert.equal(binding.zero(), 6);
   assert.equal(library.total, 6);

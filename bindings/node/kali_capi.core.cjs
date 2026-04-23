@@ -55,7 +55,7 @@ function requireStringList(payload, context, fieldName) {
     items.push(item);
   }
 
-  return Object.freeze(items.sort());
+  return Object.freeze([...new Set(items)].sort());
 }
 
 function parseExports(headerText) {
@@ -138,6 +138,18 @@ function parseBindingPackageManifest(manifestText) {
     ? requireInt(payload, 'maxSpecializations', 'binding package')
     : undefined;
 
+  const runtimeProfiles = Object.prototype.hasOwnProperty.call(payload, 'runtimeProfiles')
+    ? requireStringList(payload.runtimeProfiles, 'binding package', 'runtimeProfiles')
+    : Object.freeze([]);
+
+  const hostContract = Object.prototype.hasOwnProperty.call(payload, 'hostContract')
+    ? requireStr(payload, 'hostContract', 'binding package')
+    : 'kali-hosted';
+
+  const runtimeBackend = Object.prototype.hasOwnProperty.call(payload, 'runtimeBackend')
+    ? requireStr(payload, 'runtimeBackend', 'binding package')
+    : 'wasmtime';
+
   if (payload.artifacts === null || typeof payload.artifacts !== 'object' || Array.isArray(payload.artifacts)) {
     throw new Error("binding package field 'artifacts' must be a JSON object");
   }
@@ -153,6 +165,9 @@ function parseBindingPackageManifest(manifestText) {
     moduleName,
     hostAbiVersion,
     minHostAbiVersion,
+    runtimeProfiles,
+    hostContract,
+    runtimeBackend,
     artifacts: Object.freeze({
       exportsHeader,
       glue,
@@ -237,10 +252,20 @@ function ensureCompatibleBindingPackageManifest(
 }
 
 class KaliCAPI {
-  constructor(library, exports, maxSpecializations = null) {
+  constructor(
+    library,
+    exports,
+    maxSpecializations = null,
+    runtimeProfiles = [],
+    hostContract = 'kali-hosted',
+    runtimeBackend = 'wasmtime',
+  ) {
     this._library = library;
     this._exports = Object.freeze([...exports]);
     this._maxSpecializations = maxSpecializations;
+    this._runtimeProfiles = Object.freeze([...runtimeProfiles]);
+    this._hostContract = hostContract;
+    this._runtimeBackend = runtimeBackend;
     this._bindExports();
   }
 
@@ -288,6 +313,9 @@ class KaliCAPI {
       library,
       parseExports(headerText),
       manifest.maxSpecializations ?? null,
+      manifest.runtimeProfiles ?? [],
+      manifest.hostContract ?? 'kali-hosted',
+      manifest.runtimeBackend ?? 'wasmtime',
     );
   }
 
@@ -297,6 +325,18 @@ class KaliCAPI {
 
   get maxSpecializations() {
     return this._maxSpecializations;
+  }
+
+  get runtimeProfiles() {
+    return this._runtimeProfiles;
+  }
+
+  get hostContract() {
+    return this._hostContract;
+  }
+
+  get runtimeBackend() {
+    return this._runtimeBackend;
   }
 
   _bindExports() {

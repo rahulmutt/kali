@@ -56,10 +56,12 @@ manifest and metadata parsing rules. `loadBindingPackageManifestFromRoot()`
 and `KaliCAPI.fromBindingPackage()` both resolve the generated manifest from a
 bundle root, validate the companion metadata, and bind the exported entrypoints
 onto an existing library object. The resulting `KaliCAPI` instance also carries
-the manifest's `maxSpecializations` provenance when the bundle publishes it, so
-higher-level callers can inspect the same specialization budget that the CLI
-emitted. Both module systems expose the same helper surface, so binding
-consumers can choose ESM or CommonJS without changing the artifact contract.
+the manifest's `maxSpecializations` provenance plus the normalized runtime
+provenance tuple (`runtimeProfiles`, `hostContract`, and `runtimeBackend`) when
+the bundle publishes them, so higher-level callers can inspect the same
+specialization and runtime context that the CLI emitted. Both module systems
+expose the same helper surface, so binding consumers can choose ESM or CommonJS
+without changing the artifact contract.
 
 Run the smoke tests with:
 

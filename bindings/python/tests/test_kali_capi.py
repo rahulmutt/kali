@@ -79,6 +79,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
                         "hostAbiVersion": 2,
                         "minHostAbiVersion": 2,
                         "maxSpecializations": 8,
+                        "runtimeProfiles": ["wasm-threads", "fiber-threads", "wasm-threads"],
                         "artifacts": {
                             "exportsHeader": "sample.h",
                             "glue": ["shim.py", "support.py"],
@@ -120,6 +121,9 @@ class KaliCapiSmokeTests(unittest.TestCase):
                     host_abi_version=2,
                     min_host_abi_version=2,
                     max_specializations=8,
+                    runtime_profiles=("fiber-threads", "wasm-threads"),
+                    host_contract="kali-hosted",
+                    runtime_backend="wasmtime",
                     artifacts={
                         "exportsHeader": "sample.h",
                         "glue": ("shim.py", "support.py"),
@@ -128,6 +132,9 @@ class KaliCapiSmokeTests(unittest.TestCase):
                     },
                 ),
             )
+            self.assertEqual(manifest.runtime_profiles, ("fiber-threads", "wasm-threads"))
+            self.assertEqual(manifest.host_contract, "kali-hosted")
+            self.assertEqual(manifest.runtime_backend, "wasmtime")
             self.assertEqual(ensure_compatible_binding_package_manifest(manifest), manifest)
 
             binding = KaliCAPI.from_binding_package(DummyLibrary(), root)
@@ -194,10 +201,16 @@ class KaliCapiSmokeTests(unittest.TestCase):
 
             manifest = load_binding_package_manifest_from_root(root)
             self.assertEqual(manifest.max_specializations, 8)
+            self.assertEqual(manifest.runtime_profiles, ())
+            self.assertEqual(manifest.host_contract, "kali-hosted")
+            self.assertEqual(manifest.runtime_backend, "wasmtime")
             self.assertEqual(manifest.artifacts["glue"], ("shim.py",))
 
             binding = KaliCAPI.from_binding_package(DummyLibrary(), root)
             self.assertEqual(binding.max_specializations, 8)
+            self.assertEqual(binding.runtime_profiles, ())
+            self.assertEqual(binding.host_contract, "kali-hosted")
+            self.assertEqual(binding.runtime_backend, "wasmtime")
             self.assertEqual(binding.add(2, 3), 5)
             self.assertEqual(binding.zero(), 7)
             self.assertEqual(binding._library.calls, [("add", 2, 3), ("zero",)])
@@ -265,6 +278,9 @@ class KaliCapiSmokeTests(unittest.TestCase):
                     host_abi_version=2,
                     min_host_abi_version=2,
                     max_specializations=8,
+                    runtime_profiles=(),
+                    host_contract="kali-hosted",
+                    runtime_backend="wasmtime",
                     artifacts={
                         "exportsHeader": "alpha.h",
                         "glue": ("alpha.py",),
@@ -324,6 +340,9 @@ class KaliCapiSmokeTests(unittest.TestCase):
 
             manifest = load_binding_package_manifest(manifest_path)
             self.assertEqual(manifest.max_specializations, 8)
+            self.assertEqual(manifest.runtime_profiles, ())
+            self.assertEqual(manifest.host_contract, "kali-hosted")
+            self.assertEqual(manifest.runtime_backend, "wasmtime")
             with self.assertRaises(ValueError):
                 ensure_compatible_binding_package_manifest(manifest, available_host_abi_version=3)
 

@@ -73,6 +73,9 @@ class BindingPackageManifest:
     min_host_abi_version: int
     artifacts: dict[str, object]
     max_specializations: int | None = None
+    runtime_profiles: tuple[str, ...] = ()
+    host_contract: str = "kali-hosted"
+    runtime_backend: str = "wasmtime"
 
 
 def _is_int(value: object) -> bool:
@@ -119,7 +122,7 @@ def _require_string_list(payload: object, *, field_name: str) -> tuple[str, ...]
             raise ValueError(f"binding package field {field_name!r} entries must be strings")
         items.append(item)
 
-    return tuple(sorted(items))
+    return tuple(sorted(set(items)))
 
 
 def parse_exports(header_text: str) -> list[Export]:
@@ -191,6 +194,20 @@ def parse_binding_package_manifest(metadata_text: str) -> BindingPackageManifest
     if max_specializations is not None and not _is_int(max_specializations):
         raise ValueError("binding package field 'maxSpecializations' must be an integer")
 
+    runtime_profiles = payload.get("runtimeProfiles", ())
+    if runtime_profiles == ():
+        runtime_profiles = ()
+    else:
+        runtime_profiles = _require_string_list(runtime_profiles, field_name="runtimeProfiles")
+
+    host_contract = payload.get("hostContract", "kali-hosted")
+    if not isinstance(host_contract, str):
+        raise ValueError("binding package field 'hostContract' must be a string")
+
+    runtime_backend = payload.get("runtimeBackend", "wasmtime")
+    if not isinstance(runtime_backend, str):
+        raise ValueError("binding package field 'runtimeBackend' must be a string")
+
     artifacts_payload = payload.get("artifacts")
     if not isinstance(artifacts_payload, Mapping):
         raise ValueError("binding package field 'artifacts' must be a JSON object")
@@ -219,6 +236,9 @@ def parse_binding_package_manifest(metadata_text: str) -> BindingPackageManifest
         host_abi_version=host_abi_version,
         min_host_abi_version=int(min_host_abi_version),
         max_specializations=int(max_specializations) if max_specializations is not None else None,
+        runtime_profiles=runtime_profiles,
+        host_contract=host_contract,
+        runtime_backend=runtime_backend,
         artifacts=dict(sorted(artifacts.items())),
     )
 
@@ -328,10 +348,16 @@ class KaliCAPI:
         library: object,
         exports: Sequence[Export],
         max_specializations: int | None = None,
+        runtime_profiles: Sequence[str] = (),
+        host_contract: str = "kali-hosted",
+        runtime_backend: str = "wasmtime",
     ):
         self._library = library
         self._exports = tuple(exports)
         self._max_specializations = max_specializations
+        self._runtime_profiles = tuple(runtime_profiles)
+        self._host_contract = host_contract
+        self._runtime_backend = runtime_backend
         self._bind_exports()
 
     @classmethod
@@ -377,6 +403,9 @@ class KaliCAPI:
             library,
             parse_exports(header_text),
             manifest.max_specializations,
+            manifest.runtime_profiles,
+            manifest.host_contract,
+            manifest.runtime_backend,
         )
 
     @classmethod
@@ -390,6 +419,18 @@ class KaliCAPI:
     @property
     def max_specializations(self) -> int | None:
         return self._max_specializations
+
+    @property
+    def runtime_profiles(self) -> tuple[str, ...]:
+        return self._runtime_profiles
+
+    @property
+    def host_contract(self) -> str:
+        return self._host_contract
+
+    @property
+    def runtime_backend(self) -> str:
+        return self._runtime_backend
 
     def _bind_exports(self) -> None:
         for export in self._exports:

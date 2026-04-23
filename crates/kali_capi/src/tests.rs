@@ -269,6 +269,9 @@ assert isinstance(manifest, BindingPackageManifest)
 assert manifest.host_abi_version == HOST_ABI_VERSION
 assert manifest.min_host_abi_version == HOST_ABI_VERSION
 assert manifest.module_name == "sample"
+assert manifest.runtime_profiles == ()
+assert manifest.host_contract == "kali-hosted"
+assert manifest.runtime_backend == "wasmtime"
 assert manifest.artifacts["glue"] == ("shim.py", "support.py")
 assert manifest.artifacts["library"] == "sample.capi.wasm"
 assert ensure_compatible_binding_package_manifest(manifest) == manifest
@@ -287,6 +290,9 @@ class DummyLibrary:
 
 binding = KaliCAPI.from_binding_package(DummyLibrary(), Path(r"{}"))
 assert binding.exports == tuple(exports)
+assert binding.runtime_profiles == ()
+assert binding.host_contract == "kali-hosted"
+assert binding.runtime_backend == "wasmtime"
 assert binding.add(2, 3) == 5
 assert binding.zero() == 7
 assert binding._library.calls == [("add", 2, 3), ("zero",)]
@@ -376,6 +382,9 @@ class DummyLibrary:
         return 7
 
 binding = KaliCAPI.from_binding_package(DummyLibrary(), Path(r"{}"))
+assert binding.runtime_profiles == ()
+assert binding.host_contract == "kali-hosted"
+assert binding.runtime_backend == "wasmtime"
 assert binding.add(2, 3) == 5
 assert binding.zero() == 7
 assert binding._library.calls == [("add", 2, 3), ("zero",)]
