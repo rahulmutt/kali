@@ -2805,6 +2805,61 @@ fn test_reports_function_coverage_respects_filter_selection() {
 }
 
 #[test]
+fn test_reports_function_coverage_for_empty_filter_matches() {
+    let dir = tempdir().expect("tempdir");
+    let keep = dir.path().join("math.test.ts");
+    let skip = dir.path().join("strings.test.ts");
+    fs::write(
+        &keep,
+        r#"Kali.test("math", () => {
+    1 + 1;
+});
+"#,
+    )
+    .expect("write keep test file");
+    fs::write(
+        &skip,
+        r#"Kali.test("strings", () => {
+    2 + 2;
+});
+"#,
+    )
+    .expect("write skip test file");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--output")
+        .arg("json")
+        .arg("--coverage")
+        .arg("--filter")
+        .arg("nomatch")
+        .arg(&keep)
+        .arg(&skip)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["payload"]["total"], 0);
+    assert_eq!(json["payload"]["passed"], 0);
+    assert_eq!(json["payload"]["failed"], 0);
+    let coverage = &json["payload"]["coverage"];
+    assert_eq!(coverage["mode"], "function");
+    assert_eq!(coverage["files"], json!([]));
+    assert_eq!(coverage["summary"]["functionsTotal"], 0);
+    assert_eq!(coverage["summary"]["functionsCovered"], 0);
+    assert_eq!(coverage["summary"]["functionsMissed"], 0);
+    assert_eq!(coverage["summary"]["coveragePercent"], json!(100.0));
+}
+
+#[test]
 fn check_accepts_compat_eval_flag() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
