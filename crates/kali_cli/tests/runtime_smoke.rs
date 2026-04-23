@@ -8105,6 +8105,10 @@ fn package_effects_tracks_eval_compatibility_from_manifest() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], true);
     assert_eq!(json["payload"]["package"]["name"], "evalpkg");
+    assert_eq!(
+        json["payload"]["report"]["analysisContext"]["compatFeatures"],
+        json!(["eval"])
+    );
     assert_eq!(json["payload"]["report"]["dynamicEffects"], true);
     assert_eq!(json["payload"]["report"]["dynamicReasons"], json!(["eval"]));
     let kinds = json["payload"]["report"]["effects"]

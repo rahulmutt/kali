@@ -3589,7 +3589,26 @@ fn package_effects_command(
     ) {
         return Err(exit_code);
     }
-    let context = analysis_context_for_api(effective_api, effective_runtime_profiles, Vec::new());
+    let effective_compat = match resolve_effective_compat_features(Vec::new()) {
+        Ok(features) => features,
+        Err(diagnostics) => {
+            return emit_diagnostics_and_exit(
+                "package-effects",
+                diagnostics,
+                5,
+                output,
+                None,
+                None,
+            );
+        }
+    };
+    if let Err(exit_code) =
+        reject_unavailable_compat_features("package-effects", &effective_compat, output, None, None)
+    {
+        return Err(exit_code);
+    }
+    let context =
+        analysis_context_for_api(effective_api, effective_runtime_profiles, effective_compat);
     let inference = match infer_effects_from_roots(&[entry_path.clone()], context.clone()) {
         Ok(inference) => inference,
         Err(diagnostics) => {
