@@ -606,6 +606,24 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
     );
     assert_eq!(
         browser_harness_command_parts_for_browser_executable(
+            "C:/Program Files/Google/Chrome/Application/chrome-for-testing.com"
+        ),
+        Some(vec![
+            "chrome-for-testing".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable(
+            "C:/Program Files/Google/Chrome/Application/google-chrome-for-testing.com"
+        ),
+        Some(vec![
+            "google-chrome-for-testing".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable(
             "C:/Program Files/Google/Chrome/Application/google-chrome-canary.exe"
         ),
         Some(vec![
