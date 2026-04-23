@@ -1,6 +1,6 @@
 # Kali — Implementation Plan
 
-`PLAN.md` is the implementation playbook for [`SPEC.md`](./SPEC.md). It maps the spec phases onto concrete, workable stages and defines the recommended execution order.
+`PLAN.md` is the implementation playbook for [`SPEC.md`](./SPEC.md). It translates the normalized spec set into an implementation order that keeps the repository usable after every stage.
 
 ## Plan contract
 
@@ -11,7 +11,23 @@ After every stage the repository must remain in a workable state:
 3. At least one user-visible capability is demonstrable
 4. Hard invariants still hold: AOT-only, pure Rust, no tracing/background GC, sandbox-first honesty, deterministic machine contracts
 
-**Normative source of truth:** [`SPEC.md`](./SPEC.md), the owning chapter in [`specs/`](./specs/), and actual public availability in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
+Normative ownership remains unchanged:
+- [`SPEC.md`](./SPEC.md) defines cross-spec rules and phase contracts
+- the owning chapter in [`specs/`](./specs) defines subsystem behavior
+- [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) defines public availability
+- [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) defines the current proof-backed boundary
+- this plan defines sequencing, dependencies, milestones, and completion gates only
+
+---
+
+## Planning goals
+
+This plan is optimized for four things:
+
+1. **Simple before broad** — establish local-file compilation and execution before package and host breadth
+2. **Workable milestones** — every packet should leave the repo demoable, not just internally refactored
+3. **Explicit ownership** — each stage maps back to named spec chapters and evidence lanes
+4. **Safe parallelism** — parallel work starts only after the core compiler/runtime loop is stable
 
 ---
 
@@ -71,15 +87,15 @@ plan/
     └── 05-pgo-and-language-bindings.md
 ```
 
-Total: 30 stage documents, 5 phase index documents, and 9 cross-phase planning guides.
+Total planning surface: 30 stage documents, 5 phase indexes, and 9 cross-phase planning guides.
+
+---
 
 ## Suggested implementation directory structure
 
-A more detailed adoption guide for this layout lives in [plan/01-repository-layout.md](./plan/01-repository-layout.md).
+The repository already has a sensible fine-grained workspace. The plan keeps that structure and grows it deliberately instead of forcing an early reorganization.
 
-The plan assumes a repository layout that keeps normative docs, implementation crates, evidence, and fixtures separate.
-
-### Logical long-lived structure
+### Long-lived logical ownership model
 
 ```text
 .
@@ -90,15 +106,32 @@ The plan assumes a repository layout that keeps normative docs, implementation c
 ├── specs/
 ├── plan/
 ├── proofs/
+├── schemas/
+├── types/
+├── bindings/
 ├── crates/
-│   ├── kali/                  # CLI binary / command dispatch
-│   ├── cli/                   # arg parsing, help text, config discovery
-│   ├── core/                  # lexer, parser, AST, typing, lowering, codegen
-│   ├── runtime/               # wasm execution, host adapters, sandbox enforcement
-│   ├── packages/              # install, lock, resolution, cache management
-│   ├── sandbox/               # policy schema, validation, effect comparison
-│   ├── embed/                 # stable embedding APIs, C ABI, component support
-│   └── optimize/              # specialization, optimization, PGO plumbing
+│   ├── kali_cli
+│   ├── kali_common
+│   ├── kali_error
+│   ├── kali_lexer
+│   ├── kali_parser
+│   ├── kali_ast
+│   ├── kali_types
+│   ├── kali_hir
+│   ├── kali_mir
+│   ├── kali_lir
+│   ├── kali_codegen
+│   ├── kali_runtime
+│   ├── kali_sandbox
+│   ├── kali_npm
+│   ├── kali_fmt
+│   ├── kali_lint
+│   ├── kali_embed
+│   ├── kali_capi
+│   ├── kali_optimize
+│   ├── kali_api_web
+│   ├── kali_api_deno
+│   └── kali_api_node
 ├── tests/
 │   ├── integration/
 │   ├── conformance/
@@ -109,278 +142,174 @@ The plan assumes a repository layout that keeps normative docs, implementation c
     ├── cli/
     ├── compiler/
     ├── runtime/
+    ├── browser/
     └── packages/
 ```
 
-### Current-workspace-aligned structure
+### Directory-structure rules
 
-The current repository already uses a finer-grained crate split. The plan should work with that shape instead of forcing an immediate crate merge:
+- Keep `specs/` and `plan/` as documentation-only trees
+- Keep `proofs/`, `schemas/`, `types/`, and `bindings/` as first-class contract trees
+- Prefer adding evidence directories before adding new crates
+- Add a new crate only when it maps to a durable subsystem boundary owned by a spec chapter
+- Reuse the current `kali_*` crate split unless it actively blocks stage ownership or testing
 
-```text
-crates/
-├── kali_cli                     # user-facing binary / top-level dispatch
-├── kali_common                  # shared utilities, spans, IDs, interners, config helpers
-├── kali_error                   # canonical diagnostics and error plumbing
-├── kali_lexer                   # stage 1.2
-├── kali_parser                  # stage 1.3
-├── kali_ast                     # stage 1.3-1.4
-├── kali_types                   # stages 1.4-1.5, then 2.x effect/type depth
-├── kali_hir                     # stage 1.6
-├── kali_mir                     # stage 2.1 canonicalization
-├── kali_lir                     # stages 1.6-1.7
-├── kali_codegen                 # stages 1.7, 1.11, 3.1, 5.5
-├── kali_runtime                 # stages 1.8, 3.2, 3.4, 4.1, 5.x
-├── kali_sandbox                 # stages 1.9, 2.2, 5.3
-├── kali_npm                     # stages 1.10, 3.3, 4.1
-├── kali_fmt                     # stage 1.12
-├── kali_lint                    # stage 1.12
-├── kali_embed                   # stages 1.11, 2.3, 5.5
-├── kali_capi                    # stage 2.3+
-├── kali_optimize                # stage 3.1+
-├── kali_api_web                 # browser-targeted host surface
-├── kali_api_deno                # default standalone/build host surface
-└── kali_api_node                # phase-3 node host surface
-```
-
-This is the recommended practical directory strategy:
-- keep the current fine-grained crates,
-- treat them as implementations of the logical ownership buckets above,
-- add top-level `tests/` and `fixtures/` lanes as the evidence matrix expands,
-- keep `schemas/`, `types/`, `bindings/`, and `proofs/` as first-class companion trees rather than hiding those contracts inside code crates.
-
-Notes:
-- The logical ownership split matters more than whether the repo uses eight broad crates or many focused crates.
-- Keep `specs/` and `plan/` as docs-only trees so release claims and implementation sequencing stay reviewable.
-- Keep evidence-producing tests in dedicated top-level directories so each maturity row can point to a concrete lane.
-- Prefer adding a new crate only when it represents a stable subsystem boundary that maps back to an owning spec chapter and a plan stage.
+See [plan/01-repository-layout.md](./plan/01-repository-layout.md) for the detailed ownership guide and [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md) for the concrete growth order.
 
 ---
 
-## How to use this document
+## How to use this plan
 
-Start here, then use the supporting plan docs for the specific planning question:
-- [plan/README.md](./plan/README.md) — quick navigation across the whole plan set
-- [plan/00-planning-conventions.md](./plan/00-planning-conventions.md) — stage-writing rules, workable-state discipline, and completion packets
-- [plan/01-repository-layout.md](./plan/01-repository-layout.md) — target repository shape and when each area should appear
-- [plan/02-workstreams-and-handoffs.md](./plan/02-workstreams-and-handoffs.md) — cross-phase workstreams, ownership boundaries, and parallel-stream handoffs
-- [plan/03-spec-to-stage-traceability.md](./plan/03-spec-to-stage-traceability.md) — chapter-by-chapter mapping from the normative spec set to concrete plan stages and evidence lanes
-- [plan/04-stage-dependency-matrix.md](./plan/04-stage-dependency-matrix.md) — stage-by-stage prerequisites, parallel windows, code areas, and demo expectations
-- [plan/05-delivery-increments.md](./plan/05-delivery-increments.md) — higher-level increments that keep the repository usable while stages accumulate
-- [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md) — concrete repository-growth order for the current fine-grained workspace
-- [plan/07-roadmap-status-and-next-steps.md](./plan/07-roadmap-status-and-next-steps.md) — current stage-status snapshot, historical-vs-active reading guidance, and the canonical follow-up lanes
-- [plan/08-fresh-implementation-roadmap.md](./plan/08-fresh-implementation-roadmap.md) — the shortest recommended fresh-start execution order derived from the full stage graph
+Start here, then read the supporting guide that matches the planning question:
 
-- Use `SPEC.md` to decide what Kali promises.
-- Use this plan to decide implementation order and dependencies.
-- Use `plan/08-fresh-implementation-roadmap.md` when you want the shortest fresh-start path from docs to a workable implementation.
-- Use `specs/19-feature-maturity.md` to answer whether something is publicly available.
-- Use the stage files under `plan/` for detailed tasks and definitions of done.
+- [plan/README.md](./plan/README.md) — navigation across the plan set
+- [plan/00-planning-conventions.md](./plan/00-planning-conventions.md) — stage-writing rules and completion packets
+- [plan/01-repository-layout.md](./plan/01-repository-layout.md) — long-lived ownership and directory strategy
+- [plan/02-workstreams-and-handoffs.md](./plan/02-workstreams-and-handoffs.md) — safe parallel streams and handoffs
+- [plan/03-spec-to-stage-traceability.md](./plan/03-spec-to-stage-traceability.md) — spec-to-stage mapping
+- [plan/04-stage-dependency-matrix.md](./plan/04-stage-dependency-matrix.md) — compact stage prerequisites and demos
+- [plan/05-delivery-increments.md](./plan/05-delivery-increments.md) — milestone-sized implementation slices
+- [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md) — how the current workspace should grow
+- [plan/07-roadmap-status-and-next-steps.md](./plan/07-roadmap-status-and-next-steps.md) — near-term execution priorities
+- [plan/08-fresh-implementation-roadmap.md](./plan/08-fresh-implementation-roadmap.md) — the shortest fresh-start route through the stage graph
+- the relevant phase README under `plan/phase-*/README.md`
+- the exact stage file you are implementing
 
-Each stage document should define:
-- Goal
-- Workable milestone
-- Depends on
-- Tasks
-- Out of scope
-- Definition of done or status
-
-Each phase index document should define:
-- the phase objective and what changes in that phase,
-- the stage ordering and safe parallelism inside the phase,
-- the main spec chapters that phase is implementing,
-- the phase exit gate and evidence expectations.
+Use this document to answer **what should be built when**. Use `SPEC.md` and the owning chapter to answer **what the system promises**.
 
 ---
 
-## Planning ownership
+## Implementation strata
 
-Planning material lives here, not in `SPEC.md`.
+The spec set is easiest to realize in five broad strata:
 
-- `SPEC.md` defines cross-spec normalization, phase contracts, and release-claim rules.
-- `PLAN.md` defines implementation order, dependency structure, phase sequencing, and completion gates.
-- `plan/**/*.md` defines the detailed stage tasks and concrete definitions of done.
+| Stratum | Purpose | Primary chapters | Main plan ownership |
+|---|---|---|---|
+| Contract baseline | freeze vocabulary, maturity boundaries, schemas, and verification discipline | `SPEC.md`, `specs/17`, `specs/18`, `specs/19` | pre-1.1 planning packet |
+| Frontend + semantics | parse TS/JS, resolve names, type-check, and establish deterministic diagnostics | `specs/01`-`specs/04`, `specs/15` | Phase 1.1-1.5 |
+| Lowering + runtime core | lower typed programs, emit deterministic WASM, and execute safely | `specs/05`-`specs/11` | Phase 1.6-1.11, then Phase 2.1 |
+| Product/tooling surface | complete CLI, packages, schemas, evidence, embedding, and verification plumbing | `specs/12`-`specs/18` | Phase 1.9-1.14, Phase 2 |
+| Compatibility breadth | optimize and widen support one surface at a time | `specs/07`, `specs/09`-`specs/14`, `specs/19` | Phases 3-5 |
 
-If a sentence is primarily about **what gets built when**, **what depends on what**, or **what a stage must prove before moving on**, it belongs in the plan set.
-
-Compaction rule:
-- `specs/16-testing.md` owns the normative evidence requirements only; concrete CI rollout, benchmark automation, and staged evidence expansion live in [phase-1/14](./plan/phase-1/14-evidence-hardening.md) and later stage files.
-- `specs/17-verification.md` owns proof-boundary discipline only; concrete Lean milestones, first proof-backed scope growth, and deeper verification rollout live in [phase-2/04](./plan/phase-2/04-lean-model-foundation.md) and [phase-4/02](./plan/phase-4/02-formal-verification-depth.md).
-- later-compatibility items documented in the spec but intentionally outside Phases 1-4 are tracked in [Phase 5](#phase-5--later-compatibility--platform-expansion) so the plan set covers the full spec surface without falsely promoting those items into earlier public promises.
+This view is for implementation order only. It does not change public maturity.
 
 ---
 
 ## Recommended execution lanes in the current workspace
 
-When turning the spec set into code in the current repository, use these lanes to keep the work incremental and workable:
-
-| Lane | Stages | Main current crates |
+| Lane | Stages | Main crates |
 |---|---|---|
-| Frontend acceptance | 1.2-1.5 | `kali_lexer`, `kali_parser`, `kali_ast`, `kali_types`, `kali_error` |
-| Lowering + codegen | 1.6-1.7 | `kali_hir`, `kali_lir`, `kali_codegen`, later `kali_mir` |
-| Runtime + host baseline | 1.8-1.9 | `kali_runtime`, `kali_sandbox`, `kali_api_deno`, `kali_api_web` |
-| Package + build surface | 1.10-1.11 | `kali_npm`, `kali_codegen`, `kali_embed`, host API crates |
-| Workflow + machine contracts | 1.12-1.14 | `kali_cli`, `kali_fmt`, `kali_lint`, `kali_error`, `schemas/`, `proofs/` |
-| Ownership/effects/embedding depth | 2.x | `kali_mir`, `kali_sandbox`, `kali_embed`, `kali_capi` |
-| Optimization + compatibility breadth | 3.x-5.x | `kali_optimize`, `kali_api_node`, `kali_runtime`, `bindings/` |
-
-This lane view is a practical complement to the phase map: it tells contributors where code should accumulate first without changing the normative phase contracts.
-
-For a more concrete “what directories and crates should grow next in this exact repository?” view, use [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md). That guide translates the phase/stage roadmap into a repository-growth sequence over the current `kali_*` crates, `schemas/`, `types/`, `bindings/`, `scripts/`, `tests/`, and `fixtures/` trees.
-
-## Implementation strata
-
-The spec set is easiest to implement in five broad delivery strata:
-
-| Stratum | Purpose | Primary chapters | Plan ownership |
-|---|---|---|---|
-| Bootstrap normalization + cross-spec rules | Turn `prompts/bootstrap.md` into phase-correct claims and shared vocabulary | `SPEC.md`, `specs/19-feature-maturity.md` | this document sets the delivery sequencing that respects those claims |
-| Frontend + semantics | Parse TS/JS, build typed meaning, and enforce the bounded inference contract | `specs/01`-`specs/04` | Phase 1 stages 1.1-1.5 |
-| Lowering + runtime core | Lower through IR, generate WASM, execute safely, and define host/runtime behavior | `specs/05`-`specs/11` | Phase 1 stages 1.6-1.11, then Phase 2 stage 2.1 |
-| Product/tooling surface | CLI, packages, diagnostics, schemas, testing, embedding, verification | `specs/12`-`specs/18` | Phase 1 stages 1.9-1.14, Phase 2+, and later evidence/depth work |
-| Later-compatibility expansion | Implement spec-deferred host/runtime/object-model breadth without overclaiming early support | later-compatibility rows in `specs/09`-`specs/14`, `specs/19` | Phase 5 stages 5.1-5.5 |
-
-This stratum view is for implementation planning only. It does not change normative ownership or public availability.
-
-## Repository-area mapping
-
-To keep implementation work aligned with the specs, each stratum should predominantly touch these repository areas:
-
-| Stratum | Primary code areas | Primary evidence areas |
-|---|---|---|
-| Bootstrap normalization + cross-spec rules | `SPEC.md`, `specs/`, `PLAN.md`, `plan/` | doc review, schema/claim consistency checks |
-| Frontend + semantics | `crates/core`, parser/type fixtures | `tests/integration`, `tests/conformance` |
-| Lowering + runtime core | `crates/core`, `crates/runtime`, `crates/sandbox` | runtime fixtures, wasm validation, sandbox tests |
-| Product/tooling surface | `crates/cli`, `crates/packages`, `crates/embed` | CLI snapshots, package corpus, JSON schema checks |
-| Later-compatibility expansion | all of the above plus host-specific adapters | targeted compatibility lanes, benchmarks, proof growth |
-
-This mapping is intentionally coarse. Stage files remain the authoritative place for exact work items.
+| CLI and shared plumbing | 1.1, 1.12, 1.13 | `kali_cli`, `kali_common`, `kali_error`, `kali_fmt`, `kali_lint` |
+| Frontend acceptance | 1.2-1.5 | `kali_lexer`, `kali_parser`, `kali_ast`, `kali_types` |
+| Lowering + codegen | 1.6-1.7, 2.1 | `kali_hir`, `kali_mir`, `kali_lir`, `kali_codegen` |
+| Runtime + sandbox | 1.8-1.9, 2.2, 3.4, 4.1, 5.x runtime work | `kali_runtime`, `kali_sandbox`, `kali_api_deno`, `kali_api_web`, `kali_api_node` |
+| Packages + build artifacts | 1.10-1.11, 3.3 | `kali_npm`, `kali_embed`, `kali_capi`, `kali_codegen` |
+| Optimization + later breadth | 3.1-5.5 | `kali_optimize`, `kali_runtime`, `kali_api_node`, `bindings/` |
+| Evidence + proofs | 1.14, 2.4, 2.5, 4.2 | `tests/`, `fixtures/`, `proofs/`, `schemas/` |
 
 ---
 
 ## Phase map
 
-For quick navigation, start with the phase index that matches the stream you are working on:
+For quick navigation:
 - [Phase 1 index](./plan/phase-1/README.md)
 - [Phase 2 index](./plan/phase-2/README.md)
 - [Phase 3 index](./plan/phase-3/README.md)
 - [Phase 4 index](./plan/phase-4/README.md)
 - [Phase 5 index](./plan/phase-5/README.md)
 
-
 | Phase | Focus | Workable outcome |
 |---|---|---|
-| 1 | Core compiler and toolchain MVP | Check, run, build, test, install, sandbox, and basic browser-targeted build path |
-| 2 | Ownership, effects, embedding, verification foundation | MIR ownership model, public effect reporting, stable embedding artifacts, Lean foundation, and stable coverage reporting |
-| 3 | Optimization and ecosystem breadth | Specialization, stronger release modes, Node compatibility, broader package support, and Phase-3 host-capability expansion |
-| 4 | Dynamic compatibility and proof-backed claims | `eval`/`Function()`, non-literal dynamic loading, public `package-audit`, and a proof-backed published boundary |
-| 5 | Later compatibility and platform expansion | Threaded runtime, standalone browser runtime, programmable policy/effect extensions, late host/object-model breadth, PGO, and language-binding expansion |
+| 1 | Core compiler and toolchain MVP | deterministic `check`, `run`, `test`, `build`, `install`, sandboxing, browser-targeted build/check, and schema-v1 outputs |
+| 2 | Ownership, effects, embedding, verification foundation | canonical MIR, public effect reporting, stable embedding surfaces, Lean foundation, and stable coverage reporting |
+| 3 | Optimization and ecosystem breadth | stronger release modes, Node path, broader packages, and widened host capabilities |
+| 4 | Dynamic compatibility and proof-backed depth | gated dynamic features, `package-audit`, and proof-backed published-boundary claims |
+| 5 | Deferred platform/runtime expansion | threads, standalone browser runtime, programmable policy extensions, late object-model breadth, PGO, and language bindings |
 
-Phase-5 interpretation rule:
-- Phase 5 is a **planning bucket for spec-deferred later-compatibility work**.
-- It exists so the plan set tracks all currently documented spec surfaces.
-- It does **not** by itself turn any “Later compatibility” maturity row into a public commitment; `specs/19-feature-maturity.md` still controls actual availability wording.
+---
 
 ## Stage-completion packet
 
-Every stage should ship with a small, repeatable completion packet so the repository stays reviewable and phase-correct:
+Every stage should land with the same minimum packet:
 
-1. **Implementation slice** — code/config/docs for the stage land together.
-2. **Spec-coordination slice** — update the owning chapter plus CLI/error/schema/maturity docs when public behavior changed.
-3. **Evidence slice** — add or extend the test lane that proves the claimed milestone.
-4. **Operator proof** — record the command/demo that shows the stage is workable right now.
-5. **Regression proof** — rerun `cargo test --workspace` and any stage-specific canonical tasks.
+1. **Implementation slice** — code/config/docs for the stage land together
+2. **Spec-coordination slice** — update owning specs when public behavior changed
+3. **Evidence slice** — add or extend the proving test lane
+4. **Operator proof** — record the command/demo that shows the stage is workable
+5. **Regression proof** — rerun `cargo test --workspace` and stage-specific canonical tasks
 
-Stage files may add more requirements, but they should not skip any of these five packet elements.
+Stage files may add more, but they should not drop any of these five parts.
+
+---
 
 ## Workable-state ladder
 
-The main sequencing principle is that each stage should unlock or preserve a concrete demonstration, not just internal code motion.
-
-| Stage range | Minimum repository demonstration after the range closes |
+| Stage range | Minimum demonstration after the range closes |
 |---|---|
-| 1.1 | `kali --version` works and the workspace builds/tests |
-| 1.2-1.3 | parsing/tokenization fixtures produce deterministic frontend output |
+| 1.1 | `kali --version` works; workspace builds/tests |
+| 1.2-1.3 | deterministic tokenization and parsing fixtures |
 | 1.4-1.5 | `kali check` reports name/type diagnostics on local files |
 | 1.6-1.7 | local programs compile to validated WASM artifacts |
 | 1.8 | `kali run` and `kali test` execute in the default standalone context |
-| 1.9-1.14 | sandboxed execution, install/build/workflow/JSON outputs, and evidence lanes all function together |
-| 2.1-2.5 | MIR/ownership, effects, embedding, Lean foundation, and coverage reporting are stable enough for external consumers |
-| 3.1-3.4 | release-mode gains, Node path, broader packages, and host-capability growth are all evidence-backed |
-| 4.1-4.2 | late dynamic features and a proof-backed published boundary are available within documented gates |
-| 5.1-5.5 | deferred runtime/platform breadth is opened one surface at a time without weakening early guarantees |
+| 1.9-1.14 | sandboxing, install/build/workflow commands, JSON output, and evidence all work together |
+| 2.1-2.5 | MIR/ownership, effects, embedding, Lean, and coverage are externally coherent |
+| 3.1-3.4 | optimization, Node, host breadth, and package breadth are evidence-backed |
+| 4.1-4.2 | dynamic compatibility and proof-backed claims are explicitly bounded |
+| 5.1-5.5 | deferred breadth opens one surface at a time without weakening earlier guarantees |
 
 ---
 
 ## Important ordering decisions
 
-### Phase contracts vs implementation order
+### 1. Phase contracts vs implementation order
 
-Kali uses two different orderings on purpose:
+Kali intentionally separates:
+- **phase contracts** — earliest user-visible support promise
+- **implementation order** — recommended engineering sequence
 
-- **phase contracts** describe the earliest user-visible support promise for a feature;
-- **implementation order** describes the recommended engineering sequence for getting there.
+A feature may be documented before it is implemented, and implemented before it becomes publicly available. This plan does not override [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 
-A feature may be documented early for naming stability without being publicly available. This plan never overrides `specs/19-feature-maturity.md`; it only explains the recommended build order.
+### 2. Phase 1 should be built in six packets
 
-### Phase 1 recommended implementation order
+1. **CLI/workspace spine** — shared entrypoint, diagnostics, config loading, proof-ready hygiene
+2. **Frontend acceptance** — lexer, parser, AST, name resolution, type checking
+3. **End-to-end local pipeline** — HIR/LIR lowering, codegen, runtime execution
+4. **Phase-1 product surface** — sandboxing, packages, build artifacts, workflow commands, schemas
+5. **Machine contracts** — stable diagnostics and JSON envelopes
+6. **Evidence closure** — browser smoke, package corpus, determinism, proof-ready CI discipline
 
-Phase 1 should be approached in this order:
+### 3. Execution before package breadth
 
-1. **Frontend + checking foundation** — lexer, parser, AST, name resolution, TypeScript-compatible checking, and first-class JavaScript handling.
-2. **Deterministic package/install foundation** — lock/materialization rules and strict non-mutating behavior for non-install commands.
-3. **Kali-hosted execution foundation** — one AOT pipeline to one linked WASM payload, `run`/`test` in the default standalone context, and the Phase-1 sandbox/runtime contract.
-4. **Build/artifact foundation** — executable builds, browser bundles, and the Phase-1 base library artifact.
-5. **Developer workflow foundation** — `init`, `check`, `fmt`, `lint`, diagnostics, and schema-v1 machine-readable outputs.
-6. **Phase-1 evidence hardening** — conformance, package corpus, browser smoke, determinism, and proof-ready CI maintenance.
+Within Phase 1, end-to-end local execution should land before broad package work. That makes the compiler/runtime loop testable before install/registry complexity is introduced.
 
-This ordering is reflected by the stage graph below, even where practical sequencing differs slightly for workability.
+### 4. Proof-readiness starts at stage 1.1
 
-### Execution before package management
+Proof-ready discipline is an early repository requirement, not a final cleanup step. `proofs/BOUNDARY.md` and proof-trigger rules should exist from the start.
 
-Within Phase 1, execution work comes before package management:
+### 5. Browser support is build/analysis-first
 
-- `1.6 → 1.8` (lowering, codegen, runtime)
-- then `1.10` (package management)
+Phase 1 browser work means the browser-targeted command set for `check` and `build --bundle`, not a standalone browser runtime contract. Standalone browser runtime work remains later.
 
-This is intentional. An end-to-end compiler/runtime for local files is already workable. Package installation is more valuable once execution exists. This does **not** change the Phase-1 contract; it only changes implementation order.
+### 6. Threading comes before thread-dependent breadth
 
-### Proof-readiness starts at Stage 1.1
+Any real `SharedArrayBuffer`, `Atomics`, worker-style, or thread-budget semantics should build on the explicit threaded runtime profile from Phase 5.1 rather than inventing ad hoc concurrency paths earlier.
 
-Proof-readiness is not a final cleanup task. The repository should publish `proofs/BOUNDARY.md` and maintain proof-CI discipline from the beginning of the spec-first repository state; later stages harden and expand that baseline.
-
-### Threaded runtime precedes weak-reference and worker-heavy compatibility
-
-Later-compatibility work has one important dependency chain that is not obvious from the phase labels alone:
-
-- `5.1` (threaded runtime profile) should land before any work that depends on real `SharedArrayBuffer` / `Atomics` semantics or thread-aware runtime budgeting.
-- later host/runtime work that wants workers, thread-aware browser execution, or thread-aware object/runtime guarantees should build on that stage rather than inventing a second concurrency model.
-
-### Standalone browser runtime follows browser-targeted build maturity
-
-The Phase-1 browser story is intentionally **build/analysis first**. A standalone browser runtime/test contract is planned only after:
-
-- browser-targeted bundle/build behavior is already stable,
-- the browser host adapter is explicit and tested, and
-- the plan can preserve the spec's browser ambient-typing vs mediated-capability split without pretending Kali embeds a browser engine early.
-
-That is why standalone browser runtime work is deferred to Phase 5 instead of being folded into Phase 1 or 3.
+---
 
 ## Cross-phase dependency matrix
 
-The most important inter-phase dependencies are:
-
-| Later stage | Must not start in earnest until | Why |
+| Later stage | Must not begin in earnest until | Why |
 |---|---|---|
 | 2.2 Public effect reporting | 2.1 MIR & ownership | stable effect facts need canonical mid-level semantics |
-| 2.3 Public embedding surface | 2.1 MIR & ownership, 1.11 build artifacts | stable exports and ABI metadata depend on settled lowering/artifact shape |
-| 2.4 Lean foundation depth work | 1.1 proof-ready baseline, 2.1 canonical semantics | proofs should target the semantics the compiler actually commits to |
-| 2.5 Stable coverage reporting | 1.8 runtime execution | coverage without a working test runner is speculative |
-| 3.2 Node compatibility | 3.1 optimization baseline, 1.8 runtime core | host widening should build on the runtime/compiler shape Kali intends to keep |
-| 3.3 Ecosystem breadth | 3.2 and 3.4 foundations where applicable | package breadth depends on host/API fit, not package resolution alone |
-| 4.1 Dynamic compatibility | Phases 1-3 runtime, package, and host groundwork | late dynamic features amplify earlier runtime decisions |
-| 4.2 Proof-backed depth | 2.4 Lean foundation | proof-backed claims require an already-running proof program |
-| 5.2 Standalone browser runtime | 1.11 browser-targeted build maturity, 5.1 if thread-aware browser paths are desired | build-first browser support avoids overclaiming an embedded browser runtime |
-| 5.5 PGO & language bindings | 2.3 public embedding surface, 3.1 optimization baseline | feedback-guided optimization and generated bindings need stable surfaces |
+| 2.3 Public embedding surface | 2.1 and 1.11 | stable exports depend on settled lowering and artifact shape |
+| 2.4 Lean model foundation | 1.1 proof-ready baseline and 2.1 semantics | proofs should target committed semantics |
+| 2.5 Stable coverage reporting | 1.8 runtime execution | coverage without a working runner is speculative |
+| 3.2 Node compatibility | 3.1 optimization baseline and 1.8 runtime core | host widening should build on a stable compiler/runtime path |
+| 3.3 Ecosystem breadth | 3.2 and 3.4 where applicable | package breadth depends on host/API fit, not only resolution |
+| 4.1 Dynamic compatibility | Phases 1-3 runtime/package groundwork | late dynamic features amplify earlier design choices |
+| 4.2 Proof-backed depth | 2.4 Lean foundation | proof-backed claims require an operating proof program |
+| 5.2 Standalone browser runtime | 1.11 browser-targeted build maturity and 5.1 when thread-aware | browser runtime support should follow explicit build/runtime contracts |
+| 5.5 PGO and language bindings | 2.3 embedding surface and 3.1 optimization baseline | feedback-guided optimization and bindings need stable public surfaces |
 
 ---
 
@@ -388,51 +317,30 @@ The most important inter-phase dependencies are:
 
 Phase index: [plan/phase-1/README.md](./plan/phase-1/README.md)
 
-**Goal:** deliver an end-to-end TypeScript/JavaScript → WebAssembly toolchain with checking, execution, build artifacts, sandboxing, package installation, workflow commands, and evidence hardening.
+**Goal:** deliver the first dependable TS/JS → WASM toolchain with deterministic checking, execution, building, package installation, sandboxing, workflow commands, and evidence.
 
 **Critical path:** `1.1 → 1.8`
 
-**Parallelizable after 1.8:** `1.9 → 1.14`, with shared coordination on CLI definitions, diagnostics, schemas, and tests.
-
-### Phase 1 stages
+**Parallel window:** `1.9 → 1.14` after `1.8` closes
 
 | Stage | Document | Milestone |
 |---|---|---|
-| 1.1 | [Workspace & Crate Scaffold](plan/phase-1/01-workspace-scaffold.md) | Workspace builds; CLI entrypoint exists; proof boundary discipline established |
-| 1.2 | [Lexer](plan/phase-1/02-lexer.md) | Valid TS/JS tokenization; stable lex diagnostics |
-| 1.3 | [Parser & AST](plan/phase-1/03-parser-and-ast.md) | AST produced for supported TS/JS grammar |
-| 1.4 | [Name Resolution](plan/phase-1/04-name-resolution.md) | `kali check` resolves identifiers/imports and reports failures |
-| 1.5 | [Type Checker](plan/phase-1/05-type-checker.md) | `kali check` reports type errors under the bounded inference contract |
-| 1.6 | [HIR & LIR Lowering](plan/phase-1/06-hir-lir-lowering.md) | End-to-end compiler pipeline exists through internal IR |
-| 1.7 | [WASM Code Generation](plan/phase-1/07-wasm-codegen.md) | Simple programs compile to runnable WASM |
+| 1.1 | [Workspace & Crate Scaffold](plan/phase-1/01-workspace-scaffold.md) | buildable workspace, CLI spine, proof-ready baseline |
+| 1.2 | [Lexer](plan/phase-1/02-lexer.md) | deterministic TS/JS tokenization |
+| 1.3 | [Parser & AST](plan/phase-1/03-parser-and-ast.md) | AST for supported grammar |
+| 1.4 | [Name Resolution](plan/phase-1/04-name-resolution.md) | imports and identifiers resolve with stable diagnostics |
+| 1.5 | [Type Checker](plan/phase-1/05-type-checker.md) | `kali check` enforces bounded inference and TS/JS checking |
+| 1.6 | [HIR & LIR Lowering](plan/phase-1/06-hir-lir-lowering.md) | typed lowering pipeline exists |
+| 1.7 | [WASM Code Generation](plan/phase-1/07-wasm-codegen.md) | simple programs compile to validated WASM |
 | 1.8 | [Runtime & Execution](plan/phase-1/08-runtime-execution.md) | `kali run` and `kali test` work in the default standalone context |
-| 1.9 | [Sandbox & Policy](plan/phase-1/09-sandbox-and-policy.md) | Runtime sandbox enforcement and static policy validation surface |
-| 1.10 | [Package Management](plan/phase-1/10-package-management.md) | Deterministic install/lock flow for supported packages |
-| 1.11 | [Build Artifacts](plan/phase-1/11-build-artifacts.md) | `kali build` emits executable, bundle, and base library artifacts |
-| 1.12 | [Developer Workflow](plan/phase-1/12-developer-workflow.md) | `kali init`, `kali fmt`, `kali lint` work |
-| 1.13 | [Diagnostics & Schemas](plan/phase-1/13-diagnostics-and-schemas.md) | Stable diagnostics and schema-v1 JSON output |
-| 1.14 | [Evidence Hardening](plan/phase-1/14-evidence-hardening.md) | Conformance, determinism, package corpus, browser smoke, and proof-ready CI |
+| 1.9 | [Sandbox & Policy](plan/phase-1/09-sandbox-and-policy.md) | runtime enforcement and static policy validation |
+| 1.10 | [Package Management](plan/phase-1/10-package-management.md) | deterministic install/lock/materialization for supported packages |
+| 1.11 | [Build Artifacts](plan/phase-1/11-build-artifacts.md) | executable, browser bundle, and base library artifact outputs |
+| 1.12 | [Developer Workflow](plan/phase-1/12-developer-workflow.md) | `init`, `fmt`, and `lint` work |
+| 1.13 | [Diagnostics & Schemas](plan/phase-1/13-diagnostics-and-schemas.md) | stable diagnostics and schema-v1 JSON contracts |
+| 1.14 | [Evidence Hardening](plan/phase-1/14-evidence-hardening.md) | conformance, browser smoke, determinism, package corpus, proof-ready CI |
 
-### Phase 1 coordination rules
-
-After 1.8, parallel work is allowed only if all streams coordinate on:
-
-- [`specs/12-cli.md`](./specs/12-cli.md)
-- [`specs/15-errors.md`](./specs/15-errors.md)
-- [`specs/18-schemas.md`](./specs/18-schemas.md)
-- [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)
-- `cargo test --workspace`
-
-### Phase 1 completion gate
-
-Phase 1 is complete when:
-
-- Stages `1.1–1.14` are complete
-- Evidence in `specs/16-testing.md` backs all opened Phase-1 maturity rows
-- Core CLI surface passes end-to-end smoke tests
-- Browser-targeted smoke tests pass for the Phase-1 browser-targeted command set
-- Determinism checks pass for CLI outputs and generated artifacts
-- `proofs/BOUNDARY.md` exists and matches the claimed proof state
+**Phase-1 completion gate:** stages `1.1–1.14` complete, canonical browser-targeted smoke coverage exists, determinism checks pass, and proof-ready discipline matches the published boundary.
 
 ---
 
@@ -440,31 +348,19 @@ Phase 1 is complete when:
 
 Phase index: [plan/phase-2/README.md](./plan/phase-2/README.md)
 
-**Goal:** add MIR-backed ownership semantics, public effect reporting, stable embedding outputs, the Lean verification foundation, and the stable function-coverage reporting contract required by `kali test --coverage`.
+**Goal:** stabilize post-MVP semantics and first public non-MVP contracts.
 
-**Dependency shape:** `2.1` is the main prerequisite; `2.2`, `2.3`, most of `2.4`, and the machine-readable half of `2.5` build on it.
-
-### Phase 2 stages
+**Dependency shape:** `2.1` is the hinge; `2.2–2.5` build on it.
 
 | Stage | Document | Milestone |
 |---|---|---|
-| 2.1 | [MIR & Ownership Analysis](plan/phase-2/01-mir-and-ownership.md) | MIR becomes canonical mid-stage; ownership/escape analysis drives memory strategy |
-| 2.2 | [Public Effect Reporting](plan/phase-2/02-public-effect-reporting.md) | `kali effects` / `kali package-effects`, policy comparison, and explicit built-in effect annotations are stable |
-| 2.3 | [Public Embedding Surface](plan/phase-2/03-public-embedding-surface.md) | Stable Rust embedding API and stable `--lib` / `--capi` / `--component` artifact modes |
-| 2.4 | [Lean Model Foundation](plan/phase-2/04-lean-model-foundation.md) | Lean workspace, proof CI, and core type-calculus model |
-| 2.5 | [Test Coverage & Reporting](plan/phase-2/05-test-coverage-and-reporting.md) | `kali test --coverage` gains a stable function-coverage contract and evidence-backed output |
+| 2.1 | [MIR & Ownership Analysis](plan/phase-2/01-mir-and-ownership.md) | MIR is canonical and ownership analysis drives memory strategy |
+| 2.2 | [Public Effect Reporting](plan/phase-2/02-public-effect-reporting.md) | `effects` / `package-effects` and policy comparison are stable |
+| 2.3 | [Public Embedding Surface](plan/phase-2/03-public-embedding-surface.md) | stable embedding API and `--lib` / `--capi` / `--component` flows |
+| 2.4 | [Lean Model Foundation](plan/phase-2/04-lean-model-foundation.md) | proof workspace, CI, and semantic core exist |
+| 2.5 | [Test Coverage & Reporting](plan/phase-2/05-test-coverage-and-reporting.md) | `kali test --coverage` is deterministic and schema-backed |
 
-### Phase 2 completion gate
-
-Phase 2 is complete when:
-
-- Stages `2.1–2.5` are complete
-- Public effect-report outputs are stable and schema-backed
-- Effect-annotation checking and inferred-effect-vs-policy validation are stable for their documented built-in capability subset
-- Embedding artifact modes are stable, including host-ABI metadata/version checks where applicable
-- Lean proof jobs run in CI
-- `kali test --coverage` is stable for its documented function-coverage command contexts, with schema-backed output and deterministic reports
-- Phase-2 maturity rows are opened only with matching evidence
+**Phase-2 completion gate:** MIR is canonical, public effects and embedding are stable, Lean jobs run in CI, and coverage reporting is deterministic for supported contexts.
 
 ---
 
@@ -472,29 +368,18 @@ Phase 2 is complete when:
 
 Phase index: [plan/phase-3/README.md](./plan/phase-3/README.md)
 
-**Goal:** improve performance and broaden compatibility without changing the core invariants.
+**Goal:** improve performance and widen compatibility without weakening the core invariants.
 
-**Ordering:** `3.1` first, then `3.2` and `3.4` may proceed in parallel; `3.3` consumes the stronger package/browser/runtime breadth once those foundations are in place.
-
-### Phase 3 stages
+**Ordering:** `3.1` first; `3.2` and `3.4` can then proceed in parallel; `3.3` consumes those stronger foundations.
 
 | Stage | Document | Milestone |
 |---|---|---|
-| 3.1 | [Optimization & Specialization](plan/phase-3/01-optimization-and-specialization.md) | Stable monomorphization and faster `--release` / `--release-advanced` output |
-| 3.2 | [Node Compatibility](plan/phase-3/02-node-compatibility.md) | `--api node` path and the documented Phase-3 Node subset |
-| 3.3 | [Ecosystem Breadth](plan/phase-3/03-ecosystem-breadth.md) | Broader package corpus, literal-string `import()` lowering, and deeper bundle/package support |
-| 3.4 | [Host Capability Expansion](plan/phase-3/04-host-capability-expansion.md) | Mutable env, subprocess, socket/listener, and broader Deno-oriented host capabilities become evidence-backed |
+| 3.1 | [Optimization & Specialization](plan/phase-3/01-optimization-and-specialization.md) | release modes show measurable gains |
+| 3.2 | [Node Compatibility](plan/phase-3/02-node-compatibility.md) | documented `--api node` path works end to end |
+| 3.3 | [Ecosystem Breadth](plan/phase-3/03-ecosystem-breadth.md) | broader package support and dynamic import breadth are evidence-backed |
+| 3.4 | [Host Capability Expansion](plan/phase-3/04-host-capability-expansion.md) | mutable env, subprocess, socket/listener capabilities are implemented honestly |
 
-### Phase 3 completion gate
-
-Phase 3 is complete when:
-
-- Stages `3.1–3.4` are complete
-- Release modes show measurable gains over `--fast`
-- `--api node` is stable for its documented support surface
-- Mutable env, subprocess, socket/listener, and broader Deno-oriented host capability rows are backed by sandbox/resource-limit evidence
-- Incremental compilation and ecosystem-breadth evidence are in place
-- Phase-3 maturity rows are opened only with matching evidence
+**Phase-3 completion gate:** release modes are evidence-backed, Node support is explicit and tested, widened host capabilities have sandbox/resource-limit coverage, and package breadth claims name exact support rungs.
 
 ---
 
@@ -502,125 +387,56 @@ Phase 3 is complete when:
 
 Phase index: [plan/phase-4/README.md](./plan/phase-4/README.md)
 
-**Goal:** add the hardest phase-promised dynamic features and move from proof-ready/proof-foundational work to a proof-backed published boundary.
-
-**Dependency shape:** `4.2` depends on the Lean foundation from `2.4`; `4.1` depends on the runtime, package, and optimization work from Phases 1-3.
-
-### Phase 4 stages
+**Goal:** add the hardest late compatibility paths and move from proof-ready/foundational verification to proof-backed published-boundary claims.
 
 | Stage | Document | Milestone |
 |---|---|---|
-| 4.1 | [Dynamic Compatibility](plan/phase-4/01-dynamic-compatibility.md) | `--compat eval`, `Function()`, non-literal dynamic loading, and public `package-audit` |
-| 4.2 | [Formal Verification Depth](plan/phase-4/02-formal-verification-depth.md) | Non-empty published proof boundary with proof-backed release claims |
+| 4.1 | [Dynamic Compatibility](plan/phase-4/01-dynamic-compatibility.md) | gated `eval`, `Function()`, harder dynamic loading, and `package-audit` |
+| 4.2 | [Formal Verification Depth](plan/phase-4/02-formal-verification-depth.md) | non-empty published proof boundary with proof-backed claims |
 
-### Phase 4 completion gate
-
-Phase 4 is complete when:
-
-- Stages `4.1–4.2` are complete
-- Dynamic compatibility features are available only within their documented gates
-- `proofs/BOUNDARY.md` documents a non-empty published proof boundary
-- Proof-backed claims are limited to the boundary actually proved
-- Phase-4 maturity rows are opened only with matching evidence
+**Phase-4 completion gate:** dynamic compatibility is only available through explicit gates, `package-audit` has a stable contract, and proof-backed wording is limited to the published boundary.
 
 ---
 
-## Phase 5 — Later Compatibility & Platform Expansion
+## Phase 5 — Deferred Platform Expansion
 
 Phase index: [plan/phase-5/README.md](./plan/phase-5/README.md)
 
-**Goal:** track and implement the spec surfaces intentionally marked as later compatibility or future work, without retroactively widening earlier promises.
-
-**Dependency shape:** this phase is mostly additive after Phase 4, but its own internal order matters:
-- `5.1` establishes the threaded runtime profile.
-- `5.2` and `5.4` build on the stronger runtime/host foundation.
-- `5.3` builds on the public effect and embedding surfaces from Phase 2.
-- `5.5` uses the stable runtime/embedding/tooling foundations for optimization feedback loops and language bindings.
-
-### Phase 5 stages
+**Goal:** track and implement intentionally deferred runtime/platform breadth without back-solving it into earlier phases.
 
 | Stage | Document | Milestone |
 |---|---|---|
-| 5.1 | [Threaded Runtime Profile](plan/phase-5/01-threaded-runtime-profile.md) | `--wasm-threads`, `SharedArrayBuffer`, `Atomics`, and thread-budget enforcement work under the documented opt-in profile |
-| 5.2 | [Standalone Browser Runtime & Host Expansion](plan/phase-5/02-standalone-browser-runtime-and-host-expansion.md) | Later `run/test --api browser` and broader host-backend work gain an explicit runtime contract |
-| 5.3 | [Programmable Policy & Algebraic Effects](plan/phase-5/03-programmable-policy-and-algebraic-effects.md) | Host-registered narrowing predicates and any algebraic-effect surface are introduced without breaking the declarative sandbox contract |
-| 5.4 | [Late Host & Object Compatibility](plan/phase-5/04-late-host-and-object-compatibility.md) | Later host APIs, weak/finalization/proxy semantics, and legacy/web-compat corners are implemented behind explicit gates |
-| 5.5 | [PGO & Language Bindings](plan/phase-5/05-pgo-and-language-bindings.md) | Profile-guided optimization and post-Phase-2 language-binding expansion are evidence-backed |
+| 5.1 | [Threaded Runtime Profile](plan/phase-5/01-threaded-runtime-profile.md) | opt-in threaded runtime profile with thread budgets |
+| 5.2 | [Standalone Browser Runtime & Host Expansion](plan/phase-5/02-standalone-browser-runtime-and-host-expansion.md) | later `run/test --api browser` contract |
+| 5.3 | [Programmable Policy & Algebraic Effects](plan/phase-5/03-programmable-policy-and-algebraic-effects.md) | host-registered predicates and later effect extensions |
+| 5.4 | [Late Host & Object Compatibility](plan/phase-5/04-late-host-and-object-compatibility.md) | weak refs, proxies, legacy corners, and late host APIs |
+| 5.5 | [PGO & Language Bindings](plan/phase-5/05-pgo-and-language-bindings.md) | additive PGO and broader language bindings |
 
-### Phase 5 completion gate
-
-Phase 5 is complete when:
-
-- Stages `5.1–5.5` are complete
-- Each later-compatibility surface has explicit evidence matching the exact maturity row that was opened
-- New runtime/backend/embedding breadth does not weaken the core invariants or machine contracts
-- The maturity matrix is updated feature-by-feature rather than with one blanket “Phase 5 support” claim
-
-Current repository note:
-- the phase-5 stage docs are now closed and serve as historical implementation guidance
-- any later-compatibility widening should land through the owning spec chapters and maturity matrix instead of reopening the closed plan checklist
-
-## Cross-phase planning guides
-
-The stage files are the authoritative step-by-step plan, but nine cross-phase guides keep the whole roadmap coherent:
-
-- [plan/README.md](./plan/README.md) — entrypoint and navigation map for the plan set
-- [plan/00-planning-conventions.md](./plan/00-planning-conventions.md) — shared stage vocabulary, readiness rules, and update packets
-- [plan/01-repository-layout.md](./plan/01-repository-layout.md) — repository area ownership and when each area should be introduced
-- [plan/02-workstreams-and-handoffs.md](./plan/02-workstreams-and-handoffs.md) — the frontend/runtime/tooling/evidence workstreams and their handoff contracts
-- [plan/03-spec-to-stage-traceability.md](./plan/03-spec-to-stage-traceability.md) — a spec-coverage audit map so each normative chapter has an explicit implementation home
-- [plan/04-stage-dependency-matrix.md](./plan/04-stage-dependency-matrix.md) — the exact prerequisite graph and demo/evidence expectations for each stage
-- [plan/05-delivery-increments.md](./plan/05-delivery-increments.md) — the larger implementation slices that should be reviewable, workable, and demoable to users
-- [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md) — the concrete directory/crate growth order for this repository
-- [plan/07-roadmap-status-and-next-steps.md](./plan/07-roadmap-status-and-next-steps.md) — the current planning-status dashboard and follow-up-lane index
-- [plan/08-fresh-implementation-roadmap.md](./plan/08-fresh-implementation-roadmap.md) — the shortest recommended fresh-start execution order derived from the full stage graph
-
-## Fresh-start implementation shortcut
-
-If implementation restarted from the current spec set today, the shortest sensible path would be:
-
-1. lock spec, maturity, schema, and proof-boundary wording,
-2. complete the CLI/workspace spine,
-3. finish the frontend through deterministic `kali check`,
-4. close the local-file lowering/codegen/runtime loop,
-5. open the Phase-1 product-surface parallel zone,
-6. close Phase-1 evidence,
-7. move MIR/ownership to the center of all post-MVP semantic work,
-8. widen compatibility one exact support rung at a time.
-
-The detailed packet breakdown for that fresh-start order lives in [plan/08-fresh-implementation-roadmap.md](./plan/08-fresh-implementation-roadmap.md).
-
-## Current post-completion follow-up lanes
-
-The repo still tracks a few closed-stage follow-up lanes explicitly so the plan set and the proof-summary docs stay in sync:
-
-- **Stage 3.1 specialization depth follow-up** — see [`plan/phase-3/01-optimization-and-specialization.md`](./plan/phase-3/01-optimization-and-specialization.md) → `Remaining Work`
-- **Stage 3.3 ecosystem/package/browser breadth follow-up** — see [`plan/phase-3/03-ecosystem-breadth.md`](./plan/phase-3/03-ecosystem-breadth.md) → `Remaining Work`
-- **Stage 4.2 verification-depth follow-up** — see [`plan/phase-4/02-formal-verification-depth.md`](./plan/phase-4/02-formal-verification-depth.md) → `Remaining Work`
-
-Canonical proof-summary pin for those follow-up lanes:
-
-> **Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.**
-
-The proof-summary theorem inventory itself remains authored by [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) and mirrored in the summary docs/tests that pin the current published boundary.
+**Phase-5 completion gate:** each widened surface has its own evidence trail and maturity update; no blanket “Phase 5 support” claim is allowed.
 
 ---
 
-## Cross-cutting rules
+## Cross-phase planning guides
 
-- **Hard invariants never bend.** AOT-only, pure Rust, no tracing/background GC, sandbox-first honesty, deterministic machine contracts.
-- **Each stage must preserve workability.** No stage may regress existing working commands or tests.
-- **Availability is controlled by the maturity matrix.** Implemented does not automatically mean public.
-- **Proof-ready starts in Stage 1.1.** Proof-backed claims require a non-empty published boundary.
-- **Parallelism is opt-in.** If a stage file does not say work may proceed in parallel, assume sequential ordering.
-- **Shared surfaces must stay aligned.** CLI definitions, diagnostics, schemas, and verification claims must match their owning spec chapters.
-- **Later-compatibility planning is explicit.** If the spec defines a later or future surface, it should either have a stage in this plan or be explicitly called out as deferred-by-design rather than silently omitted.
+The cross-phase guides under `plan/` are part of the active planning surface, not historical appendices:
+
+- [plan/README.md](./plan/README.md) — navigation map
+- [plan/00-planning-conventions.md](./plan/00-planning-conventions.md) — shared rules and completion packets
+- [plan/01-repository-layout.md](./plan/01-repository-layout.md) — directory ownership
+- [plan/02-workstreams-and-handoffs.md](./plan/02-workstreams-and-handoffs.md) — stream boundaries and handoffs
+- [plan/03-spec-to-stage-traceability.md](./plan/03-spec-to-stage-traceability.md) — spec coverage audit
+- [plan/04-stage-dependency-matrix.md](./plan/04-stage-dependency-matrix.md) — prerequisite graph and demos
+- [plan/05-delivery-increments.md](./plan/05-delivery-increments.md) — workable milestone packets
+- [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md) — concrete crate/directory growth order
+- [plan/07-roadmap-status-and-next-steps.md](./plan/07-roadmap-status-and-next-steps.md) — recommended next execution lanes
+- [plan/08-fresh-implementation-roadmap.md](./plan/08-fresh-implementation-roadmap.md) — compact fresh-start execution order
 
 ---
 
 ## Practical reading rule
 
-- Use this file to understand **implementation order**.
-- Use stage documents to understand **what to build next**.
-- Use `specs/19-feature-maturity.md` to understand **what is publicly available**.
-- Use `proofs/BOUNDARY.md` to understand **what is actually proof-backed today**.
+- Use this file to understand **implementation order**
+- Use phase README files to understand **what changes in a phase**
+- Use stage files to understand **what to implement next**
+- Use [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) to understand **what is publicly available**
+- Use [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) to understand **what is actually proof-backed today**

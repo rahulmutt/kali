@@ -62,6 +62,12 @@ Phase 5 is complete only when each later-compatibility feature:
 - preserves the hard invariants and deterministic machine contracts,
 - is promoted in the maturity matrix one surface at a time rather than through a blanket claim.
 
-Current repository note:
-- all stage documents in this phase are now closed, so this README is historical implementation guidance rather than an open work queue
-- any future widening of later-compatibility surfaces should be reflected in the owning spec chapters and maturity matrix, not by reopening these stage checklists
+## Reading rule
+
+Treat this phase as the explicit backlog for intentionally deferred breadth.
+
+That means:
+- use these stage docs for implementation order when one of these later surfaces is being opened,
+- use the owning spec chapters for the normative behavior of each surface,
+- use [`../../specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md) for actual availability,
+- avoid collapsing all Phase-5 work into one generic “future features” bucket.

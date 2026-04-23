@@ -5,29 +5,29 @@ This guide turns the phase/stage roadmap into a concrete repository-growth order
 Use it when the planning question is not only **what stage comes next?** but also:
 - which current crates should absorb that work,
 - which top-level directories should be created or expanded next,
-- and what minimal repo shape should exist before a later stage starts.
+- and what minimal repository shape should exist before a later stage starts.
 
 It complements rather than replaces:
-- [`../PLAN.md`](../PLAN.md) for global ordering,
-- [`01-repository-layout.md`](./01-repository-layout.md) for the long-lived ownership model,
-- [`04-stage-dependency-matrix.md`](./04-stage-dependency-matrix.md) for prerequisites and demos,
-- and the phase/stage files for detailed definitions of done.
+- [`../PLAN.md`](../PLAN.md) for global ordering
+- [`01-repository-layout.md`](./01-repository-layout.md) for the long-lived ownership model
+- [`04-stage-dependency-matrix.md`](./04-stage-dependency-matrix.md) for prerequisites and demos
+- the phase/stage files for detailed definitions of done
 
 ## Core rule
 
 Prefer **growing the current fine-grained workspace** over reorganizing it early.
 
 That means:
-- keep the existing `kali_*` crate split,
-- add top-level evidence directories as the plan reaches the stages that need them,
-- keep `schemas/`, `types/`, `bindings/`, and `proofs/` as first-class contract trees,
-- and only do structural consolidation when the current boundaries actively block stage ownership.
+- keep the existing `kali_*` crate split
+- add top-level evidence directories as the plan reaches the stages that need them
+- keep `schemas/`, `types/`, `bindings/`, and `proofs/` as first-class contract trees
+- only do structural consolidation when the current boundaries actively block stage ownership or testing
 
 ## Recommended repository-growth order
 
 | Packet | Stages | Primary directories/crates | Why this order | Minimum demo after the packet |
 |---|---|---|---|---|
-| R0 — Spec and contract baseline | pre-1.1 | `SPEC.md`, `PLAN.md`, `specs/`, `plan/`, `proofs/`, `schemas/`, `types/` | lock the normalized product contract and machine-readable boundaries before implementation claims begin | specs and plan are internally consistent; proof boundary discipline is published |
+| R0 — Spec and contract baseline | pre-1.1 | `SPEC.md`, `PLAN.md`, `specs/`, `plan/`, `proofs/`, `schemas/`, `types/` | lock the normalized product contract and machine-readable boundaries before implementation claims begin | specs and plan are internally consistent; proof-boundary discipline is published |
 | R1 — Workspace boot | 1.1 | `crates/kali_cli`, `crates/kali_common`, `crates/kali_error`, workspace config, `scripts/` | establish the buildable entrypoint, shared plumbing, and canonical developer tasks first | `cargo build`, `cargo test --workspace`, `kali --version` |
 | R2 — Frontend acceptance | 1.2-1.5 | `crates/kali_lexer`, `crates/kali_parser`, `crates/kali_ast`, `crates/kali_types`, `fixtures/compiler`, `tests/integration`, `tests/conformance` | parser/checker semantics should settle before lowering, runtime, or package breadth | deterministic token/AST/checker output and `kali check` on local inputs |
 | R3 — Lowering and local execution | 1.6-1.8 | `crates/kali_hir`, `crates/kali_lir`, `crates/kali_codegen`, `crates/kali_runtime`, `crates/kali_api_deno`, `fixtures/runtime` | get to one end-to-end local-file compiler/runtime before widening product surface area | validated WASM plus `kali run` / `kali test` |
@@ -43,11 +43,11 @@ That means:
 ### `crates/`
 
 Use the current focused crates as the primary implementation boundaries:
-- `kali_cli`, `kali_common`, `kali_error` for command dispatch, spans, config discovery, and envelopes,
-- frontend crates for syntax and semantics,
-- IR/codegen/runtime crates for executable behavior,
-- host API crates for surface-specific widening,
-- dedicated crates for sandbox, packages, embedding, optimization, and C ABI work.
+- `kali_cli`, `kali_common`, `kali_error` for command dispatch, spans, config discovery, and envelopes
+- frontend crates for syntax and semantics
+- IR/codegen/runtime crates for executable behavior
+- host API crates for surface-specific widening
+- dedicated crates for sandbox, packages, embedding, optimization, and C ABI work
 
 Do **not** merge these crates just to match a more abstract logical layout from the plan. The logical layout is for ownership clarity; the current crate split is already a sensible implementation structure.
 
@@ -77,49 +77,55 @@ Prefer many narrow fixtures over a few giant sample applications.
 ### `schemas/`, `types/`, and `bindings/`
 
 Treat these as contract trees, not afterthoughts:
-- `schemas/` should track the schema-v1 machine-readable contracts,
-- `types/` should hold host-facing type packages or generated type helpers,
-- `bindings/` should hold stable host-language projections once embedding surfaces open.
+- `schemas/` tracks schema-v1 machine-readable contracts
+- `types/` holds host-facing type packages or generated type helpers
+- `bindings/` holds stable host-language projections once embedding surfaces open
 
 These should stay top-level so reviewers can inspect machine contracts without digging through implementation crates.
 
 ### `scripts/`
 
-This repository already uses `scripts/`, so the plan should align to that path rather than inventing a parallel `tools/scripts/` tree.
+This repository already uses `scripts/`, so the plan aligns to that path rather than inventing a parallel tooling tree.
 
-Use `scripts/` only for helper automation behind canonical `mise` tasks or CI workflows. Day-to-day instructions should still point contributors at the stable `mise` entrypoints first.
+Use `scripts/` only for helper automation behind canonical `mise` tasks or CI workflows. Day-to-day instructions should still point contributors at stable `mise` entrypoints first.
+
+## Near-term planning rule
+
+When choosing the next concrete repository move, prefer the earliest packet whose demo is not yet solid:
+
+1. if `R1` is incomplete, do not start frontend work
+2. if `R2` is incomplete, do not widen runtime/package claims
+3. if `R3` is incomplete, do not start serious package/browser breadth work
+4. if `R4` is incomplete, keep parallel streams tightly coordinated on CLI/errors/schemas/maturity
+5. if `R5` is incomplete, do not promote Phase-1 claims beyond the evidence actually present
 
 ## What not to do early
 
 Avoid these common planning mistakes:
-- creating a new top-level directory for every feature,
-- merging focused crates before the dependency graph proves that necessary,
-- placing normative behavior docs in crate-local notes instead of `specs/` and `plan/`,
-- building broad package/browser/Node test corpora before the local compiler/runtime path is stable,
-- or claiming maturity just because a directory now exists.
-
-## Current repository note
-
-The R0–R9 growth packets are now all closed in this workspace. Treat this document as a historical growth-order guide for the repository shape that was built, not as an open work queue. Any future expansion should be recorded in the owning spec chapters and maturity matrix rather than by extending this rollout ladder.
+- creating a new top-level directory for every feature
+- merging focused crates before the dependency graph proves that necessary
+- placing normative behavior docs in crate-local notes instead of `specs/` and `plan/`
+- building broad package/browser/Node test corpora before the local compiler/runtime path is stable
+- claiming maturity just because a directory now exists
 
 ## Practical startup order for a fresh implementation push
 
 If implementation restarted from the current spec set today, the recommended order would be:
-1. verify `SPEC.md`, `specs/`, `PLAN.md`, and `plan/` stay aligned,
-2. close or harden the `kali_cli` / `kali_common` / `kali_error` workspace foundation,
-3. complete frontend crates through deterministic `kali check`,
-4. complete lowering/codegen/runtime through deterministic local execution,
-5. open the Phase-1 product-surface parallel zone,
-6. close the Phase-1 evidence lanes,
-7. move MIR/ownership to the center of post-MVP work,
-8. widen compatibility only after the evidence matrix can prove each new rung.
+1. verify `SPEC.md`, `specs/`, `PLAN.md`, and `plan/` stay aligned
+2. close or harden the `kali_cli` / `kali_common` / `kali_error` workspace foundation
+3. complete frontend crates through deterministic `kali check`
+4. complete lowering/codegen/runtime through deterministic local execution
+5. open the Phase-1 product-surface parallel zone
+6. close the Phase-1 evidence lanes
+7. move MIR/ownership to the center of post-MVP work
+8. widen compatibility only after the evidence matrix can prove each new rung
 
 ## Maintenance rule
 
 Update this file whenever the recommended **directory or crate growth order** changes.
 
 That usually means updating it together with:
-- [`../PLAN.md`](../PLAN.md),
-- [`01-repository-layout.md`](./01-repository-layout.md),
-- [`04-stage-dependency-matrix.md`](./04-stage-dependency-matrix.md),
-- and any phase README whose implementation guidance moved.
+- [`../PLAN.md`](../PLAN.md)
+- [`01-repository-layout.md`](./01-repository-layout.md)
+- [`04-stage-dependency-matrix.md`](./04-stage-dependency-matrix.md)
+- any phase README whose implementation guidance moved

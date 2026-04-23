@@ -1,121 +1,115 @@
 # Roadmap Status and Next Steps
 
-This guide complements [`../PLAN.md`](../PLAN.md) by answering a different question:
+This guide complements [`../PLAN.md`](../PLAN.md) by answering a narrower question:
 
-> **Given the current repository state, which parts of the plan are historical milestones, which remain active follow-up lanes, and where should new implementation work start?**
+> **Given the current spec set and workspace layout, what should implementation focus on next, what is safe to parallelize, and what should stay blocked until earlier demos are real?**
 
-Use this file when the phase/stage roadmap is clear but the repository has already moved past the original bootstrap sequence.
+Use this file when the broad phase map is clear but day-to-day prioritization still needs a sharper answer.
 
 ## Core rule
 
-- [`../PLAN.md`](../PLAN.md) and the phase/stage files still own the implementation order.
-- [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md) still owns public availability.
-- [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md) still owns the current proof-backed boundary.
-- This file only summarizes **planning status** and the current **follow-up lanes** so contributors do not have to infer them from scattered historical notes.
+- [`../PLAN.md`](../PLAN.md) and the phase/stage files own implementation order
+- [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md) owns public availability
+- [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md) owns the current proof-backed boundary
+- this file is the **execution-priority overlay** for near-term work, not a second maturity matrix
 
-## Current status snapshot
+## Current recommended execution order
 
-| Area | Planning status | Read first |
+Treat the roadmap as an active implementation queue with three levels of priority.
+
+### Priority A — finish the Phase-1 critical path
+
+Do these first, in order, and keep them sequential unless a stage file explicitly says otherwise:
+
+1. `1.1` workspace and CLI spine
+2. `1.2` lexer
+3. `1.3` parser and AST
+4. `1.4` name resolution
+5. `1.5` type checker
+6. `1.6` HIR/LIR lowering
+7. `1.7` WASM code generation
+8. `1.8` runtime and execution
+
+Why this is first:
+- it is the shortest route to a believable local-file compiler/runtime loop
+- it creates the semantic foundation every later package, sandbox, and browser claim depends on
+- it keeps the repo in a continuously demoable state
+
+### Priority B — use the post-1.8 parallel window carefully
+
+Only after `1.8` is solid, open parallel work in:
+- `1.9` sandbox and policy
+- `1.10` package management
+- `1.11` build artifacts
+- `1.12` developer workflow
+- `1.13` diagnostics and schemas
+- `1.14` evidence hardening
+
+These streams must stay synchronized on:
+- [`../specs/12-cli.md`](../specs/12-cli.md)
+- [`../specs/15-errors.md`](../specs/15-errors.md)
+- [`../specs/18-schemas.md`](../specs/18-schemas.md)
+- [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md)
+
+### Priority C — only start post-MVP depth after evidence closure
+
+After Phase 1 is complete, move in this order:
+1. `2.1` MIR and ownership
+2. `2.2`, `2.3`, `2.4`, `2.5`
+3. `3.1`
+4. `3.2` and `3.4` in parallel where safe
+5. `3.3`
+6. `4.1`
+7. `4.2`
+8. `5.x` one surface at a time
+
+## Recommended next-read documents by planning question
+
+| If the question is... | Read first | Then read |
 |---|---|---|
-| Phase 1 core compiler/toolchain roadmap | Historical sequence, but still the canonical explanation of how the MVP was built | [`phase-1/README.md`](./phase-1/README.md) |
-| Phase 2 ownership/effects/embedding roadmap | Historical sequence with useful architectural rationale | [`phase-2/README.md`](./phase-2/README.md) |
-| Phase 3 optimization and compatibility roadmap | Historical sequence plus active hardening/breadth follow-up notes | [`phase-3/README.md`](./phase-3/README.md) |
-| Phase 4 dynamic compatibility and verification roadmap | Historical sequence plus the canonical proof-depth follow-up pointer | [`phase-4/README.md`](./phase-4/README.md) |
-| Phase 5 later-compatibility expansion | Planning bucket for explicitly deferred breadth; do not read it as a shipped promise | [`phase-5/README.md`](./phase-5/README.md) |
-| Current repository growth order | Historical for the main workspace rollout | [`06-current-workspace-rollout.md`](./06-current-workspace-rollout.md) |
+| what should the team build immediately next? | [`08-fresh-implementation-roadmap.md`](./08-fresh-implementation-roadmap.md) | `../PLAN.md` + relevant phase README |
+| what crates/directories should absorb that work? | [`06-current-workspace-rollout.md`](./06-current-workspace-rollout.md) | [`01-repository-layout.md`](./01-repository-layout.md) |
+| can two streams proceed in parallel? | [`02-workstreams-and-handoffs.md`](./02-workstreams-and-handoffs.md) | `../PLAN.md` + relevant phase README |
+| which stage owns a spec chapter or maturity row? | [`03-spec-to-stage-traceability.md`](./03-spec-to-stage-traceability.md) | exact stage file |
+| what exact prerequisites and demo should one stage satisfy? | [`04-stage-dependency-matrix.md`](./04-stage-dependency-matrix.md) | exact stage file |
+| whether something is publicly shipped | [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md) | owning spec chapter |
+| what is proof-backed today | [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md) | [`../specs/17-verification.md`](../specs/17-verification.md) |
 
-## How to read historical stage files
+## Near-term decision rules
 
-Many stage documents are now closed and contain repository-state notes such as “historical implementation playbook” or “stage complete.”
+Use these rules when picking work:
 
-Read those files in this order:
+1. **Prefer the earliest missing demo over later breadth.**
+   If `kali check` is not yet deterministic, do not prioritize Node or package breadth.
 
-1. use the stage file for the original dependency order, milestone shape, and definition of done,
-2. use the owning spec chapter for the current normative contract,
-3. use [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md) for current availability,
-4. use this file to see whether the stage still has an explicit follow-up lane.
+2. **Prefer closing command-shape owners before adding more commands.**
+   If CLI/error/schema wording is drifting, fix that before opening more product surface.
 
-Do **not** reopen a closed stage just because the repo keeps evolving. If new work changes the public contract, update the owning spec and maturity docs first, then either:
-- extend the documented follow-up lane, or
-- add a new plan document when the work is large enough to deserve its own stage-level sequencing.
+3. **Prefer evidence closure before maturity promotion.**
+   A working demo is not enough to widen public claims.
 
-## Canonical active follow-up lanes
+4. **Prefer explicit gates over partial emulation.**
+   When a feature is phase-gated, add the honest gate path before adding half-support.
 
-These are the plan-level follow-up lanes that remain worth consulting when implementing from the current repository state.
-
-### 1. Specialization-depth follow-up
-
-Primary source:
-- [`phase-3/01-optimization-and-specialization.md`](./phase-3/01-optimization-and-specialization.md) → `Remaining Work`
-
-Use this lane for:
-- deeper optimization passes,
-- more evidence-backed release-mode improvements,
-- work that refines specialization limits or performance proof points without changing the core release-mode vocabulary.
-
-### 2. Ecosystem/package/browser breadth follow-up
-
-Primary source:
-- [`phase-3/03-ecosystem-breadth.md`](./phase-3/03-ecosystem-breadth.md) → `Remaining Work`
-
-Use this lane for:
-- broader package-corpus support,
-- browser-targeted breadth hardening,
-- compatibility improvements that must still name their exact support rung.
-
-### 3. Verification-depth follow-up
-
-Primary sources:
-- [`phase-4/02-formal-verification-depth.md`](./phase-4/02-formal-verification-depth.md) → `Remaining Work`
-- [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md)
-
-Use this lane for:
-- widening the proof-backed boundary,
-- strengthening proof/implementation links,
-- updating proof summaries after theorem inventory changes.
-
-Guardrail:
-- the theorem inventory itself must continue to live in [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md), not in this file.
-
-## Fresh-start implementation shortcut
-
-If the practical question is not “what historical stage are we in?” but “what is the shortest sensible build order from the current spec set?”, start with [`08-fresh-implementation-roadmap.md`](./08-fresh-implementation-roadmap.md).
-
-Use that guide when:
-- the team is effectively treating the current plan as a greenfield or reimplementation roadmap,
-- the full phase graph is too broad for daily prioritization,
-- or you need packet-sized implementation order without losing alignment with the normative stage files.
-
-Use this status guide instead when the question is specifically about which parts of the current plan are historical versus still-active follow-up lanes.
-
-## Recommended starting points by task type
-
-| If you are working on... | Start here | Then read |
-|---|---|---|
-| a new compiler frontend or IR change | [`../PLAN.md`](../PLAN.md) + relevant phase README | owning spec chapter + stage file |
-| runtime, sandbox, or host-surface work | [`02-workstreams-and-handoffs.md`](./02-workstreams-and-handoffs.md) | relevant phase README + owning specs |
-| package or ecosystem compatibility | [`phase-3/03-ecosystem-breadth.md`](./phase-3/03-ecosystem-breadth.md) | [`../specs/14-packages.md`](../specs/14-packages.md), [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md) |
-| proof or verification work | [`phase-4/02-formal-verification-depth.md`](./phase-4/02-formal-verification-depth.md) | [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md), [`../specs/17-verification.md`](../specs/17-verification.md) |
-| current workspace layout/growth questions | [`01-repository-layout.md`](./01-repository-layout.md) | [`06-current-workspace-rollout.md`](./06-current-workspace-rollout.md) |
-| a fresh implementation push from the current specs | [`08-fresh-implementation-roadmap.md`](./08-fresh-implementation-roadmap.md) | `../PLAN.md` + owning phase README |
-| whether something is actually shipped | [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md) | owning spec chapter |
+5. **Prefer stage packets that leave the repo usable.**
+   Avoid large hidden internal rewrites that leave no stable demo behind.
 
 ## When to create a new planning document
 
-Create a new plan doc instead of only editing historical notes when all of the following are true:
+Create a new plan doc instead of only editing an existing one when all of the following are true:
 
-1. the work is larger than a small hardening pass,
-2. it has its own dependency order or completion gate,
-3. it touches more than one subsystem or evidence lane,
-4. future contributors would benefit from a dedicated “what next” checklist.
+1. the work is larger than a hardening pass
+2. it has its own dependency order or completion gate
+3. it touches more than one subsystem or evidence lane
+4. future contributors will benefit from a dedicated checklist
 
-Otherwise, prefer updating the relevant phase README, stage follow-up section, or this status guide.
+Otherwise, prefer updating the relevant phase README, stage file, or this prioritization guide.
 
 ## Maintenance rule
 
-Keep this file compact and status-oriented.
+Keep this file compact and action-oriented.
 
-- Do not duplicate spec contracts here.
-- Do not duplicate the proof-boundary inventory here.
-- Do not let this file drift into a second top-level roadmap.
-- When a follow-up lane closes or a new one appears, update this guide and the owning phase/stage doc together.
+- Do not duplicate spec contracts here
+- Do not duplicate the proof-boundary inventory here
+- Do not let this file become a second top-level plan
+- Update it whenever the recommended near-term execution order changes
