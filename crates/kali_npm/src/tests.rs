@@ -1057,7 +1057,24 @@ fn validate_package_shape_rejects_node_gyp_install_time_scripts() {
     assert_eq!(error[0].code, Some(e6::INCOMPATIBLE_PACKAGE as u32));
     assert!(error[0]
         .message
-        .contains("node-gyp lifecycle script and falls outside the pure JS/TS package contract"));
+        .contains("native or binary bootstrap lifecycle script and falls outside the pure JS/TS package contract"));
+}
+
+#[test]
+fn validate_package_shape_rejects_prebuild_install_time_scripts() {
+    let package = PackageJson {
+        scripts: BTreeMap::from([(
+            "install".to_string(),
+            "prebuild-install --download || node-gyp rebuild".to_string(),
+        )]),
+        ..PackageJson::default()
+    };
+
+    let error = validate_package_shape(&package, true).unwrap_err();
+    assert_eq!(error[0].code, Some(e6::INCOMPATIBLE_PACKAGE as u32));
+    assert!(error[0]
+        .message
+        .contains("native or binary bootstrap lifecycle script and falls outside the pure JS/TS package contract"));
 }
 
 #[test]

@@ -35,7 +35,7 @@ graph without performing any mutations.
 - Type resolution recognizes bundled declaration entries and a matching `@types/<pkg>`
   devDependency, allowing package imports without bundled types to resolve through declaration
   packages when the project has installed them.
-- Package-shape validation rejects obvious native-addon and lifecycle-script cases.
+- Package-shape validation rejects obvious native-addon, node-gyp, and prebuild-install-style lifecycle-script cases.
 - Manifest reconciliation fails fast when two registry identities would collapse onto the
   same `node_modules/` path before any materialization work begins, including transitive
   install-path conflicts during graph reconciliation.

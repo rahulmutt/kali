@@ -1963,11 +1963,11 @@ fn validate_package_shape(
         if package_json
             .scripts
             .get(phase)
-            .is_some_and(|script| script.contains("node-gyp"))
+            .is_some_and(|script| script_uses_native_bootstrap_tool(script))
         {
             return Err(vec![Diagnostic::error(
                 e6::INCOMPATIBLE_PACKAGE as u32,
-                "package uses a node-gyp lifecycle script and falls outside the pure JS/TS package contract",
+                "package uses a native or binary bootstrap lifecycle script and falls outside the pure JS/TS package contract",
             )]);
         }
     }
@@ -2000,6 +2000,19 @@ fn validate_package_shape(
     }
 
     Ok(())
+}
+
+fn script_uses_native_bootstrap_tool(script: &str) -> bool {
+    let script = script.to_ascii_lowercase();
+    [
+        "node-gyp",
+        "node-pre-gyp",
+        "prebuild-install",
+        "prebuildify",
+        "cmake-js",
+    ]
+    .iter()
+    .any(|needle| script.contains(needle))
 }
 
 fn run_package_lifecycle_hooks(
