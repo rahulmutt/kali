@@ -178,75 +178,99 @@ fn main() {
                 std::process::exit(exit_code);
             }
         }
-        Commands::Init { lib } => match init::init_current_directory(lib) {
-            Ok(summary) => {
-                if output.is_json() {
-                    let payload = json!({
-                        "root": summary.root,
-                        "manifestPath": summary.manifest_path,
-                        "sourcePath": summary.source_path,
-                        "library": summary.library,
-                    });
-                    print_envelope(
-                        "init",
-                        true,
-                        vec![],
-                        vec![],
-                        payload,
-                        None,
-                        None,
-                        0,
-                        &output,
-                    );
-                } else if !output.quiet {
-                    let template = if summary.library {
-                        "library"
-                    } else {
-                        "application"
-                    };
-                    println!(
-                        "Initialized {} scaffold at {}",
-                        template,
-                        summary.root.display()
-                    );
-                }
-            }
-            Err(diagnostic) => {
-                let exit_code = diagnostics_exit_code(std::slice::from_ref(&diagnostic));
-                if output.is_json() {
-                    let (errors, warnings) = single_diagnostic_to_values(diagnostic, None, None);
-                    print_envelope(
-                        "init",
-                        false,
-                        errors,
-                        warnings,
-                        Value::Null,
-                        None,
-                        None,
-                        exit_code,
-                        &output,
-                    );
-                } else {
-                    eprintln!("{}", diagnostic);
-                }
+        Commands::Init { lib, sandbox } => {
+            if let Err(exit_code) = reject_sandbox_agnostic_command("init", sandbox, &output) {
                 std::process::exit(exit_code);
             }
-        },
+            match init::init_current_directory(lib) {
+                Ok(summary) => {
+                    if output.is_json() {
+                        let payload = json!({
+                            "root": summary.root,
+                            "manifestPath": summary.manifest_path,
+                            "sourcePath": summary.source_path,
+                            "library": summary.library,
+                        });
+                        print_envelope(
+                            "init",
+                            true,
+                            vec![],
+                            vec![],
+                            payload,
+                            None,
+                            None,
+                            0,
+                            &output,
+                        );
+                    } else if !output.quiet {
+                        let template = if summary.library {
+                            "library"
+                        } else {
+                            "application"
+                        };
+                        println!(
+                            "Initialized {} scaffold at {}",
+                            template,
+                            summary.root.display()
+                        );
+                    }
+                }
+                Err(diagnostic) => {
+                    let exit_code = diagnostics_exit_code(std::slice::from_ref(&diagnostic));
+                    if output.is_json() {
+                        let (errors, warnings) =
+                            single_diagnostic_to_values(diagnostic, None, None);
+                        print_envelope(
+                            "init",
+                            false,
+                            errors,
+                            warnings,
+                            Value::Null,
+                            None,
+                            None,
+                            exit_code,
+                            &output,
+                        );
+                    } else {
+                        eprintln!("{}", diagnostic);
+                    }
+                    std::process::exit(exit_code);
+                }
+            }
+        }
         Commands::Install {
             target,
             dev,
+            api,
+            sandbox,
             allow_scripts,
         } => {
-            if let Err(exit_code) = install_command(target, dev, allow_scripts, &output) {
+            if let Err(exit_code) =
+                install_command(target, dev, api, sandbox, allow_scripts, &output)
+            {
                 std::process::exit(exit_code);
             }
         }
-        Commands::Fmt { check, files } => {
+        Commands::Fmt {
+            check,
+            sandbox,
+            files,
+        } => {
+            if let Err(exit_code) = reject_sandbox_agnostic_command("fmt", sandbox, &output) {
+                std::process::exit(exit_code);
+            }
             if let Err(exit_code) = fmt_command(files, check, &output) {
                 std::process::exit(exit_code);
             }
         }
-        Commands::Lint { fix, files } => {
+        Commands::Lint {
+            fix,
+            sandbox,
+            files,
+        } => {
+            if let Err(exit_code) = reject_sandbox_agnostic_command("lint", sandbox, &output) {
+                std::process::exit(exit_code);
+            }
             if let Err(exit_code) = lint_command(files, fix, &output) {
                 std::process::exit(exit_code);
             }
@@ -3766,12 +3790,48 @@ fn package_audit_command(
     }
 }
 
+fn reject_sandbox_agnostic_command(
+    command: &str,
+    sandbox: Option<PathBuf>,
+    output: &CliOutputOptions,
+) -> Result<(), i32> {
+    if sandbox.is_some() {
+        let diagnostic = Diagnostic::error(
+            e5::INVALID_CLI_USAGE as u32,
+            format!("`{}` does not accept `--sandbox` in early phases", command),
+        );
+        return emit_diagnostics_and_exit(command, vec![diagnostic], 5, output, None, None);
+    }
+
+    Ok(())
+}
+
+fn reject_install_context_flags(
+    api: Option<kali_cli::ApiSurface>,
+    sandbox: Option<PathBuf>,
+    output: &CliOutputOptions,
+) -> Result<(), i32> {
+    if api.is_some() || sandbox.is_some() {
+        let diagnostic = Diagnostic::error(
+            e5::INVALID_CLI_USAGE as u32,
+            "`install` does not accept `--api` or `--sandbox` in early phases; use the project manifest instead"
+                .to_string(),
+        );
+        return emit_diagnostics_and_exit("install", vec![diagnostic], 5, output, None, None);
+    }
+
+    Ok(())
+}
+
 fn install_command(
     target: Option<String>,
     dev: bool,
+    api: Option<kali_cli::ApiSurface>,
+    sandbox: Option<PathBuf>,
     allow_scripts: bool,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
+    reject_install_context_flags(api, sandbox, output)?;
     let cwd = match std::env::current_dir() {
         Ok(path) => path,
         Err(error) => {

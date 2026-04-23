@@ -137,6 +137,9 @@ Recommended substreams:
 - **F4d workflow commands** — `init`, `fmt`, `lint`
 - **F4e machine contracts** — diagnostics, JSON envelopes, schemas, snapshot coverage
 
+Current progress note:
+- sandbox-agnostic `init`, `fmt`, and `lint` plus profile-agnostic `install` now reject `--sandbox` / `--api` through the canonical `E5508` path instead of Clap's generic unexpected-argument failure, so the workflow-command packet stays aligned with the documented CLI contract
+
 **Shared coordination files**
 - `specs/12-cli.md`
 - `specs/15-errors.md`

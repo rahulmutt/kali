@@ -2623,6 +2623,28 @@ fn fmt_check_reports_drift_without_rewriting() {
 }
 
 #[test]
+fn fmt_rejects_sandbox_flag_with_usage_code() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("fmt")
+        .arg("--sandbox")
+        .arg("kali.policy.json")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept `--sandbox`"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn lint_fix_applies_structured_safe_fixes() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -2640,6 +2662,28 @@ fn lint_fix_applies_structured_safe_fixes() {
     assert!(contents.contains("let x = 1;"));
     assert!(contents.contains("==="));
     assert!(!contents.contains("debugger"));
+}
+
+#[test]
+fn lint_rejects_sandbox_flag_with_usage_code() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("lint")
+        .arg("--sandbox")
+        .arg("kali.policy.json")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept `--sandbox`"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -6104,6 +6148,28 @@ fn init_rejects_non_empty_directory_with_usage_code() {
 }
 
 #[test]
+fn init_rejects_sandbox_flag_with_usage_code() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("init")
+        .arg("--sandbox")
+        .arg("kali.policy.json")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept `--sandbox`"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn install_rejects_registry_path_collisions_before_materialization() {
     let dir = tempdir().expect("tempdir");
     fs::write(
@@ -6131,6 +6197,50 @@ fn install_rejects_registry_path_collisions_before_materialization() {
     assert!(stderr.contains("E6002"), "stderr: {stderr}");
     assert!(
         stderr.contains("would both materialize to node_modules/@scope/name"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn install_rejects_api_flag_with_usage_code() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("install")
+        .arg("--api")
+        .arg("browser")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept `--api` or `--sandbox`"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn install_rejects_sandbox_flag_with_usage_code() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("install")
+        .arg("--sandbox")
+        .arg("kali.policy.json")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept `--api` or `--sandbox`"),
         "stderr: {stderr}"
     );
 }

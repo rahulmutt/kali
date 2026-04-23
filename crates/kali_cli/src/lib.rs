@@ -305,6 +305,9 @@ pub enum Commands {
         /// Scaffold a library-oriented project template
         #[arg(long)]
         lib: bool,
+        /// Hidden sandbox selector rejected by the command handler with E5508
+        #[arg(long, hide = true)]
+        sandbox: Option<PathBuf>,
     },
     #[command(name = "install")]
     /// Install dependencies
@@ -314,6 +317,12 @@ pub enum Commands {
         /// Add the target to devDependencies
         #[arg(long)]
         dev: bool,
+        /// Select the effective API surface
+        #[arg(long, hide = true, value_enum)]
+        api: Option<ApiSurface>,
+        /// Hidden sandbox selector rejected by the command handler with E5508
+        #[arg(long, hide = true)]
+        sandbox: Option<PathBuf>,
         /// Allow npm lifecycle scripts during installation
         #[arg(long = "allow-scripts")]
         allow_scripts: bool,
@@ -324,6 +333,9 @@ pub enum Commands {
         /// Check formatting without writing files
         #[arg(long)]
         check: bool,
+        /// Hidden sandbox selector rejected by the command handler with E5508
+        #[arg(long, hide = true)]
+        sandbox: Option<PathBuf>,
         /// Source files to format
         files: Vec<String>,
     },
@@ -333,6 +345,9 @@ pub enum Commands {
         /// Automatically apply safe fixes
         #[arg(long)]
         fix: bool,
+        /// Hidden sandbox selector rejected by the command handler with E5508
+        #[arg(long, hide = true)]
+        sandbox: Option<PathBuf>,
         /// Source files to lint
         files: Vec<String>,
     },
