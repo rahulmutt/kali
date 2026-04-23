@@ -115,6 +115,16 @@ Bootstrap-normalization note:
 - those probes should assert the exact rung/context being claimed at the time: for example, a package may be installable/materializable before it is executable, or a bin may be checkable/buildable as package content before its published CLI is executable in the selected host/API surface
 - simplification rule: keep the corpus table phrased in support-ladder terms (`installable/materializable`, `checkable`, `buildable`, `executable`, `deployable-through-host`, or explicit rejection) so package evidence does not silently overclaim broader compatibility than the maturity matrix allows
 
+Minimum bootstrap probe table:
+
+| Bootstrap-named probe | Why it exists | Minimum evidence shape |
+|---|---|---|
+| `semver` | canonical early positive pure-JS package probe | assert the exact rung currently claimed (`installable/materializable`, then `checkable` / `buildable`, and only later `executable` when the host/API fit is truly supported) |
+| `@mariozechner/pi-coding-agent` package content | canonical breadth probe for a host-heavier real package | assert the honest current rung or rejection reason instead of treating it as an implied Phase-1 success |
+| `@mariozechner/pi-coding-agent` published bin entrypoint | canonical npm-binary-entrypoint probe from the bootstrap brief | record the exact bin name, invoked command/context, and expected outcome; this stays a separate probe from package install/materialization so the corpus does not blur “package present” into “published CLI executable” |
+
+This table is intentionally minimal: it keeps the bootstrap brief's named package expectations visible without turning them into broader compatibility promises than the maturity matrix and package-support ladder justify.
+
 ## Determinism requirements
 
 All machine-facing outputs used in support claims must be deterministic for pinned inputs, including:

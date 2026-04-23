@@ -40,6 +40,26 @@ Artifact-progression shorthand:
 - all three library-oriented selectors share one export-surface gate: if frontend lowering cannot determine one fixed host-callable export set, `--lib` / `--capi` / `--component` all fail on the same canonical `E5511` path instead of diverging into selector-specific fallback rules.
 - Because plain public `--lib` is the canonical stable default once Phase 2 lands, callers should choose `--component` only when they explicitly want Component Model packaging semantics.
 
+## Current repository-state snapshot
+
+This chapter is mostly phase-labeled contract prose, so keep one current-state shortcut here to avoid forcing readers to bounce between the historical Phase-1 minimum and the current repo state:
+
+| Surface | Earliest contract | Current repository state | Canonical availability owner |
+|---|---|---|---|
+| `kali build --lib` | Phase 1 **base library artifact**, promoted in Phase 2 to the stable public **WIT-first** library contract | live with the stable WIT sidecar/output contract described by the maturity matrix | [19 — Feature Maturity](19-feature-maturity.md) |
+| `kali build --capi` | Phase 2 target | live in the current repo | [19 — Feature Maturity](19-feature-maturity.md) |
+| `kali build --component` | Phase 2 target | live in the current repo | [19 — Feature Maturity](19-feature-maturity.md) |
+| Stable public Rust embedding API / host metadata flows | Phase 2 target | live for the documented public embedding surface; later ABI/platform widening still follows its own rows | [19 — Feature Maturity](19-feature-maturity.md), [18 — Schemas](18-schemas.md) |
+
+Reading rule:
+- use the phase-labeled sections below to understand the **minimum contract and artifact shape** each selector means
+- use the maturity matrix to answer whether that surface is currently supported for the exact command/context you care about
+- do not misread Phase-1 wording such as "no default WIT sidecar" as a claim about the current repository state after the Phase-2 rows have opened
+
+Bootstrap-alignment shortcut:
+- the bootstrap brief asks for embeddability, a C API, and WIT / Component Model integration
+- this chapter preserves that ask by phasing it into one exported-library contract: Phase 1 establishes the base `--lib` artifact, and the current repo has already opened the later stable public `--lib` + WIT, `--capi`, and `--component` flows documented by the maturity matrix
+
 ## Phase 1 — Base library artifact
 
 Phase 1 needs one export-oriented build path early so Kali is genuinely embeddable and library-first internally, but the spec should keep that early promise narrow.

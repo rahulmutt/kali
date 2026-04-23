@@ -29,8 +29,13 @@ kali check [files...]
 kali build <file>
 kali build --bundle <file>      # browser-targeted build lane
 kali build --lib <file>         # base library artifact for exact-version consumers
+kali build --capi <file>        # stable public C-ABI embedding flow
+kali build --component <file>   # Component Model packaging flow
 kali run <file> [-- args...]
 kali test [files...]
+kali effects <file>
+kali package-effects <package>
+kali package-audit <package>
 ```
 
 Helpful flags you will see often:
@@ -52,18 +57,18 @@ For the full CLI contract, arity, and flag behavior, see [`specs/12-cli.md`](./s
 | `fmt` | Format files or a discovered project |
 | `lint` | Run lint diagnostics and optional safe fixes |
 | `check` | Type-check and statically validate source |
-| `build` | Produce executable artifacts, browser bundles, or the Phase-1 base library artifact |
+| `build` | Produce executable artifacts, browser bundles, or library/embedding artifacts |
 | `run` | Compile and execute a source file |
 | `test` | Compile and run tests |
-| `effects` | Later Phase-2 effect-report command family |
-| `package-effects` | Later Phase-2 single-package effect-report command family |
-| `package-audit` | Later Phase-4 registry-analysis/audit command family |
+| `effects` | Report conservative effects for a source graph |
+| `package-effects` | Report conservative effects for one registry package |
+| `package-audit` | Run context-free registry analysis / audit for one package |
 
 ## Project status
 
 Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.
 
-Phase 1 is the main public surface; later documented commands such as `effects`, `package-effects`, and `package-audit` keep their shape documented without being implied as already shipped. See [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) for exact availability.
+Phase 1 remains the baseline public contract, and the current repository has also opened selected later-phase surfaces including `effects`, `package-effects`, `package-audit`, and the stable public embedding flows. See [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) for the exact command/context availability matrix and current-state notes.
 
 ## Documentation
 
