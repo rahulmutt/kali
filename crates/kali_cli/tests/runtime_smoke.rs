@@ -9145,6 +9145,61 @@ fn package_audit_command_sorts_multiple_findings_deterministically() {
 }
 
 #[test]
+fn package_audit_command_reports_findings_in_human_output() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body_with_multiple_findings());
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        !output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(1));
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("4 error(s), 1 warning(s)"),
+        "stdout: {stdout}"
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let gypfile = stderr
+        .find("declares gypfile=true")
+        .expect("gypfile finding should be reported");
+    let bin = stderr
+        .find("native addon bin entrypoint")
+        .expect("bin finding should be reported");
+    let entrypoint = stderr
+        .find("native addon entrypoint")
+        .expect("entrypoint finding should be reported");
+    let exports = stderr
+        .find("native addon exports target")
+        .expect("exports finding should be reported");
+    let lifecycle = stderr
+        .find("declares lifecycle scripts in postinstall")
+        .expect("lifecycle warning should be reported");
+
+    assert!(
+        gypfile < bin && bin < entrypoint && entrypoint < exports && exports < lifecycle,
+        "human-output findings should keep the deterministic severity/code/message order\nstderr: {stderr}"
+    );
+}
+
+#[test]
 fn package_audit_command_selects_latest_stable_version_over_prerelease() {
     let (registry_url, hits, stop, handle) = start_registry_metadata_server(
         package_audit_metadata_body_with_stable_and_prerelease_versions(),
