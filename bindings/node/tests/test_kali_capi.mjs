@@ -70,6 +70,7 @@ test('binding package manifests sort glue paths and auto-discover single manifes
       kind: 'binding-package',
       moduleName: 'sample',
       hostAbiVersion: HOST_ABI_VERSION,
+      maxSpecializations: 8,
       artifacts: {
         glue: ['z.js', 'a.js'],
         library: 'sample.capi.wasm',
@@ -104,6 +105,7 @@ test('binding package manifests sort glue paths and auto-discover single manifes
     moduleName: 'sample',
     hostAbiVersion: HOST_ABI_VERSION,
     minHostAbiVersion: HOST_ABI_VERSION,
+    maxSpecializations: 8,
     artifacts: {
       exportsHeader: 'sample.h',
       glue: ['a.js', 'z.js'],
@@ -129,6 +131,7 @@ test('binding package manifests reject ambiguous auto-discovery and honor explic
       kind: 'binding-package',
       moduleName: 'alpha',
       hostAbiVersion: HOST_ABI_VERSION,
+      maxSpecializations: 8,
       artifacts: {
         glue: ['alpha.js'],
         library: 'alpha.capi.wasm',
@@ -144,6 +147,7 @@ test('binding package manifests reject ambiguous auto-discovery and honor explic
       kind: 'binding-package',
       moduleName: 'beta',
       hostAbiVersion: HOST_ABI_VERSION,
+      maxSpecializations: 8,
       artifacts: {
         glue: ['beta.js'],
         library: 'beta.capi.wasm',
@@ -166,6 +170,7 @@ test('binding package manifests reject ambiguous auto-discovery and honor explic
     moduleName: 'alpha',
     hostAbiVersion: HOST_ABI_VERSION,
     minHostAbiVersion: HOST_ABI_VERSION,
+    maxSpecializations: 8,
     artifacts: {
       exportsHeader: 'alpha.h',
       glue: ['alpha.js'],
@@ -201,6 +206,7 @@ test('binding package helpers reject incompatible host ABI metadata', () => {
       moduleName: 'sample',
       hostAbiVersion: HOST_ABI_VERSION,
       minHostAbiVersion: HOST_ABI_VERSION + 1,
+      maxSpecializations: 8,
       artifacts: {
         glue: ['support.js'],
         library: 'sample.capi.wasm',
@@ -226,6 +232,7 @@ test('node binding helper module binds exports from headers and manifests', () =
       kind: 'binding-package',
       moduleName: 'sample',
       hostAbiVersion: HOST_ABI_VERSION,
+      maxSpecializations: 8,
       artifacts: {
         glue: ['support.js'],
         library: 'sample.capi.wasm',

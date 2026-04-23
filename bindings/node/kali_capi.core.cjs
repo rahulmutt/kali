@@ -134,6 +134,10 @@ function parseBindingPackageManifest(manifestText) {
     throw new Error("binding package field 'minHostAbiVersion' must be an integer");
   }
 
+  const maxSpecializations = Object.prototype.hasOwnProperty.call(payload, 'maxSpecializations')
+    ? requireInt(payload, 'maxSpecializations', 'binding package')
+    : undefined;
+
   if (payload.artifacts === null || typeof payload.artifacts !== 'object' || Array.isArray(payload.artifacts)) {
     throw new Error("binding package field 'artifacts' must be a JSON object");
   }
@@ -143,7 +147,7 @@ function parseBindingPackageManifest(manifestText) {
   const exportsHeader = requireStr(payload.artifacts, 'exportsHeader', 'binding package');
   const glue = requireStringList(payload.artifacts.glue, 'binding package', 'glue');
 
-  return Object.freeze({
+  const manifest = {
     schemaVersion,
     kind,
     moduleName,
@@ -155,7 +159,13 @@ function parseBindingPackageManifest(manifestText) {
       library,
       metadata,
     }),
-  });
+  };
+
+  if (maxSpecializations !== undefined) {
+    manifest.maxSpecializations = maxSpecializations;
+  }
+
+  return Object.freeze(manifest);
 }
 
 function loadMetadata(path) {

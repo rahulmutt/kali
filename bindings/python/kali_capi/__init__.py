@@ -72,6 +72,7 @@ class BindingPackageManifest:
     host_abi_version: int
     min_host_abi_version: int
     artifacts: dict[str, object]
+    max_specializations: int | None = None
 
 
 def _is_int(value: object) -> bool:
@@ -186,6 +187,10 @@ def parse_binding_package_manifest(metadata_text: str) -> BindingPackageManifest
     if not _is_int(min_host_abi_version):
         raise ValueError("binding package field 'minHostAbiVersion' must be an integer")
 
+    max_specializations = payload.get("maxSpecializations")
+    if max_specializations is not None and not _is_int(max_specializations):
+        raise ValueError("binding package field 'maxSpecializations' must be an integer")
+
     artifacts_payload = payload.get("artifacts")
     if not isinstance(artifacts_payload, Mapping):
         raise ValueError("binding package field 'artifacts' must be a JSON object")
@@ -213,6 +218,7 @@ def parse_binding_package_manifest(metadata_text: str) -> BindingPackageManifest
         module_name=module_name,
         host_abi_version=host_abi_version,
         min_host_abi_version=int(min_host_abi_version),
+        max_specializations=int(max_specializations) if max_specializations is not None else None,
         artifacts=dict(sorted(artifacts.items())),
     )
 

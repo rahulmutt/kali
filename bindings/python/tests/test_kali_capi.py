@@ -78,6 +78,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
                         "moduleName": "sample",
                         "hostAbiVersion": 2,
                         "minHostAbiVersion": 2,
+                        "maxSpecializations": 8,
                         "artifacts": {
                             "exportsHeader": "sample.h",
                             "glue": ["shim.py", "support.py"],
@@ -118,6 +119,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
                     module_name="sample",
                     host_abi_version=2,
                     min_host_abi_version=2,
+                    max_specializations=8,
                     artifacts={
                         "exportsHeader": "sample.h",
                         "glue": ("shim.py", "support.py"),
@@ -176,6 +178,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
                         "moduleName": "sample",
                         "hostAbiVersion": 2,
                         "minHostAbiVersion": 2,
+                        "maxSpecializations": 8,
                         "artifacts": {
                             "exportsHeader": "sample.h",
                             "glue": ["shim.py"],
@@ -189,6 +192,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
             (root / "sample.capi.wasm").write_bytes(b"")
 
             manifest = load_binding_package_manifest_from_root(root)
+            self.assertEqual(manifest.max_specializations, 8)
             self.assertEqual(manifest.artifacts["glue"], ("shim.py",))
 
             binding = KaliCAPI.from_binding_package(DummyLibrary(), root)
@@ -210,6 +214,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
                         "moduleName": "alpha",
                         "hostAbiVersion": 2,
                         "minHostAbiVersion": 2,
+                        "maxSpecializations": 8,
                         "artifacts": {
                             "exportsHeader": "alpha.h",
                             "glue": ["alpha.py"],
@@ -228,6 +233,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
                         "moduleName": "beta",
                         "hostAbiVersion": 2,
                         "minHostAbiVersion": 2,
+                        "maxSpecializations": 8,
                         "artifacts": {
                             "exportsHeader": "beta.h",
                             "glue": ["beta.py"],
@@ -256,6 +262,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
                     module_name="alpha",
                     host_abi_version=2,
                     min_host_abi_version=2,
+                    max_specializations=8,
                     artifacts={
                         "exportsHeader": "alpha.h",
                         "glue": ("alpha.py",),
@@ -300,6 +307,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
                         "moduleName": "sample",
                         "hostAbiVersion": 2,
                         "minHostAbiVersion": 2,
+                        "maxSpecializations": 8,
                         "artifacts": {
                             "exportsHeader": "sample.h",
                             "glue": ["shim.py"],
@@ -313,6 +321,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
             (root / "sample.capi.wasm").write_bytes(b"")
 
             manifest = load_binding_package_manifest(manifest_path)
+            self.assertEqual(manifest.max_specializations, 8)
             with self.assertRaises(ValueError):
                 ensure_compatible_binding_package_manifest(manifest, available_host_abi_version=3)
 

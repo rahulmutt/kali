@@ -113,6 +113,7 @@ fn binding_package_manifest_helpers_load_and_discover_manifests() {
     let loaded = load_binding_package_manifest(&discovered).expect("load explicit manifest");
     assert_eq!(loaded["kind"], "binding-package");
     assert_eq!(loaded["moduleName"], "sample");
+    assert_eq!(loaded["maxSpecializations"], 8);
     assert_eq!(
         loaded["artifacts"]["glue"],
         serde_json::json!(["shim.py", "support.py"])
