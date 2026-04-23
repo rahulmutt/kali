@@ -34,6 +34,7 @@ Recent hardening:
 - the global `--pretty` gate and the `package-audit --pretty` path now report the canonical `E5508` CLI-usage diagnostic, keeping the shared command-shape code aligned with `specs/15-errors.md`
 - the documented Node execution subset is now live for `run` / `test`, and the package-corpus smoke lane exercises representative Node-package runtime cases across explicit and inherited `apiSurface=node` paths while `check` / `build` / `effects` stay gated explicitly
 - `kali init` smoke coverage now includes the nested-child-project case under an ancestor manifest, so the documented subdirectory scaffold path is pinned as a real CLI demo instead of only as a spec claim
+- the optimization/PGO lane now also covers browser-bundle JSON builds with attached profile data, so the `build --profile` provenance path is no longer exercised only by the executable/library smoke case
 
 ### Priority A — finish the Phase-1 critical path
 
