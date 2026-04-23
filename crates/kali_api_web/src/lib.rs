@@ -1882,6 +1882,27 @@ impl SharedArrayBuffer {
             .map(|cell| cell.fetch_add(value, Ordering::SeqCst))
     }
 
+    /// Bitwise-and a byte at the provided offset with wrapping semantics.
+    pub fn and(&self, index: usize, value: u8) -> Option<u8> {
+        self.bytes
+            .get(index)
+            .map(|cell| cell.fetch_and(value, Ordering::SeqCst))
+    }
+
+    /// Bitwise-or a byte at the provided offset with wrapping semantics.
+    pub fn or(&self, index: usize, value: u8) -> Option<u8> {
+        self.bytes
+            .get(index)
+            .map(|cell| cell.fetch_or(value, Ordering::SeqCst))
+    }
+
+    /// Bitwise-xor a byte at the provided offset with wrapping semantics.
+    pub fn xor(&self, index: usize, value: u8) -> Option<u8> {
+        self.bytes
+            .get(index)
+            .map(|cell| cell.fetch_xor(value, Ordering::SeqCst))
+    }
+
     /// Subtract from a byte at the provided offset with wrapping arithmetic.
     pub fn sub(&self, index: usize, value: u8) -> Option<u8> {
         self.bytes
@@ -1945,6 +1966,21 @@ impl Atomics {
     /// Add to a byte in the provided shared buffer.
     pub fn add(buffer: &SharedArrayBuffer, index: usize, value: u8) -> Option<u8> {
         buffer.add(index, value)
+    }
+
+    /// Bitwise-and a byte in the provided shared buffer.
+    pub fn and(buffer: &SharedArrayBuffer, index: usize, value: u8) -> Option<u8> {
+        buffer.and(index, value)
+    }
+
+    /// Bitwise-or a byte in the provided shared buffer.
+    pub fn or(buffer: &SharedArrayBuffer, index: usize, value: u8) -> Option<u8> {
+        buffer.or(index, value)
+    }
+
+    /// Bitwise-xor a byte in the provided shared buffer.
+    pub fn xor(buffer: &SharedArrayBuffer, index: usize, value: u8) -> Option<u8> {
+        buffer.xor(index, value)
     }
 
     /// Subtract from a byte in the provided shared buffer.
