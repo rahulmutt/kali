@@ -815,26 +815,25 @@ impl DenoRuntimeProjection {
     }
 
     /// Host process identifier captured for the compatibility view.
-    #[allow(dead_code)]
-    pub(crate) fn pid(&self) -> u32 {
+    pub fn pid(&self) -> u32 {
         self.process_id
     }
 
     /// Record a termination code for the compatibility view.
-    #[allow(dead_code)]
-    pub(crate) fn exit(&mut self, exit_code: i32) {
+    pub fn exit(&mut self, exit_code: i32) {
         self.exit_code = Some(exit_code);
     }
 
     /// Return the recorded termination code, if any.
-    #[allow(dead_code)]
-    pub(crate) fn exit_code(&self) -> Option<i32> {
+    pub fn exit_code(&self) -> Option<i32> {
         self.exit_code
     }
 
     /// Update the working-directory view used by relative path resolution.
-    #[allow(dead_code)]
-    pub(crate) fn chdir(&mut self, cwd: impl Into<PathBuf>) {
+    ///
+    /// This stays a Rust-side compatibility helper; the language-visible
+    /// `Deno.chdir` member remains phase-gated by the type checker.
+    pub fn chdir(&mut self, cwd: impl Into<PathBuf>) {
         self.fs.chdir(cwd);
     }
 
