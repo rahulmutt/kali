@@ -8405,6 +8405,30 @@ fn package_audit_metadata_body_with_multiple_findings() -> &'static str {
     )
 }
 
+fn package_audit_metadata_body_with_lifecycle_scripts() -> &'static str {
+    Box::leak(
+        json!({
+            "versions": {
+                "1.0.0": {
+                    "name": "lodash",
+                    "version": "1.0.0",
+                    "scripts": {
+                        "preinstall": "echo prep",
+                        "install": "echo install",
+                        "postinstall": "echo done"
+                    },
+                    "dist": {
+                        "tarball": "http://127.0.0.1:0/lodash.tgz",
+                        "integrity": "sha512-demo"
+                    }
+                }
+            }
+        })
+        .to_string()
+        .into_boxed_str(),
+    )
+}
+
 fn package_audit_metadata_body_with_stable_and_prerelease_versions() -> &'static str {
     Box::leak(
         json!({
@@ -9040,6 +9064,46 @@ fn package_audit_command_reports_findings() {
         1
     );
     assert_eq!(json["warnings"][0]["code"], "W6006");
+}
+
+#[test]
+fn package_audit_command_reports_lifecycle_scripts_in_order() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body_with_lifecycle_scripts());
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--output")
+        .arg("json")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"], serde_json::Value::Null);
+    let warnings = json["warnings"].as_array().expect("warnings array");
+    assert_eq!(warnings.len(), 1);
+    let message = warnings[0]["message"].as_str().expect("warning message");
+    assert!(
+        message.contains("declares lifecycle scripts in preinstall, install, postinstall"),
+        "warning message should keep lifecycle phases in deterministic order: {message}"
+    );
 }
 
 #[test]
