@@ -201,6 +201,55 @@ fn incremental_cache_path_includes_runtime_profiles() {
 }
 
 #[test]
+fn incremental_cache_path_separates_build_modes() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log(1);").expect("write source");
+
+    let fast = incremental_cache_path(
+        &source_path,
+        BuildMode::Fast,
+        16,
+        ApiSurface::Deno,
+        &[],
+        None,
+        false,
+        false,
+    )
+    .expect("fast cache path")
+    .expect("fast cache path should exist");
+    let release = incremental_cache_path(
+        &source_path,
+        BuildMode::Release,
+        16,
+        ApiSurface::Deno,
+        &[],
+        None,
+        false,
+        false,
+    )
+    .expect("release cache path")
+    .expect("release cache path should exist");
+    let advanced = incremental_cache_path(
+        &source_path,
+        BuildMode::ReleaseAdvanced,
+        16,
+        ApiSurface::Deno,
+        &[],
+        None,
+        false,
+        false,
+    )
+    .expect("release-advanced cache path")
+    .expect("release-advanced cache path should exist");
+
+    assert_ne!(fast, release);
+    assert_ne!(fast, advanced);
+    assert_ne!(release, advanced);
+}
+
+#[test]
 fn load_profile_data_file_validates_version_and_normalizes_samples() {
     let dir = tempdir().expect("tempdir");
     let profile_path = dir.path().join("profile.json");
