@@ -6334,6 +6334,39 @@ fn effects_command_marks_proxy_revocable_calls_as_dynamic() {
 }
 
 #[test]
+fn effects_command_tracks_eval_compatibility_as_an_effect() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, r#"eval("1 + 2");"#).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--compat")
+        .arg("eval")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["dynamicEffects"], true);
+    assert_eq!(json["dynamicReasons"], json!(["eval"]));
+    let kinds = json["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Eval"), "effects: {kinds:?}");
+}
+
+#[test]
 fn effects_uses_explicit_browser_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -6633,6 +6666,65 @@ fn package_effects_command_emits_json_envelope() {
         .map(|entry| entry["kind"].as_str().expect("kind string"))
         .collect::<Vec<_>>();
     assert!(kinds.contains(&"Console.Write"));
+}
+
+#[test]
+fn package_effects_tracks_eval_compatibility_from_manifest() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/evalpkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "evalpkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        package_dir.join("index.js"),
+        "eval('1 + 2');\nconsole.log('package eval');\n",
+    )
+    .expect("write package entry");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compat": {
+    "features": ["eval"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("--output")
+        .arg("json")
+        .arg("evalpkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["package"]["name"], "evalpkg");
+    assert_eq!(json["payload"]["report"]["dynamicEffects"], true);
+    assert_eq!(json["payload"]["report"]["dynamicReasons"], json!(["eval"]));
+    let kinds = json["payload"]["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Eval"), "effects: {kinds:?}");
 }
 
 #[test]
