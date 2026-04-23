@@ -3021,8 +3021,12 @@ fn build_embeds_sandbox_policy_custom_section() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let built = fs::read(dir.path().join("main.wasm")).expect("read wasm artifact");
-    let policy_bytes = fs::read(&policy_path).expect("read policy bytes");
+    assert_embeds_policy_custom_section(&dir.path().join("main.wasm"), &policy_path);
+}
+
+fn assert_embeds_policy_custom_section(artifact_path: &Path, policy_path: &Path) {
+    let built = fs::read(artifact_path).expect("read wasm artifact");
+    let policy_bytes = fs::read(policy_path).expect("read policy bytes");
     let mut seen_policy = None;
     let mut seen_metadata = false;
     for payload in Parser::new(0).parse_all(&built) {
@@ -3044,6 +3048,42 @@ fn build_embeds_sandbox_policy_custom_section() {
         seen_metadata,
         "custom section 'kali:metadata' was not embedded"
     );
+}
+
+#[test]
+fn build_embeds_sandbox_policy_custom_section_for_library_artifact() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.ts");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, "function add(a, b) { return a + b; }").expect("write source");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--lib")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let wasm_path = dir.path().join("math.lib.wasm");
+    let meta_path = dir.path().join("math.lib.meta.json");
+    assert!(wasm_path.exists(), "missing {}", wasm_path.display());
+    assert!(meta_path.exists(), "missing {}", meta_path.display());
+
+    let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
+        .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "lib", 16);
+    assert_embeds_policy_custom_section(&wasm_path, &policy_path);
 }
 
 #[test]
@@ -3312,6 +3352,50 @@ fn build_emits_browser_bundle_artifacts() {
     assert_eq!(metadata["apiSurface"], "browser");
 
     assert_browser_bundle_executes(&bundle_dir, "greet");
+}
+
+#[test]
+fn build_embeds_sandbox_policy_custom_section_for_browser_bundle_artifact() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: greet\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let wasm_path = bundle_dir.join("app.wasm");
+    let meta_path = bundle_dir.join("app.meta.json");
+    assert!(wasm_path.exists(), "missing {}", wasm_path.display());
+    assert!(meta_path.exists(), "missing {}", meta_path.display());
+
+    let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
+        .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16);
+    assert_eq!(metadata["apiSurface"], "browser");
+    assert_embeds_policy_custom_section(&wasm_path, &policy_path);
 }
 
 #[test]
