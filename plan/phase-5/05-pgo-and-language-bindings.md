@@ -59,6 +59,7 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   stem-specific generated bundle, and the C-ABI smoke coverage now pins the manifest file alongside
   the generated header and metadata outputs.
 - The maintained Python and Node C-ABI metadata helpers now also project the optional provenance tuple into deterministic summary loaders, so callers can inspect the same `runtimeProfiles` / `maxSpecializations` / `hostContract` / `runtimeBackend` contract without reimplementing the JSON normalization rules.
+- The Rust binding-package manifest parser and summary helper now also validate the optional `hostContract` and `runtimeBackend` provenance fields, keeping malformed binding-package metadata from slipping past the same deterministic contract that the generators emit.
 - Added the first deterministic profile-data format to `kali_optimize`, including stable versioning,
   normalization, aggregation, and JSON round-trip coverage so the later PGO lane has one canonical
   collection shape to build on.

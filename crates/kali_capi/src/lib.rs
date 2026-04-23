@@ -562,6 +562,18 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
         }
     }
 
+    if let Some(host_contract) = manifest.get("hostContract") {
+        if !host_contract.is_string() {
+            return Err("binding package field 'hostContract' must be a string".to_string());
+        }
+    }
+
+    if let Some(runtime_backend) = manifest.get("runtimeBackend") {
+        if !runtime_backend.is_string() {
+            return Err("binding package field 'runtimeBackend' must be a string".to_string());
+        }
+    }
+
     if let Some(artifacts) = manifest.get_mut("artifacts").and_then(Value::as_object_mut) {
         let glue = artifacts
             .get("glue")
@@ -696,14 +708,30 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
         }
         None => Value::Array(Vec::new()),
     };
-    let host_contract = manifest
-        .get("hostContract")
-        .cloned()
-        .unwrap_or_else(|| Value::String("kali-hosted".to_string()));
-    let runtime_backend = manifest
-        .get("runtimeBackend")
-        .cloned()
-        .unwrap_or_else(|| Value::String("wasmtime".to_string()));
+    let host_contract = match manifest.get("hostContract") {
+        Some(host_contract) => {
+            if !host_contract.is_string() {
+                return Err(
+                    "binding package manifest summary field 'hostContract' must be a string"
+                        .to_string(),
+                );
+            }
+            host_contract.clone()
+        }
+        None => Value::String("kali-hosted".to_string()),
+    };
+    let runtime_backend = match manifest.get("runtimeBackend") {
+        Some(runtime_backend) => {
+            if !runtime_backend.is_string() {
+                return Err(
+                    "binding package manifest summary field 'runtimeBackend' must be a string"
+                        .to_string(),
+                );
+            }
+            runtime_backend.clone()
+        }
+        None => Value::String("wasmtime".to_string()),
+    };
 
     let mut summary = serde_json::Map::new();
     summary.insert("moduleName".to_string(), module_name);

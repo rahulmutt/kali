@@ -488,6 +488,59 @@ fn binding_package_manifest_parsing_rejects_non_integer_max_specializations() {
 }
 
 #[test]
+fn binding_package_manifest_parsing_rejects_non_string_provenance_fields() {
+    for (field, value) in [("hostContract", "1"), ("runtimeBackend", "true")] {
+        let error = parse_binding_package_manifest(&format!(
+            r#"{{
+                "schemaVersion": 1,
+                "kind": "binding-package",
+                "moduleName": "sample",
+                "hostAbiVersion": 2,
+                "{}": {},
+                "artifacts": {{
+                    "library": "sample.capi.wasm",
+                    "metadata": "sample.cabi.json",
+                    "exportsHeader": "sample.h",
+                    "glue": []
+                }}
+            }}"#,
+            field, value
+        ))
+        .expect_err("invalid provenance field should fail");
+
+        assert!(error.contains(field), "unexpected error: {error}");
+    }
+}
+
+#[test]
+fn binding_package_manifest_summary_rejects_non_string_provenance_fields() {
+    for (field, value) in [
+        ("hostContract", serde_json::json!(1)),
+        ("runtimeBackend", serde_json::json!(false)),
+    ] {
+        let manifest = serde_json::json!({
+            "schemaVersion": 1,
+            "kind": "binding-package",
+            "moduleName": "sample",
+            "hostAbiVersion": HOST_ABI_VERSION,
+            "minHostAbiVersion": HOST_ABI_VERSION,
+            (field): value,
+            "artifacts": {
+                "exportsHeader": "sample.h",
+                "glue": [],
+                "library": "sample.capi.wasm",
+                "metadata": "sample.cabi.json"
+            }
+        });
+
+        let error = binding_package_manifest_summary(&manifest)
+            .expect_err("invalid provenance field should fail");
+
+        assert!(error.contains(field), "unexpected error: {error}");
+    }
+}
+
+#[test]
 fn binding_package_manifest_helpers_reject_ambiguous_auto_discovery() {
     let temp_root = std::env::temp_dir().join(format!(
         "kali_capi_binding_manifest_{}_ambiguous_{}",
