@@ -13,18 +13,21 @@
 - ✅ HIR → MIR lowering that preserves program shape and node ordering
 - ✅ MIR → LIR lowering that preserves root shape for codegen handoff
 - ✅ Node types for High-level IR, Mid-level IR, and Low-level IR
+- ✅ Current AST-shell lowering entrypoint coverage keeps the `lower_program_from_ast` API shape exercised against the statement source-of-truth path
+- ✅ LIR lowering now has child-order/text-payload coverage for representative program shapes, not just root preservation
 
 ### Test Coverage
 
-**Passing **(4)
+**Passing** (6)
 - test_hir_builder
 - test_lower_statements_to_hir
+- test_lower_program_from_ast_matches_statement_lowering_for_empty_ast_shell
 - test_mir_lowering_preserves_program_shape
 - test_lir_lowering_preserves_root
+- test_lir_lowering_preserves_child_order_and_text_payloads
 
 **Missing HIR Coverage**:
 - Type-checked AST → HIR lowering
-- HIR → LIR lowering
 - LIR pretty-printer
 - Module linking
 
@@ -34,7 +37,7 @@
 
 - ✅ `cargo build` succeeds
 - ✅ `cargo test --workspace` passes
-- ✅ 4 targeted lowering tests pass across the HIR/MIR/LIR crates
+- ✅ 6 targeted lowering tests pass across the HIR/MIR/LIR crates
 
 ---
 
