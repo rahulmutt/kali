@@ -255,9 +255,12 @@ fn main() {
             api,
             compat,
             wasm_threads,
+            sandbox,
             files,
         } => {
-            if let Err(exit_code) = effects_command(api, files, compat, wasm_threads, &output) {
+            if let Err(exit_code) =
+                effects_command(api, files, compat, wasm_threads, sandbox, &output)
+            {
                 std::process::exit(exit_code);
             }
         }
@@ -3315,8 +3318,18 @@ fn effects_command(
     files: Vec<String>,
     compat: Vec<String>,
     wasm_threads: bool,
+    sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
+    if sandbox.is_some() {
+        let diagnostic = Diagnostic::error(
+            e5::INVALID_CLI_USAGE as u32,
+            "`effects` does not accept `--sandbox`; use `check` or `build --sandbox` for policy validation"
+                .to_string(),
+        );
+        return emit_diagnostics_and_exit("effects", vec![diagnostic], 5, output, None, None);
+    }
+
     let Some(source) = single_or_error(files, "effects", output)? else {
         return Err(1);
     };

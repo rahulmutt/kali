@@ -26,6 +26,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 
 - Added phase-gated placeholders for later surfaces (`effects`, `package-effects`, `package-audit`, `build --capi`, `build --component`, and `run`/`test` API-surface selection) so the evidence suite can assert unavailability with the canonical `E5506` path instead of plain unknown-command parsing.
 - Added dedicated node-API-surface rejection coverage for the Phase-1 command surface so the package-corpus and runtime smoke lanes now pin the Node availability gate across both explicit and inherited contexts instead of leaving those expectations only in the CLI parser tests.
+- Added a CLI-shape regression for `effects --sandbox` so the reporting-only effects lane now rejects the sandbox flag with the canonical CLI-usage diagnostic instead of falling through to Clap's generic unknown-argument path.
 - Added explicit `--api node` coverage for `effects` plus inherited Node-context coverage for `package-effects`, keeping the Phase-3 analysis context pinned in the evidence suite alongside the existing browser and threaded-profile gating regressions.
 - Added runtime smoke coverage for those Phase-2+ gating paths alongside the existing Phase-1 JSON-envelope and artifact coverage.
 - Added deterministic repeated-build smoke coverage for executable, base-library, and browser-bundle artifact outputs so the evidence suite now checks byte-for-byte stability across identical inputs.

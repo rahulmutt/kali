@@ -348,6 +348,9 @@ pub enum Commands {
         /// Opt into the later threaded runtime profile
         #[arg(long = "wasm-threads", action = ArgAction::SetTrue)]
         wasm_threads: bool,
+        /// Hidden sandbox selector rejected by the command handler with E5508
+        #[arg(long, hide = true)]
+        sandbox: Option<PathBuf>,
         /// Source files to analyze
         files: Vec<String>,
     },
