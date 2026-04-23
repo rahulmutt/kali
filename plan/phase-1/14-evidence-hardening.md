@@ -42,6 +42,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Refined codegen fallback guidance so unresolved imported bindings/call targets keep an explicit placeholder-fallback note, now with source-path context when available, instead of leaving that behavior implicit, and kept regression coverage on the warning path.
 - Added a zod package-corpus regression so another widely used pure JS/TS package now exercises the default standalone check/build/run lane with deterministic output.
 - Added a Node-path semver package-bin smoke that exercises `require('../package.json').version` and guest-argument counting on the documented Node subset, so the semver probe now covers both the package-json loading slice and the argument passthrough slice directly.
+- Added a node-assuming package-corpus rejection regression so default standalone package imports that pull in Node-only host APIs now fail with the canonical `E6005` diagnostic instead of silently lowering through the compatibility path.
 - Added negative `kali build --lib` coverage for sources without a statically known export surface so the Phase-1 base-library evidence lane keeps enforcing `E5011`.
 - Added explicit browser-library contradiction coverage for both human and JSON build output so `kali build --lib --api browser` stays pinned to the canonical `E5008` shape error.
 - Added sandbox artifact coverage that now asserts the embedded `kali:policy` custom section matches the source policy bytes exactly, not just the presence of the section.

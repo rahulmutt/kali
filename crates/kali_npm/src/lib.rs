@@ -2214,7 +2214,7 @@ fn should_skip_package_scan_dir(path: &Path) -> bool {
     )
 }
 
-fn source_mentions_node_only_host_api(contents: &str) -> Option<&'static str> {
+pub fn source_mentions_node_only_host_api(contents: &str) -> Option<&'static str> {
     for builtin in NODE_ONLY_HOST_APIS {
         let patterns = [
             format!("node:{}", builtin),

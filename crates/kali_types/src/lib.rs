@@ -18,8 +18,13 @@ use kali_ast::{
     TryStatement, TypeAliasDeclaration, TypeAssertion, VariableDeclaration, WhileStatement,
     WithStatement,
 };
-use kali_error::{_error_codes::e3, _error_codes::e4, _error_codes::e5, diagnostic::Diagnostic};
-use std::path::{Path, PathBuf};
+use kali_error::{
+    _error_codes::e3, _error_codes::e4, _error_codes::e5, _error_codes::e6, diagnostic::Diagnostic,
+};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 /// Scope types recognized by the stage-1 resolver.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -634,19 +639,23 @@ impl TypeContext {
         self.resolve_expression(&expr.source);
 
         if let Some(source) = self.resolve_static_import_source(&expr.source) {
-            if !self.resolve_import_source(&source) {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        e4::DYNAMIC_IMPORT_NOT_IN_LINKED_GRAPH as u32,
-                        format!(
-                            "dynamic import target '{}' could not be resolved in the linked graph",
-                            source
+            match self.resolve_import_source(&source) {
+                Ok(true) => {}
+                Ok(false) => {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            e4::DYNAMIC_IMPORT_NOT_IN_LINKED_GRAPH as u32,
+                            format!(
+                                "dynamic import target '{}' could not be resolved in the linked graph",
+                                source
+                            ),
+                        )
+                        .with_suggestion(
+                            "use a statically known import specifier or link the module in the build graph",
                         ),
-                    )
-                    .with_suggestion(
-                        "use a statically known import specifier or link the module in the build graph",
-                    ),
-                );
+                    );
+                }
+                Err(diagnostic) => self.diagnostics.push(diagnostic),
             }
         }
     }
@@ -938,18 +947,25 @@ impl TypeContext {
     }
 
     fn resolve_import_declaration(&mut self, declaration: &ImportDeclaration) {
-        if !self.resolve_import_source(&declaration.source) {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    e3::IMPORT_NOT_FOUND as u32,
-                    format!(
-                        "import source '{}' could not be resolved",
-                        declaration.source
-                    ),
-                )
-                .with_suggestion("check the relative path or package specifier"),
-            );
-            return;
+        match self.resolve_import_source(&declaration.source) {
+            Ok(true) => {}
+            Ok(false) => {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        e3::IMPORT_NOT_FOUND as u32,
+                        format!(
+                            "import source '{}' could not be resolved",
+                            declaration.source
+                        ),
+                    )
+                    .with_suggestion("check the relative path or package specifier"),
+                );
+                return;
+            }
+            Err(diagnostic) => {
+                self.diagnostics.push(diagnostic);
+                return;
+            }
         }
 
         for specifier in &declaration.specifiers {
@@ -972,14 +988,20 @@ impl TypeContext {
 
     fn resolve_export_named(&mut self, declaration: &kali_ast::ExportNamedDeclaration) {
         if let Some(source) = &declaration.source {
-            if !self.resolve_import_source(source) {
-                self.diagnostics.push(
-                    Diagnostic::error(
-                        e3::IMPORT_NOT_FOUND as u32,
-                        format!("re-export source '{}' could not be resolved", source),
-                    )
-                    .with_suggestion("check the relative path or package specifier"),
-                );
+            match self.resolve_import_source(source) {
+                Ok(true) => {}
+                Ok(false) => {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            e3::IMPORT_NOT_FOUND as u32,
+                            format!("re-export source '{}' could not be resolved", source),
+                        )
+                        .with_suggestion("check the relative path or package specifier"),
+                    );
+                }
+                Err(diagnostic) => {
+                    self.diagnostics.push(diagnostic);
+                }
             }
             return;
         }
@@ -1131,9 +1153,9 @@ impl TypeContext {
         }
     }
 
-    fn resolve_import_source(&self, source: &str) -> bool {
+    fn resolve_import_source(&self, source: &str) -> Result<bool, Diagnostic> {
         if self.api_surface == "node" && is_node_builtin_specifier(source) {
-            return true;
+            return Ok(true);
         }
 
         let base_dir = self
@@ -1147,7 +1169,7 @@ impl TypeContext {
 
         let candidate = base_dir.join(source);
         if candidate.exists() {
-            return true;
+            return Ok(true);
         }
 
         let extensions = [
@@ -1161,15 +1183,33 @@ impl TypeContext {
             };
             candidate.exists()
         }) {
-            return true;
+            return Ok(true);
         }
 
-        kali_npm::resolve_materialized_import_with_browser_context(
+        let Some(resolved) = kali_npm::resolve_materialized_import_with_browser_context(
             project_root,
             source,
             self.api_surface == "browser",
-        )
-        .is_some()
+        ) else {
+            return Ok(false);
+        };
+
+        if self.api_surface != "node" {
+            if let Ok(contents) = fs::read_to_string(&resolved) {
+                if let Some(builtin) = kali_npm::source_mentions_node_only_host_api(&contents) {
+                    return Err(Diagnostic::error(
+                        e6::NODE_ONLY_HOST_APIS as u32,
+                        format!(
+                            "package uses Node-only host API '{}' in '{}' and falls outside the default standalone context; use the Phase-3 Node compatibility target",
+                            builtin,
+                            resolved.display()
+                        ),
+                    ));
+                }
+            }
+        }
+
+        Ok(true)
     }
 }
 

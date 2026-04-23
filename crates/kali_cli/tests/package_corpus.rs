@@ -2100,6 +2100,58 @@ fn node_runner_corpus_semver_style_package_bin_remains_executable_on_the_node_su
 }
 
 #[test]
+fn node_assuming_corpus_packages_are_rejected_on_the_default_standalone_surface() {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), None);
+    write_node_assuming_package(
+        dir.path(),
+        "chalk",
+        r#"import { createHash } from "node:crypto";
+export default function chalk() {
+    createHash("sha256").update("chalk").digest("hex");
+    return "chalk";
+}
+"#,
+    );
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"import chalk from 'chalk';
+console.log(chalk());
+"#,
+    )
+    .expect("write node package source");
+
+    let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+    assert!(
+        !check.status.success(),
+        "node-assuming package should be rejected on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let check_stderr = String::from_utf8_lossy(&check.stderr);
+    assert!(check_stderr.contains("E6005"), "stderr: {check_stderr}");
+    assert!(
+        check_stderr.contains("Node-only host API"),
+        "stderr: {check_stderr}"
+    );
+
+    let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+    assert!(
+        !run.status.success(),
+        "node-assuming package should stay rejected at runtime on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    let run_stderr = String::from_utf8_lossy(&run.stderr);
+    assert!(run_stderr.contains("E6005"), "stderr: {run_stderr}");
+    assert!(
+        run_stderr.contains("Node-only host API"),
+        "stderr: {run_stderr}"
+    );
+}
+
+#[test]
 fn utility_corpus_packages_with_pattern_exports_remain_executable_on_the_default_standalone_surface(
 ) {
     for (package, subpath) in [
