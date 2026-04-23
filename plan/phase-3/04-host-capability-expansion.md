@@ -31,9 +31,9 @@ Kali's host/runtime contract, not the `--api node` package-compatibility lane.
 - `kali_api_deno` now covers the broader Phase-3 filesystem surface with deterministic `open`,
   `create`, `rename`, and `lstat` helpers on top of the existing read/write/stat/remove/mkdir
   support.
-- `Deno.env` now supports deterministic in-memory mutation through `set(...)` plus mutable
-  projection access on `DenoRuntimeProjection`, so the Phase-3 environment-mutation lane has a
-  concrete compatibility helper to build on.
+- `Deno.env` now supports deterministic in-memory mutation through `set(...)` and `remove(...)`
+  plus mutable projection access on `DenoRuntimeProjection`, so the Phase-3 environment-mutation
+  lane has a concrete compatibility helper to build on.
 - The Deno compatibility tests now exercise file creation, handle reads/writes, renames, and
   `stat`/`lstat` metadata round-trips so the broader filesystem contract stays regression-tested.
 - Added a deterministic `Deno.Command` helper in `kali_api_deno` with captured stdout/stderr

@@ -52,6 +52,11 @@ impl DenoEnv {
         self.values.insert(key.into(), value.into())
     }
 
+    /// Remove an environment variable from the captured view.
+    pub fn remove(&mut self, key: &str) -> Option<String> {
+        self.values.remove(key)
+    }
+
     /// Return a deterministic snapshot of the visible environment.
     pub fn to_object(&self) -> BTreeMap<String, String> {
         self.values.clone()

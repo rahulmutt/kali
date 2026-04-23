@@ -24,6 +24,10 @@ fn process_context_tracks_env_and_output() {
     assert_eq!(process.pid(), std::process::id());
     assert_eq!(process.env_get("HOME"), Some("/tmp/home"));
     assert_eq!(process.env_get("MISSING"), None);
+    assert_eq!(process.env_set("EDITOR", "nano"), None);
+    assert_eq!(process.env_remove("HOME"), Some(String::from("/tmp/home")));
+    assert_eq!(process.env_get("HOME"), None);
+    assert_eq!(process.env_get("EDITOR"), Some("nano"));
 
     process.write_stdout("hello");
     process.write_stderr("oops");

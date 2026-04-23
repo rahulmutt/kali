@@ -101,6 +101,11 @@ impl NodeProcess {
         self.env.insert(key.into(), value.into())
     }
 
+    /// Remove an environment variable from the process view.
+    pub fn env_remove(&mut self, key: &str) -> Option<String> {
+        self.env.remove(key)
+    }
+
     /// Return the captured environment view.
     pub fn env(&self) -> &BTreeMap<String, String> {
         &self.env
