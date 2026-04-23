@@ -8375,6 +8375,81 @@ fn effects_uses_inherited_browser_api_surface() {
 }
 
 #[test]
+fn effects_command_is_deterministic_across_repeated_pretty_json_envelope_invocations_under_quiet_inherited_browser_context(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log('hello');\nfetch('https://example.com');",
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let run = || {
+        Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("effects")
+            .arg("--quiet")
+            .arg("--pretty")
+            .arg("--output")
+            .arg("json")
+            .arg(&source_path)
+            .output()
+            .expect("run kali")
+    };
+
+    let first = run();
+    let second = run();
+
+    assert!(
+        first.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    assert!(
+        second.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    assert_eq!(
+        first.stdout, second.stdout,
+        "stdout should be deterministic across repeated invocations"
+    );
+    assert_eq!(
+        first.stderr, second.stderr,
+        "stderr should be deterministic across repeated invocations"
+    );
+    assert!(
+        String::from_utf8_lossy(&first.stdout).contains("\n  \"schemaVersion\""),
+        "stdout: {}",
+        String::from_utf8_lossy(&first.stdout)
+    );
+
+    let json = parse_json_stdout(&first);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["schemaVersion"], 1);
+    assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "browser");
+    assert_eq!(json["payload"]["dynamicEffects"], false);
+    assert_eq!(json["payload"]["dynamicReasons"], json!([]));
+    assert_eq!(
+        json["payload"]["entryPoints"],
+        json!([source_path.display().to_string()])
+    );
+}
+
+#[test]
 fn effects_rejects_explicit_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
