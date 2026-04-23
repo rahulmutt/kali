@@ -919,6 +919,30 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_unparseable
 }
 
 #[test]
+fn browser_runtime_summary_prefers_the_last_json_line_from_stdout() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let summary_path = tempdir.path().join("browser-runtime-summary.json");
+    fs::write(&summary_path, "still-not-json").expect("write malformed summary file");
+    let outcome = BrowserHarnessOutcome {
+        command: vec!["node".to_string()],
+        status: browser_exit_status(0),
+        stdout: [
+            "guest log line\n",
+            r#"{"args":["ignored"],"tests":["1"],"testsFailed":9}"#,
+            "\ntrailing non-json noise\n",
+            r#"{"args":["zeta"],"tests":["7"],"testsFailed":0}"#,
+        ]
+        .concat(),
+        stderr: String::new(),
+    };
+
+    let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
+    assert_eq!(summary.args, vec!["zeta".to_string()]);
+    assert_eq!(summary.tests, vec!["7".to_string()]);
+    assert_eq!(summary.tests_failed, 0);
+}
+
+#[test]
 fn browser_bundle_runtime_execute_checked_loads_bundle_exports_and_parses_summary() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let bundle_root = tempdir.path().join("browser-app");
