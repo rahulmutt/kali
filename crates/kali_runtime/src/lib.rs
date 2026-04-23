@@ -2616,7 +2616,7 @@ if (runRegisteredTests) {{
 }}
 let summaryEmissionError = null;
 try {{
-  await emitBrowserRuntimeSummary({{ args: runtimeArgs, tests: collectedTests, testsFailed: registeredTestFailures }});
+  await emitBrowserRuntimeSummary({{ args: runtimeArgs, hostContract: "browser-requested", runtimeBackend: "browser-harness", tests: collectedTests, testsFailed: registeredTestFailures }});
 }} catch (error) {{
   summaryEmissionError = error;
 }}
@@ -2747,7 +2747,9 @@ pub fn browser_bundle_runtime_execute_checked(
         status: outcome.status,
         stdout: outcome.stdout,
         stderr: outcome.stderr,
-        host_contract: RuntimeHostContract::BrowserRequested,
+        host_contract: summary
+            .host_contract
+            .unwrap_or(RuntimeHostContract::BrowserRequested),
         reported_args: summary.args,
         registered_tests: summary.tests,
         tests_failed: summary.tests_failed,
@@ -2861,7 +2863,7 @@ if (runRegisteredTests) {{
 }}
 let summaryEmissionError = null;
 try {{
-  await emitBrowserRuntimeSummary({{ args: runtimeArgs, tests: collectedTests, testsFailed: registeredTestFailures }});
+  await emitBrowserRuntimeSummary({{ args: runtimeArgs, hostContract: "browser-requested", runtimeBackend: "browser-harness", tests: collectedTests, testsFailed: registeredTestFailures }});
 }} catch (error) {{
   summaryEmissionError = error;
 }}
@@ -2948,6 +2950,24 @@ struct BrowserRuntimeSummary {
     args: Vec<String>,
     tests: Vec<String>,
     tests_failed: usize,
+    host_contract: Option<RuntimeHostContract>,
+    runtime_backend: Option<RuntimeBackend>,
+}
+
+fn parse_runtime_host_contract_label(label: &str) -> Option<RuntimeHostContract> {
+    match label {
+        "kali-hosted" => Some(RuntimeHostContract::KaliHosted),
+        "browser-requested" => Some(RuntimeHostContract::BrowserRequested),
+        _ => None,
+    }
+}
+
+fn parse_runtime_backend_label(label: &str) -> Option<RuntimeBackend> {
+    match label {
+        "wasmtime" => Some(RuntimeBackend::Wasmtime),
+        "browser-harness" => Some(RuntimeBackend::BrowserHarness),
+        _ => None,
+    }
 }
 
 fn parse_browser_runtime_summary(stdout: &str) -> BrowserRuntimeSummary {
@@ -2977,6 +2997,14 @@ fn parse_browser_runtime_summary_opt(stdout: &str) -> Option<BrowserRuntimeSumma
                 .get("testsFailed")
                 .and_then(|value| value.as_u64())
                 .unwrap_or(0) as usize,
+            host_contract: value
+                .get("hostContract")
+                .and_then(|value| value.as_str())
+                .and_then(parse_runtime_host_contract_label),
+            runtime_backend: value
+                .get("runtimeBackend")
+                .and_then(|value| value.as_str())
+                .and_then(parse_runtime_backend_label),
         })
     })
 }
@@ -3040,7 +3068,9 @@ pub fn browser_runtime_execute_checked(
         status: outcome.status,
         stdout: outcome.stdout,
         stderr: outcome.stderr,
-        host_contract: RuntimeHostContract::BrowserRequested,
+        host_contract: summary
+            .host_contract
+            .unwrap_or(RuntimeHostContract::BrowserRequested),
         reported_args: summary.args,
         registered_tests: summary.tests,
         tests_failed: summary.tests_failed,

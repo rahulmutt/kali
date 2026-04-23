@@ -920,6 +920,16 @@ fn browser_runtime_harness_summary_file_capture_is_deterministic() {
         "summary: {}",
         summary
     );
+    assert!(
+        summary.contains("\"hostContract\":\"browser-requested\""),
+        "summary: {}",
+        summary
+    );
+    assert!(
+        summary.contains("\"runtimeBackend\":\"browser-harness\""),
+        "summary: {}",
+        summary
+    );
 }
 
 #[test]
@@ -938,6 +948,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_unparseable
     assert_eq!(summary.args, vec!["zeta".to_string()]);
     assert_eq!(summary.tests, vec!["7".to_string()]);
     assert_eq!(summary.tests_failed, 0);
+    assert_eq!(summary.host_contract, None);
+    assert_eq!(summary.runtime_backend, None);
 }
 
 #[test]
@@ -950,9 +962,9 @@ fn browser_runtime_summary_prefers_the_last_json_line_from_stdout() {
         status: browser_exit_status(0),
         stdout: [
             "guest log line\n",
-            r#"{"args":["ignored"],"tests":["1"],"testsFailed":9}"#,
+            r#"{"args":["ignored"],"tests":["1"],"testsFailed":9,"hostContract":"kali-hosted","runtimeBackend":"wasmtime"}"#,
             "\ntrailing non-json noise\n",
-            r#"{"args":["zeta"],"tests":["7"],"testsFailed":0}"#,
+            r#"{"args":["zeta"],"tests":["7"],"testsFailed":0,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
         ]
         .concat(),
         stderr: String::new(),
@@ -962,6 +974,14 @@ fn browser_runtime_summary_prefers_the_last_json_line_from_stdout() {
     assert_eq!(summary.args, vec!["zeta".to_string()]);
     assert_eq!(summary.tests, vec!["7".to_string()]);
     assert_eq!(summary.tests_failed, 0);
+    assert_eq!(
+        summary.host_contract,
+        Some(RuntimeHostContract::BrowserRequested)
+    );
+    assert_eq!(
+        summary.runtime_backend,
+        Some(RuntimeBackend::BrowserHarness)
+    );
 }
 
 #[test]
