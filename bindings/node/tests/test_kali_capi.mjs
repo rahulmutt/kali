@@ -13,13 +13,19 @@ import {
   bindingPackageManifestSummary,
   cabiMetadataSummary,
   discoverBindingPackageManifestPath,
+  discoverMetadataPath,
+  discoverMetadataPathWithName,
   ensureCompatibleBindingPackageManifest,
   ensureCompatibleMetadata,
   loadBindingPackageManifestFromRoot,
   loadBindingPackageManifestSummary,
   loadBindingPackageManifestSummaryFromRoot,
   loadMetadata,
+  loadMetadataFromRoot,
+  loadMetadataFromRootWithName,
   loadMetadataSummary,
+  loadMetadataSummaryFromRoot,
+  loadMetadataSummaryFromRootWithName,
   parseBindingPackageManifest,
   parseExports,
   parseMetadata,
@@ -84,6 +90,72 @@ test('parses generated exports and cabi metadata deterministically', () => {
       wit: 'sample.wit',
     },
   });
+});
+
+test('cabi metadata helpers sort sidecars and auto-discover single manifests', () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), 'kali-capi-node-meta-'));
+  const metadataPath = join(tempRoot, 'sample.capi.meta.json');
+
+  writeFileSync(
+    metadataPath,
+    JSON.stringify({
+      schemaVersion: 1,
+      kind: 'cabi-metadata',
+      hostAbiVersion: HOST_ABI_VERSION,
+      maxSpecializations: 8,
+      runtimeProfiles: ['wasm-threads', 'fiber-threads', 'wasm-threads'],
+      hostContract: 'kali-hosted',
+      runtimeBackend: 'wasmtime',
+      artifacts: {
+        exportsHeader: 'sample.h',
+        metadata: 'sample.cabi.json',
+        wasmModule: 'sample.capi.wasm',
+        wit: 'sample.wit',
+      },
+    }),
+  );
+  writeFileSync(join(tempRoot, 'noise.txt'), 'ignore me');
+
+  assert.equal(discoverMetadataPath(tempRoot), metadataPath);
+  assert.equal(discoverMetadataPathWithName(tempRoot, 'sample.capi.meta.json'), metadataPath);
+
+  const loaded = loadMetadataFromRoot(tempRoot);
+  const summary = loadMetadataSummaryFromRoot(tempRoot);
+
+  assert.deepEqual(loaded, {
+    schemaVersion: 1,
+    kind: 'cabi-metadata',
+    hostAbiVersion: HOST_ABI_VERSION,
+    minHostAbiVersion: HOST_ABI_VERSION,
+    maxSpecializations: 8,
+    runtimeProfiles: ['fiber-threads', 'wasm-threads'],
+    hostContract: 'kali-hosted',
+    runtimeBackend: 'wasmtime',
+    artifacts: {
+      exportsHeader: 'sample.h',
+      wasmModule: 'sample.capi.wasm',
+      wit: 'sample.wit',
+    },
+  });
+  assert.deepEqual(loadMetadataFromRootWithName(tempRoot, 'sample.capi.meta.json'), loaded);
+  assert.deepEqual(summary, {
+    schemaVersion: 1,
+    kind: 'cabi-metadata',
+    hostAbiVersion: HOST_ABI_VERSION,
+    minHostAbiVersion: HOST_ABI_VERSION,
+    maxSpecializations: 8,
+    runtimeProfiles: ['fiber-threads', 'wasm-threads'],
+    hostContract: 'kali-hosted',
+    runtimeBackend: 'wasmtime',
+    artifacts: {
+      exportsHeader: 'sample.h',
+      wasmModule: 'sample.capi.wasm',
+      wit: 'sample.wit',
+    },
+  });
+  assert.deepEqual(loadMetadataSummaryFromRootWithName(tempRoot, 'sample.capi.meta.json'), summary);
+
+  rmSync(tempRoot, { recursive: true, force: true });
 });
 
 test('binding package manifests sort glue paths and auto-discover single manifests', () => {

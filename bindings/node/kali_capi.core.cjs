@@ -247,6 +247,51 @@ function loadMetadataSummary(path) {
   return cabiMetadataSummary(loadMetadata(path));
 }
 
+function discoverMetadataPath(bundleRoot, metadataName = 'cabi-metadata.json') {
+  const explicitPath = join(bundleRoot, metadataName);
+  if (existsSync(explicitPath)) {
+    return explicitPath;
+  }
+
+  if (metadataName !== 'cabi-metadata.json') {
+    throw Object.assign(new Error(explicitPath), { code: 'ENOENT', path: explicitPath });
+  }
+
+  const candidates = readdirSync(bundleRoot)
+    .filter((entry) => entry.endsWith('.capi.meta.json'))
+    .sort((left, right) => left.localeCompare(right));
+
+  if (candidates.length === 0) {
+    throw Object.assign(new Error(explicitPath), { code: 'ENOENT', path: explicitPath });
+  }
+
+  if (candidates.length > 1) {
+    throw new Error('cabi metadata is ambiguous; pass metadataName explicitly');
+  }
+
+  return join(bundleRoot, candidates[0]);
+}
+
+function discoverMetadataPathWithName(bundleRoot, metadataName) {
+  return discoverMetadataPath(bundleRoot, metadataName);
+}
+
+function loadMetadataFromRoot(bundleRoot, metadataName = 'cabi-metadata.json') {
+  return loadMetadata(discoverMetadataPath(bundleRoot, metadataName));
+}
+
+function loadMetadataFromRootWithName(bundleRoot, metadataName) {
+  return loadMetadataFromRoot(bundleRoot, metadataName);
+}
+
+function loadMetadataSummaryFromRoot(bundleRoot, metadataName = 'cabi-metadata.json') {
+  return cabiMetadataSummary(loadMetadataFromRoot(bundleRoot, metadataName));
+}
+
+function loadMetadataSummaryFromRootWithName(bundleRoot, metadataName) {
+  return loadMetadataSummaryFromRoot(bundleRoot, metadataName);
+}
+
 function loadBindingPackageManifest(path) {
   return parseBindingPackageManifest(readFileSync(path, 'utf8'));
 }
@@ -447,15 +492,21 @@ module.exports = {
   discoverBindingPackageManifestPath,
   ensureCompatibleBindingPackageManifest,
   ensureCompatibleMetadata,
+  discoverMetadataPath,
+  discoverMetadataPathWithName,
   loadBindingPackageManifest,
   loadBindingPackageManifestFromRoot,
+  loadBindingPackageManifestSummary,
+  loadBindingPackageManifestSummaryFromRoot,
   loadMetadata,
+  loadMetadataFromRoot,
+  loadMetadataFromRootWithName,
   loadMetadataSummary,
+  loadMetadataSummaryFromRoot,
+  loadMetadataSummaryFromRootWithName,
   parseBindingPackageManifest,
   bindingPackageManifestSummary,
   cabiMetadataSummary,
-  loadBindingPackageManifestSummary,
-  loadBindingPackageManifestSummaryFromRoot,
   parseExports,
   parseMetadata,
 };

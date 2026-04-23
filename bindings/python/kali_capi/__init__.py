@@ -26,6 +26,8 @@ __all__ = [
     "Export",
     "KaliCAPI",
     "discover_binding_package_manifest_path",
+    "discover_metadata_path",
+    "discover_metadata_path_with_name",
     "ensure_compatible_binding_package_manifest",
     "ensure_compatible_metadata",
     "load_binding_package_manifest",
@@ -34,7 +36,11 @@ __all__ = [
     "load_binding_package_manifest_summary_from_root",
     "load_library",
     "load_metadata",
+    "load_metadata_from_root",
+    "load_metadata_from_root_with_name",
     "load_metadata_summary",
+    "load_metadata_summary_from_root",
+    "load_metadata_summary_from_root_with_name",
     "parse_binding_package_manifest",
     "binding_package_manifest_summary",
     "cabi_metadata_summary",
@@ -304,6 +310,73 @@ def load_metadata_summary(path: str | Path) -> dict[str, object]:
     """Load and summarize generated C ABI metadata from disk."""
 
     return cabi_metadata_summary(load_metadata(path))
+
+
+def discover_metadata_path(
+    bundle_root: str | Path,
+    metadata_name: str = "cabi-metadata.json",
+) -> Path:
+    """Discover the generated C ABI metadata sidecar within a bundle root."""
+
+    bundle_root = Path(bundle_root)
+    explicit_metadata_path = bundle_root / metadata_name
+    if explicit_metadata_path.exists():
+        return explicit_metadata_path
+
+    if metadata_name != "cabi-metadata.json":
+        raise FileNotFoundError(explicit_metadata_path)
+
+    discovered_metadata = tuple(sorted(bundle_root.glob("*.capi.meta.json")))
+    if not discovered_metadata:
+        raise FileNotFoundError(explicit_metadata_path)
+    if len(discovered_metadata) > 1:
+        raise ValueError("cabi metadata is ambiguous; pass metadata_name explicitly")
+    return discovered_metadata[0]
+
+
+def discover_metadata_path_with_name(
+    bundle_root: str | Path,
+    metadata_name: str,
+) -> Path:
+    """Discover a specific generated C ABI metadata sidecar name within a bundle root."""
+
+    return discover_metadata_path(bundle_root, metadata_name)
+
+
+def load_metadata_from_root(
+    bundle_root: str | Path,
+    metadata_name: str = "cabi-metadata.json",
+) -> CabiMetadata:
+    """Discover and load a generated C ABI metadata sidecar from a bundle root."""
+
+    return load_metadata(discover_metadata_path(bundle_root, metadata_name))
+
+
+def load_metadata_from_root_with_name(
+    bundle_root: str | Path,
+    metadata_name: str,
+) -> CabiMetadata:
+    """Discover and load a specific generated C ABI metadata sidecar name from a bundle root."""
+
+    return load_metadata_from_root(bundle_root, metadata_name)
+
+
+def load_metadata_summary_from_root(
+    bundle_root: str | Path,
+    metadata_name: str = "cabi-metadata.json",
+) -> dict[str, object]:
+    """Discover, load, and summarize a generated C ABI metadata sidecar from a bundle root."""
+
+    return cabi_metadata_summary(load_metadata_from_root(bundle_root, metadata_name))
+
+
+def load_metadata_summary_from_root_with_name(
+    bundle_root: str | Path,
+    metadata_name: str,
+) -> dict[str, object]:
+    """Discover, load, and summarize a specific generated C ABI metadata sidecar name from a bundle root."""
+
+    return load_metadata_summary_from_root(bundle_root, metadata_name)
 
 
 def load_binding_package_manifest(path: str | Path) -> BindingPackageManifest:

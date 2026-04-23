@@ -30,8 +30,8 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   generated sidecar stays stable even when callers pass repeated helper paths. The maintained
   Python wrapper can auto-discover that generated bundle layout directly while preserving the same
   host-ABI compatibility check, and both the Python and Node helpers now expose public
-  bundle-root manifest loaders so higher-level binding code can reuse the same discovery rules
-  without duplicating them. The maintained Rust helper now also exposes `load_binding_package_manifest_summary*`
+  bundle-root manifest loaders plus companion `cabi-metadata` root-discovery helpers so higher-level
+  binding code can reuse the same discovery rules without duplicating them. The maintained Rust helper now also exposes `load_binding_package_manifest_summary*`
   convenience loaders so callers can load and project the manifest in one deterministic step.
   The manifest-discovery regressions now also pin the deterministic ambiguity error when multiple
   stem-specific manifests are present, while still allowing explicit manifest-name selection for

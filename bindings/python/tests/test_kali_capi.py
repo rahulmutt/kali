@@ -15,6 +15,8 @@ from kali_capi import (  # noqa: E402
     binding_package_manifest_summary,
     cabi_metadata_summary,
     discover_binding_package_manifest_path,
+    discover_metadata_path,
+    discover_metadata_path_with_name,
     ensure_compatible_binding_package_manifest,
     ensure_compatible_metadata,
     load_binding_package_manifest,
@@ -22,7 +24,11 @@ from kali_capi import (  # noqa: E402
     load_binding_package_manifest_summary,
     load_binding_package_manifest_summary_from_root,
     load_metadata,
+    load_metadata_from_root,
+    load_metadata_from_root_with_name,
     load_metadata_summary,
+    load_metadata_summary_from_root,
+    load_metadata_summary_from_root_with_name,
     parse_exports,
 )
 
@@ -237,6 +243,61 @@ class KaliCapiSmokeTests(unittest.TestCase):
             self.assertEqual(binding.add(2, 3), 5)
             self.assertEqual(binding.zero(), 7)
             self.assertEqual(binding._library.calls, [("add", 2, 3), ("zero",)])
+
+    def test_cabi_metadata_with_stem_specific_sidecar_is_auto_discovered(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            metadata_path = root / "sample.capi.meta.json"
+            metadata_path.write_text(
+                json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "kind": "cabi-metadata",
+                        "hostAbiVersion": 2,
+                        "minHostAbiVersion": 2,
+                        "maxSpecializations": 8,
+                        "runtimeProfiles": ["wasm-threads", "fiber-threads", "wasm-threads"],
+                        "hostContract": "kali-hosted",
+                        "runtimeBackend": "wasmtime",
+                        "artifacts": {
+                            "exportsHeader": "sample.h",
+                            "metadata": "sample.cabi.json",
+                            "wasmModule": "sample.capi.wasm",
+                            "wit": "sample.wit",
+                        },
+                    },
+                    sort_keys=True,
+                )
+            )
+            (root / "noise.txt").write_text("ignore me")
+
+            self.assertEqual(discover_metadata_path(root), metadata_path)
+            self.assertEqual(
+                discover_metadata_path_with_name(root, "sample.capi.meta.json"),
+                metadata_path,
+            )
+
+            loaded = load_metadata_from_root(root)
+            self.assertEqual(loaded.host_abi_version, 2)
+            self.assertEqual(loaded.min_host_abi_version, 2)
+            self.assertEqual(loaded.max_specializations, 8)
+            self.assertEqual(loaded.runtime_profiles, ("fiber-threads", "wasm-threads"))
+            self.assertEqual(loaded.host_contract, "kali-hosted")
+            self.assertEqual(loaded.runtime_backend, "wasmtime")
+            self.assertEqual(
+                loaded.artifacts,
+                {
+                    "exportsHeader": "sample.h",
+                    "wasmModule": "sample.capi.wasm",
+                    "wit": "sample.wit",
+                },
+            )
+            self.assertEqual(load_metadata_from_root_with_name(root, "sample.capi.meta.json"), loaded)
+            self.assertEqual(load_metadata_summary_from_root(root), cabi_metadata_summary(loaded))
+            self.assertEqual(
+                load_metadata_summary_from_root_with_name(root, "sample.capi.meta.json"),
+                cabi_metadata_summary(loaded),
+            )
 
     def test_binding_package_with_stem_specific_manifest_is_auto_discovered(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
