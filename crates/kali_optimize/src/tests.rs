@@ -436,6 +436,28 @@ fn release_advanced_eliminates_algebraic_identities() {
 }
 
 #[test]
+fn release_advanced_eliminates_division_by_one() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let div = builder.alloc_text(LirNodeKind::Value, "/");
+    let ident = builder.alloc_text(LirNodeKind::Value, "x");
+    let one = literal(&mut builder, "1");
+    builder.node_mut(div).unwrap().children = vec![ident, one];
+    builder.node_mut(root).unwrap().children = vec![div];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::ReleaseAdvanced).optimize_program(&mut program);
+
+    let node = &program.nodes[div.0 as usize];
+    assert_eq!(node.kind, LirNodeKind::Value);
+    assert_eq!(node.text.as_deref(), Some("x"));
+    assert!(node.children.is_empty());
+}
+
+#[test]
 fn release_inlines_simple_function_calls() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);

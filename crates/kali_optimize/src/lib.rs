@@ -798,6 +798,21 @@ impl Optimizer {
                 }
                 false
             }
+            ("/", [left, right]) => {
+                let key = format!(
+                    "identity/:{}:{}",
+                    node_signature(program, *left),
+                    node_signature(program, *right)
+                );
+                if !tracker.allow(owner, key) {
+                    return false;
+                }
+                if is_one_constant(literal_value(program, *right)) {
+                    program.nodes[id.0 as usize] = program.nodes[left.0 as usize].clone();
+                    return true;
+                }
+                false
+            }
             ("*", [left, right]) => {
                 let key = format!(
                     "identity:*:{}:{}",
