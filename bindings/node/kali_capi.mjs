@@ -1,0 +1,223 @@
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+export const HOST_ABI_VERSION = 2;
+
+const EXPORT_RE = /^extern\s+int32_t\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\((?<params>[^)]*)\);$/gm;
+
+function isInt(value) {
+  return Number.isInteger(value);
+}
+
+function requireInt(payload, key, context) {
+  const value = payload[key];
+  if (!isInt(value)) {
+    throw new Error(`${context} field '${key}' must be an integer`);
+  }
+  return value;
+}
+
+function requireStr(payload, key, context) {
+  const value = payload[key];
+  if (typeof value !== 'string') {
+    throw new Error(`${context} field '${key}' must be a string`);
+  }
+  return value;
+}
+
+function requireArtifacts(payload, context, requiredKeys) {
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error(`${context} field 'artifacts' must be a JSON object`);
+  }
+
+  const artifacts = {};
+  for (const key of requiredKeys) {
+    const value = payload[key];
+    if (typeof value !== 'string') {
+      throw new Error(`${context} field 'artifacts.${key}' must be a string`);
+    }
+    artifacts[key] = value;
+  }
+
+  return Object.fromEntries(Object.entries(artifacts).sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function requireStringList(payload, context, fieldName) {
+  if (!Array.isArray(payload)) {
+    throw new Error(`${context} field '${fieldName}' must be an array of strings`);
+  }
+
+  const items = [];
+  for (const item of payload) {
+    if (typeof item !== 'string') {
+      throw new Error(`${context} field '${fieldName}' entries must be strings`);
+    }
+    items.push(item);
+  }
+
+  return Object.freeze(items.sort());
+}
+
+export function parseExports(headerText) {
+  const exports = [];
+  for (const match of headerText.matchAll(EXPORT_RE)) {
+    const params = match.groups.params.trim();
+    const arity = !params || params === 'void'
+      ? 0
+      : params.split(',').filter((param) => param.trim().length > 0).length;
+    exports.push({ name: match.groups.name, arity });
+  }
+  return exports;
+}
+
+export function parseMetadata(metadataText) {
+  const payload = JSON.parse(metadataText);
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('cabi metadata must be a JSON object');
+  }
+
+  const schemaVersion = requireInt(payload, 'schemaVersion', 'cabi metadata');
+  if (schemaVersion !== 1) {
+    throw new Error(`unsupported cabi metadata schemaVersion ${schemaVersion}`);
+  }
+
+  const kind = requireStr(payload, 'kind', 'cabi metadata');
+  if (kind !== 'cabi-metadata') {
+    throw new Error(`unsupported cabi metadata kind ${kind}`);
+  }
+
+  const hostAbiVersion = requireInt(payload, 'hostAbiVersion', 'cabi metadata');
+  const minHostAbiVersion = Object.prototype.hasOwnProperty.call(payload, 'minHostAbiVersion')
+    ? payload.minHostAbiVersion
+    : hostAbiVersion;
+  if (!isInt(minHostAbiVersion)) {
+    throw new Error("cabi metadata field 'minHostAbiVersion' must be an integer");
+  }
+
+  const artifacts = requireArtifacts(payload.artifacts, 'cabi metadata', [
+    'wasmModule',
+    'wit',
+    'exportsHeader',
+  ]);
+
+  return Object.freeze({
+    schemaVersion,
+    kind,
+    hostAbiVersion,
+    minHostAbiVersion,
+    artifacts,
+  });
+}
+
+export function parseBindingPackageManifest(manifestText) {
+  const payload = JSON.parse(manifestText);
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('binding package manifest must be a JSON object');
+  }
+
+  const schemaVersion = requireInt(payload, 'schemaVersion', 'binding package');
+  if (schemaVersion !== 1) {
+    throw new Error(`unsupported binding package schemaVersion ${schemaVersion}`);
+  }
+
+  const kind = requireStr(payload, 'kind', 'binding package');
+  if (kind !== 'binding-package') {
+    throw new Error(`unsupported binding package kind ${kind}`);
+  }
+
+  const moduleName = requireStr(payload, 'moduleName', 'binding package');
+  const hostAbiVersion = requireInt(payload, 'hostAbiVersion', 'binding package');
+  const minHostAbiVersion = Object.prototype.hasOwnProperty.call(payload, 'minHostAbiVersion')
+    ? payload.minHostAbiVersion
+    : hostAbiVersion;
+  if (!isInt(minHostAbiVersion)) {
+    throw new Error("binding package field 'minHostAbiVersion' must be an integer");
+  }
+
+  if (payload.artifacts === null || typeof payload.artifacts !== 'object' || Array.isArray(payload.artifacts)) {
+    throw new Error("binding package field 'artifacts' must be a JSON object");
+  }
+
+  const library = requireStr(payload.artifacts, 'library', 'binding package');
+  const metadata = requireStr(payload.artifacts, 'metadata', 'binding package');
+  const exportsHeader = requireStr(payload.artifacts, 'exportsHeader', 'binding package');
+  const glue = requireStringList(payload.artifacts.glue, 'binding package', 'glue');
+
+  return Object.freeze({
+    schemaVersion,
+    kind,
+    moduleName,
+    hostAbiVersion,
+    minHostAbiVersion,
+    artifacts: Object.freeze({
+      exportsHeader,
+      glue,
+      library,
+      metadata,
+    }),
+  });
+}
+
+export function loadMetadata(path) {
+  return parseMetadata(readFileSync(path, 'utf8'));
+}
+
+export function loadBindingPackageManifest(path) {
+  return parseBindingPackageManifest(readFileSync(path, 'utf8'));
+}
+
+export function discoverBindingPackageManifestPath(bundleRoot, manifestName = 'binding-package.json') {
+  const explicitPath = join(bundleRoot, manifestName);
+  if (existsSync(explicitPath)) {
+    return explicitPath;
+  }
+
+  if (manifestName !== 'binding-package.json') {
+    throw Object.assign(new Error(explicitPath), { code: 'ENOENT', path: explicitPath });
+  }
+
+  const candidates = readdirSync(bundleRoot)
+    .filter((entry) => entry.endsWith('.binding-package.json'))
+    .sort((left, right) => left.localeCompare(right));
+
+  if (candidates.length === 0) {
+    throw Object.assign(new Error(explicitPath), { code: 'ENOENT', path: explicitPath });
+  }
+
+  if (candidates.length > 1) {
+    throw new Error('binding package manifest is ambiguous; pass manifestName explicitly');
+  }
+
+  return join(bundleRoot, candidates[0]);
+}
+
+export function ensureCompatibleMetadata(metadata, availableHostAbiVersion = HOST_ABI_VERSION) {
+  if (!isInt(availableHostAbiVersion)) {
+    throw new Error('availableHostAbiVersion must be an integer');
+  }
+
+  if (availableHostAbiVersion < metadata.minHostAbiVersion) {
+    throw new Error(
+      `incompatible host ABI version ${availableHostAbiVersion}; expected at least ${metadata.minHostAbiVersion}`,
+    );
+  }
+
+  return metadata;
+}
+
+export function ensureCompatibleBindingPackageManifest(
+  manifest,
+  availableHostAbiVersion = HOST_ABI_VERSION,
+) {
+  if (!isInt(availableHostAbiVersion)) {
+    throw new Error('availableHostAbiVersion must be an integer');
+  }
+
+  if (availableHostAbiVersion < manifest.minHostAbiVersion) {
+    throw new Error(
+      `incompatible host ABI version ${availableHostAbiVersion}; expected at least ${manifest.minHostAbiVersion}`,
+    );
+  }
+
+  return manifest;
+}

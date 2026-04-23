@@ -1,0 +1,11 @@
+{
+  "name": "kali-capi-node",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./kali_capi.mjs",
+  "exports": "./kali_capi.mjs",
+  "scripts": {
+    "test": "node --test tests/test_kali_capi.mjs"
+  }
+}
