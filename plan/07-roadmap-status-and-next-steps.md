@@ -21,6 +21,9 @@ Current repository note:
 - the phase checklists currently carried in this repository snapshot are all marked complete in their phase documents
 - use this page as a prioritization overlay for future spec-led work, not as an open todo list for the closed stage packets
 
+Recent hardening:
+- package-audit JSON envelopes are now pinned under inherited browser context and quiet mode, reducing machine-contract drift across analysis presentation flags
+
 ### Priority A — finish the Phase-1 critical path
 
 Do these first, in order, and keep them sequential unless a stage file explicitly says otherwise:

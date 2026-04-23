@@ -107,6 +107,7 @@ Use the `First stages affected` column as the earliest point where the mitigatio
 **Mitigation**
 - review CLI/error/schema changes as one packet
 - keep snapshot/schema validation tests for every JSON-producing path
+- pin inherited-context JSON envelopes and quiet/pretty formatting for package-analysis commands so browser/Node drift cannot sneak in through presentation flags
 - add determinism checks whenever artifact manifests change
 
 ### R8 — Verification overreach
