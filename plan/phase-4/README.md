@@ -5,9 +5,9 @@
 ## Objective
 
 Complete the most difficult late-core compatibility work while keeping the compiler honest about what is actually supported:
-- gated support for `eval`, `Function()`, and harder dynamic-loading paths,
-- public `package-audit` as a separate registry-analysis surface,
-- a non-empty published proof boundary with proof-backed release claims.
+- gated support for `eval`, `Function()`, and harder dynamic-loading paths
+- public `package-audit` as a separate registry-analysis surface
+- a non-empty published proof boundary with proof-backed release claims
 
 ## Entry criteria
 
@@ -38,14 +38,14 @@ Dynamic compatibility depends on the runtime, packaging, host, and optimization 
 
 ## Coordination points
 
-- Dynamic-feature gating must preserve the AOT-only invariant and never silently widen execution.
-- `package-audit` must stay distinct from the public effect-report surface.
-- Proof-backed claims must be limited to the exact content of `proofs/BOUNDARY.md`.
+- Dynamic-feature gating must preserve the AOT-only invariant and never silently widen execution
+- `package-audit` must stay distinct from the public effect-report surface
+- Proof-backed claims must be limited to the exact content of `proofs/BOUNDARY.md`
 
 ## Exit gate
 
 Phase 4 is complete only when:
-- dynamic compatibility features are available only through their documented gates,
-- `package-audit` has its own stable schema/CLI contract,
-- `proofs/BOUNDARY.md` publishes a non-empty boundary,
-- README/spec/plan summaries all describe proof-backed status consistently.
+- dynamic compatibility features are available only through their documented gates
+- `package-audit` has its own stable schema/CLI contract
+- `proofs/BOUNDARY.md` publishes a non-empty boundary
+- README/spec/plan summaries all describe proof-backed status consistently

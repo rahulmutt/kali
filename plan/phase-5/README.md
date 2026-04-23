@@ -5,11 +5,11 @@
 ## Objective
 
 Track and stage later-compatibility work without collapsing it into one vague “future features” bucket. This phase covers:
-- the threaded runtime profile,
-- standalone browser runtime/test support,
-- programmable policy predicates and any algebraic-effect surface,
-- late host/object-model compatibility corners,
-- profile-guided optimization and broader language bindings.
+- the threaded runtime profile
+- standalone browser runtime/test support
+- programmable policy predicates and any algebraic-effect surface
+- late host/object-model compatibility corners
+- profile-guided optimization and broader language bindings
 
 ## Planning rule
 
@@ -48,26 +48,16 @@ Phase 5 is for explicitly deferred breadth, so earlier phases should already be 
 
 ## Coordination points
 
-- Thread-aware runtime work must not invent a second concurrency model.
-- Browser runtime work must preserve the browser ambient-typing vs mediated-capability split.
-- Programmable policy work must not weaken the declarative sandbox contract for earlier phases.
-- PGO must remain additive to the stable build-mode vocabulary.
-- Binding expansion must stay on the stable ABI/WIT surface rather than ad hoc wrappers.
+- Thread-aware runtime work must not invent a second concurrency model
+- Browser runtime work must preserve the browser ambient-typing vs mediated-capability split
+- Programmable policy work must not weaken the declarative sandbox contract for earlier phases
+- PGO must remain additive to the stable build-mode vocabulary
+- Binding expansion must stay on the stable ABI/WIT surface rather than ad hoc wrappers
 
 ## Exit gate
 
 Phase 5 is complete only when each later-compatibility feature:
-- has a stage-level implementation and evidence trail,
-- updates its owning CLI/schema/error/maturity docs where required,
-- preserves the hard invariants and deterministic machine contracts,
-- is promoted in the maturity matrix one surface at a time rather than through a blanket claim.
-
-## Reading rule
-
-Treat this phase as the explicit backlog for intentionally deferred breadth.
-
-That means:
-- use these stage docs for implementation order when one of these later surfaces is being opened,
-- use the owning spec chapters for the normative behavior of each surface,
-- use [`../../specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md) for actual availability,
-- avoid collapsing all Phase-5 work into one generic “future features” bucket.
+- has a stage-level implementation and evidence trail
+- updates its owning CLI/schema/error/maturity docs where required
+- preserves the hard invariants and deterministic machine contracts
+- is promoted in the maturity matrix one surface at a time rather than through a blanket claim

@@ -5,19 +5,19 @@
 ## Objective
 
 Turn the Phase-1 MVP into a more principled and externally consumable platform by:
-- making MIR and ownership analysis the canonical mid-pipeline representation,
-- opening the stable public effect-report surface,
-- promoting the early base-library artifact into a stable public embedding contract,
-- establishing the Lean verification foundation beyond proof-ready hygiene,
-- stabilizing coverage reporting for the documented `kali test --coverage` surface.
+- making MIR and ownership analysis the canonical mid-pipeline representation
+- opening the stable public effect-report surface
+- promoting the early base-library artifact into a stable public embedding contract
+- establishing the Lean verification foundation beyond proof-ready hygiene
+- stabilizing coverage reporting for the documented `kali test --coverage` surface
 
 ## Entry criteria
 
-Phase 2 assumes the Phase-1 critical path is closed and that the repository already has a stable enough runtime/build/tooling surface to support deeper semantic work without re-litigating the MVP command set.
+Phase 2 assumes the Phase-1 critical path is complete and the repository has a stable enough runtime/build/tooling surface to support deeper semantic work without re-litigating the MVP command set.
 
 ## Why this order
 
-Stage 2.1 is the architectural hinge of the phase. Once MIR and ownership analysis become canonical, the compiler has the explicit memory and layout information needed for stronger effect modeling, more stable embedding metadata, and cleaner verification modeling. The remaining streams can then build on that more explicit representation instead of the earlier conservative pipeline.
+Stage 2.1 is the architectural hinge. Once MIR and ownership analysis become canonical, the compiler has the explicit memory and layout information needed for stronger effect modeling, more stable embedding metadata, and cleaner verification modeling. The remaining streams can then build on that more explicit representation instead of the earlier conservative pipeline.
 
 ## Dependency shape
 
@@ -48,17 +48,17 @@ Stage 2.1 is the architectural hinge of the phase. Once MIR and ownership analys
 ## Safe parallelism
 
 After 2.1 lands, `2.2`, `2.3`, `2.4`, and most of `2.5` may proceed in parallel if they keep these shared surfaces aligned:
-- effect names and output schemas,
-- embedding artifact metadata,
-- verification claims and `proofs/BOUNDARY.md`,
-- coverage JSON envelopes and CLI flags.
+- effect names and output schemas
+- embedding artifact metadata
+- verification claims and `proofs/BOUNDARY.md`
+- coverage JSON envelopes and CLI flags
 
 ## Exit gate
 
 Phase 2 is complete only when:
-- MIR is the canonical mid-level representation,
-- ownership/escape analysis drives the documented memory strategy,
-- public effect reporting is stable and schema-backed,
-- public embedding outputs are versioned and deterministic,
-- Lean proof jobs run in CI with a maintained boundary discipline,
-- coverage reporting is deterministic for the contexts it claims to support.
+- MIR is the canonical mid-level representation
+- ownership/escape analysis drives the documented memory strategy
+- public effect reporting is stable and schema-backed
+- public embedding outputs are versioned and deterministic
+- Lean proof jobs run in CI with maintained boundary discipline
+- coverage reporting is deterministic for the contexts it claims to support

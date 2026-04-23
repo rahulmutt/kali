@@ -5,19 +5,19 @@
 ## Objective
 
 Deliver the first fully workable Kali toolchain:
-- parse and check TypeScript/JavaScript,
-- lower to internal IR,
-- generate deterministic WebAssembly,
-- execute through the Kali-hosted runtime,
-- validate and enforce the Phase-1 sandbox contract,
-- build executable, bundle, and base-library artifacts,
-- install supported packages deterministically,
-- expose the core CLI and schema-v1 machine-readable outputs,
-- back the shipped surface with evidence.
+- parse and check TypeScript/JavaScript
+- lower to internal IR
+- generate deterministic WebAssembly
+- execute through the Kali-hosted runtime
+- validate and enforce the Phase-1 sandbox contract
+- build executable, bundle, and base-library artifacts
+- install supported packages deterministically
+- expose the core CLI and schema-v1 machine-readable outputs
+- back the shipped surface with evidence
 
 ## Entry criteria
 
-Before starting this phase, the repository should already have the normative spec set in place and the team should agree that Phase-1 availability is read from [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md), not from raw implementation progress.
+Before starting this phase, the repository should already have the normalized spec set in place and the team should agree that Phase-1 availability comes from [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md), not from implementation progress alone.
 
 ## Why this order
 
@@ -72,17 +72,17 @@ Phase 1 starts with the frontend because every later subsystem depends on a stab
 ## Workable-state rule for this phase
 
 After every Phase-1 stage:
-1. `cargo build` must succeed,
-2. `cargo test --workspace` must pass,
-3. at least one user-visible capability must remain demonstrable,
-4. no stage may violate the hard invariants from [`SPEC.md`](../../SPEC.md).
+1. `cargo build` must succeed
+2. `cargo test --workspace` must pass
+3. at least one user-visible capability must remain demonstrable
+4. no stage may violate the hard invariants from [`SPEC.md`](../../SPEC.md)
 
 ## Exit gate
 
 Phase 1 is complete only when:
-- all stage files `1.1` through `1.14` are closed,
-- the Phase-1 browser-targeted command set has smoke coverage,
-- deterministic artifacts and CLI outputs are checked,
-- package-corpus evidence matches the linked-artifact model,
-- the repository remains at least proof-ready, and
-- every public claim is aligned with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md).
+- all stage files `1.1` through `1.14` are closed
+- the Phase-1 browser-targeted command set has smoke coverage
+- deterministic artifacts and CLI outputs are checked
+- package-corpus evidence matches the linked-artifact model
+- the repository remains at least proof-ready
+- every public claim is aligned with [`specs/19-feature-maturity.md`](../../specs/19-feature-maturity.md)

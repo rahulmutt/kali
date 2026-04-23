@@ -45,6 +45,8 @@ plan/
 ├── 06-current-workspace-rollout.md
 ├── 07-roadmap-status-and-next-steps.md
 ├── 08-fresh-implementation-roadmap.md
+├── 09-stage-acceptance-checklists.md
+├── 10-risk-register.md
 ├── phase-1/
 │   ├── README.md
 │   ├── 01-workspace-scaffold.md
@@ -87,7 +89,7 @@ plan/
     └── 05-pgo-and-language-bindings.md
 ```
 
-Total planning surface: 30 stage documents, 5 phase indexes, and 9 cross-phase planning guides.
+Total planning surface: 30 stage documents, 5 phase indexes, and 11 cross-phase planning guides.
 
 ---
 
@@ -172,6 +174,8 @@ Start here, then read the supporting guide that matches the planning question:
 - [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md) — how the current workspace should grow
 - [plan/07-roadmap-status-and-next-steps.md](./plan/07-roadmap-status-and-next-steps.md) — near-term execution priorities
 - [plan/08-fresh-implementation-roadmap.md](./plan/08-fresh-implementation-roadmap.md) — the shortest fresh-start route through the stage graph
+- [plan/09-stage-acceptance-checklists.md](./plan/09-stage-acceptance-checklists.md) — concrete acceptance criteria for closing each stage family
+- [plan/10-risk-register.md](./plan/10-risk-register.md) — cross-spec implementation risks and required mitigations
 - the relevant phase README under `plan/phase-*/README.md`
 - the exact stage file you are implementing
 
@@ -225,6 +229,24 @@ For quick navigation:
 | 3 | Optimization and ecosystem breadth | stronger release modes, Node path, broader packages, and widened host capabilities |
 | 4 | Dynamic compatibility and proof-backed depth | gated dynamic features, `package-audit`, and proof-backed published-boundary claims |
 | 5 | Deferred platform/runtime expansion | threads, standalone browser runtime, programmable policy extensions, late object-model breadth, PGO, and language bindings |
+
+---
+
+## Recommended implementation batches
+
+For active execution, group the roadmap into these repository-safe batches:
+
+| Batch | Stages | Why it is grouped this way | Must be true before opening the next batch |
+|---|---|---|---|
+| B0 — Contract lock | planning baseline | freezes vocabulary, availability reading rules, schemas, and proof-boundary discipline | `SPEC.md`, `PLAN.md`, `specs/`, `plan/`, and `proofs/BOUNDARY.md` are internally aligned |
+| B1 — Frontend spine | 1.1-1.5 | creates the first deterministic `check` path and the minimum semantic backbone | `kali check` works on local TS/JS files with stable diagnostics |
+| B2 — End-to-end local execution | 1.6-1.8 | closes the local source → IR → WASM → runtime loop before widening product surface | `kali build`, `kali run`, and `kali test` work on local fixtures |
+| B3 — Phase-1 product parallel zone | 1.9-1.13 | opens sandbox, install, artifact, workflow, and JSON-contract work after runtime exists | each stream coordinates on CLI/error/schema/maturity owners and preserves the B2 demos |
+| B4 — Phase-1 evidence closure | 1.14 | turns the MVP into a supportable release packet rather than a demo-only compiler | browser, package, determinism, and proof-ready evidence lanes pass |
+| B5 — Semantic stabilization | 2.1-2.5 | settles ownership, effects, embedding, proofs, and coverage on canonical semantics | MIR is canonical and Phase-2 public surfaces are coherent |
+| B6 — Breadth expansion | 3.1-5.5 | widens optimization and compatibility one support rung at a time | every widened surface has explicit evidence and an updated maturity row when needed |
+
+Use [plan/09-stage-acceptance-checklists.md](./plan/09-stage-acceptance-checklists.md) before closing a batch and [plan/10-risk-register.md](./plan/10-risk-register.md) when deciding where extra hardening is required.
 
 ---
 
@@ -430,6 +452,8 @@ The cross-phase guides under `plan/` are part of the active planning surface, no
 - [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md) — concrete crate/directory growth order
 - [plan/07-roadmap-status-and-next-steps.md](./plan/07-roadmap-status-and-next-steps.md) — recommended next execution lanes
 - [plan/08-fresh-implementation-roadmap.md](./plan/08-fresh-implementation-roadmap.md) — compact fresh-start execution order
+- [plan/09-stage-acceptance-checklists.md](./plan/09-stage-acceptance-checklists.md) — close-out checklist by stage family
+- [plan/10-risk-register.md](./plan/10-risk-register.md) — cross-cutting risk and mitigation register
 
 ---
 

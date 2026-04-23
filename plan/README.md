@@ -14,8 +14,10 @@ Use it in this order:
 8. [`06-current-workspace-rollout.md`](./06-current-workspace-rollout.md) — concrete crate/directory growth order for this repository
 9. [`07-roadmap-status-and-next-steps.md`](./07-roadmap-status-and-next-steps.md) — recommended next execution lanes and prioritization guidance
 10. [`08-fresh-implementation-roadmap.md`](./08-fresh-implementation-roadmap.md) — the shortest fresh-start route through the stage graph
-11. The relevant phase index under `phase-*/README.md`
-12. The exact stage document you are implementing
+11. [`09-stage-acceptance-checklists.md`](./09-stage-acceptance-checklists.md) — close-out checklist by milestone family
+12. [`10-risk-register.md`](./10-risk-register.md) — cross-spec risks and mandatory mitigations
+13. The relevant phase index under `phase-*/README.md`
+14. The exact stage document you are implementing
 
 ## Directory map
 
@@ -31,6 +33,8 @@ plan/
 ├── 06-current-workspace-rollout.md     # concrete growth order for the current workspace
 ├── 07-roadmap-status-and-next-steps.md # near-term roadmap guidance
 ├── 08-fresh-implementation-roadmap.md  # fresh-start execution overlay
+├── 09-stage-acceptance-checklists.md   # close-out criteria by stage family
+├── 10-risk-register.md                 # cross-cutting implementation risks
 ├── phase-1/                            # MVP compiler/toolchain stages
 ├── phase-2/                            # ownership/effects/embedding/verification foundation
 ├── phase-3/                            # optimization and compatibility breadth
@@ -55,7 +59,8 @@ Use [`01-repository-layout.md`](./01-repository-layout.md) and [`06-current-work
 - **Which current crates/directories should grow next?** → [`06-current-workspace-rollout.md`](./06-current-workspace-rollout.md)
 - **What are the recommended next execution lanes?** → [`07-roadmap-status-and-next-steps.md`](./07-roadmap-status-and-next-steps.md)
 - **What is the shortest path for a fresh implementation push from the current specs?** → [`08-fresh-implementation-roadmap.md`](./08-fresh-implementation-roadmap.md)
-- **What must be true before closing a stage?** → [`00-planning-conventions.md`](./00-planning-conventions.md)
+- **What must be true before closing a stage?** → [`00-planning-conventions.md`](./00-planning-conventions.md) + [`09-stage-acceptance-checklists.md`](./09-stage-acceptance-checklists.md)
+- **Which risks should shape the implementation packet and extra hardening work?** → [`10-risk-register.md`](./10-risk-register.md)
 - **Is the feature publicly shipped yet?** → [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md), not this directory
 
 ## Maintenance rule
