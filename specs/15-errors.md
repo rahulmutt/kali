@@ -436,6 +436,7 @@ With `--verbose` or in interactive terminals:
 - Multi-line code context
 - Related information (e.g., "declared here", "first used here")
 - Suggested fixes with diff-like format
+- Docs links for error codes in the canonical `https://kali-lang.org/errors/E####` form
 
 ### Batch Reporting
 - Continue compilation after errors (resilient parsing + type checking)

@@ -17,7 +17,10 @@ use kali_cli::{
     output::{self, CliOutputOptions},
     Args, BundleFormat, Commands,
 };
-use kali_error::{_error_codes::e5, Diagnostic, DiagnosticContext, DiagnosticContextOrigin};
+use kali_error::{
+    _error_codes::e5, set_verbose_diagnostics, Diagnostic, DiagnosticContext,
+    DiagnosticContextOrigin,
+};
 use kali_fmt::format_source;
 use kali_lint::lint_with_options;
 use kali_npm::{
@@ -54,13 +57,18 @@ fn main() {
         quiet: args.quiet,
         color: args.color,
     };
+    set_verbose_diagnostics(output.verbose);
 
     let pretty_allowed_without_json = matches!(
         args.command,
         Some(Commands::Effects { .. }) | Some(Commands::PackageEffects { .. })
     );
     if output.pretty && !output.is_json() && !pretty_allowed_without_json {
-        eprintln!("error[E5508]: `--pretty` is only meaningful when JSON output is active");
+        let diagnostic = Diagnostic::error(
+            e5::INVALID_CLI_USAGE as u32,
+            "`--pretty` is only meaningful when JSON output is active",
+        );
+        eprintln!("{}", diagnostic);
         std::process::exit(5);
     }
 

@@ -6389,6 +6389,31 @@ fn pretty_without_json_exits_with_usage_code() {
 }
 
 #[test]
+fn verbose_pretty_without_json_includes_error_docs_link() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "let value = 1;").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--verbose")
+        .arg("--pretty")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("https://kali-lang.org/errors/E5508"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn init_rejects_non_empty_directory_with_usage_code() {
     let dir = tempdir().expect("tempdir");
     fs::write(dir.path().join("notes.txt"), "keep me").expect("write file");

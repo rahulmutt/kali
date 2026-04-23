@@ -48,7 +48,7 @@ Helpful flags you will see often:
 - `--api deno|node|browser` *(Phase 1 ships the Deno-oriented default plus the browser-targeted `check` / `build --bundle` context; `check` / `build` now also accept the documented Node analysis/build subset, while `run` / `test` support the documented Node execution subset and broader effect/registry-analysis breadth remains later)*
 - `--sandbox <policy>`
 - `--output json`
-- `--verbose` / `--quiet`
+- `--verbose` / `--quiet` *(verbose adds extra context and error docs links in human output)*
 - `--release` / `--release-advanced`
 
 For the full CLI contract, arity, and flag behavior, see [`specs/12-cli.md`](./specs/12-cli.md).

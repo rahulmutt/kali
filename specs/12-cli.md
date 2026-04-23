@@ -95,7 +95,7 @@ Effective-context validation rule:
 
 | Flag | Scope | Description |
 |------|-------|-------------|
-| `--verbose` | all commands | Detailed output: timing per phase, optimization decisions |
+| `--verbose` | all commands | Detailed output: timing per phase, optimization decisions, and diagnostic docs links |
 | `--output json` | all commands | Request the standard machine-readable JSON output mode for that command: wrap native-JSON payloads in the command envelope, or emit the envelope itself for envelope-only JSON commands |
 | `--pretty` | JSON-producing mode | Pretty-print the active JSON document without changing its schema; meaningful only for **native-JSON commands** or when `--output json` is active (including **envelope-only JSON commands**) |
 | `--quiet` | all commands | Suppress non-error status/progress output; for data-producing commands such as `effects` and `package-effects`, it must not suppress the primary payload itself |
@@ -716,7 +716,7 @@ Found 1 error.
 ```
 
 ### Verbose Mode (`--verbose`)
-Adds: timing per phase, IR dumps, optimization decisions, memory layout choices.
+Adds: timing per phase, IR dumps, optimization decisions, memory layout choices, and canonical error-doc links in human-readable diagnostics.
 
 ### JSON Output (`--output json`)
 Machine-parseable output for commands that normally print human-oriented text. The canonical command-envelope schema lives in [specs/18-schemas.md](18-schemas.md).

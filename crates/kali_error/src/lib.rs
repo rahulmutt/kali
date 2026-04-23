@@ -8,7 +8,9 @@
 pub mod diagnostic;
 pub mod severity;
 
-pub use diagnostic::{Diagnostic, DiagnosticContext, DiagnosticContextOrigin};
+pub use diagnostic::{
+    set_verbose_diagnostics, Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
+};
 pub use severity::Severity;
 
 #[doc(hidden)]

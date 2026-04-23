@@ -14,10 +14,23 @@ fn test_terminal_format_uses_canonical_prefixes() {
         .with_suggestion("change the value or the type annotation")
         .note("strict null checks are enabled");
 
-    let formatted = diag.format_terminal();
+    let formatted = diag.format_terminal_with_verbose(false);
     assert!(formatted.starts_with("error[E3021]: type 'string' is not assignable to type 'number'"));
     assert!(formatted.contains("= help: change the value or the type annotation"));
     assert!(formatted.contains("= note: strict null checks are enabled"));
+}
+
+#[test]
+fn test_verbose_terminal_format_adds_error_docs_link() {
+    let diag = Diagnostic::error(
+        5508,
+        "`--pretty` is only meaningful when JSON output is active",
+    );
+
+    let formatted = diag.format_terminal_with_verbose(true);
+    assert!(formatted.contains("= note: docs: https://kali-lang.org/errors/E5508"));
+    assert!(formatted
+        .starts_with("error[E5508]: `--pretty` is only meaningful when JSON output is active"));
 }
 
 #[test]
