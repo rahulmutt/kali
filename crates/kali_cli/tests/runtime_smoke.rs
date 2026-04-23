@@ -10604,6 +10604,70 @@ fn package_audit_command_is_deterministic_across_repeated_invocations() {
 }
 
 #[test]
+fn package_audit_command_is_deterministic_in_human_output() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body_with_multiple_findings());
+
+    let run = || {
+        Command::new(kali_bin())
+            .env("KALI_REGISTRY", &registry_url)
+            .arg("package-audit")
+            .arg("lodash")
+            .output()
+            .expect("run kali")
+    };
+
+    let first = run();
+    let second = run();
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) >= 2,
+        "registry server should be queried for each invocation"
+    );
+    assert_eq!(first.status.code(), Some(1));
+    assert_eq!(second.status.code(), Some(1));
+    assert_eq!(
+        first.stdout, second.stdout,
+        "stdout should be deterministic"
+    );
+    assert_eq!(
+        first.stderr, second.stderr,
+        "stderr should be deterministic"
+    );
+
+    let stdout = String::from_utf8_lossy(&first.stdout);
+    assert!(
+        stdout.contains("4 error(s), 1 warning(s)"),
+        "stdout: {stdout}"
+    );
+
+    let stderr = String::from_utf8_lossy(&first.stderr);
+    let gypfile = stderr
+        .find("declares gypfile=true")
+        .expect("gypfile finding should be reported");
+    let bin = stderr
+        .find("native addon bin entrypoint")
+        .expect("bin finding should be reported");
+    let entrypoint = stderr
+        .find("native addon entrypoint")
+        .expect("entrypoint finding should be reported");
+    let exports = stderr
+        .find("native addon exports target")
+        .expect("exports finding should be reported");
+    let lifecycle = stderr
+        .find("declares lifecycle scripts in postinstall")
+        .expect("lifecycle warning should be reported");
+
+    assert!(
+        gypfile < bin && bin < entrypoint && entrypoint < exports && exports < lifecycle,
+        "human-output findings should keep the deterministic severity/code/message order\nstderr: {stderr}"
+    );
+}
+
+#[test]
 fn package_audit_command_reports_findings_in_human_output() {
     let (registry_url, hits, stop, handle) =
         start_registry_metadata_server(package_audit_metadata_body_with_multiple_findings());
