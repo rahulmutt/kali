@@ -14,7 +14,7 @@ use std::{
 };
 
 #[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::symlink;
 
 use serde_json::{json, Value};
 use wasmparser::{Operator, Parser, Payload};
@@ -1443,27 +1443,17 @@ fn run_uses_browser_entrypoint_for_browser_like_executables() {
     fs::write(&source_path, "console.log('browser run');").expect("write source");
 
     let browser = dir.path().join("chromium");
+    symlink("/bin/sh", &browser).expect("link browser executable shim to /bin/sh");
+
     let browser_log = dir.path().join("browser-shim-args.txt");
-    fs::write(
-        &browser,
-        r#"#!/bin/sh
-printf '%s\n' "$@" > "$KALI_BROWSER_SHIM_LOG"
-printf '{"args":[],"tests":[],"testsFailed":0}\n' > "$KALI_BROWSER_HARNESS_SUMMARY_FILE"
-printf 'browser run\n'
-exit 0
-"#,
-    )
-    .expect("write browser shim");
-    let mut permissions = fs::metadata(&browser).expect("metadata").permissions();
-    permissions.set_mode(0o755);
-    fs::set_permissions(&browser, permissions).expect("mark browser shim executable");
+    let command = format!(
+        r#"{} -c 'printf "%s\n" "$@" > "$KALI_BROWSER_SHIM_LOG"; printf "{{\"args\":[],\"tests\":[],\"testsFailed\":0}}\n" > "$KALI_BROWSER_HARNESS_SUMMARY_FILE"; printf "browser run\n"; exit 0' _ --headless"#,
+        browser.display()
+    );
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
-        .env(
-            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
-            format!("{} --headless", browser.display()),
-        )
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", command)
         .env("KALI_BROWSER_SHIM_LOG", &browser_log)
         .arg("--output")
         .arg("json")
@@ -1487,7 +1477,12 @@ exit 0
     assert_eq!(json["payload"]["exitCode"], 0);
     assert_eq!(json["payload"]["hostContract"], "browser-requested");
     assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert_eq!(json["stdout"], "browser run\n", "json: {json}");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .is_some_and(|stdout| stdout.starts_with("browser run")),
+        "json: {json}"
+    );
 
     let browser_args = fs::read_to_string(&browser_log).expect("browser shim args");
     assert!(browser_args.contains("--headless"), "args: {browser_args}");

@@ -2286,9 +2286,15 @@ fn browser_harness_is_browser_executable_name(executable: &str) -> bool {
             | "google-chrome-stable"
             | "google-chrome-beta"
             | "google-chrome-unstable"
+            | "google chrome"
+            | "google chrome stable"
+            | "google chrome beta"
+            | "google chrome unstable"
             | "brave"
             | "brave-browser"
             | "brave-browser-beta"
+            | "brave browser"
+            | "brave browser beta"
             | "vivaldi"
             | "vivaldi-stable"
             | "opera"
@@ -2299,10 +2305,19 @@ fn browser_harness_is_browser_executable_name(executable: &str) -> bool {
             | "microsoft-edge-stable"
             | "microsoft-edge-beta"
             | "microsoft-edge-dev"
+            | "microsoft edge"
+            | "microsoft edge stable"
+            | "microsoft edge beta"
+            | "microsoft edge dev"
             | "firefox"
             | "firefox-esr"
             | "firefox-nightly"
             | "firefox-developer-edition"
+            | "firefox developer edition"
+            | "librewolf"
+            | "waterfox"
+            | "zen-browser"
+            | "thorium-browser"
     )
 }
 
@@ -2325,9 +2340,15 @@ fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
         "google-chrome-stable",
         "google-chrome-beta",
         "google-chrome-unstable",
+        "google chrome",
+        "google chrome stable",
+        "google chrome beta",
+        "google chrome unstable",
         "brave-browser",
         "brave",
         "brave-browser-beta",
+        "brave browser",
+        "brave browser beta",
         "vivaldi",
         "vivaldi-stable",
         "opera",
@@ -2338,10 +2359,19 @@ fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
         "microsoft-edge-stable",
         "microsoft-edge-beta",
         "microsoft-edge-dev",
+        "microsoft edge",
+        "microsoft edge stable",
+        "microsoft edge beta",
+        "microsoft edge dev",
         "firefox",
         "firefox-esr",
         "firefox-nightly",
         "firefox-developer-edition",
+        "firefox developer edition",
+        "librewolf",
+        "waterfox",
+        "zen-browser",
+        "thorium-browser",
     ];
 
     for candidate in CANDIDATES {

@@ -343,6 +343,29 @@ fn browser_harness_command_parts_exposes_override_and_default_selection() {
 }
 
 #[test]
+fn browser_harness_recognizes_common_display_name_aliases() {
+    for executable in [
+        "google chrome",
+        "google chrome beta",
+        "brave browser",
+        "microsoft edge dev",
+        "firefox developer edition",
+        "librewolf",
+        "waterfox",
+        "zen-browser",
+        "thorium-browser",
+    ] {
+        let parts = browser_harness_command_parts_for_browser_executable(executable)
+            .expect("recognized browser alias should be treated as a browser executable");
+        assert_eq!(
+            parts,
+            vec![executable.to_string(), "--headless".to_string()]
+        );
+        assert!(browser_harness_uses_html_entrypoint(executable));
+    }
+}
+
+#[test]
 fn split_command_spec_rejects_malformed_inputs() {
     assert_eq!(split_command_spec("   "), None);
     assert_eq!(split_command_spec(r#"" --flag"#), None);
