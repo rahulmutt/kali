@@ -2688,6 +2688,10 @@ fn run_command(
 
     let runtime_args = if effective_api == kali_cli::ApiSurface::Node {
         let mut argv = vec!["node".to_string(), source.display().to_string()];
+        let mut guest_args = guest_args;
+        if guest_args.first().is_some_and(|arg| arg == "--") {
+            guest_args.remove(0);
+        }
         argv.extend(guest_args);
         argv
     } else {
