@@ -8111,6 +8111,39 @@ fn effects_rejects_sandbox_flag_as_invalid_usage() {
 }
 
 #[test]
+fn effects_rejects_sandbox_flag_as_invalid_usage_in_json_output() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('hello');\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("effects")
+        .arg("--sandbox")
+        .arg("policy.json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert!(!json["success"].as_bool().expect("success boolean"));
+    assert_eq!(json["errors"][0]["code"], "E5508");
+    assert!(
+        json["errors"][0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("does not accept `--sandbox`"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn effects_command_marks_proxy_constructor_as_dynamic() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
