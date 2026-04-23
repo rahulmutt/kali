@@ -46,8 +46,8 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added a zod package-corpus regression so another widely used pure JS/TS package now exercises the default standalone check/build/run lane with deterministic output.
 - Added a Node-path semver package-bin smoke that exercises `require('../package.json').version` and guest-argument counting on the documented Node subset, so the semver probe now covers both the package-json loading slice and the argument passthrough slice directly.
 - Added a node-assuming package-corpus rejection regression so default standalone package imports that pull in Node-only host APIs now fail with the canonical `E6005` diagnostic instead of silently lowering through the compatibility path.
-- Added negative `kali build --lib` coverage for sources without a statically known export surface so the Phase-1 base-library evidence lane keeps enforcing `E5011`.
-- Added explicit browser-library contradiction coverage for both human and JSON build output so `kali build --lib --api browser` stays pinned to the canonical `E5008` shape error.
+- Added negative `kali build --lib` coverage for sources without a statically known export surface so the Phase-1 base-library evidence lane keeps enforcing `E5511`.
+- Added explicit browser-library contradiction coverage for both human and JSON build output so `kali build --lib --api browser` stays pinned to the canonical `E5508` shape error.
 - Added matching browser-build-shape coverage for the remaining wrong-browser artifact modes (`kali build --capi --api browser` and `kali build --component --api browser`), including JSON-output coverage for the component path, so the browser-surface rejection split stays pinned across all documented Phase-1 build shapes.
 - Added JSON-output coverage for the remaining browser build-shape contradictions (`kali build --api browser` and `kali build --bundle --api node`) so the command-shape vs availability split stays pinned across both human and machine-readable envelopes.
 - Added sandbox artifact coverage that now asserts the embedded `kali:policy` custom section matches the source policy bytes exactly, not just the presence of the section.
@@ -122,7 +122,7 @@ For the **Phase-1 browser-targeted command set**:
   and run `kali build --bundle` without the explicit `--api browser` flag.
 - Cover `--sandbox` variant: `kali build --bundle --sandbox fixtures/policy.json fixtures/app.ts`
   → bundle carries `kali:policy` custom section.
-- Negative test: `kali build --bundle --api node` → `E5008`.
+- Negative test: `kali build --bundle --api node` → `E5508`.
 
 ### 5. Determinism checks
 

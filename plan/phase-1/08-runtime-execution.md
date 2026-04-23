@@ -31,7 +31,7 @@ TypeScript/JavaScript programs.
 
 - `kali_runtime` is wired through wasmtime for emitted WASM modules.
 - `kali run` and `kali test` drive the compiler output end to end.
-- Declaration-only primary inputs are rejected for runtime-bearing commands with `E5007`.
+- Declaration-only primary inputs are rejected for runtime-bearing commands with `E5507`.
 - Smoke tests cover successful runs, explicit-file test reporting, discovery-driven test runs,
   declaration-only rejection, guest-registered test callbacks, and `run` guest-argument
   passthrough after `--`.

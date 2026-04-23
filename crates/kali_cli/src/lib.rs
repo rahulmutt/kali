@@ -357,16 +357,16 @@ pub enum Commands {
     #[command(name = "package-effects")]
     /// Analyze registry-package effects
     PackageEffects {
-        /// Hidden package-analysis API selector rejected by the command handler with E5008
+        /// Hidden package-analysis API selector rejected by the command handler with E5508
         #[arg(long, hide = true, value_enum)]
         api: Option<ApiSurface>,
-        /// Hidden package-analysis compatibility selector rejected by the command handler with E5008
+        /// Hidden package-analysis compatibility selector rejected by the command handler with E5508
         #[arg(long = "compat", hide = true, value_delimiter = ',')]
         compat: Vec<String>,
-        /// Hidden threaded-profile selector rejected by the command handler with E5008
+        /// Hidden threaded-profile selector rejected by the command handler with E5508
         #[arg(long = "wasm-threads", hide = true, action = ArgAction::SetTrue)]
         wasm_threads: bool,
-        /// Hidden sandbox selector rejected by the command handler with E5008
+        /// Hidden sandbox selector rejected by the command handler with E5508
         #[arg(long, hide = true)]
         sandbox: Option<PathBuf>,
         /// Registry package target to analyze
@@ -375,21 +375,21 @@ pub enum Commands {
     #[command(name = "package-audit")]
     /// Audit a registry package
     PackageAudit {
-        /// Hidden package-analysis API selector rejected by the command handler with E5008
+        /// Hidden package-analysis API selector rejected by the command handler with E5508
         #[arg(long, hide = true, value_enum)]
         api: Option<ApiSurface>,
-        /// Hidden package-analysis compatibility selector rejected by the command handler with E5008
+        /// Hidden package-analysis compatibility selector rejected by the command handler with E5508
         #[arg(long = "compat", hide = true, value_delimiter = ',')]
         compat: Vec<String>,
-        /// Hidden threaded-profile selector rejected by the command handler with E5008
+        /// Hidden threaded-profile selector rejected by the command handler with E5508
         #[arg(long = "wasm-threads", hide = true, action = ArgAction::SetTrue)]
         wasm_threads: bool,
-        /// Hidden sandbox selector rejected by the command handler with E5008
+        /// Hidden sandbox selector rejected by the command handler with E5508
         #[arg(long, hide = true)]
         sandbox: Option<PathBuf>,
         /// Registry package target to audit
         target: String,
-        /// Hidden legacy flag rejected by the command handler with E5008
+        /// Hidden legacy flag rejected by the command handler with E5508
         #[arg(long, hide = true)]
         preview: bool,
     },

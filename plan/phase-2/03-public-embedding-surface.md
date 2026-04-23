@@ -94,7 +94,7 @@ pure-Rust tooling and keeping the WIT sidecar aligned with the same exported sur
 embedding semantic.
 
 `kali build --component` requires that the entrypoint has a statically known export surface
-(same precondition as `--lib`); emit `E5009` otherwise.
+(same precondition as `--lib`); emit `E5509` otherwise.
 
 ### 4. Stable public Rust embedding API (`kali_embed`)
 

@@ -60,7 +60,7 @@ fn main() {
         Some(Commands::Effects { .. }) | Some(Commands::PackageEffects { .. })
     );
     if output.pretty && !output.is_json() && !pretty_allowed_without_json {
-        eprintln!("error[E5008]: `--pretty` is only meaningful when JSON output is active");
+        eprintln!("error[E5508]: `--pretty` is only meaningful when JSON output is active");
         std::process::exit(5);
     }
 
@@ -4224,7 +4224,7 @@ fn diagnostics_exit_code(diagnostics: &[Diagnostic]) -> i32 {
     if diagnostics.iter().any(|diagnostic| {
         matches!(
             diagnostic.code,
-            Some(code) if matches!(code, 5001 | 5007 | 5008 | 5009 | 5010)
+            Some(code) if matches!(code, 5001 | 5507 | 5508 | 5509 | 5510 | 5511)
         )
     }) {
         5

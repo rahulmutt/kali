@@ -93,7 +93,7 @@ fn compile_lib_reports_missing_export_surfaces() {
     assert!(
         error.diagnostics().iter().any(|diagnostic| diagnostic.code
             == Some(kali_error::_error_codes::e5::INVALID_EXPORT_SURFACE as u32)),
-        "expected E5011 diagnostic: {error}"
+        "expected E5511 diagnostic: {error}"
     );
 }
 
@@ -387,7 +387,7 @@ fn compiler_rejects_duplicate_runtime_profiles_before_phase_gating() {
     assert!(
         error.diagnostics().iter().any(|diagnostic| diagnostic.code
             == Some(kali_error::_error_codes::e5::INVALID_CONFIG as u32)),
-        "expected E5009 diagnostic: {error}"
+        "expected E5509 diagnostic: {error}"
     );
 }
 
@@ -409,6 +409,6 @@ fn compiler_rejects_unknown_runtime_profiles_before_phase_gating() {
     assert!(
         error.diagnostics().iter().any(|diagnostic| diagnostic.code
             == Some(kali_error::_error_codes::e5::INVALID_CONFIG as u32)),
-        "expected E5009 diagnostic: {error}"
+        "expected E5509 diagnostic: {error}"
     );
 }

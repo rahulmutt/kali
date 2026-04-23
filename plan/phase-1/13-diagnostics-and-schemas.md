@@ -22,7 +22,7 @@ commands, versioned artifact metadata schemas, and the `kali.json` config schema
 - `kali --output json` now works across the shipped Phase-1 command surface (`check`, `build`, `run`, `test`, `init`, `install`, `fmt`, `lint`) and emits a single schema-v1 envelope instead of interleaving raw text with machine output.
 - Runtime execution now captures guest stdout/stderr so `run` and `test` can surface program streams through the JSON envelope as well as the human CLI path.
 - Added regression coverage for JSON-mode `init`, `check`, `fmt`, `lint`, `install`, `run`, and `test` envelopes so the command metadata, payload fields, and exit-code contract stay deterministic.
-- Added CLI smoke coverage for invalid-usage cases such as `--pretty` without JSON output, declaration-only runtime entrypoints, and multi-file `build` invocations so `E5008`/`E5007` now map to the documented exit code.
+- Added CLI smoke coverage for invalid-usage cases such as `--pretty` without JSON output, declaration-only runtime entrypoints, and multi-file `build` invocations so `E5508`/`E5507` now map to the documented exit code.
 - Committed the repository `schemas/` documents for the command envelope, diagnostics, manifests, lockfiles, policies, artifact metadata, and the current shipped result payloads, including reserved later-phase shapes.
 - Tightened the default human diagnostic renderer so severity labels and help/note lines follow the canonical `error[...]` / `= help:` / `= note:` style.
 - Added explicit later-compatibility gating for `kali check --fix`, so the checker autofix path now rejects through the canonical `E5506` availability diagnostic instead of falling through to an unhelpful unknown-flag parse error.

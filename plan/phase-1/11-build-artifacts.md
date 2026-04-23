@@ -26,7 +26,7 @@ complete the **Phase-1 browser-targeted command set** and the **Phase-1 static p
 - `kali build --bundle` now emits a browser bundle directory containing `.wasm`, `.js`, and `.meta.json` outputs, with deterministic metadata and JS glue that uses browser-native instantiation APIs.
 - The emitted browser bundle glue now exposes `console.info` and `console.debug` shims alongside the existing console host imports, keeping the generated browser import object aligned with the Phase-1 Web baseline.
 - CLI smoke coverage now exercises both `--lib` and `--bundle` output paths in addition to the existing executable/sandbox path.
-- The CLI now reconciles the effective API surface for build artifacts: `--api browser` and inherited browser config enable the bundle path, while contradictory browser/non-browser combinations are rejected with the canonical `E5008` shape error and `--api node` remains phase-gated with `E5506`.
+- The CLI now reconciles the effective API surface for build artifacts: `--api browser` and inherited browser config enable the bundle path, while contradictory browser/non-browser combinations are rejected with the canonical `E5508` shape error and `--api node` remains phase-gated with `E5506`.
 - `kali check` now honors the same browser API surface selection, including inherited browser config, while still rejecting node-targeted checking with `E5506`.
 - Browser bundle smoke coverage now includes the inherited-config browser path, and the command surface rejects non-browser bundle requests before artifact generation starts.
 
@@ -90,7 +90,7 @@ The JS glue script:
 - Does **not** include a runtime event loop (the browser provides one).
 
 `--api browser` is the canonical API surface for bundle builds. The combination
-`kali build --bundle --api node` is an `E5008` command-shape contradiction and must be rejected.
+`kali build --bundle --api node` is an `E5508` command-shape contradiction and must be rejected.
 
 ```
 kali build --bundle <file>
@@ -106,7 +106,7 @@ the same build/check commands behave as if `--api browser` / `--bundle` were pas
 
 The Phase-1 **base library artifact** for **exact-version consumers**.
 
-Preconditions (emit `E5009` if not satisfied):
+Preconditions (emit `E5509` if not satisfied):
 
 - The entrypoint must have a **statically known export surface** — all exported names and their
   types must be determinable at compile time without dynamic re-export patterns.
@@ -149,7 +149,7 @@ kali build --lib --sandbox <policy> <file>
 kali build --lib --out-dir <dir> <file>
 ```
 
-`kali build --lib --api browser` is an `E5008` command-shape contradiction.
+`kali build --lib --api browser` is an `E5508` command-shape contradiction.
 
 ### 4. Error codes for command-shape violations
 
@@ -161,9 +161,9 @@ kali build --lib --out-dir <dir> <file>
 | `E5004` | Output directory does not exist |
 | `E5005` | Policy file not found (when passed with `--sandbox`) |
 | `E5506` | `--sandbox` on an invalid command/context combination |
-| `E5007` | Declaration-only file as build entrypoint |
-| `E5008` | Contradictory flag combination |
-| `E5009` | Export surface not statically known (for `--lib`) |
+| `E5507` | Declaration-only file as build entrypoint |
+| `E5508` | Contradictory flag combination |
+| `E5509` | Export surface not statically known (for `--lib`) |
 
 ### 5. Artifact metadata schema
 
@@ -183,8 +183,8 @@ Ensure the metadata is deterministic: given the same source + flags + package lo
   expected output.
 - `kali build --lib fixtures/math.ts` → produces `math.lib.wasm` and `math.lib.meta.json`;
   validate export inventory.
-- `kali build --bundle --api node fixtures/app.ts` → exits 1 with `E5008`.
-- `kali build --lib --api browser fixtures/app.ts` → exits 1 with `E5008`.
+- `kali build --bundle --api node fixtures/app.ts` → exits 1 with `E5508`.
+- `kali build --lib --api browser fixtures/app.ts` → exits 1 with `E5508`.
 - Repeated builds of identical inputs produce byte-identical artifacts.
 
 ## Out of Scope

@@ -102,18 +102,18 @@ pub mod _error_codes {
 
     // E5xxx: CLI/command errors (kali_cli)
     pub mod e5 {
-        // E5000-5099: Command argument and availability errors
+        // E5000-5599: Command argument and availability errors
         pub const INVALID_ARGUMENT: u16 = 5000;
         pub const MISSING_REQUIRED_ARGUMENT: u16 = 5001;
         pub const UNKNOWN_COMMAND: u16 = 5002;
         pub const INVALID_MODULE_SPECIFIER: u16 = 5003;
         pub const DEPENDENCY_STATE_MISSING: u16 = 5004;
         pub const FEATURE_UNAVAILABLE: u16 = 5506;
-        pub const INVALID_PRIMARY_INPUT_KIND: u16 = 5007;
-        pub const INVALID_CLI_USAGE: u16 = 5008;
-        pub const INVALID_CONFIG: u16 = 5009;
-        pub const INVALID_POLICY: u16 = 5010;
-        pub const INVALID_EXPORT_SURFACE: u16 = 5011;
+        pub const INVALID_PRIMARY_INPUT_KIND: u16 = 5507;
+        pub const INVALID_CLI_USAGE: u16 = 5508;
+        pub const INVALID_CONFIG: u16 = 5509;
+        pub const INVALID_POLICY: u16 = 5510;
+        pub const INVALID_EXPORT_SURFACE: u16 = 5511;
 
         // E5100-5199: Command mode errors
         pub const INCOMPATIBLE_FLAGS: u16 = 5100;

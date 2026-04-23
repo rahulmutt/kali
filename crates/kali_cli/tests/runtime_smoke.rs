@@ -836,7 +836,7 @@ fn check_rejects_inherited_duplicate_runtime_profiles() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5009"), "stderr: {stderr}");
+    assert!(stderr.contains("E5509"), "stderr: {stderr}");
     assert!(
         stderr.contains("duplicate runtimeProfile"),
         "stderr: {stderr}"
@@ -1970,7 +1970,7 @@ fn run_rejects_declaration_only_fixture_entrypoints() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5007"), "stderr: {stderr}");
+    assert!(stderr.contains("E5507"), "stderr: {stderr}");
 }
 
 #[test]
@@ -2313,7 +2313,7 @@ fn run_rejects_inherited_duplicate_runtime_profiles() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5009"), "stderr: {stderr}");
+    assert!(stderr.contains("E5509"), "stderr: {stderr}");
     assert!(
         stderr.contains("duplicate runtimeProfile"),
         "stderr: {stderr}"
@@ -2574,7 +2574,7 @@ fn test_rejects_inherited_duplicate_runtime_profiles() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5009"), "stderr: {stderr}");
+    assert!(stderr.contains("E5509"), "stderr: {stderr}");
     assert!(
         stderr.contains("duplicate runtimeProfile"),
         "stderr: {stderr}"
@@ -3374,7 +3374,7 @@ fn build_rejects_library_sources_without_static_exports() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5011"), "stderr: {stderr}");
+    assert!(stderr.contains("E5511"), "stderr: {stderr}");
     assert!(
         stderr.contains("no statically known export surface"),
         "stderr: {stderr}"
@@ -3460,7 +3460,7 @@ fn build_rejects_inherited_duplicate_runtime_profiles() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5009"), "stderr: {stderr}");
+    assert!(stderr.contains("E5509"), "stderr: {stderr}");
     assert!(
         stderr.contains("duplicate runtimeProfile"),
         "stderr: {stderr}"
@@ -3494,7 +3494,7 @@ fn build_rejects_inherited_unknown_runtime_profile() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5009"), "stderr: {stderr}");
+    assert!(stderr.contains("E5509"), "stderr: {stderr}");
     assert!(
         stderr.contains("unsupported runtimeProfile"),
         "stderr: {stderr}"
@@ -4609,7 +4609,7 @@ fn build_rejects_unsupported_pgo_profile_data_version() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5009"), "stderr: {stderr}");
+    assert!(stderr.contains("E5509"), "stderr: {stderr}");
     assert!(
         stderr.contains("unsupported PGO profile data version"),
         "stderr: {stderr}"
@@ -4643,7 +4643,7 @@ fn json_build_rejects_unsupported_pgo_profile_data_version() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
-    assert_eq!(errors[0]["code"], "E5009");
+    assert_eq!(errors[0]["code"], "E5509");
     assert!(
         errors[0]["message"]
             .as_str()
@@ -4809,7 +4809,7 @@ fn build_rejects_bundle_without_browser_api_surface() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(stderr.contains("browser API surface"), "stderr: {stderr}");
 }
 
@@ -4831,7 +4831,7 @@ fn build_rejects_explicit_browser_api_surface_without_bundle() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(stderr.contains("browser API surface"), "stderr: {stderr}");
 }
 
@@ -4857,7 +4857,7 @@ fn json_build_rejects_explicit_browser_api_surface_without_bundle() {
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert!(!json["success"].as_bool().expect("success boolean"));
-    assert_eq!(json["errors"][0]["code"], "E5008");
+    assert_eq!(json["errors"][0]["code"], "E5508");
     assert!(
         json["errors"][0]["message"]
             .as_str()
@@ -4886,7 +4886,7 @@ fn build_rejects_explicit_node_bundle_api_surface() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(stderr.contains("browser API surface"), "stderr: {stderr}");
 }
 
@@ -4913,7 +4913,7 @@ fn json_build_rejects_explicit_node_bundle_api_surface() {
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert!(!json["success"].as_bool().expect("success boolean"));
-    assert_eq!(json["errors"][0]["code"], "E5008");
+    assert_eq!(json["errors"][0]["code"], "E5508");
     assert!(
         json["errors"][0]["message"]
             .as_str()
@@ -4942,7 +4942,7 @@ fn build_rejects_explicit_browser_library_api_surface() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(stderr.contains("browser API surface"), "stderr: {stderr}");
 }
 
@@ -4965,7 +4965,7 @@ fn build_rejects_explicit_browser_capi_api_surface() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(stderr.contains("browser API surface"), "stderr: {stderr}");
 }
 
@@ -4992,7 +4992,7 @@ fn json_build_rejects_explicit_browser_component_api_surface() {
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert!(!json["success"].as_bool().expect("success boolean"));
-    assert_eq!(json["errors"][0]["code"], "E5008");
+    assert_eq!(json["errors"][0]["code"], "E5508");
     assert!(
         json["errors"][0]["message"]
             .as_str()
@@ -5025,7 +5025,7 @@ fn json_build_rejects_explicit_browser_library_api_surface() {
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert!(!json["success"].as_bool().expect("success boolean"));
-    assert_eq!(json["errors"][0]["code"], "E5008");
+    assert_eq!(json["errors"][0]["code"], "E5508");
     assert!(
         json["errors"][0]["message"]
             .as_str()
@@ -5138,7 +5138,7 @@ fn build_rejects_bundle_format_without_bundle() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(stderr.contains("--format"), "stderr: {stderr}");
 }
 
@@ -5460,7 +5460,7 @@ fn build_rejects_multiple_source_files() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
         stderr.contains("only one primary source file"),
         "stderr: {stderr}"
@@ -5632,7 +5632,7 @@ fn json_check_rejects_inherited_duplicate_runtime_profiles() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
-    assert_eq!(errors[0]["code"], "E5009");
+    assert_eq!(errors[0]["code"], "E5509");
     assert!(errors[0]["message"]
         .as_str()
         .expect("error message")
@@ -6050,7 +6050,7 @@ fn pretty_without_json_exits_with_usage_code() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
 }
 
 #[test]
@@ -6067,7 +6067,7 @@ fn init_rejects_non_empty_directory_with_usage_code() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
 }
 
 #[test]
@@ -6173,7 +6173,7 @@ fn install_allow_scripts_rejects_jsr_targets() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(stderr.contains("JSR targets"), "stderr: {stderr}");
 }
 
@@ -6197,7 +6197,7 @@ fn install_allow_scripts_rejects_when_no_npm_work_exists() {
     );
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
         stderr.contains("non-empty npm install work"),
         "stderr: {stderr}"
@@ -6313,7 +6313,7 @@ fn install_dev_requires_an_explicit_registry_target() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
         stderr.contains("explicit registry package target"),
         "stderr: {stderr}"
@@ -7447,7 +7447,7 @@ fn effects_rejects_sandbox_flag_as_invalid_usage() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
         stderr.contains("does not accept `--sandbox`"),
         "stderr: {stderr}"
@@ -8145,7 +8145,7 @@ fn package_effects_rejects_package_analysis_specific_flags() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
         stderr.contains("does not accept package-analysis-specific flags"),
         "stderr: {stderr}"
@@ -8320,7 +8320,7 @@ fn package_effects_rejects_inherited_duplicate_runtime_profiles() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5009"), "stderr: {stderr}");
+    assert!(stderr.contains("E5509"), "stderr: {stderr}");
     assert!(
         stderr.contains("duplicate runtimeProfile"),
         "stderr: {stderr}"
@@ -9273,7 +9273,24 @@ fn package_audit_rejects_pretty_without_json_output() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("`--pretty` is only meaningful when JSON output is active"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn global_pretty_without_json_output_reports_canonical_cli_usage_error() {
+    let output = Command::new(kali_bin())
+        .arg("--pretty")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
         stderr.contains("`--pretty` is only meaningful when JSON output is active"),
         "stderr: {stderr}"
@@ -9303,7 +9320,7 @@ fn package_audit_rejects_preview_compatibility_shim() {
     );
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
         stderr.contains("`--preview` is no longer accepted for package-audit"),
         "stderr: {stderr}"
@@ -9323,7 +9340,7 @@ fn package_audit_rejects_package_analysis_specific_flags() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
         stderr.contains("does not accept package-analysis-specific flags"),
         "stderr: {stderr}"
@@ -9353,7 +9370,7 @@ fn package_audit_rejects_package_analysis_specific_flags_in_json_output() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "package-audit");
     assert!(!json["success"].as_bool().expect("success boolean"));
-    assert_eq!(json["errors"][0]["code"], "E5008");
+    assert_eq!(json["errors"][0]["code"], "E5508");
     assert!(
         json["errors"][0]["message"]
             .as_str()
@@ -9376,7 +9393,7 @@ fn package_audit_rejects_compat_feature_surface() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
         stderr.contains("does not accept package-analysis-specific flags"),
         "stderr: {stderr}"
@@ -9395,7 +9412,7 @@ fn package_audit_rejects_wasm_threads_runtime_profile() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
         stderr.contains("does not accept package-analysis-specific flags"),
         "stderr: {stderr}"
@@ -9415,7 +9432,7 @@ fn package_audit_rejects_browser_api_surface() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
         stderr.contains("does not accept package-analysis-specific flags"),
         "stderr: {stderr}"
@@ -9447,7 +9464,7 @@ fn package_audit_rejects_node_api_surface() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
         stderr.contains("does not accept package-analysis-specific flags"),
         "stderr: {stderr}"
