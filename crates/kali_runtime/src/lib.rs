@@ -3081,10 +3081,21 @@ fn browser_runtime_summary_for_outcome(
     summary_path: &Path,
     outcome: &BrowserHarnessOutcome,
 ) -> BrowserRuntimeSummary {
+    let stdout_summary = parse_browser_runtime_summary(&outcome.stdout);
     match fs::read_to_string(summary_path) {
-        Ok(text) => parse_browser_runtime_summary_opt(&text)
-            .unwrap_or_else(|| parse_browser_runtime_summary(&outcome.stdout)),
-        Err(_) => parse_browser_runtime_summary(&outcome.stdout),
+        Ok(text) => match parse_browser_runtime_summary_opt(&text) {
+            Some(mut summary) => {
+                if summary.host_contract.is_none() {
+                    summary.host_contract = stdout_summary.host_contract;
+                }
+                if summary.runtime_backend.is_none() {
+                    summary.runtime_backend = stdout_summary.runtime_backend;
+                }
+                summary
+            }
+            None => stdout_summary,
+        },
+        Err(_) => stdout_summary,
     }
 }
 
