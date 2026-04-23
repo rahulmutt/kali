@@ -343,46 +343,8 @@ fn browser_harness_command_parts_exposes_override_and_default_selection() {
 }
 
 #[test]
-fn browser_harness_recognizes_common_display_name_aliases() {
-    for executable in [
-        "chrome",
-        "chrome-beta",
-        "chrome-canary",
-        "chrome-headless-shell",
-        "chromium-browser",
-        "google chrome",
-        "google chrome beta",
-        "google chrome canary",
-        "google-chrome-headless-shell",
-        "google-chrome-stable",
-        "brave browser",
-        "brave browser nightly",
-        "msedge-beta",
-        "msedge-canary",
-        "msedge-dev",
-        "msedge-insider",
-        "edge-beta",
-        "edge-canary",
-        "edge-dev",
-        "edge-insider",
-        "microsoft edge canary",
-        "microsoft edge dev",
-        "microsoft edge insider",
-        "microsoft edge stable",
-        "firefox beta",
-        "firefox-esr",
-        "firefox developer edition",
-        "opera-stable",
-        "vivaldi-stable",
-        "vivaldi snapshot",
-        "opera beta",
-        "opera developer",
-        "opera unstable",
-        "librewolf",
-        "waterfox",
-        "zen-browser",
-        "thorium-browser",
-    ] {
+fn browser_harness_recognizes_all_canonical_browser_executable_names() {
+    for executable in BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES {
         let parts = match browser_harness_command_parts_for_browser_executable(executable) {
             Some(parts) => parts,
             None => panic!(
