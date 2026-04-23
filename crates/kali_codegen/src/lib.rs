@@ -404,6 +404,17 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 }
 
+                if let Some(slice_start) = self.process_argv_slice_start(arg) {
+                    function.instruction(&Instruction::Call(ARGS_LEN_IMPORT_INDEX));
+                    function.instruction(&Instruction::I64ExtendI32U);
+                    function.instruction(&Instruction::I64Const(slice_start));
+                    function.instruction(&Instruction::I64Sub);
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+
                 let produced = self.emit_node(function, arg, true);
                 if produced.produced {
                     function.instruction(&Instruction::Drop);
@@ -820,7 +831,56 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
     }
 
+    fn resolve_bound_node(&self, mut id: LirNodeId) -> LirNodeId {
+        let mut seen = HashSet::new();
+
+        loop {
+            if !seen.insert(id) {
+                return id;
+            }
+
+            let node = self.node(id);
+            if node.kind == LirNodeKind::Value && node.children.is_empty() {
+                if let Some(text) = node.text.as_deref() {
+                    if let Some(bound) = self.bindings.get(text).copied() {
+                        id = bound;
+                        continue;
+                    }
+                }
+            }
+
+            return id;
+        }
+    }
+
+    fn process_argv_slice_start(&self, id: LirNodeId) -> Option<i64> {
+        let id = self.resolve_bound_node(id);
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Call {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("slice") {
+            return None;
+        }
+
+        let object = callee_node.children.first().copied()?;
+        if !self.is_process_argv(object) {
+            return None;
+        }
+
+        let start = *node.children.get(1)?;
+        let start_node = self.node(start);
+        parse_number_literal(start_node.text.as_deref()?)
+    }
+
     fn render_length(&self, id: &LirNodeId) -> Option<String> {
+        if self.process_argv_slice_start(*id).is_some() {
+            return None;
+        }
+
         let node = self.node(*id);
         if node.text.is_none() {
             return Some(node.children.len().to_string());

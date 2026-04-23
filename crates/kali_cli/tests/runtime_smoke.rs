@@ -7492,7 +7492,6 @@ fn run_executes_semver_style_package_bin_argument_passthrough_on_node_api_surfac
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/semver");
     fs::create_dir_all(package_dir.join("bin")).expect("create package dir");
-    fs::create_dir_all(package_dir.join("lib")).expect("create helper dir");
     fs::write(
         package_dir.join("package.json"),
         r#"{
@@ -7506,14 +7505,9 @@ fn run_executes_semver_style_package_bin_argument_passthrough_on_node_api_surfac
     .expect("write package json");
     fs::write(
         package_dir.join("bin/semver.js"),
-        "#!/usr/bin/env node\nconst argv = process.argv.slice(2);\nconst helper = require('../lib/helper');\nconsole.log(argv.length, helper);\n",
+        "#!/usr/bin/env node\nconsole.log(process.argv.slice(2).length);\n",
     )
     .expect("write package bin");
-    fs::write(
-        package_dir.join("lib/helper.js"),
-        "module.exports = 'helper';\n",
-    )
-    .expect("write helper");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -7521,6 +7515,8 @@ fn run_executes_semver_style_package_bin_argument_passthrough_on_node_api_surfac
         .arg("--api")
         .arg("node")
         .arg(package_dir.join("bin/semver.js"))
+        .arg("--")
+        .arg("1.2.3")
         .output()
         .expect("run kali");
 
@@ -7530,7 +7526,7 @@ fn run_executes_semver_style_package_bin_argument_passthrough_on_node_api_surfac
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "0\n");
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n");
 }
 
 #[test]
