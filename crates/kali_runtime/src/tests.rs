@@ -488,6 +488,8 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
     ));
     assert!(browser_harness_uses_html_entrypoint("librewolf"));
     assert!(browser_harness_uses_html_entrypoint("waterfox"));
+    assert!(browser_harness_uses_html_entrypoint("mullvad-browser"));
+    assert!(browser_harness_uses_html_entrypoint("Mullvad Browser.app"));
     assert!(browser_harness_uses_html_entrypoint("zen-browser"));
     assert!(browser_harness_uses_html_entrypoint("zen browser"));
     assert!(browser_harness_uses_html_entrypoint("thorium-browser"));
@@ -685,6 +687,20 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("waterfox"),
         Some(vec!["waterfox".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("mullvad-browser"),
+        Some(vec![
+            "mullvad-browser".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("mullvad browser"),
+        Some(vec![
+            "mullvad browser".to_string(),
+            "--headless".to_string()
+        ])
     );
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("zen-browser"),

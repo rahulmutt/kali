@@ -2399,6 +2399,8 @@ const BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES: &[&str] = &[
     "firefox beta",
     "librewolf",
     "waterfox",
+    "mullvad-browser",
+    "mullvad browser",
     "zen-browser",
     "zen browser",
     "thorium-browser",

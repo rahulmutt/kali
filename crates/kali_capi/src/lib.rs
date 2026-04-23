@@ -111,6 +111,7 @@ pub fn generate_metadata_with_provenance(
 }
 
 /// Generate a deterministic packaging manifest for higher-level language bindings.
+#[allow(clippy::too_many_arguments)]
 pub fn generate_binding_package_manifest_with_provenance(
     module_name: impl AsRef<str>,
     library_path: impl AsRef<str>,
