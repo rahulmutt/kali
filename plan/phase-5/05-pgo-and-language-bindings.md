@@ -95,6 +95,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   deterministic manifest and metadata contract. Added a direct CommonJS entrypoint regression as
   well, so the package-root require path and the explicit `kali_capi.cjs` file both stay covered
   by the same maintained binding smoke lane.
+- Added Rust-side binding-package manifest discovery/load helpers in `kali_capi`, mirroring the
+  deterministic root-manifest and stem-specific discovery rules already exercised by the Python and
+  Node helpers so future embedding and packaging code can reuse one shared contract from Rust as well.
 
 ## Tasks
 

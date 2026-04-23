@@ -4,6 +4,8 @@
 //! public embedding projection.
 
 use serde_json::{json, Value};
+use std::fs;
+use std::path::{Path, PathBuf};
 
 /// Current host ABI version expected by generated embedding metadata.
 pub const HOST_ABI_VERSION: u32 = 2;
@@ -86,6 +88,142 @@ pub fn generate_binding_package_manifest(
             "glue": glue_paths,
         },
     })
+}
+
+/// Discover the generated binding package manifest inside a bundle root.
+pub fn discover_binding_package_manifest_path(
+    bundle_root: impl AsRef<Path>,
+) -> Result<PathBuf, String> {
+    discover_binding_package_manifest_path_with_name(bundle_root, "binding-package.json")
+}
+
+/// Discover a specific generated binding package manifest name inside a bundle root.
+pub fn discover_binding_package_manifest_path_with_name(
+    bundle_root: impl AsRef<Path>,
+    manifest_name: impl AsRef<str>,
+) -> Result<PathBuf, String> {
+    let bundle_root = bundle_root.as_ref();
+    let manifest_name = manifest_name.as_ref();
+    let explicit_path = bundle_root.join(manifest_name);
+    if explicit_path.exists() {
+        return Ok(explicit_path);
+    }
+
+    if manifest_name != "binding-package.json" {
+        return Err(format!(
+            "binding package manifest '{}' was not found",
+            explicit_path.display()
+        ));
+    }
+
+    let mut discovered = Vec::new();
+    let entries = fs::read_dir(bundle_root).map_err(|error| {
+        format!(
+            "failed to read binding package manifest directory '{}': {}",
+            bundle_root.display(),
+            error
+        )
+    })?;
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            format!(
+                "failed to read binding package manifest directory '{}': {}",
+                bundle_root.display(),
+                error
+            )
+        })?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if name.ends_with(".binding-package.json") {
+            discovered.push(path);
+        }
+    }
+    discovered.sort();
+
+    match discovered.len() {
+        0 => Err(format!(
+            "binding package manifest '{}' was not found",
+            explicit_path.display()
+        )),
+        1 => Ok(discovered.remove(0)),
+        _ => Err(format!(
+            "binding package manifest is ambiguous in '{}'; pass a manifest name explicitly",
+            bundle_root.display()
+        )),
+    }
+}
+
+/// Parse and validate a generated binding package manifest.
+pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, String> {
+    let manifest: Value = serde_json::from_str(manifest_text)
+        .map_err(|error| format!("binding package manifest is not valid JSON: {}", error))?;
+
+    let schema_version = manifest
+        .get("schemaVersion")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            "binding package manifest field 'schemaVersion' must be an integer".to_string()
+        })?;
+    if schema_version != 1 {
+        return Err(format!(
+            "unsupported binding package manifest schemaVersion {}",
+            schema_version
+        ));
+    }
+
+    let kind = manifest
+        .get("kind")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "binding package manifest field 'kind' must be a string".to_string())?;
+    if kind != "binding-package" {
+        return Err(format!(
+            "unsupported binding package manifest kind '{}'",
+            kind
+        ));
+    }
+
+    let artifacts = manifest
+        .get("artifacts")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            "binding package manifest field 'artifacts' must be a JSON object".to_string()
+        })?;
+    for key in ["library", "metadata", "exportsHeader", "glue"] {
+        if !artifacts.contains_key(key) {
+            return Err(format!(
+                "binding package manifest field 'artifacts.{}' is missing",
+                key
+            ));
+        }
+    }
+
+    Ok(manifest)
+}
+
+/// Load the generated binding package manifest from disk.
+pub fn load_binding_package_manifest(path: impl AsRef<Path>) -> Result<Value, String> {
+    let path = path.as_ref();
+    let raw = fs::read_to_string(path).map_err(|error| {
+        format!(
+            "failed to read binding package manifest '{}': {}",
+            path.display(),
+            error
+        )
+    })?;
+    parse_binding_package_manifest(&raw)
+}
+
+/// Discover and load the generated binding package manifest from a bundle root.
+pub fn load_binding_package_manifest_from_root(
+    bundle_root: impl AsRef<Path>,
+) -> Result<Value, String> {
+    let path = discover_binding_package_manifest_path(bundle_root)?;
+    load_binding_package_manifest(path)
 }
 
 /// Generate a deterministic C header for the provided export surface.

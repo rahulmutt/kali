@@ -83,6 +83,97 @@ fn identifier_sanitization_is_deterministic() {
 }
 
 #[test]
+fn binding_package_manifest_helpers_load_and_discover_manifests() {
+    let temp_root = std::env::temp_dir().join(format!(
+        "kali_capi_binding_manifest_{}_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("monotonic time")
+            .as_nanos()
+    ));
+    fs::create_dir_all(&temp_root).expect("temp dir");
+
+    let explicit_manifest = generate_binding_package_manifest(
+        "sample",
+        "sample.capi.wasm",
+        "sample.cabi.json",
+        "sample.h",
+        8,
+        &["support.py".to_string(), "shim.py".to_string()],
+    );
+    let explicit_manifest_path = temp_root.join("binding-package.json");
+    fs::write(&explicit_manifest_path, explicit_manifest.to_string())
+        .expect("write explicit manifest");
+
+    let discovered = discover_binding_package_manifest_path(&temp_root)
+        .expect("discover explicit binding package manifest");
+    assert_eq!(discovered, explicit_manifest_path);
+
+    let loaded = load_binding_package_manifest(&discovered).expect("load explicit manifest");
+    assert_eq!(loaded["kind"], "binding-package");
+    assert_eq!(loaded["moduleName"], "sample");
+    assert_eq!(
+        loaded["artifacts"]["glue"],
+        serde_json::json!(["shim.py", "support.py"])
+    );
+
+    let stem_manifest_path = temp_root.join("sample.binding-package.json");
+    fs::write(
+        &stem_manifest_path,
+        generate_binding_package_manifest(
+            "sample",
+            "sample.capi.wasm",
+            "sample.cabi.json",
+            "sample.h",
+            8,
+            &["support.py".to_string(), "shim.py".to_string()],
+        )
+        .to_string(),
+    )
+    .expect("write stem manifest");
+
+    let explicit_stem =
+        discover_binding_package_manifest_path_with_name(&temp_root, "sample.binding-package.json")
+            .expect("discover explicit stem-specific manifest");
+    assert_eq!(explicit_stem, stem_manifest_path);
+}
+
+#[test]
+fn binding_package_manifest_helpers_reject_ambiguous_auto_discovery() {
+    let temp_root = std::env::temp_dir().join(format!(
+        "kali_capi_binding_manifest_{}_ambiguous_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("monotonic time")
+            .as_nanos()
+    ));
+    fs::create_dir_all(&temp_root).expect("temp dir");
+
+    for stem in ["first", "second"] {
+        let manifest_path = temp_root.join(format!("{}.binding-package.json", stem));
+        fs::write(
+            &manifest_path,
+            generate_binding_package_manifest(
+                stem,
+                format!("{}.capi.wasm", stem),
+                format!("{}.cabi.json", stem),
+                format!("{}.h", stem),
+                8,
+                &[],
+            )
+            .to_string(),
+        )
+        .expect("write ambiguous manifest");
+    }
+
+    let error = discover_binding_package_manifest_path(&temp_root)
+        .expect_err("ambiguous discovery should fail");
+    assert!(error.contains("ambiguous"), "unexpected error: {error}");
+}
+
+#[test]
 fn python_binding_wraps_generated_header_exports() {
     if Command::new("python3").arg("--version").output().is_err() {
         return;

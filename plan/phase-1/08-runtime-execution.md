@@ -44,6 +44,9 @@ TypeScript/JavaScript programs.
 - Added a semver consumer/runtime regression on the default standalone surface so the common
   `valid` / `satisfies` / `minVersion` package calls now stay observable with exact stdout instead
   of collapsing to placeholder zeros.
+- The semver probe follow-up still tracks the unresolved imported bindings/call-target placeholder
+  fallback explicitly so that gap remains visible in the stage notes instead of being implied by the
+  codegen path alone.
 
 ## Historical stage tasks
 
@@ -128,6 +131,7 @@ Reject them with the canonical invalid-entrypoint diagnostic before execution be
 A real `semver` execution attempt exposed runtime-path gaps that should be tracked explicitly.
 One of them — the `--` guest-argument split for `kali run` — is now fixed and regression-covered;
 package-execution semantics now also have a dedicated Node-path semver package-json/version smoke,
+and the unresolved imported bindings/call-target placeholder fallback remains tracked explicitly,
 while broader CommonJS lowering gaps remain tracked explicitly.
 
 ### Semver-specific regression surfaces
@@ -142,9 +146,9 @@ while broader CommonJS lowering gaps remain tracked explicitly.
 
 ### Systematic fix plan
 
-1. Tighten the compile→run handoff so unresolved imported bindings/call targets are never silently
-   lowered into executable placeholder values; they must either lower faithfully or stop the run
-   with a hard diagnostic before WASM emission.
+1. Tighten the compile→run handoff so unresolved imported bindings/call targets are no longer
+   silently lowered into executable placeholder values; they must either lower faithfully or stop
+   the run with a hard diagnostic before WASM emission.
 2. Add an end-to-end package execution regression using the real `semver` consumer/library case so
    runtime output is compared against known-good behavior rather than only checking exit success.
 3. Extend the package-bin regression for `semver/bin/semver.js` to cover the remaining Node-path
