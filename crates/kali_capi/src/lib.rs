@@ -295,6 +295,80 @@ pub fn load_binding_package_manifest_from_root_with_name(
     load_binding_package_manifest(path)
 }
 
+/// Project a normalized binding package manifest into a compact summary object.
+pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, String> {
+    let manifest = manifest.as_object().ok_or_else(|| {
+        "binding package manifest summary must be built from a JSON object".to_string()
+    })?;
+
+    let artifacts = manifest
+        .get("artifacts")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            "binding package manifest summary field 'artifacts' must be a JSON object".to_string()
+        })?;
+
+    let exports_header = artifacts.get("exportsHeader").cloned().ok_or_else(|| {
+        "binding package manifest summary field 'artifacts.exportsHeader' is missing".to_string()
+    })?;
+    let glue = artifacts.get("glue").cloned().ok_or_else(|| {
+        "binding package manifest summary field 'artifacts.glue' is missing".to_string()
+    })?;
+    let library = artifacts.get("library").cloned().ok_or_else(|| {
+        "binding package manifest summary field 'artifacts.library' is missing".to_string()
+    })?;
+    let metadata = artifacts.get("metadata").cloned().ok_or_else(|| {
+        "binding package manifest summary field 'artifacts.metadata' is missing".to_string()
+    })?;
+
+    let module_name = manifest.get("moduleName").cloned().ok_or_else(|| {
+        "binding package manifest summary field 'moduleName' is missing".to_string()
+    })?;
+    let host_abi_version = manifest.get("hostAbiVersion").cloned().ok_or_else(|| {
+        "binding package manifest summary field 'hostAbiVersion' is missing".to_string()
+    })?;
+    let min_host_abi_version = manifest
+        .get("minHostAbiVersion")
+        .cloned()
+        .unwrap_or_else(|| host_abi_version.clone());
+    let runtime_profiles = manifest
+        .get("runtimeProfiles")
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let host_contract = manifest
+        .get("hostContract")
+        .cloned()
+        .unwrap_or_else(|| Value::String("kali-hosted".to_string()));
+    let runtime_backend = manifest
+        .get("runtimeBackend")
+        .cloned()
+        .unwrap_or_else(|| Value::String("wasmtime".to_string()));
+
+    let mut summary = serde_json::Map::new();
+    summary.insert("moduleName".to_string(), module_name);
+    summary.insert("hostAbiVersion".to_string(), host_abi_version);
+    summary.insert("minHostAbiVersion".to_string(), min_host_abi_version);
+    summary.insert("runtimeProfiles".to_string(), runtime_profiles);
+    summary.insert("hostContract".to_string(), host_contract);
+    summary.insert("runtimeBackend".to_string(), runtime_backend);
+
+    if let Some(max_specializations) = manifest.get("maxSpecializations") {
+        summary.insert(
+            "maxSpecializations".to_string(),
+            max_specializations.clone(),
+        );
+    }
+
+    let mut summary_artifacts = serde_json::Map::new();
+    summary_artifacts.insert("exportsHeader".to_string(), exports_header);
+    summary_artifacts.insert("glue".to_string(), glue);
+    summary_artifacts.insert("library".to_string(), library);
+    summary_artifacts.insert("metadata".to_string(), metadata);
+    summary.insert("artifacts".to_string(), Value::Object(summary_artifacts));
+
+    Ok(Value::Object(summary))
+}
+
 /// Generate a deterministic C header for the provided export surface.
 pub fn generate_header(module_name: &str, exports: &[Export]) -> String {
     let mut header = String::new();

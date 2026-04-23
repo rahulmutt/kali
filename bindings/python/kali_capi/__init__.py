@@ -33,6 +33,7 @@ __all__ = [
     "load_library",
     "load_metadata",
     "parse_binding_package_manifest",
+    "binding_package_manifest_summary",
     "parse_exports",
     "parse_metadata",
 ]
@@ -288,6 +289,30 @@ def load_binding_package_manifest_from_root(
     return load_binding_package_manifest(
         discover_binding_package_manifest_path(bundle_root, manifest_name)
     )
+
+
+def binding_package_manifest_summary(
+    manifest: BindingPackageManifest,
+) -> dict[str, object]:
+    """Project a binding package manifest into a compact deterministic summary."""
+
+    summary: dict[str, object] = {
+        "moduleName": manifest.module_name,
+        "hostAbiVersion": manifest.host_abi_version,
+        "minHostAbiVersion": manifest.min_host_abi_version,
+        "runtimeProfiles": list(manifest.runtime_profiles),
+        "hostContract": manifest.host_contract,
+        "runtimeBackend": manifest.runtime_backend,
+        "artifacts": {
+            "exportsHeader": manifest.artifacts["exportsHeader"],
+            "glue": list(manifest.artifacts["glue"]),
+            "library": manifest.artifacts["library"],
+            "metadata": manifest.artifacts["metadata"],
+        },
+    }
+    if manifest.max_specializations is not None:
+        summary["maxSpecializations"] = manifest.max_specializations
+    return summary
 
 
 def ensure_compatible_metadata(

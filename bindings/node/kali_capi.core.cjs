@@ -234,6 +234,29 @@ function loadBindingPackageManifestFromRoot(bundleRoot, manifestName = 'binding-
   return loadBindingPackageManifest(discoverBindingPackageManifestPath(bundleRoot, manifestName));
 }
 
+function bindingPackageManifestSummary(manifest) {
+  const summary = {
+    moduleName: manifest.moduleName,
+    hostAbiVersion: manifest.hostAbiVersion,
+    minHostAbiVersion: manifest.minHostAbiVersion,
+    runtimeProfiles: Object.freeze([...(manifest.runtimeProfiles ?? [])]),
+    hostContract: manifest.hostContract ?? 'kali-hosted',
+    runtimeBackend: manifest.runtimeBackend ?? 'wasmtime',
+    artifacts: Object.freeze({
+      exportsHeader: manifest.artifacts.exportsHeader,
+      glue: Object.freeze([...(manifest.artifacts.glue ?? [])]),
+      library: manifest.artifacts.library,
+      metadata: manifest.artifacts.metadata,
+    }),
+  };
+
+  if (Object.prototype.hasOwnProperty.call(manifest, 'maxSpecializations')) {
+    summary.maxSpecializations = manifest.maxSpecializations;
+  }
+
+  return Object.freeze(summary);
+}
+
 function ensureCompatibleBindingPackageManifest(
   manifest,
   availableHostAbiVersion = HOST_ABI_VERSION,
@@ -360,6 +383,7 @@ module.exports = {
   loadBindingPackageManifestFromRoot,
   loadMetadata,
   parseBindingPackageManifest,
+  bindingPackageManifestSummary,
   parseExports,
   parseMetadata,
 };

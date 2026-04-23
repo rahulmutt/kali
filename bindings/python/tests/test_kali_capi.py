@@ -12,6 +12,7 @@ from kali_capi import (  # noqa: E402
     BindingPackageManifest,
     Export,
     KaliCAPI,
+    binding_package_manifest_summary,
     discover_binding_package_manifest_path,
     ensure_compatible_binding_package_manifest,
     ensure_compatible_metadata,
@@ -136,6 +137,24 @@ class KaliCapiSmokeTests(unittest.TestCase):
             self.assertEqual(manifest.host_contract, "kali-hosted")
             self.assertEqual(manifest.runtime_backend, "wasmtime")
             self.assertEqual(ensure_compatible_binding_package_manifest(manifest), manifest)
+            self.assertEqual(
+                binding_package_manifest_summary(manifest),
+                {
+                    "moduleName": "sample",
+                    "hostAbiVersion": 2,
+                    "minHostAbiVersion": 2,
+                    "runtimeProfiles": ["fiber-threads", "wasm-threads"],
+                    "hostContract": "kali-hosted",
+                    "runtimeBackend": "wasmtime",
+                    "maxSpecializations": 8,
+                    "artifacts": {
+                        "exportsHeader": "sample.h",
+                        "glue": ["shim.py", "support.py"],
+                        "library": "sample.capi.wasm",
+                        "metadata": "sample.cabi.json",
+                    },
+                },
+            )
 
             binding = KaliCAPI.from_binding_package(DummyLibrary(), root)
             self.assertEqual(binding.exports, tuple(exports))

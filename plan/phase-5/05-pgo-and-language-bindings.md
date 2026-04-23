@@ -120,6 +120,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - The Rust binding-package manifest parser now also validates the optional `maxSpecializations`
   provenance field, matching the Python and Node helper contracts so higher-level callers get the
   same integer validation regardless of which maintained binding path reads the manifest.
+- Added deterministic binding-package summary helpers across the Rust, Node, and Python binding
+  shims so higher-level tooling can project the normalized provenance tuple and artifact layout
+  through one stable convenience shape instead of reassembling it ad hoc at each call site.
 
 ## Tasks
 

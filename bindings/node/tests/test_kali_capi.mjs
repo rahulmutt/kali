@@ -10,6 +10,7 @@ const require = createRequire(import.meta.url);
 import {
   HOST_ABI_VERSION,
   KaliCAPI,
+  bindingPackageManifestSummary,
   discoverBindingPackageManifestPath,
   ensureCompatibleBindingPackageManifest,
   ensureCompatibleMetadata,
@@ -99,6 +100,7 @@ test('binding package manifests sort glue paths and auto-discover single manifes
 
   const manifest = loadBindingPackageManifestFromRoot(tempRoot);
   const metadata = loadMetadata(metadataPath);
+  const summary = bindingPackageManifestSummary(manifest);
 
   assert.deepEqual(manifest, {
     schemaVersion: 1,
@@ -110,6 +112,21 @@ test('binding package manifests sort glue paths and auto-discover single manifes
     runtimeProfiles: ['fiber-threads', 'wasm-threads'],
     hostContract: 'kali-hosted',
     runtimeBackend: 'wasmtime',
+    artifacts: {
+      exportsHeader: 'sample.h',
+      glue: ['a.js', 'z.js'],
+      library: 'sample.capi.wasm',
+      metadata: 'sample.cabi.json',
+    },
+  });
+  assert.deepEqual(summary, {
+    moduleName: 'sample',
+    hostAbiVersion: HOST_ABI_VERSION,
+    minHostAbiVersion: HOST_ABI_VERSION,
+    runtimeProfiles: ['fiber-threads', 'wasm-threads'],
+    hostContract: 'kali-hosted',
+    runtimeBackend: 'wasmtime',
+    maxSpecializations: 8,
     artifacts: {
       exportsHeader: 'sample.h',
       glue: ['a.js', 'z.js'],
@@ -324,6 +341,7 @@ test('node binding helper module is requireable from the package root', () => {
   assert.equal(nodeBinding.HOST_ABI_VERSION, 2);
   assert.equal(typeof nodeBinding.KaliCAPI.fromBindingPackage, 'function');
   assert.equal(typeof nodeBinding.parseExports, 'function');
+  assert.equal(typeof nodeBinding.bindingPackageManifestSummary, 'function');
 });
 
 test('node binding helper module is requireable from the explicit CommonJS entrypoint', () => {
@@ -331,4 +349,5 @@ test('node binding helper module is requireable from the explicit CommonJS entry
   assert.equal(nodeBinding.HOST_ABI_VERSION, 2);
   assert.equal(typeof nodeBinding.KaliCAPI.fromBindingPackage, 'function');
   assert.equal(typeof nodeBinding.loadBindingPackageManifestFromRoot, 'function');
+  assert.equal(typeof nodeBinding.bindingPackageManifestSummary, 'function');
 });

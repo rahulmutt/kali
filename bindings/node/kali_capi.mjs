@@ -2,6 +2,7 @@ import core from './kali_capi.core.cjs';
 
 export const HOST_ABI_VERSION = core.HOST_ABI_VERSION;
 export const KaliCAPI = core.KaliCAPI;
+export const bindingPackageManifestSummary = core.bindingPackageManifestSummary;
 export const discoverBindingPackageManifestPath = core.discoverBindingPackageManifestPath;
 export const ensureCompatibleBindingPackageManifest = core.ensureCompatibleBindingPackageManifest;
 export const ensureCompatibleMetadata = core.ensureCompatibleMetadata;

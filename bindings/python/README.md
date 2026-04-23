@@ -27,7 +27,9 @@ binding = KaliCAPI.from_binding_package(
 `load_binding_package_manifest_from_root()` and `from_binding_package()` both
 look for an explicit `binding-package.json` first and then fall back to a single
 stem-specific `*.binding-package.json` manifest in the bundle root, which matches
-the generated Kali layout. The resulting `KaliCAPI` wrapper also exposes the
+the generated Kali layout. `binding_package_manifest_summary()` projects that
+normalized manifest into a compact summary object for callers that want one
+stable provenance snapshot. The resulting `KaliCAPI` wrapper also exposes the
 bundle's `max_specializations` provenance plus the normalized runtime provenance
 tuple (`runtime_profiles`, `host_contract`, and `runtime_backend`) when the
 manifest publishes it, so callers can inspect the same deterministic

@@ -94,7 +94,7 @@ fn identifier_sanitization_is_deterministic() {
 }
 
 #[test]
-fn binding_package_manifest_helpers_load_and_discover_manifests() {
+fn binding_package_manifest_helpers_load_discover_and_summarize_manifests() {
     let temp_root = std::env::temp_dir().join(format!(
         "kali_capi_binding_manifest_{}_{}",
         std::process::id(),
@@ -110,7 +110,11 @@ fn binding_package_manifest_helpers_load_and_discover_manifests() {
         "sample.capi.wasm",
         "sample.cabi.json",
         "sample.h",
-        &[],
+        &[
+            "wasm-threads".to_string(),
+            "fiber-threads".to_string(),
+            "wasm-threads".to_string(),
+        ],
         8,
         &["support.py".to_string(), "shim.py".to_string()],
     );
@@ -126,11 +130,30 @@ fn binding_package_manifest_helpers_load_and_discover_manifests() {
     assert_eq!(loaded["kind"], "binding-package");
     assert_eq!(loaded["moduleName"], "sample");
     assert_eq!(loaded["maxSpecializations"], 8);
-    assert_eq!(loaded["runtimeProfiles"], serde_json::json!([]));
+    assert_eq!(
+        loaded["runtimeProfiles"],
+        serde_json::json!(["fiber-threads", "wasm-threads"])
+    );
     assert_eq!(loaded["hostContract"], "kali-hosted");
     assert_eq!(loaded["runtimeBackend"], "wasmtime");
     assert_eq!(
         loaded["artifacts"]["glue"],
+        serde_json::json!(["shim.py", "support.py"])
+    );
+
+    let loaded_summary = binding_package_manifest_summary(&loaded).expect("summarize manifest");
+    assert_eq!(loaded_summary["moduleName"], "sample");
+    assert_eq!(loaded_summary["hostAbiVersion"], HOST_ABI_VERSION);
+    assert_eq!(loaded_summary["minHostAbiVersion"], HOST_ABI_VERSION);
+    assert_eq!(
+        loaded_summary["runtimeProfiles"],
+        serde_json::json!(["fiber-threads", "wasm-threads"])
+    );
+    assert_eq!(loaded_summary["hostContract"], "kali-hosted");
+    assert_eq!(loaded_summary["runtimeBackend"], "wasmtime");
+    assert_eq!(loaded_summary["maxSpecializations"], 8);
+    assert_eq!(
+        loaded_summary["artifacts"]["glue"],
         serde_json::json!(["shim.py", "support.py"])
     );
 
