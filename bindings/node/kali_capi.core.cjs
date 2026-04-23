@@ -427,11 +427,18 @@ class KaliCAPI {
     metadataText,
     { availableHostAbiVersion = HOST_ABI_VERSION } = {},
   ) {
-    ensureCompatibleMetadata(
+    const metadata = ensureCompatibleMetadata(
       parseMetadata(metadataText),
       availableHostAbiVersion,
     );
-    return new KaliCAPI(library, parseExports(headerText));
+    return new KaliCAPI(
+      library,
+      parseExports(headerText),
+      metadata.maxSpecializations ?? null,
+      metadata.runtimeProfiles ?? [],
+      metadata.hostContract ?? 'kali-hosted',
+      metadata.runtimeBackend ?? 'wasmtime',
+    );
   }
 
   static fromBindingPackage(

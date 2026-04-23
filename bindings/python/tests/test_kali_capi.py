@@ -452,23 +452,27 @@ class KaliCapiSmokeTests(unittest.TestCase):
             metadata_path = root / "sample.cabi.json"
             manifest_path = root / "binding-package.json"
 
-            header_path.write_text(
-                "#include <stdint.h>\nextern int32_t add(int32_t arg0, int32_t arg1);\n"
-            )
+            header_text = "#include <stdint.h>\nextern int32_t add(int32_t arg0, int32_t arg1);\n"
+            header_path.write_text(header_text)
+            metadata_payload = {
+                "schemaVersion": 1,
+                "kind": "cabi-metadata",
+                "hostAbiVersion": 2,
+                "maxSpecializations": 8,
+                "runtimeProfiles": ["wasm-threads", "fiber-threads", "wasm-threads"],
+                "hostContract": "browser-requested",
+                "runtimeBackend": "browser-harness",
+                "minHostAbiVersion": 2,
+                "artifacts": {
+                    "exportsHeader": "sample.h",
+                    "metadata": "sample.cabi.json",
+                    "wasmModule": "sample.capi.wasm",
+                    "wit": "sample.wit",
+                },
+            }
             metadata_path.write_text(
                 json.dumps(
-                    {
-                        "schemaVersion": 1,
-                        "kind": "cabi-metadata",
-                        "hostAbiVersion": 2,
-                        "minHostAbiVersion": 2,
-                        "artifacts": {
-                            "exportsHeader": "sample.h",
-                            "metadata": "sample.cabi.json",
-                            "wasmModule": "sample.capi.wasm",
-                            "wit": "sample.wit",
-                        },
-                    },
+                    metadata_payload,
                     sort_keys=True,
                 )
             )
@@ -500,6 +504,17 @@ class KaliCapiSmokeTests(unittest.TestCase):
             self.assertEqual(manifest.runtime_backend, "wasmtime")
             with self.assertRaises(ValueError):
                 ensure_compatible_binding_package_manifest(manifest, available_host_abi_version=3)
+
+            binding = KaliCAPI.from_header_and_metadata(
+                DummyLibrary(),
+                header_text,
+                json.dumps(metadata_payload),
+            )
+            self.assertEqual(binding.max_specializations, 8)
+            self.assertEqual(binding.runtime_profiles, ("fiber-threads", "wasm-threads"))
+            self.assertEqual(binding.host_contract, "browser-requested")
+            self.assertEqual(binding.runtime_backend, "browser-harness")
+            self.assertEqual(binding.add(4, 5), 9)
 
             with self.assertRaises(ValueError):
                 KaliCAPI.from_binding_package(

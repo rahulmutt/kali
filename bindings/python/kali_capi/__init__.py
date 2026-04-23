@@ -544,11 +544,18 @@ class KaliCAPI:
         *,
         available_host_abi_version: int = HOST_ABI_VERSION,
     ) -> "KaliCAPI":
-        ensure_compatible_metadata(
+        metadata = ensure_compatible_metadata(
             parse_metadata(metadata_text),
             available_host_abi_version=available_host_abi_version,
         )
-        return cls(library, parse_exports(header_text))
+        return cls(
+            library,
+            parse_exports(header_text),
+            metadata.max_specializations,
+            metadata.runtime_profiles or (),
+            metadata.host_contract or "kali-hosted",
+            metadata.runtime_backend or "wasmtime",
+        )
 
     @classmethod
     def from_binding_package(

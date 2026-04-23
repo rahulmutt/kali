@@ -40,7 +40,10 @@ emits those values. The resulting `KaliCAPI` wrapper also exposes the bundle's
 `max_specializations` provenance plus the normalized runtime provenance tuple
 (`runtime_profiles`, `host_contract`, and `runtime_backend`) when the manifest
 publishes it, so callers can inspect the same deterministic specialization and
-runtime context that the CLI emitted.
+runtime context that the CLI emitted. The `from_header_and_metadata()` helper
+preserves that same provenance tuple when callers only have a header plus a
+`cabi-metadata` sidecar, keeping the direct and manifest-backed helper flows
+aligned.
 
 The package is intentionally small and deterministic so the binding workflow can be
 reproduced from the generated C ABI header, metadata, and manifest files.

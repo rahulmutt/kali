@@ -33,6 +33,10 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   bundle-root manifest loaders plus companion `cabi-metadata` root-discovery helpers so higher-level
   binding code can reuse the same discovery rules without duplicating them. The maintained Rust helper now also exposes `load_binding_package_manifest_summary*`
   convenience loaders so callers can load and project the manifest in one deterministic step.
+  The header-and-metadata convenience path now also preserves the metadata provenance tuple
+  (`max_specializations`, `runtime_profiles`, `host_contract`, and `runtime_backend`) when callers
+  construct bindings without a binding-package manifest, keeping the maintained Python and Node
+  wrappers aligned with the same deterministic build-context snapshot as the manifest-backed path.
   The manifest-discovery regressions now also pin the deterministic ambiguity error when multiple
   stem-specific manifests are present, while still allowing explicit manifest-name selection for
   callers that want to target one bundle directly. The maintained Node ESM helper now mirrors the

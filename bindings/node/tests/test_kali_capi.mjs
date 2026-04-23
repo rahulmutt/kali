@@ -523,3 +523,43 @@ test('node binding helper module is requireable from the explicit CommonJS entry
   assert.equal(typeof nodeBinding.loadBindingPackageManifestFromRootWithName, 'function');
   assert.equal(typeof nodeBinding.bindingPackageManifestSummary, 'function');
 });
+
+test('node header-and-metadata bindings preserve metadata provenance', () => {
+  const library = {
+    total: 0,
+    add(left, right) {
+      this.total += left + right;
+      return this.total;
+    },
+  };
+  const binding = KaliCAPI.fromHeaderAndMetadata(
+    library,
+    [
+      '#ifndef KALI_CAPI_GENERATED_H',
+      '#define KALI_CAPI_GENERATED_H',
+      '#include <stdint.h>',
+      'extern int32_t add(int32_t arg0, int32_t arg1);',
+      '#endif',
+    ].join('\n'),
+    JSON.stringify({
+      schemaVersion: 1,
+      kind: 'cabi-metadata',
+      hostAbiVersion: HOST_ABI_VERSION,
+      maxSpecializations: 12,
+      runtimeProfiles: ['wasm-threads', 'fiber-threads', 'wasm-threads'],
+      hostContract: 'browser-requested',
+      runtimeBackend: 'browser-harness',
+      artifacts: {
+        exportsHeader: 'sample.h',
+        wasmModule: 'sample.capi.wasm',
+        wit: 'sample.wit',
+      },
+    }),
+  );
+  assert.equal(binding.maxSpecializations, 12);
+  assert.deepEqual(binding.runtimeProfiles, ['fiber-threads', 'wasm-threads']);
+  assert.equal(binding.hostContract, 'browser-requested');
+  assert.equal(binding.runtimeBackend, 'browser-harness');
+  assert.equal(binding.add(2, 3), 5);
+  assert.equal(library.total, 5);
+});
