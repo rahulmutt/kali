@@ -8928,6 +8928,66 @@ fn package_effects_command_emits_json_envelope_under_quiet() {
 }
 
 #[test]
+fn package_effects_command_is_deterministic_across_repeated_pretty_invocations_under_quiet() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/purepkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "purepkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), "console.log('hello');").expect("write package entry");
+
+    let run = || {
+        Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("package-effects")
+            .arg("--quiet")
+            .arg("--pretty")
+            .arg("purepkg")
+            .output()
+            .expect("run kali")
+    };
+
+    let first = run();
+    let second = run();
+
+    assert!(
+        first.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    assert!(
+        second.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    assert_eq!(
+        first.stdout, second.stdout,
+        "stdout should be deterministic across repeated invocations"
+    );
+    assert_eq!(
+        first.stderr, second.stderr,
+        "stderr should be deterministic across repeated invocations"
+    );
+    assert!(
+        String::from_utf8_lossy(&first.stdout).contains("\n  \"schemaVersion\""),
+        "stdout: {}",
+        String::from_utf8_lossy(&first.stdout)
+    );
+
+    let json = parse_json_stdout(&first);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["package"]["name"], "purepkg");
+    assert_eq!(json["report"]["entryPoints"], json!(["purepkg"]));
+}
+
+#[test]
 fn package_effects_command_emits_json_envelope_under_quiet_inherited_browser_context() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
