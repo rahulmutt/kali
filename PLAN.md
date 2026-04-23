@@ -27,6 +27,7 @@ plan/
 ├── 04-stage-dependency-matrix.md
 ├── 05-delivery-increments.md
 ├── 06-current-workspace-rollout.md
+├── 07-roadmap-status-and-next-steps.md
 ├── phase-1/
 │   ├── README.md
 │   ├── 01-workspace-scaffold.md
@@ -69,7 +70,7 @@ plan/
     └── 05-pgo-and-language-bindings.md
 ```
 
-Total: 27 stage documents, 5 phase index documents, and 7 cross-phase planning guides.
+Total: 30 stage documents, 5 phase index documents, and 8 cross-phase planning guides.
 
 ## Suggested implementation directory structure
 
@@ -165,6 +166,7 @@ Start here, then use the supporting plan docs for the specific planning question
 - [plan/04-stage-dependency-matrix.md](./plan/04-stage-dependency-matrix.md) — stage-by-stage prerequisites, parallel windows, code areas, and demo expectations
 - [plan/05-delivery-increments.md](./plan/05-delivery-increments.md) — higher-level increments that keep the repository usable while stages accumulate
 - [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md) — concrete repository-growth order for the current fine-grained workspace
+- [plan/07-roadmap-status-and-next-steps.md](./plan/07-roadmap-status-and-next-steps.md) — current stage-status snapshot, historical-vs-active reading guidance, and the canonical follow-up lanes
 
 - Use `SPEC.md` to decide what Kali promises.
 - Use this plan to decide implementation order and dependencies.
@@ -557,7 +559,7 @@ Current repository note:
 
 ## Cross-phase planning guides
 
-The stage files are the authoritative step-by-step plan, but six cross-phase guides keep the whole roadmap coherent:
+The stage files are the authoritative step-by-step plan, but eight cross-phase guides keep the whole roadmap coherent:
 
 - [plan/README.md](./plan/README.md) — entrypoint and navigation map for the plan set
 - [plan/00-planning-conventions.md](./plan/00-planning-conventions.md) — shared stage vocabulary, readiness rules, and update packets
@@ -567,6 +569,7 @@ The stage files are the authoritative step-by-step plan, but six cross-phase gui
 - [plan/04-stage-dependency-matrix.md](./plan/04-stage-dependency-matrix.md) — the exact prerequisite graph and demo/evidence expectations for each stage
 - [plan/05-delivery-increments.md](./plan/05-delivery-increments.md) — the larger implementation slices that should be reviewable, workable, and demoable to users
 - [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md) — the concrete directory/crate growth order for this repository
+- [plan/07-roadmap-status-and-next-steps.md](./plan/07-roadmap-status-and-next-steps.md) — the current planning-status dashboard and follow-up-lane index
 
 ## Current post-completion follow-up lanes
 

@@ -12,8 +12,9 @@ Use it in this order:
 6. [`04-stage-dependency-matrix.md`](./04-stage-dependency-matrix.md) — compact per-stage prerequisites, demos, ownership areas, and evidence lanes.
 7. [`05-delivery-increments.md`](./05-delivery-increments.md) — milestone-sized slices that keep the repository usable between stage closures.
 8. [`06-current-workspace-rollout.md`](./06-current-workspace-rollout.md) — concrete crate/directory growth order for this repository.
-9. The relevant phase index under `phase-*/README.md`.
-10. The exact stage document you are implementing.
+9. [`07-roadmap-status-and-next-steps.md`](./07-roadmap-status-and-next-steps.md) — current stage-status snapshot, historical-vs-active reading guidance, and the canonical follow-up lanes.
+10. The relevant phase index under `phase-*/README.md`.
+11. The exact stage document you are implementing.
 
 ## Directory map
 
@@ -27,6 +28,7 @@ plan/
 ├── 04-stage-dependency-matrix.md     # per-stage dependency and demo matrix
 ├── 05-delivery-increments.md         # milestone-sized workable repository states
 ├── 06-current-workspace-rollout.md   # concrete growth order for the current workspace
+├── 07-roadmap-status-and-next-steps.md # current status dashboard + follow-up lanes
 ├── phase-1/                          # MVP compiler/toolchain stages
 ├── phase-2/                          # ownership/effects/embedding/verification foundation
 ├── phase-3/                          # optimization and compatibility breadth
@@ -49,6 +51,7 @@ Use [`01-repository-layout.md`](./01-repository-layout.md) whenever you need the
 - **What are the exact prerequisites and demo for one stage?** → [`04-stage-dependency-matrix.md`](./04-stage-dependency-matrix.md).
 - **What usable milestone should the repo reach next?** → [`05-delivery-increments.md`](./05-delivery-increments.md).
 - **Which current crates/directories should grow next?** → [`06-current-workspace-rollout.md`](./06-current-workspace-rollout.md).
+- **Which plan items are historical vs still useful follow-up lanes?** → [`07-roadmap-status-and-next-steps.md`](./07-roadmap-status-and-next-steps.md).
 - **What must be true before closing a stage?** → [`00-planning-conventions.md`](./00-planning-conventions.md).
 - **Is the feature publicly shipped yet?** → [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md), not this directory.
 
