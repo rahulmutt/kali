@@ -6061,6 +6061,87 @@ fn build_emits_capi_artifacts_and_header_compiles() {
 }
 
 #[test]
+fn build_emits_capi_json_artifacts_for_binding_package_manifest() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.ts");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--capi")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "capi");
+    assert_eq!(
+        PathBuf::from(payload["outputPath"].as_str().expect("capi output path")),
+        source_path.with_file_name("lib.capi.wasm")
+    );
+    assert_eq!(
+        PathBuf::from(payload["headerPath"].as_str().expect("c header path")),
+        source_path.with_file_name("lib.h")
+    );
+    assert_eq!(
+        PathBuf::from(
+            payload["metadataPath"]
+                .as_str()
+                .expect("cabi metadata path")
+        ),
+        source_path.with_file_name("lib.capi.meta.json")
+    );
+    assert_eq!(
+        PathBuf::from(payload["witPath"].as_str().expect("wit path")),
+        source_path.with_file_name("lib.wit")
+    );
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    assert!(artifacts
+        .iter()
+        .any(|artifact| artifact["kind"] == "cabi-metadata"));
+
+    let binding_package_path = source_path.with_file_name("lib.binding-package.json");
+    assert!(
+        binding_package_path.exists(),
+        "missing {}",
+        binding_package_path.display()
+    );
+    let binding_package: Value = serde_json::from_str(
+        &fs::read_to_string(&binding_package_path).expect("read binding package manifest"),
+    )
+    .expect("parse binding package manifest json");
+    assert_eq!(binding_package["schemaVersion"], 1);
+    assert_eq!(binding_package["kind"], "binding-package");
+    assert_eq!(binding_package["runtimeProfiles"], serde_json::json!([]));
+    assert_eq!(binding_package["hostContract"], "kali-hosted");
+    assert_eq!(binding_package["runtimeBackend"], "wasmtime");
+    assert_eq!(binding_package["maxSpecializations"], 16);
+    assert_eq!(
+        binding_package["moduleName"],
+        source_path.display().to_string()
+    );
+    assert_eq!(binding_package["artifacts"]["library"], "lib.capi.wasm");
+    assert_eq!(
+        binding_package["artifacts"]["metadata"],
+        "lib.capi.meta.json"
+    );
+    assert_eq!(binding_package["artifacts"]["exportsHeader"], "lib.h");
+}
+
+#[test]
 fn build_emits_component_artifacts_and_valid_component_bytes() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("lib.ts");

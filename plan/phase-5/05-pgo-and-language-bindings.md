@@ -48,13 +48,16 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   with the same build context that produced the exported artifacts. The build-metadata regression
   suite now also pins serialized runtime provenance on the artifact sidecars (`runtimeProfiles`,
   `maxSpecializations`, `hostContract`, and `runtimeBackend`), keeping the emitted JSON contract
-  explicit across the build kinds that feed the later binding and PGO lanes. The root README now
-  calls out the generated sidecar flow alongside the maintained Python helper docs, so the
-  package/distribution shape stays explicit for the later binding workflow instead of limiting the
-  stage to header-only glue. The Python binding now also has explicit packaging metadata
-  (`bindings/python/pyproject.toml` plus `README.md`) and regression coverage for both the generic
-  package scaffold and the stem-specific generated bundle, and the C-ABI smoke coverage now pins
-  the manifest file alongside the generated header and metadata outputs.
+  explicit across the build kinds that feed the later binding and PGO lanes. The C-ABI JSON-envelope
+  regression now also exercises the `build --capi --output json` path and checks the generated
+  binding-package manifest through that machine-readable contract, keeping the later language-
+  binding workflow covered in both human and JSON output modes. The root README now calls out the
+  generated sidecar flow alongside the maintained Python helper docs, so the package/distribution
+  shape stays explicit for the later binding workflow instead of limiting the stage to header-only
+  glue. The Python binding now also has explicit packaging metadata (`bindings/python/pyproject.toml`
+  plus `README.md`) and regression coverage for both the generic package scaffold and the
+  stem-specific generated bundle, and the C-ABI smoke coverage now pins the manifest file alongside
+  the generated header and metadata outputs.
 - Added the first deterministic profile-data format to `kali_optimize`, including stable versioning,
   normalization, aggregation, and JSON round-trip coverage so the later PGO lane has one canonical
   collection shape to build on.
