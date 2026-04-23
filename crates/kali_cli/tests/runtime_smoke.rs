@@ -6728,6 +6728,41 @@ fn package_effects_tracks_eval_compatibility_from_manifest() {
 }
 
 #[test]
+fn package_effects_rejects_package_analysis_specific_flags() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/flagpkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "flagpkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), "console.log('hello');").expect("write package entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("--api")
+        .arg("browser")
+        .arg("flagpkg")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept package-analysis-specific flags"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn package_effects_uses_browser_package_resolution_from_manifest() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/browserpkg");
@@ -7446,6 +7481,26 @@ fn package_audit_rejects_preview_compatibility_shim() {
     assert!(stderr.contains("E5008"), "stderr: {stderr}");
     assert!(
         stderr.contains("`--preview` is no longer accepted for package-audit"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn package_audit_rejects_package_analysis_specific_flags() {
+    let output = Command::new(kali_bin())
+        .arg("package-audit")
+        .arg("--sandbox")
+        .arg("kali.policy.json")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept package-analysis-specific flags"),
         "stderr: {stderr}"
     );
 }

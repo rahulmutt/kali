@@ -260,13 +260,30 @@ fn main() {
                 std::process::exit(exit_code);
             }
         }
-        Commands::PackageEffects { target } => {
-            if let Err(exit_code) = package_effects_command(target, &output) {
+        Commands::PackageEffects {
+            api,
+            compat,
+            wasm_threads,
+            sandbox,
+            target,
+        } => {
+            if let Err(exit_code) =
+                package_effects_command(target, api, compat, wasm_threads, sandbox, &output)
+            {
                 std::process::exit(exit_code);
             }
         }
-        Commands::PackageAudit { target, preview } => {
-            if let Err(exit_code) = package_audit_command(target, preview, &output) {
+        Commands::PackageAudit {
+            api,
+            compat,
+            wasm_threads,
+            sandbox,
+            target,
+            preview,
+        } => {
+            if let Err(exit_code) =
+                package_audit_command(target, preview, api, compat, wasm_threads, sandbox, &output)
+            {
                 std::process::exit(exit_code);
             }
         }
@@ -3275,7 +3292,45 @@ fn effects_command(
     emit_native_json_payload("effects", &report, output)
 }
 
-fn package_effects_command(target: String, output: &CliOutputOptions) -> Result<(), i32> {
+fn reject_package_analysis_specific_flags(
+    command: &str,
+    api: Option<kali_cli::ApiSurface>,
+    compat: Vec<String>,
+    wasm_threads: bool,
+    sandbox: Option<PathBuf>,
+    output: &CliOutputOptions,
+) -> Result<(), i32> {
+    if api.is_some() || !compat.is_empty() || wasm_threads || sandbox.is_some() {
+        let diagnostic = Diagnostic::error(
+            e5::INVALID_CLI_USAGE as u32,
+            format!(
+                "`{}` does not accept package-analysis-specific flags like `--api`, `--compat`, `--wasm-threads`, or `--sandbox`; use inherited project config instead",
+                command
+            ),
+        );
+        return emit_diagnostics_and_exit(command, vec![diagnostic], 5, output, None, None);
+    }
+
+    Ok(())
+}
+
+fn package_effects_command(
+    target: String,
+    api: Option<kali_cli::ApiSurface>,
+    compat: Vec<String>,
+    wasm_threads: bool,
+    sandbox: Option<PathBuf>,
+    output: &CliOutputOptions,
+) -> Result<(), i32> {
+    reject_package_analysis_specific_flags(
+        "package-effects",
+        api,
+        compat,
+        wasm_threads,
+        sandbox,
+        output,
+    )?;
+
     let parsed = match parse_registry_package_target("package-effects", &target) {
         Ok(parsed) => parsed,
         Err(diagnostic) => {
@@ -3426,6 +3481,10 @@ fn package_effects_command(target: String, output: &CliOutputOptions) -> Result<
 fn package_audit_command(
     target: String,
     preview: bool,
+    api: Option<kali_cli::ApiSurface>,
+    compat: Vec<String>,
+    wasm_threads: bool,
+    sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
     if preview {
@@ -3435,6 +3494,15 @@ fn package_audit_command(
         );
         return emit_diagnostics_and_exit("package-audit", vec![diagnostic], 5, output, None, None);
     }
+
+    reject_package_analysis_specific_flags(
+        "package-audit",
+        api,
+        compat,
+        wasm_threads,
+        sandbox,
+        output,
+    )?;
 
     let parsed = match parse_registry_package_target("package-audit", &target) {
         Ok(parsed) => parsed,
