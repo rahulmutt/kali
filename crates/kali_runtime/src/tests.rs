@@ -354,16 +354,24 @@ fn browser_harness_recognizes_common_display_name_aliases() {
         "google chrome canary",
         "google-chrome-headless-shell",
         "brave browser",
+        "brave browser nightly",
         "microsoft edge canary",
         "microsoft edge dev",
+        "microsoft edge insider",
+        "firefox beta",
         "firefox developer edition",
+        "vivaldi snapshot",
         "librewolf",
         "waterfox",
         "zen-browser",
         "thorium-browser",
     ] {
-        let parts = browser_harness_command_parts_for_browser_executable(executable)
-            .expect("recognized browser alias should be treated as a browser executable");
+        let parts = match browser_harness_command_parts_for_browser_executable(executable) {
+            Some(parts) => parts,
+            None => panic!(
+                "recognized browser alias should be treated as a browser executable: {executable}"
+            ),
+        };
         assert_eq!(
             parts,
             vec![executable.to_string(), "--headless".to_string()]
@@ -445,6 +453,14 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
     assert!(browser_harness_uses_html_entrypoint("google-chrome-dev"));
     assert!(browser_harness_uses_html_entrypoint("brave-browser-dev"));
     assert!(browser_harness_uses_html_entrypoint(
+        "brave-browser-nightly"
+    ));
+    assert!(browser_harness_uses_html_entrypoint(
+        "microsoft-edge-insider"
+    ));
+    assert!(browser_harness_uses_html_entrypoint("firefox-beta"));
+    assert!(browser_harness_uses_html_entrypoint("vivaldi-snapshot"));
+    assert!(browser_harness_uses_html_entrypoint(
         "C:/Program Files/Google/Chrome/Application/chrome.bat"
     ));
     assert!(browser_harness_uses_html_entrypoint("firefox"));
@@ -503,6 +519,31 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
         Some(vec!["chromium-dev".to_string(), "--headless".to_string()])
     );
     assert_eq!(
+        browser_harness_command_parts_for_browser_executable("brave-browser-nightly"),
+        Some(vec![
+            "brave-browser-nightly".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("vivaldi-snapshot"),
+        Some(vec![
+            "vivaldi-snapshot".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("firefox-beta"),
+        Some(vec!["firefox-beta".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("firefox-developer-edition"),
+        Some(vec![
+            "firefox-developer-edition".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
         browser_harness_command_parts_for_browser_executable("google-chrome-headless-shell"),
         Some(vec![
             "google-chrome-headless-shell".to_string(),
@@ -513,6 +554,13 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
         browser_harness_command_parts_for_browser_executable("microsoft-edge-canary"),
         Some(vec![
             "microsoft-edge-canary".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("microsoft-edge-insider"),
+        Some(vec![
+            "microsoft-edge-insider".to_string(),
             "--headless".to_string()
         ])
     );
