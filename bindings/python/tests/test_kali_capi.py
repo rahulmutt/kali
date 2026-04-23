@@ -132,6 +132,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
 
             binding = KaliCAPI.from_binding_package(DummyLibrary(), root)
             self.assertEqual(binding.exports, tuple(exports))
+            self.assertEqual(binding.max_specializations, 8)
             self.assertEqual(binding.add(2, 3), 5)
             self.assertEqual(binding.zero(), 7)
             self.assertEqual(binding._library.calls, [("add", 2, 3), ("zero",)])
@@ -196,6 +197,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
             self.assertEqual(manifest.artifacts["glue"], ("shim.py",))
 
             binding = KaliCAPI.from_binding_package(DummyLibrary(), root)
+            self.assertEqual(binding.max_specializations, 8)
             self.assertEqual(binding.add(2, 3), 5)
             self.assertEqual(binding.zero(), 7)
             self.assertEqual(binding._library.calls, [("add", 2, 3), ("zero",)])

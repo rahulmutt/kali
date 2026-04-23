@@ -323,9 +323,15 @@ def load_library(path: str | Path) -> ctypes.CDLL:
 class KaliCAPI:
     """Bind the exports declared in a Kali C ABI header onto a Python object."""
 
-    def __init__(self, library: object, exports: Sequence[Export]):
+    def __init__(
+        self,
+        library: object,
+        exports: Sequence[Export],
+        max_specializations: int | None = None,
+    ):
         self._library = library
         self._exports = tuple(exports)
+        self._max_specializations = max_specializations
         self._bind_exports()
 
     @classmethod
@@ -363,11 +369,14 @@ class KaliCAPI:
         )
         header_text = (bundle_root / manifest.artifacts["exportsHeader"]).read_text()
         metadata_text = (bundle_root / manifest.artifacts["metadata"]).read_text()
-        return cls.from_header_and_metadata(
-            library,
-            header_text,
-            metadata_text,
+        ensure_compatible_metadata(
+            parse_metadata(metadata_text),
             available_host_abi_version=available_host_abi_version,
+        )
+        return cls(
+            library,
+            parse_exports(header_text),
+            manifest.max_specializations,
         )
 
     @classmethod
@@ -377,6 +386,10 @@ class KaliCAPI:
     @property
     def exports(self) -> tuple[Export, ...]:
         return self._exports
+
+    @property
+    def max_specializations(self) -> int | None:
+        return self._max_specializations
 
     def _bind_exports(self) -> None:
         for export in self._exports:

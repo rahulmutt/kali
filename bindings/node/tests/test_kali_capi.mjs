@@ -283,6 +283,7 @@ test('node binding helper module binds exports from headers and manifests', () =
     { name: 'add', arity: 2 },
     { name: 'zero', arity: 0 },
   ]);
+  assert.equal(binding.maxSpecializations, 8);
   assert.equal(binding.add(2, 3), 5);
   assert.equal(binding.zero(), 6);
   assert.equal(library.total, 6);

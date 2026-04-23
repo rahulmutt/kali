@@ -27,7 +27,10 @@ binding = KaliCAPI.from_binding_package(
 `load_binding_package_manifest_from_root()` and `from_binding_package()` both
 look for an explicit `binding-package.json` first and then fall back to a single
 stem-specific `*.binding-package.json` manifest in the bundle root, which matches
-the generated Kali layout.
+the generated Kali layout. The resulting `KaliCAPI` wrapper also exposes the
+bundle's `max_specializations` provenance when the manifest publishes it, so
+callers can inspect the same deterministic specialization budget that the CLI
+emitted.
 
 The package is intentionally small and deterministic so the binding workflow can be
 reproduced from the generated C ABI header, metadata, and manifest files.

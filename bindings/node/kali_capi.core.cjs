@@ -237,9 +237,10 @@ function ensureCompatibleBindingPackageManifest(
 }
 
 class KaliCAPI {
-  constructor(library, exports) {
+  constructor(library, exports, maxSpecializations = null) {
     this._library = library;
     this._exports = Object.freeze([...exports]);
+    this._maxSpecializations = maxSpecializations;
     this._bindExports();
   }
 
@@ -279,16 +280,23 @@ class KaliCAPI {
     );
     const headerText = readFileSync(join(resolvedBundleRoot, manifest.artifacts.exportsHeader), 'utf8');
     const metadataText = readFileSync(join(resolvedBundleRoot, manifest.artifacts.metadata), 'utf8');
-    return KaliCAPI.fromHeaderAndMetadata(
+    ensureCompatibleMetadata(
+      parseMetadata(metadataText),
+      availableHostAbiVersion,
+    );
+    return new KaliCAPI(
       library,
-      headerText,
-      metadataText,
-      { availableHostAbiVersion },
+      parseExports(headerText),
+      manifest.maxSpecializations ?? null,
     );
   }
 
   get exports() {
     return this._exports;
+  }
+
+  get maxSpecializations() {
+    return this._maxSpecializations;
   }
 
   _bindExports() {

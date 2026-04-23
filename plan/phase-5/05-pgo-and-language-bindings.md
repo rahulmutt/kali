@@ -38,11 +38,12 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   also exposes a small `KaliCAPI` wrapper that binds generated exports onto an existing library
   object, so the later binding lane has more than one non-Rust smoke path to prove the packaging
   contract. The Python and Node manifest parsers now also surface the optional
-  `maxSpecializations` provenance field on generated binding-package manifests, so higher-level
-  binding code can inspect the same deterministic specialization budget that the CLI emits. The
-  build-metadata regression suite now also pins serialized runtime provenance on the artifact
-  sidecars (`runtimeProfiles`, `maxSpecializations`, `hostContract`, and `runtimeBackend`), keeping
-  the emitted JSON contract explicit across the build kinds that feed the later binding and PGO
+  `maxSpecializations` provenance field on generated binding-package manifests, and the higher-
+  level binding wrappers now carry that provenance through to their public instances so callers
+  can inspect the same deterministic specialization budget that the CLI emits. The build-metadata
+  regression suite now also pins serialized runtime provenance on the artifact sidecars
+  (`runtimeProfiles`, `maxSpecializations`, `hostContract`, and `runtimeBackend`), keeping the
+  emitted JSON contract explicit across the build kinds that feed the later binding and PGO
   lanes. The root README now calls out the generated sidecar flow alongside the maintained Python
   helper docs, so the package/distribution shape stays explicit for the later binding workflow
   instead of limiting the stage to header-only glue. The Python binding now also has explicit
