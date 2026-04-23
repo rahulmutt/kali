@@ -59,6 +59,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added explicit sandbox-policy custom-section coverage for the Phase-1 library artifact and browser-bundle artifact outputs, so the `kali:policy` embedding contract stays pinned across the documented static policy-validation build lanes.
 - Added positive `run --sandbox` and `test --sandbox` regressions so the evidence suite now proves benign sandboxed workloads still complete normally under the canonical deny-by-default policy shape.
 - Added a Node-based browser-bundle execution smoke harness that imports the generated ESM bundle, resolves the emitted WASM, and exercises the exported wrapper for both explicit and inherited browser API-surface builds.
+- Added explicit `--api browser` + `--bundle` + `--sandbox` browser-bundle regressions in both human and JSON output so the browser-targeted build lane now pins the explicit-flag path alongside the inherited-config path.
 - Added a JSON-envelope browser-bundle regression for inherited browser API-surface builds so the browser-targeted build lane now proves its schema-v1 machine-readable output as well as its executable bundle artifacts.
 - Added a bigint-literal lexer/parser regression so browser-bundle smoke fixtures that return `0n` no longer split the literal into a stray identifier and false positive diagnostic.
 - Added a repository regression test that pins the canonical proof-ready summary in both `README.md` and `proofs/BOUNDARY.md`, so the empty proof boundary stays aligned with the public status wording.
