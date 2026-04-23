@@ -2,6 +2,8 @@
 
 **Implements:** the explicitly deferred spec surfaces that should not be pulled forward into earlier public promises
 
+**Status:** complete in this repository snapshot; treat the stage files under `plan/phase-5/` as historical implementation records and use the owning specs plus `specs/19-feature-maturity.md` for current availability
+
 ## Objective
 
 Track and stage later-compatibility work without collapsing it into one vague “future features” bucket. This phase covers:

@@ -181,6 +181,10 @@ Start here, then read the supporting guide that matches the planning question:
 
 Use this document to answer **what should be built when**. Use `SPEC.md` and the owning chapter to answer **what the system promises**.
 
+Current-repository note:
+- the stage documents in `plan/phase-*/` are now treated as historical implementation records in this snapshot
+- future implementation work should be driven by the owning specs, maturity matrix, and evidence docs rather than by reopening the closed phase checklists
+
 ---
 
 ## Implementation strata
@@ -229,6 +233,10 @@ For quick navigation:
 | 3 | Optimization and ecosystem breadth | stronger release modes, Node path, broader packages, and widened host capabilities |
 | 4 | Dynamic compatibility and proof-backed depth | gated dynamic features, `package-audit`, and proof-backed published-boundary claims |
 | 5 | Deferred platform/runtime expansion | threads, standalone browser runtime, programmable policy extensions, late object-model breadth, PGO, and language bindings |
+
+Repository-status note:
+- all staged phase documents currently shipped in this repo snapshot are marked complete in their phase files
+- the remaining living work in this repository should be read from the owning specs, maturity matrix, and evidence tracks instead of this plan graph alone
 
 ### Recommended staffing split after the critical path
 

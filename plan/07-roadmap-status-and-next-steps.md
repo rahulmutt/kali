@@ -17,6 +17,10 @@ Use this file when the broad phase map is clear but day-to-day prioritization st
 
 Treat the roadmap as an active implementation queue with three levels of priority.
 
+Current repository note:
+- the phase checklists currently carried in this repository snapshot are all marked complete in their phase documents
+- use this page as a prioritization overlay for future spec-led work, not as an open todo list for the closed stage packets
+
 ### Priority A — finish the Phase-1 critical path
 
 Do these first, in order, and keep them sequential unless a stage file explicitly says otherwise:
@@ -110,6 +114,8 @@ Otherwise, prefer updating the relevant phase README, stage file, or this priori
 ## Maintenance rule
 
 Keep this file compact and action-oriented.
+
+When the plan is in a fully closed state, keep the prioritization notes short and point readers at the owning specs, maturity matrix, and evidence tracks instead of re-expanding the historical stage sequence.
 
 - Do not duplicate spec contracts here
 - Do not duplicate the proof-boundary inventory here
