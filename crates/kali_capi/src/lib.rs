@@ -168,7 +168,7 @@ pub fn discover_binding_package_manifest_path_with_name(
 
 /// Parse and validate a generated binding package manifest.
 pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, String> {
-    let manifest: Value = serde_json::from_str(manifest_text)
+    let mut manifest: Value = serde_json::from_str(manifest_text)
         .map_err(|error| format!("binding package manifest is not valid JSON: {}", error))?;
 
     let schema_version = manifest
@@ -210,7 +210,52 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
         }
     }
 
+    if let Some(runtime_profiles) = manifest.get("runtimeProfiles") {
+        let normalized_runtime_profiles =
+            normalize_string_list_value(runtime_profiles, "binding package", "runtimeProfiles")?;
+        if let Some(manifest_object) = manifest.as_object_mut() {
+            manifest_object.insert("runtimeProfiles".to_string(), normalized_runtime_profiles);
+        }
+    }
+
+    if let Some(artifacts) = manifest.get_mut("artifacts").and_then(Value::as_object_mut) {
+        let glue = artifacts
+            .get("glue")
+            .ok_or_else(|| "binding package field 'artifacts.glue' is missing".to_string())?;
+        let normalized_glue =
+            normalize_string_list_value(glue, "binding package", "artifacts.glue")?;
+        artifacts.insert("glue".to_string(), normalized_glue);
+    }
+
     Ok(manifest)
+}
+
+fn normalize_string_list_value(
+    value: &Value,
+    context: &str,
+    field_name: &str,
+) -> Result<Value, String> {
+    let items = value.as_array().ok_or_else(|| {
+        format!(
+            "{} field '{}' must be an array of strings",
+            context, field_name
+        )
+    })?;
+
+    let mut normalized = Vec::with_capacity(items.len());
+    for item in items {
+        let string = item
+            .as_str()
+            .ok_or_else(|| format!("{} field '{}' entries must be strings", context, field_name))?;
+        normalized.push(string.to_string());
+    }
+
+    normalized.sort();
+    normalized.dedup();
+
+    Ok(Value::Array(
+        normalized.into_iter().map(Value::String).collect(),
+    ))
 }
 
 /// Load the generated binding package manifest from disk.

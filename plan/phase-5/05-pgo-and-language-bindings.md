@@ -114,6 +114,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   provenance tuple (`runtime_profiles`, `host_contract`, and `runtime_backend`) alongside
   `max_specializations`, so higher-level callers can inspect the exact build context that produced
   a binding package without reading the manifest JSON by hand.
+- The Rust `kali_capi` manifest loader now canonicalizes `runtimeProfiles` and `artifacts.glue` on
+  load as well, so the maintained helper surfaces stay aligned on the same deterministic string-list
+  normalization instead of relying solely on the generator side to produce sorted unique arrays.
 
 ## Tasks
 

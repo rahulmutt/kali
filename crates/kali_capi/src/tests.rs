@@ -169,6 +169,35 @@ fn binding_package_manifest_helpers_load_and_discover_manifests() {
 }
 
 #[test]
+fn binding_package_manifest_parsing_normalizes_string_lists() {
+    let manifest = parse_binding_package_manifest(
+        r#"{
+            "schemaVersion": 1,
+            "kind": "binding-package",
+            "moduleName": "sample",
+            "hostAbiVersion": 2,
+            "runtimeProfiles": ["wasm-threads", "fiber-threads", "wasm-threads"],
+            "artifacts": {
+                "library": "sample.capi.wasm",
+                "metadata": "sample.cabi.json",
+                "exportsHeader": "sample.h",
+                "glue": ["z.py", "a.py", "z.py"]
+            }
+        }"#,
+    )
+    .expect("parse normalized manifest");
+
+    assert_eq!(
+        manifest["runtimeProfiles"],
+        serde_json::json!(["fiber-threads", "wasm-threads"])
+    );
+    assert_eq!(
+        manifest["artifacts"]["glue"],
+        serde_json::json!(["a.py", "z.py"])
+    );
+}
+
+#[test]
 fn binding_package_manifest_helpers_reject_ambiguous_auto_discovery() {
     let temp_root = std::env::temp_dir().join(format!(
         "kali_capi_binding_manifest_{}_ambiguous_{}",
