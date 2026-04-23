@@ -210,6 +210,38 @@ fn test_borrowed_lifetime_reports_collapse_exact_duplicates() {
 }
 
 #[test]
+fn test_scope_filtered_mir_summaries_stay_deterministic() {
+    let mir = analyze("function alpha(x) { return x; } function beta(y) { return y; }");
+
+    assert_eq!(
+        mir.borrowed_lifetimes_in_scope("alpha"),
+        vec![BorrowedLifetime {
+            scope: "alpha".to_string(),
+            name: "x".to_string(),
+            captured_by: Vec::new(),
+        }]
+    );
+    assert_eq!(
+        mir.borrowed_lifetimes_in_scope("beta"),
+        vec![BorrowedLifetime {
+            scope: "beta".to_string(),
+            name: "y".to_string(),
+            captured_by: Vec::new(),
+        }]
+    );
+    assert!(mir.borrowed_lifetimes_in_scope("module").is_empty());
+
+    let beta_profile = mir.thread_boundary_profile_in_scope("beta");
+    assert!(beta_profile
+        .bindings
+        .iter()
+        .all(|binding| binding.scope == "beta"));
+    assert_eq!(beta_profile.bindings.len(), 2);
+    assert_eq!(beta_profile.bindings[0].name, "beta");
+    assert_eq!(beta_profile.bindings[1].name, "y");
+}
+
+#[test]
 fn test_call_arguments_escape_to_unknown_callees() {
     let mir = analyze("const answer = 1; sink(answer);");
     let module = mir.module_scope().expect("module scope");

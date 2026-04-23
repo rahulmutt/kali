@@ -73,6 +73,18 @@ impl ThreadBoundaryProfile {
                 .collect(),
         }
     }
+
+    /// Return a scope-filtered copy of this profile.
+    pub fn in_scope(&self, scope: impl AsRef<str>) -> Self {
+        let scope = scope.as_ref();
+        let bindings = self
+            .bindings
+            .iter()
+            .filter(|binding| binding.scope == scope)
+            .cloned()
+            .collect();
+        Self { bindings }
+    }
 }
 
 impl OwnershipClass {
@@ -352,11 +364,22 @@ impl MirProgram {
     pub fn borrowed_lifetimes(&self) -> Vec<BorrowedLifetime> {
         let mut borrowed = BTreeSet::new();
         for function in &self.functions {
-            let scope = function
-                .name
-                .clone()
-                .unwrap_or_else(|| "module".to_string());
+            let scope = function_scope_name(function);
             borrowed.extend(function.borrowed_lifetimes(scope));
+        }
+        borrowed.into_iter().collect()
+    }
+
+    /// Return borrowed-lifetime summaries for a specific scope.
+    pub fn borrowed_lifetimes_in_scope(&self, scope: impl AsRef<str>) -> Vec<BorrowedLifetime> {
+        let scope = scope.as_ref();
+        let mut borrowed = BTreeSet::new();
+        for function in self
+            .functions
+            .iter()
+            .filter(|function| function_scope_name(function) == scope)
+        {
+            borrowed.extend(function.borrowed_lifetimes(scope.to_string()));
         }
         borrowed.into_iter().collect()
     }
@@ -365,16 +388,38 @@ impl MirProgram {
     pub fn thread_boundary_profile(&self) -> ThreadBoundaryProfile {
         let mut profile = ThreadBoundaryProfile::default();
         for function in &self.functions {
-            let scope = function
-                .name
-                .clone()
-                .unwrap_or_else(|| "module".to_string());
+            let scope = function_scope_name(function);
             for binding in &function.bindings {
                 profile.push_binding(scope.clone(), binding);
             }
         }
         profile.finalize()
     }
+
+    /// Return the thread-boundary profile for a specific scope.
+    pub fn thread_boundary_profile_in_scope(
+        &self,
+        scope: impl AsRef<str>,
+    ) -> ThreadBoundaryProfile {
+        let scope = scope.as_ref();
+        let mut profile = ThreadBoundaryProfile::default();
+        for function in &self.functions {
+            if function_scope_name(function) != scope {
+                continue;
+            }
+            for binding in &function.bindings {
+                profile.push_binding(scope.to_string(), binding);
+            }
+        }
+        profile.finalize()
+    }
+}
+
+fn function_scope_name(function: &MirFunction) -> String {
+    function
+        .name
+        .clone()
+        .unwrap_or_else(|| "module".to_string())
 }
 
 /// MIR lowering from HIR.

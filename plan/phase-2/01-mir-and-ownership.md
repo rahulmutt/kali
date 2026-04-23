@@ -41,7 +41,9 @@ counting placeholder with deterministic compile-time ownership decisions: `stack
   bindings or program entries. The thread-boundary profile now deterministically merges duplicate
   scope/name entries and preserves the shareable disposition when a binding is observed through both
   local and shared flows, keeping the later threaded-profile handoff stable even when analysis data
-  is combined from multiple passes.
+  is combined from multiple passes. Program-level MIR summary helpers now also expose scope-filtered
+  borrowed-lifetime and thread-boundary projections so later consumers can inspect one scope at a
+  time without reconstructing the filter logic themselves.
 
 ## Tasks
 
