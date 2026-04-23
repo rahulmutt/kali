@@ -4270,11 +4270,7 @@ fn build_artifacts_are_deterministic_across_repeated_invocations() {
 fn build_with_profile_data_is_deterministic_across_repeated_invocations() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("math.ts");
-    fs::write(
-        &source_path,
-        "function hot(a, b) { return a + b; } hot(1, 2);",
-    )
-    .expect("write source");
+    fs::write(&source_path, "export function hot(a, b) { return a + b; }").expect("write source");
     let profile_path = dir.path().join("profile.json");
     fs::write(
         &profile_path,
@@ -4282,15 +4278,19 @@ fn build_with_profile_data_is_deterministic_across_repeated_invocations() {
     )
     .expect("write profile");
     let out_dir = dir.path().join("out");
+    let meta_path = out_dir.join("math.lib.meta.json");
 
     let build = |json_output: bool| {
         let mut command = Command::new(kali_bin());
         command
             .current_dir(dir.path())
             .arg("build")
+            .arg("--lib")
             .arg("--release")
             .arg("--profile")
             .arg(&profile_path)
+            .arg("--max-specializations")
+            .arg("24")
             .arg("--out-dir")
             .arg(&out_dir)
             .arg(&source_path);
@@ -4308,12 +4308,13 @@ fn build_with_profile_data_is_deterministic_across_repeated_invocations() {
 
         (
             output,
-            fs::read(out_dir.join("math.wasm")).expect("read profiled wasm"),
+            fs::read(out_dir.join("math.lib.wasm")).expect("read profiled wasm"),
+            fs::read(&meta_path).expect("read profiled metadata"),
         )
     };
 
-    let (text_first, first) = build(false);
-    let (text_second, second) = build(false);
+    let (text_first, first, first_meta) = build(false);
+    let (text_second, second, second_meta) = build(false);
     assert_eq!(
         text_first.stdout, text_second.stdout,
         "PGO build output should be deterministic across repeated text-mode invocations"
@@ -4322,9 +4323,13 @@ fn build_with_profile_data_is_deterministic_across_repeated_invocations() {
         first, second,
         "PGO builds should be deterministic across repeated invocations"
     );
+    assert_eq!(
+        first_meta, second_meta,
+        "PGO metadata should be deterministic across repeated invocations"
+    );
 
-    let (json_first, json_first_wasm) = build(true);
-    let (json_second, json_second_wasm) = build(true);
+    let (json_first, json_first_wasm, json_first_meta) = build(true);
+    let (json_second, json_second_wasm, json_second_meta) = build(true);
     assert_eq!(
         json_first.stdout, json_second.stdout,
         "PGO build JSON output should be deterministic across repeated invocations"
@@ -4333,12 +4338,19 @@ fn build_with_profile_data_is_deterministic_across_repeated_invocations() {
         json_first_wasm, json_second_wasm,
         "PGO builds should be deterministic across repeated JSON invocations"
     );
+    assert_eq!(
+        json_first_meta, json_second_meta,
+        "PGO metadata should be deterministic across repeated JSON invocations"
+    );
 
     let envelope = parse_json_stdout(&json_first);
     assert_eq!(envelope["schemaVersion"], 1);
     assert_eq!(envelope["command"], "build");
     assert_eq!(envelope["exitCode"], 0);
     assert!(envelope["payload"].is_object(), "envelope: {envelope:?}");
+
+    let metadata: Value = serde_json::from_slice(&json_first_meta).expect("parse metadata");
+    assert_artifact_metadata_provenance(&metadata, "lib", 24);
 }
 
 #[test]

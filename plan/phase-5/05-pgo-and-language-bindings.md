@@ -92,7 +92,10 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   path as well as the lower-level loader.
 - Added JSON-envelope regression coverage for successful `build --profile` runs and unsupported
   version mismatches so the machine-readable PGO path now stays deterministic across repeated
-  invocations and still rejects bad profile data through the same command contract.
+  invocations and still rejects bad profile data through the same command contract. The repeated
+  profile-guided build regression now also pins the emitted artifact-metadata sidecar bytes and the
+  provenance fields they carry, so the PGO lane stays deterministic across both the WASM payload
+  and its schema-backed metadata.
 - Added a representative PGO benchmark regression that compares the release baseline against the
   profile-guided build on a hot-function workload while still asserting the hot-call-site reduction,
   so the stage now records a concrete gain-oriented test in addition to the existing determinism
