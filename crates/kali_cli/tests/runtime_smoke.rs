@@ -6118,6 +6118,17 @@ fn build_emits_capi_json_artifacts_for_binding_package_manifest() {
         .iter()
         .any(|artifact| artifact["kind"] == "cabi-metadata"));
 
+    let meta_path = source_path.with_file_name("lib.capi.meta.json");
+    let metadata: Value =
+        serde_json::from_str(&fs::read_to_string(&meta_path).expect("read cabi metadata"))
+            .expect("parse cabi metadata json");
+    assert_eq!(metadata["schemaVersion"], 1);
+    assert_eq!(metadata["kind"], "cabi-metadata");
+    assert_eq!(metadata["runtimeProfiles"], serde_json::json!([]));
+    assert_eq!(metadata["maxSpecializations"], 16);
+    assert_eq!(metadata["hostContract"], "kali-hosted");
+    assert_eq!(metadata["runtimeBackend"], "wasmtime");
+
     let binding_package_path = source_path.with_file_name("lib.binding-package.json");
     assert!(
         binding_package_path.exists(),
@@ -6144,6 +6155,48 @@ fn build_emits_capi_json_artifacts_for_binding_package_manifest() {
         "lib.capi.meta.json"
     );
     assert_eq!(binding_package["artifacts"]["exportsHeader"], "lib.h");
+}
+
+#[test]
+fn build_emits_capi_json_artifacts_with_specialization_override() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.ts");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--capi")
+        .arg("--max-specializations")
+        .arg("8")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let meta_path = source_path.with_file_name("lib.capi.meta.json");
+    let metadata: Value =
+        serde_json::from_str(&fs::read_to_string(&meta_path).expect("read cabi metadata"))
+            .expect("parse cabi metadata json");
+    assert_eq!(metadata["schemaVersion"], 1);
+    assert_eq!(metadata["kind"], "cabi-metadata");
+    assert_eq!(metadata["runtimeProfiles"], serde_json::json!([]));
+    assert_eq!(metadata["maxSpecializations"], 8);
+    assert_eq!(metadata["hostContract"], "kali-hosted");
+    assert_eq!(metadata["runtimeBackend"], "wasmtime");
+
+    let binding_package_path = source_path.with_file_name("lib.binding-package.json");
+    let binding_package: Value = serde_json::from_str(
+        &fs::read_to_string(&binding_package_path).expect("read binding package manifest"),
+    )
+    .expect("parse binding package manifest json");
+    assert_eq!(binding_package["maxSpecializations"], 8);
 }
 
 #[test]
@@ -6256,6 +6309,48 @@ fn build_emits_component_json_artifacts_for_binding_package_manifest() {
     assert!(artifacts
         .iter()
         .any(|artifact| artifact["role"] == "binding-package-manifest"));
+}
+
+#[test]
+fn build_emits_component_json_artifacts_with_specialization_override() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.ts");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--component")
+        .arg("--max-specializations")
+        .arg("8")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let meta_path = source_path.with_file_name("lib.component.meta.json");
+    let metadata: Value =
+        serde_json::from_str(&fs::read_to_string(&meta_path).expect("read component metadata"))
+            .expect("parse component metadata json");
+    assert_eq!(metadata["schemaVersion"], 1);
+    assert_eq!(metadata["artifactKind"], "component");
+    assert_eq!(metadata["runtimeProfiles"], serde_json::json!([]));
+    assert_eq!(metadata["maxSpecializations"], 8);
+    assert_eq!(metadata["hostContract"], "kali-hosted");
+    assert_eq!(metadata["runtimeBackend"], "wasmtime");
+
+    let binding_package_path = source_path.with_file_name("lib.binding-package.json");
+    let binding_package: Value = serde_json::from_str(
+        &fs::read_to_string(&binding_package_path).expect("read binding package manifest"),
+    )
+    .expect("parse binding package manifest json");
+    assert_eq!(binding_package["maxSpecializations"], 8);
 }
 
 #[test]

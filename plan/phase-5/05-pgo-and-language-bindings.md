@@ -128,6 +128,10 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - Added deterministic binding-package summary helpers across the Rust, Node, and Python binding
   shims so higher-level tooling can project the normalized provenance tuple and artifact layout
   through one stable convenience shape instead of reassembling it ad hoc at each call site.
+- CLI smoke coverage now also proves that the `--max-specializations` override propagates through
+  the `build --capi` and `build --component` artifact sidecars, keeping the later binding layout
+  provenance aligned with the same specialization budget that the other build modes already
+  expose.
 
 ## Tasks
 
