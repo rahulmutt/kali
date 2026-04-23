@@ -6664,6 +6664,45 @@ fn package_effects_command_emits_json_envelope() {
 }
 
 #[test]
+fn package_effects_command_emits_json_envelope_under_quiet() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/purepkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "purepkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), "console.log('hello');").expect("write package entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("--quiet")
+        .arg("--output")
+        .arg("json")
+        .arg("purepkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["package"]["name"], "purepkg");
+    assert_eq!(json["payload"]["report"]["entryPoints"], json!(["purepkg"]));
+}
+
+#[test]
 fn package_effects_tracks_eval_compatibility_from_manifest() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/evalpkg");
@@ -7579,6 +7618,38 @@ fn package_audit_command_emits_pretty_json_envelope() {
         .contains("no security findings were computed"));
     assert_eq!(json["warnings"], serde_json::Value::Array(vec![]));
     assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
+}
+
+#[test]
+fn package_audit_command_suppresses_human_output_under_quiet() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--quiet")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).trim().is_empty(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
 }
 
 #[test]
