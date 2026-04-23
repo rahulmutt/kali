@@ -1960,7 +1960,10 @@ impl Atomics {
 
     /// Exchange a byte in the provided shared buffer.
     pub fn exchange(buffer: &SharedArrayBuffer, index: usize, value: u8) -> Option<u8> {
-        buffer.store(index, value)
+        buffer
+            .bytes
+            .get(index)
+            .map(|cell| cell.swap(value, Ordering::SeqCst))
     }
 
     /// Add to a byte in the provided shared buffer.

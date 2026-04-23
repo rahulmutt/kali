@@ -898,6 +898,14 @@ fn shared_array_buffer_clones_share_mutations() {
 }
 
 #[test]
+fn shared_array_buffer_compare_exchange_failure_leaves_bytes_unchanged() {
+    let buffer = SharedArrayBuffer::from_bytes([10, 20]);
+
+    assert_eq!(Atomics::compare_exchange(&buffer, 0, 11, 99), Some(Err(10)));
+    assert_eq!(Atomics::snapshot(&buffer), vec![10, 20]);
+}
+
+#[test]
 fn shared_array_buffer_supports_zero_length_buffers() {
     let buffer = SharedArrayBuffer::new(0);
     assert!(buffer.is_empty());
