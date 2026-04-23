@@ -389,7 +389,7 @@ pub enum Commands {
         sandbox: Option<PathBuf>,
         /// Registry package target to audit
         target: String,
-        /// Hidden legacy flag rejected by the command handler with E5508
+        /// Hidden legacy compatibility shim rejected by the command handler with E5508 before registry lookup
         #[arg(long, hide = true)]
         preview: bool,
     },

@@ -678,6 +678,7 @@ Base-gate clarification:
 - follow the shared **registry-analysis availability boundary** from [SPEC.md](../SPEC.md): malformed invocations still fail first with `E5508`, while a well-formed base invocation such as `kali package-audit lodash`, `kali package-audit --output json lodash`, or `kali package-audit --pretty --output json lodash` reaches the command's own availability gate (`E5506`) until Phase 4 opens
 - practical simplification: schema-v1 `package-audit` keeps a very small **semantic/context flag surface**: the package selector only. Its command-local presentation/output knobs are the envelope-oriented **JSON-mode selectors** (`--output json`, plus `--pretty` only when JSON mode is already active). Ordinary shared presentation/control flags still follow the shared-flag rules, but package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` stay invalid usage instead of growing a second context model
 - output-format flags do not create a second availability path for the command itself
+- the legacy `--preview` compatibility shim is rejected with `E5508` before the command reaches registry lookup or JSON-envelope construction
 
 Audit rule:
 - following the shared **workflow-owner split** from [SPEC.md](../SPEC.md), this command follows the shared **registry-analysis target contract (schema v1)** and is the context-free registry-analysis/security-audit path rather than a second host-context-aware effect/policy command
