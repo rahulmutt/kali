@@ -457,6 +457,10 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
     assert!(browser_harness_uses_html_entrypoint("edge-dev"));
     assert!(browser_harness_uses_html_entrypoint("edge-insider"));
     assert!(browser_harness_uses_html_entrypoint("brave-browser.exe"));
+    assert!(browser_harness_uses_html_entrypoint(
+        "brave-browser-stable.exe"
+    ));
+    assert!(browser_harness_uses_html_entrypoint("brave browser stable"));
     assert!(browser_harness_uses_html_entrypoint("chrome.cmd"));
     assert!(browser_harness_uses_html_entrypoint(
         "google-chrome.desktop"
@@ -555,6 +559,20 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("brave-browser"),
         Some(vec!["brave-browser".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("brave-browser-stable"),
+        Some(vec![
+            "brave-browser-stable".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("brave browser stable"),
+        Some(vec![
+            "brave browser stable".to_string(),
+            "--headless".to_string()
+        ])
     );
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("google chrome canary"),

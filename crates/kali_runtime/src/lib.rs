@@ -2355,6 +2355,8 @@ const BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES: &[&str] = &[
     "google chrome for testing",
     "brave",
     "brave-browser",
+    "brave-browser-stable",
+    "brave browser stable",
     "brave-browser-beta",
     "brave-browser-dev",
     "brave-browser-nightly",
