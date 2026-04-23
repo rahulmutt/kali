@@ -45,7 +45,7 @@ kali package-audit <package>
 
 Helpful flags you will see often:
 
-- `--api deno|node|browser` *(Phase 1 ships the Deno-oriented default plus the browser-targeted `check` / `build --bundle` context; broad `node` support is later)*
+- `--api deno|node|browser` *(Phase 1 ships the Deno-oriented default plus the browser-targeted `check` / `build --bundle` context; `run` / `test` currently support the documented Node execution subset, while broader Node analysis/build support is later)*
 - `--sandbox <policy>`
 - `--output json`
 - `--verbose` / `--quiet`

@@ -19,15 +19,24 @@ fn assert_node_api_rejected(name: &str, mut command: Command) {
     );
 }
 
+fn assert_node_api_succeeds(name: &str, mut command: Command, expected_stdout: &str) {
+    let output = command.output().expect("run kali");
+    assert!(
+        output.status.success(),
+        "{name} stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains(expected_stdout), "{name} stdout: {stdout}");
+}
+
 #[test]
-fn explicit_node_api_surface_is_rejected_for_phase1_commands() {
+fn explicit_node_api_surface_is_rejected_for_phase1_check_and_build_commands() {
     let dir = tempdir().expect("tempdir");
     let check_file = dir.path().join("main.ts");
-    let test_file = dir.path().join("main.test.ts");
-    fs::write(&check_file, "const answer = 1;").expect("write check file");
-    fs::write(&test_file, "test('ok', () => {});").expect("write test file");
+    fs::write(&check_file, "import 'node:path';\nconst answer = 1;\n").expect("write check file");
 
-    let cases = [
+    for (name, args) in [
         (
             "check",
             vec!["check", "--api", "node", check_file.to_str().unwrap()],
@@ -37,20 +46,10 @@ fn explicit_node_api_surface_is_rejected_for_phase1_commands() {
             vec!["build", "--api", "node", check_file.to_str().unwrap()],
         ),
         (
-            "run",
-            vec!["run", "--api", "node", check_file.to_str().unwrap()],
-        ),
-        (
-            "test",
-            vec!["test", "--api", "node", test_file.to_str().unwrap()],
-        ),
-        (
             "effects",
             vec!["effects", "--api", "node", check_file.to_str().unwrap()],
         ),
-    ];
-
-    for (name, args) in cases {
+    ] {
         let mut command = Command::new(kali_bin());
         command.current_dir(dir.path());
         for arg in args {
@@ -61,12 +60,10 @@ fn explicit_node_api_surface_is_rejected_for_phase1_commands() {
 }
 
 #[test]
-fn inherited_node_api_surface_is_rejected_for_phase1_commands() {
+fn inherited_node_api_surface_is_rejected_for_phase1_check_and_build_commands() {
     let dir = tempdir().expect("tempdir");
     let check_file = dir.path().join("main.ts");
-    let test_file = dir.path().join("main.test.ts");
-    fs::write(&check_file, "const answer = 1;").expect("write check file");
-    fs::write(&test_file, "test('ok', () => {});").expect("write test file");
+    fs::write(&check_file, "import 'node:path';\nconst answer = 1;\n").expect("write check file");
     fs::write(
         dir.path().join("kali.json"),
         r#"{
@@ -78,15 +75,11 @@ fn inherited_node_api_surface_is_rejected_for_phase1_commands() {
     )
     .expect("write manifest");
 
-    let cases = [
+    for (name, args) in [
         ("check", vec!["check", check_file.to_str().unwrap()]),
         ("build", vec!["build", check_file.to_str().unwrap()]),
-        ("run", vec!["run", check_file.to_str().unwrap()]),
-        ("test", vec!["test", test_file.to_str().unwrap()]),
         ("effects", vec!["effects", check_file.to_str().unwrap()]),
-    ];
-
-    for (name, args) in cases {
+    ] {
         let mut command = Command::new(kali_bin());
         command.current_dir(dir.path());
         for arg in args {
@@ -94,4 +87,68 @@ fn inherited_node_api_surface_is_rejected_for_phase1_commands() {
         }
         assert_node_api_rejected(name, command);
     }
+}
+
+#[test]
+fn explicit_node_api_surface_executes_on_run_and_test_commands() {
+    let dir = tempdir().expect("tempdir");
+    let run_file = dir.path().join("main.ts");
+    let test_file = dir.path().join("main.test.ts");
+    fs::write(
+        &run_file,
+        "import 'node:path';\nconsole.log('node run ok');\n",
+    )
+    .expect("write run file");
+    fs::write(
+        &test_file,
+        "import 'node:path';\nKali.test('node', () => {\n    console.log('node test ok');\n});\n",
+    )
+    .expect("write test file");
+
+    let mut run = Command::new(kali_bin());
+    run.current_dir(dir.path())
+        .args(["run", "--api", "node", run_file.to_str().unwrap()]);
+    assert_node_api_succeeds("run", run, "node run ok\n");
+
+    let mut test = Command::new(kali_bin());
+    test.current_dir(dir.path())
+        .args(["test", "--api", "node", test_file.to_str().unwrap()]);
+    assert_node_api_succeeds("test", test, "node test ok\n");
+}
+
+#[test]
+fn inherited_node_api_surface_executes_on_run_and_test_commands() {
+    let dir = tempdir().expect("tempdir");
+    let run_file = dir.path().join("main.ts");
+    let test_file = dir.path().join("main.test.ts");
+    fs::write(
+        &run_file,
+        "import 'node:path';\nconsole.log('node run ok');\n",
+    )
+    .expect("write run file");
+    fs::write(
+        &test_file,
+        "import 'node:path';\nKali.test('node', () => {\n    console.log('node test ok');\n});\n",
+    )
+    .expect("write test file");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let mut run = Command::new(kali_bin());
+    run.current_dir(dir.path())
+        .args(["run", run_file.to_str().unwrap()]);
+    assert_node_api_succeeds("run", run, "node run ok\n");
+
+    let mut test = Command::new(kali_bin());
+    test.current_dir(dir.path())
+        .args(["test", test_file.to_str().unwrap()]);
+    assert_node_api_succeeds("test", test, "node test ok\n");
 }

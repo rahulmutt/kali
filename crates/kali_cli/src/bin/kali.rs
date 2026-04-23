@@ -2598,12 +2598,6 @@ fn run_command(
         return Err(exit_code);
     }
 
-    if let Err(exit_code) =
-        reject_unavailable_node_api_surface("run", effective_api, output, None, None)
-    {
-        return Err(exit_code);
-    }
-
     let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
     let effective_compat = match resolve_effective_compat_features(compat) {
@@ -2779,12 +2773,6 @@ fn test_command(
         None,
         None,
     ) {
-        return Err(exit_code);
-    }
-
-    if let Err(exit_code) =
-        reject_unavailable_node_api_surface("test", effective_api, output, None, None)
-    {
         return Err(exit_code);
     }
 

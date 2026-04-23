@@ -236,7 +236,7 @@ kali run --max-memory 256mb main.ts         # Resource limit
 kali run --max-cpu 10s main.ts              # CPU time limit
 kali run --max-open-files 32 main.ts        # Open-file-handle limit
 kali run --max-spawned-processes 0 main.ts  # Disallow child processes for this run
-kali run --api node main.ts -- 1.2.3        # Use Node.js API surface (Phase 3 target)
+kali run --api node main.ts -- 1.2.3        # Use Node.js API surface (supported for the documented execution subset)
 kali run --api deno main.ts -- 1.2.3        # Use Deno API surface (default)
 kali run --api browser main.ts              # Later compatibility; unavailable in early standalone phases because browser is a browser-targeted context first
 kali run --wasm-threads main.ts             # Enable WASM threads (SharedArrayBuffer, Atomics; opt-in only)
@@ -251,7 +251,7 @@ When a command or flag is rejected due to maturity/availability gating, the CLI 
 Canonical interpretation rules:
 - `--api` selects an **API surface**, but support is command-dependent.
 - follow the top-level **canonical browser-surface rejection split** from [SPEC.md](../SPEC.md): supported early browser shapes are the shared **Phase-1 browser-targeted command set**; wrong browser build shapes use `E5508`, while browser execution/test requests use `E5506` until Kali defines a standalone browser runtime/test contract.
-- `--api node` is phase-gated consistently across `check`, `effects`, `build`, `run`, and `test`; early phases reject it with `E5506` rather than exposing a partial Node surface.
+- `--api node` is phase-gated consistently across `check`, `effects`, and `build`, while `run` / `test` now accept the documented Node execution subset instead of rejecting the surface wholesale.
 - guest arguments after `--` are forwarded through the invocation-context surface: in the default standalone context they populate `Deno.args`, and in the Node context they populate `process.argv` with the documented executable/source prefix before the guest tail.
 - explicit `--api ...` and inherited `compilerOptions.apiSurface = ...` are equivalent here too: plain `kali run main.ts` and plain `kali run --sandbox kali.policy.json main.ts` must validate against the same effective API surface and therefore hit the same Node/browser execution gates as their explicit `--api node` / `--api browser` forms instead of silently falling back to `deno`.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5506`.
@@ -265,7 +265,7 @@ Inherited execution-context shorthand:
 | Effective `apiSurface` | Command spelling | Result |
 |---|---|---|
 | `deno` (default) | `kali run main.ts` / `kali run --sandbox kali.policy.json main.ts` | Supported early standalone execution path |
-| `node` | `kali run main.ts` / `kali run --sandbox kali.policy.json main.ts` | Same Node execution gate as explicit `--api node`; no silent fallback to `deno` |
+| `node` | `kali run main.ts` / `kali run --sandbox kali.policy.json main.ts` | Supported Node execution subset when `compilerOptions.apiSurface = node` or `--api node` is selected; no silent fallback to `deno` |
 | `browser` | `kali run main.ts` / `kali run --sandbox kali.policy.json main.ts` | Same browser execution gate as explicit `--api browser`; no silent fallback to `deno` |
 
 Sandbox flag behavior is intentionally phase-gated:
@@ -503,7 +503,7 @@ kali test --filter "math"                  # Filter discovered or explicit tests
 kali test --sandbox kali.policy.json       # Run tests in sandbox
 kali test --coverage                       # Emits the stable function-coverage report alongside the ordinary test summary
 kali test --api deno                       # Supported early standalone test profile
-kali test --api node                       # Phase 3 target
+kali test --api node                       # Use Node.js test-runtime surface (supported for the documented execution subset)
 kali test --api browser                    # Later compatibility; unavailable in early phases because browser support is limited to the shared Phase-1 browser-targeted command set first
 ```
 
@@ -514,14 +514,14 @@ Canonical discovery rule:
 - each explicit `kali test` file must still belong to the shared **executable/analyzable source-file class**; passing a declaration-only file is the canonical invalid-entrypoint error (`E5507`), not a silent skip
 - `--filter <pattern>` narrows the selected discovered or explicit test cases after module selection; it does not change discovery roots, API-surface gating, sandbox behavior, or file-kind validation
 
-Canonical host/profile rule: `kali test` follows the same early-phase API-surface gating as `kali run`, and analysis/build commands (`kali check`, `kali effects`, `kali build`) follow the same API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
+Canonical host/profile rule: `kali test` follows the same API-surface model as `kali run` for the documented Node execution subset, while analysis/build commands (`kali check`, `kali effects`, `kali build`) continue to follow the API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
 
 Inherited execution-context shorthand:
 
 | Effective `apiSurface` | Command spelling | Result |
 |---|---|---|
 | `deno` (default) | `kali test` / `kali test --sandbox kali.policy.json` | Supported early standalone test path |
-| `node` | `kali test` / `kali test --sandbox kali.policy.json` | Same Node test-runtime gate as explicit `--api node`; no silent fallback to `deno` |
+| `node` | `kali test` / `kali test --sandbox kali.policy.json` | Supported Node test-runtime subset when `compilerOptions.apiSurface = node` or `--api node` is selected; no silent fallback to `deno` |
 | `browser` | `kali test` / `kali test --sandbox kali.policy.json` | Same browser test-runtime gate as explicit `--api browser`; no silent fallback to `deno` |
 
 ### `kali init`
