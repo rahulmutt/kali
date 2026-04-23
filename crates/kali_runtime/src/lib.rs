@@ -2275,65 +2275,66 @@ fn browser_harness_normalized_executable_name(executable: &str) -> String {
         .to_string()
 }
 
+const BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES: &[&str] = &[
+    "chrome",
+    "chrome-beta",
+    "chrome-canary",
+    "chrome-headless-shell",
+    "chrome-unstable",
+    "chrome-dev",
+    "chromium",
+    "chromium-browser",
+    "chromium-headless-shell",
+    "chromium-dev",
+    "google-chrome",
+    "google-chrome-headless-shell",
+    "google-chrome-stable",
+    "google-chrome-beta",
+    "google-chrome-canary",
+    "google-chrome-unstable",
+    "google-chrome-dev",
+    "google chrome",
+    "google chrome stable",
+    "google chrome beta",
+    "google chrome canary",
+    "google chrome unstable",
+    "google chrome dev",
+    "brave",
+    "brave-browser",
+    "brave-browser-beta",
+    "brave-browser-dev",
+    "brave browser",
+    "brave browser beta",
+    "brave browser dev",
+    "vivaldi",
+    "vivaldi-stable",
+    "opera",
+    "opera-stable",
+    "msedge",
+    "edge",
+    "microsoft-edge",
+    "microsoft-edge-stable",
+    "microsoft-edge-beta",
+    "microsoft-edge-canary",
+    "microsoft-edge-dev",
+    "microsoft edge",
+    "microsoft edge stable",
+    "microsoft edge beta",
+    "microsoft edge canary",
+    "microsoft edge dev",
+    "firefox",
+    "firefox-esr",
+    "firefox-nightly",
+    "firefox-developer-edition",
+    "firefox developer edition",
+    "librewolf",
+    "waterfox",
+    "zen-browser",
+    "thorium-browser",
+];
+
 fn browser_harness_is_browser_executable_name(executable: &str) -> bool {
-    matches!(
-        executable,
-        "chrome"
-            | "chrome-beta"
-            | "chrome-canary"
-            | "chrome-headless-shell"
-            | "chrome-unstable"
-            | "chrome-dev"
-            | "chromium"
-            | "chromium-browser"
-            | "chromium-headless-shell"
-            | "chromium-dev"
-            | "google-chrome"
-            | "google-chrome-headless-shell"
-            | "google-chrome-stable"
-            | "google-chrome-beta"
-            | "google-chrome-canary"
-            | "google-chrome-unstable"
-            | "google-chrome-dev"
-            | "google chrome"
-            | "google chrome stable"
-            | "google chrome beta"
-            | "google chrome canary"
-            | "google chrome unstable"
-            | "google chrome dev"
-            | "brave"
-            | "brave-browser"
-            | "brave-browser-beta"
-            | "brave-browser-dev"
-            | "brave browser"
-            | "brave browser beta"
-            | "brave browser dev"
-            | "vivaldi"
-            | "vivaldi-stable"
-            | "opera"
-            | "opera-stable"
-            | "msedge"
-            | "edge"
-            | "microsoft-edge"
-            | "microsoft-edge-stable"
-            | "microsoft-edge-beta"
-            | "microsoft-edge-canary"
-            | "microsoft-edge-dev"
-            | "microsoft edge"
-            | "microsoft edge stable"
-            | "microsoft edge beta"
-            | "microsoft edge canary"
-            | "microsoft edge dev"
-            | "firefox"
-            | "firefox-esr"
-            | "firefox-nightly"
-            | "firefox-developer-edition"
-            | "firefox developer edition"
-            | "librewolf"
-            | "waterfox"
-            | "zen-browser"
-            | "thorium-browser"
-    )
+    BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES.contains(&executable)
 }
 
 fn browser_harness_command_parts_for_browser_executable(executable: &str) -> Option<Vec<String>> {
@@ -2347,65 +2348,7 @@ fn browser_harness_command_parts_for_browser_executable(executable: &str) -> Opt
 }
 
 fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
-    const CANDIDATES: &[&str] = &[
-        "chrome",
-        "chrome-beta",
-        "chrome-canary",
-        "chrome-headless-shell",
-        "chrome-unstable",
-        "chrome-dev",
-        "chromium",
-        "chromium-browser",
-        "chromium-headless-shell",
-        "chromium-dev",
-        "google-chrome",
-        "google-chrome-headless-shell",
-        "google-chrome-stable",
-        "google-chrome-beta",
-        "google-chrome-canary",
-        "google-chrome-unstable",
-        "google-chrome-dev",
-        "google chrome",
-        "google chrome stable",
-        "google chrome beta",
-        "google chrome canary",
-        "google chrome unstable",
-        "google chrome dev",
-        "brave-browser",
-        "brave",
-        "brave-browser-beta",
-        "brave-browser-dev",
-        "brave browser",
-        "brave browser beta",
-        "brave browser dev",
-        "vivaldi",
-        "vivaldi-stable",
-        "opera",
-        "opera-stable",
-        "msedge",
-        "edge",
-        "microsoft-edge",
-        "microsoft-edge-stable",
-        "microsoft-edge-beta",
-        "microsoft-edge-canary",
-        "microsoft-edge-dev",
-        "microsoft edge",
-        "microsoft edge stable",
-        "microsoft edge beta",
-        "microsoft edge canary",
-        "microsoft edge dev",
-        "firefox",
-        "firefox-esr",
-        "firefox-nightly",
-        "firefox-developer-edition",
-        "firefox developer edition",
-        "librewolf",
-        "waterfox",
-        "zen-browser",
-        "thorium-browser",
-    ];
-
-    for candidate in CANDIDATES {
+    for candidate in BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES {
         if Command::new(candidate).arg("--version").output().is_ok() {
             if let Some(parts) = browser_harness_command_parts_for_browser_executable(candidate) {
                 return Some(parts);

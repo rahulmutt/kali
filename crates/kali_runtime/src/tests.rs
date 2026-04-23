@@ -538,6 +538,15 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
         ])
     );
     assert_eq!(
+        browser_harness_command_parts_for_browser_executable(
+            "/opt/Thorium Browser/thorium-browser.com"
+        ),
+        Some(vec![
+            "thorium-browser".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
         browser_harness_command_parts_for_browser_executable("firefox"),
         Some(vec!["firefox".to_string(), "--headless".to_string()])
     );
