@@ -28,6 +28,7 @@ plan/
 ├── 05-delivery-increments.md
 ├── 06-current-workspace-rollout.md
 ├── 07-roadmap-status-and-next-steps.md
+├── 08-fresh-implementation-roadmap.md
 ├── phase-1/
 │   ├── README.md
 │   ├── 01-workspace-scaffold.md
@@ -70,7 +71,7 @@ plan/
     └── 05-pgo-and-language-bindings.md
 ```
 
-Total: 30 stage documents, 5 phase index documents, and 8 cross-phase planning guides.
+Total: 30 stage documents, 5 phase index documents, and 9 cross-phase planning guides.
 
 ## Suggested implementation directory structure
 
@@ -167,9 +168,11 @@ Start here, then use the supporting plan docs for the specific planning question
 - [plan/05-delivery-increments.md](./plan/05-delivery-increments.md) — higher-level increments that keep the repository usable while stages accumulate
 - [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md) — concrete repository-growth order for the current fine-grained workspace
 - [plan/07-roadmap-status-and-next-steps.md](./plan/07-roadmap-status-and-next-steps.md) — current stage-status snapshot, historical-vs-active reading guidance, and the canonical follow-up lanes
+- [plan/08-fresh-implementation-roadmap.md](./plan/08-fresh-implementation-roadmap.md) — the shortest recommended fresh-start execution order derived from the full stage graph
 
 - Use `SPEC.md` to decide what Kali promises.
 - Use this plan to decide implementation order and dependencies.
+- Use `plan/08-fresh-implementation-roadmap.md` when you want the shortest fresh-start path from docs to a workable implementation.
 - Use `specs/19-feature-maturity.md` to answer whether something is publicly available.
 - Use the stage files under `plan/` for detailed tasks and definitions of done.
 
@@ -559,7 +562,7 @@ Current repository note:
 
 ## Cross-phase planning guides
 
-The stage files are the authoritative step-by-step plan, but eight cross-phase guides keep the whole roadmap coherent:
+The stage files are the authoritative step-by-step plan, but nine cross-phase guides keep the whole roadmap coherent:
 
 - [plan/README.md](./plan/README.md) — entrypoint and navigation map for the plan set
 - [plan/00-planning-conventions.md](./plan/00-planning-conventions.md) — shared stage vocabulary, readiness rules, and update packets
@@ -570,6 +573,22 @@ The stage files are the authoritative step-by-step plan, but eight cross-phase g
 - [plan/05-delivery-increments.md](./plan/05-delivery-increments.md) — the larger implementation slices that should be reviewable, workable, and demoable to users
 - [plan/06-current-workspace-rollout.md](./plan/06-current-workspace-rollout.md) — the concrete directory/crate growth order for this repository
 - [plan/07-roadmap-status-and-next-steps.md](./plan/07-roadmap-status-and-next-steps.md) — the current planning-status dashboard and follow-up-lane index
+- [plan/08-fresh-implementation-roadmap.md](./plan/08-fresh-implementation-roadmap.md) — the shortest recommended fresh-start execution order derived from the full stage graph
+
+## Fresh-start implementation shortcut
+
+If implementation restarted from the current spec set today, the shortest sensible path would be:
+
+1. lock spec, maturity, schema, and proof-boundary wording,
+2. complete the CLI/workspace spine,
+3. finish the frontend through deterministic `kali check`,
+4. close the local-file lowering/codegen/runtime loop,
+5. open the Phase-1 product-surface parallel zone,
+6. close Phase-1 evidence,
+7. move MIR/ownership to the center of all post-MVP semantic work,
+8. widen compatibility one exact support rung at a time.
+
+The detailed packet breakdown for that fresh-start order lives in [plan/08-fresh-implementation-roadmap.md](./plan/08-fresh-implementation-roadmap.md).
 
 ## Current post-completion follow-up lanes
 

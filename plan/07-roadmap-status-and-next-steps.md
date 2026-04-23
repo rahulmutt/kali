@@ -77,6 +77,17 @@ Use this lane for:
 Guardrail:
 - the theorem inventory itself must continue to live in [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md), not in this file.
 
+## Fresh-start implementation shortcut
+
+If the practical question is not “what historical stage are we in?” but “what is the shortest sensible build order from the current spec set?”, start with [`08-fresh-implementation-roadmap.md`](./08-fresh-implementation-roadmap.md).
+
+Use that guide when:
+- the team is effectively treating the current plan as a greenfield or reimplementation roadmap,
+- the full phase graph is too broad for daily prioritization,
+- or you need packet-sized implementation order without losing alignment with the normative stage files.
+
+Use this status guide instead when the question is specifically about which parts of the current plan are historical versus still-active follow-up lanes.
+
 ## Recommended starting points by task type
 
 | If you are working on... | Start here | Then read |
@@ -86,6 +97,7 @@ Guardrail:
 | package or ecosystem compatibility | [`phase-3/03-ecosystem-breadth.md`](./phase-3/03-ecosystem-breadth.md) | [`../specs/14-packages.md`](../specs/14-packages.md), [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md) |
 | proof or verification work | [`phase-4/02-formal-verification-depth.md`](./phase-4/02-formal-verification-depth.md) | [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md), [`../specs/17-verification.md`](../specs/17-verification.md) |
 | current workspace layout/growth questions | [`01-repository-layout.md`](./01-repository-layout.md) | [`06-current-workspace-rollout.md`](./06-current-workspace-rollout.md) |
+| a fresh implementation push from the current specs | [`08-fresh-implementation-roadmap.md`](./08-fresh-implementation-roadmap.md) | `../PLAN.md` + owning phase README |
 | whether something is actually shipped | [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md) | owning spec chapter |
 
 ## When to create a new planning document
