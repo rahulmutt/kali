@@ -92,7 +92,9 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   directory as well as the source-adjacent default layout.
 - Split the maintained Node binding into shared core logic plus explicit ESM and CommonJS entrypoints,
   so the stable C ABI helper is now consumable through either module system while preserving the same
-  deterministic manifest and metadata contract.
+  deterministic manifest and metadata contract. Added a direct CommonJS entrypoint regression as
+  well, so the package-root require path and the explicit `kali_capi.cjs` file both stay covered
+  by the same maintained binding smoke lane.
 
 ## Tasks
 

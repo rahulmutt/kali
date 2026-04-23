@@ -307,3 +307,10 @@ test('node binding helper module is requireable from the package root', () => {
   assert.equal(typeof nodeBinding.KaliCAPI.fromBindingPackage, 'function');
   assert.equal(typeof nodeBinding.parseExports, 'function');
 });
+
+test('node binding helper module is requireable from the explicit CommonJS entrypoint', () => {
+  const nodeBinding = require('../kali_capi.cjs');
+  assert.equal(nodeBinding.HOST_ABI_VERSION, 2);
+  assert.equal(typeof nodeBinding.KaliCAPI.fromBindingPackage, 'function');
+  assert.equal(typeof nodeBinding.loadBindingPackageManifestFromRoot, 'function');
+});
