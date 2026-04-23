@@ -255,6 +255,8 @@ exit 0'"#,
         outcome.command
     );
     assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert_eq!(outcome.runtime_backend.canonical_label(), "browser-harness");
     assert_eq!(outcome.reported_args, Vec::<String>::new());
     assert_eq!(outcome.registered_tests, vec!["7".to_string()]);
     assert_eq!(outcome.tests_run(), 1);

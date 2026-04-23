@@ -704,7 +704,7 @@ fn execute_browser_runtime(
         coverage_hits: Vec::new(),
         runtime_profiles: normalized_runtime_profiles,
         host_contract: outcome.host_contract,
-        runtime_backend: RuntimeBackend::BrowserHarness,
+        runtime_backend: outcome.runtime_backend,
     })
 }
 
@@ -2750,6 +2750,9 @@ pub fn browser_bundle_runtime_execute_checked(
         host_contract: summary
             .host_contract
             .unwrap_or(RuntimeHostContract::BrowserRequested),
+        runtime_backend: summary
+            .runtime_backend
+            .unwrap_or(RuntimeBackend::BrowserHarness),
         reported_args: summary.args,
         registered_tests: summary.tests,
         tests_failed: summary.tests_failed,
@@ -2930,6 +2933,8 @@ pub struct BrowserRuntimeExecutionOutcome {
     pub stderr: String,
     /// The high-level host contract selected for the browser harness request.
     pub host_contract: RuntimeHostContract,
+    /// The browser backend reported by the harness summary.
+    pub runtime_backend: RuntimeBackend,
     /// Runtime arguments reported by the harness summary.
     pub reported_args: Vec<String>,
     /// Test callbacks registered by the guest and reported by the browser harness summary.
@@ -3071,6 +3076,9 @@ pub fn browser_runtime_execute_checked(
         host_contract: summary
             .host_contract
             .unwrap_or(RuntimeHostContract::BrowserRequested),
+        runtime_backend: summary
+            .runtime_backend
+            .unwrap_or(RuntimeBackend::BrowserHarness),
         reported_args: summary.args,
         registered_tests: summary.tests,
         tests_failed: summary.tests_failed,
