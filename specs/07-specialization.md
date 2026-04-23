@@ -1,7 +1,7 @@
 # 07 — Optimization & Specialization
 
 Current repository-state clarification:
-- the crate names in this chapter describe the **target implementation decomposition** from [01 — Architecture](./01-architecture.md), not a claim that the current spec-first repository already contains those crates today
+- the crate names in this chapter describe the intended ownership/decomposition from [01 — Architecture](./01-architecture.md); the repository may already contain similarly named crates, but optimization-surface availability and maturity still come from the owning chapters plus [19 — Feature Maturity](./19-feature-maturity.md)
 
 Optimization and specialization passes are implemented in the `kali_optimize` crate, which operates on all IR levels. Analyses that feed into IR construction (e.g., escape analysis for MIR memory layout decisions) are co-located in the relevant IR crate (`kali_mir`) but invoked by `kali_optimize`.
 

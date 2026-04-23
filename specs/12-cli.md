@@ -11,7 +11,7 @@
 
 ## Shared Flags
 
-Repository-state note: crate names mentioned here (for example `kali_fmt` or `kali_lint`) describe the target implementation decomposition, not a claim that those crates already exist today; command shapes, flags, and JSON contracts remain normative regardless.
+Repository-state note: crate names mentioned here (for example `kali_fmt` or `kali_lint`) describe the intended ownership/decomposition. The repository may already contain similarly named crates, but command shapes, flags, JSON contracts, and actual availability still remain normative and are owned by this chapter, [18 — Schemas](18-schemas.md), and [19 — Feature Maturity](19-feature-maturity.md).
 
 These flags are shared across the CLI, but some apply only to specific command families. For the canonical meaning of **API surface**, **build mode**, **runtime profile**, and **availability context**, see [SPEC.md](../SPEC.md). For maturity/availability rules, see [19 — Feature Maturity](19-feature-maturity.md).
 
@@ -24,6 +24,7 @@ Ownership rule:
 - this chapter owns **CLI shape**: flags, arity, command-local behavior, output rules, and exit codes
 - [19 — Feature Maturity](19-feature-maturity.md) owns whether a documented command/feature is actually available in a given **availability context**
 - [18 — Schemas](18-schemas.md) owns the machine-readable JSON shapes
+- later-phase command families may already be live in the current repository even when their section headings still name the earliest support phase; read current availability from [19 — Feature Maturity](19-feature-maturity.md) rather than from heading wording alone
 - when a rule is already defined in one of those owners, prefer a short cross-reference over repeating a second full version here
 
 Command-family terminology used in this chapter:

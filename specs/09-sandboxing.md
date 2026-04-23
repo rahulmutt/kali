@@ -11,6 +11,7 @@ Cross-spec workflow rule:
 - follow the shared **workflow-owner split** from [SPEC.md](../SPEC.md)
 - follow the shared **`package-effects` dual classification** too: in this chapter `package-effects` is grouped with reporting because of its output contract, while its one-package registry-analysis input workflow remains owned by the package/CLI chapters
 - this chapter therefore treats `effects` / `package-effects` as reporting-only surfaces, `check/build --sandbox` as the static policy-validation path, `run/test --sandbox` as the runtime-enforcement path, and `package-audit` as the separate context-free registry-analysis/security-audit workflow instead of letting those workflows blur together
+- when a section below still says `Phase 2 target` for the reporting half, read that as the **earliest support contract**; the current repository state for those reporting commands still comes from [19 — Feature Maturity](19-feature-maturity.md)
 
 Command-behavior simplification:
 - follow the shared **sandbox-attachment orthogonality** rule from [SPEC.md](../SPEC.md): `--sandbox` adds the owning sandbox workflow step without changing command family, file-arity behavior, compile intent, artifact mode, or API-surface gating

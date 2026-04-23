@@ -53,7 +53,7 @@ The bootstrap brief names a few evidence asks that are easy to lose once the spe
 | Comprehensive test suite inspired by upstream `tsc` | parser/integration coverage plus `test262` and `tsc`-style checker baselines |
 | Fast compiler + optional advanced optimizations | build-mode comparisons and reproducible benchmark runs, not vague throughput claims |
 | Benchmark against Rust / Benchmarks Game style workloads | the canonical optimization/performance lane includes adapted Computer Language Benchmarks Game workloads derived from Node.js / JavaScript submissions |
-| Real-package validation such as `semver` and `@mariozechner/pi-coding-agent` | package-corpus fixtures with phase-correct expected rung/outcome, not blanket executable-package promises |
+| Real-package validation such as `semver` and `@mariozechner/pi-coding-agent` | package-corpus fixtures with phase-correct expected rung/outcome, plus explicit npm-binary entrypoint probes where the bootstrap brief asks for runnable binaries; do not turn those probes into blanket executable-package promises |
 
 This section is intentionally a reading aid: it does not create new support claims by itself. Availability still comes from [`specs/19-feature-maturity.md`](./19-feature-maturity.md).
 
@@ -108,9 +108,10 @@ Maintain a curated package corpus that records expected outcomes per shipped com
 Bootstrap-normalization note:
 - representative real-package probes from the bootstrap brief belong here as evidence fixtures, not as blanket support promises
 - at minimum, keep a pure-JS utility probe such as `semver` and a broader host-heavy probe such as `@mariozechner/pi-coding-agent` in the corpus with phase-correct expected outcomes
+- when the bootstrap brief names runnable npm binaries, record those as **binary-entrypoint probes** in the same corpus lane: the fixture should name the package, the invoked published bin entrypoint, the command/context under test, and the exact claimed support rung/outcome
 - `semver` is the canonical early positive probe for the pure-JS/TS package contract and should be asserted at the exact claimed rung/context (for example installable/materializable first, then checkable/buildable, and only later executable where the host/API fit is actually satisfied)
 - `@mariozechner/pi-coding-agent` is the canonical breadth/negative probe and should stay explicitly phase-correct rather than being treated as an implied Phase-1 executable-package promise; until the required Node/browser/runtime maturity rows open, the corpus should record the expected rejection or narrower rung honestly
-- those probes should assert the exact rung/context being claimed at the time: for example, a package may be installable/materializable before it is executable, or may stay negatively asserted until the required Node/browser/runtime maturity rows open
+- those probes should assert the exact rung/context being claimed at the time: for example, a package may be installable/materializable before it is executable, or a bin may be checkable/buildable as package content before its published CLI is executable in the selected host/API surface
 - simplification rule: keep the corpus table phrased in support-ladder terms (`installable/materializable`, `checkable`, `buildable`, `executable`, `deployable-through-host`, or explicit rejection) so package evidence does not silently overclaim broader compatibility than the maturity matrix allows
 
 ## Determinism requirements

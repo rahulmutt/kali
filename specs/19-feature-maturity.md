@@ -57,7 +57,7 @@ Promotion rule:
 - the required evidence should match the claim being made:
   - language/runtime semantics → conformance + integration coverage
   - type-system behavior → checker/inference baselines
-  - package compatibility → curated package corpus results for the claimed source-graph command/context combinations **and the claimed rung of the shared package-support ladder** from [SPEC.md](../SPEC.md) (including browser-targeted `check` / `build --bundle` when those package claims are made)
+  - package compatibility → curated package corpus results for the claimed source-graph command/context combinations **and the claimed rung of the shared package-support ladder** from [SPEC.md](../SPEC.md) (including browser-targeted `check` / `build --bundle` when those package claims are made, plus explicit npm-binary entrypoint probes when the claim is about a published package CLI rather than only library/package content)
   - install workflow / opt-in npm lifecycle hooks → install-command integration tests for manifest/lock/materialization updates, explicit npm-target hook execution, clean/no-op rejection when **effective npm-scriptable install work** is empty, and invalid-combination coverage for raw-URL / JSR targets
   - registry-analysis commands (`package-effects`, `package-audit`) → command-shape/arity negatives, deterministic single-package version-selection tests, context-participation assertions, and JSON-contract coverage for native-JSON vs envelope-only output
   - host/runtime APIs → integration + sandbox/resource-limit coverage
