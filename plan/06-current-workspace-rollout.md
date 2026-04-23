@@ -98,6 +98,10 @@ Avoid these common planning mistakes:
 - building broad package/browser/Node test corpora before the local compiler/runtime path is stable,
 - or claiming maturity just because a directory now exists.
 
+## Current repository note
+
+The R0–R9 growth packets are now all closed in this workspace. Treat this document as a historical growth-order guide for the repository shape that was built, not as an open work queue. Any future expansion should be recorded in the owning spec chapters and maturity matrix rather than by extending this rollout ladder.
+
 ## Practical startup order for a fresh implementation push
 
 If implementation restarted from the current spec set today, the recommended order would be:
