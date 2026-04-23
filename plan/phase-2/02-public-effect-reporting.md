@@ -40,6 +40,7 @@ Progress note:
 - Added quiet-flag regression coverage for `kali package-effects` and `kali package-audit` so the shared presentation flags stay aligned with the registry-analysis command surface.
 - Added browser-resolution pretty-envelope regression for `kali package-effects` so the browser entrypoint selection and the command-envelope formatting stay pinned together when `--pretty --output json` are combined.
 - The reusable effect-report payload now canonicalizes `dynamicReasons` deterministically before emission, so manually assembled or merged inference payloads still serialize with stable ordering and duplicate suppression.
+- `kali effects --sandbox` now rejects through the canonical `E5508` invalid-usage path instead of falling through to raw parser errors, keeping the reporting-only command boundary explicit for the source-graph effect-report surface.
 - Package-analysis-specific flags (`--api`, `--compat`, `--wasm-threads`, and `--sandbox`) now reject on `kali package-effects` and `kali package-audit` through the canonical `E5008` invalid-usage path instead of falling through to raw parser errors, keeping the inherited-only registry-analysis contract explicit in both commands.
 
 ## Historical stage tasks
