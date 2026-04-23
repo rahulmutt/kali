@@ -462,6 +462,7 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
         "google-chrome.desktop"
     ));
     assert!(browser_harness_uses_html_entrypoint("Google Chrome.app"));
+    assert!(browser_harness_uses_html_entrypoint("Google Chrome.lnk"));
     assert!(browser_harness_uses_html_entrypoint(
         "Google Chrome.app.exe"
     ));
@@ -530,6 +531,10 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
     );
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("Google Chrome.app"),
+        Some(vec!["google chrome".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("Google Chrome.lnk"),
         Some(vec!["google chrome".to_string(), "--headless".to_string()])
     );
     assert_eq!(
