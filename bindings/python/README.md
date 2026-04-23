@@ -27,8 +27,9 @@ binding = KaliCAPI.from_binding_package(
 `load_binding_package_manifest_from_root()` and `from_binding_package()` both
 look for an explicit `binding-package.json` first and then fall back to a single
 stem-specific `*.binding-package.json` manifest in the bundle root, which matches
-the generated Kali layout. The matching `..._with_name()` variants let callers
-target a specific stem when multiple generated bundles live side by side.
+the generated Kali layout. The matching `..._with_name()` variants and the
+`from_binding_package_with_name()` convenience alias let callers target a
+specific stem when multiple generated bundles live side by side.
 `discover_metadata_path()` / `load_metadata_from_root()` and their
 `..._with_name()` variants provide the same bundle-root discovery path for the
 generated `cabi-metadata` sidecar, while `binding_package_manifest_summary()`

@@ -422,26 +422,27 @@ test('binding package helpers reject incompatible host ABI metadata', () => {
 
 test('node binding helper module binds exports from headers and manifests', () => {
   const tempRoot = mkdtempSync(join(tmpdir(), 'kali-capi-node-bind-'));
-  const manifestPath = join(tempRoot, 'sample.binding-package.json');
+  const manifestPath = join(tempRoot, 'binding-package.json');
+  const namedManifestPath = join(tempRoot, 'sample.binding-package.json');
   const headerPath = join(tempRoot, 'sample.h');
   const metadataPath = join(tempRoot, 'sample.cabi.json');
 
-  writeFileSync(
-    manifestPath,
-    JSON.stringify({
-      schemaVersion: 1,
-      kind: 'binding-package',
-      moduleName: 'sample',
-      hostAbiVersion: HOST_ABI_VERSION,
-      maxSpecializations: 8,
-      artifacts: {
-        glue: ['support.js'],
-        library: 'sample.capi.wasm',
-        metadata: 'sample.cabi.json',
-        exportsHeader: 'sample.h',
-      },
-    }),
-  );
+  const manifestPayload = JSON.stringify({
+    schemaVersion: 1,
+    kind: 'binding-package',
+    moduleName: 'sample',
+    hostAbiVersion: HOST_ABI_VERSION,
+    maxSpecializations: 8,
+    artifacts: {
+      glue: ['support.js'],
+      library: 'sample.capi.wasm',
+      metadata: 'sample.cabi.json',
+      exportsHeader: 'sample.h',
+    },
+  });
+
+  writeFileSync(manifestPath, manifestPayload);
+  writeFileSync(namedManifestPath, manifestPayload);
   writeFileSync(
     headerPath,
     [
@@ -480,6 +481,22 @@ test('node binding helper module binds exports from headers and manifests', () =
   };
 
   const binding = KaliCAPI.fromBindingPackage(library, tempRoot);
+  const namedLibrary = {
+    total: 0,
+    add(left, right) {
+      this.total += left + right;
+      return this.total;
+    },
+    zero() {
+      this.total += 1;
+      return this.total;
+    },
+  };
+  const namedBinding = KaliCAPI.fromBindingPackageWithName(
+    namedLibrary,
+    tempRoot,
+    'sample.binding-package.json',
+  );
   assert.deepEqual(binding.exports, [
     { name: 'add', arity: 2 },
     { name: 'zero', arity: 0 },
@@ -495,6 +512,13 @@ test('node binding helper module binds exports from headers and manifests', () =
     { name: 'add', arity: 2 },
     { name: 'zero', arity: 0 },
   ]);
+  assert.deepEqual(namedBinding.exports, binding.exports);
+  assert.equal(namedBinding.maxSpecializations, binding.maxSpecializations);
+  assert.deepEqual(namedBinding.runtimeProfiles, binding.runtimeProfiles);
+  assert.equal(namedBinding.hostContract, binding.hostContract);
+  assert.equal(namedBinding.runtimeBackend, binding.runtimeBackend);
+  assert.equal(namedBinding.add(2, 3), 5);
+  assert.equal(namedBinding.zero(), 6);
 
   rmSync(tempRoot, { recursive: true, force: true });
 });
@@ -517,6 +541,7 @@ test('node binding helper module is requireable from the package root', () => {
   const nodeBinding = require('..');
   assert.equal(nodeBinding.HOST_ABI_VERSION, 2);
   assert.equal(typeof nodeBinding.KaliCAPI.fromBindingPackage, 'function');
+  assert.equal(typeof nodeBinding.KaliCAPI.fromBindingPackageWithName, 'function');
   assert.equal(typeof nodeBinding.parseExports, 'function');
   assert.equal(typeof nodeBinding.bindingPackageManifestSummary, 'function');
   assert.equal(typeof nodeBinding.loadBindingPackageManifestFromRootWithName, 'function');
@@ -527,6 +552,7 @@ test('node binding helper module is requireable from the explicit CommonJS entry
   const nodeBinding = require('../kali_capi.cjs');
   assert.equal(nodeBinding.HOST_ABI_VERSION, 2);
   assert.equal(typeof nodeBinding.KaliCAPI.fromBindingPackage, 'function');
+  assert.equal(typeof nodeBinding.KaliCAPI.fromBindingPackageWithName, 'function');
   assert.equal(typeof nodeBinding.loadBindingPackageManifestFromRoot, 'function');
   assert.equal(typeof nodeBinding.loadBindingPackageManifestFromRootWithName, 'function');
   assert.equal(typeof nodeBinding.bindingPackageManifestSummary, 'function');

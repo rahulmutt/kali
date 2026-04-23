@@ -484,6 +484,18 @@ class KaliCAPI {
     );
   }
 
+  static fromBindingPackageWithName(
+    library,
+    bundleRoot,
+    manifestName,
+    { availableHostAbiVersion = HOST_ABI_VERSION } = {},
+  ) {
+    return KaliCAPI.fromBindingPackage(library, bundleRoot, {
+      manifestName,
+      availableHostAbiVersion,
+    });
+  }
+
   get exports() {
     return this._exports;
   }

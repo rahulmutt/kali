@@ -65,7 +65,8 @@ normalized manifest into a compact summary object for callers that want one
 stable provenance snapshot. `loadBindingPackageManifestSummary()` /
 `loadBindingPackageManifestSummaryFromRoot()` and `loadMetadataSummary()` /
 `loadMetadataSummaryFromRoot()` perform the same load-and-project step in one
-call. `cabiMetadataSummary()` keeps the companion metadata projection
+call, and `KaliCAPI.fromBindingPackageWithName()` is the matching high-level
+convenience alias for one stem-specific bundle root. `cabiMetadataSummary()` keeps the companion metadata projection
 normalized, preserving the optional runtime provenance fields — including
 `profileDataHash` when PGO metadata is present — when the compiler emits those
 values. The resulting `KaliCAPI` instance also carries the manifest's

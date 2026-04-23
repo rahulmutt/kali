@@ -56,6 +56,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
             header_path = root / "sample.h"
             metadata_path = root / "sample.cabi.json"
             manifest_path = root / "binding-package.json"
+            named_manifest_path = root / "sample.binding-package.json"
 
             header_path.write_text(
                 "\n".join(
@@ -88,26 +89,26 @@ class KaliCapiSmokeTests(unittest.TestCase):
                     sort_keys=True,
                 )
             )
-            manifest_path.write_text(
-                json.dumps(
-                    {
-                        "schemaVersion": 1,
-                        "kind": "binding-package",
-                        "moduleName": "sample",
-                        "hostAbiVersion": 2,
-                        "minHostAbiVersion": 2,
-                        "maxSpecializations": 8,
-                        "runtimeProfiles": ["wasm-threads", "fiber-threads", "wasm-threads"],
-                        "artifacts": {
-                            "exportsHeader": "sample.h",
-                            "glue": ["shim.py", "support.py"],
-                            "library": "sample.capi.wasm",
-                            "metadata": "sample.cabi.json",
-                        },
+            manifest_payload = json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "kind": "binding-package",
+                    "moduleName": "sample",
+                    "hostAbiVersion": 2,
+                    "minHostAbiVersion": 2,
+                    "maxSpecializations": 8,
+                    "runtimeProfiles": ["wasm-threads", "fiber-threads", "wasm-threads"],
+                    "artifacts": {
+                        "exportsHeader": "sample.h",
+                        "glue": ["shim.py", "support.py"],
+                        "library": "sample.capi.wasm",
+                        "metadata": "sample.cabi.json",
                     },
-                    sort_keys=True,
-                )
+                },
+                sort_keys=True,
             )
+            manifest_path.write_text(manifest_payload)
+            named_manifest_path.write_text(manifest_payload)
             (root / "sample.capi.wasm").write_bytes(b"")
 
             exports = parse_exports(header_path.read_text())
@@ -243,11 +244,20 @@ class KaliCapiSmokeTests(unittest.TestCase):
             )
 
             binding = KaliCAPI.from_binding_package(DummyLibrary(), root)
+            named_binding = KaliCAPI.from_binding_package_with_name(
+                DummyLibrary(),
+                root,
+                "sample.binding-package.json",
+            )
             self.assertEqual(binding.exports, tuple(exports))
             self.assertEqual(binding.max_specializations, 8)
             self.assertEqual(binding.add(2, 3), 5)
             self.assertEqual(binding.zero(), 7)
             self.assertEqual(binding._library.calls, [("add", 2, 3), ("zero",)])
+            self.assertEqual(named_binding.exports, binding.exports)
+            self.assertEqual(named_binding.max_specializations, binding.max_specializations)
+            self.assertEqual(named_binding.add(2, 3), 5)
+            self.assertEqual(named_binding.zero(), 7)
 
     def test_cabi_metadata_with_stem_specific_sidecar_is_auto_discovered(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -625,6 +625,22 @@ class KaliCAPI:
         )
 
     @classmethod
+    def from_binding_package_with_name(
+        cls,
+        library: object,
+        bundle_root: str | Path,
+        manifest_name: str,
+        *,
+        available_host_abi_version: int = HOST_ABI_VERSION,
+    ) -> "KaliCAPI":
+        return cls.from_binding_package(
+            library,
+            bundle_root,
+            manifest_name=manifest_name,
+            available_host_abi_version=available_host_abi_version,
+        )
+
+    @classmethod
     def from_library_path(cls, path: str | Path, header_text: str) -> "KaliCAPI":
         return cls(load_library(path), parse_exports(header_text))
 
