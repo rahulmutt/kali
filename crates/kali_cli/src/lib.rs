@@ -385,7 +385,7 @@ pub enum Commands {
         #[arg(long, hide = true)]
         sandbox: Option<PathBuf>,
         /// Registry package target to analyze
-        target: String,
+        target: Vec<String>,
     },
     #[command(name = "package-audit")]
     /// Audit a registry package
@@ -403,7 +403,7 @@ pub enum Commands {
         #[arg(long, hide = true)]
         sandbox: Option<PathBuf>,
         /// Registry package target to audit
-        target: String,
+        target: Vec<String>,
         /// Hidden legacy compatibility shim rejected by the command handler with E5508 before registry lookup
         #[arg(long, hide = true)]
         preview: bool,

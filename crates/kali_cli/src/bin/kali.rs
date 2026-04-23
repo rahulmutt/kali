@@ -3471,14 +3471,51 @@ fn reject_package_analysis_specific_flags(
     Ok(())
 }
 
+fn require_single_registry_package_target(
+    command: &str,
+    targets: Vec<String>,
+    output: &CliOutputOptions,
+) -> Result<String, i32> {
+    let (message, exit_code) = match targets.as_slice() {
+        [target] => return Ok(target.clone()),
+        [] => (
+            format!("`{}` requires exactly one package argument", command),
+            5,
+        ),
+        _ => (
+            format!("`{}` accepts exactly one package argument", command),
+            5,
+        ),
+    };
+
+    let diagnostic = Diagnostic::error(e5::INVALID_CLI_USAGE as u32, message);
+    if output.is_json() {
+        print_envelope(
+            command,
+            false,
+            vec![output::diagnostic_to_json(&diagnostic, None, None, "error")],
+            vec![],
+            Value::Null,
+            None,
+            None,
+            exit_code,
+            output,
+        );
+    } else {
+        eprintln!("{}", diagnostic);
+    }
+    Err(exit_code)
+}
+
 fn package_effects_command(
-    target: String,
+    target: Vec<String>,
     api: Option<kali_cli::ApiSurface>,
     compat: Vec<String>,
     wasm_threads: bool,
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
+    let target = require_single_registry_package_target("package-effects", target, output)?;
     reject_package_analysis_specific_flags(
         "package-effects",
         api,
@@ -3685,7 +3722,7 @@ fn sort_package_audit_findings(findings: &mut [Diagnostic]) {
 }
 
 fn package_audit_command(
-    target: String,
+    target: Vec<String>,
     preview: bool,
     api: Option<kali_cli::ApiSurface>,
     compat: Vec<String>,
@@ -3693,6 +3730,8 @@ fn package_audit_command(
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
+    let target = require_single_registry_package_target("package-audit", target, output)?;
+
     if preview {
         let diagnostic = Diagnostic::error(
             e5::INVALID_CLI_USAGE as u32,

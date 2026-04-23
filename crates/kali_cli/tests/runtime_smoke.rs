@@ -8530,6 +8530,28 @@ fn package_effects_rejects_package_analysis_specific_flags() {
 }
 
 #[test]
+fn package_effects_rejects_missing_or_multiple_package_arguments() {
+    let cases: [&[&str]; 2] = [&[], &["lodash", "react"]];
+
+    for args in cases {
+        let output = Command::new(kali_bin())
+            .arg("package-effects")
+            .args(args)
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(5));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5508"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("exactly one package argument"),
+            "stderr: {stderr}"
+        );
+    }
+}
+
+#[test]
 fn package_effects_uses_browser_package_resolution_from_manifest() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/browserpkg");
@@ -9708,6 +9730,57 @@ fn package_audit_rejects_pretty_without_json_output() {
     assert!(
         stderr.contains("`--pretty` is only meaningful when JSON output is active"),
         "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn package_audit_rejects_missing_or_multiple_package_arguments() {
+    let cases: [&[&str]; 2] = [&[], &["lodash", "react"]];
+
+    for args in cases {
+        let output = Command::new(kali_bin())
+            .arg("package-audit")
+            .args(args)
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(5));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5508"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("exactly one package argument"),
+            "stderr: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn package_audit_rejects_missing_package_argument_in_json_output() {
+    let output = Command::new(kali_bin())
+        .arg("package-audit")
+        .arg("--output")
+        .arg("json")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    assert_eq!(json["payload"], serde_json::Value::Null);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0]["code"], "E5508");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("message string")
+            .contains("exactly one package argument"),
+        "errors: {errors:?}"
     );
 }
 
