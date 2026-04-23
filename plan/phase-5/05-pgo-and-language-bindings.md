@@ -40,12 +40,15 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   contract. The Python and Node manifest parsers now also surface the optional
   `maxSpecializations` provenance field on generated binding-package manifests, and the higher-
   level binding wrappers now carry that provenance through to their public instances so callers
-  can inspect the same deterministic specialization budget that the CLI emits. The build-metadata
-  regression suite now also pins serialized runtime provenance on the artifact sidecars
-  (`runtimeProfiles`, `maxSpecializations`, `hostContract`, and `runtimeBackend`), keeping the
-  emitted JSON contract explicit across the build kinds that feed the later binding and PGO
-  lanes. The root README now calls out the generated sidecar flow alongside the maintained Python
-  helper docs, so the package/distribution shape stays explicit for the later binding workflow
+  can inspect the same deterministic specialization budget that the CLI emits. The binding-package
+  manifest sidecar now also carries the normalized runtime provenance tuple (`runtimeProfiles`,
+  `hostContract`, and `runtimeBackend`) alongside the specialization cap, keeping the later
+  binding workflow aligned with the same build context that produced the exported artifacts. The
+  build-metadata regression suite now also pins serialized runtime provenance on the artifact
+  sidecars (`runtimeProfiles`, `maxSpecializations`, `hostContract`, and `runtimeBackend`),
+  keeping the emitted JSON contract explicit across the build kinds that feed the later binding
+  and PGO lanes. The root README now calls out the generated sidecar flow alongside the maintained
+  Python helper docs, so the package/distribution shape stays explicit for the later binding workflow
   instead of limiting the stage to header-only glue. The Python binding now also has explicit
   packaging metadata (`bindings/python/pyproject.toml` plus `README.md`) and regression coverage
   for both the generic package scaffold and the stem-specific generated bundle, and the C-ABI

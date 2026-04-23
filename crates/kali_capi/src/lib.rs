@@ -67,9 +67,14 @@ pub fn generate_binding_package_manifest(
     library_path: impl AsRef<str>,
     metadata_path: impl AsRef<str>,
     exports_header_path: impl AsRef<str>,
+    runtime_profiles: &[String],
     max_specializations: usize,
     glue_paths: &[String],
 ) -> Value {
+    let mut runtime_profiles: Vec<_> = runtime_profiles.iter().map(String::as_str).collect();
+    runtime_profiles.sort();
+    runtime_profiles.dedup();
+
     let mut glue_paths: Vec<_> = glue_paths.iter().map(String::as_str).collect();
     glue_paths.sort();
     glue_paths.dedup();
@@ -80,6 +85,9 @@ pub fn generate_binding_package_manifest(
         "moduleName": module_name.as_ref(),
         "hostAbiVersion": HOST_ABI_VERSION,
         "minHostAbiVersion": HOST_ABI_VERSION,
+        "runtimeProfiles": runtime_profiles,
+        "hostContract": "kali-hosted",
+        "runtimeBackend": "wasmtime",
         "maxSpecializations": max_specializations,
         "artifacts": {
             "library": library_path.as_ref(),

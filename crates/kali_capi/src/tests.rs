@@ -22,6 +22,11 @@ fn binding_package_manifest_orders_and_deduplicates_glue_deterministically() {
         "sample.capi.wasm",
         "sample.cabi.json",
         "sample.h",
+        &[
+            "wasm-threads".to_string(),
+            "fiber-threads".to_string(),
+            "wasm-threads".to_string(),
+        ],
         8,
         &[
             "support.py".to_string(),
@@ -36,6 +41,12 @@ fn binding_package_manifest_orders_and_deduplicates_glue_deterministically() {
     assert_eq!(manifest["hostAbiVersion"], HOST_ABI_VERSION);
     assert_eq!(manifest["minHostAbiVersion"], HOST_ABI_VERSION);
     assert_eq!(manifest["maxSpecializations"], 8);
+    assert_eq!(
+        manifest["runtimeProfiles"],
+        serde_json::json!(["fiber-threads", "wasm-threads"])
+    );
+    assert_eq!(manifest["hostContract"], "kali-hosted");
+    assert_eq!(manifest["runtimeBackend"], "wasmtime");
     assert_eq!(manifest["artifacts"]["library"], "sample.capi.wasm");
     assert_eq!(manifest["artifacts"]["metadata"], "sample.cabi.json");
     assert_eq!(manifest["artifacts"]["exportsHeader"], "sample.h");
@@ -99,6 +110,7 @@ fn binding_package_manifest_helpers_load_and_discover_manifests() {
         "sample.capi.wasm",
         "sample.cabi.json",
         "sample.h",
+        &[],
         8,
         &["support.py".to_string(), "shim.py".to_string()],
     );
@@ -114,6 +126,9 @@ fn binding_package_manifest_helpers_load_and_discover_manifests() {
     assert_eq!(loaded["kind"], "binding-package");
     assert_eq!(loaded["moduleName"], "sample");
     assert_eq!(loaded["maxSpecializations"], 8);
+    assert_eq!(loaded["runtimeProfiles"], serde_json::json!([]));
+    assert_eq!(loaded["hostContract"], "kali-hosted");
+    assert_eq!(loaded["runtimeBackend"], "wasmtime");
     assert_eq!(
         loaded["artifacts"]["glue"],
         serde_json::json!(["shim.py", "support.py"])
@@ -127,6 +142,7 @@ fn binding_package_manifest_helpers_load_and_discover_manifests() {
             "sample.capi.wasm",
             "sample.cabi.json",
             "sample.h",
+            &[],
             8,
             &["support.py".to_string(), "shim.py".to_string()],
         )
@@ -147,6 +163,9 @@ fn binding_package_manifest_helpers_load_and_discover_manifests() {
     assert_eq!(loaded_stem["kind"], "binding-package");
     assert_eq!(loaded_stem["moduleName"], "sample");
     assert_eq!(loaded_stem["maxSpecializations"], 8);
+    assert_eq!(loaded_stem["runtimeProfiles"], serde_json::json!([]));
+    assert_eq!(loaded_stem["hostContract"], "kali-hosted");
+    assert_eq!(loaded_stem["runtimeBackend"], "wasmtime");
 }
 
 #[test]
@@ -170,6 +189,7 @@ fn binding_package_manifest_helpers_reject_ambiguous_auto_discovery() {
                 format!("{}.capi.wasm", stem),
                 format!("{}.cabi.json", stem),
                 format!("{}.h", stem),
+                &[],
                 8,
                 &[],
             )
@@ -284,6 +304,7 @@ assert binding._library.calls == [("add", 2, 3), ("zero",)]
         "sample.capi.wasm",
         "sample.cabi.json",
         "sample.h",
+        &[],
         8,
         &["support.py".to_string(), "shim.py".to_string()],
     );
@@ -369,6 +390,7 @@ assert binding._library.calls == [("add", 2, 3), ("zero",)]
         "sample.capi.wasm",
         "sample.cabi.json",
         "sample.h",
+        &[],
         8,
         &["support.py".to_string(), "shim.py".to_string()],
     );

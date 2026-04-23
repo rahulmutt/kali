@@ -1553,6 +1553,7 @@ fn build_capi_artifact(
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("lib.h"),
+        runtime_profiles,
         max_specializations,
         &[
             "bindings/python/README.md".to_string(),
@@ -1706,6 +1707,7 @@ fn build_component_artifact(
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("lib.wit"),
+        runtime_profiles,
         max_specializations,
         &[
             "bindings/python/README.md".to_string(),

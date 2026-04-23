@@ -5763,6 +5763,9 @@ fn build_emits_capi_artifacts_and_header_compiles() {
     .expect("parse binding package manifest json");
     assert_eq!(binding_package["schemaVersion"], 1);
     assert_eq!(binding_package["kind"], "binding-package");
+    assert_eq!(binding_package["runtimeProfiles"], serde_json::json!([]));
+    assert_eq!(binding_package["hostContract"], "kali-hosted");
+    assert_eq!(binding_package["runtimeBackend"], "wasmtime");
     assert_eq!(binding_package["maxSpecializations"], 16);
     assert_eq!(
         binding_package["moduleName"],
@@ -5842,6 +5845,9 @@ fn build_emits_component_artifacts_and_valid_component_bytes() {
     .expect("parse binding package manifest json");
     assert_eq!(binding_package["schemaVersion"], 1);
     assert_eq!(binding_package["kind"], "binding-package");
+    assert_eq!(binding_package["runtimeProfiles"], serde_json::json!([]));
+    assert_eq!(binding_package["hostContract"], "kali-hosted");
+    assert_eq!(binding_package["runtimeBackend"], "wasmtime");
     assert_eq!(binding_package["maxSpecializations"], 16);
     assert_eq!(
         binding_package["artifacts"]["library"],
