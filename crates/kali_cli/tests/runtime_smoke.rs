@@ -1497,16 +1497,15 @@ fn run_accepts_the_browser_api_surface_when_a_harness_command_is_configured() {
 }
 
 #[cfg(unix)]
-#[test]
-fn run_uses_browser_entrypoint_for_browser_like_executables() {
+fn run_browser_entrypoint_smoke(browser_name: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "console.log('browser run');").expect("write source");
 
-    let browser = dir.path().join("chromium");
+    let browser = dir.path().join(browser_name);
     symlink("/bin/sh", &browser).expect("link browser executable shim to /bin/sh");
 
-    let browser_log = dir.path().join("browser-shim-args.txt");
+    let browser_log = dir.path().join(format!("{browser_name}-args.txt"));
     let command = format!(
         r#"{} -c 'printf "%s\n" "$@" > "$KALI_BROWSER_SHIM_LOG"; printf "{{\"args\":[],\"tests\":[],\"testsFailed\":0}}\n" > "$KALI_BROWSER_HARNESS_SUMMARY_FILE"; printf "browser run\n"; exit 0' _ --headless"#,
         browser.display()
@@ -1552,6 +1551,18 @@ fn run_uses_browser_entrypoint_for_browser_like_executables() {
         browser_args.contains("browser-runtime.html"),
         "args: {browser_args}"
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn run_uses_browser_entrypoint_for_browser_like_executables() {
+    run_browser_entrypoint_smoke("chromium");
+}
+
+#[cfg(unix)]
+#[test]
+fn run_uses_browser_entrypoint_for_mullvad_browser_executables() {
+    run_browser_entrypoint_smoke("mullvad-browser");
 }
 
 #[test]
