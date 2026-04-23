@@ -18,7 +18,7 @@ mise run lean-proofs
 
 ## Use the CLI
 
-Common Phase-1 commands:
+Baseline Phase-1 commands:
 
 ```bash
 kali init
@@ -29,10 +29,15 @@ kali check [files...]
 kali build <file>
 kali build --bundle <file>      # browser-targeted build lane
 kali build --lib <file>         # base library artifact for exact-version consumers
-kali build --capi <file>        # stable public C-ABI embedding flow
-kali build --component <file>   # Component Model packaging flow
 kali run <file> [-- args...]
 kali test [files...]
+```
+
+Additional public commands live in the current repository state:
+
+```bash
+kali build --capi <file>        # stable public C-ABI embedding flow
+kali build --component <file>   # Component Model packaging flow
 kali effects <file>
 kali package-effects <package>
 kali package-audit <package>
@@ -57,7 +62,7 @@ For the full CLI contract, arity, and flag behavior, see [`specs/12-cli.md`](./s
 | `fmt` | Format files or a discovered project |
 | `lint` | Run lint diagnostics and optional safe fixes |
 | `check` | Type-check and statically validate source |
-| `build` | Produce executable artifacts, browser bundles, or library/embedding artifacts |
+| `build` | Produce executable artifacts, browser bundles, library artifacts, or embedding artifacts depending on flags |
 | `run` | Compile and execute a source file |
 | `test` | Compile and run tests |
 | `effects` | Report conservative effects for a source graph |

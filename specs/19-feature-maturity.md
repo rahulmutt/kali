@@ -101,12 +101,12 @@ Current repository snapshot (2026-04-23):
 This section is a compact reading aid for the most common Phase-1 question: **what is actually shipped end to end?**
 
 Current-repository-state note:
-- this section is intentionally a **Phase-1** reading aid, not a full description of the current repository state after later phases
-- when the repository has advanced further, read this section as the historical/shipping minimum for Phase 1 and use the **Current Repository State Snapshot** above, the owning later rows, and `proofs/BOUNDARY.md` to answer the current-state question
+- this section is intentionally a **historical Phase-1 minimum** reading aid, not a full description of the current repository state after later phases
+- when the repository has advanced further, use this section only to answer **what Phase 1 promised**, then read the **Current Repository State Snapshot** above, the owning later rows, and `proofs/BOUNDARY.md` for the present-tense answer
 
 It is intentionally narrower than the full command/profile matrix below:
 - it lists only the core command/context families that should be treated as shipped in Phase 1,
-- it keeps later documented command families visible as explicitly **not yet shipped**,
+- it does not try to re-summarize later rows that are now live in the repository,
 - the full matrix later in this chapter remains the normative owner for exact arity, inherited-context equivalence, and diagnostic precedence.
 
 | Area | Phase 1 shipped surface | Not yet shipped in Phase 1 |
@@ -127,18 +127,19 @@ Interpretation shortcut:
 
 Use this summary to avoid broad bootstrap overreads, then drop to the canonical matrix below for exact command/context rows.
 
-Release-note/support-claim shortcut:
+Phase-1 release-note/support-claim shortcut:
 - prefer naming the exact command/context/rung instead of saying a subsystem is simply “supported”
-- the table below is a writing aid for summaries and release notes; the canonical matrix still owns exact status
+- the table below is a writing aid for **historical Phase-1 summaries only**; for current-repository wording after later rows have opened, name the live later-phase surfaces explicitly instead of reusing the narrower Phase-1 phrasing
+- the canonical matrix still owns exact status
 
 | Vague claim | Preferred precise phrasing |
 |---|---|
 | “JavaScript support ships in Phase 1” | “Phase 1 ships **first-class JavaScript compilation with bounded inference**: `.js` is a real check/build/run input class with conservative fallback rules, not a parse-only compatibility lane.” |
 | “browser support ships in Phase 1” | “Phase 1 ships the shared **Phase-1 browser-targeted command set** from `SPEC.md`; read that canonical term for the exact command boundary, supported `--sandbox` variants, and inherited-config equivalence rules.” |
 | “packages work in browser mode” | “For the shared **Phase-1 browser-targeted command set**, package claims are usually **checkable** or **deployable-through-host**, not standalone-browser **executable** support.” |
-| “embedding ships in Phase 1” | “Phase 1 ships only the export-oriented **base library artifact** via `kali build --lib` for **exact-version consumers**; the stable public embedding surface remains Phase 2.” |
-| “effects support ships in Phase 1” | “Phase 1 may use internal sandbox-oriented effect bookkeeping and ships policy validation/runtime enforcement where documented, but the stable public effect-report surface is still gated; when it opens, reporting is through explicit commands (`kali effects <file>`, `kali package-effects <package>`), not a hidden project-discovery or `run --dry` workflow.” |
-| “registry analysis ships in Phase 1” | “No stable public registry-analysis command ships in Phase 1; the documented next steps stay split on purpose: `kali package-effects <package>` is the Phase-2 registry-analysis/effect-report command, while `kali package-audit <package>` opens in Phase 4 as the context-free registry-analysis/security-audit command.” |
+| “embedding ships in Phase 1” | “Phase 1 ships only the export-oriented **base library artifact** via `kali build --lib` for **exact-version consumers**; the stable public embedding surface opens later. In the current repository, the later `--lib` + WIT, `--capi`, and `--component` rows are live — cite those rows directly when describing today’s state.” |
+| “effects support ships in Phase 1” | “Phase 1 may use internal sandbox-oriented effect bookkeeping and ships policy validation/runtime enforcement where documented, but the stable public effect-report surface is still gated in the historical Phase-1 reading. In the current repository, cite the live `kali effects`, `kali package-effects`, and effect-vs-policy rows directly instead of reusing the narrower Phase-1 summary.” |
+| “registry analysis ships in Phase 1” | “No stable public registry-analysis command ships in the historical Phase-1 summary. In the current repository, `kali package-audit <package>` is live; describe that present-tense surface through its own row instead of broadening the Phase-1 wording.” |
 | “JSON output means the command already ships” | “JSON selectors do not create availability: once shipped, `kali effects` / `kali package-effects` are the later **native-JSON commands**, while `kali package-audit` is the Phase 4 schema-v1 **envelope-only JSON command**; before then, the ordinary command gate still wins.” |
 | “npm lifecycle scripts ship in Phase 1” | “Phase 1 ships only the schema-v1 **install-time npm-package hook path**: `kali install --allow-scripts`, and only when the invocation has non-empty **effective npm-scriptable install work**. This does not widen ordinary package/runtime support or imply early `--api node` compatibility.” |
 | “formal verification ships in Phase 1” | “Phase 1 requires the **proof-ready** baseline (published boundary manifest + honest trigger policy). For the current repository's stronger state, read `proofs/BOUNDARY.md`; today the canonical summary is: **Kali is proof-backed for the published boundary.**” |
