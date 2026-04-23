@@ -49,6 +49,9 @@ graph without performing any mutations.
 - Plain `kali install --allow-scripts` now rejects when the current invocation has no
   non-empty npm-scriptable install work, matching the spec's invalid-usage path instead of
   silently degenerating into a no-op.
+- The CLI smoke lane now also pins `kali install --allow-scripts <raw-url>` as canonical
+  `E5508` invalid usage, so the raw-URL opt-in path is blocked before fetch/materialization work
+  can begin.
 - NPM lifecycle hooks (`preinstall`, `install`, `postinstall`) execute during install when the
   opt-in flag is present, and blank hooks are treated as deterministic no-ops.
 - `kali install --dev` requires an explicit registry target and rejects raw-URL targets before
@@ -243,7 +246,7 @@ Materialised packages live under `.kali-cache/` (gitignore'd):
 - `kali install <native-pkg>` → exits 1 with `E6004`.
 - `kali check` without prior install → exits 1 with `E6007`.
 - `kali install --allow-scripts <pkg>` with no lifecycle scripts → clean/no-op, exits 0.
-- `kali install --allow-scripts <raw-url>` → exits 1 with `E6009` (not valid for raw-URL targets).
+- `kali install --allow-scripts <raw-url>` → exits 1 with `E5508` (not valid for raw-URL targets).
 
 ## Follow-up work uncovered by the semver probe
 

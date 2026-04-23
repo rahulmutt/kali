@@ -43,6 +43,9 @@ closing gaps in the test/CI coverage that previous stages may have left.
   covers the no-op allow-scripts path for packages with only non-install lifecycle hooks.
 - Added a no-manifest `kali install` regression so the evidence suite now proves the command stays
   a no-op on empty workspaces instead of materializing placeholder project files.
+- Added CLI smoke coverage for `kali install --allow-scripts <raw-url>` so the raw-URL opt-in path
+  stays pinned to the canonical `E5508` invalid-usage diagnostic before any fetch or materialization
+  work can begin.
 - Added a dedicated Linux runtime-smoke CI lane for the browser smoke, determinism, and negative-gating regressions, plus a nightly package-corpus lane that runs the heavier corpus suite outside the per-commit path.
 - Added a package-audit regression that confirms inherited Node API-surface context is ignored just like the browser and threaded-profile contexts, keeping the registry-analysis command's context-free contract explicit in the evidence suite.
 - Added parser/lexer regression coverage for the semver probe's optional-chaining and multiline-template cases so `minVersion(... )?.version` and multi-line template bodies stay covered by the evidence suite.
@@ -169,7 +172,7 @@ Complete coverage of the `kali install` edge cases defined in `specs/16-testing.
 - `kali install` on a project with no `kali.json` → clean no-op success; it must not create a placeholder manifest.
 - `kali install --dev <pkg>` → adds to `devDependencies`, lock file updated.
 - `kali install --allow-scripts <pkg>` with empty lifecycle scripts → clean no-op exit 0.
-- `kali install --allow-scripts <raw-url>` → `E6009`.
+- `kali install --allow-scripts <raw-url>` → `E5508`.
 - `kali install` twice with the same lock file → idempotent; lock file unchanged byte-for-byte.
 
 ### 8. Sandbox enforcement completeness

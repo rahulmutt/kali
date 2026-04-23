@@ -6634,6 +6634,39 @@ fn install_dev_requires_an_explicit_registry_target() {
 }
 
 #[test]
+fn install_allow_scripts_rejects_raw_url_targets() {
+    let dir = tempdir().expect("tempdir");
+    let (raw_url_base, hits, stop, handle) =
+        start_binary_response_server(b"export default 1;".to_vec(), "application/typescript");
+    let raw_url = format!("{raw_url_base}/mod.ts");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("install")
+        .arg("--allow-scripts")
+        .arg(&raw_url)
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join raw-url server");
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "raw URL should be rejected before fetch"
+    );
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("not valid for raw-URL targets"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn run_accepts_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
