@@ -2259,29 +2259,58 @@ pub fn split_command_spec(command: &str) -> Option<Vec<String>> {
     Some(parts)
 }
 
-fn browser_harness_command_parts_for_browser_executable(executable: &str) -> Option<Vec<String>> {
+fn browser_harness_normalized_executable_name(executable: &str) -> String {
     let executable = Path::new(executable)
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or(executable)
         .to_ascii_lowercase();
 
-    let mut parts = Vec::with_capacity(2);
-    match executable.as_str() {
+    executable
+        .strip_suffix(".exe")
+        .or_else(|| executable.strip_suffix(".cmd"))
+        .or_else(|| executable.strip_suffix(".bat"))
+        .or_else(|| executable.strip_suffix(".com"))
+        .unwrap_or(&executable)
+        .to_string()
+}
+
+fn browser_harness_is_browser_executable_name(executable: &str) -> bool {
+    matches!(
+        executable,
         "chrome"
-        | "chromium"
-        | "chromium-browser"
-        | "google-chrome"
-        | "google-chrome-stable"
-        | "edge"
-        | "msedge"
-        | "firefox"
-        | "firefox-esr" => {
-            parts.push(executable);
-            parts.push("--headless".to_string());
-            Some(parts)
-        }
-        _ => None,
+            | "chromium"
+            | "chromium-browser"
+            | "chromium-headless-shell"
+            | "google-chrome"
+            | "google-chrome-stable"
+            | "google-chrome-beta"
+            | "google-chrome-unstable"
+            | "brave"
+            | "brave-browser"
+            | "brave-browser-beta"
+            | "vivaldi"
+            | "vivaldi-stable"
+            | "opera"
+            | "opera-stable"
+            | "msedge"
+            | "edge"
+            | "microsoft-edge"
+            | "microsoft-edge-stable"
+            | "microsoft-edge-beta"
+            | "microsoft-edge-dev"
+            | "firefox"
+            | "firefox-esr"
+    )
+}
+
+fn browser_harness_command_parts_for_browser_executable(executable: &str) -> Option<Vec<String>> {
+    let executable = browser_harness_normalized_executable_name(executable);
+
+    if browser_harness_is_browser_executable_name(&executable) {
+        Some(vec![executable, "--headless".to_string()])
+    } else {
+        None
     }
 }
 
@@ -2289,10 +2318,24 @@ fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
     const CANDIDATES: &[&str] = &[
         "chromium",
         "chromium-browser",
+        "chromium-headless-shell",
         "google-chrome",
         "google-chrome-stable",
+        "google-chrome-beta",
+        "google-chrome-unstable",
+        "brave-browser",
+        "brave",
+        "brave-browser-beta",
+        "vivaldi",
+        "vivaldi-stable",
+        "opera",
+        "opera-stable",
         "msedge",
         "edge",
+        "microsoft-edge",
+        "microsoft-edge-stable",
+        "microsoft-edge-beta",
+        "microsoft-edge-dev",
         "firefox",
         "firefox-esr",
     ];
@@ -2654,10 +2697,6 @@ pub fn browser_bundle_runtime_execute_checked(
 
 fn browser_harness_uses_html_entrypoint(executable: &str) -> bool {
     browser_harness_command_parts_for_browser_executable(executable).is_some()
-        || executable.contains("chromium")
-        || executable.contains("google-chrome")
-        || executable.contains("edge")
-        || executable.contains("firefox")
 }
 
 fn browser_runtime_harness_module_script(
