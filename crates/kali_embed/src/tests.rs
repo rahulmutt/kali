@@ -320,6 +320,15 @@ fn embedding_predicates_run_in_registration_order() {
 }
 
 #[test]
+fn embedding_predicate_registration_availability_can_be_queried() {
+    let enabled = EmbeddingCtx::new();
+    let disabled = EmbeddingCtx::with_predicate_registration_enabled(false);
+
+    assert!(enabled.predicate_registration_enabled());
+    assert!(!disabled.predicate_registration_enabled());
+}
+
+#[test]
 fn embedding_predicate_registration_rejects_when_disabled() {
     let mut ctx = EmbeddingCtx::with_predicate_registration_enabled(false);
     let error = ctx

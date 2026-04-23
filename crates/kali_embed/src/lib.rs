@@ -370,6 +370,11 @@ impl EmbeddingCtx {
         }
     }
 
+    /// Return whether host-registered sandbox predicates may be added in this context.
+    pub fn predicate_registration_enabled(&self) -> bool {
+        self.predicate_registration_enabled
+    }
+
     /// Register a deterministic narrowing predicate for one canonical capability name.
     pub fn register_sandbox_predicate(
         &mut self,
