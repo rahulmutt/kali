@@ -345,9 +345,14 @@ fn browser_harness_command_parts_exposes_override_and_default_selection() {
 #[test]
 fn browser_harness_recognizes_common_display_name_aliases() {
     for executable in [
+        "chrome",
+        "chrome-beta",
+        "chrome-canary",
+        "chrome-headless-shell",
         "google chrome",
         "google chrome beta",
         "google chrome canary",
+        "google-chrome-headless-shell",
         "brave browser",
         "microsoft edge canary",
         "microsoft edge dev",
@@ -417,11 +422,18 @@ fn browser_runtime_harness_page_wraps_the_module_body_for_real_browser_hosts() {
 
 #[test]
 fn browser_harness_uses_html_entrypoint_for_browser_executables() {
+    assert!(browser_harness_uses_html_entrypoint("chrome"));
+    assert!(browser_harness_uses_html_entrypoint(
+        "chrome-headless-shell"
+    ));
     assert!(browser_harness_uses_html_entrypoint("chromium"));
     assert!(browser_harness_uses_html_entrypoint(
         "/usr/bin/google-chrome-stable"
     ));
     assert!(browser_harness_uses_html_entrypoint("google chrome canary"));
+    assert!(browser_harness_uses_html_entrypoint(
+        "google-chrome-headless-shell"
+    ));
     assert!(browser_harness_uses_html_entrypoint("msedge.exe"));
     assert!(browser_harness_uses_html_entrypoint("brave-browser.exe"));
     assert!(browser_harness_uses_html_entrypoint("chrome.cmd"));
@@ -439,6 +451,17 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
 
 #[test]
 fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("chrome"),
+        Some(vec!["chrome".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("chrome-headless-shell"),
+        Some(vec![
+            "chrome-headless-shell".to_string(),
+            "--headless".to_string()
+        ])
+    );
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("chromium"),
         Some(vec!["chromium".to_string(), "--headless".to_string()])
@@ -458,6 +481,13 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
         browser_harness_command_parts_for_browser_executable("google chrome canary"),
         Some(vec![
             "google chrome canary".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("google-chrome-headless-shell"),
+        Some(vec![
+            "google-chrome-headless-shell".to_string(),
             "--headless".to_string()
         ])
     );

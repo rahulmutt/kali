@@ -2279,10 +2279,15 @@ fn browser_harness_is_browser_executable_name(executable: &str) -> bool {
     matches!(
         executable,
         "chrome"
+            | "chrome-beta"
+            | "chrome-canary"
+            | "chrome-headless-shell"
+            | "chrome-unstable"
             | "chromium"
             | "chromium-browser"
             | "chromium-headless-shell"
             | "google-chrome"
+            | "google-chrome-headless-shell"
             | "google-chrome-stable"
             | "google-chrome-beta"
             | "google-chrome-canary"
@@ -2337,10 +2342,16 @@ fn browser_harness_command_parts_for_browser_executable(executable: &str) -> Opt
 
 fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
     const CANDIDATES: &[&str] = &[
+        "chrome",
+        "chrome-beta",
+        "chrome-canary",
+        "chrome-headless-shell",
+        "chrome-unstable",
         "chromium",
         "chromium-browser",
         "chromium-headless-shell",
         "google-chrome",
+        "google-chrome-headless-shell",
         "google-chrome-stable",
         "google-chrome-beta",
         "google-chrome-canary",
