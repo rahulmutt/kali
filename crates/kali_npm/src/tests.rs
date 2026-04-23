@@ -694,20 +694,23 @@ fn install_noops_without_manifest_or_dependencies() {
 }
 
 #[test]
-fn install_allows_scripts_without_effective_npm_work() {
+fn install_rejects_allow_scripts_without_effective_npm_work() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).unwrap();
 
-    let summary = install_project(
+    let error = install_project(
         dir.path(),
         InstallOptions {
             allow_scripts: true,
             ..InstallOptions::default()
         },
     )
-    .unwrap();
+    .unwrap_err();
 
-    assert!(summary.installed.is_empty());
+    assert_eq!(error[0].code, Some(e5::INVALID_CLI_USAGE as u32));
+    assert!(error[0]
+        .message
+        .contains("requires non-empty npm install work"));
 }
 
 #[test]

@@ -46,6 +46,9 @@ graph without performing any mutations.
 - `kali install --allow-scripts` treats packages without install-time lifecycle hooks as a
   no-op success, while the invalid raw-URL / JSR lifecycle-hook combinations are still rejected
   before any fetch.
+- Plain `kali install --allow-scripts` now rejects when the current invocation has no
+  non-empty npm-scriptable install work, matching the spec's invalid-usage path instead of
+  silently degenerating into a no-op.
 - NPM lifecycle hooks (`preinstall`, `install`, `postinstall`) execute during install when the
   opt-in flag is present, and blank hooks are treated as deterministic no-ops.
 - `kali install --dev` requires an explicit registry target and rejects raw-URL targets before

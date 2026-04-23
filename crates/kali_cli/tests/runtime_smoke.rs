@@ -5396,7 +5396,7 @@ fn install_allow_scripts_rejects_jsr_targets() {
 }
 
 #[test]
-fn install_allow_scripts_is_a_noop_when_no_npm_work_exists() {
+fn install_allow_scripts_rejects_when_no_npm_work_exists() {
     let dir = tempdir().expect("tempdir");
     fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
 
@@ -5408,15 +5408,17 @@ fn install_allow_scripts_is_a_noop_when_no_npm_work_exists() {
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
     assert!(
-        stdout.contains("Installed 0 package(s)"),
-        "stdout: {stdout}"
+        stderr.contains("non-empty npm install work"),
+        "stderr: {stderr}"
     );
 }
 

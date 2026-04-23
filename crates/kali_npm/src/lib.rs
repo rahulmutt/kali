@@ -816,6 +816,21 @@ fn reconcile_raw_urls(
     prune_unreachable_raw_urls(root, lock, declared_raw_urls)
 }
 
+fn has_effective_npm_scriptable_install_work(
+    manifest: &ProjectManifest,
+    target: Option<&PackageTarget>,
+) -> bool {
+    match target {
+        Some(PackageTarget::Registry { registry, .. }) => registry == "npm",
+        Some(PackageTarget::RawUrl(_)) => false,
+        None => manifest
+            .dependencies
+            .keys()
+            .chain(manifest.dev_dependencies.keys())
+            .any(|name| !name.starts_with("jsr:")),
+    }
+}
+
 pub fn install_project(
     root: impl AsRef<Path>,
     options: InstallOptions,
@@ -876,6 +891,13 @@ pub fn install_project(
                 )]);
             }
             _ => {}
+        }
+
+        if !has_effective_npm_scriptable_install_work(&manifest, parsed_target.as_ref()) {
+            return Err(vec![Diagnostic::error(
+                e5::INVALID_CLI_USAGE as u32,
+                "`kali install --allow-scripts` requires non-empty npm install work in the current invocation",
+            )]);
         }
     }
 
