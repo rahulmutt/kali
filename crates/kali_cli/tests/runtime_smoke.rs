@@ -7,7 +7,7 @@ use std::{
     process::Command,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
-        Arc,
+        Arc, Mutex, OnceLock,
     },
     thread,
     time::{Duration, Instant},
@@ -16,7 +16,11 @@ use std::{
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
 
+use base64::Engine;
+use flate2::{write::GzEncoder, Compression};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha512};
+use tar::Builder;
 use wasmparser::{Operator, Parser, Payload};
 
 use kali_runtime::split_command_spec;
@@ -178,6 +182,84 @@ fn start_registry_metadata_server(
         stop,
         handle,
     )
+}
+
+fn start_binary_response_server(
+    body: Vec<u8>,
+    content_type: &'static str,
+) -> (
+    String,
+    Arc<AtomicUsize>,
+    Arc<AtomicBool>,
+    thread::JoinHandle<()>,
+) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind response server");
+    listener.set_nonblocking(true).expect("set nonblocking");
+    let addr = listener.local_addr().expect("response server address");
+    let hits = Arc::new(AtomicUsize::new(0));
+    let stop = Arc::new(AtomicBool::new(false));
+    let hits_thread = hits.clone();
+    let stop_thread = stop.clone();
+    let handle = thread::spawn(move || loop {
+        if stop_thread.load(Ordering::SeqCst) {
+            break;
+        }
+
+        match listener.accept() {
+            Ok((mut stream, _)) => {
+                hits_thread.fetch_add(1, Ordering::SeqCst);
+                let mut buffer = [0u8; 1024];
+                let _ = stream.read(&mut buffer);
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: {}\r\nConnection: close\r\n\r\n",
+                    body.len(),
+                    content_type
+                );
+                let _ = stream.write_all(response.as_bytes());
+                let _ = stream.write_all(&body);
+                let _ = stream.flush();
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(5));
+            }
+            Err(_) => break,
+        }
+    });
+    (
+        format!("http://127.0.0.1:{}", addr.port()),
+        hits,
+        stop,
+        handle,
+    )
+}
+
+fn build_package_tarball(entries: &[(&str, &[u8])]) -> Vec<u8> {
+    let encoder = GzEncoder::new(Vec::new(), Compression::default());
+    let mut builder = Builder::new(encoder);
+
+    for (path, contents) in entries {
+        let mut header = tar::Header::new_gnu();
+        header.set_path(path).unwrap();
+        header.set_size(contents.len() as u64);
+        header.set_mode(0o644);
+        header.set_mtime(0);
+        header.set_uid(0);
+        header.set_gid(0);
+        header.set_cksum();
+        builder.append(&header, *contents).unwrap();
+    }
+
+    let encoder = builder.into_inner().unwrap();
+    encoder.finish().unwrap()
+}
+
+fn format_sha512(bytes: &[u8]) -> String {
+    base64::engine::general_purpose::STANDARD.encode(Sha512::digest(bytes))
+}
+
+fn kali_registry_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
 }
 
 fn read_artifact_bytes(paths: &[PathBuf]) -> BTreeMap<PathBuf, Vec<u8>> {
@@ -5419,6 +5501,101 @@ fn install_allow_scripts_rejects_when_no_npm_work_exists() {
     assert!(
         stderr.contains("non-empty npm install work"),
         "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn install_reconciles_semver_style_package_without_allow_scripts_on_the_cli() {
+    let _guard = kali_registry_lock().lock().unwrap();
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{"schemaVersion":1,"dependencies":{"semver":"7.7.4"}}"#,
+    )
+    .expect("write manifest");
+
+    let package_json = json!({
+        "name": "semver",
+        "version": "7.7.4",
+        "main": "index.js",
+        "bin": { "semver": "bin/semver.js" },
+        "scripts": {
+            "test": "tap",
+            "lint": "eslint \"**/*.{js,cjs,ts,mjs,jsx}\"",
+            "postlint": "npm run test -- --ignore-scripts",
+            "posttest": "npm run lint -- --ignore-scripts"
+        }
+    });
+    let package_json_bytes =
+        serde_json::to_vec_pretty(&package_json).expect("serialize package json");
+    let tarball_bytes = build_package_tarball(&[
+        ("package/package.json", package_json_bytes.as_slice()),
+        ("package/index.js", b"module.exports = {};\n"),
+        (
+            "package/bin/semver.js",
+            b"#!/usr/bin/env node\nconsole.log('semver');\n",
+        ),
+    ]);
+    let tarball_integrity = format!("sha512-{}", format_sha512(&tarball_bytes));
+    let (tarball_base, tarball_hits, tarball_stop, tarball_handle) =
+        start_binary_response_server(tarball_bytes, "application/octet-stream");
+    let metadata = json!({
+        "versions": {
+            "7.7.4": {
+                "dist": {
+                    "tarball": format!("{}/semver-7.7.4.tgz", tarball_base),
+                    "integrity": tarball_integrity
+                }
+            }
+        }
+    });
+    let metadata = Box::leak(metadata.to_string().into_boxed_str());
+    let (registry_base, registry_hits, registry_stop, registry_handle) =
+        start_registry_metadata_server(metadata);
+    let previous_registry = std::env::var_os("KALI_REGISTRY");
+    std::env::set_var("KALI_REGISTRY", &registry_base);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("install")
+        .output()
+        .expect("run kali");
+
+    if let Some(previous_registry) = previous_registry {
+        std::env::set_var("KALI_REGISTRY", previous_registry);
+    } else {
+        std::env::remove_var("KALI_REGISTRY");
+    }
+
+    tarball_stop.store(true, Ordering::SeqCst);
+    registry_stop.store(true, Ordering::SeqCst);
+    tarball_handle.join().expect("join tarball server");
+    registry_handle.join().expect("join registry server");
+
+    assert!(
+        tarball_hits.load(Ordering::SeqCst) > 0,
+        "tarball server should be queried"
+    );
+    assert!(
+        registry_hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "install");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["installed"], json!(["semver@7.7.4"]));
+    assert!(
+        dir.path().join("node_modules/semver/package.json").exists(),
+        "semver package should be materialized"
     );
 }
 

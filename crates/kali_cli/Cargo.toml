@@ -36,4 +36,7 @@ wit-component = { workspace = true }
 kali_capi = { workspace = true }
 
 [dev-dependencies]
+base64 = { workspace = true }
+flate2 = { workspace = true }
+tar = { workspace = true }
 tempfile = "3.10"

@@ -1200,7 +1200,9 @@ dependencies = [
 name = "kali_cli"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "clap",
+ "flate2",
  "globset",
  "ignore",
  "kali_ast",
@@ -1223,6 +1225,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "tar",
  "tempfile",
  "wasm-encoder 0.240.0",
  "wasmparser 0.240.0",
