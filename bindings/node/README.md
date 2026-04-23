@@ -66,17 +66,17 @@ stable provenance snapshot. `loadBindingPackageManifestSummary()` /
 `loadBindingPackageManifestSummaryFromRoot()` and `loadMetadataSummary()` /
 `loadMetadataSummaryFromRoot()` perform the same load-and-project step in one
 call. `cabiMetadataSummary()` keeps the companion metadata projection
-normalized, preserving the optional runtime provenance fields when the compiler
-emits those values. The resulting `KaliCAPI` instance also carries the
-manifest's `maxSpecializations` provenance plus the normalized runtime
-provenance tuple (`runtimeProfiles`, `hostContract`, and `runtimeBackend`) when
-the bundle publishes them, so higher-level callers can inspect the same
-specialization and runtime context that the CLI emitted. The
-`fromHeaderAndMetadata()` convenience path preserves that same provenance tuple
-when callers only have a header plus `cabi-metadata` sidecar, keeping the direct
-and manifest-backed helper flows aligned. Both module systems expose the same
-helper surface, so binding consumers can choose ESM or CommonJS without changing
-the artifact contract.
+normalized, preserving the optional runtime provenance fields — including
+`profileDataHash` when PGO metadata is present — when the compiler emits those
+values. The resulting `KaliCAPI` instance also carries the manifest's
+`maxSpecializations` provenance plus the normalized runtime provenance tuple
+(`runtimeProfiles`, `hostContract`, and `runtimeBackend`) when the bundle
+publishes them, so higher-level callers can inspect the same specialization and
+runtime context that the CLI emitted. The `fromHeaderAndMetadata()` convenience
+path preserves that same provenance tuple when callers only have a header plus
+`cabi-metadata` sidecar, keeping the direct and manifest-backed helper flows
+aligned. Both module systems expose the same helper surface, so binding
+consumers can choose ESM or CommonJS without changing the artifact contract.
 
 Run the smoke tests with:
 

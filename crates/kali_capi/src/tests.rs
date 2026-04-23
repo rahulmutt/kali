@@ -60,7 +60,7 @@ fn cabi_metadata_helpers_load_and_summarize_generated_payloads() {
     fs::create_dir_all(&temp_root).expect("temp dir");
 
     let metadata_path = temp_root.join("sample.cabi.json");
-    let metadata = generate_metadata_with_provenance(
+    let mut metadata = generate_metadata_with_provenance(
         "sample.capi.wasm",
         "sample.wit",
         "sample.h",
@@ -73,6 +73,7 @@ fn cabi_metadata_helpers_load_and_summarize_generated_payloads() {
         Some("kali-hosted"),
         Some("wasmtime"),
     );
+    metadata["profileDataHash"] = serde_json::json!("sha256:sample-profile");
     fs::write(&metadata_path, metadata.to_string()).expect("write cabi metadata");
 
     let loaded = load_metadata(&metadata_path).expect("load cabi metadata");
@@ -87,6 +88,7 @@ fn cabi_metadata_helpers_load_and_summarize_generated_payloads() {
     assert_eq!(loaded["maxSpecializations"], 8);
     assert_eq!(loaded["hostContract"], "kali-hosted");
     assert_eq!(loaded["runtimeBackend"], "wasmtime");
+    assert_eq!(loaded["profileDataHash"], "sha256:sample-profile");
     assert_eq!(loaded["artifacts"]["wasmModule"], "sample.capi.wasm");
     assert_eq!(loaded["artifacts"]["wit"], "sample.wit");
     assert_eq!(loaded["artifacts"]["exportsHeader"], "sample.h");
@@ -103,6 +105,7 @@ fn cabi_metadata_helpers_load_and_summarize_generated_payloads() {
     );
     assert_eq!(summary["hostContract"], "kali-hosted");
     assert_eq!(summary["runtimeBackend"], "wasmtime");
+    assert_eq!(summary["profileDataHash"], "sha256:sample-profile");
     assert_eq!(summary["artifacts"]["wasmModule"], "sample.capi.wasm");
     assert_eq!(summary["artifacts"]["wit"], "sample.wit");
     assert_eq!(summary["artifacts"]["exportsHeader"], "sample.h");
@@ -125,7 +128,7 @@ fn cabi_metadata_helpers_discover_load_and_summarize_root_sidecars() {
     fs::create_dir_all(&temp_root).expect("temp dir");
 
     let metadata_path = temp_root.join("sample.capi.meta.json");
-    let metadata = generate_metadata_with_provenance(
+    let mut metadata = generate_metadata_with_provenance(
         "sample.capi.wasm",
         "sample.wit",
         "sample.h",
@@ -138,6 +141,7 @@ fn cabi_metadata_helpers_discover_load_and_summarize_root_sidecars() {
         Some("kali-hosted"),
         Some("wasmtime"),
     );
+    metadata["profileDataHash"] = serde_json::json!("sha256:sample-profile");
     fs::write(&metadata_path, metadata.to_string()).expect("write cabi metadata sidecar");
     fs::write(temp_root.join("noise.txt"), "ignore me").expect("write noise file");
 
@@ -156,6 +160,7 @@ fn cabi_metadata_helpers_discover_load_and_summarize_root_sidecars() {
     );
     assert_eq!(loaded["hostContract"], "kali-hosted");
     assert_eq!(loaded["runtimeBackend"], "wasmtime");
+    assert_eq!(loaded["profileDataHash"], "sha256:sample-profile");
 
     let summary = load_metadata_summary_from_root(&temp_root)
         .expect("load and summarize cabi metadata from root");
@@ -166,6 +171,7 @@ fn cabi_metadata_helpers_discover_load_and_summarize_root_sidecars() {
     );
     assert_eq!(summary["hostContract"], "kali-hosted");
     assert_eq!(summary["runtimeBackend"], "wasmtime");
+    assert_eq!(summary["profileDataHash"], "sha256:sample-profile");
 
     let explicit_summary =
         load_metadata_summary_from_root_with_name(&temp_root, "sample.capi.meta.json")

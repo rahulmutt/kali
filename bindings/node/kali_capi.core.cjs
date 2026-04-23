@@ -116,6 +116,10 @@ function parseMetadata(metadataText) {
     ? requireStr(payload, 'runtimeBackend', 'cabi metadata')
     : undefined;
 
+  const profileDataHash = Object.prototype.hasOwnProperty.call(payload, 'profileDataHash')
+    ? requireStr(payload, 'profileDataHash', 'cabi metadata')
+    : undefined;
+
   const metadata = {
     schemaVersion,
     kind,
@@ -135,6 +139,9 @@ function parseMetadata(metadataText) {
   }
   if (runtimeBackend !== undefined) {
     metadata.runtimeBackend = runtimeBackend;
+  }
+  if (profileDataHash !== undefined) {
+    metadata.profileDataHash = profileDataHash;
   }
 
   return Object.freeze(metadata);
@@ -238,6 +245,9 @@ function cabiMetadataSummary(metadata) {
   }
   if (Object.prototype.hasOwnProperty.call(metadata, 'maxSpecializations')) {
     summary.maxSpecializations = metadata.maxSpecializations;
+  }
+  if (Object.prototype.hasOwnProperty.call(metadata, 'profileDataHash')) {
+    summary.profileDataHash = metadata.profileDataHash;
   }
 
   return Object.freeze(summary);

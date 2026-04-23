@@ -75,6 +75,7 @@ class CabiMetadata:
     runtime_profiles: tuple[str, ...] | None = None
     host_contract: str | None = None
     runtime_backend: str | None = None
+    profile_data_hash: str | None = None
 
 
 @dataclass(frozen=True)
@@ -192,6 +193,10 @@ def parse_metadata(metadata_text: str) -> CabiMetadata:
     if runtime_backend is not None and not isinstance(runtime_backend, str):
         raise ValueError("cabi metadata field 'runtimeBackend' must be a string")
 
+    profile_data_hash = payload.get("profileDataHash")
+    if profile_data_hash is not None and not isinstance(profile_data_hash, str):
+        raise ValueError("cabi metadata field 'profileDataHash' must be a string")
+
     return CabiMetadata(
         schema_version=schema_version,
         kind=kind,
@@ -202,6 +207,7 @@ def parse_metadata(metadata_text: str) -> CabiMetadata:
         runtime_profiles=runtime_profiles,
         host_contract=host_contract,
         runtime_backend=runtime_backend,
+        profile_data_hash=profile_data_hash,
     )
 
 
@@ -303,6 +309,8 @@ def cabi_metadata_summary(metadata: CabiMetadata) -> dict[str, object]:
         summary["runtimeBackend"] = metadata.runtime_backend
     if metadata.max_specializations is not None:
         summary["maxSpecializations"] = metadata.max_specializations
+    if metadata.profile_data_hash is not None:
+        summary["profileDataHash"] = metadata.profile_data_hash
     return summary
 
 

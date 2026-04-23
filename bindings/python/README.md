@@ -35,8 +35,9 @@ want one stable provenance snapshot. `load_binding_package_manifest_summary()` /
 `load_binding_package_manifest_summary_from_root()` and `load_metadata_summary()` /
 `load_metadata_summary_from_root()` perform the same load-and-project step in one
 call. `cabi_metadata_summary()` keeps the companion metadata projection
-normalized, preserving the optional runtime provenance fields when the compiler
-emits those values. The resulting `KaliCAPI` wrapper also exposes the bundle's
+normalized, preserving the optional runtime provenance fields — including
+`profileDataHash` when PGO metadata is present — when the compiler emits those
+values. The resulting `KaliCAPI` wrapper also exposes the bundle's
 `max_specializations` provenance plus the normalized runtime provenance tuple
 (`runtime_profiles`, `host_contract`, and `runtime_backend`) when the manifest
 publishes it, so callers can inspect the same deterministic specialization and

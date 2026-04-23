@@ -51,6 +51,7 @@ test('parses generated exports and cabi metadata deterministically', () => {
     runtimeProfiles: ['wasm-threads', 'fiber-threads', 'wasm-threads'],
     hostContract: 'kali-hosted',
     runtimeBackend: 'wasmtime',
+    profileDataHash: 'sha256:sample-profile',
     artifacts: {
       exportsHeader: 'sample.h',
       wasmModule: 'sample.capi.wasm',
@@ -72,6 +73,7 @@ test('parses generated exports and cabi metadata deterministically', () => {
     runtimeProfiles: ['fiber-threads', 'wasm-threads'],
     hostContract: 'kali-hosted',
     runtimeBackend: 'wasmtime',
+    profileDataHash: 'sha256:sample-profile',
     artifacts: {
       exportsHeader: 'sample.h',
       wasmModule: 'sample.capi.wasm',
@@ -87,6 +89,7 @@ test('parses generated exports and cabi metadata deterministically', () => {
     runtimeProfiles: ['fiber-threads', 'wasm-threads'],
     hostContract: 'kali-hosted',
     runtimeBackend: 'wasmtime',
+    profileDataHash: 'sha256:sample-profile',
     artifacts: {
       exportsHeader: 'sample.h',
       wasmModule: 'sample.capi.wasm',
@@ -109,6 +112,7 @@ test('cabi metadata helpers sort sidecars and auto-discover single manifests', (
       runtimeProfiles: ['wasm-threads', 'fiber-threads', 'wasm-threads'],
       hostContract: 'kali-hosted',
       runtimeBackend: 'wasmtime',
+      profileDataHash: 'sha256:sample-profile',
       artifacts: {
         exportsHeader: 'sample.h',
         metadata: 'sample.cabi.json',
@@ -134,6 +138,7 @@ test('cabi metadata helpers sort sidecars and auto-discover single manifests', (
     runtimeProfiles: ['fiber-threads', 'wasm-threads'],
     hostContract: 'kali-hosted',
     runtimeBackend: 'wasmtime',
+    profileDataHash: 'sha256:sample-profile',
     artifacts: {
       exportsHeader: 'sample.h',
       wasmModule: 'sample.capi.wasm',
@@ -150,6 +155,7 @@ test('cabi metadata helpers sort sidecars and auto-discover single manifests', (
     runtimeProfiles: ['fiber-threads', 'wasm-threads'],
     hostContract: 'kali-hosted',
     runtimeBackend: 'wasmtime',
+    profileDataHash: 'sha256:sample-profile',
     artifacts: {
       exportsHeader: 'sample.h',
       wasmModule: 'sample.capi.wasm',
@@ -193,6 +199,7 @@ test('binding package manifests sort glue paths and auto-discover single manifes
       runtimeProfiles: ['wasm-threads', 'fiber-threads', 'wasm-threads'],
       hostContract: 'kali-hosted',
       runtimeBackend: 'wasmtime',
+      profileDataHash: 'sha256:sample-profile',
       artifacts: {
         exportsHeader: 'sample.h',
         wasmModule: 'sample.capi.wasm',
@@ -239,6 +246,7 @@ test('binding package manifests sort glue paths and auto-discover single manifes
     runtimeProfiles: ['fiber-threads', 'wasm-threads'],
     hostContract: 'kali-hosted',
     runtimeBackend: 'wasmtime',
+    profileDataHash: 'sha256:sample-profile',
     artifacts: {
       exportsHeader: 'sample.h',
       wasmModule: 'sample.capi.wasm',

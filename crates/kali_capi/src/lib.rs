@@ -250,6 +250,7 @@ pub fn parse_metadata(metadata_text: &str) -> Result<Value, String> {
     let max_specializations = metadata.get("maxSpecializations").cloned();
     let host_contract = metadata.get("hostContract").cloned();
     let runtime_backend = metadata.get("runtimeBackend").cloned();
+    let profile_data_hash = metadata.get("profileDataHash").cloned();
 
     let mut normalized = serde_json::Map::new();
     normalized.insert("schemaVersion".to_string(), Value::from(1));
@@ -279,6 +280,12 @@ pub fn parse_metadata(metadata_text: &str) -> Result<Value, String> {
             return Err("cabi metadata field 'runtimeBackend' must be a string".to_string());
         }
         normalized.insert("runtimeBackend".to_string(), runtime_backend);
+    }
+    if let Some(profile_data_hash) = profile_data_hash {
+        if !profile_data_hash.is_string() {
+            return Err("cabi metadata field 'profileDataHash' must be a string".to_string());
+        }
+        normalized.insert("profileDataHash".to_string(), profile_data_hash);
     }
     normalized.insert("artifacts".to_string(), Value::Object(normalized_artifacts));
 
@@ -353,6 +360,9 @@ pub fn cabi_metadata_summary(metadata: &Value) -> Result<Value, String> {
             "maxSpecializations".to_string(),
             max_specializations.clone(),
         );
+    }
+    if let Some(profile_data_hash) = metadata.get("profileDataHash") {
+        summary.insert("profileDataHash".to_string(), profile_data_hash.clone());
     }
 
     let mut summary_artifacts = serde_json::Map::new();

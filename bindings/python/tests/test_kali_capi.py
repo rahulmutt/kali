@@ -75,6 +75,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
                         "runtimeProfiles": ["wasm-threads", "fiber-threads", "wasm-threads"],
                         "hostContract": "kali-hosted",
                         "runtimeBackend": "wasmtime",
+                        "profileDataHash": "sha256:sample-profile",
                         "artifacts": {
                             "exportsHeader": "sample.h",
                                 "wasmModule": "sample.capi.wasm",
@@ -135,6 +136,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
                     "runtimeProfiles": ["fiber-threads", "wasm-threads"],
                     "hostContract": "kali-hosted",
                     "runtimeBackend": "wasmtime",
+                    "profileDataHash": "sha256:sample-profile",
                     "maxSpecializations": 8,
                     "artifacts": {
                         "exportsHeader": "sample.h",
@@ -259,6 +261,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
                         "runtimeProfiles": ["wasm-threads", "fiber-threads", "wasm-threads"],
                         "hostContract": "kali-hosted",
                         "runtimeBackend": "wasmtime",
+                        "profileDataHash": "sha256:sample-profile",
                         "artifacts": {
                             "exportsHeader": "sample.h",
                             "metadata": "sample.cabi.json",
@@ -284,6 +287,7 @@ class KaliCapiSmokeTests(unittest.TestCase):
             self.assertEqual(loaded.runtime_profiles, ("fiber-threads", "wasm-threads"))
             self.assertEqual(loaded.host_contract, "kali-hosted")
             self.assertEqual(loaded.runtime_backend, "wasmtime")
+            self.assertEqual(loaded.profile_data_hash, "sha256:sample-profile")
             self.assertEqual(
                 loaded.artifacts,
                 {
