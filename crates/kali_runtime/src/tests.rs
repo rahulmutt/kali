@@ -437,6 +437,8 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
     assert!(browser_harness_uses_html_entrypoint("msedge.exe"));
     assert!(browser_harness_uses_html_entrypoint("brave-browser.exe"));
     assert!(browser_harness_uses_html_entrypoint("chrome.cmd"));
+    assert!(browser_harness_uses_html_entrypoint("google-chrome-dev"));
+    assert!(browser_harness_uses_html_entrypoint("brave-browser-dev"));
     assert!(browser_harness_uses_html_entrypoint(
         "C:/Program Files/Google/Chrome/Application/chrome.bat"
     ));
@@ -483,6 +485,17 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
             "google chrome canary".to_string(),
             "--headless".to_string()
         ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("google-chrome-dev"),
+        Some(vec![
+            "google-chrome-dev".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("chromium-dev"),
+        Some(vec!["chromium-dev".to_string(), "--headless".to_string()])
     );
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("google-chrome-headless-shell"),

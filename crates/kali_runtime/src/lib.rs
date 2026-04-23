@@ -2283,25 +2283,31 @@ fn browser_harness_is_browser_executable_name(executable: &str) -> bool {
             | "chrome-canary"
             | "chrome-headless-shell"
             | "chrome-unstable"
+            | "chrome-dev"
             | "chromium"
             | "chromium-browser"
             | "chromium-headless-shell"
+            | "chromium-dev"
             | "google-chrome"
             | "google-chrome-headless-shell"
             | "google-chrome-stable"
             | "google-chrome-beta"
             | "google-chrome-canary"
             | "google-chrome-unstable"
+            | "google-chrome-dev"
             | "google chrome"
             | "google chrome stable"
             | "google chrome beta"
             | "google chrome canary"
             | "google chrome unstable"
+            | "google chrome dev"
             | "brave"
             | "brave-browser"
             | "brave-browser-beta"
+            | "brave-browser-dev"
             | "brave browser"
             | "brave browser beta"
+            | "brave browser dev"
             | "vivaldi"
             | "vivaldi-stable"
             | "opera"
@@ -2347,25 +2353,31 @@ fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
         "chrome-canary",
         "chrome-headless-shell",
         "chrome-unstable",
+        "chrome-dev",
         "chromium",
         "chromium-browser",
         "chromium-headless-shell",
+        "chromium-dev",
         "google-chrome",
         "google-chrome-headless-shell",
         "google-chrome-stable",
         "google-chrome-beta",
         "google-chrome-canary",
         "google-chrome-unstable",
+        "google-chrome-dev",
         "google chrome",
         "google chrome stable",
         "google chrome beta",
         "google chrome canary",
         "google chrome unstable",
+        "google chrome dev",
         "brave-browser",
         "brave",
         "brave-browser-beta",
+        "brave-browser-dev",
         "brave browser",
         "brave browser beta",
+        "brave browser dev",
         "vivaldi",
         "vivaldi-stable",
         "opera",
