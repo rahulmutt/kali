@@ -37,6 +37,7 @@ Progress note:
 - `kali effects` now accepts both explicit `--api browser` and inherited browser API-surface contexts, and the CLI smoke suite pins the same stable effect payload shape under those browser-analysis paths.
 - `kali package-effects` now follows the same browser-configured materialized-package resolution path as the other browser-aware analysis commands, so browser-targeted package reports analyze the browser entrypoint instead of the default standalone main entry when the project manifest selects browser analysis.
 - `kali package-effects` now has explicit smoke coverage for its native JSON payload, pretty-printed native output, and `--output json` envelope form, keeping the registry-analysis report contract exercised across both presentation modes.
+- Added a browser-resolution pretty-envelope regression for `kali package-effects` so the browser entrypoint selection and the command-envelope formatting stay pinned together when `--pretty --output json` are combined.
 
 ## Historical stage tasks
 
