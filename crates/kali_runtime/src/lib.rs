@@ -2309,6 +2309,7 @@ fn browser_harness_normalized_executable_name(executable: &str) -> String {
         let next = normalized
             .strip_suffix(".desktop")
             .or_else(|| normalized.strip_suffix(".app"))
+            .or_else(|| normalized.strip_suffix(".command"))
             .or_else(|| normalized.strip_suffix(".lnk"))
             .or_else(|| normalized.strip_suffix(".exe"))
             .or_else(|| normalized.strip_suffix(".cmd"))

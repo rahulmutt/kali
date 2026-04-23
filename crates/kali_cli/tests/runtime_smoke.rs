@@ -1632,6 +1632,12 @@ fn run_uses_browser_entrypoint_for_mullvad_browser_executables() {
     run_browser_entrypoint_smoke("mullvad-browser");
 }
 
+#[cfg(unix)]
+#[test]
+fn run_uses_browser_entrypoint_for_command_wrapped_executables() {
+    run_browser_entrypoint_smoke("chromium.command");
+}
+
 #[test]
 fn run_uses_browser_package_resolution_when_a_harness_command_is_configured() {
     let dir = tempdir().expect("tempdir");
