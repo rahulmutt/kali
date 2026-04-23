@@ -1200,7 +1200,11 @@ pub fn atob(input: &str) -> Result<String, Base64Error> {
         }
         2 => normalized.push_str("=="),
         3 => normalized.push('='),
-        _ => unreachable!(),
+        _ => {
+            return Err(Base64Error::new(
+                "The string to be decoded is not correctly encoded.",
+            ))
+        }
     }
 
     let decoded = decode_base64(&normalized)?;

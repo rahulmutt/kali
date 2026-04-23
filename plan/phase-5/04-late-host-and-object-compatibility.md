@@ -33,6 +33,7 @@ with explicit evidence and no hidden semantic weakening.
 - The browser package-corpus browser-baseline lane now also exercises that binary WebSocket send path, keeping the WebSocket stub evidence-backed in addition to the direct unit coverage.
 - The browser package-corpus baseline now also exercises `crypto.subtle.digest`, including the broader SHA-384 / SHA-512 coverage that mirrors the direct API tests, so the later Web Crypto breadth slice has package-evidence coverage in addition to the direct API tests. The same browser corpus helper now also touches `ReadableStream` / `WritableStream` / `TransformStream`, keeping the stream/blob/web-API breadth slice represented in the package-evidence lane alongside the direct API baselines.
 - Browser bundle smoke coverage now also exercises `crypto.subtle.digest` and `crypto.randomUUID` through the browser-targeted build lane, so the same later Web Crypto breadth slice is pinned at the deployable-through-host boundary as well as in the direct and package-corpus paths.
+- The browser baseline `atob` helper now rejects malformed 1-mod-4 input with an explicit deterministic error instead of relying on an unreachable branch, keeping the browser-support utility surface honest on malformed input.
 
 ## Tasks
 

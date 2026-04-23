@@ -130,6 +130,15 @@ fn base64_helpers_reject_out_of_range_input() {
 }
 
 #[test]
+fn base64_helpers_reject_malformed_input_lengths() {
+    let error = atob("abcde").expect_err("malformed length");
+    assert_eq!(
+        error.to_string(),
+        "The string to be decoded is not correctly encoded."
+    );
+}
+
+#[test]
 fn structured_clone_copies_values() {
     let original = vec![1, 2, 3];
     let cloned = structured_clone(&original);
