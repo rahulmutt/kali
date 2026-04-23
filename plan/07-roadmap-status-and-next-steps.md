@@ -24,7 +24,7 @@ Current repository note:
 Recent hardening:
 - a dedicated determinism smoke lane now runs through `scripts/check-determinism.sh` and a matching CI job, so the repeated-build evidence is exercised separately from the larger runtime smoke suite
 - package-audit and package-effects JSON envelopes are now pinned under inherited browser context and quiet mode, reducing machine-contract drift across analysis presentation flags
-- package-audit now also rejects the legacy `--preview` shim with the canonical `E5508` command-shape diagnostic before registry lookup, keeping the envelope-only contract free of an extra compatibility mode
+- package-audit now also rejects the legacy `--preview` shim with the canonical `E5508` command-shape diagnostic before registry lookup, keeping the envelope-only contract free of an extra compatibility mode; the regression is covered in both plain and JSON output modes so the schema-v1 envelope path stays pinned too
 - package-effects now preserves inherited compat features in its reported analysis context, so inherited `compat.features` like `eval` stay visible to the JSON payload instead of being silently dropped
 - browser-targeted static policy-validation coverage now exercises inherited browser API surfaces for both `check` and `build --bundle`, including the sandbox-attached variants that keep the browser-targeted command set aligned with inherited config
 - the top-level CLI spine now has a dedicated `kali --version` smoke test, keeping the entrypoint contract pinned alongside the other command-shape regressions
