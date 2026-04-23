@@ -29,6 +29,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added deterministic repeated-build smoke coverage for executable, base-library, and browser-bundle artifact outputs so the evidence suite now checks byte-for-byte stability across identical inputs.
 - Added raw-URL install idempotence coverage so repeated `kali install` runs over the same raw URL graph now assert lockfile byte stability.
 - Added a semver package-corpus regression that proves plain `kali install semver` succeeds without `--allow-scripts` when the package only carries non-install lifecycle metadata.
+- Added package-shape coverage for `exports`-backed native addon entrypoints so install/audit rejection stays aligned with the pure JS/TS package contract instead of only checking `main` and `bin`.
 - Added a companion `kali install --allow-scripts semver` regression so the evidence suite now
   covers the no-op allow-scripts path for packages with only non-install lifecycle hooks.
 - Added a no-manifest `kali install` regression so the evidence suite now proves the command stays

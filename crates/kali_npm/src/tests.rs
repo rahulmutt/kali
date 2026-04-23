@@ -1092,6 +1092,47 @@ fn validate_package_shape_rejects_native_addon_entrypoints() {
 }
 
 #[test]
+fn validate_package_shape_rejects_native_exports_entrypoints() {
+    let package = PackageJson {
+        exports: Some(serde_json::json!({
+            "import": "index.js",
+            "node": "native.node"
+        })),
+        ..PackageJson::default()
+    };
+
+    let error = validate_package_shape(&package, true).unwrap_err();
+    assert_eq!(error[0].code, Some(e6::INCOMPATIBLE_PACKAGE as u32));
+    assert!(error[0]
+        .message
+        .contains("native addon exports target and falls outside the pure JS/TS package contract"));
+}
+
+#[test]
+fn audit_package_version_metadata_rejects_native_exports_entrypoints() {
+    let version_meta = serde_json::json!({
+        "exports": {
+            "import": "index.js",
+            "node": "native.node"
+        }
+    });
+
+    let findings = audit_package_version_metadata(
+        "npm",
+        "native-exports",
+        "1.0.0",
+        version_meta.as_object().unwrap(),
+    );
+
+    assert!(findings.iter().any(|diagnostic| {
+        diagnostic.code == Some(e6::INCOMPATIBLE_PACKAGE as u32)
+            && diagnostic.message.contains(
+                "native addon exports target and falls outside the pure JS/TS package contract",
+            )
+    }));
+}
+
+#[test]
 fn validate_package_shape_rejects_native_bin_entrypoints() {
     let package = PackageJson {
         bin: Some(serde_json::json!({"kali-native": "bin/native.node"})),

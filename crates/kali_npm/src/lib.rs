@@ -1620,17 +1620,26 @@ fn audit_package_version_metadata(
         ));
     }
 
-    if let Some(path) = version_meta.get("bin").and_then(|value| match value {
-        serde_json::Value::String(path) if path.ends_with(".node") => Some(path.as_str()),
-        serde_json::Value::Object(map) => map
-            .values()
-            .find_map(|value| value.as_str().filter(|path| path.ends_with(".node"))),
-        _ => None,
-    }) {
+    if version_meta
+        .get("exports")
+        .is_some_and(value_contains_native_addon_path)
+    {
         findings.push(Diagnostic::error(
             e6::INCOMPATIBLE_PACKAGE as u32,
             format!(
-                "package '{package_name}'@{version} in {registry} publishes a native addon bin entrypoint '{path}' and falls outside the pure JS/TS package contract",
+                "package '{package_name}'@{version} in {registry} publishes a native addon exports target and falls outside the pure JS/TS package contract",
+            ),
+        ));
+    }
+
+    if version_meta
+        .get("bin")
+        .is_some_and(value_contains_native_addon_path)
+    {
+        findings.push(Diagnostic::error(
+            e6::INCOMPATIBLE_PACKAGE as u32,
+            format!(
+                "package '{package_name}'@{version} in {registry} publishes a native addon bin entrypoint and falls outside the pure JS/TS package contract",
             ),
         ));
     }
@@ -1918,6 +1927,15 @@ fn read_package_json(package_dir: &Path) -> Result<PackageJson, Vec<Diagnostic>>
     Ok(package_json)
 }
 
+fn value_contains_native_addon_path(value: &serde_json::Value) -> bool {
+    match value {
+        serde_json::Value::String(path) => path.ends_with(".node"),
+        serde_json::Value::Array(values) => values.iter().any(value_contains_native_addon_path),
+        serde_json::Value::Object(map) => map.values().any(value_contains_native_addon_path),
+        _ => false,
+    }
+}
+
 fn validate_package_shape(
     package_json: &PackageJson,
     allow_scripts: bool,
@@ -1985,14 +2003,22 @@ fn validate_package_shape(
         )]);
     }
 
-    if package_json.bin.as_ref().is_some_and(|value| match value {
-        serde_json::Value::String(path) => path.ends_with(".node"),
-        serde_json::Value::Object(map) => map
-            .values()
-            .filter_map(|value| value.as_str())
-            .any(|path| path.ends_with(".node")),
-        _ => false,
-    }) {
+    if package_json
+        .exports
+        .as_ref()
+        .is_some_and(value_contains_native_addon_path)
+    {
+        return Err(vec![Diagnostic::error(
+            e6::INCOMPATIBLE_PACKAGE as u32,
+            "package publishes a native addon exports target and falls outside the pure JS/TS package contract",
+        )]);
+    }
+
+    if package_json
+        .bin
+        .as_ref()
+        .is_some_and(value_contains_native_addon_path)
+    {
         return Err(vec![Diagnostic::error(
             e6::INCOMPATIBLE_PACKAGE as u32,
             "package bin entry points to a native addon and falls outside the pure JS/TS package contract",
