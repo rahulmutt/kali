@@ -24,7 +24,7 @@ This stage does **not** own the later host/object-model breadth tracked in Phase
 
 ## Progress
 
-- `kali package-audit` now has regressions that prove inherited browser/runtime manifest settings do not alter the command's context-free registry-analysis semantics, that `--pretty --output json` keeps the envelope deterministic, that `--quiet --output json` still preserves the envelope payload, and that bare `--pretty` remains invalid usage.
+- `kali package-audit` now has regressions that prove inherited browser/runtime manifest settings do not alter the command's context-free registry-analysis semantics, that explicit `--api browser` stays on the package-analysis-specific flag rejection path, that `--pretty --output json` keeps the envelope deterministic, that `--quiet --output json` still preserves the envelope payload, and that bare `--pretty` remains invalid usage.
 - The package-audit JSON envelope now also has an error-finding regression for a native-addon package shape, pinning the `success: false` / `exitCode: 1` path and the structured `errors` array alongside the earlier warning-only case.
 - Added an explicit browser-only inherited-context regression for `kali package-audit` so the context-free registry-analysis boundary stays pinned even when `compilerOptions.apiSurface = browser` is selected in the surrounding project manifest.
 - The effect-analysis smoke suite now also pins `--compat eval` across both source-graph `effects` output and inherited-manifest `package-effects` output, keeping the dynamic-compatibility boundary aligned with the effect-report surface rather than only with `check` / `run` / `test`.
