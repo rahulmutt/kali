@@ -27,6 +27,7 @@ commands, versioned artifact metadata schemas, and the `kali.json` config schema
 - Tightened the default human diagnostic renderer so severity labels and help/note lines follow the canonical `error[...]` / `= help:` / `= note:` style.
 - Added explicit later-compatibility gating for `kali check --fix`, so the checker autofix path now rejects through the canonical `E5506` availability diagnostic instead of falling through to an unhelpful unknown-flag parse error.
 - Aligned the spec-owned availability code name across the CLI/runtime smoke regressions and diagnostic docs so the feature-unavailable gate now consistently reports `E5506` instead of the earlier placeholder numbering.
+- Deduplicated unresolved codegen fallback diagnostics within a compilation so repeated missing identifiers/call targets now keep the compatibility warning path deterministic without flooding the diagnostic stream, while still preserving the explicit placeholder-fallback note for the first occurrence of each unresolved symbol.
 
 ## Tasks
 

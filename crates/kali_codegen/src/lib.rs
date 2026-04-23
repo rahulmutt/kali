@@ -132,6 +132,7 @@ struct FunctionEmitter<'a> {
     source_path: Option<PathBuf>,
     locals: BTreeMap<String, u32>,
     bindings: BTreeMap<String, LirNodeId>,
+    reported_placeholder_fallbacks: HashSet<String>,
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -157,11 +158,42 @@ impl<'a> FunctionEmitter<'a> {
             source_path,
             locals,
             bindings: BTreeMap::new(),
+            reported_placeholder_fallbacks: HashSet::new(),
         }
     }
 
     fn node(&self, id: LirNodeId) -> &LirNode {
         &self.node_lookup[id.0 as usize]
+    }
+
+    fn push_placeholder_fallback_diagnostic(&mut self, kind: &str, name: &str) {
+        let fallback_key = format!("{kind}:{name}");
+        if !self.reported_placeholder_fallbacks.insert(fallback_key) {
+            return;
+        }
+
+        let message = match kind {
+            "identifier" => format!(
+                "unresolved identifier '{}' lowered through a placeholder 0 compatibility fallback",
+                name
+            ),
+            "call target" => format!(
+                "unresolved call target '{}' lowered through a placeholder 0 compatibility fallback",
+                name
+            ),
+            _ => format!(
+                "unresolved {} '{}' lowered through a placeholder 0 compatibility fallback",
+                kind, name
+            ),
+        };
+
+        let mut diagnostic = Diagnostic::warning(e8::IR_UNREADABLE as u32, message).note(
+            "name resolution should resolve this before codegen; the fallback emits a zero placeholder and should remain a compatibility escape hatch only",
+        );
+        if let Some(source_path) = &self.source_path {
+            diagnostic = diagnostic.note(format!("source path: {}", source_path.display()));
+        }
+        self.diagnostics.push(diagnostic);
     }
 
     fn emit_coverage_hit(&mut self, function: &mut Function, coverage_id: Option<u32>) {
@@ -300,21 +332,7 @@ impl<'a> FunctionEmitter<'a> {
                         };
                     }
 
-                    let mut diagnostic = Diagnostic::warning(
-                        e8::IR_UNREADABLE as u32,
-                        format!(
-                            "unresolved identifier '{}' lowered through a placeholder 0 compatibility fallback",
-                            text
-                        ),
-                    )
-                    .note(
-                        "name resolution should resolve this before codegen; the fallback emits a zero placeholder and should remain a compatibility escape hatch only",
-                    );
-                    if let Some(source_path) = &self.source_path {
-                        diagnostic =
-                            diagnostic.note(format!("source path: {}", source_path.display()));
-                    }
-                    self.diagnostics.push(diagnostic);
+                    self.push_placeholder_fallback_diagnostic("identifier", text);
                     function.instruction(&Instruction::I64Const(0));
                     EmittedValue {
                         produced: true,
@@ -603,20 +621,7 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
-        let mut diagnostic = Diagnostic::warning(
-            e8::IR_UNREADABLE as u32,
-            format!(
-                "unresolved call target '{}' lowered through a placeholder 0 compatibility fallback",
-                callee_name
-            ),
-        )
-        .note(
-            "name resolution should resolve this before codegen; the fallback emits a zero placeholder and should remain a compatibility escape hatch only",
-        );
-        if let Some(source_path) = &self.source_path {
-            diagnostic = diagnostic.note(format!("source path: {}", source_path.display()));
-        }
-        self.diagnostics.push(diagnostic);
+        self.push_placeholder_fallback_diagnostic("call target", callee_name);
         for _ in node.children.iter().skip(1) {
             function.instruction(&Instruction::Drop);
         }

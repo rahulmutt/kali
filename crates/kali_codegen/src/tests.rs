@@ -331,6 +331,35 @@ fn unresolved_call_target_lowering_attaches_a_guidance_note() {
 }
 
 #[test]
+fn duplicate_unresolved_identifier_lowering_reports_one_guidance_note() {
+    let mut program = sample_program();
+    program.nodes[7].text = Some("missing_value".to_string());
+    program.nodes[8].text = Some("missing_value".to_string());
+
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    let matching_diagnostics = result
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.message.contains("missing_value"))
+        .count();
+    assert_eq!(
+        matching_diagnostics, 1,
+        "expected the repeated unresolved identifier to be reported once: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn mir_backed_pipeline_reduces_legacy_overhead_on_escaping_locals() {
     let current_lir = sample_program();
     let mir = kali_mir::MirProgram {
