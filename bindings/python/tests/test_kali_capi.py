@@ -196,6 +196,75 @@ class KaliCapiSmokeTests(unittest.TestCase):
             self.assertEqual(binding.zero(), 7)
             self.assertEqual(binding._library.calls, [("add", 2, 3), ("zero",)])
 
+    def test_binding_package_manifest_discovery_rejects_ambiguity_and_accepts_explicit_names(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            alpha_manifest_path = root / "alpha.binding-package.json"
+            beta_manifest_path = root / "beta.binding-package.json"
+
+            alpha_manifest_path.write_text(
+                json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "kind": "binding-package",
+                        "moduleName": "alpha",
+                        "hostAbiVersion": 2,
+                        "minHostAbiVersion": 2,
+                        "artifacts": {
+                            "exportsHeader": "alpha.h",
+                            "glue": ["alpha.py"],
+                            "library": "alpha.capi.wasm",
+                            "metadata": "alpha.cabi.json",
+                        },
+                    },
+                    sort_keys=True,
+                )
+            )
+            beta_manifest_path.write_text(
+                json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "kind": "binding-package",
+                        "moduleName": "beta",
+                        "hostAbiVersion": 2,
+                        "minHostAbiVersion": 2,
+                        "artifacts": {
+                            "exportsHeader": "beta.h",
+                            "glue": ["beta.py"],
+                            "library": "beta.capi.wasm",
+                            "metadata": "beta.cabi.json",
+                        },
+                    },
+                    sort_keys=True,
+                )
+            )
+
+            with self.assertRaises(ValueError):
+                discover_binding_package_manifest_path(root)
+
+            self.assertEqual(
+                discover_binding_package_manifest_path(root, "beta.binding-package.json"),
+                beta_manifest_path,
+            )
+
+            manifest = load_binding_package_manifest_from_root(root, "alpha.binding-package.json")
+            self.assertEqual(
+                manifest,
+                BindingPackageManifest(
+                    schema_version=1,
+                    kind="binding-package",
+                    module_name="alpha",
+                    host_abi_version=2,
+                    min_host_abi_version=2,
+                    artifacts={
+                        "exportsHeader": "alpha.h",
+                        "glue": ("alpha.py",),
+                        "library": "alpha.capi.wasm",
+                        "metadata": "alpha.cabi.json",
+                    },
+                ),
+            )
+
     def test_incompatible_binding_package_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

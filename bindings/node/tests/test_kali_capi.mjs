@@ -114,6 +114,66 @@ test('binding package manifests sort glue paths and auto-discover single manifes
   rmSync(tempRoot, { recursive: true, force: true });
 });
 
+test('binding package manifests reject ambiguous auto-discovery and honor explicit manifest names', () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), 'kali-capi-node-'));
+  const alphaManifestPath = join(tempRoot, 'alpha.binding-package.json');
+  const betaManifestPath = join(tempRoot, 'beta.binding-package.json');
+
+  writeFileSync(
+    alphaManifestPath,
+    JSON.stringify({
+      schemaVersion: 1,
+      kind: 'binding-package',
+      moduleName: 'alpha',
+      hostAbiVersion: HOST_ABI_VERSION,
+      artifacts: {
+        glue: ['alpha.js'],
+        library: 'alpha.capi.wasm',
+        metadata: 'alpha.cabi.json',
+        exportsHeader: 'alpha.h',
+      },
+    }),
+  );
+  writeFileSync(
+    betaManifestPath,
+    JSON.stringify({
+      schemaVersion: 1,
+      kind: 'binding-package',
+      moduleName: 'beta',
+      hostAbiVersion: HOST_ABI_VERSION,
+      artifacts: {
+        glue: ['beta.js'],
+        library: 'beta.capi.wasm',
+        metadata: 'beta.cabi.json',
+        exportsHeader: 'beta.h',
+      },
+    }),
+  );
+
+  assert.throws(() => discoverBindingPackageManifestPath(tempRoot), /ambiguous/);
+  assert.equal(
+    discoverBindingPackageManifestPath(tempRoot, 'beta.binding-package.json'),
+    betaManifestPath,
+  );
+
+  const manifest = loadBindingPackageManifestFromRoot(tempRoot, 'alpha.binding-package.json');
+  assert.deepEqual(manifest, {
+    schemaVersion: 1,
+    kind: 'binding-package',
+    moduleName: 'alpha',
+    hostAbiVersion: HOST_ABI_VERSION,
+    minHostAbiVersion: HOST_ABI_VERSION,
+    artifacts: {
+      exportsHeader: 'alpha.h',
+      glue: ['alpha.js'],
+      library: 'alpha.capi.wasm',
+      metadata: 'alpha.cabi.json',
+    },
+  });
+
+  rmSync(tempRoot, { recursive: true, force: true });
+});
+
 test('binding package helpers reject incompatible host ABI metadata', () => {
   const metadata = parseMetadata(
     JSON.stringify({

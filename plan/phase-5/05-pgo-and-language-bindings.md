@@ -31,16 +31,19 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
   Python wrapper can auto-discover that generated bundle layout directly while preserving the same
   host-ABI compatibility check, and both the Python and Node helpers now expose public
   bundle-root manifest loaders so higher-level binding code can reuse the same discovery rules
-  without duplicating them. The maintained Node ESM helper now mirrors the same manifest/metadata
-  discovery rules over the stable C ABI, and now also exposes a small `KaliCAPI` wrapper that binds
-  generated exports onto an existing library object, so the later binding lane has more than one
-  non-Rust smoke path to prove the packaging contract. The root README now calls out the generated
-  sidecar flow alongside the maintained Python helper docs, so the package/distribution shape stays
-  explicit for the later binding workflow instead of limiting the stage to header-only glue. The
-  Python binding now also has explicit packaging metadata (`bindings/python/pyproject.toml` plus
-  `README.md`) and regression coverage for both the generic package scaffold and the stem-specific
-  generated bundle, and the C-ABI smoke coverage now pins the manifest file alongside the generated
-  header and metadata outputs.
+  without duplicating them. The manifest-discovery regressions now also pin the deterministic
+  ambiguity error when multiple stem-specific manifests are present, while still allowing explicit
+  manifest-name selection for callers that want to target one bundle directly. The maintained Node
+  ESM helper now mirrors the same manifest/metadata discovery rules over the stable C ABI, and now
+  also exposes a small `KaliCAPI` wrapper that binds generated exports onto an existing library
+  object, so the later binding lane has more than one non-Rust smoke path to prove the packaging
+  contract. The root README now calls out the generated sidecar flow alongside the maintained
+  Python helper docs, so the package/distribution shape stays explicit for the later binding
+  workflow instead of limiting the stage to header-only glue. The Python binding now also has
+  explicit packaging metadata (`bindings/python/pyproject.toml` plus `README.md`) and regression
+  coverage for both the generic package scaffold and the stem-specific generated bundle, and the
+  C-ABI smoke coverage now pins the manifest file alongside the generated header and metadata
+  outputs.
 - Added the first deterministic profile-data format to `kali_optimize`, including stable versioning,
   normalization, aggregation, and JSON round-trip coverage so the later PGO lane has one canonical
   collection shape to build on.
