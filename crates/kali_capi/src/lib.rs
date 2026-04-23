@@ -340,6 +340,100 @@ pub fn load_metadata_summary(path: impl AsRef<Path>) -> Result<Value, String> {
     cabi_metadata_summary(&metadata)
 }
 
+/// Discover the generated C ABI metadata sidecar inside a bundle root.
+pub fn discover_metadata_path(bundle_root: impl AsRef<Path>) -> Result<PathBuf, String> {
+    discover_metadata_path_with_name(bundle_root, "cabi-metadata.json")
+}
+
+/// Discover a specific generated C ABI metadata sidecar name inside a bundle root.
+pub fn discover_metadata_path_with_name(
+    bundle_root: impl AsRef<Path>,
+    metadata_name: impl AsRef<str>,
+) -> Result<PathBuf, String> {
+    let bundle_root = bundle_root.as_ref();
+    let metadata_name = metadata_name.as_ref();
+    let explicit_path = bundle_root.join(metadata_name);
+    if explicit_path.exists() {
+        return Ok(explicit_path);
+    }
+
+    if metadata_name != "cabi-metadata.json" {
+        return Err(format!(
+            "cabi metadata '{}' was not found",
+            explicit_path.display()
+        ));
+    }
+
+    let mut discovered = Vec::new();
+    let entries = fs::read_dir(bundle_root).map_err(|error| {
+        format!(
+            "failed to read cabi metadata directory '{}': {}",
+            bundle_root.display(),
+            error
+        )
+    })?;
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            format!(
+                "failed to read cabi metadata directory '{}': {}",
+                bundle_root.display(),
+                error
+            )
+        })?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if name.ends_with(".capi.meta.json") {
+            discovered.push(path);
+        }
+    }
+    discovered.sort();
+
+    match discovered.len() {
+        0 => Err(format!(
+            "cabi metadata '{}' was not found",
+            explicit_path.display()
+        )),
+        1 => Ok(discovered.remove(0)),
+        _ => Err(format!(
+            "cabi metadata is ambiguous in '{}'; pass a metadata name explicitly",
+            bundle_root.display()
+        )),
+    }
+}
+
+/// Load generated C ABI metadata from a discovered bundle root.
+pub fn load_metadata_from_root(bundle_root: impl AsRef<Path>) -> Result<Value, String> {
+    load_metadata_from_root_with_name(bundle_root, "cabi-metadata.json")
+}
+
+/// Load and summarize generated C ABI metadata from a discovered bundle root.
+pub fn load_metadata_summary_from_root(bundle_root: impl AsRef<Path>) -> Result<Value, String> {
+    load_metadata_summary_from_root_with_name(bundle_root, "cabi-metadata.json")
+}
+
+/// Discover and load a specific generated C ABI metadata sidecar name from a bundle root.
+pub fn load_metadata_from_root_with_name(
+    bundle_root: impl AsRef<Path>,
+    metadata_name: impl AsRef<str>,
+) -> Result<Value, String> {
+    let path = discover_metadata_path_with_name(bundle_root, metadata_name)?;
+    load_metadata(path)
+}
+
+/// Discover, load, and summarize a specific generated C ABI metadata sidecar name from a bundle root.
+pub fn load_metadata_summary_from_root_with_name(
+    bundle_root: impl AsRef<Path>,
+    metadata_name: impl AsRef<str>,
+) -> Result<Value, String> {
+    let metadata = load_metadata_from_root_with_name(bundle_root, metadata_name)?;
+    cabi_metadata_summary(&metadata)
+}
+
 /// Discover the generated binding package manifest inside a bundle root.
 pub fn discover_binding_package_manifest_path(
     bundle_root: impl AsRef<Path>,

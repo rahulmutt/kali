@@ -113,6 +113,101 @@ fn cabi_metadata_helpers_load_and_summarize_generated_payloads() {
 }
 
 #[test]
+fn cabi_metadata_helpers_discover_load_and_summarize_root_sidecars() {
+    let temp_root = std::env::temp_dir().join(format!(
+        "kali_capi_metadata_root_{}_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("monotonic time")
+            .as_nanos()
+    ));
+    fs::create_dir_all(&temp_root).expect("temp dir");
+
+    let metadata_path = temp_root.join("sample.capi.meta.json");
+    let metadata = generate_metadata_with_provenance(
+        "sample.capi.wasm",
+        "sample.wit",
+        "sample.h",
+        &[
+            "wasm-threads".to_string(),
+            "fiber-threads".to_string(),
+            "wasm-threads".to_string(),
+        ],
+        8,
+        Some("kali-hosted"),
+        Some("wasmtime"),
+    );
+    fs::write(&metadata_path, metadata.to_string()).expect("write cabi metadata sidecar");
+    fs::write(temp_root.join("noise.txt"), "ignore me").expect("write noise file");
+
+    let discovered = discover_metadata_path(&temp_root).expect("discover cabi metadata sidecar");
+    assert_eq!(discovered, metadata_path);
+
+    let explicit = discover_metadata_path_with_name(&temp_root, "sample.capi.meta.json")
+        .expect("discover explicit cabi metadata sidecar");
+    assert_eq!(explicit, metadata_path);
+
+    let loaded = load_metadata_from_root(&temp_root).expect("load cabi metadata from root");
+    assert_eq!(loaded["kind"], "cabi-metadata");
+    assert_eq!(
+        loaded["runtimeProfiles"],
+        serde_json::json!(["fiber-threads", "wasm-threads"])
+    );
+    assert_eq!(loaded["hostContract"], "kali-hosted");
+    assert_eq!(loaded["runtimeBackend"], "wasmtime");
+
+    let summary = load_metadata_summary_from_root(&temp_root)
+        .expect("load and summarize cabi metadata from root");
+    assert_eq!(summary["kind"], "cabi-metadata");
+    assert_eq!(
+        summary["runtimeProfiles"],
+        serde_json::json!(["fiber-threads", "wasm-threads"])
+    );
+    assert_eq!(summary["hostContract"], "kali-hosted");
+    assert_eq!(summary["runtimeBackend"], "wasmtime");
+
+    let explicit_summary =
+        load_metadata_summary_from_root_with_name(&temp_root, "sample.capi.meta.json")
+            .expect("load and summarize explicit cabi metadata sidecar");
+    assert_eq!(explicit_summary, summary);
+}
+
+#[test]
+fn cabi_metadata_helpers_reject_ambiguous_auto_discovery() {
+    let temp_root = std::env::temp_dir().join(format!(
+        "kali_capi_metadata_root_{}_ambiguous_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("monotonic time")
+            .as_nanos()
+    ));
+    fs::create_dir_all(&temp_root).expect("temp dir");
+
+    for stem in ["first", "second"] {
+        let metadata_path = temp_root.join(format!("{}.capi.meta.json", stem));
+        fs::write(
+            &metadata_path,
+            generate_metadata_with_provenance(
+                format!("{}.capi.wasm", stem),
+                format!("{}.wit", stem),
+                format!("{}.h", stem),
+                &[],
+                8,
+                Some("kali-hosted"),
+                Some("wasmtime"),
+            )
+            .to_string(),
+        )
+        .expect("write ambiguous metadata sidecar");
+    }
+
+    let error = discover_metadata_path(&temp_root).expect_err("ambiguous discovery should fail");
+    assert!(error.contains("ambiguous"), "unexpected error: {error}");
+}
+
+#[test]
 fn binding_package_manifest_orders_and_deduplicates_glue_deterministically() {
     let manifest = generate_binding_package_manifest(
         "sample",
