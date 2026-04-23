@@ -285,6 +285,15 @@ fn browser_runtime_contract_documents_the_future_execution_surface() {
         descriptor.contract_scope_note,
         "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness"
     );
+    assert_eq!(
+        BrowserRuntimeContract::diagnostic_notes(),
+        &[
+            BrowserRuntimeContract::supported_commands_note(),
+            BrowserRuntimeContract::summary_note(),
+            BrowserRuntimeContract::contract_scope_note(),
+            BrowserRuntimeContract::host_description_note(),
+        ]
+    );
     assert!(descriptor
         .diagnostic_hint
         .contains("kali check --api browser"));

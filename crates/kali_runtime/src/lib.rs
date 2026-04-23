@@ -192,6 +192,14 @@ impl BrowserRuntimeContract {
     /// The command family the future browser runtime contract will own.
     pub const SUPPORTED_COMMANDS: [&'static str; 2] = ["run", "test"];
 
+    /// Canonical diagnostic notes for the browser runtime contract.
+    pub const DIAGNOSTIC_NOTES: [&'static str; 4] = [
+        Self::supported_commands_note(),
+        Self::summary_note(),
+        Self::contract_scope_note(),
+        Self::host_description_note(),
+    ];
+
     /// Return the canonical host-contract label used in diagnostics.
     pub const fn host_label() -> &'static str {
         RuntimeHostContract::BrowserRequested.canonical_label()
@@ -205,6 +213,11 @@ impl BrowserRuntimeContract {
     /// Return the future browser runtime contract's supported command names.
     pub const fn supported_commands() -> &'static [&'static str] {
         &Self::SUPPORTED_COMMANDS
+    }
+
+    /// Return a canonical ordered list of the browser runtime contract notes.
+    pub const fn diagnostic_notes() -> &'static [&'static str] {
+        &Self::DIAGNOSTIC_NOTES
     }
 
     /// Return a structured descriptor for the browser runtime contract.
@@ -2179,11 +2192,10 @@ pub fn browser_runtime_unavailable_diagnostic(
         .note(format!(
             "current runtime backend: {}",
             RuntimeBackend::Wasmtime.canonical_label()
-        ))
-        .note(browser_contract.supported_commands_note)
-        .note(browser_contract.summary_note)
-        .note(browser_contract.contract_scope_note)
-        .note(browser_contract.host_description_note);
+        ));
+    for note in BrowserRuntimeContract::diagnostic_notes() {
+        diagnostic = diagnostic.note(*note);
+    }
     if let Some(context) = context {
         diagnostic = diagnostic.with_context(context);
     }
