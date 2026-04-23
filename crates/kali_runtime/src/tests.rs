@@ -403,6 +403,10 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
         "C:/Program Files/Google/Chrome/Application/chrome.bat"
     ));
     assert!(browser_harness_uses_html_entrypoint("firefox"));
+    assert!(browser_harness_uses_html_entrypoint("firefox-nightly"));
+    assert!(browser_harness_uses_html_entrypoint(
+        "firefox-developer-edition"
+    ));
     assert!(!browser_harness_uses_html_entrypoint("node"));
     assert!(!browser_harness_uses_html_entrypoint("bun"));
 }
@@ -439,6 +443,20 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("firefox"),
         Some(vec!["firefox".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("firefox-nightly"),
+        Some(vec![
+            "firefox-nightly".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("firefox-developer-edition"),
+        Some(vec![
+            "firefox-developer-edition".to_string(),
+            "--headless".to_string()
+        ])
     );
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("node"),

@@ -2301,6 +2301,8 @@ fn browser_harness_is_browser_executable_name(executable: &str) -> bool {
             | "microsoft-edge-dev"
             | "firefox"
             | "firefox-esr"
+            | "firefox-nightly"
+            | "firefox-developer-edition"
     )
 }
 
@@ -2338,6 +2340,8 @@ fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
         "microsoft-edge-dev",
         "firefox",
         "firefox-esr",
+        "firefox-nightly",
+        "firefox-developer-edition",
     ];
 
     for candidate in CANDIDATES {

@@ -22,6 +22,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 
 ## Progress
 
+- Expanded browser-launcher alias coverage to include Firefox Nightly and Firefox Developer Edition executables in the shared browser harness, keeping the HTML-entrypoint and headless-launch selection honest for common Firefox-derived shims as well as direct browser binaries.
 - Added explicit browser-launcher alias coverage for Windows-style shell wrappers (`.cmd` / `.bat`) in the browser harness tests, keeping the HTML-entrypoint and headless-launch selection honest for executable shims as well as direct browser binaries.
 - Added a reusable browser-harness execution helper in `kali_runtime` that launches the configured command, appends the script entrypoint plus args, and returns deterministic stdout/stderr/exit-status capture for future browser runtime wiring and the existing smoke harnesses.
 - Browser-harness launches now convert browser-executable entrypoints into `file://` URLs before handing them to the host process, so the browser contract has a more realistic real-browser launch path while non-browser harnesses continue to use raw filesystem paths.
