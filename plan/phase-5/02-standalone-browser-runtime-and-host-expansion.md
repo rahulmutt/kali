@@ -109,7 +109,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 - Expanded the browser-harness alias regressions to cover additional privacy/community browser shims (`librewolf`, `waterfox`, `zen-browser`, and `thorium-browser`) so the browser host chooser stays honest across more real-world executable names without changing the later browser contract.
 - Hardened browser launcher normalization so layered wrapper suffixes like `.desktop`, `.app`, `.exe`, `.cmd`, `.bat`, and `.com` are stripped repeatedly before alias matching; wrapped names such as `Google Chrome.app.exe` and `microsoft-edge.desktop.cmd` now classify the same way as their base executables in the browser harness.
 - Browser-runtime summary recovery now preserves `hostContract` / `runtimeBackend` labels from stdout when a side-channel summary file carries the args/tests payload but omits those provenance fields, keeping the browser-harness outcome machine-readable even when the file-backed summary is only partially populated.
-- Browser launcher normalization now also strips Windows `.lnk` shortcut suffixes before alias matching, so shortcut-based browser launchers stay on the same browser-executable path as the other shell/bundle wrappers already covered by the harness tests.
+- Browser launcher normalization now also strips Windows `.lnk` shortcut suffixes before alias matching, even when they are layered with other wrappers, so shortcut-based browser launchers stay on the same browser-executable path as the other shell/bundle wrappers already covered by the harness tests.
 
 ## Tasks
 
