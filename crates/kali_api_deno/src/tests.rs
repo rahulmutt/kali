@@ -256,6 +256,8 @@ fn browser_url_is_reexported_through_the_deno_surface() {
 fn browser_stubs_are_reexported_through_the_deno_surface() {
     let socket = WebSocket::new("https://example.com/socket").expect("websocket url");
     assert_eq!(socket.ready_state(), WebSocketReadyState::Open);
+    socket.send_bytes(vec![0, 1, 2, 3]);
+    assert_eq!(socket.sent_binary_messages(), vec![vec![0, 1, 2, 3]]);
 
     let worker = Worker::new("https://example.com/worker.js").expect("worker url");
     assert_eq!(

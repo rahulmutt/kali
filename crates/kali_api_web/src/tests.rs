@@ -602,7 +602,12 @@ fn websocket_stub_tracks_sent_messages() {
 
     socket.send_text("hello");
     socket.send_text("world");
+    socket.send_bytes(vec![0xde, 0xad, 0xbe, 0xef]);
     assert_eq!(socket.sent_text_messages(), vec!["hello", "world"]);
+    assert_eq!(
+        socket.sent_binary_messages(),
+        vec![vec![0xde, 0xad, 0xbe, 0xef]]
+    );
 
     socket.close();
     assert_eq!(socket.ready_state(), WebSocketReadyState::Closed);

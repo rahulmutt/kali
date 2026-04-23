@@ -1661,6 +1661,7 @@ pub struct WebSocket {
     url: Url,
     ready_state: WebSocketReadyState,
     sent_text_messages: Arc<Mutex<Vec<String>>>,
+    sent_binary_messages: Arc<Mutex<Vec<Vec<u8>>>>,
 }
 
 /// Ready-state values for the stub WebSocket baseline.
@@ -1679,6 +1680,7 @@ impl WebSocket {
             url: Url::parse(url.as_ref())?,
             ready_state: WebSocketReadyState::Open,
             sent_text_messages: Arc::new(Mutex::new(Vec::new())),
+            sent_binary_messages: Arc::new(Mutex::new(Vec::new())),
         })
     }
 
@@ -1700,9 +1702,25 @@ impl WebSocket {
             .push(payload.into());
     }
 
+    /// Record a binary payload in the deterministic stub buffer.
+    pub fn send_bytes(&self, payload: impl AsRef<[u8]>) {
+        self.sent_binary_messages
+            .lock()
+            .expect("websocket mutex poisoned")
+            .push(payload.as_ref().to_vec());
+    }
+
     /// Return the buffered text payloads.
     pub fn sent_text_messages(&self) -> Vec<String> {
         self.sent_text_messages
+            .lock()
+            .expect("websocket mutex poisoned")
+            .clone()
+    }
+
+    /// Return the buffered binary payloads.
+    pub fn sent_binary_messages(&self) -> Vec<Vec<u8>> {
+        self.sent_binary_messages
             .lock()
             .expect("websocket mutex poisoned")
             .clone()
