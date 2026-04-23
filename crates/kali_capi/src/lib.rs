@@ -69,6 +69,7 @@ pub fn generate_binding_package_manifest(
 ) -> Value {
     let mut glue_paths: Vec<_> = glue_paths.iter().map(String::as_str).collect();
     glue_paths.sort();
+    glue_paths.dedup();
 
     json!({
         "schemaVersion": 1,

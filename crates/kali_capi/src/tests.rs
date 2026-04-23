@@ -16,13 +16,17 @@ fn metadata_generation_includes_expected_artifacts() {
 }
 
 #[test]
-fn binding_package_manifest_orders_glue_deterministically() {
+fn binding_package_manifest_orders_and_deduplicates_glue_deterministically() {
     let manifest = generate_binding_package_manifest(
         "sample",
         "sample.capi.wasm",
         "sample.cabi.json",
         "sample.h",
-        &["support.py".to_string(), "shim.py".to_string()],
+        &[
+            "support.py".to_string(),
+            "shim.py".to_string(),
+            "support.py".to_string(),
+        ],
     );
 
     assert_eq!(manifest["schemaVersion"], 1);
