@@ -46,7 +46,7 @@ Canonical terminology simplification:
 
 ## Command/API-Surface Snapshot
 
-This chapter describes API layering, but command availability still follows the shared **compatibility delivery ladder** from [SPEC.md](../SPEC.md) plus the maturity matrix.
+This chapter describes API layering, but command availability still follows the shared **support-claim reading order**, **package-support ladder** where package compatibility is involved, and **availability context** terms from [SPEC.md](../SPEC.md), plus the maturity matrix.
 
 Phase-1 reading aid:
 
@@ -71,7 +71,7 @@ Interpretation rules:
 - simplification rule: read that last row in two halves — `effects` may use explicit `--api ...` when its command exists, while `package-effects` keeps semantic context **inherited-only** in schema v1. That reuse story is about shared analysis semantics, not about inventing a second package-analysis flag family.
 
 Support-claim phrasing shortcut:
-- when this chapter says a surface is available for a command family, read that through the shared **compatibility delivery ladder** from [SPEC.md](../SPEC.md) rather than as one broad yes/no promise
+- when this chapter says a surface is available for a command family, read that through the shared **support-claim reading order** and **availability context** terms from [SPEC.md](../SPEC.md) rather than as one broad yes/no promise
 - for early browser-facing claims, prefer wording such as **checkable** or **deployable-through-host** over vague “browser support” prose
 - reserve **executable** for Kali-hosted runtime/test contracts only
 - for Phase-1 `build --lib`, prefer wording such as **buildable for exact-version consumers** over generic “embedding support” prose so the Phase-1 **base library artifact** does not get overread as the later **public embedding surface**

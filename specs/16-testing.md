@@ -24,7 +24,8 @@ Treat workflow families according to their maturity owner:
 
 Examples:
 - `run/test --sandbox`, the **Phase-1 static policy-validation surface**, and the **Phase-1 browser-targeted command set** need positive Phase-1 coverage.
-- `kali effects`, `kali package-effects`, `kali package-audit`, inferred-effect-vs-policy rejection on `check/build --sandbox`, stable public embedding flows (`--capi`, `--component`, stable public `--lib` + WIT), and wider proof claims stay negative/gated until their maturity rows open.
+- Before their maturity rows open, `kali effects`, `kali package-effects`, `kali package-audit`, inferred-effect-vs-policy rejection on `check/build --sandbox`, stable public embedding flows (`--capi`, `--component`, stable public `--lib` + WIT), and wider proof claims stay negative/gated.
+- Once those rows are open, the same surfaces must move to positive evidence in their matching lanes instead of lingering as historical negative tests.
 
 ## Evidence matrix
 

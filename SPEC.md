@@ -657,6 +657,15 @@ Only some effective-context axes participate in each command's semantics.
 | `package-audit` | none; context-free registry analysis |
 | `fmt`, `lint`, `init`, `install` | only their command-local semantic selectors |
 
+### Effective command context
+
+The **effective command context** is the fully merged per-invocation semantic context after built-in defaults, discovered config, and CLI flags are combined for the axes that participate in that command. It is the context used for validation, lowering, runtime behavior, diagnostics, and machine-readable reporting.
+
+Rules:
+- inherited config and explicit flags are equivalent once they produce the same effective command context,
+- non-participating axes are ignored rather than becoming hidden gates,
+- contradictory or unavailable participating axes must still fail through the normal command-shape or maturity-gate rules instead of silently falling back.
+
 ### Availability context
 
 A support claim must name its relevant command, artifact mode, API surface, and phase/status. “Supported” without context is usually too broad to be normative.
