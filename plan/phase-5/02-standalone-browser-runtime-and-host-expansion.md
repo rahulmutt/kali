@@ -23,6 +23,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 ## Progress
 
 - Centralized the browser-launcher alias list behind one shared runtime constant so both the default browser-command chooser and the executable-name classifier stay in sync, and extended the browser shim coverage to exercise the `.com` normalization path as part of the existing alias tests.
+- The browser-launcher normalizer now also strips macOS `.app` bundle suffixes before alias matching, so desktop-style browser app bundles classify the same way as their underlying executable names and stay covered by the browser-alias tests.
 - The browser launcher normalizer now also strips common `.desktop` wrapper spellings before alias matching, so explicit browser-harness overrides that point at desktop-entry launchers classify the same way as the underlying executable name and stay covered by the browser-alias tests.
 - The browser-runtime summary side channel now records the canonical `hostContract` / `runtimeBackend` labels alongside the existing args/tests payload, and the shared parser reuses those labels when they are present so the summary file is self-describing instead of only carrying test counts.
 - Added display-name alias coverage for Zen Browser and Thorium Browser so the later browser-runtime harness recognizes those common space-separated launcher spellings in addition to the existing hyphenated names.

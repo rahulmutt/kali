@@ -2280,6 +2280,7 @@ fn browser_harness_normalized_executable_name(executable: &str) -> String {
 
     executable
         .strip_suffix(".desktop")
+        .or_else(|| executable.strip_suffix(".app"))
         .or_else(|| executable.strip_suffix(".exe"))
         .or_else(|| executable.strip_suffix(".cmd"))
         .or_else(|| executable.strip_suffix(".bat"))
