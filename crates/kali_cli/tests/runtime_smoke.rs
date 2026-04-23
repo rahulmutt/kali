@@ -8504,23 +8504,29 @@ fn package_effects_rejects_package_analysis_specific_flags() {
     .expect("write package.json");
     fs::write(package_dir.join("index.js"), "console.log('hello');").expect("write package entry");
 
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("package-effects")
-        .arg("--api")
-        .arg("browser")
-        .arg("flagpkg")
-        .output()
-        .expect("run kali");
+    for args in [
+        &["--api", "browser"][..],
+        &["--compat", "eval"][..],
+        &["--wasm-threads"][..],
+        &["--sandbox", "kali.policy.json"][..],
+    ] {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("package-effects")
+            .args(args)
+            .arg("flagpkg")
+            .output()
+            .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5508"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("does not accept package-analysis-specific flags"),
-        "stderr: {stderr}"
-    );
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(5));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5508"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("does not accept package-analysis-specific flags"),
+            "stderr: {stderr}"
+        );
+    }
 }
 
 #[test]

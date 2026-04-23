@@ -23,6 +23,7 @@ Current repository note:
 
 Recent hardening:
 - a dedicated determinism smoke lane now runs through `scripts/check-determinism.sh` and a matching CI job, so the repeated-build evidence is exercised separately from the larger runtime smoke suite
+- package-effects now also rejects the full inherited-analysis flag family (`--api`, `--compat`, `--wasm-threads`, and `--sandbox`) with the canonical package-analysis-specific `E5508` message, keeping the registry-analysis command honest about its inherited-only context
 - package-audit and package-effects JSON envelopes are now pinned under inherited browser context and quiet mode, reducing machine-contract drift across analysis presentation flags
 - package-audit now also rejects the legacy `--preview` shim with the canonical `E5508` command-shape diagnostic before registry lookup, keeping the envelope-only contract free of an extra compatibility mode; the regression is covered in both plain and JSON output modes so the schema-v1 envelope path stays pinned too
 - package-effects now also pins quiet-mode JSON output under inherited `eval` compatibility, so the analysis envelope remains stable even when dynamic-effect metadata comes from `kali.json`
