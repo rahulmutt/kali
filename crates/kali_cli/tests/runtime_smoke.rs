@@ -6913,6 +6913,25 @@ fn package_audit_ignores_inherited_analysis_context() {
 }
 
 #[test]
+fn package_audit_rejects_pretty_without_json_output() {
+    let output = Command::new(kali_bin())
+        .arg("package-audit")
+        .arg("--pretty")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5008"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("`--pretty` is only meaningful when JSON output is active"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn package_audit_rejects_preview_compatibility_shim() {
     let (registry_url, hits, stop, handle) =
         start_registry_metadata_server(package_audit_metadata_body(None, false));
@@ -6968,6 +6987,48 @@ fn package_audit_command_emits_json_envelope() {
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"], serde_json::Value::Null);
+    assert!(json["stdout"]
+        .as_str()
+        .expect("stdout string")
+        .contains("no security findings were computed"));
+    assert_eq!(json["warnings"], serde_json::Value::Array(vec![]));
+    assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
+}
+
+#[test]
+fn package_audit_command_emits_pretty_json_envelope() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--pretty")
+        .arg("--output")
+        .arg("json")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("\n  \"schemaVersion\""), "stdout: {stdout}");
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "package-audit");
