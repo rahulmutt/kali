@@ -7791,6 +7791,46 @@ fn package_audit_command_suppresses_human_output_under_quiet() {
 }
 
 #[test]
+fn package_audit_command_emits_json_envelope_under_quiet() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--quiet")
+        .arg("--output")
+        .arg("json")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"], serde_json::Value::Null);
+    assert!(json["stdout"]
+        .as_str()
+        .expect("stdout string")
+        .contains("no security findings were computed"));
+    assert_eq!(json["warnings"], serde_json::Value::Array(vec![]));
+    assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
+}
+
+#[test]
 fn package_audit_command_reports_findings() {
     let (registry_url, hits, stop, handle) =
         start_registry_metadata_server(package_audit_metadata_body(Some("echo ok"), false));
