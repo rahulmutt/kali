@@ -11,7 +11,8 @@ Status-label spelling rule:
 Phase-label reading rule:
 - these labels name the **earliest support contract**, not the recommended implementation sequence
 - if a feature is documented early for vocabulary/schema stability, that does not promote it into the current phase by itself
-- use [SPEC.md](../SPEC.md)'s **Phase contracts vs implementation order** guidance whenever roadmap sequencing and maturity labels might otherwise get conflated
+- once the repository has advanced beyond that phase, the row keeps the same label as the provenance/earliest-contract marker; do **not** misread `Phase 2 target`, `Phase 3 target`, or `Phase 4 compatibility` as automatically meaning "still unavailable in the current repo"
+- use this chapter's current-state notes plus [SPEC.md](../SPEC.md)'s **Phase contracts vs implementation order** guidance whenever roadmap sequencing, present-tense implementation state, and maturity labels might otherwise get conflated
 
 Bootstrap-triage note:
 - this matrix classifies **phase contracts** and **phase-gated breadth targets** after the normalization rules in [SPEC.md](../SPEC.md)
@@ -38,7 +39,7 @@ Bootstrap-triage note:
 |---|---|
 | Phase 1 MVP | Must ship in the first dependable end-to-end release |
 | Phase 1 MVP (opt-in only) | Must exist in the first dependable release, but only behind an explicit flag/config and with a default-off posture |
-| Phase 2 target / Phase 3 target / Phase 4 compatibility | Planned work for that phase; before then, reject with the canonical gating path rather than partially emulating it |
+| Phase 2 target / Phase 3 target / Phase 4 compatibility | Earliest phase-owned support boundary for that feature family; before that phase, reject with the canonical gating path rather than partially emulating it. After the repository has advanced, use the row rationale and the **Current Repository State Snapshot** to tell whether that phase-owned surface is live today. |
 | Later compatibility | Intentionally deferred with no near-phase promise |
 | Opt-in only | Implemented only behind an explicit flag/config once it exists; use this only when the surrounding row/table already makes the earliest phase obvious |
 | Later compatibility (opt-in only) | Both deferred and explicitly gated when it eventually lands |
@@ -74,13 +75,34 @@ Verification-baseline clarification:
 
 This keeps “Phase 1 MVP” and later status labels tied to measurable behavior rather than intent alone.
 
+## Current Repository State Snapshot
+
+This section is the short current-state companion to the phase-labeled matrix.
+
+Reading rule:
+- the matrix rows below still keep their canonical **earliest support contract** labels
+- this snapshot answers the separate question **what is live in the repository today?**
+- expected future widening remains controlled by the exact matrix rows, owning spec chapters, and proof boundary rather than by broad summary prose
+
+Current repository snapshot (2026-04-23):
+
+| Area | Current repository state | Future / remaining boundary |
+|---|---|---|
+| Public effect reporting | `kali effects`, `kali package-effects`, and the policy-comparison half on `check/build --sandbox` are implemented and evidence-backed in the current repo | custom/user-defined effect kinds and algebraic-effect widening still follow their later rows |
+| Embedding surface | `kali build --lib` now emits the stable WIT-sidecar form, `kali build --capi` and `kali build --component` are implemented, and the public embedding crates/metadata flows are present | browser-targeted embedding breadth and any later ABI/platform widening still follow their own rows |
+| Coverage reporting | `kali test --coverage` ships the stable deterministic function-coverage contract | browser-runtime coverage and any later granularity widening still depend on their own rows |
+| Dynamic compatibility / registry audit | `--compat eval` is implemented for the documented path, and `kali package-audit` is publicly available in its schema-v1 command shape | broader late dynamic/runtime/object-model breadth still follows its later rows |
+| Verification | the repository is **proof-backed for the published boundary** in [`proofs/BOUNDARY.md`](../proofs/BOUNDARY.md) | broader proof-backed claims remain limited by future published-boundary widening |
+| Still intentionally gated today | broad `--api node` support, positive `--wasm-threads` execution/profile support, and late host/object-model APIs such as process-control members, `Proxy`, weak/finalization APIs, and broader `Intl` remain phase-gated unless and until their rows are promoted with evidence | those rows remain the authoritative future-state plan |
+| Browser runtime nuance | browser-runtime harness/helper work exists, but default support claims for standalone `run/test --api browser` must still be read from the later browser-runtime rows and their documented gates instead of being inferred from internal harness plumbing alone | widening that runtime contract remains row-by-row and evidence-backed |
+
 ## Phase-1 Shipped Surface Summary
 
 This section is a compact reading aid for the most common Phase-1 question: **what is actually shipped end to end?**
 
 Current-repository-state note:
 - this section is intentionally a **Phase-1** reading aid, not a full description of the current repository state after later phases
-- when the repository has advanced further, read this section as the historical/shipping minimum for Phase 1 and use the owning later rows plus `proofs/BOUNDARY.md` to answer the current-state question
+- when the repository has advanced further, read this section as the historical/shipping minimum for Phase 1 and use the **Current Repository State Snapshot** above, the owning later rows, and `proofs/BOUNDARY.md` to answer the current-state question
 
 It is intentionally narrower than the full command/profile matrix below:
 - it lists only the core command/context families that should be treated as shipped in Phase 1,
@@ -174,8 +196,8 @@ Maintenance note:
 | Socket/listener networking (`Network.Connect`, `Network.Listen`, `Deno.serve`) | Phase 3 target | Requires explicit network policy and concurrency controls |
 | Process identity and process-control/working-directory APIs (`Deno.pid`, `process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`) | Later compatibility | Deferred until a future schema/policy contract makes their sandbox and embedding behavior explicit |
 | Internal sandbox-oriented effect bookkeeping | Phase 1 MVP | Follows the shared **effect-surface split** from [SPEC.md](../SPEC.md): Phase 1 may already maintain conservative built-in effect facts internally for sandbox-first implementation and later integration work without claiming a stable CLI/JSON reporting surface |
-| Stable public built-in effect reporting / `kali effects` / `kali package-effects` | Phase 2 target | This is the reporting half of the Phase-2 **public effect-report surface** side of that same split: stable user-facing effect JSON as a conservative upper-bound report plus the reporting commands that expose it |
-| Compile/check-time inferred-effect-vs-policy validation on `kali check --sandbox` / `kali build --sandbox` | Phase 2 target | This is the pass/fail half of the same Phase-2 **public effect-report surface**: it extends the existing Phase-1 policy-schema/config validation workflow instead of creating a second sandbox command family |
+| Stable public built-in effect reporting / `kali effects` / `kali package-effects` | Phase 2 target | This is the reporting half of the Phase-2 **public effect-report surface** side of that same split: stable user-facing effect JSON as a conservative upper-bound report plus the reporting commands that expose it. That surface is live in the current repository; the Phase-2 label still marks the earliest support boundary. |
+| Compile/check-time inferred-effect-vs-policy validation on `kali check --sandbox` / `kali build --sandbox` | Phase 2 target | This is the pass/fail half of the same Phase-2 **public effect-report surface**: it extends the existing Phase-1 policy-schema/config validation workflow instead of creating a second sandbox command family. That policy-comparison half is live in the current repository for the documented built-in surface; the Phase-2 label still marks the earliest support boundary. |
 | Explicit effect annotations / `pure` | Phase 2 target | Initially scoped to the built-in sandbox capability model |
 | User-defined/custom effect kinds in stable reports or policy validation/comparison | Later compatibility | Keep Phase 1-2 machine contracts limited to built-in sandbox-relevant effects |
 | Algebraic effect declarations / handlers | Later compatibility | Reserved later surface; must not block delivery of the core capability/effect system |
@@ -184,7 +206,8 @@ Maintenance note:
 | Published **proof-boundary manifest** + proof-CI trigger policy for the current published proof boundary | Phase 1 MVP | This is the Phase-1 **proof-ready** baseline: Kali needs an explicit proof boundary at `proofs/BOUNDARY.md` plus the proof-CI trigger policy for whatever boundary is currently published there. During pre-proof iteration that boundary may still be empty; once the Lean tree exists, it may instead be a provisional non-empty boundary, and in both cases the practical requirement is the published boundary plus its honest trigger policy rather than already-wired hosted proof automation |
 | Proof-backed release/support claims while `proofs/BOUNDARY.md` is still the shared **placeholder proof-boundary manifest** | Rejected by default | The proof-ready baseline alone is not enough for proof-backed marketing. Until `proofs/BOUNDARY.md` names at least one concrete modeled subsystem plus theorem/property inventory, release notes, README summaries, and support claims must not present formal verification as a shipped Kali capability |
 | Proof-backed release/support claims while `proofs/BOUNDARY.md` is still a provisional non-empty proof boundary | Rejected by default | The published boundary may already name concrete modeled subsystems, but while those claims remain provisional or documented-sorry placeholders they are still only proof-ready; release notes, README summaries, and support claims must not present them as shipped mechanized evidence |
-| Broader proof coverage for ownership/effects/lowering beyond the initial published proof boundary | Phase 2 target | Align verification expansion with the ownership/effects phase instead of letting proof claims drift ahead of the modeled semantics |
+| Proof-backed release/support claims for the current published boundary named in `proofs/BOUNDARY.md` | Phase 4 compatibility | This is the current repository state: Kali may claim to be **proof-backed for the published boundary** exactly as summarized in [`proofs/BOUNDARY.md`](../proofs/BOUNDARY.md), while still avoiding broader proof-backed claims for subsystems or paths the published boundary does not yet name. The Phase-4 label here is provenance: it marks the earliest compatibility phase that opens this stronger claim, not a statement that the repo is still pre-Phase-4. |
+| Broader proof coverage for ownership/effects/lowering beyond the initial published proof boundary | Phase 2 target | Align verification expansion with the ownership/effects phase instead of letting proof claims drift ahead of the modeled semantics; future widening still requires the published boundary and theorem inventory to grow first |
 | Full-language or full-host formal verification claims | Later compatibility | The project should not imply end-to-end proof coverage for the whole JS/TS surface, dynamic compatibility paths, or concrete host integrations until those semantics are modeled honestly |
 | Annex B / web-legacy compatibility corners | Later compatibility | Keep the MVP focused on dependable core semantics; add legacy web behaviors only when conformance value justifies the cost |
 | `Proxy` | Later compatibility | High semantic cost and optimization barriers |
@@ -202,10 +225,10 @@ Maintenance note:
 | npm packages that require unsupported Node core modules | Phase 3 target | Depends on broader `--api node` compatibility work |
 | Phase-1 **base library artifact** (`kali build --lib`) | Phase 1 MVP | This is the Phase-1 side of the shared **embedding-stability split**: projects can build non-executable exported modules early without waiting for the later **public embedding surface** to freeze, but only when Kali can determine a **statically known export surface** after frontend lowering. That early artifact is for **exact-version consumers** only and is still not a stable public ABI/WIT or cross-version host-loading promise until the Phase-2 contract lands |
 | Stable public Rust embedding API | Phase 2 target | Part of the Phase-2 **public embedding surface** side of that same split |
-| Stable public library/WIT contract for `kali build --lib` | Phase 2 target | The same `--lib` selector is promoted from the Phase-1 **base library artifact** into the stable public **WIT-first** library contract and emits WIT by default once that interface surface is frozen |
-| Stable public C ABI / `kali build --capi` flow | Phase 2 target | Part of the same Phase-2 **public embedding surface** stabilization work |
-| WIT emission for public library/embedding interfaces | Phase 2 target | Gives the Phase-2 **public embedding surface** one canonical exported interface description instead of parallel ad hoc metadata |
-| WebAssembly Component Model packaging (`kali build --component`) | Phase 2 target | Part of the same Phase-2 **public embedding surface** set, layered on top of the linked core WASM payload for host interop; executable builds still center on the core module path |
+| Stable public library/WIT contract for `kali build --lib` | Phase 2 target | The same `--lib` selector is promoted from the Phase-1 **base library artifact** into the stable public **WIT-first** library contract and emits WIT by default once that interface surface is frozen. In the current repository, `kali build --lib` already emits the stable WIT sidecar; the Phase-2 label still marks the earliest support boundary. |
+| Stable public C ABI / `kali build --capi` flow | Phase 2 target | Part of the same Phase-2 **public embedding surface** stabilization work. The documented `kali build --capi` flow is live in the current repository; the Phase-2 label still marks the earliest support boundary. |
+| WIT emission for public library/embedding interfaces | Phase 2 target | Gives the Phase-2 **public embedding surface** one canonical exported interface description instead of parallel ad hoc metadata. That WIT-emission path is live in the current repository for the stable public embedding flows described above. |
+| WebAssembly Component Model packaging (`kali build --component`) | Phase 2 target | Part of the same Phase-2 **public embedding surface** set, layered on top of the linked core WASM payload for host interop; executable builds still center on the core module path. The documented `kali build --component` flow is live in the current repository; the Phase-2 label still marks the earliest support boundary. |
 | Implicit Component Model packaging for every public library build | Rejected by default | Keep plain public `--lib` + WIT as the stable default library contract once Phase 2 lands; `--component` stays an explicit packaging choice so hosts do not silently opt into a different loading model |
 | Host ABI versioning for `kali_capi` | Phase 2 target | Stable embedding requires explicit load-time compatibility checks |
 | DOM APIs in standalone runtime | Rejected by default | Kali does not embed a browser engine |
@@ -379,10 +402,10 @@ Interpretation rule:
 | `kali test --api browser` | Later compatibility | Reject with `E5506` until a real browser-test contract exists; early browser support is limited to the shared **Phase-1 browser-targeted command set**, not a standalone test-runtime profile |
 | plain `kali test` under an inherited browser API surface | Later compatibility | Same effective request as explicit `kali test --api browser`; inherited config must not silently fall back to `deno` for test execution |
 | plain `kali test --sandbox kali.policy.json` under an inherited browser API surface | Later compatibility | Same browser-test gate as explicit `kali test --api browser --sandbox kali.policy.json`; attaching `--sandbox` does not turn browser into an early test-runtime profile |
-| `kali test --coverage` | Phase 2 target | Deterministic function-coverage reporting lives on the stable `kali test` result payload instead of ad hoc runner output |
+| `kali test --coverage` | Phase 2 target | Deterministic function-coverage reporting lives on the stable `kali test` result payload instead of ad hoc runner output. This Phase-2 coverage surface is live in the current repository with the documented function-level contract; the label still marks the earliest support boundary. |
 | `kali effects` with no explicit primary source input | Rejected by default | Schema v1 keeps `effects` as a direct-input command once it exists; omitting the analysis root should fail with `E5508` rather than implicitly scanning the project |
 | `kali effects a.ts b.ts` | Rejected by default | Schema v1 accepts exactly one primary analysis root for `effects`; multi-entry reporting requires a later explicit mode, so this should fail with `E5508` |
-| `kali effects main.ts` (and JSON-formatting forms such as `--pretty`, `--output json`, or both) | Phase 2 target | Base row for the reporting half of the shared **public effect-report surface**: before then the command stays unavailable rather than exposing a partial bespoke report. JSON-formatting selectors do not create an earlier path; once the command exists they change presentation only while analysis defaults come from the shared **default source-graph analysis context (schema v1)** unless overridden. |
+| `kali effects main.ts` (and JSON-formatting forms such as `--pretty`, `--output json`, or both) | Phase 2 target | Base row for the reporting half of the shared **public effect-report surface**: before then the command stays unavailable rather than exposing a partial bespoke report. JSON-formatting selectors do not create an earlier path; once the command exists they change presentation only while analysis defaults come from the shared **default source-graph analysis context (schema v1)** unless overridden. This command is live in the current repository for its documented Phase-2 surface; the label still marks the earliest support boundary. |
 | `kali effects --sandbox kali.policy.json main.ts` | Rejected by default | Keep `effects` as a pure reporting command; policy validation belongs to `check/build --sandbox` so the CLI has one canonical policy-validation path. This rejection should use `E5508`, not the `E5506` maturity gate. |
 | `kali effects --api browser main.ts` | Phase 2 target | Reuses the same browser API-surface analysis context as `kali check --api browser` once the Phase 2 command exists, without implying standalone browser execution |
 | plain `kali effects main.ts` under an inherited browser API surface | Phase 2 target | Same effective request as explicit `kali effects --api browser main.ts`; inherited config must not silently fall back to `deno` for effect analysis |
@@ -393,7 +416,7 @@ Interpretation rule:
 | `kali effects --compat eval main.ts` | Phase 4 compatibility | Effect analysis follows the same compatibility gate as other source-graph commands; once implemented it reports the `Eval` effect / dynamic reasons under the enabled compatibility path |
 | plain `kali effects main.ts` under an inherited `eval` compatibility context (`compat.features = ["eval"]`) | Phase 4 compatibility | Same effective request as explicit `kali effects --compat eval main.ts`; inherited config must not silently remove `eval` to make effect analysis succeed earlier |
 | `kali package-effects` with no explicit package | Rejected by default | Violates the shared **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md): omitting the explicit registry target is invalid command usage (`E5508`) |
-| `kali package-effects lodash` (and JSON-formatting forms such as `--pretty`, `--output json`, or both) | Phase 2 target | Base row for the analysis-context-aware half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md): follow the shared **registry-analysis availability boundary** until the effect-report pipeline exists, and once it exists inherited-context maturity follows the shared **axis-aligned inherited analysis gating** rule rather than a package-analysis-specific shadow matrix. Schema v1 keeps that semantic context inherited-only here: explicit package-analysis flags such as `--api ...`, `--compat ...`, `--wasm-threads`, and `--sandbox ...` remain invalid usage instead of creating a second CLI vocabulary. |
+| `kali package-effects lodash` (and JSON-formatting forms such as `--pretty`, `--output json`, or both) | Phase 2 target | Base row for the analysis-context-aware half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md): follow the shared **registry-analysis availability boundary** until the effect-report pipeline exists, and once it exists inherited-context maturity follows the shared **axis-aligned inherited analysis gating** rule rather than a package-analysis-specific shadow matrix. Schema v1 keeps that semantic context inherited-only here: explicit package-analysis flags such as `--api ...`, `--compat ...`, `--wasm-threads`, and `--sandbox ...` remain invalid usage instead of creating a second CLI vocabulary. This command is live in the current repository for its documented Phase-2 surface; the label still marks the earliest support boundary. |
 | `kali package-effects lodash react` | Rejected by default | Early phases do not define a multi-package effect-analysis batch mode, so passing more than one package is invalid command usage (`E5508`) |
 | `kali package-effects lodash` under an inherited browser analysis context | Phase 2 target | Representative inherited browser case under the shared **axis-aligned inherited analysis gating** rule: once the base command exists, browser reuse follows the same browser-targeted analysis context/package-resolution rule as other browser analysis commands without widening the exact **Phase-1 browser-targeted command set**. There is intentionally no separate explicit `kali package-effects --api browser ...` form in schema v1; the explicit per-command semantic-flag spellings stay on the rejected row below. |
 | `kali package-effects lodash` under an inherited Node analysis context | Phase 3 target | Representative inherited Node case under the shared **axis-aligned inherited analysis gating** rule: inherited config must hit the same Node analysis gate as other source-graph analysis/effect commands rather than silently falling back to `deno`. |
@@ -402,7 +425,7 @@ Interpretation rule:
 | `kali package-effects` with package-analysis-specific flags (`--api ...`, `--compat ...`, `--wasm-threads`, or `--sandbox ...`) | Rejected by default | Early package analysis inherits semantic context from config/defaults instead of taking its own package-analysis flag family. Using the **shared flag buckets** / **semantic/context flag surface** split from [SPEC.md](../SPEC.md), these rejected forms are the package-analysis-specific semantic/context flags only; ordinary shared presentation/control flags and the command's documented **JSON-mode selectors** remain governed by the normal CLI rules. `package-effects` is also a reporting command rather than a second policy-validation entrypoint, so these combinations are invalid command usage (`E5508`) unless a later spec adds them |
 | `kali package-effects` with a non-registry target (for example `https://...` or `./local.ts`) | Rejected by default | `package-effects` analyzes registry packages only; raw URLs and local paths belong to the project/import-graph workflow instead |
 | `kali package-audit` with no explicit package | Rejected by default | Violates the shared **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md): omitting the explicit registry target is invalid command usage (`E5508`) rather than an implicit whole-project audit mode |
-| `kali package-audit lodash` (and envelope-formatting forms such as `--output json` or `--pretty --output json`) | Phase 4 compatibility | This is the context-free half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md): the command is a one-package registry-analysis workflow, and JSON-formatting follows the schema-owned **Package Audit JSON Output (schema v1)** contract from [18 — Schemas](18-schemas.md) without creating a separate availability path; findings are reported through standard diagnostics and the envelope keeps canonical `payload: null` rather than a dedicated success payload. |
+| `kali package-audit lodash` (and envelope-formatting forms such as `--output json` or `--pretty --output json`) | Phase 4 compatibility | This is the context-free half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md): the command is a one-package registry-analysis workflow, and JSON-formatting follows the schema-owned **Package Audit JSON Output (schema v1)** contract from [18 — Schemas](18-schemas.md) without creating a separate availability path; findings are reported through standard diagnostics and the envelope keeps canonical `payload: null` rather than a dedicated success payload. This Phase-4 command surface is live in the current repository; the label still marks the earliest support boundary. |
 | `kali package-audit --pretty lodash` without `--output json` | Rejected by default | Invalid command usage (`E5508`): `--pretty` without `--output json` is not meaningful for schema v1's envelope-only `package-audit` JSON mode, and this command-shape error wins before the command-availability gate. |
 | `kali package-audit lodash react` | Rejected by default | The command accepts exactly one explicit package argument; multi-package audit requires a later explicit mode, so this is invalid command usage (`E5508`) |
 | `kali package-audit` with a non-registry target (for example `https://...` or `./local.ts`) | Rejected by default | `package-audit` is registry-package-oriented rather than a second raw-URL/local-path analysis path |
@@ -446,16 +469,28 @@ These checklists keep the phase labels operational rather than purely descriptiv
 - The Phase-1 base `kali build --lib` artifact is promoted into the stable public **WIT-first** library contract, including default WIT emission.
 - Public library/component outputs emit the documented WIT interface contract, and the initial Component Model packaging path works end-to-end.
 
+Current-repository-state note:
+- the current repository has already crossed the main Phase-2 surface thresholds called out above for public effect reporting, `test --coverage`, stable library/WIT output, `--capi`, and `--component`
+- the remaining question is no longer whether those surfaces exist, but how far later widening should go without overclaiming beyond the documented rows and proof boundary
+
 ### Phase 3 exit criteria
 - Specialization materially improves generated code for common generic/layout-heavy programs.
 - Incremental compilation exists for realistic multi-module projects.
 - Node compatibility covers a meaningful documented subset rather than isolated package anecdotes.
 - Browser packaging/interoperability improves beyond the Phase 1 bundle baseline.
 
+Current-repository-state note:
+- the repo contains substantial completed Phase-3 optimization, package-breadth, and host-capability work
+- however, broad public `--api node` support remains intentionally phase-gated in the current maturity reading, so current-state claims should stay row-specific instead of collapsing Phase 3 into one blanket availability statement
+
 ### Phase 4 exit criteria
 - Dynamic-compatibility paths such as `eval` are implemented behind explicit compatibility switches.
 - Advanced compatibility features preserve the sandbox/effect model instead of bypassing it.
 - Proof coverage expands for the most security- and correctness-critical subsystems.
+
+Current-repository-state note:
+- the current repository has reached the key Phase-4 surfaces reflected here: the documented `--compat eval` path, public `package-audit`, and proof-backed claims for the published boundary
+- broader late dynamic or proof-backed claims still remain limited by their exact rows and by [`proofs/BOUNDARY.md`](../proofs/BOUNDARY.md)
 
 ## Cross-Phase Command Continuity Rule
 
@@ -482,7 +517,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | CommonJS lowering with statically resolvable `require("...")` | Phase 1 MVP | Compile-time transform inside the linked-artifact model |
 | Literal-string `import()` | Phase 3 target | Lower to the already-linked graph rather than runtime WASM module linking |
 | Non-literal dynamic loading | Later compatibility | Host-mediated path with dynamic effect boundary |
-| `eval` / `Function()` | Phase 4 compatibility | Explicit `--compat eval` path only |
+| `eval` / `Function()` | Phase 4 compatibility | Explicit `--compat eval` path only. That documented compatibility-gated path is live in the current repository; the label still marks the earliest support boundary. |
 | Weak refs / finalization / proxy-heavy semantics | Later compatibility | Deferred until faithful semantics fit the no-GC, AOT-first design |
 
 ### Type System and Analysis
@@ -492,8 +527,8 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | TypeScript-compatible checking and flow narrowing | Phase 1 MVP | Compatibility first |
 | Stronger JS inference and conservative fallback to `unknown` / dynamic representations | Phase 1 MVP | Needed for plain JS compilation |
 | Shared bounded inference contract for locals, obvious parameters, and analyzable returns | Phase 1 MVP | Early inference should improve materially on plain `tsc` local inference while staying inside the shared **bounded inference contract** and using the shared **annotation-required inference boundary** when cost or API stability would otherwise become unpredictable |
-| Stable built-in capability-effect reporting | Phase 2 target | Reuses the reporting half of the canonical **public effect-report surface** row above: stable `kali effects` / `kali package-effects` output |
-| Compile/check-time effect-vs-policy validation | Phase 2 target | Reuses the policy-comparison half of that same canonical **public effect-report surface** row above: pass/fail validation on `check/build --sandbox` |
+| Stable built-in capability-effect reporting | Phase 2 target | Reuses the reporting half of the canonical **public effect-report surface** row above: stable `kali effects` / `kali package-effects` output. In the current repository state, this Phase-2 analysis/reporting surface is live. |
+| Compile/check-time effect-vs-policy validation | Phase 2 target | Reuses the policy-comparison half of that same canonical **public effect-report surface** row above: pass/fail validation on `check/build --sandbox`. In the current repository state, this documented built-in policy-comparison surface is live. |
 | Explicit `pure` / effect annotations | Phase 2 target | Built-in sandbox capability model first |
 | Stable user-defined/custom effects in machine contracts | Later compatibility | Keep Phase 1-2 schemas, reports, and policy validation/comparison scoped to the built-in sandbox-relevant effect family |
 
@@ -512,7 +547,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | The **Phase-1 browser-targeted command set** | Phase 1 MVP | These commands use the real browser ambient surface, and emitted browser bundles execute against the real browser host via the browser host adapter, with no standalone browser emulation; support claims require dedicated browser-targeted tests and real-browser bundle smoke coverage, and later browser-targeted analysis commands should reuse the same ambient typing layer and browser package-resolution context only once their own rows become available |
 | Standalone `run --api browser` | Later compatibility | No embedded browser engine yet; reject with `E5506` until a real browser-execution contract exists |
 | Node API surface across `check` / `effects` / `build` / `run` / `test` | Phase 3 target | Package-driven subset first; early phases reject `--api node` consistently rather than exposing a partial surface |
-| Threaded runtime profile / `--wasm-threads` | Later compatibility (opt-in only) | Runtime-profile switch, independent from API-surface selection |
+| Threaded runtime profile / `--wasm-threads` | Later compatibility (opt-in only) | Runtime-profile switch, independent from API-surface selection. The current repository includes substantial normalization, metadata, and gating plumbing for this profile, but positive support claims remain intentionally gated until the row itself is promoted with matching evidence. |
 
 ### Packages and Ecosystem
 
@@ -525,7 +560,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Browser-condition package resolution for the **Phase-1 browser-targeted command set** | Phase 1 MVP | Reuse one shared browser package-resolution context for the **Phase-1 browser-targeted command set**: honor `exports` condition `browser` plus applicable `package.json#browser` replacement maps consistently |
 | npm lifecycle scripts | Phase 1 MVP (opt-in only) | `kali install --allow-scripts`; install-time package hooks stay outside the normal runtime API-surface and project-policy contracts, and in mixed install graphs they still apply only to the npm subset being reconciled |
 | Packages in the native/binary/bootstrap-heavy package contract | Rejected by default | The excluded shared package contract stays unsupported; `--allow-scripts` must not silently broaden support to it |
-| Broader Node-host-heavy npm compatibility | Phase 3 target | Depends on meaningful Node API support |
+| Broader Node-host-heavy npm compatibility | Phase 3 target | Depends on meaningful Node API support. In current-state reading, keep this row gated unless the exact Node command/context row being claimed has opened; do not infer broad package executability from internal Node groundwork alone. |
 
 Package-support reading shortcut:
 - package compatibility claims should name both the selected command/context and the claimed rung from the shared support ladder (`installable/materializable`, `checkable`, `buildable`, `executable`, or `deployable-through-host`)
