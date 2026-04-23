@@ -3722,7 +3722,17 @@ fn sort_package_audit_findings(findings: &mut [Diagnostic]) {
             })
             .then_with(|| left.message.cmp(&right.message))
             .then_with(|| left.notes.cmp(&right.notes))
+            .then_with(|| left.suggestion.cmp(&right.suggestion))
+            .then_with(|| diagnostic_span_sort_key(left).cmp(&diagnostic_span_sort_key(right)))
     });
+}
+
+fn diagnostic_span_sort_key(diagnostic: &Diagnostic) -> (u32, u32, u32, bool) {
+    let Some(span) = diagnostic.span else {
+        return (u32::MAX, u32::MAX, u32::MAX, true);
+    };
+
+    (span.file_id.as_u32(), span.start, span.end, false)
 }
 
 fn package_audit_command(
@@ -4442,4 +4452,46 @@ fn single_diagnostic_to_values(
 ) -> (Vec<Value>, Vec<Value>) {
     let diagnostics = vec![diagnostic];
     split_and_convert_diagnostics(&diagnostics, source_path, source_text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sort_package_audit_findings;
+    use kali_common::{FileId, Span};
+    use kali_error::{_error_codes::e5, Diagnostic};
+
+    fn diagnostic_with_span(file_id: u32, start: u32, end: u32) -> Diagnostic {
+        Diagnostic::error(e5::INVALID_CLI_USAGE as u32, "shared finding").with_span(Span::new(
+            FileId::new(file_id),
+            start,
+            end,
+        ))
+    }
+
+    #[test]
+    fn package_audit_findings_sort_by_span_as_final_tiebreaker() {
+        let mut findings = vec![
+            diagnostic_with_span(4, 20, 24),
+            diagnostic_with_span(2, 10, 12),
+            diagnostic_with_span(2, 8, 9),
+            diagnostic_with_span(2, 10, 11),
+        ];
+
+        sort_package_audit_findings(&mut findings);
+
+        let spans = findings
+            .iter()
+            .map(|diagnostic| diagnostic.span.expect("span"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            spans,
+            vec![
+                Span::new(FileId::new(2), 8, 9),
+                Span::new(FileId::new(2), 10, 11),
+                Span::new(FileId::new(2), 10, 12),
+                Span::new(FileId::new(4), 20, 24),
+            ]
+        );
+    }
 }
