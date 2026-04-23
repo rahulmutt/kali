@@ -2372,7 +2372,9 @@ const BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES: &[&str] = &[
     "librewolf",
     "waterfox",
     "zen-browser",
+    "zen browser",
     "thorium-browser",
+    "thorium browser",
 ];
 
 fn browser_harness_is_browser_executable_name(executable: &str) -> bool {
