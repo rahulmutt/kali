@@ -2150,6 +2150,9 @@ fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<Co
         ("+", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
             left.checked_add(right).map(ConstantValue::BigInt)
         }
+        ("+", ConstantValue::String(left), ConstantValue::String(right)) => {
+            Some(ConstantValue::String(format!("{left}{right}")))
+        }
         ("-", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
             left.checked_sub(right).map(ConstantValue::BigInt)
         }

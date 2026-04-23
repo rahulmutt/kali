@@ -45,8 +45,8 @@ types are statically known.
   wrappers.
 - Regression and benchmark coverage now tracks `fast` vs `release` vs `release-advanced`, nested
   specialization depth, cross-owner reuse, re-export-chain specialization behavior, duplicate
-  literal/value canonicalization in the CSE lane, and the algebraic-identity simplifier's
-  division-by-one elimination path.
+  literal/value canonicalization in the CSE lane, the algebraic-identity simplifier's
+  division-by-one elimination path, and release-mode string literal concatenation folding.
 - The unresolved-identifier codegen fallback now reports the canonical binding-error diagnostic
   code instead of an internal placeholder warning, keeping the last compatibility escape hatch
   aligned with the shared name-resolution error vocabulary while still remaining a non-fatal

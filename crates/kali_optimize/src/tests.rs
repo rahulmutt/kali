@@ -81,6 +81,27 @@ fn release_constant_folds_binary_expressions() {
 }
 
 #[test]
+fn release_constant_folds_string_concatenation() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let concat = builder.alloc_text(LirNodeKind::Value, "+");
+    let lhs = literal(&mut builder, "\"hello \"");
+    let rhs = literal(&mut builder, "\"world\"");
+    builder.node_mut(concat).unwrap().children = vec![lhs, rhs];
+    builder.node_mut(root).unwrap().children = vec![concat];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let node = &program.nodes[concat.0 as usize];
+    assert_eq!(node.kind, LirNodeKind::Literal);
+    assert_eq!(node.text.as_deref(), Some("\"hello world\""));
+}
+
+#[test]
 fn optimizer_carries_normalized_profile_data() {
     let optimizer =
         Optimizer::new(OptimizationLevel::Release).with_profile_data(ProfileData::new(vec![
