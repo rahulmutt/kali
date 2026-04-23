@@ -36,6 +36,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added CLI-shape regressions for `effects --sandbox` in both human and JSON output so the reporting-only effects lane now rejects the sandbox flag with the canonical CLI-usage diagnostic instead of falling through to Clap's generic unknown-argument path.
 - Added explicit `--api node` coverage for `effects` plus inherited Node-context coverage for `package-effects`, keeping the Phase-3 analysis context pinned in the evidence suite alongside the existing browser and threaded-profile gating regressions.
 - Added runtime smoke coverage for those Phase-2+ gating paths alongside the existing Phase-1 JSON-envelope and artifact coverage.
+- Added explicit browser-runtime negative-gate hardening for standalone `run --api browser` and `test --api browser` invocations so the later browser runtime rejection path stays pinned even if the browser-harness helper is present in the environment.
 - Added deterministic repeated-build smoke coverage for executable, base-library, and browser-bundle artifact outputs so the evidence suite now checks byte-for-byte stability across identical inputs.
 - Added raw-URL install idempotence coverage so repeated `kali install` runs over the same raw URL graph now assert lockfile byte stability.
 - Added a semver package-corpus regression that proves plain `kali install semver` succeeds without `--allow-scripts` when the package only carries non-install lifecycle metadata.

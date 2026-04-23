@@ -2024,6 +2024,7 @@ fn run_rejects_declaration_only_fixture_entrypoints() {
 #[test]
 fn run_rejects_browser_api_surface_in_phase_one() {
     let output = Command::new(kali_bin())
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
         .arg("run")
         .arg("--api")
         .arg("browser")
@@ -2055,6 +2056,7 @@ fn run_rejects_inherited_browser_api_surface_in_phase_one() {
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("run")
         .arg(&source_path)
@@ -2071,6 +2073,7 @@ fn run_rejects_inherited_browser_api_surface_in_phase_one() {
 #[test]
 fn json_run_rejects_browser_api_surface_in_phase_one() {
     let output = Command::new(kali_bin())
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
         .arg("--output")
         .arg("json")
         .arg("run")
@@ -2122,6 +2125,7 @@ fn json_run_rejects_inherited_browser_api_surface_in_phase_one() {
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -2229,6 +2233,7 @@ fn json_run_rejects_browser_api_surface_with_sandbox_in_phase_one() {
 #[test]
 fn json_run_rejects_browser_api_surface_with_guest_args_in_phase_one() {
     let output = Command::new(kali_bin())
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
         .arg("--output")
         .arg("json")
         .arg("run")
@@ -2269,6 +2274,7 @@ fn json_run_rejects_inherited_browser_api_surface_with_guest_args_in_phase_one()
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -6862,6 +6868,7 @@ Kali.test('node', () => {
 #[test]
 fn test_rejects_browser_api_surface_in_phase_one() {
     let output = Command::new(kali_bin())
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
         .arg("test")
         .arg("--api")
         .arg("browser")
@@ -6893,6 +6900,7 @@ fn test_rejects_inherited_browser_api_surface_in_phase_one() {
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("test")
         .arg(&source_path)
@@ -6909,6 +6917,7 @@ fn test_rejects_inherited_browser_api_surface_in_phase_one() {
 #[test]
 fn json_test_rejects_browser_api_surface_in_phase_one() {
     let output = Command::new(kali_bin())
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
         .arg("--output")
         .arg("json")
         .arg("test")
@@ -6960,6 +6969,7 @@ fn json_test_rejects_inherited_browser_api_surface_in_phase_one() {
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -7005,6 +7015,7 @@ fn test_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -7031,6 +7042,7 @@ fn json_test_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
