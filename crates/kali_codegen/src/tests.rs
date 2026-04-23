@@ -282,15 +282,18 @@ fn unresolved_identifier_lowering_attaches_a_guidance_note() {
 
     assert!(
         result.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("placeholder 0 compatibility fallback")
+            diagnostic.is_warning()
+                && diagnostic.code
+                    == Some(kali_error::_error_codes::e3::UNDEFINED_IDENTIFIER as u32)
+                && diagnostic
+                    .message
+                    .contains("zero placeholder compatibility fallback")
                 && diagnostic
                     .notes
                     .iter()
                     .any(|note| note.contains("fallback emits a zero placeholder"))
         }),
-        "expected a guidance note on the unresolved-identifier lowering path: {:?}",
+        "expected an unresolved-identifier diagnostic on the lowering path: {:?}",
         result.diagnostics
     );
 
@@ -313,15 +316,18 @@ fn unresolved_call_target_lowering_attaches_a_guidance_note() {
 
     assert!(
         result.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("placeholder 0 compatibility fallback")
+            diagnostic.is_warning()
+                && diagnostic.code
+                    == Some(kali_error::_error_codes::e3::UNDEFINED_IDENTIFIER as u32)
+                && diagnostic
+                    .message
+                    .contains("zero placeholder compatibility fallback")
                 && diagnostic
                     .notes
                     .iter()
                     .any(|note| note.contains("fallback emits a zero placeholder"))
         }),
-        "expected a guidance note on the unresolved-call lowering path: {:?}",
+        "expected an unresolved-call diagnostic on the lowering path: {:?}",
         result.diagnostics
     );
 
@@ -346,7 +352,10 @@ fn duplicate_unresolved_identifier_lowering_reports_one_guidance_note() {
     let matching_diagnostics = result
         .diagnostics
         .iter()
-        .filter(|diagnostic| diagnostic.message.contains("missing_value"))
+        .filter(|diagnostic| {
+            diagnostic.code == Some(kali_error::_error_codes::e3::UNDEFINED_IDENTIFIER as u32)
+                && diagnostic.message.contains("missing_value")
+        })
         .count();
     assert_eq!(
         matching_diagnostics, 1,

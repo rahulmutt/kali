@@ -6,7 +6,10 @@ use std::{
     path::PathBuf,
 };
 
-use kali_error::{_error_codes::e8, Diagnostic};
+use kali_error::{
+    _error_codes::{e3, e8},
+    Diagnostic,
+};
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
@@ -174,20 +177,20 @@ impl<'a> FunctionEmitter<'a> {
 
         let message = match kind {
             "identifier" => format!(
-                "unresolved identifier '{}' lowered through a placeholder 0 compatibility fallback",
+                "undefined identifier '{}' reached codegen and was lowered through a zero placeholder compatibility fallback",
                 name
             ),
             "call target" => format!(
-                "unresolved call target '{}' lowered through a placeholder 0 compatibility fallback",
+                "undefined call target '{}' reached codegen and was lowered through a zero placeholder compatibility fallback",
                 name
             ),
             _ => format!(
-                "unresolved {} '{}' lowered through a placeholder 0 compatibility fallback",
+                "undefined {} '{}' reached codegen and was lowered through a zero placeholder compatibility fallback",
                 kind, name
             ),
         };
 
-        let mut diagnostic = Diagnostic::warning(e8::IR_UNREADABLE as u32, message).note(
+        let mut diagnostic = Diagnostic::warning(e3::UNDEFINED_IDENTIFIER as u32, message).note(
             "name resolution should resolve this before codegen; the fallback emits a zero placeholder and should remain a compatibility escape hatch only",
         );
         if let Some(source_path) = &self.source_path {

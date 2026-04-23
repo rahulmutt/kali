@@ -44,6 +44,10 @@ types are statically known.
 - Regression and benchmark coverage now tracks `fast` vs `release` vs `release-advanced`, nested
   specialization depth, cross-owner reuse, re-export-chain specialization behavior, and duplicate
   literal/value canonicalization in the CSE lane.
+- The unresolved-identifier codegen fallback now reports the canonical binding-error diagnostic
+  code instead of an internal placeholder warning, keeping the last compatibility escape hatch
+  aligned with the shared name-resolution error vocabulary while still remaining a non-fatal
+  compatibility path.
 
 ## Status
 
