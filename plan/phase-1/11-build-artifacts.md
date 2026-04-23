@@ -24,6 +24,7 @@ complete the **Phase-1 browser-targeted command set** and the **Phase-1 static p
 - The executable build path now writes deterministic `kali:metadata` custom sections in the emitted `.wasm` artifact.
 - `kali build --lib` now emits `.lib.wasm` plus a sidecar `.lib.meta.json` with deterministic export inventory data for statically known library surfaces.
 - `kali build --bundle` now emits a browser bundle directory containing `.wasm`, `.js`, and `.meta.json` outputs, with deterministic metadata and JS glue that uses browser-native instantiation APIs.
+- The emitted browser bundle glue now exposes `console.info` and `console.debug` shims alongside the existing console host imports, keeping the generated browser import object aligned with the Phase-1 Web baseline.
 - CLI smoke coverage now exercises both `--lib` and `--bundle` output paths in addition to the existing executable/sandbox path.
 - The CLI now reconciles the effective API surface for build artifacts: `--api browser` and inherited browser config enable the bundle path, while contradictory browser/non-browser combinations are rejected with the canonical `E5008` shape error and `--api node` remains phase-gated with `E5506`.
 - `kali check` now honors the same browser API surface selection, including inherited browser config, while still rejecting node-targeted checking with `E5506`.

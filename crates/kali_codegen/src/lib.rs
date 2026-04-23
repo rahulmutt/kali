@@ -23,9 +23,11 @@ const TEST_REGISTER_IMPORT_INDEX: u32 = 0;
 const CONSOLE_LOG_IMPORT_INDEX: u32 = 1;
 const CONSOLE_ERROR_IMPORT_INDEX: u32 = 2;
 const CONSOLE_WARN_IMPORT_INDEX: u32 = 3;
-const ARGS_LEN_IMPORT_INDEX: u32 = 4;
-const COVERAGE_HIT_IMPORT_INDEX: u32 = 5;
-const FUNCTION_INDEX_OFFSET: u32 = 5;
+const CONSOLE_INFO_IMPORT_INDEX: u32 = 4;
+const CONSOLE_DEBUG_IMPORT_INDEX: u32 = 5;
+const ARGS_LEN_IMPORT_INDEX: u32 = 6;
+const COVERAGE_HIT_IMPORT_INDEX: u32 = 7;
+const FUNCTION_INDEX_OFFSET: u32 = 7;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
 /// WASM code generator context.
@@ -653,6 +655,8 @@ impl<'a> FunctionEmitter<'a> {
             "log" => Some(CONSOLE_LOG_IMPORT_INDEX),
             "error" => Some(CONSOLE_ERROR_IMPORT_INDEX),
             "warn" => Some(CONSOLE_WARN_IMPORT_INDEX),
+            "info" => Some(CONSOLE_INFO_IMPORT_INDEX),
+            "debug" => Some(CONSOLE_DEBUG_IMPORT_INDEX),
             _ => None,
         }
     }
@@ -949,6 +953,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     import_section.import("kali:rt", "console_log", EntityType::Function(1));
     import_section.import("kali:rt", "console_error", EntityType::Function(1));
     import_section.import("kali:rt", "console_warn", EntityType::Function(1));
+    import_section.import("kali:rt", "console_info", EntityType::Function(1));
+    import_section.import("kali:rt", "console_debug", EntityType::Function(1));
     import_section.import("kali:rt", "args_len", EntityType::Function(2));
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));

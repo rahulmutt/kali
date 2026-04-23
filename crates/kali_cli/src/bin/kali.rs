@@ -2228,6 +2228,20 @@ const defaultImportObject = {{
       if (typeof console !== 'undefined' && typeof console.warn === 'function') {{
         console.warn(formatConsoleValue(val));
       }}
+    }},
+    console_info(val) {{
+      if (typeof console !== 'undefined' && typeof console.info === 'function') {{
+        console.info(formatConsoleValue(val));
+      }} else if (typeof console !== 'undefined' && typeof console.log === 'function') {{
+        console.log(formatConsoleValue(val));
+      }}
+    }},
+    console_debug(val) {{
+      if (typeof console !== 'undefined' && typeof console.debug === 'function') {{
+        console.debug(formatConsoleValue(val));
+      }} else if (typeof console !== 'undefined' && typeof console.log === 'function') {{
+        console.log(formatConsoleValue(val));
+      }}
     }}
   }}
 }};
@@ -2356,6 +2370,20 @@ const defaultImportObject = {{
     console_warn(val) {{
       if (typeof console !== 'undefined' && typeof console.warn === 'function') {{
         console.warn(formatConsoleValue(val));
+      }}
+    }},
+    console_info(val) {{
+      if (typeof console !== 'undefined' && typeof console.info === 'function') {{
+        console.info(formatConsoleValue(val));
+      }} else if (typeof console !== 'undefined' && typeof console.log === 'function') {{
+        console.log(formatConsoleValue(val));
+      }}
+    }},
+    console_debug(val) {{
+      if (typeof console !== 'undefined' && typeof console.debug === 'function') {{
+        console.debug(formatConsoleValue(val));
+      }} else if (typeof console !== 'undefined' && typeof console.log === 'function') {{
+        console.log(formatConsoleValue(val));
       }}
     }}
   }}

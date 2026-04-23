@@ -749,6 +749,32 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
         .map_err(|error| host_import_error("console_warn", error))?;
 
     linker
+        .func_wrap(
+            "kali:rt",
+            "console_info",
+            |mut caller: Caller<'_, KaliHostState>, val: i64| -> wasmtime::Result<()> {
+                enforce_operation(caller.data_mut(), HostOperation::Console)?;
+                let rendered = format_console_value(&mut caller, val);
+                append_stdout(caller.data_mut(), rendered);
+                Ok(())
+            },
+        )
+        .map_err(|error| host_import_error("console_info", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "console_debug",
+            |mut caller: Caller<'_, KaliHostState>, val: i64| -> wasmtime::Result<()> {
+                enforce_operation(caller.data_mut(), HostOperation::Console)?;
+                let rendered = format_console_value(&mut caller, val);
+                append_stdout(caller.data_mut(), rendered);
+                Ok(())
+            },
+        )
+        .map_err(|error| host_import_error("console_debug", error))?;
+
+    linker
         .func_wrap("kali:rt", "performance_now", || -> f64 {
             performance_now()
         })
@@ -2589,6 +2615,20 @@ const importObject = {{
     console_warn(val) {{
       console.warn(formatConsoleValue(val));
     }},
+    console_info(val) {{
+      if (typeof console !== 'undefined' && typeof console.info === 'function') {{
+        console.info(formatConsoleValue(val));
+      }} else if (typeof console !== 'undefined' && typeof console.log === 'function') {{
+        console.log(formatConsoleValue(val));
+      }}
+    }},
+    console_debug(val) {{
+      if (typeof console !== 'undefined' && typeof console.debug === 'function') {{
+        console.debug(formatConsoleValue(val));
+      }} else if (typeof console !== 'undefined' && typeof console.log === 'function') {{
+        console.log(formatConsoleValue(val));
+      }}
+    }},
   }},
 }};
 
@@ -2842,6 +2882,20 @@ const importObject = {{
     }},
     console_warn(val) {{
       console.warn(formatConsoleValue(val));
+    }},
+    console_info(val) {{
+      if (typeof console !== 'undefined' && typeof console.info === 'function') {{
+        console.info(formatConsoleValue(val));
+      }} else if (typeof console !== 'undefined' && typeof console.log === 'function') {{
+        console.log(formatConsoleValue(val));
+      }}
+    }},
+    console_debug(val) {{
+      if (typeof console !== 'undefined' && typeof console.debug === 'function') {{
+        console.debug(formatConsoleValue(val));
+      }} else if (typeof console !== 'undefined' && typeof console.log === 'function') {{
+        console.log(formatConsoleValue(val));
+      }}
     }},
   }},
 }};

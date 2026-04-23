@@ -45,6 +45,8 @@ fn runtime_executes_modules_with_console_host_imports() {
                 (import "kali:rt" "console_log" (func $console_log (param i64)))
                 (import "kali:rt" "console_error" (func $console_error (param i64)))
                 (import "kali:rt" "console_warn" (func $console_warn (param i64)))
+                (import "kali:rt" "console_info" (func $console_info (param i64)))
+                (import "kali:rt" "console_debug" (func $console_debug (param i64)))
                 (memory (export "memory") 1)
                 (func (export "_start")
                     i64.const 1
@@ -52,13 +54,19 @@ fn runtime_executes_modules_with_console_host_imports() {
                     i64.const 2
                     call $console_error
                     i64.const 3
-                    call $console_warn))
+                    call $console_warn
+                    i64.const 4
+                    call $console_info
+                    i64.const 5
+                    call $console_debug))
             "#,
     );
 
     let runtime = RuntimeCtx::default();
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(outcome.exit_code, 0);
+    assert_eq!(outcome.stdout, "1\n4\n5\n");
+    assert_eq!(outcome.stderr, "2\n[warn] 3\n");
 }
 
 #[test]

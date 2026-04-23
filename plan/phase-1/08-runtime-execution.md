@@ -38,6 +38,9 @@ TypeScript/JavaScript programs.
 - The default standalone host surface now includes the documented file/metadata subset,
   read-only env/args, query-only permissions projection, fetch, timers/microtasks, and the Phase-1
   Web-baseline primitives.
+- The console host-import surface now covers `console.log`, `console.warn`, `console.error`,
+  `console.info`, and `console.debug`, keeping the standalone Web baseline aligned with the
+  standard-apis matrix.
 - Explicit `--api deno` smoke coverage proves the spelled-out default matches the implicit path,
   and the semver-style Node regression now exercises the `process.argv` help/argument flow through
   the documented `--` split.

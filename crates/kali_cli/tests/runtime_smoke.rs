@@ -3334,6 +3334,8 @@ fn build_emits_browser_bundle_artifacts() {
 
     let js = fs::read_to_string(&js_path).expect("read bundle js");
     assert!(js.contains("instantiateStreaming"), "bundle js: {js}");
+    assert!(js.contains("console_info"), "bundle js: {js}");
+    assert!(js.contains("console_debug"), "bundle js: {js}");
     assert!(
         js.contains("export async function greet"),
         "bundle js: {js}"
@@ -3822,6 +3824,8 @@ fn build_emits_browser_bundle_cjs_artifacts() {
 
     let js = fs::read_to_string(&js_path).expect("read bundle js");
     assert!(js.contains("pathToFileURL"), "bundle js: {js}");
+    assert!(js.contains("console_info"), "bundle js: {js}");
+    assert!(js.contains("console_debug"), "bundle js: {js}");
     assert!(js.contains("module.exports = exported"), "bundle js: {js}");
     assert!(
         js.contains("sourceMappingURL=app.cjs.map"),
