@@ -31,6 +31,8 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added a semver package-corpus regression that proves plain `kali install semver` succeeds without `--allow-scripts` when the package only carries non-install lifecycle metadata.
 - Added a companion `kali install --allow-scripts semver` regression so the evidence suite now
   covers the no-op allow-scripts path for packages with only non-install lifecycle hooks.
+- Added a no-manifest `kali install` regression so the evidence suite now proves the command stays
+  a no-op on empty workspaces instead of materializing placeholder project files.
 - Added a dedicated Linux runtime-smoke CI lane for the browser smoke, determinism, and negative-gating regressions, plus a nightly package-corpus lane that runs the heavier corpus suite outside the per-commit path.
 - Added parser/lexer regression coverage for the semver probe's optional-chaining and multiline-template cases so `minVersion(... )?.version` and multi-line template bodies stay covered by the evidence suite.
 - Added a default-surface semver consumer smoke test so `valid`, `satisfies`, and `minVersion` now stay covered by an end-to-end package/runtime regression with exact stdout assertions instead of only by package-bin probes.

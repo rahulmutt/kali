@@ -681,6 +681,19 @@ fn install_is_idempotent_for_unchanged_raw_url_graph() {
 }
 
 #[test]
+fn install_noops_without_manifest_or_dependencies() {
+    let dir = tempdir().unwrap();
+
+    let summary = install_project(dir.path(), InstallOptions::default()).unwrap();
+
+    assert!(summary.manifest_path.is_none());
+    assert!(summary.lock_path.is_none());
+    assert!(summary.installed.is_empty());
+    assert!(!dir.path().join("kali.json").exists());
+    assert!(!dir.path().join("kali.lock").exists());
+}
+
+#[test]
 fn install_allows_scripts_without_effective_npm_work() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).unwrap();

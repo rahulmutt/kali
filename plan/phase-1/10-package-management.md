@@ -67,6 +67,8 @@ graph without performing any mutations.
   `--allow-scripts` when only non-install lifecycle scripts are present.
 - Added an explicit `kali install --allow-scripts semver` regression so the no-op allow-scripts
   path stays covered for packages whose metadata only carries non-install lifecycle hooks.
+- Added a no-manifest `kali install` regression so an empty workspace still exits cleanly without
+  synthesizing `kali.json` or `kali.lock`, matching the planned no-op install path.
 
 ## Tasks
 
