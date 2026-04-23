@@ -269,6 +269,64 @@ fn wasm_instruction_count(bytes: &[u8]) -> usize {
 }
 
 #[test]
+fn unresolved_identifier_lowering_attaches_a_guidance_note() {
+    let mut program = sample_program();
+    program.nodes[7].text = Some("missing_value".to_string());
+
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.message.contains("lowered as placeholder 0")
+                && diagnostic
+                    .notes
+                    .iter()
+                    .any(|note| note.contains("fallback emits a zero placeholder"))
+        }),
+        "expected a guidance note on the unresolved-identifier diagnostic: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn unresolved_call_target_lowering_attaches_a_guidance_note() {
+    let mut program = sample_program();
+    program.nodes[10].text = Some("missing_fn".to_string());
+
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.message.contains("lowered as placeholder 0")
+                && diagnostic
+                    .notes
+                    .iter()
+                    .any(|note| note.contains("fallback emits a zero placeholder"))
+        }),
+        "expected a guidance note on the unresolved-call diagnostic: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn mir_backed_pipeline_reduces_legacy_overhead_on_escaping_locals() {
     let current_lir = sample_program();
     let mir = kali_mir::MirProgram {

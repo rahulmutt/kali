@@ -147,6 +147,12 @@ Add a CI step that:
 - Optimisation passes beyond the stub no-op (Phase 3 depth).
 - MIR-backed layout-aware codegen (Phase 2 target).
 
+## Implementation note
+
+- Unresolved identifier / call-target fallbacks in `kali_codegen` now attach a guidance note
+  that points back at name resolution before emitting the zero placeholder fallback, so the
+  emitted diagnostics explain the fallback without changing the historical codegen behavior.
+
 ## Status
 
 This stage is complete.
