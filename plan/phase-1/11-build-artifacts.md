@@ -25,8 +25,8 @@ complete the **Phase-1 browser-targeted command set** and the **Phase-1 static p
 - `kali build --lib` now emits `.lib.wasm` plus a sidecar `.lib.meta.json` with deterministic export inventory data for statically known library surfaces.
 - `kali build --bundle` now emits a browser bundle directory containing `.wasm`, `.js`, and `.meta.json` outputs, with deterministic metadata and JS glue that uses browser-native instantiation APIs.
 - CLI smoke coverage now exercises both `--lib` and `--bundle` output paths in addition to the existing executable/sandbox path.
-- The CLI now reconciles the effective API surface for build artifacts: `--api browser` and inherited browser config enable the bundle path, while contradictory browser/non-browser combinations are rejected with the canonical `E5008` shape error and `--api node` remains phase-gated with `E5006`.
-- `kali check` now honors the same browser API surface selection, including inherited browser config, while still rejecting node-targeted checking with `E5006`.
+- The CLI now reconciles the effective API surface for build artifacts: `--api browser` and inherited browser config enable the bundle path, while contradictory browser/non-browser combinations are rejected with the canonical `E5008` shape error and `--api node` remains phase-gated with `E5506`.
+- `kali check` now honors the same browser API surface selection, including inherited browser config, while still rejecting node-targeted checking with `E5506`.
 - Browser bundle smoke coverage now includes the inherited-config browser path, and the command surface rejects non-browser bundle requests before artifact generation starts.
 
 ## Tasks
@@ -159,7 +159,7 @@ kali build --lib --out-dir <dir> <file>
 | `E5003` | Unknown flag or flag combination |
 | `E5004` | Output directory does not exist |
 | `E5005` | Policy file not found (when passed with `--sandbox`) |
-| `E5006` | `--sandbox` on an invalid command/context combination |
+| `E5506` | `--sandbox` on an invalid command/context combination |
 | `E5007` | Declaration-only file as build entrypoint |
 | `E5008` | Contradictory flag combination |
 | `E5009` | Export surface not statically known (for `--lib`) |

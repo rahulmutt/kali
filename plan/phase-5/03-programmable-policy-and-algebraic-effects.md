@@ -41,7 +41,7 @@ This stage must preserve two guardrails:
   explicit rejection when the predicate registry is disabled.
 - The dynamic-effect analyzer now treats both `new Proxy(...)` and `Proxy.revocable(...)` / `globalThis.Proxy.revocable(...)` as `proxy-traps`, so the proxy semantics slice stays aligned with the later reflective-compatibility boundary in both the sandbox model and the CLI smoke coverage.
 - The public embedding layer now exposes an explicit host-predicate registration façade (`OperationContext`, `PredicateDecision`, and `EmbeddingCtx::register_sandbox_predicate` / `check_operation_with_policy`) so embedding callers can narrow declarative policy with the canonical capability vocabulary instead of wiring a second ad hoc policy language.
-- Host-predicate registration now has an explicit availability gate in the embedding wrapper: callers can opt the façade out deterministically and receive the canonical `E5006` availability diagnostic instead of silently registering inert predicates when the feature is unavailable.
+- Host-predicate registration now has an explicit availability gate in the embedding wrapper: callers can opt the façade out deterministically and receive the canonical `E5506` availability diagnostic instead of silently registering inert predicates when the feature is unavailable.
 
 ## Tasks
 

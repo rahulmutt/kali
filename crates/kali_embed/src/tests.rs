@@ -356,7 +356,7 @@ fn compiler_rejects_threaded_runtime_profiles_in_the_current_phase() {
     assert!(
         error.diagnostics().iter().any(|diagnostic| diagnostic.code
             == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
-        "expected E5006 diagnostic: {error}"
+        "expected E5506 diagnostic: {error}"
     );
 }
 

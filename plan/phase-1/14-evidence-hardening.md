@@ -24,7 +24,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 
 ## Progress
 
-- Added phase-gated placeholders for later surfaces (`effects`, `package-effects`, `package-audit`, `build --capi`, `build --component`, and `run`/`test` API-surface selection) so the evidence suite can assert unavailability with the canonical `E5006` path instead of plain unknown-command parsing.
+- Added phase-gated placeholders for later surfaces (`effects`, `package-effects`, `package-audit`, `build --capi`, `build --component`, and `run`/`test` API-surface selection) so the evidence suite can assert unavailability with the canonical `E5506` path instead of plain unknown-command parsing.
 - Added runtime smoke coverage for those Phase-2+ gating paths alongside the existing Phase-1 JSON-envelope and artifact coverage.
 - Added deterministic repeated-build smoke coverage for executable, base-library, and browser-bundle artifact outputs so the evidence suite now checks byte-for-byte stability across identical inputs.
 - Added raw-URL install idempotence coverage so repeated `kali install` runs over the same raw URL graph now assert lockfile byte stability.
@@ -45,6 +45,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Wired the CI proof-check job so it now listens for `proofs/**` changes, verifies the Lean proof-tree layout, and runs `lake build` instead of relying on an unreferenced filter output.
 - Expanded the GitHub Actions build/test job into a Linux + macOS matrix so the workspace test suite and determinism coverage now run on both platforms called for by the stage plan.
 - Cleared the workspace-wide `cargo clippy --workspace -- -D warnings` warning set so the current CI lint lane is green instead of failing on legacy placeholder patterns.
+- Synchronized the later-surface negative-gating assertions with the spec-owned `E5506` availability code so the evidence suite now matches the canonical maturity diagnostic number end to end.
 
 ## Tasks
 

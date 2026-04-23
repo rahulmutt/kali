@@ -623,7 +623,7 @@ fn check_rejects_wasm_threads_runtime_profile() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -645,7 +645,7 @@ fn check_rejects_browser_api_surface_with_wasm_threads() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("wasm-threads"), "stderr: {stderr}");
 }
 
@@ -675,7 +675,7 @@ fn check_rejects_inherited_wasm_threads_runtime_profile() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -731,7 +731,7 @@ fn check_rejects_threaded_runtime_globals() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
         stderr.contains("globalThis.SharedArrayBuffer"),
         "stderr: {stderr}"
@@ -759,7 +759,7 @@ fn run_rejects_threaded_runtime_globals() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
         stderr.contains("globalThis.SharedArrayBuffer"),
         "stderr: {stderr}"
@@ -787,7 +787,7 @@ fn test_rejects_threaded_runtime_globals() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
         stderr.contains("globalThis.SharedArrayBuffer"),
         "stderr: {stderr}"
@@ -817,7 +817,7 @@ fn check_rejects_late_host_control_globals() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     for expected in [
         "Deno.pid",
         "globalThis.Deno.pid",
@@ -867,7 +867,7 @@ fn check_rejects_late_host_control_globals_in_json() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert_eq!(errors.len(), 12);
-    assert!(errors.iter().all(|error| error["code"] == "E5006"));
+    assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
         .map(|error| error["message"].as_str().expect("error message"))
@@ -913,7 +913,7 @@ fn check_rejects_broader_intl_support() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("Intl"), "stderr: {stderr}");
     assert!(stderr.contains("globalThis.Intl"), "stderr: {stderr}");
 }
@@ -944,7 +944,7 @@ fn check_rejects_broader_intl_support_in_json() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty());
-    assert_eq!(errors[0]["code"], "E5006");
+    assert_eq!(errors[0]["code"], "E5506");
     assert!(errors[0]["message"]
         .as_str()
         .expect("error message")
@@ -975,7 +975,7 @@ fn run_rejects_broader_intl_support() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("Intl"), "stderr: {stderr}");
     assert!(stderr.contains("globalThis.Intl"), "stderr: {stderr}");
     assert!(
@@ -1010,7 +1010,7 @@ fn run_rejects_broader_intl_support_in_json() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty());
-    assert!(errors.iter().all(|error| error["code"] == "E5006"));
+    assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
         .map(|error| error["message"].as_str().expect("error message"))
@@ -1044,7 +1044,7 @@ fn test_rejects_broader_intl_support() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("Intl"), "stderr: {stderr}");
     assert!(stderr.contains("globalThis.Intl"), "stderr: {stderr}");
     assert!(
@@ -1079,7 +1079,7 @@ fn test_rejects_broader_intl_support_in_json() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty());
-    assert!(errors.iter().all(|error| error["code"] == "E5006"));
+    assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
         .map(|error| error["message"].as_str().expect("error message"))
@@ -1113,7 +1113,7 @@ fn check_rejects_late_object_model_globals() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("Proxy"), "stderr: {stderr}");
     assert!(stderr.contains("globalThis.Proxy"), "stderr: {stderr}");
     assert!(stderr.contains("WeakMap"), "stderr: {stderr}");
@@ -1147,7 +1147,7 @@ fn check_rejects_late_object_model_globals_in_json() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert_eq!(errors.len(), 8);
-    assert!(errors.iter().all(|error| error["code"] == "E5006"));
+    assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
         .map(|error| error["message"].as_str().expect("error message"))
@@ -1186,7 +1186,7 @@ fn run_rejects_late_object_model_globals() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     for expected in [
         "Proxy",
         "globalThis.Proxy",
@@ -1227,7 +1227,7 @@ fn run_rejects_late_object_model_globals_in_json() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert_eq!(errors.len(), 8);
-    assert!(errors.iter().all(|error| error["code"] == "E5006"));
+    assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
         .map(|error| error["message"].as_str().expect("error message"))
@@ -1266,7 +1266,7 @@ fn test_rejects_late_object_model_globals() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     for expected in [
         "Proxy",
         "globalThis.Proxy",
@@ -1307,7 +1307,7 @@ fn test_rejects_late_object_model_globals_in_json() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert_eq!(errors.len(), 8);
-    assert!(errors.iter().all(|error| error["code"] == "E5006"));
+    assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
         .map(|error| error["message"].as_str().expect("error message"))
@@ -1600,7 +1600,7 @@ fn run_rejects_positive_thread_budget_override() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("resources.maxThreads"), "stderr: {stderr}");
 }
 
@@ -1726,7 +1726,7 @@ fn run_rejects_browser_api_surface_in_phase_one() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert_browser_runtime_rejection_text(&stderr);
 }
 
@@ -1756,7 +1756,7 @@ fn run_rejects_inherited_browser_api_surface_in_phase_one() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert_browser_runtime_rejection_text(&stderr);
 }
 
@@ -1780,7 +1780,7 @@ fn json_run_rejects_browser_api_surface_in_phase_one() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
-    assert_eq!(errors[0]["code"], "E5006");
+    assert_eq!(errors[0]["code"], "E5506");
     assert_browser_runtime_rejection_message(
         errors[0]["message"]
             .as_str()
@@ -1830,7 +1830,7 @@ fn json_run_rejects_inherited_browser_api_surface_in_phase_one() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
-    assert_eq!(errors[0]["code"], "E5006");
+    assert_eq!(errors[0]["code"], "E5506");
     assert_browser_runtime_rejection_message(
         errors[0]["message"]
             .as_str()
@@ -1872,7 +1872,7 @@ fn run_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert_browser_runtime_rejection_text(&stderr);
 }
 
@@ -1905,7 +1905,7 @@ fn json_run_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
-    assert_eq!(errors[0]["code"], "E5006");
+    assert_eq!(errors[0]["code"], "E5506");
     assert_browser_runtime_rejection_message(
         errors[0]["message"]
             .as_str()
@@ -1941,7 +1941,7 @@ fn json_run_rejects_browser_api_surface_with_guest_args_in_phase_one() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
-    assert_eq!(errors[0]["code"], "E5006");
+    assert_eq!(errors[0]["code"], "E5506");
 }
 
 #[test]
@@ -1980,7 +1980,7 @@ fn json_run_rejects_inherited_browser_api_surface_with_guest_args_in_phase_one()
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
-    assert_eq!(errors[0]["code"], "E5006");
+    assert_eq!(errors[0]["code"], "E5506");
 }
 
 #[test]
@@ -1995,7 +1995,7 @@ fn run_rejects_wasm_threads_runtime_profile() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -2024,7 +2024,7 @@ fn run_rejects_inherited_wasm_threads_runtime_profile() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -2200,7 +2200,7 @@ fn test_rejects_positive_thread_budget_override() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("resources.maxThreads"), "stderr: {stderr}");
 }
 
@@ -2256,7 +2256,7 @@ fn test_rejects_wasm_threads_runtime_profile() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -2285,7 +2285,7 @@ fn test_rejects_inherited_wasm_threads_runtime_profile() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -2954,7 +2954,7 @@ fn build_rejects_wasm_threads_runtime_profile() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(!dir.path().join("main.wasm").exists());
 }
 
@@ -2984,7 +2984,7 @@ fn build_rejects_inherited_wasm_threads_runtime_profile() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(!dir.path().join("main.wasm").exists());
 }
 
@@ -4263,7 +4263,7 @@ fn json_build_rejects_inherited_browser_bundle_wasm_threads_runtime_profile() {
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert!(!json["success"].as_bool().expect("success boolean"));
-    assert_eq!(json["errors"][0]["code"], "E5006");
+    assert_eq!(json["errors"][0]["code"], "E5506");
     assert!(
         json["errors"][0]["message"]
             .as_str()
@@ -4711,7 +4711,7 @@ fn check_rejects_fix_flag_as_later_compatibility() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("lint --fix"), "stderr: {stderr}");
 }
 
@@ -4738,7 +4738,7 @@ fn json_check_rejects_fix_flag_as_later_compatibility() {
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
-    assert_eq!(json["errors"][0]["code"], "E5006");
+    assert_eq!(json["errors"][0]["code"], "E5506");
     assert!(json["errors"][0]["message"]
         .as_str()
         .expect("error message")
@@ -4768,7 +4768,7 @@ fn json_check_rejects_wasm_threads_runtime_profile() {
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
-    assert_eq!(json["errors"][0]["code"], "E5006");
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -4836,7 +4836,7 @@ fn json_check_rejects_browser_api_surface_with_wasm_threads() {
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
-    assert_eq!(json["errors"][0]["code"], "E5006");
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -4910,7 +4910,7 @@ fn json_run_rejects_threaded_runtime_globals() {
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert!(errors.iter().any(|entry| entry["code"] == "E5006"));
+    assert!(errors.iter().any(|entry| entry["code"] == "E5506"));
     let messages = errors
         .iter()
         .map(|entry| entry["message"].as_str().expect("message"))
@@ -4955,7 +4955,7 @@ fn json_test_rejects_threaded_runtime_globals() {
     assert_eq!(json["command"], "test");
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert!(errors.iter().any(|entry| entry["code"] == "E5006"));
+    assert!(errors.iter().any(|entry| entry["code"] == "E5506"));
     let messages = errors
         .iter()
         .map(|entry| entry["message"].as_str().expect("message"))
@@ -4993,7 +4993,7 @@ fn json_run_rejects_positive_thread_budget_override() {
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
-    assert_eq!(json["errors"][0]["code"], "E5006");
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -5015,7 +5015,7 @@ fn json_test_rejects_positive_thread_budget_override() {
     assert_eq!(json["command"], "test");
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
-    assert_eq!(json["errors"][0]["code"], "E5006");
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -5430,7 +5430,7 @@ fn test_rejects_browser_api_surface_in_phase_one() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert_browser_runtime_rejection_text(&stderr);
 }
 
@@ -5460,7 +5460,7 @@ fn test_rejects_inherited_browser_api_surface_in_phase_one() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert_browser_runtime_rejection_text(&stderr);
 }
 
@@ -5484,7 +5484,7 @@ fn json_test_rejects_browser_api_surface_in_phase_one() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
-    assert_eq!(errors[0]["code"], "E5006");
+    assert_eq!(errors[0]["code"], "E5506");
     assert_browser_runtime_rejection_message(
         errors[0]["message"]
             .as_str()
@@ -5534,7 +5534,7 @@ fn json_test_rejects_inherited_browser_api_surface_in_phase_one() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
-    assert_eq!(errors[0]["code"], "E5006");
+    assert_eq!(errors[0]["code"], "E5506");
     assert_browser_runtime_rejection_message(
         errors[0]["message"]
             .as_str()
@@ -5576,7 +5576,7 @@ fn test_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert_browser_runtime_rejection_text(&stderr);
 }
 
@@ -5609,7 +5609,7 @@ fn json_test_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert!(!errors.is_empty(), "errors: {errors:?}");
-    assert_eq!(errors[0]["code"], "E5006");
+    assert_eq!(errors[0]["code"], "E5506");
     assert_browser_runtime_rejection_message(
         errors[0]["message"]
             .as_str()
@@ -6044,7 +6044,7 @@ fn run_executes_semver_style_package_bin_argument_passthrough_on_node_api_surfac
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
         stderr.contains("npm package bin 'semver'"),
         "stderr: {stderr}"
@@ -6161,7 +6161,7 @@ fn regression_package_bin_entrypoints_requiring_package_json_still_fail_on_defau
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
         stderr.contains("npm package bin 'semver'"),
         "stderr: {stderr}"
@@ -6357,7 +6357,7 @@ fn effects_rejects_wasm_threads_runtime_profile() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -6386,7 +6386,7 @@ fn effects_rejects_inherited_wasm_threads_runtime_profile() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -6411,7 +6411,7 @@ fn json_effects_rejects_wasm_threads_runtime_profile() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
-    assert_eq!(json["errors"][0]["code"], "E5006");
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -6445,7 +6445,7 @@ fn json_effects_rejects_inherited_wasm_threads_runtime_profile() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
-    assert_eq!(json["errors"][0]["code"], "E5006");
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -6631,7 +6631,7 @@ fn package_effects_rejects_inherited_wasm_threads_runtime_profile() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("wasm-threads"), "stderr: {stderr}");
 }
 
@@ -6741,7 +6741,7 @@ fn check_with_sandbox_rejects_positive_thread_budget_policy() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("resources.maxThreads"), "stderr: {stderr}");
 }
 
@@ -6793,7 +6793,7 @@ fn json_check_with_sandbox_rejects_positive_thread_budget_policy() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
-    assert_eq!(json["errors"][0]["code"], "E5006");
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -6844,7 +6844,7 @@ fn test_with_sandbox_rejects_positive_thread_budget_policy() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
-    assert_eq!(json["errors"][0]["code"], "E5006");
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -6890,7 +6890,7 @@ fn run_with_sandbox_rejects_positive_thread_budget_policy() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5006"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("resources.maxThreads"), "stderr: {stderr}");
 }
 
@@ -6942,7 +6942,7 @@ fn json_run_with_sandbox_rejects_positive_thread_budget_policy() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
-    assert_eq!(json["errors"][0]["code"], "E5006");
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 fn package_audit_metadata_body(

@@ -108,7 +108,7 @@ pub mod _error_codes {
         pub const UNKNOWN_COMMAND: u16 = 5002;
         pub const INVALID_MODULE_SPECIFIER: u16 = 5003;
         pub const DEPENDENCY_STATE_MISSING: u16 = 5004;
-        pub const FEATURE_UNAVAILABLE: u16 = 5006;
+        pub const FEATURE_UNAVAILABLE: u16 = 5506;
         pub const INVALID_PRIMARY_INPUT_KIND: u16 = 5007;
         pub const INVALID_CLI_USAGE: u16 = 5008;
         pub const INVALID_CONFIG: u16 = 5009;
