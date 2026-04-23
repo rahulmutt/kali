@@ -614,6 +614,22 @@ fn websocket_stub_tracks_sent_messages() {
 }
 
 #[test]
+fn websocket_stub_clones_binary_payloads_deterministically() {
+    let socket = WebSocket::new("https://example.com/socket").expect("websocket url");
+    let mut payload = vec![0x01, 0x02, 0x03, 0x04];
+
+    socket.send_bytes(&payload);
+    payload[0] = 0xff;
+    payload[1] = 0xee;
+
+    socket.send_bytes(payload.as_slice());
+    assert_eq!(
+        socket.sent_binary_messages(),
+        vec![vec![0x01, 0x02, 0x03, 0x04], vec![0xff, 0xee, 0x03, 0x04]]
+    );
+}
+
+#[test]
 fn worker_stub_records_posted_messages() {
     let worker = Worker::new("https://example.com/worker.js").expect("worker url");
     assert_eq!(
