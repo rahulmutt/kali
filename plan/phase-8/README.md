@@ -45,7 +45,7 @@ Widen package compatibility with evidence by support rung instead of broad npm c
 - Progress: the browser package corpus now also exercises the canonical pure-JS `semver` probe on `.js` input, keeping the support-rung evidence aligned with the browser-targeted first-class-JavaScript path instead of only the TypeScript lane.
 - Progress: the browser package corpus now also mirrors the browser module-entry fixture onto `.js` input, keeping the browser deployability evidence aligned across the JS and TS lanes for the module-entry shape too.
 - Progress: the browser package corpus now also mirrors the browser string-entry, string-export, browser-condition export, browser dual-exports, web-baseline primitive, and internal browser-rewrite fixtures onto `.js` input, keeping the browser deployability evidence aligned across the JS and TS lanes.
-- Progress: the browser runtime corpus now also mirrors the browser package fixtures on `.js` input for both `run` and `test`, keeping browser deployability evidence aligned across the JS and TS lanes.
+- Progress: the browser runtime corpus now also mirrors the browser package fixtures on `.js` input for both `run` and `test`, including the browser-vs-deno condition-preference probe in `.js` input, keeping browser deployability evidence aligned across the JS and TS lanes.
 
 ### 8.4 Registry-analysis evolution
 

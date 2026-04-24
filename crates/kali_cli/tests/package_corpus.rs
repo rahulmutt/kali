@@ -2931,6 +2931,45 @@ fn browser_runtime_corpus_packages_prefer_browser_condition_over_deno_condition_
 }
 
 #[test]
+fn browser_runtime_corpus_packages_prefer_browser_condition_over_deno_condition_on_the_browser_surface_when_a_harness_command_is_configured_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("browser"));
+    write_browser_and_deno_condition_package(
+        dir.path(),
+        "browser-deno",
+        "export default function describe() { return 0; }\n",
+        "export default function describe() { return 1; }\n",
+    );
+    write_types_stub_package(dir.path(), "browser-deno");
+    let source_path = dir.path().join("main.test.js");
+    fs::write(
+        &source_path,
+        "import describe from 'browser-deno';\nconsole.log(describe());\nKali.test('browser vs deno package', () => { 1 + 1; });\n",
+    )
+    .expect("write browser/deno runtime source");
+
+    let test = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(source_path.to_str().unwrap())
+        .output()
+        .expect("run kali");
+    assert!(
+        test.status.success(),
+        "browser runtime package browser-deno should prefer the browser condition over deno on the browser surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    assert!(stdout.contains("0"), "stdout: {stdout}");
+}
+
+#[test]
 fn browser_corpus_packages_that_block_the_selected_path_are_rejected_in_browser_context() {
     for package in ["react", "preact", "vue"] {
         let dir = tempdir().expect("tempdir");
