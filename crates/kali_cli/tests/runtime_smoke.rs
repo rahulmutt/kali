@@ -7406,6 +7406,104 @@ fn build_emits_browser_bundle_crypto_web_apis() {
 }
 
 #[test]
+fn build_emits_browser_bundle_async_await_sequencing() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: awaitSmoke
+async function awaitSmoke(left, right) {
+  const order = [];
+  order.push('before');
+  const value = await Promise.resolve(left + right);
+  order.push('after');
+  if (value !== 3n || order.join(',') !== 'before,after') {
+    throw new Error('unexpected await sequencing');
+  }
+  return 0n;
+}
+",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "awaitSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_async_await_sequencing_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: awaitSmoke
+async function awaitSmoke(left, right) {
+  const order = [];
+  order.push('before');
+  const value = await Promise.resolve(left + right);
+  order.push('after');
+  if (value !== 3n || order.join(',') !== 'before,after') {
+    throw new Error('unexpected await sequencing');
+  }
+  return 0n;
+}
+",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "awaitSmoke");
+}
+
+#[test]
 fn build_emits_browser_bundle_math_sign_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
