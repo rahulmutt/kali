@@ -2047,9 +2047,11 @@ fn runtime_host_state_tracks_thread_budget_bookkeeping() {
 
 #[test]
 fn runtime_host_state_spawns_and_releases_thread_instances() {
-    let mut state = KaliHostState::default();
-    state.runtime_profiles = vec!["wasm-threads".to_string()];
-    state.max_threads = Some(2);
+    let mut state = KaliHostState {
+        runtime_profiles: vec!["wasm-threads".to_string()],
+        max_threads: Some(2),
+        ..Default::default()
+    };
 
     let first = state
         .spawn_thread_instance("https://e.co/t.js")
@@ -2086,9 +2088,11 @@ fn runtime_host_state_spawns_and_releases_thread_instances() {
 
 #[test]
 fn runtime_host_state_rolls_back_failed_thread_spawns() {
-    let mut state = KaliHostState::default();
-    state.runtime_profiles = vec!["wasm-threads".to_string()];
-    state.max_threads = Some(1);
+    let mut state = KaliHostState {
+        runtime_profiles: vec!["wasm-threads".to_string()],
+        max_threads: Some(1),
+        ..Default::default()
+    };
 
     let _error = state
         .spawn_thread_instance("not-a-valid-thread-url")
