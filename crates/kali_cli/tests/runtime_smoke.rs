@@ -20664,6 +20664,62 @@ fn package_audit_rejects_wasm_threads_flag_in_json_output() {
 }
 
 #[test]
+fn package_audit_rejects_browser_api_surface_in_json_output() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("package-audit")
+        .arg("--api")
+        .arg("browser")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert!(!json["success"].as_bool().expect("success boolean"));
+    assert_eq!(json["errors"][0]["code"], "E5508");
+    assert!(
+        json["errors"][0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("package-analysis-specific flags"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn package_audit_rejects_compat_feature_surface_in_json_output() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("package-audit")
+        .arg("--compat")
+        .arg("eval")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert!(!json["success"].as_bool().expect("success boolean"));
+    assert_eq!(json["errors"][0]["code"], "E5508");
+    assert!(
+        json["errors"][0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("package-analysis-specific flags"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn package_audit_rejects_compat_feature_surface() {
     let output = Command::new(kali_bin())
         .arg("package-audit")
